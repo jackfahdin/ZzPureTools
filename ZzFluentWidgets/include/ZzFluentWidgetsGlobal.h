@@ -1,0 +1,12 @@
+#ifndef ZZFLUENTWIDGETSGLOBAL_H
+#define ZZFLUENTWIDGETSGLOBAL_H
+
+#include <QtCore/qglobal.h>
+
+#if defined(ZZ_FLUENT_WIDGETS_LIBRARY)
+#  define ZZ_WIDGETS_EXPORT Q_DECL_EXPORT
+#else
+#  define ZZ_WIDGETS_EXPORT Q_DECL_IMPORT
+#endif
+
+#endif // ZZFLUENTWIDGETSGLOBAL_H
