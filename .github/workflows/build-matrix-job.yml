@@ -117,7 +117,19 @@ jobs:
       - name: 读取项目名
         id: project
         shell: bash
-        run: python3 packaging/ci/project_config.py --github-output
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          # 部分 Windows runner 的 python3 启动器无法正常工作，优先验证可用性
+          if command -v python3 >/dev/null 2>&1 && python3 --version >/dev/null 2>&1; then
+            PYTHON_CMD="python3"
+          elif command -v python >/dev/null 2>&1 && python --version >/dev/null 2>&1; then
+            PYTHON_CMD="python"
+          else
+            echo "错误: 未找到可用的 Python 解释器" >&2
+            exit 1
+          fi
+          $PYTHON_CMD packaging/ci/project_config.py --github-output
 
       - uses: ./.github/actions/package-artifacts
         with:

@@ -18,10 +18,16 @@ def load_config() -> dict[str, Any]:
         return json.load(handle)
 
 
+def _print_error(message: str) -> None:
+    # 使用 stderr.buffer 避免 Windows 非 UTF-8 控制台编码导致错误信息本身打印失败
+    sys.stderr.buffer.write(message.encode("utf-8"))
+    sys.stderr.buffer.write(b"\n")
+
+
 def get_value(key: str) -> str:
     config = load_config()
     if key not in config:
-        print(f"错误: project.json 缺少字段 '{key}'", file=sys.stderr)
+        _print_error(f"错误: project.json 缺少字段 '{key}'")
         raise SystemExit(1)
     return str(config[key])
 
@@ -60,4 +66,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except SystemExit:
+        raise
+    except Exception as exc:
+        _print_error(f"错误: 读取 project.json 失败: {exc}")
+        raise SystemExit(1)
