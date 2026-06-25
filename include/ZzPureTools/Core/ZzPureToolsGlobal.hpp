@@ -3,6 +3,12 @@
 
 #include <QtCore/qglobal.h>
 
+/**
+ * @def ZZ_PURE_TOOLS_EXPORT
+ * @brief ZzPureTools 库符号导出/导入宏。
+ *
+ * 编译库时定义为 Q_DECL_EXPORT，使用库时定义为 Q_DECL_IMPORT。
+ */
 #if defined(ZZ_PURE_TOOLS_LIBRARY)
 #  define ZZ_PURE_TOOLS_EXPORT Q_DECL_EXPORT
 #else

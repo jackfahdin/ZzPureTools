@@ -1,3 +1,10 @@
+/**
+ * @file ZzPureTools.hpp
+ * @brief ZzPureTools 库统一入口头文件。
+ *
+ * 包含所有公开模块头文件，方便用户一次性引入整个库。
+ */
+
 #ifndef ZZPURETOOLS_ZZPURETOOLS_HPP
 #define ZZPURETOOLS_ZZPURETOOLS_HPP
 
