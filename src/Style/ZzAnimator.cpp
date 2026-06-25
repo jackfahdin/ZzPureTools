@@ -3,9 +3,9 @@
 #include <QVariantAnimation>
 
 ZzAnimator::ZzAnimator(QObject* parent)
-    : QObject(parent)
-    , m_hoverAnimation(new QVariantAnimation(this))
-    , m_pressAnimation(new QVariantAnimation(this))
+    : QObject(parent),
+      m_hoverAnimation(new QVariantAnimation(this)),
+      m_pressAnimation(new QVariantAnimation(this))
 {
     configureAnimation(m_hoverAnimation, m_hoverProgress);
     configureAnimation(m_pressAnimation, m_pressProgress);
@@ -70,8 +70,9 @@ void ZzAnimator::setDuration(int durationMs)
 void ZzAnimator::configureAnimation(QVariantAnimation* animation, qreal& progress)
 {
     animation->setEasingCurve(QEasingCurve::OutCubic);
-    connect(animation, &QVariantAnimation::valueChanged, this, [this, &progress](const QVariant& value) {
-        progress = value.toReal();
-        emit updated();
-    });
+    connect(animation, &QVariantAnimation::valueChanged, this,
+            [this, &progress](const QVariant& value) {
+                progress = value.toReal();
+                emit updated();
+            });
 }

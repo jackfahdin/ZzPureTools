@@ -49,17 +49,22 @@
 git clone https://github.com/ZzPureTools/ZzPureTools.git
 cd ZzPureTools
 
-# 2. 配置（Release，构建示例）
+# 2. 一键构建（MSVC，自动检测 Qt）
+./build.ps1 -Compiler msvc
+
+# 3. 运行示例
+./build/example/ZzPureToolsExample.exe
+```
+
+或手动使用 CMake：
+
+```bash
 cmake -B build -S . \
     -DCMAKE_BUILD_TYPE=Release \
     -DZZ_BUILD_EXAMPLE=ON \
     -DCMAKE_PREFIX_PATH=/path/to/Qt/6.8.0
 
-# 3. 编译
 cmake --build build --parallel
-
-# 4. 运行示例
-./build/example/ZzPureToolsExample
 ```
 
 ### 在项目中使用
@@ -89,6 +94,18 @@ int main(int argc, char* argv[])
     return app.exec();
 }
 ```
+
+---
+
+## 🔍 代码质量
+
+项目使用以下工具保证代码质量：
+
+- **clang-format**：统一代码风格（配置见 `.clang-format`）。
+- **clang-tidy**：静态分析与现代化建议（配置见 `.clang-tidy`）。
+- **GitHub Actions**：`.github/workflows/code-quality.yml` 中定义了手动触发的格式与静态检查工作流。
+
+本地检查方式详见 [AGENTS.md](AGENTS.md)。
 
 ---
 

@@ -3,21 +3,16 @@
 #include <QGuiApplication>
 #include <QStyleHints>
 
-ZzTheme::ZzTheme(QObject* parent)
-    : QObject(parent)
+ZzTheme::ZzTheme(QObject* parent) : QObject(parent)
 {
     syncFromSystem();
 
     if (QGuiApplication::styleHints() != nullptr) {
-        connect(
-            QGuiApplication::styleHints(),
-            &QStyleHints::colorSchemeChanged,
-            this,
-            [this]() {
-                if (m_mode == ZzThemeMode::System) {
-                    applyResolvedMode(resolveSystemMode());
-                }
-            });
+        connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this]() {
+            if (m_mode == ZzThemeMode::System) {
+                applyResolvedMode(resolveSystemMode());
+            }
+        });
     }
 }
 
@@ -68,15 +63,15 @@ void ZzTheme::syncFromSystem()
 QColor ZzTheme::controlFill(ZzControlState state) const
 {
     switch (state) {
-    case ZzControlState::Disabled:
-        return m_colors.controlFillDisabled;
-    case ZzControlState::Pressed:
-        return m_colors.controlFillPressed;
-    case ZzControlState::Hovered:
-        return m_colors.controlFillHover;
-    case ZzControlState::Normal:
-    default:
-        return m_colors.controlFill;
+        case ZzControlState::Disabled:
+            return m_colors.controlFillDisabled;
+        case ZzControlState::Pressed:
+            return m_colors.controlFillPressed;
+        case ZzControlState::Hovered:
+            return m_colors.controlFillHover;
+        case ZzControlState::Normal:
+        default:
+            return m_colors.controlFill;
     }
 }
 
@@ -128,6 +123,6 @@ ZzThemeMode ZzTheme::resolveSystemMode() const
     }
 
     return QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark
-        ? ZzThemeMode::Dark
-        : ZzThemeMode::Light;
+               ? ZzThemeMode::Dark
+               : ZzThemeMode::Light;
 }

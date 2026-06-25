@@ -1,9 +1,9 @@
 #ifndef ZZPURETOOLS_CORE_ZZAPPLICATION_HPP
 #define ZZPURETOOLS_CORE_ZZAPPLICATION_HPP
 
-#include <QPointer>
-
 #include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+
+#include <QPointer>
 
 class QApplication;
 class ZzTheme;
@@ -46,8 +46,8 @@ public:
 private:
     ZzApplication() = default;
 
-    QPointer<QApplication> m_application; ///< 关联的 QApplication 实例
-    ZzTheme* m_theme = nullptr;           ///< 全局主题对象
+    QPointer<QApplication> m_application;  ///< 关联的 QApplication 实例
+    ZzTheme* m_theme = nullptr;            ///< 全局主题对象
 };
 
-#endif // ZZPURETOOLS_CORE_ZZAPPLICATION_HPP
+#endif  // ZZPURETOOLS_CORE_ZZAPPLICATION_HPP

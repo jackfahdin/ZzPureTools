@@ -1,12 +1,11 @@
 #include "ZzPushButtonDelegate.hpp"
 
+#include "ZzPaintPrimitives.hpp"
+#include "ZzPureTools/Core/ZzTheme.hpp"
+
 #include <QPainter>
 
-#include "ZzPureTools/Core/ZzTheme.hpp"
-#include "ZzPaintPrimitives.hpp"
-
-ZzPushButtonDelegate::ZzPushButtonDelegate(ZzPushButton::ZzButtonStyle style)
-    : m_buttonStyle(style)
+ZzPushButtonDelegate::ZzPushButtonDelegate(ZzPushButton::ZzButtonStyle style) : m_buttonStyle(style)
 {
 }
 
@@ -15,7 +14,8 @@ void ZzPushButtonDelegate::setButtonStyle(ZzPushButton::ZzButtonStyle style)
     m_buttonStyle = style;
 }
 
-void ZzPushButtonDelegate::paint(QPainter& painter, const QRectF& rect, const ZzStyleContext& context) const
+void ZzPushButtonDelegate::paint(QPainter& painter, const QRectF& rect,
+                                 const ZzStyleContext& context) const
 {
     if (context.theme == nullptr) {
         return;
@@ -29,7 +29,8 @@ void ZzPushButtonDelegate::paint(QPainter& painter, const QRectF& rect, const Zz
     paintStandard(painter, rect, context);
 }
 
-void ZzPushButtonDelegate::paintStandard(QPainter& painter, const QRectF& rect, const ZzStyleContext& context) const
+void ZzPushButtonDelegate::paintStandard(QPainter& painter, const QRectF& rect,
+                                         const ZzStyleContext& context) const
 {
     const ZzColorTokens& colors = context.theme->colors();
     const ZzMetricTokens& metrics = context.theme->metrics();
@@ -39,21 +40,20 @@ void ZzPushButtonDelegate::paintStandard(QPainter& painter, const QRectF& rect, 
 
     if (!context.enabled) {
         fill = colors.controlFillDisabled;
-    } else {
+    }
+    else {
         fill = ZzPaintPrimitives::blend(fill, colors.controlFillHover, context.hoverProgress);
         fill = ZzPaintPrimitives::blend(fill, colors.controlFillPressed, context.pressProgress);
         stroke = ZzPaintPrimitives::blend(stroke, colors.controlStrokeHover, context.hoverProgress);
     }
 
     ZzPaintPrimitives::drawRoundedSurface(painter, rect, colors, metrics, fill, stroke);
-    ZzPaintPrimitives::drawCenteredText(
-        painter,
-        rect,
-        context.text,
-        context.enabled ? colors.textPrimary : colors.textDisabled);
+    ZzPaintPrimitives::drawCenteredText(painter, rect, context.text,
+                                        context.enabled ? colors.textPrimary : colors.textDisabled);
 }
 
-void ZzPushButtonDelegate::paintAccent(QPainter& painter, const QRectF& rect, const ZzStyleContext& context) const
+void ZzPushButtonDelegate::paintAccent(QPainter& painter, const QRectF& rect,
+                                       const ZzStyleContext& context) const
 {
     const ZzColorTokens& colors = context.theme->colors();
     const ZzMetricTokens& metrics = context.theme->metrics();
@@ -61,7 +61,8 @@ void ZzPushButtonDelegate::paintAccent(QPainter& painter, const QRectF& rect, co
     QColor fill = colors.accent;
     if (!context.enabled) {
         fill = colors.controlFillDisabled;
-    } else {
+    }
+    else {
         fill = ZzPaintPrimitives::blend(fill, colors.accentHover, context.hoverProgress);
         fill = ZzPaintPrimitives::blend(fill, colors.accentPressed, context.pressProgress);
     }

@@ -1,10 +1,10 @@
 #ifndef ZZPURETOOLS_STYLE_ZZANIMATOR_HPP
 #define ZZPURETOOLS_STYLE_ZZANIMATOR_HPP
 
-#include <QObject>
-
 #include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
 #include "ZzPureTools/Core/ZzToken.hpp"
+
+#include <QObject>
 
 class QVariantAnimation;
 
@@ -72,10 +72,10 @@ signals:
 private:
     void configureAnimation(QVariantAnimation* animation, qreal& progress);
 
-    QVariantAnimation* m_hoverAnimation = nullptr; ///< 悬停过渡动画。
-    QVariantAnimation* m_pressAnimation = nullptr; ///< 按下过渡动画。
-    qreal m_hoverProgress = 0.0;                   ///< 悬停进度，范围 [0, 1]。
-    qreal m_pressProgress = 0.0;                   ///< 按下进度，范围 [0, 1]。
+    QVariantAnimation* m_hoverAnimation = nullptr;  ///< 悬停过渡动画。
+    QVariantAnimation* m_pressAnimation = nullptr;  ///< 按下过渡动画。
+    qreal m_hoverProgress = 0.0;                    ///< 悬停进度，范围 [0, 1]。
+    qreal m_pressProgress = 0.0;                    ///< 按下进度，范围 [0, 1]。
 };
 
-#endif // ZZPURETOOLS_STYLE_ZZANIMATOR_HPP
+#endif  // ZZPURETOOLS_STYLE_ZZANIMATOR_HPP

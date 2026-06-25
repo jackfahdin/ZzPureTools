@@ -1,10 +1,10 @@
 #ifndef ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP
 #define ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP
 
-#include <QComboBox>
-
 #include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
 #include "ZzPureTools/Style/ZzStyleDelegate.hpp"
+
+#include <QComboBox>
 
 class ZzAnimator;
 class ZzComboBoxDelegate;
@@ -68,10 +68,10 @@ private:
      */
     [[nodiscard]] ZzStyleContext buildStyleContext() const;
 
-    bool m_popupVisible = false;              ///< 弹出层当前是否可见。
-    ZzAnimator* m_animator = nullptr;         ///< 交互动画驱动。
-    ZzComboBoxDelegate* m_delegate = nullptr;     ///< 主体样式绘制代理。
-    ZzComboBoxItemDelegate* m_itemDelegate = nullptr; ///< 弹出项样式绘制代理。
+    bool m_popupVisible = false;                       ///< 弹出层当前是否可见。
+    ZzAnimator* m_animator = nullptr;                  ///< 交互动画驱动。
+    ZzComboBoxDelegate* m_delegate = nullptr;          ///< 主体样式绘制代理。
+    ZzComboBoxItemDelegate* m_itemDelegate = nullptr;  ///< 弹出项样式绘制代理。
 };
 
-#endif // ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP
+#endif  // ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP

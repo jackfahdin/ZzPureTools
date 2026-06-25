@@ -28,4 +28,4 @@ private:
     ZzComboBox* m_comboBox = nullptr;
 };
 
-#endif // MAINWINDOW_HPP
+#endif  // MAINWINDOW_HPP

@@ -32,6 +32,7 @@ param (
     [switch]$Deploy,
     [switch]$DeployOnly,
     [switch]$Clean,
+    [switch]$ExportCompileCommands,
     [switch]$Help
 )
 
@@ -60,6 +61,7 @@ if ($Help) {
     -DeployOnly              跳过编译，仅打包已有产物
     -DeployDir <path>        打包输出目录（默认 dist/<目标>_<Type>）
     -Clean                   清理 build 目录后重新构建
+    -ExportCompileCommands   生成 compile_commands.json（供 clang-tidy 使用）
 
   示例:
     ./$me
@@ -292,6 +294,7 @@ if (!$DeployOnly) {
     $cmakeArgs = @("-S", $ProjectDir, "-B", $BuildDir)
     if ($QtDir) { $cmakeArgs += "-DCMAKE_PREFIX_PATH=$QtDir" }
     if (!$IsMultiConfig) { $cmakeArgs += "-DCMAKE_BUILD_TYPE=$Type" }
+    if ($ExportCompileCommands) { $cmakeArgs += "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" }
     if ($Generator) { $cmakeArgs = @("-G", $Generator) + $cmakeArgs }
 
     & cmake @cmakeArgs 2>&1 | ForEach-Object { Write-Host $_ }

@@ -19,4 +19,4 @@ private:
     ZzPushButton::ZzButtonStyle m_buttonStyle;
 };
 
-#endif // ZZPUSHBUTTONDELEGATE_HPP
+#endif  // ZZPUSHBUTTONDELEGATE_HPP

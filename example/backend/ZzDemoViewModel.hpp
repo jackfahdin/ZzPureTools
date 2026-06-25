@@ -44,4 +44,4 @@ private:
     int m_clickCount = 0;
 };
 
-#endif // ZZDEMOVIEWMODEL_HPP
+#endif  // ZZDEMOVIEWMODEL_HPP

@@ -1,9 +1,9 @@
 #ifndef ZZPURETOOLS_CORE_ZZPALETTE_HPP
 #define ZZPURETOOLS_CORE_ZZPALETTE_HPP
 
-#include <QPalette>
-
 #include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+
+#include <QPalette>
 
 class QWidget;
 class ZzTheme;
@@ -39,4 +39,4 @@ public:
     static void syncWithSystem(QWidget* widget, const ZzTheme& theme);
 };
 
-#endif // ZZPURETOOLS_CORE_ZZPALETTE_HPP
+#endif  // ZZPURETOOLS_CORE_ZZPALETTE_HPP

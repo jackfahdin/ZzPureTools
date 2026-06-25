@@ -1,15 +1,15 @@
 #include "ZzDemoViewModel.hpp"
 
 ZzDemoViewModel::ZzDemoViewModel(QObject* parent)
-    : QObject(parent)
-    , m_comboItems({
+    : QObject(parent),
+      m_comboItems({
           QStringLiteral("Fluent UI"),
           QStringLiteral("Qt Widgets"),
           QStringLiteral("Cross Platform"),
           QStringLiteral("Theme System"),
-      })
-    , m_statusMessage(QStringLiteral("Ready"))
-    , m_selectedItem(m_comboItems.value(0))
+      }),
+      m_statusMessage(QStringLiteral("Ready")),
+      m_selectedItem(m_comboItems.value(0))
 {
 }
 
@@ -42,7 +42,8 @@ void ZzDemoViewModel::onAccentButtonClicked()
 
 void ZzDemoViewModel::onStandardButtonClicked()
 {
-    setStatusMessage(QStringLiteral("Standard button clicked at selection: %1").arg(m_selectedItem));
+    setStatusMessage(
+        QStringLiteral("Standard button clicked at selection: %1").arg(m_selectedItem));
 }
 
 void ZzDemoViewModel::onComboIndexChanged(int index)
@@ -59,16 +60,16 @@ void ZzDemoViewModel::onThemeModeRequested(ZzThemeMode mode)
 {
     emit themeModeApplyRequested(mode);
     switch (mode) {
-    case ZzThemeMode::Light:
-        setStatusMessage(QStringLiteral("Theme switched to Light"));
-        break;
-    case ZzThemeMode::Dark:
-        setStatusMessage(QStringLiteral("Theme switched to Dark"));
-        break;
-    case ZzThemeMode::System:
-    default:
-        setStatusMessage(QStringLiteral("Theme follows system"));
-        break;
+        case ZzThemeMode::Light:
+            setStatusMessage(QStringLiteral("Theme switched to Light"));
+            break;
+        case ZzThemeMode::Dark:
+            setStatusMessage(QStringLiteral("Theme switched to Dark"));
+            break;
+        case ZzThemeMode::System:
+        default:
+            setStatusMessage(QStringLiteral("Theme follows system"));
+            break;
     }
 }
 

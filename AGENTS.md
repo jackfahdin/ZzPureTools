@@ -183,7 +183,20 @@ cmake --install build --prefix ./install
 
 ### 5.2 提交前检查
 
-- 运行 `.clang-format` 格式化代码。
+- 运行 `.clang-format` 格式化代码：
+  ```bash
+  # 本地检查
+  find example include src packaging/sdk/examples -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run --Werror
+
+  # 自动修复
+  find example include src packaging/sdk/examples -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
+  ```
+- 运行 `clang-tidy` 静态检查（需要先生成 `compile_commands.json`）：
+  ```bash
+  ./build.ps1 -Compiler msvc -ExportCompileCommands
+  find example include src packaging/sdk/examples -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -print0 | xargs -0 clang-tidy -p build --quiet
+  ```
+- 使用 `./build.ps1 -Compiler msvc` 在 MSVC 下验证编译通过。
 - 确保新增文件被加入 `CMakeLists.txt` 的对应列表。
 - 确保公开头文件被加入 `include/ZzPureTools/ZzPureTools.hpp`。
 - 确保无编译警告（`-Wall -Wextra` 级别）。
@@ -191,7 +204,9 @@ cmake --install build --prefix ./install
 ### 5.3 CI
 
 - CI 配置位于 `.github/workflows/`。
-- 手动触发工作流：`多平台编译`。
+- 手动触发工作流：
+  - `多平台编译`：跨平台编译与打包验证。
+  - `代码质量检查`：clang-format 与 clang-tidy 检查。
 - 推送 `v*` tag 自动触发 Release。
 
 ---

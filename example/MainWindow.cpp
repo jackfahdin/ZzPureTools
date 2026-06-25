@@ -8,9 +8,7 @@
 
 #include "backend/ZzDemoViewModel.hpp"
 
-MainWindow::MainWindow(QWidget* parent)
-    : QWidget(parent)
-    , m_viewModel(new ZzDemoViewModel(this))
+MainWindow::MainWindow(QWidget* parent) : QWidget(parent), m_viewModel(new ZzDemoViewModel(this))
 {
     setWindowTitle(QStringLiteral("ZzPureTools Example"));
     resize(720, 420);
@@ -66,30 +64,27 @@ void MainWindow::buildUi()
     rootLayout->addLayout(themeRow);
     rootLayout->addStretch();
 
-    connect(lightButton, &ZzPushButton::clicked, this, [this]() {
-        m_viewModel->onThemeModeRequested(ZzThemeMode::Light);
-    });
-    connect(darkButton, &ZzPushButton::clicked, this, [this]() {
-        m_viewModel->onThemeModeRequested(ZzThemeMode::Dark);
-    });
-    connect(systemButton, &ZzPushButton::clicked, this, [this]() {
-        m_viewModel->onThemeModeRequested(ZzThemeMode::System);
-    });
+    connect(lightButton, &ZzPushButton::clicked, this,
+            [this]() { m_viewModel->onThemeModeRequested(ZzThemeMode::Light); });
+    connect(darkButton, &ZzPushButton::clicked, this,
+            [this]() { m_viewModel->onThemeModeRequested(ZzThemeMode::Dark); });
+    connect(systemButton, &ZzPushButton::clicked, this,
+            [this]() { m_viewModel->onThemeModeRequested(ZzThemeMode::System); });
 }
 
 void MainWindow::bindViewModel()
 {
-    connect(m_accentButton, &ZzPushButton::clicked, m_viewModel, &ZzDemoViewModel::onAccentButtonClicked);
-    connect(m_standardButton, &ZzPushButton::clicked, m_viewModel, &ZzDemoViewModel::onStandardButtonClicked);
-    connect(
-        m_comboBox,
-        QOverload<int>::of(&ZzComboBox::currentIndexChanged),
-        m_viewModel,
-        &ZzDemoViewModel::onComboIndexChanged);
+    connect(m_accentButton, &ZzPushButton::clicked, m_viewModel,
+            &ZzDemoViewModel::onAccentButtonClicked);
+    connect(m_standardButton, &ZzPushButton::clicked, m_viewModel,
+            &ZzDemoViewModel::onStandardButtonClicked);
+    connect(m_comboBox, QOverload<int>::of(&ZzComboBox::currentIndexChanged), m_viewModel,
+            &ZzDemoViewModel::onComboIndexChanged);
 
-    connect(m_viewModel, &ZzDemoViewModel::statusMessageChanged, this, [this](const QString& message) {
-        m_statusLabel->setText(QStringLiteral("Status: %1").arg(message));
-    });
+    connect(m_viewModel, &ZzDemoViewModel::statusMessageChanged, this,
+            [this](const QString& message) {
+                m_statusLabel->setText(QStringLiteral("Status: %1").arg(message));
+            });
     connect(m_viewModel, &ZzDemoViewModel::selectedItemChanged, this, [this](const QString& item) {
         m_selectionLabel->setText(QStringLiteral("Selection: %1").arg(item));
     });
@@ -110,9 +105,7 @@ void MainWindow::bindTheme()
         return;
     }
 
-    auto applyTheme = [this, theme]() {
-        ZzPalette::applyTo(this, *theme);
-    };
+    auto applyTheme = [this, theme]() { ZzPalette::applyTo(this, *theme); };
     applyTheme();
     connect(theme, &ZzTheme::colorsChanged, this, applyTheme);
 }

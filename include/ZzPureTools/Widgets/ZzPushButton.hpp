@@ -1,10 +1,10 @@
 #ifndef ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP
 #define ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP
 
-#include <QPushButton>
-
 #include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
 #include "ZzPureTools/Style/ZzStyleDelegate.hpp"
+
+#include <QPushButton>
 
 class ZzAnimator;
 class ZzPushButtonDelegate;
@@ -21,9 +21,10 @@ class ZZ_PURE_TOOLS_EXPORT ZzPushButton : public QPushButton
 
 public:
     /// 按钮样式类型。
-    enum class ZzButtonStyle {
-        Standard, ///< 标准样式。
-        Accent,   ///< 强调样式。
+    enum class ZzButtonStyle
+    {
+        Standard,  ///< 标准样式。
+        Accent,    ///< 强调样式。
     };
     Q_ENUM(ZzButtonStyle)
 
@@ -87,9 +88,9 @@ private:
      */
     [[nodiscard]] ZzStyleContext buildStyleContext() const;
 
-    ZzButtonStyle m_buttonStyle = ZzButtonStyle::Standard; ///< 当前按钮样式。
-    ZzAnimator* m_animator = nullptr;                      ///< 交互动画驱动。
-    ZzPushButtonDelegate* m_delegate = nullptr;            ///< 样式绘制代理。
+    ZzButtonStyle m_buttonStyle = ZzButtonStyle::Standard;  ///< 当前按钮样式。
+    ZzAnimator* m_animator = nullptr;                       ///< 交互动画驱动。
+    ZzPushButtonDelegate* m_delegate = nullptr;             ///< 样式绘制代理。
 };
 
-#endif // ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP
+#endif  // ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP

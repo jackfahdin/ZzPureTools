@@ -9,6 +9,7 @@ __pycache__/
 /out/
 /cmake-build-*/
 /.qtcreator/
+/dist/
 
 # vcpkg
 /vcpkg_installed/

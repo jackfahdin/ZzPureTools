@@ -1,10 +1,10 @@
 #ifndef ZZPURETOOLS_CORE_ZZTHEME_HPP
 #define ZZPURETOOLS_CORE_ZZTHEME_HPP
 
-#include <QObject>
-
 #include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
 #include "ZzPureTools/Core/ZzToken.hpp"
+
+#include <QObject>
 
 /**
  * @brief Fluent UI 主题管理类。
@@ -109,12 +109,12 @@ private:
     void applyResolvedMode(ZzThemeMode resolvedMode);
     [[nodiscard]] ZzThemeMode resolveSystemMode() const;
 
-    ZzThemeMode m_mode = ZzThemeMode::System;           ///< 用户设置的主题模式
-    ZzThemeMode m_effectiveMode = ZzThemeMode::Light;   ///< 解析后的实际主题模式
-    ZzColorTokens m_colors = zzLightColorTokens();      ///< 当前颜色令牌
-    ZzMetricTokens m_metrics = zzDefaultMetricTokens(); ///< 当前尺寸令牌
-    QColor m_customAccent;                              ///< 自定义强调色
-    bool m_hasCustomAccent = false;                     ///< 是否设置了自定义强调色
+    ZzThemeMode m_mode = ZzThemeMode::System;            ///< 用户设置的主题模式
+    ZzThemeMode m_effectiveMode = ZzThemeMode::Light;    ///< 解析后的实际主题模式
+    ZzColorTokens m_colors = zzLightColorTokens();       ///< 当前颜色令牌
+    ZzMetricTokens m_metrics = zzDefaultMetricTokens();  ///< 当前尺寸令牌
+    QColor m_customAccent;                               ///< 自定义强调色
+    bool m_hasCustomAccent = false;                      ///< 是否设置了自定义强调色
 };
 
-#endif // ZZPURETOOLS_CORE_ZZTHEME_HPP
+#endif  // ZZPURETOOLS_CORE_ZZTHEME_HPP

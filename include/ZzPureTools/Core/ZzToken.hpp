@@ -6,7 +6,8 @@
 /**
  * @brief 主题模式枚举。
  */
-enum class ZzThemeMode {
+enum class ZzThemeMode
+{
     Light,   ///< 浅色模式
     Dark,    ///< 深色模式
     System,  ///< 跟随系统
@@ -15,11 +16,12 @@ enum class ZzThemeMode {
 /**
  * @brief 控件状态枚举。
  */
-enum class ZzControlState {
-    Normal,   ///< 正常状态
-    Hovered,  ///< 悬停状态
-    Pressed,  ///< 按下状态
-    Disabled, ///< 禁用状态
+enum class ZzControlState
+{
+    Normal,    ///< 正常状态
+    Hovered,   ///< 悬停状态
+    Pressed,   ///< 按下状态
+    Disabled,  ///< 禁用状态
 };
 
 /**
@@ -27,24 +29,25 @@ enum class ZzControlState {
  *
  * 集中定义 Fluent UI 风格所需的全局颜色变量。
  */
-struct ZzColorTokens {
-    QColor windowBase;            ///< 窗口背景色
-    QColor controlFill;           ///< 控件填充色
-    QColor controlFillHover;      ///< 控件悬停填充色
-    QColor controlFillPressed;    ///< 控件按下填充色
-    QColor controlFillDisabled;   ///< 控件禁用填充色
-    QColor controlStroke;         ///< 控件边框色
-    QColor controlStrokeHover;    ///< 控件悬停边框色
-    QColor textPrimary;           ///< 主文本色
-    QColor textSecondary;         ///< 次要文本色
-    QColor textDisabled;          ///< 禁用文本色
-    QColor accent;                ///< 强调色
-    QColor accentHover;           ///< 强调色悬停
-    QColor accentPressed;         ///< 强调色按下
-    QColor popupBackground;       ///< 弹出层背景色
-    QColor popupBorder;           ///< 弹出层边框色
-    QColor popupItemHover;        ///< 弹出项悬停色
-    QColor popupItemSelected;     ///< 弹出项选中色
+struct ZzColorTokens
+{
+    QColor windowBase;           ///< 窗口背景色
+    QColor controlFill;          ///< 控件填充色
+    QColor controlFillHover;     ///< 控件悬停填充色
+    QColor controlFillPressed;   ///< 控件按下填充色
+    QColor controlFillDisabled;  ///< 控件禁用填充色
+    QColor controlStroke;        ///< 控件边框色
+    QColor controlStrokeHover;   ///< 控件悬停边框色
+    QColor textPrimary;          ///< 主文本色
+    QColor textSecondary;        ///< 次要文本色
+    QColor textDisabled;         ///< 禁用文本色
+    QColor accent;               ///< 强调色
+    QColor accentHover;          ///< 强调色悬停
+    QColor accentPressed;        ///< 强调色按下
+    QColor popupBackground;      ///< 弹出层背景色
+    QColor popupBorder;          ///< 弹出层边框色
+    QColor popupItemHover;       ///< 弹出项悬停色
+    QColor popupItemSelected;    ///< 弹出项选中色
 };
 
 /**
@@ -52,12 +55,13 @@ struct ZzColorTokens {
  *
  * 集中定义控件圆角、高度、间距、动画时长等尺寸参数。
  */
-struct ZzMetricTokens {
-    int controlRadius = 4;        ///< 控件圆角半径（像素）
-    int controlHeight = 32;       ///< 标准控件高度（像素）
-    int borderWidth = 1;          ///< 边框宽度（像素）
-    int contentPadding = 12;      ///< 内容内边距（像素）
-    int animationDurationMs = 120;///< 动画时长（毫秒）
+struct ZzMetricTokens
+{
+    int controlRadius = 4;          ///< 控件圆角半径（像素）
+    int controlHeight = 32;         ///< 标准控件高度（像素）
+    int borderWidth = 1;            ///< 边框宽度（像素）
+    int contentPadding = 12;        ///< 内容内边距（像素）
+    int animationDurationMs = 120;  ///< 动画时长（毫秒）
 };
 
 /**
@@ -123,4 +127,4 @@ struct ZzMetricTokens {
     return ZzMetricTokens{};
 }
 
-#endif // ZZPURETOOLS_CORE_ZZTOKEN_HPP
+#endif  // ZZPURETOOLS_CORE_ZZTOKEN_HPP

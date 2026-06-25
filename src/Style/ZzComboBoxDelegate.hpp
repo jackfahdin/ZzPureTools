@@ -1,9 +1,9 @@
 #ifndef ZZCOMBOBOXDELEGATE_HPP
 #define ZZCOMBOBOXDELEGATE_HPP
 
-#include <QStyledItemDelegate>
-
 #include "ZzPureTools/Style/ZzStyleDelegate.hpp"
+
+#include <QStyledItemDelegate>
 
 class ZzComboBoxDelegate : public ZzStyleDelegate
 {
@@ -18,8 +18,9 @@ class ZzComboBoxItemDelegate : public QStyledItemDelegate
 public:
     explicit ZzComboBoxItemDelegate(QObject* parent = nullptr);
 
-    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+    void paint(QPainter* painter, const QStyleOptionViewItem& option,
+               const QModelIndex& index) const override;
     QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 };
 
-#endif // ZZCOMBOBOXDELEGATE_HPP
+#endif  // ZZCOMBOBOXDELEGATE_HPP

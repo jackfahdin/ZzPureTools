@@ -1,24 +1,23 @@
 #include "ZzPureTools/Widgets/ZzPushButton.hpp"
 
-#include <QMouseEvent>
-#include <QPainter>
-#include <QPaintEvent>
-
 #include "ZzPureTools/Core/ZzApplication.hpp"
 #include "ZzPureTools/Core/ZzTheme.hpp"
 #include "ZzPureTools/Style/ZzAnimator.hpp"
 #include "ZzPushButtonDelegate.hpp"
 
+#include <QMouseEvent>
+#include <QPaintEvent>
+#include <QPainter>
+
 ZzPushButton::ZzPushButton(QWidget* parent)
-    : QPushButton(parent)
-    , m_animator(new ZzAnimator(this))
-    , m_delegate(new ZzPushButtonDelegate(m_buttonStyle))
+    : QPushButton(parent),
+      m_animator(new ZzAnimator(this)),
+      m_delegate(new ZzPushButtonDelegate(m_buttonStyle))
 {
     initialize();
 }
 
-ZzPushButton::ZzPushButton(const QString& text, QWidget* parent)
-    : ZzPushButton(parent)
+ZzPushButton::ZzPushButton(const QString& text, QWidget* parent) : ZzPushButton(parent)
 {
     setText(text);
 }
@@ -53,7 +52,8 @@ void ZzPushButton::initialize()
     if (ZzTheme* theme = ZzApplication::instance().theme()) {
         setMinimumHeight(theme->metrics().controlHeight);
         m_animator->setDuration(theme->metrics().animationDurationMs);
-    } else {
+    }
+    else {
         setMinimumHeight(32);
     }
 

@@ -17,4 +17,4 @@
 #include "ZzPureTools/Widgets/ZzComboBox.hpp"
 #include "ZzPureTools/Widgets/ZzPushButton.hpp"
 
-#endif // ZZPURETOOLS_ZZPURETOOLS_HPP
+#endif  // ZZPURETOOLS_ZZPURETOOLS_HPP

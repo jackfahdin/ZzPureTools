@@ -1,8 +1,8 @@
 #include "ZzPureTools/Core/ZzPalette.hpp"
 
-#include <QWidget>
-
 #include "ZzPureTools/Core/ZzTheme.hpp"
+
+#include <QWidget>
 
 QPalette ZzPalette::createWidgetPalette(const ZzTheme& theme)
 {

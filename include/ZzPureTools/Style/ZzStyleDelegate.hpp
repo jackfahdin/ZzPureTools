@@ -1,12 +1,12 @@
 #ifndef ZZPURETOOLS_STYLE_ZZSTYLEDELEGATE_HPP
 #define ZZPURETOOLS_STYLE_ZZSTYLEDELEGATE_HPP
 
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+#include "ZzPureTools/Core/ZzToken.hpp"
+
 #include <QRectF>
 #include <QSize>
 #include <QString>
-
-#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
-#include "ZzPureTools/Core/ZzToken.hpp"
 
 class QPainter;
 class ZzTheme;
@@ -17,15 +17,16 @@ class ZzTheme;
  * 聚合控件绘制时所需的主题、状态、动画进度及文本等信息，
  * 供 ZzStyleDelegate 实现统一绘制。
  */
-struct ZZ_PURE_TOOLS_EXPORT ZzStyleContext {
-    const ZzTheme* theme = nullptr;   ///< 当前主题对象。
-    ZzControlState state = ZzControlState::Normal; ///< 控件状态。
-    qreal hoverProgress = 0.0;        ///< 悬停动画进度，范围 [0, 1]。
-    qreal pressProgress = 0.0;        ///< 按下动画进度，范围 [0, 1]。
-    bool enabled = true;              ///< 控件是否可用。
-    QString text;                     ///< 控件文本。
-    bool popupVisible = false;        ///< 弹出层是否可见。
-    bool itemSelected = false;        ///< 条目是否被选中。
+struct ZZ_PURE_TOOLS_EXPORT ZzStyleContext
+{
+    const ZzTheme* theme = nullptr;                 ///< 当前主题对象。
+    ZzControlState state = ZzControlState::Normal;  ///< 控件状态。
+    qreal hoverProgress = 0.0;                      ///< 悬停动画进度，范围 [0, 1]。
+    qreal pressProgress = 0.0;                      ///< 按下动画进度，范围 [0, 1]。
+    bool enabled = true;                            ///< 控件是否可用。
+    QString text;                                   ///< 控件文本。
+    bool popupVisible = false;                      ///< 弹出层是否可见。
+    bool itemSelected = false;                      ///< 条目是否被选中。
 };
 
 /**
@@ -45,7 +46,8 @@ public:
      * @param rect 控件绘制区域。
      * @param context 绘制上下文。
      */
-    virtual void paint(QPainter& painter, const QRectF& rect, const ZzStyleContext& context) const = 0;
+    virtual void paint(QPainter& painter, const QRectF& rect,
+                       const ZzStyleContext& context) const = 0;
 
     /**
      * @brief 获取控件的建议尺寸。
@@ -53,7 +55,8 @@ public:
      * @param available 可用尺寸。
      * @return 控件的建议尺寸。
      */
-    [[nodiscard]] virtual QSize sizeHint(const ZzStyleContext& context, const QSize& available) const;
+    [[nodiscard]] virtual QSize sizeHint(const ZzStyleContext& context,
+                                         const QSize& available) const;
 };
 
-#endif // ZZPURETOOLS_STYLE_ZZSTYLEDELEGATE_HPP
+#endif  // ZZPURETOOLS_STYLE_ZZSTYLEDELEGATE_HPP

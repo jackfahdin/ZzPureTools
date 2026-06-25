@@ -1,19 +1,17 @@
 #include "ZzPureTools/Widgets/ZzComboBox.hpp"
 
-#include <QAbstractItemView>
-#include <QListView>
-#include <QPainter>
-#include <QPaintEvent>
-
+#include "ZzComboBoxDelegate.hpp"
 #include "ZzPureTools/Core/ZzApplication.hpp"
 #include "ZzPureTools/Core/ZzTheme.hpp"
 #include "ZzPureTools/Style/ZzAnimator.hpp"
-#include "ZzComboBoxDelegate.hpp"
+
+#include <QAbstractItemView>
+#include <QListView>
+#include <QPaintEvent>
+#include <QPainter>
 
 ZzComboBox::ZzComboBox(QWidget* parent)
-    : QComboBox(parent)
-    , m_animator(new ZzAnimator(this))
-    , m_delegate(new ZzComboBoxDelegate())
+    : QComboBox(parent), m_animator(new ZzAnimator(this)), m_delegate(new ZzComboBoxDelegate())
 {
     initialize();
 }
@@ -30,7 +28,8 @@ void ZzComboBox::initialize()
     if (ZzTheme* theme = ZzApplication::instance().theme()) {
         setMinimumHeight(theme->metrics().controlHeight);
         m_animator->setDuration(theme->metrics().animationDurationMs);
-    } else {
+    }
+    else {
         setMinimumHeight(32);
     }
 
@@ -80,17 +79,16 @@ void ZzComboBox::refreshPopupStyle()
     }
 
     const ZzColorTokens& colors = theme->colors();
-    view()->setStyleSheet(QStringLiteral(
-        "QAbstractItemView {"
-        "  background: %1;"
-        "  border: 1px solid %2;"
-        "  border-radius: %3px;"
-        "  outline: none;"
-        "  padding: 4px;"
-        "}"
-        "QAbstractItemView::item {"
-        "  min-height: %4px;"
-        "}")
+    view()->setStyleSheet(QStringLiteral("QAbstractItemView {"
+                                         "  background: %1;"
+                                         "  border: 1px solid %2;"
+                                         "  border-radius: %3px;"
+                                         "  outline: none;"
+                                         "  padding: 4px;"
+                                         "}"
+                                         "QAbstractItemView::item {"
+                                         "  min-height: %4px;"
+                                         "}")
                               .arg(colors.popupBackground.name(QColor::HexArgb))
                               .arg(colors.popupBorder.name(QColor::HexArgb))
                               .arg(theme->metrics().controlRadius + 2)
