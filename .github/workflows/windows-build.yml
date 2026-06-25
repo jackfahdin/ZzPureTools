@@ -66,16 +66,17 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       # -----------------------------------------------------------------------
-      # 3. 安装 Qt（通过 aqt 镜像，仅安装 Widgets 所需模块）
-      #    若安装失败，请检查 qt_version 是否在 aqt 支持列表中
+      # 3. 安装 Qt（通过 aqt 在线镜像）
+      #    注意：不要写 modules: qtbase！
+      #    Qt6 桌面版默认已含 Widgets，qtbase 是主包名而非可选模块名，
+      #    写上会导致 aqt 报错：The packages ['qtbase'] were not found
+      #    若需额外模块（如 qtcharts），在 modules 里填模块名，例如：qtcharts
       # -----------------------------------------------------------------------
       - name: 安装 Qt ${{ inputs.qt_version }}
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ inputs.qt_version }}
           arch: ${{ env.QT_ARCH }}
-          # qtbase 包含 Qt6 Widgets；本项目不需要 qtmultimedia 等额外模块
-          modules: qtbase
           cache: true
 
       # -----------------------------------------------------------------------
