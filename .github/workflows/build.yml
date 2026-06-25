@@ -1,0 +1,160 @@
+# ZzFluent CI 入口（Qt 6.10+）
+# 手动编译：本文件 workflow_dispatch（Qt 选项须与 packaging/ci/qt-versions.json 同步）
+# 发布部署：推送 v* tag 触发 .github/workflows/release.yml
+# 详细构建逻辑见：
+#   .github/workflows/reusable/build-matrix-job.yml
+#   .github/actions/cmake-build/
+#   .github/actions/package-artifacts/
+#   packaging/ci/generate_build_matrix.py
+
+name: 多平台编译
+
+on:
+  workflow_dispatch:
+    inputs:
+      qt_version:
+        description: Qt 版本
+        required: true
+        default: "6.11.1"
+        type: choice
+        options:
+          - "6.11.1"
+          - "6.10.0"
+      build_type:
+        description: CMake 构建类型
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Debug
+      build_example:
+        description: 是否编译示例程序
+        required: true
+        default: true
+        type: boolean
+      build_shared:
+        description: 是否构建动态库
+        required: true
+        default: true
+        type: boolean
+
+      build_windows:
+        description: 是否编译 Windows
+        required: true
+        default: true
+        type: boolean
+      build_linux:
+        description: 是否编译 Linux
+        required: true
+        default: true
+        type: boolean
+      build_macos:
+        description: 是否编译 macOS
+        required: true
+        default: true
+        type: boolean
+
+      windows_toolchain:
+        description: Windows 工具链
+        required: true
+        default: msvc
+        type: choice
+        options:
+          - none
+          - msvc
+          - mingw
+          - all
+      windows_arch:
+        description: Windows 架构
+        required: true
+        default: x64
+        type: choice
+        options:
+          - none
+          - x64
+          - arm64
+          - all
+      linux_arch:
+        description: Linux 架构
+        required: true
+        default: x64
+        type: choice
+        options:
+          - none
+          - x64
+          - arm64
+          - all
+      macos_arch:
+        description: macOS 架构
+        required: true
+        default: all
+        type: choice
+        options:
+          - none
+          - x64
+          - arm64
+          - all
+
+      package_portable:
+        description: 打包可运行测试包
+        required: true
+        default: true
+        type: boolean
+      package_sdk:
+        description: 打包完整 SDK
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  plan:
+    name: 生成构建矩阵
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 计算 matrix
+        id: gen
+        env:
+          QT_VERSION: ${{ inputs.qt_version }}
+          BUILD_WINDOWS: ${{ inputs.build_windows }}
+          BUILD_LINUX: ${{ inputs.build_linux }}
+          BUILD_MACOS: ${{ inputs.build_macos }}
+          WINDOWS_TOOLCHAIN: ${{ inputs.windows_toolchain }}
+          WINDOWS_ARCH: ${{ inputs.windows_arch }}
+          LINUX_ARCH: ${{ inputs.linux_arch }}
+          MACOS_ARCH: ${{ inputs.macos_arch }}
+        run: python3 packaging/ci/generate_build_matrix.py
+
+      - name: 打印 matrix
+        run: echo '${{ steps.gen.outputs.matrix }}'
+
+  build:
+    name: ${{ matrix.display_name }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    uses: ./.github/workflows/reusable/build-matrix-job.yml
+    with:
+      os: ${{ matrix.os }}
+      display_name: ${{ matrix.display_name }}
+      platform: ${{ matrix.platform }}
+      platform_id: ${{ matrix.platform_id }}
+      toolchain: ${{ matrix.toolchain }}
+      qt_host: ${{ matrix.qt_host }}
+      qt_arch: ${{ matrix.qt_arch }}
+      arch_label: ${{ matrix.arch_label }}
+      cpu: ${{ matrix.cpu }}
+      needs_msvc_env: ${{ matrix.needs_msvc_env }}
+      osx_arch: ${{ matrix.osx_arch || '' }}
+      qt_tools: ${{ matrix.qt_tools || '' }}
+      qt_version: ${{ inputs.qt_version }}
+      build_type: ${{ inputs.build_type }}
+      build_example: ${{ inputs.build_example }}
+      build_shared: ${{ inputs.build_shared }}
+      package_portable: ${{ inputs.package_portable }}
+      package_sdk: ${{ inputs.package_sdk }}

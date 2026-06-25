@@ -12,11 +12,15 @@ ZzFluent SDK 使用说明
 
 二、使用者环境要求（需自行安装，SDK 不包含 Qt）
 ------------------------------------------------
-  - Windows 10+ 64 位
-  - Visual Studio 2022（MSVC）或兼容工具链
-  - CMake 3.21+
-  - Qt 6.10 或更高版本（Widgets 模块）
-  - C++20
+  - CMake 3.21+、C++20
+  - Qt 6.10+（Widgets 模块），版本需与 BUILD_INFO.txt 中记录一致
+  - 工具链需与 SDK 构建时一致（见 BUILD_INFO.txt）：
+      Windows x64  : MSVC 2022 或 MinGW-w64 13.1
+      Windows arm64: MSVC 2022
+      Linux x64    : GCC x86_64
+      Linux arm64  : GCC aarch64
+      macOS        : Clang x86_64 或 arm64
+  - 本项目仅支持 Qt 6.10 及以上版本
 
 三、CMake 集成（推荐）
 ----------------------

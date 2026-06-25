@@ -1,0 +1,124 @@
+name: 打包并上传 Artifact
+description: 调用 packaging/ci 脚本打包 portable / SDK 并上传
+
+inputs:
+  project_name:
+    required: true
+  platform:
+    required: true
+  display_name:
+    required: true
+  arch_label:
+    required: true
+  toolchain:
+    required: true
+  cpu:
+    required: true
+  platform_id:
+    required: true
+  qt_version:
+    required: true
+  build_type:
+    required: true
+  build_example:
+    required: true
+  build_shared:
+    required: true
+  package_portable:
+    required: true
+  package_sdk:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: 打包 portable (Windows)
+      if: inputs.package_portable == 'true' && inputs.build_example == 'true' && inputs.platform == 'windows'
+      shell: pwsh
+      run: |
+        & ./packaging/ci/bundle-portable-windows.ps1 `
+          -BuildType "${{ inputs.build_type }}" `
+          -PlatformLabel "${{ inputs.display_name }}" `
+          -ArchLabel "${{ inputs.arch_label }}" `
+          -Toolchain "${{ inputs.toolchain }}" `
+          -QtVersion "${{ inputs.qt_version }}"
+
+    - name: 打包 portable (Linux)
+      if: inputs.package_portable == 'true' && inputs.build_example == 'true' && inputs.platform == 'linux'
+      shell: bash
+      run: |
+        chmod +x packaging/ci/bundle-portable-linux.sh
+        packaging/ci/bundle-portable-linux.sh \
+          "${{ inputs.build_type }}" \
+          "${{ inputs.display_name }}" \
+          "${{ inputs.arch_label }}" \
+          "${{ inputs.qt_version }}"
+
+    - name: 打包 portable (macOS)
+      if: inputs.package_portable == 'true' && inputs.build_example == 'true' && inputs.platform == 'macos'
+      shell: bash
+      run: |
+        chmod +x packaging/ci/bundle-portable-macos.sh
+        packaging/ci/bundle-portable-macos.sh \
+          "${{ inputs.build_type }}" \
+          "${{ inputs.display_name }}" \
+          "${{ inputs.arch_label }}" \
+          "${{ inputs.qt_version }}"
+
+    - name: 打包 SDK (Windows)
+      if: inputs.package_sdk == 'true' && inputs.platform == 'windows'
+      shell: pwsh
+      run: |
+        $shared = "${{ inputs.build_shared == 'true' && 'ON' || 'OFF' }}"
+        & ./packaging/ci/package-sdk-windows.ps1 `
+          -PlatformLabel "${{ inputs.display_name }}" `
+          -ArchLabel "${{ inputs.arch_label }}" `
+          -Toolchain "${{ inputs.toolchain }}" `
+          -Cpu "${{ inputs.cpu }}" `
+          -BuildType "${{ inputs.build_type }}" `
+          -QtVersion "${{ inputs.qt_version }}" `
+          -Shared "$shared"
+
+    - name: 打包 SDK (Linux)
+      if: inputs.package_sdk == 'true' && inputs.platform == 'linux'
+      shell: bash
+      run: |
+        shared="${{ inputs.build_shared == 'true' && 'ON' || 'OFF' }}"
+        chmod +x packaging/ci/package-sdk-linux.sh
+        packaging/ci/package-sdk-linux.sh \
+          "${{ inputs.display_name }}" \
+          "${{ inputs.arch_label }}" \
+          "${{ inputs.cpu }}" \
+          "${{ inputs.build_type }}" \
+          "${{ inputs.qt_version }}" \
+          "$shared"
+
+    - name: 打包 SDK (macOS)
+      if: inputs.package_sdk == 'true' && inputs.platform == 'macos'
+      shell: bash
+      run: |
+        shared="${{ inputs.build_shared == 'true' && 'ON' || 'OFF' }}"
+        chmod +x packaging/ci/package-sdk-macos.sh
+        packaging/ci/package-sdk-macos.sh \
+          "${{ inputs.display_name }}" \
+          "${{ inputs.arch_label }}" \
+          "${{ inputs.cpu }}" \
+          "${{ inputs.build_type }}" \
+          "${{ inputs.qt_version }}" \
+          "$shared"
+
+    - name: 上传 portable
+      if: inputs.package_portable == 'true' && inputs.build_example == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.project_name }}-portable-${{ inputs.platform_id }}-${{ inputs.build_type }}-Qt${{ inputs.qt_version }}
+        path: dist/${{ inputs.project_name }}-portable.zip
+        retention-days: 30
+
+    - name: 上传 SDK
+      if: inputs.package_sdk == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.project_name }}-sdk-${{ inputs.platform_id }}-${{ inputs.build_type }}-Qt${{ inputs.qt_version }}
+        path: dist/${{ inputs.project_name }}-sdk.zip
+        retention-days: 30

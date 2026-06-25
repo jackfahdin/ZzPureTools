@@ -1,0 +1,136 @@
+# 单矩阵项：编译 + 打包 + 上传 Artifact
+# 由 build.yml 通过 workflow_call 按 matrix 并行调用
+
+name: _build matrix job
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      display_name:
+        required: true
+        type: string
+      platform:
+        required: true
+        type: string
+      platform_id:
+        required: true
+        type: string
+      toolchain:
+        required: true
+        type: string
+      qt_host:
+        required: true
+        type: string
+      qt_arch:
+        required: true
+        type: string
+      arch_label:
+        required: true
+        type: string
+      cpu:
+        required: true
+        type: string
+      needs_msvc_env:
+        required: true
+        type: boolean
+      osx_arch:
+        required: false
+        type: string
+        default: ""
+      qt_tools:
+        required: false
+        type: string
+        default: ""
+      qt_version:
+        required: true
+        type: string
+      build_type:
+        required: true
+        type: string
+      build_example:
+        required: true
+        type: boolean
+      build_shared:
+        required: true
+        type: boolean
+      package_portable:
+        required: true
+        type: boolean
+      package_sdk:
+        required: true
+        type: boolean
+
+jobs:
+  compile:
+    name: ${{ inputs.display_name }}
+    runs-on: ${{ inputs.os }}
+
+    env:
+      CMAKE_GENERATOR: Ninja
+      SHARED_FLAG: ${{ inputs.build_shared && 'ON' || 'OFF' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 初始化 MSVC 开发环境
+        if: inputs.needs_msvc_env
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: 安装 Qt（含 MinGW 工具）
+        if: inputs.qt_tools != ''
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ inputs.qt_version }}
+          host: ${{ inputs.qt_host }}
+          arch: ${{ inputs.qt_arch }}
+          tools: ${{ inputs.qt_tools }}
+          cache: true
+          install-deps: true
+
+      - name: 安装 Qt
+        if: inputs.qt_tools == ''
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ inputs.qt_version }}
+          host: ${{ inputs.qt_host }}
+          arch: ${{ inputs.qt_arch }}
+          cache: true
+          install-deps: true
+
+      - uses: ./.github/actions/cmake-build
+        with:
+          platform: ${{ inputs.platform }}
+          toolchain: ${{ inputs.toolchain }}
+          build_type: ${{ inputs.build_type }}
+          build_example: ${{ inputs.build_example }}
+          build_shared: ${{ inputs.build_shared }}
+          osx_arch: ${{ inputs.osx_arch }}
+
+      - name: 安装 SDK (cmake --install)
+        if: inputs.package_sdk
+        shell: bash
+        run: cmake --install build --prefix "${GITHUB_WORKSPACE}/install"
+
+      - name: 读取项目名
+        id: project
+        shell: bash
+        run: python3 packaging/ci/project_config.py --github-output
+
+      - uses: ./.github/actions/package-artifacts
+        with:
+          project_name: ${{ steps.project.outputs.project_name }}
+          platform: ${{ inputs.platform }}
+          display_name: ${{ inputs.display_name }}
+          arch_label: ${{ inputs.arch_label }}
+          toolchain: ${{ inputs.toolchain }}
+          cpu: ${{ inputs.cpu }}
+          platform_id: ${{ inputs.platform_id }}
+          qt_version: ${{ inputs.qt_version }}
+          build_type: ${{ inputs.build_type }}
+          build_example: ${{ inputs.build_example }}
+          build_shared: ${{ inputs.build_shared }}
+          package_portable: ${{ inputs.package_portable }}
+          package_sdk: ${{ inputs.package_sdk }}

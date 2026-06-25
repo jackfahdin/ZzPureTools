@@ -1,0 +1,47 @@
+name: 发布到 GitHub Release
+description: 下载 workflow 产物并创建/更新 GitHub Release
+
+inputs:
+  tag_name:
+    description: Release tag 名称（如 v0.1.0）
+    required: true
+  project_name:
+    description: 项目名（与 packaging/ci/project.json 的 name 一致）
+    required: true
+  prerelease:
+    description: 是否为预发布版本
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: 下载全部构建产物
+      uses: actions/download-artifact@v4
+      with:
+        path: release-assets
+        pattern: ${{ inputs.project_name }}-*
+        merge-multiple: true
+
+    - name: 整理 Release 文件
+      shell: bash
+      run: |
+        shopt -s nullglob
+        mkdir -p release-upload
+        tag="${{ inputs.tag_name }}"
+        for zip in release-assets/*.zip release-assets/**/*.zip; do
+          base="$(basename "$zip")"
+          cp -v "$zip" "release-upload/${base%.zip}-${tag}.zip"
+        done
+        echo "==== Release 资产 ===="
+        ls -lh release-upload/
+
+    - name: 创建 GitHub Release 并上传
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ inputs.tag_name }}
+        name: ${{ inputs.project_name }} ${{ inputs.tag_name }}
+        generate_release_notes: true
+        prerelease: ${{ inputs.prerelease == 'true' }}
+        files: release-upload/*
+        fail_on_unmatched_files: true

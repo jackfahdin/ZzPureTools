@@ -1,0 +1,67 @@
+name: CMake 配置与编译
+description: 按平台/工具链配置并编译 ZzFluent
+
+inputs:
+  platform:
+    required: true
+  toolchain:
+    required: true
+  build_type:
+    required: true
+  build_example:
+    required: true
+  build_shared:
+    required: true
+  osx_arch:
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: CMake 配置
+      shell: bash
+      run: |
+        SHARED_FLAG="${{ inputs.build_shared == 'true' && 'ON' || 'OFF' }}"
+        EXAMPLE_FLAG="${{ inputs.build_example == 'true' && 'ON' || 'OFF' }}"
+
+        CMAKE_ARGS=(
+          -B build
+          -G "${CMAKE_GENERATOR}"
+          -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}"
+          -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
+          -DZZ_BUILD_SHARED_LIBS="${SHARED_FLAG}"
+          -DZZ_BUILD_EXAMPLE="${EXAMPLE_FLAG}"
+          -DZZ_INSTALL=ON
+        )
+
+        if [[ "${{ inputs.platform }}" == "macos" && -n "${{ inputs.osx_arch }}" ]]; then
+          CMAKE_ARGS+=(-DCMAKE_OSX_ARCHITECTURES="${{ inputs.osx_arch }}")
+        fi
+
+        if [[ "${{ inputs.toolchain }}" == "mingw" ]]; then
+          MINGW_BIN="$(find "${IQTA_TOOLS}" -path '*/bin/g++.exe' 2>/dev/null | head -1 | xargs -I{} dirname {})"
+          if [[ -z "${MINGW_BIN}" ]]; then
+            MINGW_BIN="$(find "${QT_ROOT_DIR}/../../Tools" -path '*/bin/g++.exe' 2>/dev/null | head -1 | xargs -I{} dirname {})"
+          fi
+          if [[ -z "${MINGW_BIN}" ]]; then
+            echo "未找到 MinGW 编译器" >&2
+            exit 1
+          fi
+          echo "MinGW bin: ${MINGW_BIN}"
+          CMAKE_ARGS+=(
+            -DCMAKE_C_COMPILER="${MINGW_BIN}/gcc.exe"
+            -DCMAKE_CXX_COMPILER="${MINGW_BIN}/g++.exe"
+          )
+        fi
+
+        cmake "${CMAKE_ARGS[@]}"
+
+    - name: CMake 编译
+      shell: bash
+      run: cmake --build build --parallel
+
+    - name: 列出编译输出
+      shell: bash
+      run: |
+        find build -type f \( -name '*.exe' -o -name '*.dll' -o -name '*.so' -o -name '*.dylib' -o -name '*.lib' -o -name '*.a' \) 2>/dev/null || true

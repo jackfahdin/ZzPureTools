@@ -1,0 +1,89 @@
+# 推送版本 tag 时自动全平台 Release 构建，并发布到 GitHub Releases
+# Qt 版本从 packaging/ci/qt-versions.json 的 default 字段自动读取
+# 用法: git tag v0.1.0 && git push origin v0.1.0
+
+name: 发布 Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    name: 生成发布矩阵
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+      qt_version: ${{ steps.qt.outputs.qt_version }}
+      project_name: ${{ steps.project.outputs.project_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 读取项目名（packaging/ci/project.json）
+        id: project
+        run: python3 packaging/ci/project_config.py --github-output
+
+      - name: 解析 Qt 版本（qt-versions.json）
+        id: qt
+        run: python3 packaging/ci/qt_versions.py --resolve-default
+
+      - name: 计算 matrix（全平台 Release）
+        id: gen
+        env:
+          QT_VERSION: ${{ steps.qt.outputs.qt_version }}
+          BUILD_WINDOWS: "true"
+          BUILD_LINUX: "true"
+          BUILD_MACOS: "true"
+          WINDOWS_TOOLCHAIN: all
+          WINDOWS_ARCH: all
+          LINUX_ARCH: all
+          MACOS_ARCH: all
+        run: python3 packaging/ci/generate_build_matrix.py
+
+      - name: 打印配置
+        run: |
+          echo "项目名: ${{ steps.project.outputs.project_name }}"
+          echo "Qt 版本: ${{ steps.qt.outputs.qt_version }}"
+          echo "matrix: ${{ steps.gen.outputs.matrix }}"
+
+  build:
+    name: ${{ matrix.display_name }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    uses: ./.github/workflows/reusable/build-matrix-job.yml
+    with:
+      os: ${{ matrix.os }}
+      display_name: ${{ matrix.display_name }}
+      platform: ${{ matrix.platform }}
+      platform_id: ${{ matrix.platform_id }}
+      toolchain: ${{ matrix.toolchain }}
+      qt_host: ${{ matrix.qt_host }}
+      qt_arch: ${{ matrix.qt_arch }}
+      arch_label: ${{ matrix.arch_label }}
+      cpu: ${{ matrix.cpu }}
+      needs_msvc_env: ${{ matrix.needs_msvc_env }}
+      osx_arch: ${{ matrix.osx_arch || '' }}
+      qt_tools: ${{ matrix.qt_tools || '' }}
+      qt_version: ${{ needs.plan.outputs.qt_version }}
+      build_type: Release
+      build_example: true
+      build_shared: true
+      package_portable: true
+      package_sdk: true
+
+  deploy:
+    name: 发布到 GitHub Release
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/deploy-release
+        with:
+          tag_name: ${{ github.ref_name }}
+          project_name: ${{ needs.plan.outputs.project_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
