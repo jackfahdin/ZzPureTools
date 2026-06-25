@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    uses: ./.github/workflows/reusable/build-matrix-job.yml
+    uses: ./.github/workflows/build-matrix-job.yml
     with:
       os: ${{ matrix.os }}
       display_name: ${{ matrix.display_name }}

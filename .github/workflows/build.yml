@@ -3,7 +3,7 @@
 # 手动编译：本文件 workflow_dispatch（Qt 选项须与 packaging/ci/qt-versions.json 同步）
 # 发布部署：推送 v* tag 触发 .github/workflows/release.yml
 # 详细构建逻辑见：
-#   .github/workflows/reusable/build-matrix-job.yml
+#   .github/workflows/build-matrix-job.yml
 #   .github/actions/cmake-build/
 #   .github/actions/package-artifacts/
 #   packaging/ci/generate_build_matrix.py
@@ -179,7 +179,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    uses: ./.github/workflows/reusable/build-matrix-job.yml
+    uses: ./.github/workflows/build-matrix-job.yml
     with:
       os: ${{ matrix.os }}
       display_name: ${{ matrix.display_name }}
