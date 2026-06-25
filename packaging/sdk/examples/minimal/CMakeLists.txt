@@ -13,7 +13,7 @@ endif()
 
 list(APPEND CMAKE_PREFIX_PATH "${ZZ_FLUENT_SDK_DIR}")
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.8.0 REQUIRED COMPONENTS Widgets)
 find_package(ZzFluent REQUIRED)
 
 if(WIN32)

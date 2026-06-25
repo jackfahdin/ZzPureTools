@@ -2,4 +2,5 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZZ_PROJECT_NAME="$(python3 "${SCRIPT_DIR}/project_config.py" --print name)"
 ZZ_EXAMPLE_NAME="$(python3 "${SCRIPT_DIR}/project_config.py" --print example)"
-export ZZ_PROJECT_NAME ZZ_EXAMPLE_NAME
+ZZ_PROJECT_VERSION="$(python3 "${SCRIPT_DIR}/project_config.py" --print version)"
+export ZZ_PROJECT_NAME ZZ_EXAMPLE_NAME ZZ_PROJECT_VERSION

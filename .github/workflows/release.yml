@@ -20,6 +20,7 @@ jobs:
       matrix: ${{ steps.gen.outputs.matrix }}
       qt_version: ${{ steps.qt.outputs.qt_version }}
       project_name: ${{ steps.project.outputs.project_name }}
+      project_version: ${{ steps.project.outputs.project_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +48,7 @@ jobs:
       - name: 打印配置
         run: |
           echo "项目名: ${{ steps.project.outputs.project_name }}"
+          echo "项目版本: ${{ steps.project.outputs.project_version }}"
           echo "Qt 版本: ${{ steps.qt.outputs.qt_version }}"
           echo "matrix: ${{ steps.gen.outputs.matrix }}"
 

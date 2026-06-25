@@ -41,13 +41,14 @@ def main() -> int:
     parser.add_argument(
         "--github-output",
         action="store_true",
-        help="将 name、example 写入 GITHUB_OUTPUT",
+        help="将 name、example、version 写入 GITHUB_OUTPUT",
     )
     args = parser.parse_args()
 
     if args.github_output:
         write_github_output("project_name", get_value("name"))
         write_github_output("example_name", get_value("example"))
+        write_github_output("project_version", get_value("version"))
         return 0
 
     if args.key:

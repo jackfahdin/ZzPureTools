@@ -9,3 +9,4 @@ function Get-ProjectConfigValue {
 
 $ProjectName = Get-ProjectConfigValue name
 $ExampleName = Get-ProjectConfigValue example
+$ProjectVersion = Get-ProjectConfigValue version

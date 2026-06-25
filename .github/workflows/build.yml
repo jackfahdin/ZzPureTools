@@ -1,4 +1,4 @@
-# ZzFluent CI 入口（Qt 6.10+）
+# ZzFluent CI 入口（Qt 6.8.0+）
 # 手动编译：本文件 workflow_dispatch（Qt 选项须与 packaging/ci/qt-versions.json 同步）
 # 发布部署：推送 v* tag 触发 .github/workflows/release.yml
 # 详细构建逻辑见：
@@ -20,6 +20,8 @@ on:
         options:
           - "6.11.1"
           - "6.10.0"
+          - "6.9.0"
+          - "6.8.0"
       build_type:
         description: CMake 构建类型
         required: true

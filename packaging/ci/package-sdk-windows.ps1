@@ -43,7 +43,7 @@ $libType = if ($Shared -eq "ON") { "动态库 (SHARED)" } else { "静态库 (STA
 $buildInfo = @"
 $ProjectName SDK 构建信息
 ====================
-版本: 0.1.0
+版本: $ProjectVersion
 平台: $PlatformLabel
 CPU 架构: $Cpu ($ArchLabel)
 工具链: $Toolchain

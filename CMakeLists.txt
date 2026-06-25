@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.21)
 
+# 从单一配置文件读取项目版本，避免多处硬编码
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/packaging/ci/project.json" ZZ_PROJECT_JSON)
+string(JSON ZZ_PROJECT_VERSION GET ${ZZ_PROJECT_JSON} "version")
+
 project(ZzFluent
-    VERSION 0.1.0
+    VERSION ${ZZ_PROJECT_VERSION}
     DESCRIPTION "Cross-platform Fluent UI widget library for Qt 6"
     LANGUAGES CXX
 )
@@ -22,7 +26,7 @@ include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.8.0 REQUIRED COMPONENTS Widgets)
 
 if(NOT WIN32)
     set(CMAKE_SKIP_INSTALL_RPATH FALSE)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """根据 workflow 手动输入生成 CI 构建矩阵。
 
-项目仅支持 Qt 6.10+。矩阵条目与 Qt 官方预编译包一致：
+项目仅支持 Qt 6.8.0+。矩阵条目与 Qt 官方预编译包一致：
   Windows x64  : MSVC 2022、MinGW 13.1
   Windows arm64: MSVC 2022（windows-11-arm Runner）
   Linux x64    : GCC x86_64

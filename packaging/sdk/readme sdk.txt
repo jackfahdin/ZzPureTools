@@ -13,26 +13,26 @@ ZzFluent SDK 使用说明
 二、使用者环境要求（需自行安装，SDK 不包含 Qt）
 ------------------------------------------------
   - CMake 3.21+、C++20
-  - Qt 6.10+（Widgets 模块），版本需与 BUILD_INFO.txt 中记录一致
+  - Qt 6.8.0+（Widgets 模块），版本需与 BUILD_INFO.txt 中记录一致
   - 工具链需与 SDK 构建时一致（见 BUILD_INFO.txt）：
       Windows x64  : MSVC 2022 或 MinGW-w64 13.1
       Windows arm64: MSVC 2022
       Linux x64    : GCC x86_64
       Linux arm64  : GCC aarch64
       macOS        : Clang x86_64 或 arm64
-  - 本项目仅支持 Qt 6.10 及以上版本
+  - 本项目仅支持 Qt 6.8.0 及以上版本
 
 三、CMake 集成（推荐）
 ----------------------
-  假设 SDK 解压到 D:\sdk\ZzFluent，Qt 安装在 D:\Qt\6.10.0\msvc2022_64：
+  假设 SDK 解压到 D:\sdk\ZzFluent，Qt 安装在 D:\Qt\6.8.0\msvc2022_64：
 
   cmake -B build -S your_project ^
-    -DCMAKE_PREFIX_PATH="D:/Qt/6.10.0/msvc2022_64;D:/sdk/ZzFluent" ^
+    -DCMAKE_PREFIX_PATH="D:/Qt/6.8.0/msvc2022_64;D:/sdk/ZzFluent" ^
     -DCMAKE_BUILD_TYPE=Release
 
   在 CMakeLists.txt 中：
 
-    find_package(Qt6 6.10 REQUIRED COMPONENTS Widgets)
+    find_package(Qt6 6.8.0 REQUIRED COMPONENTS Widgets)
     find_package(ZzFluent REQUIRED)
     target_link_libraries(YourApp PRIVATE Zz::Fluent)
 
@@ -53,7 +53,7 @@ ZzFluent SDK 使用说明
   cd examples/minimal
   cmake -B build -S . ^
     -DZZ_FLUENT_SDK_DIR="D:/sdk/ZzFluent" ^
-    -DCMAKE_PREFIX_PATH="D:/Qt/6.10.0/msvc2022_64" ^
+    -DCMAKE_PREFIX_PATH="D:/Qt/6.8.0/msvc2022_64" ^
     -DCMAKE_BUILD_TYPE=Release
   cmake --build build
 

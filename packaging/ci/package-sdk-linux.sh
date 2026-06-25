@@ -32,7 +32,7 @@ LIB_TYPE="动态库 (SHARED)"
 cat > "${INSTALL_ROOT}/BUILD_INFO.txt" <<EOF
 ${ZZ_PROJECT_NAME} SDK 构建信息
 ====================
-版本: 0.1.0
+版本: ${ZZ_PROJECT_VERSION}
 平台: ${PLATFORM_LABEL}
 CPU 架构: ${CPU} (${ARCH_LABEL})
 构建类型: ${BUILD_TYPE}
