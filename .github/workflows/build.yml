@@ -195,7 +195,7 @@ jobs:
       qt_tools: ${{ matrix.qt_tools || '' }}
       qt_version: ${{ needs.plan.outputs.qt_version }}
       build_type: ${{ needs.plan.outputs.build_type }}
-      build_example: ${{ needs.plan.outputs.build_example }}
-      build_shared: ${{ needs.plan.outputs.build_shared }}
-      package_portable: ${{ needs.plan.outputs.package_portable }}
-      package_sdk: ${{ needs.plan.outputs.package_sdk }}
+      build_example: ${{ fromJSON(needs.plan.outputs.build_example) }}
+      build_shared: ${{ fromJSON(needs.plan.outputs.build_shared) }}
+      package_portable: ${{ fromJSON(needs.plan.outputs.package_portable) }}
+      package_sdk: ${{ fromJSON(needs.plan.outputs.package_sdk) }}
