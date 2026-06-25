@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       qt_version:
-        description: Qt 版本
+        description: Qt 版本（须 >= 6.8.0，且与 packaging/ci/qt-versions.json 的 supported 列表保持一致）
         required: true
         default: "6.11.1"
         type: choice
