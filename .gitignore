@@ -1,0 +1,21 @@
+# 构建产物
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+
+# vcpkg
+/vcpkg_installed/
+
+# IDE
+/.vs/
+/.idea/
+*.user
+CMakeUserPresets.json
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 运行时数据
+/.zzpuretools/
