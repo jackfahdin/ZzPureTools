@@ -1,6 +1,7 @@
 #include "ZzComboBoxDelegate.hpp"
 
 #include <QPainter>
+#include <QPainterPath>
 #include <QStyle>
 
 #include "ZzFluent/Core/ZzApplication.hpp"
