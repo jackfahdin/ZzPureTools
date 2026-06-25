@@ -137,8 +137,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.gen.outputs.matrix }}
+      qt_version: ${{ steps.config.outputs.qt_version }}
+      build_type: ${{ steps.config.outputs.build_type }}
+      build_example: ${{ steps.config.outputs.build_example }}
+      build_shared: ${{ steps.config.outputs.build_shared }}
+      package_portable: ${{ steps.config.outputs.package_portable }}
+      package_sdk: ${{ steps.config.outputs.package_sdk }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: 输出构建参数
+        id: config
+        shell: bash
+        run: |
+          echo "qt_version=${{ env.QT_VERSION }}" >> "$GITHUB_OUTPUT"
+          echo "build_type=${{ env.BUILD_TYPE }}" >> "$GITHUB_OUTPUT"
+          echo "build_example=${{ env.BUILD_EXAMPLE }}" >> "$GITHUB_OUTPUT"
+          echo "build_shared=${{ env.BUILD_SHARED }}" >> "$GITHUB_OUTPUT"
+          echo "package_portable=${{ env.PACKAGE_PORTABLE }}" >> "$GITHUB_OUTPUT"
+          echo "package_sdk=${{ env.PACKAGE_SDK }}" >> "$GITHUB_OUTPUT"
 
       - name: 计算 matrix
         id: gen
@@ -176,9 +193,9 @@ jobs:
       needs_msvc_env: ${{ matrix.needs_msvc_env }}
       osx_arch: ${{ matrix.osx_arch || '' }}
       qt_tools: ${{ matrix.qt_tools || '' }}
-      qt_version: ${{ env.QT_VERSION }}
-      build_type: ${{ env.BUILD_TYPE }}
-      build_example: ${{ env.BUILD_EXAMPLE }}
-      build_shared: ${{ env.BUILD_SHARED }}
-      package_portable: ${{ env.PACKAGE_PORTABLE }}
-      package_sdk: ${{ env.PACKAGE_SDK }}
+      qt_version: ${{ needs.plan.outputs.qt_version }}
+      build_type: ${{ needs.plan.outputs.build_type }}
+      build_example: ${{ needs.plan.outputs.build_example }}
+      build_shared: ${{ needs.plan.outputs.build_shared }}
+      package_portable: ${{ needs.plan.outputs.package_portable }}
+      package_sdk: ${{ needs.plan.outputs.package_sdk }}
