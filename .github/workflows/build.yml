@@ -1,4 +1,5 @@
 # ZzFluent CI 入口（Qt 6.8.0+）
+# 自动触发：push / pull_request 时使用默认配置做快速验证
 # 手动编译：本文件 workflow_dispatch（Qt 选项须与 packaging/ci/qt-versions.json 同步）
 # 发布部署：推送 v* tag 触发 .github/workflows/release.yml
 # 详细构建逻辑见：
@@ -10,6 +11,10 @@
 name: 多平台编译
 
 on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       qt_version:
@@ -109,6 +114,22 @@ on:
         default: true
         type: boolean
 
+# push / pull_request 时使用的默认值；workflow_dispatch 时优先使用用户输入
+env:
+  QT_VERSION: ${{ inputs.qt_version || '6.11.1' }}
+  BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+  BUILD_EXAMPLE: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.build_example) || 'true' }}
+  BUILD_SHARED: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.build_shared) || 'true' }}
+  PACKAGE_PORTABLE: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.package_portable) || 'false' }}
+  PACKAGE_SDK: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.package_sdk) || 'false' }}
+  BUILD_WINDOWS: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.build_windows) || 'true' }}
+  BUILD_LINUX: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.build_linux) || 'true' }}
+  BUILD_MACOS: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.build_macos) || 'true' }}
+  WINDOWS_TOOLCHAIN: ${{ github.event_name == 'workflow_dispatch' && inputs.windows_toolchain || 'msvc' }}
+  WINDOWS_ARCH: ${{ github.event_name == 'workflow_dispatch' && inputs.windows_arch || 'x64' }}
+  LINUX_ARCH: ${{ github.event_name == 'workflow_dispatch' && inputs.linux_arch || 'x64' }}
+  MACOS_ARCH: ${{ github.event_name == 'workflow_dispatch' && inputs.macos_arch || 'all' }}
+
 jobs:
   plan:
     name: 生成构建矩阵
@@ -121,14 +142,14 @@ jobs:
       - name: 计算 matrix
         id: gen
         env:
-          QT_VERSION: ${{ inputs.qt_version }}
-          BUILD_WINDOWS: ${{ inputs.build_windows }}
-          BUILD_LINUX: ${{ inputs.build_linux }}
-          BUILD_MACOS: ${{ inputs.build_macos }}
-          WINDOWS_TOOLCHAIN: ${{ inputs.windows_toolchain }}
-          WINDOWS_ARCH: ${{ inputs.windows_arch }}
-          LINUX_ARCH: ${{ inputs.linux_arch }}
-          MACOS_ARCH: ${{ inputs.macos_arch }}
+          QT_VERSION: ${{ env.QT_VERSION }}
+          BUILD_WINDOWS: ${{ env.BUILD_WINDOWS }}
+          BUILD_LINUX: ${{ env.BUILD_LINUX }}
+          BUILD_MACOS: ${{ env.BUILD_MACOS }}
+          WINDOWS_TOOLCHAIN: ${{ env.WINDOWS_TOOLCHAIN }}
+          WINDOWS_ARCH: ${{ env.WINDOWS_ARCH }}
+          LINUX_ARCH: ${{ env.LINUX_ARCH }}
+          MACOS_ARCH: ${{ env.MACOS_ARCH }}
         run: python3 packaging/ci/generate_build_matrix.py
 
       - name: 打印 matrix
@@ -154,9 +175,9 @@ jobs:
       needs_msvc_env: ${{ matrix.needs_msvc_env }}
       osx_arch: ${{ matrix.osx_arch || '' }}
       qt_tools: ${{ matrix.qt_tools || '' }}
-      qt_version: ${{ inputs.qt_version }}
-      build_type: ${{ inputs.build_type }}
-      build_example: ${{ inputs.build_example }}
-      build_shared: ${{ inputs.build_shared }}
-      package_portable: ${{ inputs.package_portable }}
-      package_sdk: ${{ inputs.package_sdk }}
+      qt_version: ${{ env.QT_VERSION }}
+      build_type: ${{ env.BUILD_TYPE }}
+      build_example: ${{ env.BUILD_EXAMPLE }}
+      build_shared: ${{ env.BUILD_SHARED }}
+      package_portable: ${{ env.PACKAGE_PORTABLE }}
+      package_sdk: ${{ env.PACKAGE_SDK }}
