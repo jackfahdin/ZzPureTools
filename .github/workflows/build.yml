@@ -1,4 +1,4 @@
-# ZzFluent CI 入口（Qt 6.8.0+）
+# ZzPureTools CI 入口（Qt 6.8.0+）
 # 自动触发：当前代码处于测试阶段，push / pull_request 自动触发已临时关闭
 # 手动编译：本文件 workflow_dispatch（Qt 选项须与 packaging/ci/qt-versions.json 同步）
 # 发布部署：推送 v* tag 触发 .github/workflows/release.yml

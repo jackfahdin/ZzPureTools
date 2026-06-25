@@ -1,13 +1,13 @@
 #include <QApplication>
 
-#include <ZzFluent/ZzFluent.hpp>
+#include <ZzPureTools/ZzPureTools.hpp>
 
 #include "MainWindow.hpp"
 
 int main(int argc, char* argv[])
 {
     QApplication application(argc, argv);
-    application.setApplicationName(QStringLiteral("ZzFluentExample"));
+    application.setApplicationName(QStringLiteral("ZzPureToolsExample"));
     application.setOrganizationName(QStringLiteral("ZzPureTools"));
 
     ZzApplication::instance().initialize(application);

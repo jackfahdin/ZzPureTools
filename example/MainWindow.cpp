@@ -4,7 +4,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
-#include <ZzFluent/ZzFluent.hpp>
+#include <ZzPureTools/ZzPureTools.hpp>
 
 #include "backend/ZzDemoViewModel.hpp"
 
@@ -12,7 +12,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QWidget(parent)
     , m_viewModel(new ZzDemoViewModel(this))
 {
-    setWindowTitle(QStringLiteral("ZzFluent Example"));
+    setWindowTitle(QStringLiteral("ZzPureTools Example"));
     resize(720, 420);
     buildUi();
     bindViewModel();
@@ -25,7 +25,7 @@ void MainWindow::buildUi()
     rootLayout->setContentsMargins(24, 24, 24, 24);
     rootLayout->setSpacing(16);
 
-    auto* titleLabel = new QLabel(QStringLiteral("ZzFluent Widgets Demo"), this);
+    auto* titleLabel = new QLabel(QStringLiteral("ZzPureTools Widgets Demo"), this);
     QFont titleFont = titleLabel->font();
     titleFont.setPointSize(18);
     titleFont.setBold(true);

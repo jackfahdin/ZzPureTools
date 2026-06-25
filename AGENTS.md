@@ -1,12 +1,12 @@
-# ZzFluent 项目代理指南
+# ZzPureTools 项目代理指南
 
-本文件定义 ZzFluent 项目的开发规范、架构约定与协作要求。所有在此项目工作的代码代理（coding agent）必须遵守本文件。
+本文件定义 ZzPureTools 项目的开发规范、架构约定与协作要求。所有在此项目工作的代码代理（coding agent）必须遵守本文件。
 
 ---
 
 ## 1. 项目定位
 
-ZzFluent 是一个基于 **Qt 6 Widgets** 的跨平台 Fluent UI 风格控件库，目标是为 Qt 桌面应用提供现代化、一致、可扩展的 UI 组件与视觉体验。
+ZzPureTools 是一个基于 **Qt 6 Widgets** 的跨平台 Fluent UI 风格控件库，目标是为 Qt 桌面应用提供现代化、一致、可扩展的 UI 组件与视觉体验。
 
 - **技术栈**：C++20、CMake 3.21+、Qt 6.8+
 - **核心思想**：设计令牌（Design Tokens）+ 绘制委托（Paint Delegates）+ 动画驱动
@@ -50,7 +50,7 @@ ZzFluent 是一个基于 **Qt 6 Widgets** 的跨平台 Fluent UI 风格控件库
 - 成员变量：以 `m_` 为前缀，如 `m_theme`、`m_hoverProgress`。
 - 静态成员：以 `s_` 为前缀。
 - 全局常量/函数：使用 `zz` 小写前缀或放在命名空间内，如 `zzLightColorTokens()`。
-- 宏：全大写 + 下划线，如 `ZZ_FLUENT_EXPORT`。
+- 宏：全大写 + 下划线，如 `ZZ_PURE_TOOLS_EXPORT`。
 
 ### 2.3 命名空间
 
@@ -67,12 +67,12 @@ class ZzHttpClient { /* ... */ };
 } // namespace ZzAppCore
 ```
 
-- 公开 API 尽量放在顶层 `ZzFluent` 命名空间下，内部实现可放在 `ZzFluent::Private` 等子命名空间。
+- 公开 API 尽量放在顶层 `ZzPureTools` 命名空间下，内部实现可放在 `ZzPureTools::Private` 等子命名空间。
 
 ### 2.4 头文件与导出
 
-- 所有公开头文件位于 `include/ZzFluent/` 下。
-- 每个公开类/函数必须正确标记 `ZZ_FLUENT_EXPORT`。
+- 所有公开头文件位于 `include/ZzPureTools/` 下。
+- 每个公开类/函数必须正确标记 `ZZ_PURE_TOOLS_EXPORT`。
 - 私有头文件位于 `src/` 下，不导出。
 - 头文件必须包含 `#pragma once` 或标准 include guard。
 
@@ -94,7 +94,7 @@ class ZzHttpClient { /* ... */ };
  *
  * 支持标准（Standard）与强调（Accent）两种视觉风格，并内置 hover / press 动画过渡。
  */
-class ZZ_FLUENT_EXPORT ZzPushButton : public QPushButton
+class ZZ_PURE_TOOLS_EXPORT ZzPushButton : public QPushButton
 {
     Q_OBJECT
     // ...
@@ -142,19 +142,19 @@ fill = ZzPaintPrimitives::blend(fill, colors.controlFillPressed, context.pressPr
 
 | 层级 | 职责 | 位置 |
 |------|------|------|
-| **Core** | 应用初始化、主题管理、设计令牌、调色板 | `include/ZzFluent/Core`、`src/Core` |
-| **Style** | 动画驱动、绘制委托、底层绘制原语 | `include/ZzFluent/Style`、`src/Style` |
-| **Widgets** | 具体控件实现 | `include/ZzFluent/Widgets`、`src/Widgets` |
+| **Core** | 应用初始化、主题管理、设计令牌、调色板 | `include/ZzPureTools/Core`、`src/Core` |
+| **Style** | 动画驱动、绘制委托、底层绘制原语 | `include/ZzPureTools/Style`、`src/Style` |
+| **Widgets** | 具体控件实现 | `include/ZzPureTools/Widgets`、`src/Widgets` |
 
 ### 4.2 新增控件流程
 
 新增一个 Fluent UI 控件时，按以下流程：
 
-1. 在 `include/ZzFluent/Widgets/` 创建 `ZzXxx.hpp`。
+1. 在 `include/ZzPureTools/Widgets/` 创建 `ZzXxx.hpp`。
 2. 在 `src/Widgets/` 创建 `ZzXxx.cpp`。
 3. 在 `src/Style/` 创建 `ZzXxxDelegate.hpp` / `ZzXxxDelegate.cpp`（若绘制较复杂）。
-4. 在 `include/ZzFluent/Style/ZzStyleDelegate.hpp` 的 `ZzStyleContext` 中补充所需状态字段（如有必要）。
-5. 在 `include/ZzFluent/ZzFluent.hpp` 中导出该控件头文件。
+4. 在 `include/ZzPureTools/Style/ZzStyleDelegate.hpp` 的 `ZzStyleContext` 中补充所需状态字段（如有必要）。
+5. 在 `include/ZzPureTools/ZzPureTools.hpp` 中导出该控件头文件。
 6. 在 `example/` 的演示界面中添加该控件示例。
 7. 在 `README.md` 的组件列表中更新状态。
 
@@ -185,7 +185,7 @@ cmake --install build --prefix ./install
 
 - 运行 `.clang-format` 格式化代码。
 - 确保新增文件被加入 `CMakeLists.txt` 的对应列表。
-- 确保公开头文件被加入 `include/ZzFluent/ZzFluent.hpp`。
+- 确保公开头文件被加入 `include/ZzPureTools/ZzPureTools.hpp`。
 - 确保无编译警告（`-Wall -Wextra` 级别）。
 
 ### 5.3 CI

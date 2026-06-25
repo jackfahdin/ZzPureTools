@@ -1,4 +1,4 @@
-#include "ZzFluent/Style/ZzAnimator.hpp"
+#include "ZzPureTools/Style/ZzAnimator.hpp"
 
 #include <QVariantAnimation>
 

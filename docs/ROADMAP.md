@@ -1,6 +1,6 @@
-# ZzFluent 发展路线图
+# ZzPureTools 发展路线图
 
-本文档定义 ZzFluent 的阶段性开发目标与实施计划。所有开发工作应围绕本路线图展开，并在每个阶段结束时同步更新 README 与文档。
+本文档定义 ZzPureTools 的阶段性开发目标与实施计划。所有开发工作应围绕本路线图展开，并在每个阶段结束时同步更新 README 与文档。
 
 ---
 
@@ -134,14 +134,14 @@
 
 - [ ] 调研并集成 [QWindowKit](https://github.com/stdware/qwindowkit) 作为窗口层基础。
 - [ ] 实现 `ZzPureTitleBar`：自定义标题栏，包含窗口图标、标题、最小化/最大化/关闭按钮。
-- [ ] 实现 `ZzFluentWindow`：无边框 Fluent 风格主窗口。
+- [ ] 实现 `ZzPureToolsWindow`：无边框 Fluent 风格主窗口。
 - [ ] 支持 Windows 11 Snap Layout。
 - [ ] 支持 macOS 原生系统按钮几何自定义。
 - [ ] 支持 Linux 下基本的窗口边框处理。
 
 ### 验收标准
 
-- `ZzFluentWindow` 在 Windows / macOS / Linux 上均可正常显示。
+- `ZzPureToolsWindow` 在 Windows / macOS / Linux 上均可正常显示。
 - 窗口拖动、缩放、最大化、最小化、关闭行为与原生窗口一致。
 - 标题栏控件可自定义（添加菜单、搜索框、用户头像等）。
 

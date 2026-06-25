@@ -1,12 +1,12 @@
-#ifndef ZZFLUENT_CORE_ZZTHEME_HPP
-#define ZZFLUENT_CORE_ZZTHEME_HPP
+#ifndef ZZPURETOOLS_CORE_ZZTHEME_HPP
+#define ZZPURETOOLS_CORE_ZZTHEME_HPP
 
 #include <QObject>
 
-#include "ZzFluent/Core/ZzFluentGlobal.hpp"
-#include "ZzFluent/Core/ZzToken.hpp"
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+#include "ZzPureTools/Core/ZzToken.hpp"
 
-class ZZ_FLUENT_EXPORT ZzTheme : public QObject
+class ZZ_PURE_TOOLS_EXPORT ZzTheme : public QObject
 {
     Q_OBJECT
 
@@ -45,4 +45,4 @@ private:
     bool m_hasCustomAccent = false;
 };
 
-#endif // ZZFLUENT_CORE_ZZTHEME_HPP
+#endif // ZZPURETOOLS_CORE_ZZTHEME_HPP

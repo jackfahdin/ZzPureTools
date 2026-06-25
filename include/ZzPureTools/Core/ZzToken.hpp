@@ -1,5 +1,5 @@
-#ifndef ZZFLUENT_CORE_ZZTOKEN_HPP
-#define ZZFLUENT_CORE_ZZTOKEN_HPP
+#ifndef ZZPURETOOLS_CORE_ZZTOKEN_HPP
+#define ZZPURETOOLS_CORE_ZZTOKEN_HPP
 
 #include <QColor>
 
@@ -95,4 +95,4 @@ struct ZzMetricTokens {
     return ZzMetricTokens{};
 }
 
-#endif // ZZFLUENT_CORE_ZZTOKEN_HPP
+#endif // ZZPURETOOLS_CORE_ZZTOKEN_HPP

@@ -3,7 +3,7 @@
 
 #include <QStyledItemDelegate>
 
-#include "ZzFluent/Style/ZzStyleDelegate.hpp"
+#include "ZzPureTools/Style/ZzStyleDelegate.hpp"
 
 class ZzComboBoxDelegate : public ZzStyleDelegate
 {

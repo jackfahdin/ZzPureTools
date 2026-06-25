@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.21)
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/packaging/ci/project.json" ZZ_PROJECT_JSON)
 string(JSON ZZ_PROJECT_VERSION GET ${ZZ_PROJECT_JSON} "version")
 
-project(ZzFluent
+project(ZzPureTools
     VERSION ${ZZ_PROJECT_VERSION}
     DESCRIPTION "Cross-platform Fluent UI widget library for Qt 6"
     LANGUAGES CXX
@@ -18,7 +18,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-option(ZZ_BUILD_SHARED_LIBS "Build ZzFluent as a shared library" ON)
+option(ZZ_BUILD_SHARED_LIBS "Build ZzPureTools as a shared library" ON)
 option(ZZ_BUILD_EXAMPLE "Build example application" ON)
 option(ZZ_INSTALL "Generate install rules" ON)
 
@@ -33,26 +33,26 @@ if(NOT WIN32)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
-set(ZZ_FLUENT_PUBLIC_HEADERS
-    include/ZzFluent/ZzFluent.hpp
-    include/ZzFluent/Core/ZzApplication.hpp
-    include/ZzFluent/Core/ZzFluentGlobal.hpp
-    include/ZzFluent/Core/ZzPalette.hpp
-    include/ZzFluent/Core/ZzTheme.hpp
-    include/ZzFluent/Core/ZzToken.hpp
-    include/ZzFluent/Style/ZzAnimator.hpp
-    include/ZzFluent/Style/ZzStyleDelegate.hpp
-    include/ZzFluent/Widgets/ZzComboBox.hpp
-    include/ZzFluent/Widgets/ZzPushButton.hpp
+set(ZZ_PURE_TOOLS_PUBLIC_HEADERS
+    include/ZzPureTools/ZzPureTools.hpp
+    include/ZzPureTools/Core/ZzApplication.hpp
+    include/ZzPureTools/Core/ZzPureToolsGlobal.hpp
+    include/ZzPureTools/Core/ZzPalette.hpp
+    include/ZzPureTools/Core/ZzTheme.hpp
+    include/ZzPureTools/Core/ZzToken.hpp
+    include/ZzPureTools/Style/ZzAnimator.hpp
+    include/ZzPureTools/Style/ZzStyleDelegate.hpp
+    include/ZzPureTools/Widgets/ZzComboBox.hpp
+    include/ZzPureTools/Widgets/ZzPushButton.hpp
 )
 
-set(ZZ_FLUENT_PRIVATE_HEADERS
+set(ZZ_PURE_TOOLS_PRIVATE_HEADERS
     src/Style/ZzPaintPrimitives.hpp
     src/Style/ZzPushButtonDelegate.hpp
     src/Style/ZzComboBoxDelegate.hpp
 )
 
-set(ZZ_FLUENT_SOURCES
+set(ZZ_PURE_TOOLS_SOURCES
     src/Core/ZzApplication.cpp
     src/Core/ZzPalette.cpp
     src/Core/ZzTheme.cpp
@@ -66,23 +66,23 @@ set(ZZ_FLUENT_SOURCES
 )
 
 if(ZZ_BUILD_SHARED_LIBS)
-    add_library(ZzFluent SHARED
-        ${ZZ_FLUENT_PUBLIC_HEADERS}
-        ${ZZ_FLUENT_PRIVATE_HEADERS}
-        ${ZZ_FLUENT_SOURCES}
+    add_library(ZzPureTools SHARED
+        ${ZZ_PURE_TOOLS_PUBLIC_HEADERS}
+        ${ZZ_PURE_TOOLS_PRIVATE_HEADERS}
+        ${ZZ_PURE_TOOLS_SOURCES}
     )
-    target_compile_definitions(ZzFluent PRIVATE ZZ_FLUENT_LIBRARY)
+    target_compile_definitions(ZzPureTools PRIVATE ZZ_PURE_TOOLS_LIBRARY)
 else()
-    add_library(ZzFluent STATIC
-        ${ZZ_FLUENT_PUBLIC_HEADERS}
-        ${ZZ_FLUENT_PRIVATE_HEADERS}
-        ${ZZ_FLUENT_SOURCES}
+    add_library(ZzPureTools STATIC
+        ${ZZ_PURE_TOOLS_PUBLIC_HEADERS}
+        ${ZZ_PURE_TOOLS_PRIVATE_HEADERS}
+        ${ZZ_PURE_TOOLS_SOURCES}
     )
 endif()
 
-add_library(Zz::Fluent ALIAS ZzFluent)
+add_library(Zz::PureTools ALIAS ZzPureTools)
 
-target_include_directories(ZzFluent
+target_include_directories(ZzPureTools
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -91,15 +91,15 @@ target_include_directories(ZzFluent
         ${CMAKE_SOURCE_DIR}/src/Style
 )
 
-target_link_libraries(ZzFluent
+target_link_libraries(ZzPureTools
     PUBLIC
         Qt6::Widgets
 )
 
-target_compile_features(ZzFluent PUBLIC cxx_std_20)
+target_compile_features(ZzPureTools PUBLIC cxx_std_20)
 
 if(MSVC)
-    target_compile_options(ZzFluent PRIVATE /utf-8)
+    target_compile_options(ZzPureTools PRIVATE /utf-8)
 endif()
 
 if(ZZ_BUILD_EXAMPLE)
@@ -109,44 +109,44 @@ endif()
 if(ZZ_INSTALL)
     include(CMakePackageConfigHelpers)
 
-    set(ZZ_CMAKE_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/ZzFluent")
+    set(ZZ_CMAKE_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/ZzPureTools")
 
     install(
-        TARGETS ZzFluent
-        EXPORT ZzFluentTargets
+        TARGETS ZzPureTools
+        EXPORT ZzPureToolsTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     install(
-        DIRECTORY include/ZzFluent
+        DIRECTORY include/ZzPureTools
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 
     install(
-        EXPORT ZzFluentTargets
-        FILE ZzFluentTargets.cmake
+        EXPORT ZzPureToolsTargets
+        FILE ZzPureToolsTargets.cmake
         NAMESPACE Zz::
         DESTINATION ${ZZ_CMAKE_CONFIG_INSTALL_DIR}
     )
 
     configure_package_config_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ZzFluentConfig.cmake.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/ZzFluentConfig.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ZzPureToolsConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/ZzPureToolsConfig.cmake"
         INSTALL_DESTINATION "${ZZ_CMAKE_CONFIG_INSTALL_DIR}"
     )
 
     write_basic_package_version_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/ZzFluentConfigVersion.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/ZzPureToolsConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY SameMajorVersion
     )
 
     install(
         FILES
-            "${CMAKE_CURRENT_BINARY_DIR}/ZzFluentConfig.cmake"
-            "${CMAKE_CURRENT_BINARY_DIR}/ZzFluentConfigVersion.cmake"
+            "${CMAKE_CURRENT_BINARY_DIR}/ZzPureToolsConfig.cmake"
+            "${CMAKE_CURRENT_BINARY_DIR}/ZzPureToolsConfigVersion.cmake"
         DESTINATION "${ZZ_CMAKE_CONFIG_INSTALL_DIR}"
     )
 endif()

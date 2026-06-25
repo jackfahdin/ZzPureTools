@@ -1,6 +1,6 @@
-# ZzFluent
+# ZzPureTools
 
-**ZzFluent** 是一个基于 Qt 6 Widgets 的跨平台 Fluent UI 风格控件库，使用现代 C++20 编写，致力于为 Qt 桌面应用提供一致、流畅、可扩展的现代化用户界面。
+**ZzPureTools** 是一个基于 Qt 6 Widgets 的跨平台 Fluent UI 风格控件库，使用现代 C++20 编写，致力于为 Qt 桌面应用提供一致、流畅、可扩展的现代化用户界面。
 
 ---
 
@@ -30,7 +30,7 @@
 | `ZzSlider` | 🚧 计划中 | 滑动条 |
 | `ZzProgressBar` | 🚧 计划中 | 进度条 |
 | `ZzPureTitleBar` | 🚧 计划中 | 自定义标题栏 |
-| `ZzFluentWindow` | 🚧 计划中 | 无边框 Fluent 窗口 |
+| `ZzPureToolsWindow` | 🚧 计划中 | 无边框 Fluent 窗口 |
 
 ---
 
@@ -46,8 +46,8 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/ZzPureTools/ZzFluent.git
-cd ZzFluent
+git clone https://github.com/ZzPureTools/ZzPureTools.git
+cd ZzPureTools
 
 # 2. 配置（Release，构建示例）
 cmake -B build -S . \
@@ -59,29 +59,29 @@ cmake -B build -S . \
 cmake --build build --parallel
 
 # 4. 运行示例
-./build/example/ZzFluentExample
+./build/example/ZzPureToolsExample
 ```
 
 ### 在项目中使用
 
 ```cmake
 find_package(Qt6 6.8.0 REQUIRED COMPONENTS Widgets)
-find_package(ZzFluent REQUIRED)
+find_package(ZzPureTools REQUIRED)
 
 add_executable(MyApp main.cpp)
-target_link_libraries(MyApp PRIVATE Zz::Fluent Qt6::Widgets)
+target_link_libraries(MyApp PRIVATE Zz::PureTools Qt6::Widgets)
 ```
 
 ```cpp
 #include <QApplication>
-#include <ZzFluent/ZzFluent.hpp>
+#include <ZzPureTools/ZzPureTools.hpp>
 
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
     ZzApplication::instance().initialize(app);
 
-    ZzPushButton button(QStringLiteral("Hello ZzFluent"));
+    ZzPushButton button(QStringLiteral("Hello ZzPureTools"));
     button.setButtonStyle(ZzPushButton::ZzButtonStyle::Accent);
     button.resize(200, 40);
     button.show();
@@ -95,8 +95,8 @@ int main(int argc, char* argv[])
 ## 🏗️ 架构概览
 
 ```
-ZzFluent/
-├── include/ZzFluent/      # 公开 API
+ZzPureTools/
+├── include/ZzPureTools/      # 公开 API
 │   ├── Core/               # 应用、主题、设计令牌、调色板
 │   ├── Style/              # 动画、绘制委托、绘制原语
 │   └── Widgets/            # 控件

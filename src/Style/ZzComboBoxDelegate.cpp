@@ -4,8 +4,8 @@
 #include <QPainterPath>
 #include <QStyle>
 
-#include "ZzFluent/Core/ZzApplication.hpp"
-#include "ZzFluent/Core/ZzTheme.hpp"
+#include "ZzPureTools/Core/ZzApplication.hpp"
+#include "ZzPureTools/Core/ZzTheme.hpp"
 #include "ZzPaintPrimitives.hpp"
 
 void ZzComboBoxDelegate::paint(QPainter& painter, const QRectF& rect, const ZzStyleContext& context) const

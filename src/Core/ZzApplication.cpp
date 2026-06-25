@@ -1,8 +1,8 @@
-#include "ZzFluent/Core/ZzApplication.hpp"
+#include "ZzPureTools/Core/ZzApplication.hpp"
 
 #include <QApplication>
 
-#include "ZzFluent/Core/ZzTheme.hpp"
+#include "ZzPureTools/Core/ZzTheme.hpp"
 
 ZzApplication& ZzApplication::instance()
 {

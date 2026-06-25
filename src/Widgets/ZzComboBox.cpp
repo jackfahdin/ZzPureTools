@@ -1,13 +1,13 @@
-#include "ZzFluent/Widgets/ZzComboBox.hpp"
+#include "ZzPureTools/Widgets/ZzComboBox.hpp"
 
 #include <QAbstractItemView>
 #include <QListView>
 #include <QPainter>
 #include <QPaintEvent>
 
-#include "ZzFluent/Core/ZzApplication.hpp"
-#include "ZzFluent/Core/ZzTheme.hpp"
-#include "ZzFluent/Style/ZzAnimator.hpp"
+#include "ZzPureTools/Core/ZzApplication.hpp"
+#include "ZzPureTools/Core/ZzTheme.hpp"
+#include "ZzPureTools/Style/ZzAnimator.hpp"
 #include "ZzComboBoxDelegate.hpp"
 
 ZzComboBox::ZzComboBox(QWidget* parent)

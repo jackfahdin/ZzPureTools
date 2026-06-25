@@ -4,7 +4,7 @@
 #include <QColor>
 #include <QRectF>
 
-#include "ZzFluent/Core/ZzToken.hpp"
+#include "ZzPureTools/Core/ZzToken.hpp"
 
 class QPainter;
 class QPainterPath;

@@ -1,15 +1,15 @@
-#ifndef ZZFLUENT_WIDGETS_ZZPUSHBUTTON_HPP
-#define ZZFLUENT_WIDGETS_ZZPUSHBUTTON_HPP
+#ifndef ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP
+#define ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP
 
 #include <QPushButton>
 
-#include "ZzFluent/Core/ZzFluentGlobal.hpp"
-#include "ZzFluent/Style/ZzStyleDelegate.hpp"
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+#include "ZzPureTools/Style/ZzStyleDelegate.hpp"
 
 class ZzAnimator;
 class ZzPushButtonDelegate;
 
-class ZZ_FLUENT_EXPORT ZzPushButton : public QPushButton
+class ZZ_PURE_TOOLS_EXPORT ZzPushButton : public QPushButton
 {
     Q_OBJECT
 
@@ -45,4 +45,4 @@ private:
     ZzPushButtonDelegate* m_delegate = nullptr;
 };
 
-#endif // ZZFLUENT_WIDGETS_ZZPUSHBUTTON_HPP
+#endif // ZZPURETOOLS_WIDGETS_ZZPUSHBUTTON_HPP

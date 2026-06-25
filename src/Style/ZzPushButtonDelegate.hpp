@@ -1,8 +1,8 @@
 #ifndef ZZPUSHBUTTONDELEGATE_HPP
 #define ZZPUSHBUTTONDELEGATE_HPP
 
-#include "ZzFluent/Style/ZzStyleDelegate.hpp"
-#include "ZzFluent/Widgets/ZzPushButton.hpp"
+#include "ZzPureTools/Style/ZzStyleDelegate.hpp"
+#include "ZzPureTools/Widgets/ZzPushButton.hpp"
 
 class ZzPushButtonDelegate : public ZzStyleDelegate
 {

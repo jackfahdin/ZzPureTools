@@ -1,14 +1,14 @@
-#ifndef ZZFLUENT_STYLE_ZZANIMATOR_HPP
-#define ZZFLUENT_STYLE_ZZANIMATOR_HPP
+#ifndef ZZPURETOOLS_STYLE_ZZANIMATOR_HPP
+#define ZZPURETOOLS_STYLE_ZZANIMATOR_HPP
 
 #include <QObject>
 
-#include "ZzFluent/Core/ZzFluentGlobal.hpp"
-#include "ZzFluent/Core/ZzToken.hpp"
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+#include "ZzPureTools/Core/ZzToken.hpp"
 
 class QVariantAnimation;
 
-class ZZ_FLUENT_EXPORT ZzAnimator : public QObject
+class ZZ_PURE_TOOLS_EXPORT ZzAnimator : public QObject
 {
     Q_OBJECT
 
@@ -37,4 +37,4 @@ private:
     qreal m_pressProgress = 0.0;
 };
 
-#endif // ZZFLUENT_STYLE_ZZANIMATOR_HPP
+#endif // ZZPURETOOLS_STYLE_ZZANIMATOR_HPP

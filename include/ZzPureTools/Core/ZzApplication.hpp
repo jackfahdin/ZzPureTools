@@ -1,14 +1,14 @@
-#ifndef ZZFLUENT_CORE_ZZAPPLICATION_HPP
-#define ZZFLUENT_CORE_ZZAPPLICATION_HPP
+#ifndef ZZPURETOOLS_CORE_ZZAPPLICATION_HPP
+#define ZZPURETOOLS_CORE_ZZAPPLICATION_HPP
 
 #include <QPointer>
 
-#include "ZzFluent/Core/ZzFluentGlobal.hpp"
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
 
 class QApplication;
 class ZzTheme;
 
-class ZZ_FLUENT_EXPORT ZzApplication
+class ZZ_PURE_TOOLS_EXPORT ZzApplication
 {
 public:
     [[nodiscard]] static ZzApplication& instance();
@@ -24,4 +24,4 @@ private:
     ZzTheme* m_theme = nullptr;
 };
 
-#endif // ZZFLUENT_CORE_ZZAPPLICATION_HPP
+#endif // ZZPURETOOLS_CORE_ZZAPPLICATION_HPP

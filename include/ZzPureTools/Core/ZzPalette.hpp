@@ -1,14 +1,14 @@
-#ifndef ZZFLUENT_CORE_ZZPALETTE_HPP
-#define ZZFLUENT_CORE_ZZPALETTE_HPP
+#ifndef ZZPURETOOLS_CORE_ZZPALETTE_HPP
+#define ZZPURETOOLS_CORE_ZZPALETTE_HPP
 
 #include <QPalette>
 
-#include "ZzFluent/Core/ZzFluentGlobal.hpp"
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
 
 class QWidget;
 class ZzTheme;
 
-class ZZ_FLUENT_EXPORT ZzPalette
+class ZZ_PURE_TOOLS_EXPORT ZzPalette
 {
 public:
     [[nodiscard]] static QPalette createWidgetPalette(const ZzTheme& theme);
@@ -16,4 +16,4 @@ public:
     static void syncWithSystem(QWidget* widget, const ZzTheme& theme);
 };
 
-#endif // ZZFLUENT_CORE_ZZPALETTE_HPP
+#endif // ZZPURETOOLS_CORE_ZZPALETTE_HPP

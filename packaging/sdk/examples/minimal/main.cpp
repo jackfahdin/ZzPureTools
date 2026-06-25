@@ -1,13 +1,13 @@
 #include <QApplication>
 
-#include <ZzFluent/ZzFluent.hpp>
+#include <ZzPureTools/ZzPureTools.hpp>
 
 int main(int argc, char* argv[])
 {
     QApplication application(argc, argv);
     ZzApplication::instance().initialize(application);
 
-    ZzPushButton button(QStringLiteral("Hello ZzFluent"));
+    ZzPushButton button(QStringLiteral("Hello ZzPureTools"));
     button.setButtonStyle(ZzPushButton::ZzButtonStyle::Accent);
     button.resize(200, 40);
     button.show();

@@ -1,16 +1,16 @@
-#ifndef ZZFLUENT_WIDGETS_ZZCOMBOBOX_HPP
-#define ZZFLUENT_WIDGETS_ZZCOMBOBOX_HPP
+#ifndef ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP
+#define ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP
 
 #include <QComboBox>
 
-#include "ZzFluent/Core/ZzFluentGlobal.hpp"
-#include "ZzFluent/Style/ZzStyleDelegate.hpp"
+#include "ZzPureTools/Core/ZzPureToolsGlobal.hpp"
+#include "ZzPureTools/Style/ZzStyleDelegate.hpp"
 
 class ZzAnimator;
 class ZzComboBoxDelegate;
 class ZzComboBoxItemDelegate;
 
-class ZZ_FLUENT_EXPORT ZzComboBox : public QComboBox
+class ZZ_PURE_TOOLS_EXPORT ZzComboBox : public QComboBox
 {
     Q_OBJECT
 
@@ -39,4 +39,4 @@ private:
     ZzComboBoxItemDelegate* m_itemDelegate = nullptr;
 };
 
-#endif // ZZFLUENT_WIDGETS_ZZCOMBOBOX_HPP
+#endif // ZZPURETOOLS_WIDGETS_ZZCOMBOBOX_HPP

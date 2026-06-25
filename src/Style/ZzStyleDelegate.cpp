@@ -1,6 +1,6 @@
-#include "ZzFluent/Style/ZzStyleDelegate.hpp"
+#include "ZzPureTools/Style/ZzStyleDelegate.hpp"
 
-#include "ZzFluent/Core/ZzTheme.hpp"
+#include "ZzPureTools/Core/ZzTheme.hpp"
 
 QSize ZzStyleDelegate::sizeHint(const ZzStyleContext& context, const QSize& available) const
 {

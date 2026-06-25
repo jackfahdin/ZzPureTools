@@ -1,5 +1,5 @@
 name: CMake 配置与编译
-description: 按平台/工具链配置并编译 ZzFluent
+description: 按平台/工具链配置并编译 ZzPureTools
 
 inputs:
   platform:

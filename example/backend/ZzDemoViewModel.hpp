@@ -4,7 +4,7 @@
 #include <QObject>
 #include <QStringList>
 
-#include <ZzFluent/Core/ZzToken.hpp>
+#include <ZzPureTools/Core/ZzToken.hpp>
 
 class ZzDemoViewModel : public QObject
 {
