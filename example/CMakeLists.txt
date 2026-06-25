@@ -10,7 +10,12 @@ set(ZZ_EXAMPLE_SOURCES
     backend/ZzDemoViewModel.cpp
 )
 
-add_executable(ZzFluentExample ${ZZ_EXAMPLE_SOURCES})
+# WIN32：Windows 下使用 GUI 子系统，避免启动时弹出 cmd 黑窗口
+if(WIN32)
+    add_executable(ZzFluentExample WIN32 ${ZZ_EXAMPLE_SOURCES})
+else()
+    add_executable(ZzFluentExample ${ZZ_EXAMPLE_SOURCES})
+endif()
 
 target_link_libraries(ZzFluentExample
     PRIVATE
