@@ -1,0 +1,125 @@
+# =============================================================================
+# ZzFluent - Windows 手动编译工作流
+# =============================================================================
+# 用途：在 GitHub Actions 上使用 MSVC 编译 ZzFluent 库与示例程序
+# 触发：仅支持在 GitHub 网页 Actions 页手动运行（workflow_dispatch）
+# 修改：如需更换 Qt 版本、构建类型或编译选项，请编辑下方 inputs 与 env 区域
+# =============================================================================
+
+name: Windows 编译
+
+on:
+  # 仅手动触发，不会在 push / PR 时自动运行
+  workflow_dispatch:
+    inputs:
+      # Qt 版本：需与 CMakeLists.txt 中 find_package(Qt6 6.10 ...) 保持一致或更高
+      qt_version:
+        description: Qt 版本号（例如 6.10.0）
+        required: true
+        default: "6.10.0"
+        type: string
+      # 构建类型：Release 用于发布，Debug 用于调试
+      build_type:
+        description: CMake 构建类型
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Debug
+      # 是否编译示例程序
+      build_example:
+        description: 是否编译 ZzFluentExample
+        required: true
+        default: true
+        type: boolean
+      # 是否构建动态库（OFF 时为静态库）
+      build_shared:
+        description: 是否构建动态库 ZzFluent.dll
+        required: true
+        default: true
+        type: boolean
+
+# 全局环境变量：可按需调整编译器工具链
+env:
+  # Qt 安装架构：MSVC 2022 64 位
+  QT_ARCH: win64_msvc2022_64
+  # CMake 生成器：Ninja 编译速度较快
+  CMAKE_GENERATOR: Ninja
+
+jobs:
+  build-windows:
+    name: Windows MSVC 编译
+    runs-on: windows-latest
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. 检出代码
+      # -----------------------------------------------------------------------
+      - name: 检出仓库代码
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. 准备 MSVC 编译环境（cl.exe / link.exe）
+      # -----------------------------------------------------------------------
+      - name: 初始化 MSVC 开发环境
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # -----------------------------------------------------------------------
+      # 3. 安装 Qt（通过 aqt 镜像，仅安装 Widgets 所需模块）
+      #    若安装失败，请检查 qt_version 是否在 aqt 支持列表中
+      # -----------------------------------------------------------------------
+      - name: 安装 Qt ${{ inputs.qt_version }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ inputs.qt_version }}
+          arch: ${{ env.QT_ARCH }}
+          # qtbase 包含 Qt6 Widgets；本项目不需要 qtmultimedia 等额外模块
+          modules: qtbase
+          cache: true
+
+      # -----------------------------------------------------------------------
+      # 4. CMake 配置
+      # -----------------------------------------------------------------------
+      - name: CMake 配置
+        shell: pwsh
+        run: |
+          # QT_ROOT_DIR 由 install-qt-action 自动注入
+          Write-Host "Qt 路径: $env:QT_ROOT_DIR"
+          cmake -B build `
+            -G "${{ env.CMAKE_GENERATOR }}" `
+            -DCMAKE_BUILD_TYPE="${{ inputs.build_type }}" `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            -DZZ_BUILD_SHARED_LIBS="${{ inputs.build_shared && 'ON' || 'OFF' }}" `
+            -DZZ_BUILD_EXAMPLE="${{ inputs.build_example && 'ON' || 'OFF' }}" `
+            -DZZ_INSTALL=OFF
+
+      # -----------------------------------------------------------------------
+      # 5. 编译
+      # -----------------------------------------------------------------------
+      - name: CMake 编译
+        shell: pwsh
+        run: cmake --build build --parallel
+
+      # -----------------------------------------------------------------------
+      # 6. 上传编译产物（可在 Actions 运行页下载）
+      # -----------------------------------------------------------------------
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZzFluent-windows-${{ inputs.build_type }}-Qt${{ inputs.qt_version }}
+          path: |
+            build/**/*.dll
+            build/**/*.lib
+            build/**/*.exe
+          if-no-files-found: warn
+          retention-days: 14
+
+      # -----------------------------------------------------------------------
+      # 7. 打印关键产物路径，便于排查
+      # -----------------------------------------------------------------------
+      - name: 列出编译输出
+        shell: pwsh
+        run: |
+          Write-Host "==== 编译输出目录 ===="
+          Get-ChildItem -Path build -Recurse -Include *.exe,*.dll,*.lib -ErrorAction SilentlyContinue
