@@ -15,6 +15,14 @@
 
 ---
 
+## 👀 效果预览
+
+| Light 主题 | Dark 主题 |
+|------------|-----------|
+| ![Light](docs/images/example-light.png) | ![Dark](docs/images/example-dark.png) |
+
+---
+
 ## 📦 已支持控件
 
 > 项目处于早期开发阶段，控件正在持续增加中。
@@ -54,6 +62,10 @@ cd ZzPureTools
 
 # 3. 运行示例
 ./build/example/ZzPureToolsExample.exe
+
+# 指定初始主题（light / dark / system）
+./build/example/ZzPureToolsExample.exe --theme light
+./build/example/ZzPureToolsExample.exe --theme dark
 ```
 
 或手动使用 CMake：
