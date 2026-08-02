@@ -1,0 +1,7 @@
+Component: spdlog
+Version: 2.0.0 (unreleased v2.x branch)
+Revision: d24088deaa441a79267df8ae3dbc567fbe2a5e03
+License: MIT
+Upstream: https://github.com/gabime/spdlog.git
+Source: https://github.com/gabime/spdlog/tree/d24088deaa441a79267df8ae3dbc567fbe2a5e03
+
