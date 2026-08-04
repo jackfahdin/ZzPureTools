@@ -2,6 +2,10 @@ set(zz_core_sources
     src/private/ZzCoreVersion.cpp
     src/ZzError.cpp
     src/private/ZzErrorPrivate.cpp
+    src/ZzApplicationPaths.cpp
+    src/private/ZzApplicationPathsPrivate.cpp
+    src/ZzQtSettingsStore.cpp
+    src/private/ZzQtSettingsStorePrivate.cpp
 )
 
 add_library(ZzCore ${zz_core_sources})
