@@ -101,7 +101,7 @@ foreach(zz_source IN LISTS zz_first_party_files)
             "chained namespace declaration is forbidden: ${zz_source}")
     endif()
     if(zz_source_content MATCHES
-       "#[ \\t]*include[ \\t]*[<\"][^>\"]*(Qt[^>\"]*/private|Qt[^>\"]*Private)")
+       "#[ \\t]*include[ \\t]*[<\"](Qt[^>\"]*/private/|private/q[^>\"]*_p\\.h|q[^>\"]*_p\\.h)")
         message(FATAL_ERROR "Qt Private include is forbidden: ${zz_source}")
     endif()
     if(zz_source_content MATCHES
