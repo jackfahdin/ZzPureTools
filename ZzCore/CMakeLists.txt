@@ -21,6 +21,34 @@ target_link_libraries(ZzCore PUBLIC
 )
 target_link_libraries(ZzCore PRIVATE ZzLog::ZzLog)
 
+get_target_property(zz_core_direct_links ZzCore LINK_LIBRARIES)
+get_target_property(zz_core_interface_links ZzCore INTERFACE_LINK_LIBRARIES)
+set(zz_core_direct_log_count 0)
+foreach(zz_core_link IN LISTS zz_core_direct_links)
+    if(zz_core_link MATCHES "^Qt6::(Gui|Widgets|Quick)$")
+        message(FATAL_ERROR
+            "ZzCore must not link UI target: ${zz_core_link}")
+    endif()
+    if(zz_core_link STREQUAL "ZzLog::ZzLog")
+        math(EXPR zz_core_direct_log_count
+            "${zz_core_direct_log_count} + 1")
+    endif()
+endforeach()
+if(NOT zz_core_direct_log_count EQUAL 1)
+    message(FATAL_ERROR
+        "ZzCore must directly link ZzLog::ZzLog exactly once; found ${zz_core_direct_log_count}")
+endif()
+foreach(zz_core_link IN LISTS zz_core_interface_links)
+    if(zz_core_link MATCHES "^Qt6::(Gui|Widgets|Quick)$")
+        message(FATAL_ERROR
+            "ZzCore must not expose UI target: ${zz_core_link}")
+    endif()
+    if(zz_core_link STREQUAL "ZzLog::ZzLog")
+        message(FATAL_ERROR
+            "ZzCore must not expose a bare ZzLog::ZzLog dependency")
+    endif()
+endforeach()
+
 zz_configure_library_target(ZzCore
     EXPORT_NAME Core
     PUBLIC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include"

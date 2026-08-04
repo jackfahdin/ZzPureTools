@@ -123,3 +123,32 @@ add_test(
 set_tests_properties(architecture.boundaries PROPERTIES
     LABELS "architecture"
 )
+
+add_test(
+    NAME architecture.zzcore-dependencies
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SCAN_ROOT=${PROJECT_SOURCE_DIR}/ZzCore"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzCoreDependencies.cmake"
+)
+set_tests_properties(architecture.zzcore-dependencies PROPERTIES
+    LABELS "architecture;core"
+)
+
+add_test(
+    NAME architecture.zzcore-dependencies-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzCoreDependenciesContract.cmake"
+)
+set_tests_properties(architecture.zzcore-dependencies-contract PROPERTIES
+    LABELS "architecture;core"
+)
+
+add_executable(ZzCorePublicHeadersTest ZzCorePublicHeadersTest.cpp)
+target_link_libraries(ZzCorePublicHeadersTest PRIVATE Zz::Core)
+zz_configure_first_party_target(ZzCorePublicHeadersTest
+    SOURCES ZzCorePublicHeadersTest.cpp)
+add_test(NAME headers.zzcore-smoke COMMAND ZzCorePublicHeadersTest)
+set_tests_properties(headers.zzcore-smoke PROPERTIES
+    LABELS "headers;core"
+)

@@ -95,6 +95,11 @@ foreach(zz_source IN LISTS zz_first_party_files)
     file(READ "${zz_source}" zz_source_content)
     file(TO_CMAKE_PATH "${zz_source}" zz_source_normalized)
 
+    if(zz_source_normalized MATCHES
+       "/tests/Architecture/fixtures/")
+        continue()
+    endif()
+
     if(zz_source_content MATCHES
        "namespace[ \\t\\r\\n]+[A-Za-z_][A-Za-z0-9_]*[ \\t]*::")
         message(FATAL_ERROR
