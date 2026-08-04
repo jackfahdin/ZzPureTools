@@ -14,3 +14,14 @@ zz_enable_project_warnings(ZzApplicationRuntimeTest)
 zz_enable_sanitizers(ZzApplicationRuntimeTest)
 add_test(NAME appcore.runtime COMMAND ZzApplicationRuntimeTest)
 set_tests_properties(appcore.runtime PROPERTIES LABELS "unit;appcore")
+
+add_executable(ZzPageLifecycleTest ZzPageLifecycleTest.cpp)
+target_link_libraries(ZzPageLifecycleTest PRIVATE Qt6::Test Zz::PureTools)
+set_target_properties(ZzPageLifecycleTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPageLifecycleTest)
+zz_enable_sanitizers(ZzPageLifecycleTest)
+add_test(NAME puretools.page-lifecycle COMMAND ZzPageLifecycleTest)
+set_tests_properties(puretools.page-lifecycle PROPERTIES
+    LABELS "component;puretools"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

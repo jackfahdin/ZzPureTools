@@ -29,8 +29,14 @@ zz_configure_library_target(ZzAppCore
 
 set(zz_pure_tools_sources
     widgets/src/private/ZzPureToolsVersion.cpp
+    widgets/src/ZzPageInstance.cpp
+    widgets/src/private/ZzPageInstancePrivate.cpp
+    widgets/src/ZzPageHost.cpp
+    widgets/src/private/ZzPageHostPrivate.cpp
 )
-set(zz_pure_tools_moc_headers)
+set(zz_pure_tools_moc_headers
+    widgets/include/ZzPureTools/ZzPageHost.h
+)
 
 add_library(ZzPureTools ${zz_pure_tools_sources})
 add_library(Zz::PureTools ALIAS ZzPureTools)
