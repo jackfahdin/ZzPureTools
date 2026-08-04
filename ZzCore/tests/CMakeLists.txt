@@ -1,0 +1,7 @@
+add_executable(ZzResultTest ZzResultTest.cpp)
+target_link_libraries(ZzResultTest PRIVATE Qt6::Test Zz::Core)
+set_target_properties(ZzResultTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzResultTest)
+zz_enable_sanitizers(ZzResultTest)
+add_test(NAME core.result COMMAND ZzResultTest)
+set_tests_properties(core.result PROPERTIES LABELS "unit;core")

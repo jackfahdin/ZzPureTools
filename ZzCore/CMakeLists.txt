@@ -1,5 +1,7 @@
 set(zz_core_sources
     src/private/ZzCoreVersion.cpp
+    src/ZzError.cpp
+    src/private/ZzErrorPrivate.cpp
 )
 
 add_library(ZzCore ${zz_core_sources})
@@ -19,3 +21,7 @@ zz_configure_library_target(ZzCore
     EXPORT_MACRO_NAME ZZ_CORE_EXPORT
     SOURCES ${zz_core_sources}
 )
+
+if(ZZ_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
