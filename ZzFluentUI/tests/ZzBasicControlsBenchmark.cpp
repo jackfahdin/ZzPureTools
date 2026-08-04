@@ -149,9 +149,9 @@ qreal zzPercentileMilliseconds(
 }
 
 /** @brief 统计一组 QObject 根节点的全部后代数量。 */
-int zzDescendantCount(const std::array<QObject *, 4> &roots)
+qsizetype zzDescendantCount(const std::array<QObject *, 4> &roots)
 {
-    int total = 0;
+    qsizetype total = 0;
     for (QObject *root : roots) {
         total += root->findChildren<QObject *>().size();
     }
@@ -295,7 +295,7 @@ private Q_SLOTS:
             button,
             icon,
             message};
-        const int initialDescendants = zzDescendantCount(roots);
+        const qsizetype initialDescendants = zzDescendantCount(roots);
         const qsizetype initialAnimations =
             host.findChildren<QAbstractAnimation *>().size();
         const qsizetype initialTimers =

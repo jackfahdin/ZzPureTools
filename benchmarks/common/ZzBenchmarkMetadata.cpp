@@ -4,6 +4,7 @@
 #include <limits>
 #include <utility>
 
+#include <QtCore/QByteArray>
 #include <QtCore/QFile>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSysInfo>
@@ -19,7 +20,7 @@ namespace {
 
 ZzCore::ZzResult<QString> readProcValue(
     const QString &path,
-    QLatin1StringView key)
+    const QByteArray &key)
 {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -29,15 +30,17 @@ ZzCore::ZzResult<QString> readProcValue(
             path));
     }
 
-    while (!file.atEnd()) {
-        const QString line = QString::fromUtf8(file.readLine());
-        const qsizetype separator = line.indexOf(QLatin1Char(':'));
-        if (separator < 0
-            || QStringView(line).left(separator).trimmed() != key) {
+    while (true) {
+        const QByteArray line = file.readLine();
+        if (line.isEmpty()) {
+            break;
+        }
+        const qsizetype separator = line.indexOf(':');
+        if (separator < 0 || line.first(separator).trimmed() != key) {
             continue;
         }
-        const QString value = QStringView(line).mid(separator + 1)
-                                  .trimmed().toString();
+        const QString value = QString::fromUtf8(
+            line.sliced(separator + 1).trimmed());
         if (!value.isEmpty()) {
             return ZzCore::ZzResult<QString>::success(value);
         }
@@ -45,15 +48,16 @@ ZzCore::ZzResult<QString> readProcValue(
 
     return ZzCore::ZzResult<QString>::failure(ZzCore::ZzError(
         ZzCore::ZzErrorCode::Io,
-        QStringLiteral("missing Linux process metadata field"),
-        QStringLiteral("%1:%2").arg(path, key)));
+        QStringLiteral("missing Linux process metadata field: %1:%2")
+            .arg(path, QString::fromLatin1(key)),
+        QStringLiteral("%1:%2").arg(path, QString::fromLatin1(key))));
 }
 
 ZzCore::ZzResult<qint64> readMemoryBytes()
 {
     const auto memoryResult = readProcValue(
         QStringLiteral("/proc/meminfo"),
-        QLatin1StringView("MemTotal"));
+        QByteArrayLiteral("MemTotal"));
     if (!memoryResult) {
         return ZzCore::ZzResult<qint64>::failure(memoryResult.error());
     }
@@ -106,7 +110,7 @@ ZzCore::ZzResult<void> ZzBenchmarkMetadata::populate(
 
     const auto cpuResult = readProcValue(
         QStringLiteral("/proc/cpuinfo"),
-        QLatin1StringView("model name"));
+        QByteArrayLiteral("model name"));
     if (!cpuResult) {
         return ZzCore::ZzResult<void>::failure(cpuResult.error());
     }

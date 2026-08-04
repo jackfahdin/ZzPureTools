@@ -9,6 +9,11 @@ set(zz_window_kit_moc_headers
     include/ZzWindowKit/ZzWindowAgent.h
 )
 
+if(ZZ_BUILD_BENCHMARKS)
+    list(APPEND zz_window_kit_sources
+        src/private/ZzWindowKitDiagnostics.cpp)
+endif()
+
 set(QWINDOWKIT_BUILD_STATIC ON)
 set(QWINDOWKIT_BUILD_WIDGETS ON)
 set(QWINDOWKIT_BUILD_QUICK OFF)
@@ -81,6 +86,10 @@ endif()
 target_compile_definitions(ZzWindowKit PRIVATE
     "ZZ_WINDOWKIT_FORCE_QT_CONTEXT=$<BOOL:${ZZ_WINDOWKIT_FORCE_QT_CONTEXT}>"
 )
+if(ZZ_BUILD_BENCHMARKS)
+    target_compile_definitions(ZzWindowKit PRIVATE
+        ZZ_WINDOWKIT_DIAGNOSTICS=1)
+endif()
 
 zz_configure_library_target(ZzWindowKit
     EXPORT_NAME WindowKit

@@ -261,16 +261,18 @@ if(ZZ_BUILD_BENCHMARKS)
         )
     endif()
 
-    add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
-    target_link_libraries(ZzThemeSwitchBenchmark PRIVATE
+    add_executable(ZzFluentThemeSwitchBenchmark
+        ZzThemeSwitchBenchmark.cpp)
+    target_link_libraries(ZzFluentThemeSwitchBenchmark PRIVATE
         Qt6::Test
         Zz::FluentUI
     )
-    set_target_properties(ZzThemeSwitchBenchmark PROPERTIES AUTOMOC ON)
-    zz_enable_project_warnings(ZzThemeSwitchBenchmark)
+    set_target_properties(ZzFluentThemeSwitchBenchmark PROPERTIES
+        AUTOMOC ON)
+    zz_enable_project_warnings(ZzFluentThemeSwitchBenchmark)
     add_test(
         NAME benchmark.fluent-theme-switch
-        COMMAND ZzThemeSwitchBenchmark
+        COMMAND ZzFluentThemeSwitchBenchmark
     )
     set_tests_properties(benchmark.fluent-theme-switch PROPERTIES
         LABELS "benchmark;fluent"

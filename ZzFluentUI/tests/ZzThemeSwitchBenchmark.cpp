@@ -58,8 +58,10 @@ private Q_SLOTS:
         QCOMPARE(samples.size(), std::size_t{100});
         std::sort(samples.begin(), samples.end());
         const double p50 = samples[samples.size() / 2];
-        const double p95 = samples[
-            static_cast<std::size_t>(samples.size() * 0.95) - 1];
+        const std::size_t p95Rank =
+            ((samples.size() * std::size_t{95}) + std::size_t{99})
+            / std::size_t{100};
+        const double p95 = samples[p95Rank - 1];
         const double maximum = samples.back();
         qInfo(
             "theme-switch-ms warmup=10 samples=100 p50=%.3f p95=%.3f max=%.3f",

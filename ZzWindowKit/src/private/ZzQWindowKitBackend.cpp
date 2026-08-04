@@ -16,6 +16,10 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 
+#if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
+#include "ZzWindowKitDiagnostics.h"
+#endif
+
 namespace ZzWindowKit {
 
 namespace {
@@ -94,12 +98,25 @@ zzUnsupportedApplyState()
 
 } // namespace
 
-ZzQWindowKitBackend::ZzQWindowKitBackend() = default;
+ZzQWindowKitBackend::ZzQWindowKitBackend()
+{
+#if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
+    Internal::ZzWindowKitDiagnostics::backendConstructed();
+#endif
+}
 
 ZzQWindowKitBackend::~ZzQWindowKitBackend()
 {
+#if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
+    if (agent_ != nullptr) {
+        Internal::ZzWindowKitDiagnostics::agentDetached();
+    }
+#endif
     agent_.reset();
     host_.clear();
+#if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
+    Internal::ZzWindowKitDiagnostics::backendDestroyed();
+#endif
 }
 
 ZzCore::ZzResult<void> ZzQWindowKitBackend::attach(QWidget *window)
@@ -124,6 +141,9 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::attach(QWidget *window)
 
     host_ = window;
     agent_ = std::move(agent);
+#if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
+    Internal::ZzWindowKitDiagnostics::agentAttached();
+#endif
 
 #if ZZ_WINDOWKIT_FORCE_QT_CONTEXT
     capabilities_ = {};

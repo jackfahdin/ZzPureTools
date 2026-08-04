@@ -84,3 +84,52 @@ set_tests_properties(
 )
 set_tests_properties(benchmark.report-verifier-valid PROPERTIES
     LABELS "benchmark;unit")
+
+add_subdirectory(ZzStartupProbe)
+
+function(zz_add_benchmark target_name source_name test_name)
+    add_executable(${target_name} "${source_name}")
+    target_link_libraries(${target_name} PRIVATE
+        ZzBenchmarkSupport Qt6::Core Qt6::Gui Qt6::Test Qt6::Widgets)
+    set_target_properties(${target_name} PROPERTIES AUTOMOC ON)
+    zz_enable_project_warnings(${target_name})
+    zz_enable_sanitizers(${target_name})
+    add_test(NAME "${test_name}" COMMAND ${target_name}
+        --report "${CMAKE_BINARY_DIR}/reports/${test_name}.json")
+    set_tests_properties("${test_name}" PROPERTIES
+        LABELS "benchmark"
+        TIMEOUT 120)
+endfunction()
+
+zz_add_benchmark(ZzStartupBenchmark
+    ZzStartupBenchmark.cpp benchmark.startup)
+zz_add_benchmark(ZzThemeSwitchBenchmark
+    ZzThemeSwitchBenchmark.cpp benchmark.theme-switch)
+zz_add_benchmark(ZzAnimationBenchmark
+    ZzAnimationBenchmark.cpp benchmark.animation)
+zz_add_benchmark(ZzLargeModelBenchmark
+    ZzLargeModelBenchmark.cpp benchmark.large-model)
+zz_add_benchmark(ZzWindowLifecycleBenchmark
+    ZzWindowLifecycleBenchmark.cpp benchmark.window-lifecycle)
+
+target_link_libraries(ZzStartupBenchmark PRIVATE Zz::PureTools)
+target_link_libraries(ZzThemeSwitchBenchmark PRIVATE Zz::FluentUI)
+target_link_libraries(ZzAnimationBenchmark PRIVATE Zz::FluentUI)
+target_link_libraries(ZzLargeModelBenchmark PRIVATE Zz::FluentUI)
+target_link_libraries(ZzWindowLifecycleBenchmark PRIVATE
+    Zz::PureTools Zz::WindowKit)
+add_dependencies(ZzStartupBenchmark ZzStartupProbe)
+set(zz_startup_probe_generated_dir
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>")
+file(GENERATE
+    OUTPUT "${zz_startup_probe_generated_dir}/ZzStartupProbePath.h"
+    CONTENT
+"#pragma once
+inline constexpr char ZzStartupProbePath[] = R\"ZZPROBE($<TARGET_FILE:ZzStartupProbe>)ZZPROBE\";
+")
+target_include_directories(ZzStartupBenchmark PRIVATE
+    "${zz_startup_probe_generated_dir}")
+target_compile_definitions(ZzWindowLifecycleBenchmark PRIVATE
+    ZZ_WINDOWKIT_DIAGNOSTICS=1)
+target_include_directories(ZzWindowLifecycleBenchmark PRIVATE
+    "${PROJECT_SOURCE_DIR}/ZzWindowKit/src/private")
