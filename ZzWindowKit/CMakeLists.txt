@@ -1,7 +1,11 @@
 set(zz_window_kit_sources
     src/private/ZzWindowKitVersion.cpp
+    src/ZzWindowAgent.cpp
+    src/private/ZzWindowAgentPrivate.cpp
 )
-set(zz_window_kit_moc_headers)
+set(zz_window_kit_moc_headers
+    include/ZzWindowKit/ZzWindowAgent.h
+)
 
 add_library(ZzWindowKit ${zz_window_kit_sources})
 add_library(Zz::WindowKit ALIAS ZzWindowKit)
@@ -22,3 +26,7 @@ zz_configure_library_target(ZzWindowKit
     SOURCES ${zz_window_kit_sources}
     MOC_HEADERS ${zz_window_kit_moc_headers}
 )
+
+if(ZZ_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
