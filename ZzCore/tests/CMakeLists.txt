@@ -29,3 +29,15 @@ zz_enable_project_warnings(ZzTaskExecutorTest)
 zz_enable_sanitizers(ZzTaskExecutorTest)
 add_test(NAME core.task-executor COMMAND ZzTaskExecutorTest)
 set_tests_properties(core.task-executor PROPERTIES LABELS "unit;core")
+
+add_executable(ZzQtLogBridgeTest ZzQtLogBridgeTest.cpp)
+target_link_libraries(ZzQtLogBridgeTest PRIVATE
+    Qt6::Test
+    Zz::Core
+    ZzLog::ZzLog
+)
+set_target_properties(ZzQtLogBridgeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzQtLogBridgeTest)
+zz_enable_sanitizers(ZzQtLogBridgeTest)
+add_test(NAME core.qt-log-bridge COMMAND ZzQtLogBridgeTest)
+set_tests_properties(core.qt-log-bridge PROPERTIES LABELS "unit;core")

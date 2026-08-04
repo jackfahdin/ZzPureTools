@@ -8,6 +8,8 @@ set(zz_core_sources
     src/private/ZzQtSettingsStorePrivate.cpp
     src/ZzTaskExecutor.cpp
     src/private/ZzTaskExecutorPrivate.cpp
+    src/ZzQtLogBridge.cpp
+    src/private/ZzQtLogBridgePrivate.cpp
 )
 
 add_library(ZzCore ${zz_core_sources})
