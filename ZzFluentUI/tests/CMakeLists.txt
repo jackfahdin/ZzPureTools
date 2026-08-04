@@ -173,6 +173,21 @@ set_tests_properties(fluent.title-bar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzFluentAccessibilityTest ZzFluentAccessibilityTest.cpp)
+target_link_libraries(ZzFluentAccessibilityTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzFluentAccessibilityTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentAccessibilityTest)
+zz_enable_sanitizers(ZzFluentAccessibilityTest)
+add_test(NAME fluent.accessibility COMMAND ZzFluentAccessibilityTest)
+set_tests_properties(fluent.accessibility PROPERTIES
+    LABELS "fluent;accessibility;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE

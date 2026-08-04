@@ -1,5 +1,6 @@
 #include "ZzBreadcrumbBarPrivate.h"
 
+#include <QtGui/QFont>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QSizePolicy>
@@ -12,6 +13,7 @@ namespace ZzFluentUI {
 namespace {
 
 constexpr auto zzBreadcrumbIndexProperty = "zzBreadcrumbIndex";
+constexpr auto zzBreadcrumbCurrentProperty = "zzBreadcrumbCurrent";
 
 } // namespace
 
@@ -36,7 +38,6 @@ void ZzBreadcrumbBarPrivate::rebuild()
         const int logicalIndex = static_cast<int>(visual);
         auto *button = new QToolButton(q_ptr);
         button->setAutoRaise(true);
-        button->setCheckable(true);
         button->setToolButtonStyle(Qt::ToolButtonTextOnly);
         button->setText(items.at(logicalIndex));
         button->setToolTip(items.at(logicalIndex));
@@ -70,9 +71,13 @@ void ZzBreadcrumbBarPrivate::rebuild()
 void ZzBreadcrumbBarPrivate::updateCurrentState()
 {
     for (QToolButton *button : buttons) {
-        button->setChecked(
+        const bool current =
             button->property(zzBreadcrumbIndexProperty).toInt()
-            == currentIndex);
+            == currentIndex;
+        button->setProperty(zzBreadcrumbCurrentProperty, current);
+        QFont presentationFont = button->font();
+        presentationFont.setBold(current);
+        button->setFont(presentationFont);
     }
 }
 

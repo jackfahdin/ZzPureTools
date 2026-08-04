@@ -130,7 +130,7 @@ private Q_SLOTS:
         QVERIFY(logicalOne != nullptr);
         QVERIFY(logicalTwo != nullptr);
         QCOMPARE(logicalZero->accessibleName(), items.at(0));
-        QVERIFY(logicalOne->isChecked());
+        QVERIFY(logicalOne->property("zzBreadcrumbCurrent").toBool());
         QVERIFY(logicalZero->geometry().right() < logicalTwo->geometry().left());
         QVERIFY(bar.rect().contains(logicalZero->geometry().center()));
 
@@ -143,7 +143,7 @@ private Q_SLOTS:
         QVERIFY(logicalOne != nullptr);
         QVERIFY(logicalTwo != nullptr);
         QVERIFY(logicalZero->geometry().left() > logicalTwo->geometry().right());
-        QVERIFY(logicalOne->isChecked());
+        QVERIFY(logicalOne->property("zzBreadcrumbCurrent").toBool());
 
         QSignalSpy indexSpy(
             &bar,
@@ -151,8 +151,8 @@ private Q_SLOTS:
         logicalZero->click();
         QCOMPARE(indexSpy.count(), 1);
         QCOMPARE(indexSpy.takeFirst().at(0).toInt(), 0);
-        QVERIFY(!logicalZero->isChecked());
-        QVERIFY(logicalOne->isChecked());
+        QVERIFY(!logicalZero->property("zzBreadcrumbCurrent").toBool());
+        QVERIFY(logicalOne->property("zzBreadcrumbCurrent").toBool());
         QCOMPARE(bar.items(), items);
 
         bar.setCurrentIndex(99);
