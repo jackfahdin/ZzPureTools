@@ -76,6 +76,27 @@ set_tests_properties(fluent.standard-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
+qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
+    PREFIX "/zzfluent/buttons"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES
+        resources/ZzFluentTestSquare.svg
+)
+target_link_libraries(ZzButtonControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzButtonControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzButtonControlsTest)
+zz_enable_sanitizers(ZzButtonControlsTest)
+add_test(NAME fluent.buttons COMMAND ZzButtonControlsTest)
+set_tests_properties(fluent.buttons PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE

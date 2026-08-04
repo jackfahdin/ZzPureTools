@@ -36,10 +36,16 @@ set(zz_fluent_ui_sources
     widgets/src/ZzFluentPainter.cpp
     widgets/src/ZzFluentStyle.cpp
     widgets/src/private/ZzFluentStylePrivate.cpp
+    widgets/src/ZzPushButton.cpp
+    widgets/src/private/ZzPushButtonPrivate.cpp
+    widgets/src/ZzIconButton.cpp
+    widgets/src/private/ZzIconButtonPrivate.cpp
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzFluentStyle.h
+    widgets/include/ZzFluentUI/ZzPushButton.h
+    widgets/include/ZzFluentUI/ZzIconButton.h
 )
 
 add_library(ZzFluentUI ${zz_fluent_ui_sources})
