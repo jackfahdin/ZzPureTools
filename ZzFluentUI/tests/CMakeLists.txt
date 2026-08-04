@@ -97,6 +97,21 @@ set_tests_properties(fluent.buttons PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzToggleSwitchTest ZzToggleSwitchTest.cpp)
+target_link_libraries(ZzToggleSwitchTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzToggleSwitchTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzToggleSwitchTest)
+zz_enable_sanitizers(ZzToggleSwitchTest)
+add_test(NAME fluent.toggle-switch COMMAND ZzToggleSwitchTest)
+set_tests_properties(fluent.toggle-switch PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE
