@@ -33,3 +33,20 @@ add_test(NAME windowkit.bootstrap COMMAND ZzWindowKitBootstrapTest)
 set_tests_properties(windowkit.bootstrap PROPERTIES
     LABELS "unit;windowkit"
 )
+
+add_executable(ZzWindowKitLifecycleTest
+    ZzWindowKitLifecycleTest.cpp
+)
+target_link_libraries(ZzWindowKitLifecycleTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::WindowKit
+)
+set_target_properties(ZzWindowKitLifecycleTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWindowKitLifecycleTest)
+zz_enable_sanitizers(ZzWindowKitLifecycleTest)
+add_test(NAME windowkit.lifecycle COMMAND ZzWindowKitLifecycleTest)
+set_tests_properties(windowkit.lifecycle PROPERTIES
+    LABELS "platform;windowkit"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
