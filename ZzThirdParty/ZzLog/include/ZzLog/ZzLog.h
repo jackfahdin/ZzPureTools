@@ -1,14 +1,15 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <format>
 #include <functional>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <utility>
-
-#include "fmt/base.h"
 
 #if defined(_WIN32) && defined(ZZLOG_SHARED)
     #if defined(ZZLOG_BUILDING_LIBRARY)
@@ -22,120 +23,146 @@
     #define ZZLOG_API
 #endif
 
-namespace zz::log {
+namespace ZzLog {
 
-enum class Level : std::uint8_t { trace = 0, debug = 1, info = 2, warn = 3, error = 4, critical = 5, off = 6 };
+enum class ZzLogLevel : std::uint8_t
+{
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warning = 3,
+    Error = 4,
+    Critical = 5,
+    Off = 6
+};
 
-enum class OverflowPolicy : std::uint8_t { block, overrun_oldest, discard_new };
+enum class ZzLogOverflowPolicy : std::uint8_t
+{
+    Block,
+    OverrunOldest,
+    DiscardNew
+};
 
-enum class InitError : std::uint8_t { none, already_initialized, invalid_configuration, filesystem_error, backend_error };
+enum class ZzLogInitError : std::uint8_t
+{
+    None,
+    AlreadyInitialized,
+    InvalidConfiguration,
+    FilesystemError,
+    BackendError
+};
 
-struct ConsoleOptions {
+struct ZzLogConsoleOptions final
+{
     bool enabled = true;
-    Level level = Level::info;
+    ZzLogLevel level = ZzLogLevel::Info;
     std::string pattern = "[%T] [%^%l%$] %v";
 };
 
-struct FileOptions {
+struct ZzLogFileOptions final
+{
     bool enabled = false;
     std::filesystem::path path;
-    Level level = Level::info;
+    ZzLogLevel level = ZzLogLevel::Info;
     std::string pattern = "[%Y-%m-%d %T.%e] [%l] [%t] %v";
     bool async = true;
-    std::size_t queue_size = 8192;
-    OverflowPolicy overflow_policy = OverflowPolicy::block;
-    std::size_t max_file_size = 10 * 1024 * 1024;
-    std::size_t max_files = 5;
-    bool rotate_on_open = false;
+    std::size_t queueSize = 8192;
+    ZzLogOverflowPolicy overflowPolicy = ZzLogOverflowPolicy::OverrunOldest;
+    std::size_t maxFileSize = 10 * 1024 * 1024;
+    std::size_t maxFiles = 5;
+    bool rotateOnOpen = false;
 };
 
-using ErrorHandler = std::function<void(std::string_view)>;
+using ZzLogErrorHandler = std::function<void(std::string_view)>;
 
-struct Config {
-    std::string logger_name = "ZzLog";
-    ConsoleOptions console;
-    FileOptions file;
-    Level flush_on = Level::error;
-    ErrorHandler error_handler;
+struct ZzLogConfig final
+{
+    std::string loggerName = "ZzLog";
+    ZzLogConsoleOptions console;
+    ZzLogFileOptions file;
+    ZzLogLevel flushOn = ZzLogLevel::Error;
+    ZzLogErrorHandler errorHandler;
 };
 
-struct InitResult {
-    InitError error = InitError::none;
+struct ZzLogInitResult final
+{
+    ZzLogInitError error = ZzLogInitError::None;
     std::string message;
-    std::filesystem::path file_path;
+    std::filesystem::path filePath;
 
-    [[nodiscard]] explicit operator bool() const noexcept { return error == InitError::none; }
+    [[nodiscard]] explicit operator bool() const noexcept
+    {
+        return error == ZzLogInitError::None;
+    }
 };
 
-// initialize() and shutdown() are lifecycle operations. Call them while no other
-// thread is logging. Normal log calls and level changes are thread-safe.
-[[nodiscard]] ZZLOG_API InitResult initialize(Config config = {});
+[[nodiscard]] ZZLOG_API ZzLogInitResult initialize(ZzLogConfig config = {});
 ZZLOG_API void shutdown() noexcept;
 ZZLOG_API void flush() noexcept;
 
-[[nodiscard]] ZZLOG_API bool is_initialized() noexcept;
-[[nodiscard]] ZZLOG_API bool should_log(Level level) noexcept;
-[[nodiscard]] ZZLOG_API std::filesystem::path active_file_path();
+[[nodiscard]] ZZLOG_API bool flushAndWait(
+    std::chrono::milliseconds timeout) noexcept;
 
-[[nodiscard]] ZZLOG_API bool set_console_level(Level level) noexcept;
-[[nodiscard]] ZZLOG_API bool set_file_level(Level level) noexcept;
+[[nodiscard]] ZZLOG_API bool isInitialized() noexcept;
+[[nodiscard]] ZZLOG_API bool shouldLog(ZzLogLevel level) noexcept;
+[[nodiscard]] ZZLOG_API std::filesystem::path activeFilePath();
+[[nodiscard]] ZZLOG_API std::uint64_t droppedMessageCount() noexcept;
 
-ZZLOG_API void log_text(Level level, std::string_view message) noexcept;
+[[nodiscard]] ZZLOG_API bool setConsoleLevel(ZzLogLevel level) noexcept;
+[[nodiscard]] ZZLOG_API bool setFileLevel(ZzLogLevel level) noexcept;
 
-namespace detail {
+ZZLOG_API void writeText(
+    ZzLogLevel level,
+    std::string_view message,
+    std::source_location location = std::source_location::current()) noexcept;
 
-ZZLOG_API void log_format(Level level, fmt::string_view format, fmt::format_args args) noexcept;
+template<typename... ZzArgs>
+void write(
+    ZzLogLevel level,
+    std::source_location location,
+    std::format_string<ZzArgs...> format,
+    ZzArgs &&...args) noexcept
+{
+    if (!shouldLog(level)) {
+        return;
+    }
 
-template <typename... Args>
-void log(Level level, fmt::format_string<Args...> format, Args&&... args) noexcept {
-    auto format_args = fmt::make_format_args(args...);
-    log_format(level, format.get(), format_args);
-}
-
-}  // namespace detail
-
-template <typename... Args>
-void write(Level level, fmt::format_string<Args...> format, Args&&... args) noexcept {
-    if (should_log(level)) {
-        detail::log(level, format, std::forward<Args>(args)...);
+    try {
+        writeText(
+            level,
+            std::format(format, std::forward<ZzArgs>(args)...),
+            location);
+    } catch (...) {
+        writeText(
+            ZzLogLevel::Error,
+            "ZzLog formatting failed",
+            location);
     }
 }
 
-template <typename... Args>
-void trace(fmt::format_string<Args...> format, Args&&... args) noexcept {
-    write(Level::trace, format, std::forward<Args>(args)...);
-}
+} // namespace ZzLog
 
-template <typename... Args>
-void debug(fmt::format_string<Args...> format, Args&&... args) noexcept {
-    write(Level::debug, format, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void info(fmt::format_string<Args...> format, Args&&... args) noexcept {
-    write(Level::info, format, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void warn(fmt::format_string<Args...> format, Args&&... args) noexcept {
-    write(Level::warn, format, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void error(fmt::format_string<Args...> format, Args&&... args) noexcept {
-    write(Level::error, format, std::forward<Args>(args)...);
-}
-
-template <typename... Args>
-void critical(fmt::format_string<Args...> format, Args&&... args) noexcept {
-    write(Level::critical, format, std::forward<Args>(args)...);
-}
-
-inline void trace_text(std::string_view message) noexcept { log_text(Level::trace, message); }
-inline void debug_text(std::string_view message) noexcept { log_text(Level::debug, message); }
-inline void info_text(std::string_view message) noexcept { log_text(Level::info, message); }
-inline void warn_text(std::string_view message) noexcept { log_text(Level::warn, message); }
-inline void error_text(std::string_view message) noexcept { log_text(Level::error, message); }
-inline void critical_text(std::string_view message) noexcept { log_text(Level::critical, message); }
-
-}  // namespace zz::log
+#define ZZ_LOG_TRACE(format, ...)                                            \
+    ::ZzLog::write(                                                          \
+        ::ZzLog::ZzLogLevel::Trace, std::source_location::current(),         \
+        format __VA_OPT__(,) __VA_ARGS__)
+#define ZZ_LOG_DEBUG(format, ...)                                            \
+    ::ZzLog::write(                                                          \
+        ::ZzLog::ZzLogLevel::Debug, std::source_location::current(),         \
+        format __VA_OPT__(,) __VA_ARGS__)
+#define ZZ_LOG_INFO(format, ...)                                             \
+    ::ZzLog::write(                                                          \
+        ::ZzLog::ZzLogLevel::Info, std::source_location::current(),          \
+        format __VA_OPT__(,) __VA_ARGS__)
+#define ZZ_LOG_WARNING(format, ...)                                          \
+    ::ZzLog::write(                                                          \
+        ::ZzLog::ZzLogLevel::Warning, std::source_location::current(),       \
+        format __VA_OPT__(,) __VA_ARGS__)
+#define ZZ_LOG_ERROR(format, ...)                                            \
+    ::ZzLog::write(                                                          \
+        ::ZzLog::ZzLogLevel::Error, std::source_location::current(),         \
+        format __VA_OPT__(,) __VA_ARGS__)
+#define ZZ_LOG_CRITICAL(format, ...)                                         \
+    ::ZzLog::write(                                                          \
+        ::ZzLog::ZzLogLevel::Critical, std::source_location::current(),      \
+        format __VA_OPT__(,) __VA_ARGS__)

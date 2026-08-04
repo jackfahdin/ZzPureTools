@@ -95,9 +95,20 @@ endif()
 
 if(ZZLOG_BUILD_TESTS)
     enable_testing()
-    add_executable(zzlog-smoke tests/smoke.cpp)
+    add_executable(zzlog-smoke tests/smoke/main.cpp)
     target_link_libraries(zzlog-smoke PRIVATE ZzLog::ZzLog)
-    add_test(NAME zzlog-smoke COMMAND zzlog-smoke)
+    target_compile_features(zzlog-smoke PRIVATE cxx_std_20)
+    add_test(NAME zzlog.smoke COMMAND zzlog-smoke)
+    set_tests_properties(zzlog.smoke PROPERTIES LABELS "component;zzlog")
+
+    add_executable(zzlog-format-contract
+        tests/format_contract/main.cpp
+    )
+    target_link_libraries(zzlog-format-contract PRIVATE ZzLog::ZzLog)
+    target_compile_features(zzlog-format-contract PRIVATE cxx_std_20)
+    set_property(TARGET zzlog-format-contract PROPERTY EXCLUDE_FROM_ALL FALSE)
+    add_test(NAME zzlog.format-contract COMMAND zzlog-format-contract)
+    set_tests_properties(zzlog.format-contract PROPERTIES LABELS "unit;zzlog")
 endif()
 
 if(ZZLOG_BUILD_EXAMPLES)
