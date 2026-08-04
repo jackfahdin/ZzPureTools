@@ -38,3 +38,17 @@ add_test(NAME fluent.theme-controller COMMAND ZzThemeControllerTest)
 set_tests_properties(fluent.theme-controller PROPERTIES
     LABELS "component;fluent;foundation"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(ZzFluentStyleTest ZzFluentStyleTest.cpp)
+target_link_libraries(ZzFluentStyleTest PRIVATE
+    Qt6::Test
+    Zz::FluentUI
+)
+set_target_properties(ZzFluentStyleTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentStyleTest)
+zz_enable_sanitizers(ZzFluentStyleTest)
+add_test(NAME fluent.style COMMAND ZzFluentStyleTest)
+set_tests_properties(fluent.style PROPERTIES
+    LABELS "unit;fluent;widgets"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

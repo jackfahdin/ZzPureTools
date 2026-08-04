@@ -33,6 +33,8 @@ zz_configure_library_target(ZzFluentFoundation
 
 set(zz_fluent_ui_sources
     widgets/src/private/ZzFluentWidgetVersion.cpp
+    widgets/src/ZzFluentPainter.cpp
+    widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers)
 
