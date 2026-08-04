@@ -36,3 +36,107 @@ set_tests_properties(puretools.navigation PROPERTIES
     LABELS "component;puretools"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+add_executable(ZzApplicationBuilderTest ZzApplicationBuilderTest.cpp)
+target_link_libraries(ZzApplicationBuilderTest PRIVATE
+    Qt6::Test
+    Zz::PureTools
+    Zz::WindowKit
+    Zz::FluentUI
+)
+set_target_properties(ZzApplicationBuilderTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzApplicationBuilderTest)
+zz_enable_sanitizers(ZzApplicationBuilderTest)
+set(builder_scenarios
+    buildFreezesModulesAndPages
+    buildRejectsDuplicateRoutesBeforeStartingModules
+    buildRejectsNavigationNodeWithoutPage
+    buildRequiresRegisteredInitialRoute
+    moduleStartFailureDoesNotCreateWindow
+    successfulBuildCreatesOneWindowWithoutCreatingUnvisitedPages
+    windowFailureLeavesApplicationUnbuilt
+    failedBuildCanRetryWithFreshBuilder
+    successfulApplicationRejectsSecondBuilder
+    applicationInstallsFluentStyleBeforeBuilding
+    aboutToQuitDestroysWindowsBeforeStoppingModules
+)
+foreach(scenario IN LISTS builder_scenarios)
+    add_test(
+        NAME puretools.application-builder.${scenario}
+        COMMAND ZzApplicationBuilderTest ${scenario}
+    )
+    set_tests_properties(puretools.application-builder.${scenario} PROPERTIES
+        LABELS "component;puretools"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+endforeach()
+
+add_executable(ZzMultiWindowIsolationTest ZzMultiWindowIsolationTest.cpp)
+target_link_libraries(ZzMultiWindowIsolationTest PRIVATE
+    Qt6::Test
+    Zz::PureTools
+    Zz::WindowKit
+    Zz::FluentUI
+)
+set_target_properties(ZzMultiWindowIsolationTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzMultiWindowIsolationTest)
+zz_enable_sanitizers(ZzMultiWindowIsolationTest)
+set(multi_window_scenarios
+    everyWindowOwnsDifferentWindowAgent
+    everyWindowOwnsDifferentNavigationState
+    titleBarIntentInvokesOnlyOwningWindow
+    chromeConfigurationUsesTitleBarChildren
+    nativeSystemButtonCapabilityControlsCustomButtons
+    navigationIntentUsesTheOwningModelRoute
+    topLevelWindowDisablesDeleteOnClose
+    acceptedCloseQueuesExactlyOneApplicationErase
+    metaObjectSignalWithoutAcceptedCloseCannotEraseWindow
+)
+foreach(scenario IN LISTS multi_window_scenarios)
+    add_test(
+        NAME puretools.multi-window.${scenario}
+        COMMAND ZzMultiWindowIsolationTest ${scenario}
+    )
+    set_tests_properties(puretools.multi-window.${scenario} PROPERTIES
+        LABELS "component;puretools"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+endforeach()
+
+add_executable(ZzTranslationLifecycleTest ZzTranslationLifecycleTest.cpp)
+find_package(Qt6 6.8 REQUIRED COMPONENTS LinguistTools)
+qt_add_lrelease(ZzTranslationLifecycleTest
+    TS_FILES ZzTranslationLifecycleTest_zh_CN.ts
+    QM_FILES_OUTPUT_VARIABLE zz_translation_test_qm_files
+)
+list(LENGTH zz_translation_test_qm_files zz_translation_test_qm_count)
+if(NOT zz_translation_test_qm_count EQUAL 1)
+    message(FATAL_ERROR "Expected exactly one translation test QM file")
+endif()
+list(GET zz_translation_test_qm_files 0 zz_translation_test_qm)
+file(TO_CMAKE_PATH "${zz_translation_test_qm}" zz_translation_test_qm)
+target_compile_definitions(ZzTranslationLifecycleTest PRIVATE
+    "ZZ_TRANSLATION_TEST_QM=\"${zz_translation_test_qm}\"")
+target_link_libraries(ZzTranslationLifecycleTest PRIVATE
+    Qt6::Test
+    Zz::PureTools
+    Zz::WindowKit
+)
+set_target_properties(ZzTranslationLifecycleTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzTranslationLifecycleTest)
+zz_enable_sanitizers(ZzTranslationLifecycleTest)
+set(translation_scenarios
+    languageChangeRefreshesStaticAndDynamicText
+    failedTranslatorLoadLeavesApplicationUnbuilt
+    runtimeFailureRollsBackInstalledTranslators
+)
+foreach(scenario IN LISTS translation_scenarios)
+    add_test(
+        NAME puretools.translation.${scenario}
+        COMMAND ZzTranslationLifecycleTest ${scenario}
+    )
+    set_tests_properties(puretools.translation.${scenario} PROPERTIES
+        LABELS "component;puretools"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+endforeach()

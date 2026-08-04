@@ -37,10 +37,18 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzNavigationModelPrivate.cpp
     widgets/src/ZzNavigationController.cpp
     widgets/src/private/ZzNavigationControllerPrivate.cpp
+    widgets/src/ZzPureApplication.cpp
+    widgets/src/private/ZzPureApplicationPrivate.cpp
+    widgets/src/ZzApplicationBuilder.cpp
+    widgets/src/private/ZzApplicationBuilderPrivate.cpp
+    widgets/src/ZzApplicationWindow.cpp
+    widgets/src/private/ZzApplicationWindowPrivate.cpp
 )
 set(zz_pure_tools_moc_headers
     widgets/include/ZzPureTools/ZzPageHost.h
     widgets/include/ZzPureTools/ZzNavigationController.h
+    widgets/include/ZzPureTools/ZzPureApplication.h
+    widgets/include/ZzPureTools/ZzApplicationWindow.h
 )
 
 add_library(ZzPureTools ${zz_pure_tools_sources})

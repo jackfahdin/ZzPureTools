@@ -1,0 +1,224 @@
+#include "ZzApplicationWindowPrivate.h"
+
+#include <utility>
+
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDebug>
+#include <QtCore/QModelIndex>
+#include <QtCore/QThread>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QWidget>
+
+#include <ZzCore/ZzError.h>
+#include <ZzCore/ZzErrorCode.h>
+
+#include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzThemeController.h>
+
+#include <ZzWindowKit/ZzWindowAgent.h>
+#include <ZzWindowKit/ZzWindowCapability.h>
+#include <ZzWindowKit/ZzWindowChromeConfiguration.h>
+
+#include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzNavigationController.h>
+#include <ZzPureTools/ZzNavigationModel.h>
+#include <ZzPureTools/ZzPageHost.h>
+
+namespace ZzPureTools {
+
+namespace {
+
+[[nodiscard]] ZzCore::ZzResult<void> zzWindowFailure(
+    ZzCore::ZzErrorCode code,
+    QString message)
+{
+    return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+        code, std::move(message)));
+}
+
+void zzLogNavigationError(const ZzCore::ZzError &error)
+{
+    qWarning().noquote()
+        << "application window navigation failed:"
+        << error.technicalMessage()
+        << error.context();
+}
+
+} // namespace
+
+ZzApplicationWindowPrivate::ZzApplicationWindowPrivate(
+    ZzApplicationWindow *window)
+    : q_ptr(window)
+{
+    Q_ASSERT(q_ptr != nullptr);
+    if (q_ptr == nullptr) {
+        std::terminate();
+    }
+}
+
+ZzApplicationWindowPrivate::~ZzApplicationWindowPrivate()
+{
+    controller.reset();
+    model.reset();
+    agent.reset();
+}
+
+ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
+    const QList<ZzPageRegistration> &registrations,
+    const QList<ZzNavigationNode> &nodes,
+    ZzRouteId initialRoute,
+    ZzFluentUI::ZzThemeController *themeController)
+{
+    if (initialized) {
+        return zzWindowFailure(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("application window is already initialized"));
+    }
+    if (QThread::currentThread() != q_ptr->thread()) {
+        return zzWindowFailure(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("application window called from a non-owner thread"));
+    }
+    if (themeController == nullptr
+        || themeController->thread() != q_ptr->thread()) {
+        return zzWindowFailure(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("theme controller must exist in the window thread"));
+    }
+    if (!initialRoute.isValid()) {
+        return zzWindowFailure(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("initial page route must not be empty"));
+    }
+
+    theme = themeController;
+    auto *central = new QWidget(q_ptr);
+    auto *rootLayout = new QVBoxLayout(central);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
+
+    titleBar = new ZzFluentUI::ZzFluentTitleBar(central);
+    auto *body = new QWidget(central);
+    auto *bodyLayout = new QHBoxLayout(body);
+    bodyLayout->setContentsMargins(0, 0, 0, 0);
+    bodyLayout->setSpacing(0);
+    navigationView = new ZzFluentUI::ZzNavigationView(body);
+    host = new ZzPageHost(body);
+    bodyLayout->addWidget(navigationView);
+    bodyLayout->addWidget(host, 1);
+    rootLayout->addWidget(titleBar);
+    rootLayout->addWidget(body, 1);
+    q_ptr->setCentralWidget(central);
+    q_ptr->resize(1100, 720);
+
+    model = std::make_unique<ZzNavigationModel>();
+    auto modelResult = model->setNodes(nodes);
+    if (!modelResult) {
+        return modelResult;
+    }
+    navigationView->setModel(model.get());
+
+    controller = std::make_unique<ZzNavigationController>(
+        model.get(), host);
+    auto registrationsResult = controller->setRegistrations(registrations);
+    if (!registrationsResult) {
+        return registrationsResult;
+    }
+
+    QObject::connect(
+        navigationView,
+        &ZzFluentUI::ZzNavigationView::navigationRequested,
+        q_ptr,
+        [this](const QModelIndex &index) {
+            auto nodeResult = model->nodeAt(index.row());
+            if (!nodeResult) {
+                zzLogNavigationError(nodeResult.error());
+                return;
+            }
+            const ZzRouteId routeId =
+                std::move(nodeResult).value().routeId;
+            auto navigationResult = controller->navigate(routeId);
+            if (!navigationResult) {
+                zzLogNavigationError(navigationResult.error());
+            }
+        });
+
+    agent = std::make_unique<ZzWindowKit::ZzWindowAgent>();
+    auto attachResult = agent->attach(q_ptr);
+    if (!attachResult) {
+        return attachResult;
+    }
+
+    const auto capabilities = agent->capabilities();
+    const bool nativeSystemButtons = capabilities.testFlag(
+        ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
+    titleBar->setSystemButtonsVisible(!nativeSystemButtons);
+    ZzWindowKit::ZzWindowChromeConfiguration chrome;
+    chrome.titleBar = titleBar;
+    chrome.windowIcon = titleBar->windowIconWidget();
+    if (!nativeSystemButtons) {
+        chrome.minimizeButton = titleBar->minimizeButton();
+        chrome.maximizeButton = titleBar->maximizeButton();
+        chrome.closeButton = titleBar->closeButton();
+    }
+    auto chromeResult = agent->configureChrome(chrome);
+    if (!chromeResult) {
+        return chromeResult;
+    }
+
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::minimizeRequested,
+        q_ptr,
+        &QWidget::showMinimized);
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::maximizeRestoreRequested,
+        q_ptr,
+        [this] {
+            if (q_ptr->isMaximized()) {
+                q_ptr->showNormal();
+            } else {
+                q_ptr->showMaximized();
+            }
+        });
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::closeRequested,
+        q_ptr,
+        &QWidget::close);
+
+    refreshTranslations();
+    syncWindowState();
+    auto navigationResult = controller->navigate(std::move(initialRoute));
+    if (!navigationResult) {
+        return navigationResult;
+    }
+
+    initialized = true;
+    return ZzCore::ZzResult<void>::success();
+}
+
+void ZzApplicationWindowPrivate::refreshTranslations()
+{
+    const QString title = QCoreApplication::translate(
+        "ZzApplicationWindow", "ZzPureTools");
+    q_ptr->setWindowTitle(title);
+    if (titleBar != nullptr) {
+        titleBar->setTitle(title);
+    }
+    if (model) {
+        model->refreshTranslations();
+    }
+}
+
+void ZzApplicationWindowPrivate::syncWindowState()
+{
+    if (titleBar != nullptr) {
+        titleBar->setMaximized(q_ptr->isMaximized());
+    }
+}
+
+} // namespace ZzPureTools
