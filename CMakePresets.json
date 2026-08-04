@@ -1,0 +1,150 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT}",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_EXAMPLES": false,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_WARNINGS_AS_ERRORS": true
+      }
+    },
+    {
+      "name": "linux-gcc-13-1-base",
+      "hidden": true,
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "linux-gcc-debug",
+      "inherits": "linux-gcc-13-1-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "inherits": "linux-gcc-13-1-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-static-release",
+      "inherits": "linux-gcc-13-1-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": false
+      }
+    },
+    {
+      "name": "linux-gcc-lto-release",
+      "inherits": "linux-gcc-13-1-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ZZ_ENABLE_LTO": true
+      }
+    },
+    {
+      "name": "linux-clang-release",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN": "$env{GCC_13_TOOLCHAIN_ROOT}"
+      }
+    },
+    {
+      "name": "linux-clang-tidy",
+      "inherits": "linux-clang-release",
+      "cacheVariables": {
+        "ZZ_ENABLE_CLANG_TIDY": true
+      }
+    },
+    {
+      "name": "linux-clang-asan",
+      "inherits": "linux-clang-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ZZ_ENABLE_ASAN": true,
+        "ZZ_ENABLE_UBSAN": true
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "linux-gcc-debug", "configurePreset": "linux-gcc-debug" },
+    { "name": "linux-gcc-release", "configurePreset": "linux-gcc-release" },
+    { "name": "linux-static-release", "configurePreset": "linux-static-release" },
+    { "name": "linux-gcc-lto-release", "configurePreset": "linux-gcc-lto-release" },
+    { "name": "linux-clang-release", "configurePreset": "linux-clang-release" },
+    { "name": "linux-clang-tidy", "configurePreset": "linux-clang-tidy" },
+    { "name": "linux-clang-asan", "configurePreset": "linux-clang-asan" }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-gcc-debug",
+      "configurePreset": "linux-gcc-debug",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-static-release",
+      "configurePreset": "linux-static-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-gcc-lto-release",
+      "configurePreset": "linux-gcc-lto-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-release",
+      "configurePreset": "linux-clang-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-tidy",
+      "configurePreset": "linux-clang-tidy",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "linux-clang-asan",
+      "configurePreset": "linux-clang-asan",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    }
+  ]
+}

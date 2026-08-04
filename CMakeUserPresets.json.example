@@ -1,0 +1,14 @@
+{
+  "version": 4,
+  "include": ["CMakePresets.json"],
+  "configurePresets": [
+    {
+      "name": "local-linux-gcc-debug",
+      "inherits": "linux-gcc-debug",
+      "environment": {
+        "QT_ROOT": "$penv{QT_ROOT}",
+        "GCC_13_TOOLCHAIN_ROOT": "$penv{GCC_13_TOOLCHAIN_ROOT}"
+      }
+    }
+  ]
+}
