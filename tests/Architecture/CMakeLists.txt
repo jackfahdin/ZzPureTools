@@ -49,3 +49,77 @@ add_test(NAME architecture.version-api COMMAND ZzVersionApiTest)
 set_tests_properties(architecture.version-api PROPERTIES
     LABELS "architecture;unit"
 )
+
+include(ZzArchitectureChecks)
+
+zz_add_public_header_directory(
+    OWNER Zz::Core
+    DIRECTORY "${PROJECT_SOURCE_DIR}/ZzCore/include"
+)
+zz_add_public_header_directory(
+    OWNER Zz::WindowKit
+    DIRECTORY "${PROJECT_SOURCE_DIR}/ZzWindowKit/include"
+)
+zz_add_public_header_directory(
+    OWNER Zz::FluentFoundation
+    DIRECTORY "${PROJECT_SOURCE_DIR}/ZzFluentUI/foundation/include"
+)
+zz_add_public_header_directory(
+    OWNER Zz::FluentUI
+    DIRECTORY "${PROJECT_SOURCE_DIR}/ZzFluentUI/widgets/include"
+)
+zz_add_public_header_directory(
+    OWNER Zz::AppCore
+    DIRECTORY "${PROJECT_SOURCE_DIR}/ZzPureTools/appcore/include"
+)
+zz_add_public_header_directory(
+    OWNER Zz::PureTools
+    DIRECTORY "${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/include"
+)
+
+zz_add_public_header_probe(
+    OWNER Zz::Core
+    HEADER ZzCore/ZzCoreExport.h
+)
+zz_add_public_header_probe(
+    OWNER Zz::WindowKit
+    HEADER ZzWindowKit/ZzWindowKitExport.h
+)
+zz_add_public_header_probe(
+    OWNER Zz::FluentFoundation
+    HEADER ZzFluentUI/ZzFluentFoundationExport.h
+)
+zz_add_public_header_probe(
+    OWNER Zz::FluentUI
+    HEADER ZzFluentUI/ZzFluentUIExport.h
+)
+zz_add_public_header_probe(
+    OWNER Zz::AppCore
+    HEADER ZzPureTools/ZzAppCoreExport.h
+)
+zz_add_public_header_probe(
+    OWNER Zz::PureTools
+    HEADER ZzPureTools/ZzPureToolsExport.h
+)
+
+add_test(
+    NAME architecture.public-headers
+    COMMAND "${CMAKE_COMMAND}"
+        --build "${CMAKE_BINARY_DIR}"
+        --target ZzPublicHeadersTest
+        --config "$<CONFIG>"
+)
+set_tests_properties(architecture.public-headers PROPERTIES
+    LABELS "architecture;headers"
+    RUN_SERIAL TRUE
+)
+
+add_test(
+    NAME architecture.boundaries
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/RunArchitectureChecks.cmake"
+)
+set_tests_properties(architecture.boundaries PROPERTIES
+    LABELS "architecture"
+)
