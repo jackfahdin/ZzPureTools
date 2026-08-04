@@ -77,6 +77,10 @@ add_subdirectory(ZzWindowKit)
 add_subdirectory(ZzFluentUI)
 add_subdirectory(ZzPureTools)
 
+if(ZZ_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+
 if(ZZ_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
