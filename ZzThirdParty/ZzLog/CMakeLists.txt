@@ -4,7 +4,6 @@ project(ZzLog VERSION 0.1.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
-option(ZZLOG_BUILD_SHARED "Build ZzLog as a shared library" OFF)
 option(ZZLOG_BUILD_TESTS "Build the dependency-free ZzLog smoke test" OFF)
 option(ZZLOG_BUILD_EXAMPLES "Build ZzLog examples" OFF)
 option(ZZLOG_BUILD_WARNINGS "Enable strict compiler warnings" OFF)
@@ -59,25 +58,20 @@ set_target_properties(ZzLogBackend PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
-if(ZZLOG_BUILD_SHARED)
-    add_library(ZzLog SHARED
-        src/ZzLog.cpp
-        $<TARGET_OBJECTS:ZzLogBackend>
-    )
-    target_compile_definitions(ZzLog PRIVATE ZZLOG_BUILDING_LIBRARY PUBLIC ZZLOG_SHARED)
-else()
-    add_library(ZzLog STATIC
-        src/ZzLog.cpp
-        $<TARGET_OBJECTS:ZzLogBackend>
-    )
-    target_compile_definitions(ZzLog PRIVATE ZZLOG_BUILDING_LIBRARY)
+add_library(ZzLog
+    src/ZzLog.cpp
+    $<TARGET_OBJECTS:ZzLogBackend>
+)
+target_compile_definitions(ZzLog PRIVATE ZZLOG_BUILDING_LIBRARY)
+if(BUILD_SHARED_LIBS)
+    target_compile_definitions(ZzLog PUBLIC ZZLOG_SHARED)
 endif()
 
 add_library(ZzLog::ZzLog ALIAS ZzLog)
 
 find_package(Threads REQUIRED)
 
-target_compile_features(ZzLog PUBLIC cxx_std_17)
+target_compile_features(ZzLog PUBLIC cxx_std_20)
 target_compile_definitions(ZzLog PRIVATE
     SPDLOG_DISABLE_GLOBAL_LOGGER
     SPDLOG_NAMESPACE=zzlog_spdlog
@@ -85,9 +79,9 @@ target_compile_definitions(ZzLog PRIVATE
 target_include_directories(ZzLog
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include>"
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
 )
 target_link_libraries(ZzLog PUBLIC Threads::Threads)
@@ -100,7 +94,10 @@ set_target_properties(ZzLog PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
-if(MSVC)
+if(COMMAND zz_enable_project_warnings)
+    zz_enable_project_warnings(ZzLog)
+    zz_enable_sanitizers(ZzLog)
+elseif(MSVC)
     target_compile_options(ZzLog PRIVATE /utf-8)
     if(ZZLOG_BUILD_WARNINGS)
         target_compile_options(ZzLog PRIVATE /W4 /WX)
@@ -153,6 +150,7 @@ if(ZZLOG_BUILD_TESTS)
         SPDLOG_NAMESPACE=zzlog_spdlog
     )
     target_include_directories(zzlog-async-barrier PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
     )
     set_property(TARGET zzlog-async-barrier PROPERTY EXCLUDE_FROM_ALL FALSE)
@@ -179,7 +177,6 @@ if(ZZLOG_INSTALL)
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
     install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-    install(DIRECTORY third_party/fmt/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(DIRECTORY licenses/ DESTINATION ${CMAKE_INSTALL_DATADIR}/ZzLog/licenses)
     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/ZzLog/licenses)
     install(FILES README.md BUILDING-MULTIPLATFORM.md DEPENDENCIES.md
@@ -193,7 +190,7 @@ if(ZZLOG_INSTALL)
     write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/ZzLogConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion
+        COMPATIBILITY SameMinorVersion
     )
 
     install(EXPORT ZzLogTargets

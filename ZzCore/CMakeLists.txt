@@ -9,6 +9,7 @@ target_link_libraries(ZzCore PUBLIC
     Qt6::Core
     Qt6::Concurrent
 )
+target_link_libraries(ZzCore PRIVATE ZzLog::ZzLog)
 
 zz_configure_library_target(ZzCore
     EXPORT_NAME Core

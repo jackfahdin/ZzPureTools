@@ -49,21 +49,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(ZzFirstPartyTarget)
 include(ZzLibraryTarget)
 
-set(ZZLOG_BUILD_SHARED "${BUILD_SHARED_LIBS}"
-    CACHE BOOL "Build ZzLog with the repository linkage mode" FORCE)
-set(ZZLOG_INSTALL OFF
-    CACHE BOOL "Do not install the vendored ZzLog package" FORCE)
-set(ZZLOG_BUILD_TESTS "${ZZ_BUILD_TESTS}"
-    CACHE BOOL "Build ZzLog tests with the repository test mode" FORCE)
-set(ZZLOG_BUILD_EXAMPLES OFF
-    CACHE BOOL "Do not build vendored examples" FORCE)
-set(ZZLOG_BUILD_WARNINGS OFF
-    CACHE BOOL "Do not inject first-party warnings into vendored code" FORCE)
+set(ZZLOG_INSTALL ON)
+set(ZZLOG_BUILD_TESTS ${ZZ_BUILD_TESTS})
+set(ZZLOG_BUILD_EXAMPLES OFF)
+set(ZZLOG_BUILD_WARNINGS OFF)
 
-add_subdirectory(ZzThirdParty/ZzLog EXCLUDE_FROM_ALL)
-if(ZZ_BUILD_TESTS AND TARGET zzlog-smoke)
-    set_property(TARGET zzlog-smoke PROPERTY EXCLUDE_FROM_ALL FALSE)
-endif()
+add_subdirectory(ZzThirdParty/ZzLog)
 add_subdirectory(ZzCore)
 add_subdirectory(ZzWindowKit)
 add_subdirectory(ZzFluentUI)
