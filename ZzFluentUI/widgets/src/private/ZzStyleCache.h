@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include <QtCore/QCache>
+#include <QtCore/QSize>
 #include <QtGui/QBrush>
 #include <QtGui/QPixmap>
 
@@ -41,6 +42,9 @@ public:
     /** @brief 按物理像素字节成本插入图标，超预算时忽略。 */
     void insertIcon(const ZzIconCacheKey &key, QPixmap pixmap);
 
+    /** @brief 返回物理尺寸是否可纳入当前字节预算。 */
+    [[nodiscard]] bool canCacheIcon(QSize physicalSize) const noexcept;
+
     /** @brief 清空全部图标，不修改固定视觉槽。 */
     void clearIcons() noexcept;
 
@@ -48,6 +52,8 @@ public:
     [[nodiscard]] int iconBytes() const noexcept;
 
 private:
+    [[nodiscard]] int iconCost(QSize physicalSize) const noexcept;
+
     std::array<ZzStyleVisual, 4> visuals_;
     QCache<ZzIconCacheKey, QPixmap> icons_;
 };

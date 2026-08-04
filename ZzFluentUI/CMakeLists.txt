@@ -34,9 +34,13 @@ zz_configure_library_target(ZzFluentFoundation
 set(zz_fluent_ui_sources
     widgets/src/private/ZzFluentWidgetVersion.cpp
     widgets/src/ZzFluentPainter.cpp
+    widgets/src/ZzFluentStyle.cpp
+    widgets/src/private/ZzFluentStylePrivate.cpp
     widgets/src/private/ZzStyleCache.cpp
 )
-set(zz_fluent_ui_moc_headers)
+set(zz_fluent_ui_moc_headers
+    widgets/include/ZzFluentUI/ZzFluentStyle.h
+)
 
 add_library(ZzFluentUI ${zz_fluent_ui_sources})
 add_library(Zz::FluentUI ALIAS ZzFluentUI)

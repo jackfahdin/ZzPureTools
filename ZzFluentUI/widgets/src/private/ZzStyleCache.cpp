@@ -51,24 +51,19 @@ void ZzStyleCache::insertIcon(
     const ZzIconCacheKey &key,
     QPixmap pixmap)
 {
-    const int width = pixmap.width();
-    const int height = pixmap.height();
-    const int maximum = icons_.maxCost();
-    if (width <= 0 || height <= 0 || maximum <= 0) {
+    const int bytes = iconCost(pixmap.size());
+    if (bytes <= 0) {
         return;
     }
-
-    const qint64 bytesPerRow = static_cast<qint64>(width) * 4;
-    if (bytesPerRow > maximum
-        || height > maximum / bytesPerRow) {
-        return;
-    }
-    const int bytes = static_cast<int>(
-        bytesPerRow * static_cast<qint64>(height));
     icons_.insert(
         key,
         new QPixmap(std::move(pixmap)),
         bytes);
+}
+
+bool ZzStyleCache::canCacheIcon(QSize physicalSize) const noexcept
+{
+    return iconCost(physicalSize) > 0;
 }
 
 void ZzStyleCache::clearIcons() noexcept
@@ -79,6 +74,24 @@ void ZzStyleCache::clearIcons() noexcept
 int ZzStyleCache::iconBytes() const noexcept
 {
     return icons_.totalCost();
+}
+
+int ZzStyleCache::iconCost(QSize physicalSize) const noexcept
+{
+    const int width = physicalSize.width();
+    const int height = physicalSize.height();
+    const int maximum = icons_.maxCost();
+    if (width <= 0 || height <= 0 || maximum <= 0) {
+        return 0;
+    }
+
+    const qint64 bytesPerRow = static_cast<qint64>(width) * 4;
+    if (bytesPerRow > maximum
+        || height > maximum / bytesPerRow) {
+        return 0;
+    }
+    return static_cast<int>(
+        bytesPerRow * static_cast<qint64>(height));
 }
 
 } // namespace ZzFluentUI

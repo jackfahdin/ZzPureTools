@@ -40,6 +40,12 @@ set_tests_properties(fluent.theme-controller PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(ZzFluentStyleTest ZzFluentStyleTest.cpp)
+qt_add_resources(ZzFluentStyleTest "zzfluent-test-icons"
+    PREFIX "/zzfluent/tests"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES
+        resources/ZzFluentTestSquare.svg
+)
 target_link_libraries(ZzFluentStyleTest PRIVATE
     Qt6::Test
     Zz::FluentUI
