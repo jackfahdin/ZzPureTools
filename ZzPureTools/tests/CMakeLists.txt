@@ -25,3 +25,14 @@ set_tests_properties(puretools.page-lifecycle PROPERTIES
     LABELS "component;puretools"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+add_executable(ZzNavigationControllerTest ZzNavigationControllerTest.cpp)
+target_link_libraries(ZzNavigationControllerTest PRIVATE Qt6::Test Zz::PureTools)
+set_target_properties(ZzNavigationControllerTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzNavigationControllerTest)
+zz_enable_sanitizers(ZzNavigationControllerTest)
+add_test(NAME puretools.navigation COMMAND ZzNavigationControllerTest)
+set_tests_properties(puretools.navigation PROPERTIES
+    LABELS "component;puretools"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

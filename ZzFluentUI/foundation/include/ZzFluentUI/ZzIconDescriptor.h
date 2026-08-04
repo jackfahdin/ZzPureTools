@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QtCore/QMetaType>
 #include <QtCore/QString>
+#include <QtCore/QTypeInfo>
 
 namespace ZzFluentUI {
 
@@ -15,3 +17,6 @@ struct ZzIconDescriptor final
 };
 
 } // namespace ZzFluentUI
+
+Q_DECLARE_TYPEINFO(ZzFluentUI::ZzIconDescriptor, Q_RELOCATABLE_TYPE);
+Q_DECLARE_METATYPE(ZzFluentUI::ZzIconDescriptor)

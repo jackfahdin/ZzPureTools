@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtCore/QMetaType>
 #include <QtCore/QString>
 
 #include <ZzCore/ZzCoreExport.h>
@@ -92,3 +93,5 @@ private:
 };
 
 } // namespace ZzCore
+
+Q_DECLARE_METATYPE(ZzCore::ZzError)
