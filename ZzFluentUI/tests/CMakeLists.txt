@@ -226,6 +226,41 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 if(ZZ_BUILD_BENCHMARKS)
+    add_executable(ZzBasicControlsBenchmark ZzBasicControlsBenchmark.cpp)
+    qt_add_resources(ZzBasicControlsBenchmark "zzfluent-benchmark-icons"
+        PREFIX "/zzfluent/benchmarks"
+        BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        FILES
+            resources/ZzFluentTestSquare.svg
+    )
+    target_link_libraries(ZzBasicControlsBenchmark PRIVATE
+        Qt6::Test
+        Qt6::Widgets
+        Zz::FluentUI
+    )
+    set_target_properties(ZzBasicControlsBenchmark PROPERTIES AUTOMOC ON)
+    zz_enable_project_warnings(ZzBasicControlsBenchmark)
+    add_test(
+        NAME benchmark.fluent-basic-controls
+        COMMAND ZzBasicControlsBenchmark
+    )
+    set_tests_properties(benchmark.fluent-basic-controls PROPERTIES
+        LABELS "benchmark;fluent"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        TIMEOUT 60
+    )
+    if(DEFINED ZZ_PERFORMANCE_REFERENCE)
+        if(ZZ_PERFORMANCE_REFERENCE)
+            set(zz_basic_controls_reference_environment 1)
+        else()
+            set(zz_basic_controls_reference_environment 0)
+        endif()
+        set_property(TEST benchmark.fluent-basic-controls APPEND PROPERTY
+            ENVIRONMENT
+                "ZZ_PERFORMANCE_REFERENCE=${zz_basic_controls_reference_environment}"
+        )
+    endif()
+
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE
         Qt6::Test
