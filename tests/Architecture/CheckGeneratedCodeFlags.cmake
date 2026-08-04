@@ -1,0 +1,56 @@
+cmake_minimum_required(VERSION 3.23)
+
+if(NOT DEFINED ZZ_COMPILE_COMMANDS)
+    message(FATAL_ERROR "ZZ_COMPILE_COMMANDS is required")
+endif()
+if(NOT EXISTS "${ZZ_COMPILE_COMMANDS}")
+    message(FATAL_ERROR
+        "compile_commands.json does not exist: ${ZZ_COMPILE_COMMANDS}")
+endif()
+
+file(READ "${ZZ_COMPILE_COMMANDS}" zz_compile_database)
+string(JSON zz_entry_count LENGTH "${zz_compile_database}")
+if(zz_entry_count EQUAL 0)
+    message(FATAL_ERROR "compile_commands.json is empty")
+endif()
+
+set(zz_found_first_party FALSE)
+set(zz_found_moc FALSE)
+set(zz_found_rcc FALSE)
+math(EXPR zz_last_entry "${zz_entry_count} - 1")
+
+foreach(zz_index RANGE 0 ${zz_last_entry})
+    string(JSON zz_file GET "${zz_compile_database}" ${zz_index} file)
+    string(JSON zz_command GET "${zz_compile_database}" ${zz_index} command)
+    file(TO_CMAKE_PATH "${zz_file}" zz_file_normalized)
+
+    if(zz_file_normalized MATCHES "/ZzGeneratedCodeProbe\\.cpp$")
+        set(zz_found_first_party TRUE)
+        if(NOT zz_command MATCHES "(^|[ \\t])(-Werror|/WX)([ \\t]|$)")
+            message(FATAL_ERROR
+                "first-party probe is missing -Werror or /WX: ${zz_command}")
+        endif()
+    elseif(zz_file_normalized MATCHES "/mocs_compilation\\.cpp$")
+        set(zz_found_moc TRUE)
+        if(zz_command MATCHES "(^|[ \\t])(-Werror|/WX)([ \\t]|$)")
+            message(FATAL_ERROR
+                "AUTOMOC source inherited first-party warnings: ${zz_command}")
+        endif()
+    elseif(zz_file_normalized MATCHES "/qrc_ZzGeneratedCodeProbe\\.cpp$")
+        set(zz_found_rcc TRUE)
+        if(zz_command MATCHES "(^|[ \\t])(-Werror|/WX)([ \\t]|$)")
+            message(FATAL_ERROR
+                "AUTORCC source inherited first-party warnings: ${zz_command}")
+        endif()
+    endif()
+endforeach()
+
+if(NOT zz_found_first_party)
+    message(FATAL_ERROR "first-party probe compile command was not found")
+endif()
+if(NOT zz_found_moc)
+    message(FATAL_ERROR "AUTOMOC compile command was not found")
+endif()
+if(NOT zz_found_rcc)
+    message(FATAL_ERROR "AUTORCC compile command was not found")
+endif()

@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/probe">
+        <file alias="message.txt">data/ZzGeneratedCodeProbe.txt</file>
+    </qresource>
+</RCC>

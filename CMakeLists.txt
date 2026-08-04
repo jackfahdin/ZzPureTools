@@ -44,3 +44,10 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
 if(ZZ_BUILD_TESTS)
     find_package(Qt6 6.8 REQUIRED COMPONENTS Test)
 endif()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(ZzFirstPartyTarget)
+
+if(ZZ_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
