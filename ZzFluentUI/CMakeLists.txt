@@ -1,5 +1,8 @@
 set(zz_fluent_foundation_sources
     foundation/src/private/ZzFluentVersion.cpp
+    foundation/src/ZzAnimationPolicy.cpp
+    foundation/src/ZzDpiScale.cpp
+    foundation/src/ZzIconCacheKey.cpp
     foundation/src/ZzThemePalette.cpp
     foundation/src/ZzThemeSnapshot.cpp
 )
