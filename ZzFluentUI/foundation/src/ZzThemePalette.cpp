@@ -1,5 +1,6 @@
 #include <ZzFluentUI/ZzThemePalette.h>
 
+#include <cmath>
 #include <utility>
 
 #include <QtCore/QtGlobal>
@@ -12,6 +13,20 @@ using ZzColors = std::array<
     QColor,
     static_cast<std::size_t>(ZzColorToken::Count)>;
 
+/** @brief 按 WCAG 相对亮度为任意强调色选择高对比黑色或白色文字。 */
+QColor zzAccentTextColor(const QColor &accent)
+{
+    const auto linearChannel = [](qreal channel) {
+        return channel <= 0.04045
+            ? channel / 12.92
+            : std::pow((channel + 0.055) / 1.055, 2.4);
+    };
+    const qreal luminance = 0.2126 * linearChannel(accent.redF())
+        + 0.7152 * linearChannel(accent.greenF())
+        + 0.0722 * linearChannel(accent.blueF());
+    return luminance > 0.179 ? QColor(Qt::black) : QColor(Qt::white);
+}
+
 ZzColors zzLightColors(const QColor &accent)
 {
     return {
@@ -23,7 +38,7 @@ ZzColors zzLightColors(const QColor &accent)
         QColor("#f0f0f0"),
         QColor("#d1d1d1"),
         accent,
-        QColor("#ffffff"),
+        zzAccentTextColor(accent),
         QColor("#000000"),
         QColor("#f9f9f9"),
         QColor("#ffffff"),
@@ -41,7 +56,7 @@ ZzColors zzDarkColors(const QColor &accent)
         QColor("#2a2a2a"),
         QColor("#5a5a5a"),
         accent,
-        QColor("#000000"),
+        zzAccentTextColor(accent),
         QColor("#ffffff"),
         QColor("#202020"),
         QColor("#2b2b2b"),

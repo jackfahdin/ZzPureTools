@@ -1,5 +1,8 @@
 #include "ZzFluentTitleBarPrivate.h"
 
+#include <QtGui/QPainter>
+#include <QtGui/QPen>
+#include <QtGui/QPixmap>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QSizePolicy>
@@ -9,6 +12,60 @@
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 
 namespace ZzFluentUI {
+
+namespace {
+
+/** @brief 标识需要按主题文本色绘制的标题栏系统图标。 */
+enum class ZzTitleBarGlyph
+{
+    Minimize,
+    Maximize,
+    Restore,
+    Close
+};
+
+/** @brief 为当前调色板与 DPR 生成清晰、可访问的系统按钮图标。 */
+QIcon zzTitleBarIcon(const QWidget *widget, ZzTitleBarGlyph glyph)
+{
+    constexpr int logicalExtent = 16;
+    const qreal dpr = qMax(qreal(1.0), widget->devicePixelRatioF());
+    QPixmap pixmap(
+        qMax(1, qRound(logicalExtent * dpr)),
+        qMax(1, qRound(logicalExtent * dpr)));
+    pixmap.setDevicePixelRatio(dpr);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(QPen(
+        widget->palette().color(QPalette::ButtonText),
+        1.4,
+        Qt::SolidLine,
+        Qt::SquareCap,
+        Qt::MiterJoin));
+    switch (glyph) {
+    case ZzTitleBarGlyph::Minimize:
+        painter.drawLine(QPointF(3.0, 11.5), QPointF(13.0, 11.5));
+        break;
+    case ZzTitleBarGlyph::Maximize:
+        painter.drawRect(QRectF(3.5, 3.5, 9.0, 9.0));
+        break;
+    case ZzTitleBarGlyph::Restore:
+        painter.drawRect(QRectF(3.5, 5.5, 7.0, 7.0));
+        painter.drawLine(QPointF(5.5, 3.5), QPointF(12.5, 3.5));
+        painter.drawLine(QPointF(12.5, 3.5), QPointF(12.5, 10.5));
+        painter.drawLine(QPointF(10.5, 5.5), QPointF(10.5, 3.5));
+        break;
+    case ZzTitleBarGlyph::Close:
+        painter.drawLine(QPointF(4.0, 4.0), QPointF(12.0, 12.0));
+        painter.drawLine(QPointF(12.0, 4.0), QPointF(4.0, 12.0));
+        break;
+    }
+    painter.end();
+    return QIcon(pixmap);
+}
+
+} // namespace
 
 ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     : q_ptr(q)
@@ -85,20 +142,17 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     closeButton->setToolTip(closeText);
     closeButton->setAccessibleName(closeText);
 
-    minimizeButton->setIcon(q_ptr->style()->standardIcon(
-        QStyle::SP_TitleBarMinButton,
-        nullptr,
-        q_ptr));
-    maximizeButton->setIcon(q_ptr->style()->standardIcon(
+    minimizeButton->setIcon(zzTitleBarIcon(
+        minimizeButton,
+        ZzTitleBarGlyph::Minimize));
+    maximizeButton->setIcon(zzTitleBarIcon(
+        maximizeButton,
         maximized
-            ? QStyle::SP_TitleBarNormalButton
-            : QStyle::SP_TitleBarMaxButton,
-        nullptr,
-        q_ptr));
-    closeButton->setIcon(q_ptr->style()->standardIcon(
-        QStyle::SP_TitleBarCloseButton,
-        nullptr,
-        q_ptr));
+            ? ZzTitleBarGlyph::Restore
+            : ZzTitleBarGlyph::Maximize));
+    closeButton->setIcon(zzTitleBarIcon(
+        closeButton,
+        ZzTitleBarGlyph::Close));
     minimizeButton->setVisible(systemButtonsVisible);
     maximizeButton->setVisible(systemButtonsVisible);
     closeButton->setVisible(systemButtonsVisible);

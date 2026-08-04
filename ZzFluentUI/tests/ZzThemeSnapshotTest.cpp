@@ -64,6 +64,27 @@ private Q_SLOTS:
         QCOMPARE(snapshot.duration(ZzFluentUI::ZzMotionToken::Fast), 0);
         QVERIFY(snapshot.reducedMotion());
     }
+
+    void selectsLegibleTextForArbitraryAccentColors()
+    {
+        const auto darkAccent = ZzFluentUI::ZzThemeSnapshot::create(
+            ZzFluentUI::ZzThemeMode::Dark,
+            QColor(QStringLiteral("#0067c0")),
+            1,
+            false);
+        const auto brightAccent = ZzFluentUI::ZzThemeSnapshot::create(
+            ZzFluentUI::ZzThemeMode::Light,
+            QColor(QStringLiteral("#ffff00")),
+            2,
+            false);
+
+        QCOMPARE(
+            darkAccent.color(ZzFluentUI::ZzColorToken::AccentText),
+            QColor(Qt::white));
+        QCOMPARE(
+            brightAccent.color(ZzFluentUI::ZzColorToken::AccentText),
+            QColor(Qt::black));
+    }
 };
 
 QTEST_MAIN(ZzThemeSnapshotTest)

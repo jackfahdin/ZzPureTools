@@ -188,6 +188,43 @@ set_tests_properties(fluent.accessibility PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzFluentScreenshotTest ZzFluentScreenshotTest.cpp)
+qt_add_resources(ZzFluentScreenshotTest "zzfluent-screenshot-icons"
+    PREFIX "/zzfluent/screenshots"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES
+        resources/ZzFluentTestSquare.svg
+)
+target_link_libraries(ZzFluentScreenshotTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+target_compile_definitions(ZzFluentScreenshotTest PRIVATE
+    "ZZ_FLUENT_SCREENSHOT_BASELINE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/baselines/linux\""
+    "ZZ_FLUENT_SCREENSHOT_REPORT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/reports/fluent-screenshots\""
+)
+set_target_properties(ZzFluentScreenshotTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentScreenshotTest)
+zz_enable_sanitizers(ZzFluentScreenshotTest)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    function(zz_add_fluent_screenshot_test suffix scale)
+        add_test(NAME "fluent.screenshot-${suffix}"
+            COMMAND ZzFluentScreenshotTest
+                --expected-dpr "${scale}"
+                --baseline-subdir "dpr-${suffix}")
+        set_tests_properties("fluent.screenshot-${suffix}" PROPERTIES
+            LABELS "fluent;screenshot;component"
+            ENVIRONMENT
+                "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale};QT_SCALE_FACTOR_ROUNDING_POLICY=PassThrough;LANG=C.UTF-8;LC_ALL=C.UTF-8"
+        )
+    endfunction()
+    zz_add_fluent_screenshot_test(100 1.0)
+    zz_add_fluent_screenshot_test(125 1.25)
+    zz_add_fluent_screenshot_test(150 1.5)
+    zz_add_fluent_screenshot_test(200 2.0)
+endif()
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE

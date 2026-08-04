@@ -106,30 +106,55 @@ QPalette ZzFluentStyle::standardPalette() const
 {
     Q_ASSERT(QThread::currentThread() == thread());
     QPalette palette = QProxyStyle::standardPalette();
+    const QColor textPrimary = d_ptr->snapshot->color(
+        ZzColorToken::TextPrimary);
+    const QColor textSecondary = d_ptr->snapshot->color(
+        ZzColorToken::TextSecondary);
+    const QColor surface = d_ptr->snapshot->color(
+        ZzColorToken::Surface);
+    const QColor surfaceSecondary = d_ptr->snapshot->color(
+        ZzColorToken::SurfaceSecondary);
+    const QColor controlFill = d_ptr->snapshot->color(
+        ZzColorToken::ControlFill);
+    const QColor controlStroke = d_ptr->snapshot->color(
+        ZzColorToken::ControlStroke);
+    const QColor accent = d_ptr->snapshot->color(ZzColorToken::Accent);
+    const QColor accentText = d_ptr->snapshot->color(
+        ZzColorToken::AccentText);
+
     palette.setColor(
         QPalette::Window,
-        d_ptr->snapshot->color(ZzColorToken::Surface));
+        surface);
+    palette.setColor(QPalette::WindowText, textPrimary);
     palette.setColor(
         QPalette::Base,
-        d_ptr->snapshot->color(ZzColorToken::SurfaceSecondary));
-    palette.setColor(
-        QPalette::Text,
-        d_ptr->snapshot->color(ZzColorToken::TextPrimary));
-    palette.setColor(
-        QPalette::ButtonText,
-        d_ptr->snapshot->color(ZzColorToken::TextPrimary));
-    palette.setColor(
-        QPalette::Button,
-        d_ptr->snapshot->color(ZzColorToken::ControlFill));
-    palette.setColor(
-        QPalette::Mid,
-        d_ptr->snapshot->color(ZzColorToken::ControlStroke));
-    palette.setColor(
-        QPalette::Highlight,
-        d_ptr->snapshot->color(ZzColorToken::Accent));
-    palette.setColor(
-        QPalette::HighlightedText,
-        d_ptr->snapshot->color(ZzColorToken::AccentText));
+        surfaceSecondary);
+    palette.setColor(QPalette::AlternateBase, controlFill);
+    palette.setColor(QPalette::ToolTipBase, controlFill);
+    palette.setColor(QPalette::ToolTipText, textPrimary);
+    palette.setColor(QPalette::Text, textPrimary);
+    palette.setColor(QPalette::PlaceholderText, textSecondary);
+    palette.setColor(QPalette::Button, controlFill);
+    palette.setColor(QPalette::ButtonText, textPrimary);
+    palette.setColor(QPalette::BrightText, textPrimary);
+    palette.setColor(QPalette::Light, controlStroke);
+    palette.setColor(QPalette::Midlight, controlStroke);
+    palette.setColor(QPalette::Mid, controlStroke);
+    palette.setColor(QPalette::Dark, controlStroke);
+    palette.setColor(QPalette::Shadow, controlStroke);
+    palette.setColor(QPalette::Highlight, accent);
+    palette.setColor(QPalette::HighlightedText, accentText);
+    palette.setColor(QPalette::Link, accent);
+    palette.setColor(QPalette::LinkVisited, accent);
+
+    for (const QPalette::ColorRole role : {
+             QPalette::WindowText,
+             QPalette::Text,
+             QPalette::ButtonText,
+             QPalette::ToolTipText,
+             QPalette::PlaceholderText}) {
+        palette.setColor(QPalette::Disabled, role, textSecondary);
+    }
     return palette;
 }
 

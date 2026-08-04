@@ -60,6 +60,36 @@ private Q_SLOTS:
                 ZzFluentUI::ZzColorToken::Surface));
     }
 
+    void mapsStandardTextRolesForDarkAndHighContrast()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+
+        for (const ZzFluentUI::ZzThemeMode mode : {
+                 ZzFluentUI::ZzThemeMode::Dark,
+                 ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            const auto snapshot = controller.snapshot();
+            const QPalette palette = style.standardPalette();
+            const QColor primary = snapshot->color(
+                ZzFluentUI::ZzColorToken::TextPrimary);
+            const QColor secondary = snapshot->color(
+                ZzFluentUI::ZzColorToken::TextSecondary);
+            const QColor accent = snapshot->color(
+                ZzFluentUI::ZzColorToken::Accent);
+
+            QCOMPARE(palette.color(QPalette::WindowText), primary);
+            QCOMPARE(palette.color(QPalette::Text), primary);
+            QCOMPARE(palette.color(QPalette::ButtonText), primary);
+            QCOMPARE(palette.color(QPalette::ToolTipText), primary);
+            QCOMPARE(palette.color(QPalette::PlaceholderText), secondary);
+            QCOMPARE(
+                palette.color(QPalette::Disabled, QPalette::WindowText),
+                secondary);
+            QCOMPARE(palette.color(QPalette::Link), accent);
+        }
+    }
+
     void invalidatesColorCacheWithoutChangingMetric()
     {
         ZzFluentUI::ZzThemeController controller;
