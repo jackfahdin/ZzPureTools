@@ -144,6 +144,13 @@ set_tests_properties(architecture.zzcore-dependencies-contract PROPERTIES
     LABELS "architecture;core"
 )
 
+add_test(NAME architecture.zzwindowkit-boundaries
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzWindowKitBoundaries.cmake")
+set_tests_properties(architecture.zzwindowkit-boundaries PROPERTIES
+    LABELS "architecture;windowkit")
+
 add_executable(ZzCorePublicHeadersTest ZzCorePublicHeadersTest.cpp)
 target_link_libraries(ZzCorePublicHeadersTest PRIVATE Zz::Core)
 zz_configure_first_party_target(ZzCorePublicHeadersTest

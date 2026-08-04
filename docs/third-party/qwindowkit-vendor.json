@@ -1,0 +1,15 @@
+{
+  "name": "QWindowKit",
+  "declaredVersion": "1.5.1.0",
+  "upstreamUrl": "https://github.com/stdware/qwindowkit",
+  "upstreamCommit": null,
+  "importDate": "2026-08-02",
+  "archiveSha256": null,
+  "licenses": ["Apache-2.0", "MIT"],
+  "localPatches": [],
+  "validatedMatrix": [],
+  "releaseBlockers": [
+    "qwindowkit.upstream-provenance",
+    "qmsetup.windeployqt-5.15.2-derived-work"
+  ]
+}
