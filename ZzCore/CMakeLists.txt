@@ -6,6 +6,8 @@ set(zz_core_sources
     src/private/ZzApplicationPathsPrivate.cpp
     src/ZzQtSettingsStore.cpp
     src/private/ZzQtSettingsStorePrivate.cpp
+    src/ZzTaskExecutor.cpp
+    src/private/ZzTaskExecutorPrivate.cpp
 )
 
 add_library(ZzCore ${zz_core_sources})
