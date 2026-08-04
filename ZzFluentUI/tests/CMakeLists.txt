@@ -58,3 +58,31 @@ set_tests_properties(fluent.style PROPERTIES
     LABELS "unit;fluent;widgets"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+if(ZZ_BUILD_BENCHMARKS)
+    add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
+    target_link_libraries(ZzThemeSwitchBenchmark PRIVATE
+        Qt6::Test
+        Zz::FluentUI
+    )
+    set_target_properties(ZzThemeSwitchBenchmark PROPERTIES AUTOMOC ON)
+    zz_enable_project_warnings(ZzThemeSwitchBenchmark)
+    add_test(
+        NAME benchmark.fluent-theme-switch
+        COMMAND ZzThemeSwitchBenchmark
+    )
+    set_tests_properties(benchmark.fluent-theme-switch PROPERTIES
+        LABELS "benchmark;fluent"
+        TIMEOUT 30
+    )
+    if(DEFINED ZZ_PERFORMANCE_REFERENCE)
+        if(ZZ_PERFORMANCE_REFERENCE)
+            set(zz_performance_reference_environment 1)
+        else()
+            set(zz_performance_reference_environment 0)
+        endif()
+        set_property(TEST benchmark.fluent-theme-switch APPEND PROPERTY
+            ENVIRONMENT
+                "ZZ_PERFORMANCE_REFERENCE=${zz_performance_reference_environment}")
+    endif()
+endif()

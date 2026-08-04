@@ -152,17 +152,15 @@ void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)
         iconRevision = snapshot->revision();
         QApplication::setPalette(q_ptr->standardPalette());
     }
-    if (!colorsChanged && !geometryChanged) {
+    if (!geometryChanged) {
         return;
     }
 
     const auto widgets = QApplication::allWidgets();
     for (QWidget *widget : widgets) {
-        if (geometryChanged) {
-            QEvent event(QEvent::StyleChange);
-            QCoreApplication::sendEvent(widget, &event);
-            widget->updateGeometry();
-        }
+        QEvent event(QEvent::StyleChange);
+        QCoreApplication::sendEvent(widget, &event);
+        widget->updateGeometry();
         widget->update();
     }
 }

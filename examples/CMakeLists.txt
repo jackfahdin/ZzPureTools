@@ -1,3 +1,4 @@
 # 各组件实施计划按既定顺序在此追加示例子目录。
 
 add_subdirectory(ZzWindowKitDemo)
+add_subdirectory(ZzFluentFoundationDemo)
