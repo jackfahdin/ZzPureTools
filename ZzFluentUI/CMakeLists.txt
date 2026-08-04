@@ -1,5 +1,7 @@
 set(zz_fluent_foundation_sources
     foundation/src/private/ZzFluentVersion.cpp
+    foundation/src/ZzThemePalette.cpp
+    foundation/src/ZzThemeSnapshot.cpp
 )
 set(zz_fluent_foundation_moc_headers)
 
@@ -45,3 +47,7 @@ zz_configure_library_target(ZzFluentUI
     SOURCES ${zz_fluent_ui_sources}
     MOC_HEADERS ${zz_fluent_ui_moc_headers}
 )
+
+if(ZZ_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
