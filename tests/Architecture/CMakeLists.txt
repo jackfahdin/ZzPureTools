@@ -158,6 +158,13 @@ add_test(NAME architecture.zzfluent-boundaries
 set_tests_properties(architecture.zzfluent-boundaries PROPERTIES
     LABELS "architecture;fluent")
 
+add_test(NAME architecture.zzfluentui-boundaries
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzFluentUIBoundaries.cmake")
+set_tests_properties(architecture.zzfluentui-boundaries PROPERTIES
+    LABELS "architecture;fluent;widgets")
+
 add_executable(ZzCorePublicHeadersTest ZzCorePublicHeadersTest.cpp)
 target_link_libraries(ZzCorePublicHeadersTest PRIVATE Zz::Core)
 zz_configure_first_party_target(ZzCorePublicHeadersTest
