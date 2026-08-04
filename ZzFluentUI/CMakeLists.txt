@@ -44,6 +44,10 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzToggleSwitchPrivate.cpp
     widgets/src/ZzMessageBar.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
+    widgets/src/ZzNavigationView.cpp
+    widgets/src/private/ZzNavigationViewPrivate.cpp
+    widgets/src/ZzBreadcrumbBar.cpp
+    widgets/src/private/ZzBreadcrumbBarPrivate.cpp
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
@@ -52,6 +56,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzIconButton.h
     widgets/include/ZzFluentUI/ZzToggleSwitch.h
     widgets/include/ZzFluentUI/ZzMessageBar.h
+    widgets/include/ZzFluentUI/ZzNavigationView.h
+    widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
 )
 
 add_library(ZzFluentUI ${zz_fluent_ui_sources})

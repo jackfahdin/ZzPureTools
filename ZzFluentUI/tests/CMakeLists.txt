@@ -127,6 +127,22 @@ set_tests_properties(fluent.message-bar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzNavigationControlsTest ZzNavigationControlsTest.cpp)
+target_link_libraries(ZzNavigationControlsTest PRIVATE
+    Qt6::Gui
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzNavigationControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzNavigationControlsTest)
+zz_enable_sanitizers(ZzNavigationControlsTest)
+add_test(NAME fluent.navigation-controls COMMAND ZzNavigationControlsTest)
+set_tests_properties(fluent.navigation-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE
