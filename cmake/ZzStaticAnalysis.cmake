@@ -1,5 +1,45 @@
 include_guard(GLOBAL)
 
+function(zz_collect_buildsystem_targets source_directory output_variable)
+    get_property(zz_directory_targets
+        DIRECTORY "${source_directory}"
+        PROPERTY BUILDSYSTEM_TARGETS)
+    get_property(zz_subdirectories
+        DIRECTORY "${source_directory}"
+        PROPERTY SUBDIRECTORIES)
+
+    set(zz_collected_targets ${zz_directory_targets})
+    foreach(zz_subdirectory IN LISTS zz_subdirectories)
+        zz_collect_buildsystem_targets(
+            "${zz_subdirectory}"
+            zz_subdirectory_targets)
+        list(APPEND zz_collected_targets ${zz_subdirectory_targets})
+    endforeach()
+
+    set(${output_variable} "${zz_collected_targets}" PARENT_SCOPE)
+endfunction()
+
+function(zz_finalize_clang_tidy_dependencies)
+    if(NOT TARGET ZzClangTidy)
+        return()
+    endif()
+
+    zz_collect_buildsystem_targets(
+        "${PROJECT_SOURCE_DIR}"
+        zz_buildsystem_targets)
+    foreach(zz_candidate IN LISTS zz_buildsystem_targets)
+        if(zz_candidate STREQUAL "ZzClangTidy")
+            continue()
+        endif()
+
+        get_target_property(zz_candidate_type ${zz_candidate} TYPE)
+        if(zz_candidate_type MATCHES
+           "^(EXECUTABLE|STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|OBJECT_LIBRARY)$")
+            add_dependencies(ZzClangTidy ${zz_candidate})
+        endif()
+    endforeach()
+endfunction()
+
 function(zz_register_clang_tidy target_name)
     cmake_parse_arguments(PARSE_ARGV 1 ZZ_TIDY "" "" "SOURCES")
     if(NOT ZZ_ENABLE_CLANG_TIDY)
@@ -44,6 +84,9 @@ function(zz_register_clang_tidy target_name)
                 "${ZZ_CLANG_TIDY_EXECUTABLE}"
             VERBATIM
         )
+        cmake_language(DEFER
+            DIRECTORY "${PROJECT_SOURCE_DIR}"
+            CALL zz_finalize_clang_tidy_dependencies)
     endif()
 
     add_dependencies(ZzClangTidy ${target_name})

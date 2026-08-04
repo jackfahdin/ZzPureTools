@@ -7,7 +7,24 @@
       "inherits": "linux-gcc-debug",
       "environment": {
         "QT_ROOT": "$penv{QT_ROOT}",
-        "GCC_13_TOOLCHAIN_ROOT": "$penv{GCC_13_TOOLCHAIN_ROOT}"
+        "GCC_13": "$penv{GCC_13}",
+        "GXX_13": "$penv{GXX_13}",
+        "GCC_13_TOOLCHAIN_ROOT": "$penv{GCC_13_TOOLCHAIN_ROOT}",
+        "CLANG_17": "$penv{CLANG_17}",
+        "CLANGXX_17": "$penv{CLANGXX_17}",
+        "QT_MSVC_ROOT": "$penv{QT_MSVC_ROOT}",
+        "QT_SDK_ROOT": "$penv{QT_SDK_ROOT}",
+        "QT_MINGW_ROOT": "$penv{QT_MINGW_ROOT}",
+        "QT_MINGW_TOOLCHAIN_ROOT": "$penv{QT_MINGW_TOOLCHAIN_ROOT}",
+        "QT_MINGW_EXPECTED_GCC_VERSION": "$penv{QT_MINGW_EXPECTED_GCC_VERSION}",
+        "NINJA_EXE": "$penv{NINJA_EXE}",
+        "QT_MACOS_ARM64_ROOT": "$penv{QT_MACOS_ARM64_ROOT}",
+        "QT_MACOS_X86_64_ROOT": "$penv{QT_MACOS_X86_64_ROOT}",
+        "APPLE_CLANG": "$penv{APPLE_CLANG}",
+        "APPLE_CLANGXX": "$penv{APPLE_CLANGXX}",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
       }
     }
   ]

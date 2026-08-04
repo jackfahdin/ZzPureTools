@@ -18,7 +18,6 @@
         "rhs": "Linux"
       },
       "cacheVariables": {
-        "CMAKE_PREFIX_PATH": "$env{QT_ROOT}",
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "ZZ_BUILD_TESTS": true,
         "ZZ_BUILD_EXAMPLES": false,
@@ -27,66 +26,290 @@
       }
     },
     {
-      "name": "linux-gcc-13-1-base",
+      "name": "linux-gcc13-base",
       "hidden": true,
       "inherits": "linux-base",
       "cacheVariables": {
-        "CMAKE_CXX_COMPILER": "g++"
+        "CMAKE_C_COMPILER": "$env{GCC_13}",
+        "CMAKE_CXX_COMPILER": "$env{GXX_13}",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_ROOT}"
+      }
+    },
+    {
+      "name": "linux-clang17-base",
+      "hidden": true,
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "$env{CLANG_17}",
+        "CMAKE_CXX_COMPILER": "$env{CLANGXX_17}",
+        "CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN": "$env{GCC_13_TOOLCHAIN_ROOT}",
+        "CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN": "$env{GCC_13_TOOLCHAIN_ROOT}",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_ROOT}"
       }
     },
     {
       "name": "linux-gcc-debug",
-      "inherits": "linux-gcc-13-1-base",
+      "inherits": "linux-gcc13-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": true
       }
     },
     {
       "name": "linux-gcc-release",
-      "inherits": "linux-gcc-13-1-base",
+      "inherits": "linux-gcc13-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true
       }
     },
     {
       "name": "linux-static-release",
-      "inherits": "linux-gcc-13-1-base",
+      "inherits": "linux-gcc13-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": false
       }
     },
     {
-      "name": "linux-gcc-lto-release",
-      "inherits": "linux-gcc-13-1-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "ZZ_ENABLE_LTO": true
-      }
-    },
-    {
       "name": "linux-clang-release",
-      "inherits": "linux-base",
+      "inherits": "linux-clang17-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN": "$env{GCC_13_TOOLCHAIN_ROOT}"
-      }
-    },
-    {
-      "name": "linux-clang-tidy",
-      "inherits": "linux-clang-release",
-      "cacheVariables": {
-        "ZZ_ENABLE_CLANG_TIDY": true
+        "BUILD_SHARED_LIBS": true
       }
     },
     {
       "name": "linux-clang-asan",
-      "inherits": "linux-clang-release",
+      "inherits": "linux-clang17-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": true,
         "ZZ_ENABLE_ASAN": true,
         "ZZ_ENABLE_UBSAN": true
+      }
+    },
+    {
+      "name": "linux-gcc-release-lto",
+      "inherits": "linux-gcc13-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_LTO": true
+      }
+    },
+    {
+      "name": "linux-static-release-lto",
+      "inherits": "linux-gcc13-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": false,
+        "ZZ_ENABLE_LTO": true
+      }
+    },
+    {
+      "name": "linux-clang-tidy-release",
+      "inherits": "linux-clang17-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_CLANG_TIDY": true
+      }
+    },
+    {
+      "name": "linux-clang-tidy-static",
+      "inherits": "linux-clang17-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": false,
+        "ZZ_ENABLE_CLANG_TIDY": true
+      }
+    },
+    {
+      "name": "linux-gcc-lto-release",
+      "inherits": "linux-gcc-release-lto"
+    },
+    {
+      "name": "linux-clang-tidy",
+      "inherits": "linux-clang-tidy-release"
+    },
+    {
+      "name": "linux-gcc-benchmarks",
+      "inherits": "linux-gcc13-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_BENCHMARKS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_PERFORMANCE_REFERENCE": false
+      }
+    },
+    {
+      "name": "linux-gcc-reference",
+      "inherits": "linux-gcc13-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_BENCHMARKS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_PERFORMANCE_REFERENCE": true
+      }
+    },
+    {
+      "name": "linux-clang-asan-benchmarks",
+      "inherits": "linux-clang17-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_BENCHMARKS": true,
+        "ZZ_ENABLE_ASAN": true,
+        "ZZ_ENABLE_UBSAN": true
+      }
+    },
+    {
+      "name": "windows-msvc-base",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_MSVC_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MSVC_ROOT}",
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_WARNINGS_AS_ERRORS": true,
+        "ZZ_ENABLE_MSVC_ANALYZE": true,
+        "ZZ_ENABLE_LTO": true
+      }
+    },
+    {
+      "name": "windows-msvc2022-release",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_BENCHMARKS": false
+      }
+    },
+    {
+      "name": "windows-msvc2022-static",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": false,
+        "ZZ_BUILD_BENCHMARKS": false
+      }
+    },
+    {
+      "name": "windows-mingw-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "$env{QT_MINGW_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MINGW_ROOT}",
+        "CMAKE_C_COMPILER": "$env{QT_MINGW_TOOLCHAIN_ROOT}/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "$env{QT_MINGW_TOOLCHAIN_ROOT}/bin/g++.exe",
+        "CMAKE_OBJDUMP": "$env{QT_MINGW_TOOLCHAIN_ROOT}/bin/objdump.exe",
+        "CMAKE_MAKE_PROGRAM": "$env{NINJA_EXE}",
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_WARNINGS_AS_ERRORS": true,
+        "ZZ_ENABLE_LTO": true
+      }
+    },
+    {
+      "name": "windows-mingw-release",
+      "inherits": "windows-mingw-base",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": true
+      }
+    },
+    {
+      "name": "windows-mingw-static",
+      "inherits": "windows-mingw-base",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": false
+      }
+    },
+    {
+      "name": "macos-clang-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "$env{APPLE_CLANG}",
+        "CMAKE_CXX_COMPILER": "$env{APPLE_CLANGXX}",
+        "CMAKE_OBJCXX_COMPILER": "$env{APPLE_CLANGXX}",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "12.0",
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_WARNINGS_AS_ERRORS": true,
+        "ZZ_ENABLE_CLANG_TIDY": true,
+        "ZZ_ENABLE_LTO": true
+      }
+    },
+    {
+      "name": "macos-clang-release-arm64",
+      "inherits": "macos-clang-base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_ARM64_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MACOS_ARM64_ROOT}",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "BUILD_SHARED_LIBS": true
+      }
+    },
+    {
+      "name": "macos-clang-release-x86_64",
+      "inherits": "macos-clang-base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_X86_64_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MACOS_X86_64_ROOT}",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "BUILD_SHARED_LIBS": true
+      }
+    },
+    {
+      "name": "macos-clang-static-arm64",
+      "inherits": "macos-clang-base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_ARM64_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MACOS_ARM64_ROOT}",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "BUILD_SHARED_LIBS": false
+      }
+    },
+    {
+      "name": "macos-clang-static-x86_64",
+      "inherits": "macos-clang-base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_X86_64_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MACOS_X86_64_ROOT}",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "BUILD_SHARED_LIBS": false
       }
     }
   ],
@@ -94,47 +317,82 @@
     { "name": "linux-gcc-debug", "configurePreset": "linux-gcc-debug" },
     { "name": "linux-gcc-release", "configurePreset": "linux-gcc-release" },
     { "name": "linux-static-release", "configurePreset": "linux-static-release" },
-    { "name": "linux-gcc-lto-release", "configurePreset": "linux-gcc-lto-release" },
     { "name": "linux-clang-release", "configurePreset": "linux-clang-release" },
+    { "name": "linux-clang-asan", "configurePreset": "linux-clang-asan" },
+    { "name": "linux-gcc-release-lto", "configurePreset": "linux-gcc-release-lto" },
+    { "name": "linux-static-release-lto", "configurePreset": "linux-static-release-lto" },
+    { "name": "linux-clang-tidy-release", "configurePreset": "linux-clang-tidy-release" },
+    { "name": "linux-clang-tidy-static", "configurePreset": "linux-clang-tidy-static" },
+    { "name": "linux-gcc-lto-release", "configurePreset": "linux-gcc-lto-release" },
     { "name": "linux-clang-tidy", "configurePreset": "linux-clang-tidy" },
-    { "name": "linux-clang-asan", "configurePreset": "linux-clang-asan" }
+    { "name": "linux-gcc-benchmarks", "configurePreset": "linux-gcc-benchmarks" },
+    { "name": "linux-gcc-reference", "configurePreset": "linux-gcc-reference" },
+    { "name": "linux-clang-asan-benchmarks", "configurePreset": "linux-clang-asan-benchmarks" },
+    {
+      "name": "windows-msvc2022-release",
+      "configurePreset": "windows-msvc2022-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-msvc2022-static",
+      "configurePreset": "windows-msvc2022-static",
+      "configuration": "Release"
+    },
+    { "name": "windows-mingw-release", "configurePreset": "windows-mingw-release" },
+    { "name": "windows-mingw-static", "configurePreset": "windows-mingw-static" },
+    { "name": "macos-clang-release-arm64", "configurePreset": "macos-clang-release-arm64" },
+    { "name": "macos-clang-release-x86_64", "configurePreset": "macos-clang-release-x86_64" },
+    { "name": "macos-clang-static-arm64", "configurePreset": "macos-clang-static-arm64" },
+    { "name": "macos-clang-static-x86_64", "configurePreset": "macos-clang-static-x86_64" }
   ],
   "testPresets": [
     {
       "name": "linux-gcc-debug",
       "configurePreset": "linux-gcc-debug",
       "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-gcc-debug",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
     },
     {
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release",
       "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-gcc-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
     },
     {
       "name": "linux-static-release",
       "configurePreset": "linux-static-release",
       "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
-    },
-    {
-      "name": "linux-gcc-lto-release",
-      "configurePreset": "linux-gcc-lto-release",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-static-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
     },
     {
       "name": "linux-clang-release",
       "configurePreset": "linux-clang-release",
       "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
-    },
-    {
-      "name": "linux-clang-tidy",
-      "configurePreset": "linux-clang-tidy",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-clang-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
     },
     {
       "name": "linux-clang-asan",
@@ -142,8 +400,220 @@
       "output": { "outputOnFailure": true },
       "execution": { "noTestsAction": "error" },
       "environment": {
+        "ZZ_CMAKE_PRESET": "linux-clang-asan",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}",
         "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
         "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    },
+    {
+      "name": "linux-gcc-release-lto",
+      "configurePreset": "linux-gcc-release-lto",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-gcc-release-lto",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-static-release-lto",
+      "configurePreset": "linux-static-release-lto",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-static-release-lto",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-clang-tidy-release",
+      "configurePreset": "linux-clang-tidy-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-clang-tidy-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-clang-tidy-static",
+      "configurePreset": "linux-clang-tidy-static",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-clang-tidy-static",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-gcc-lto-release",
+      "configurePreset": "linux-gcc-lto-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-gcc-lto-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-clang-tidy",
+      "configurePreset": "linux-clang-tidy",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-clang-tidy",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-gcc-benchmarks",
+      "configurePreset": "linux-gcc-benchmarks",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-gcc-benchmarks",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-gcc-reference",
+      "configurePreset": "linux-gcc-reference",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-gcc-reference",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-clang-asan-benchmarks",
+      "configurePreset": "linux-clang-asan-benchmarks",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-clang-asan-benchmarks",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}",
+        "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
+    },
+    {
+      "name": "windows-msvc2022-release",
+      "configurePreset": "windows-msvc2022-release",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "windows-msvc2022-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "windows-msvc2022-static",
+      "configurePreset": "windows-msvc2022-static",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "windows-msvc2022-static",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "windows-mingw-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "windows-mingw-static",
+      "configurePreset": "windows-mingw-static",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "windows-mingw-static",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "macos-clang-release-arm64",
+      "configurePreset": "macos-clang-release-arm64",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "macos-clang-release-arm64",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "macos-clang-release-x86_64",
+      "configurePreset": "macos-clang-release-x86_64",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "macos-clang-release-x86_64",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "macos-clang-static-arm64",
+      "configurePreset": "macos-clang-static-arm64",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "macos-clang-static-arm64",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "macos-clang-static-x86_64",
+      "configurePreset": "macos-clang-static-x86_64",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "macos-clang-static-x86_64",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
       }
     }
   ]
