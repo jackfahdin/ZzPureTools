@@ -3,10 +3,14 @@ set(zz_fluent_foundation_sources
     foundation/src/ZzAnimationPolicy.cpp
     foundation/src/ZzDpiScale.cpp
     foundation/src/ZzIconCacheKey.cpp
+    foundation/src/ZzThemeController.cpp
+    foundation/src/private/ZzThemeControllerPrivate.cpp
     foundation/src/ZzThemePalette.cpp
     foundation/src/ZzThemeSnapshot.cpp
 )
-set(zz_fluent_foundation_moc_headers)
+set(zz_fluent_foundation_moc_headers
+    foundation/include/ZzFluentUI/ZzThemeController.h
+)
 
 add_library(ZzFluentFoundation ${zz_fluent_foundation_sources})
 add_library(Zz::FluentFoundation ALIAS ZzFluentFoundation)
