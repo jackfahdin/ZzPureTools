@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "scenario": "contract",
+  "warmupIterations": 10,
+  "metrics": {
+    "latency": {
+      "unit": "ms",
+      "count": 5,
+      "p50": 3,
+      "p95": 111,
+      "max": 111
+    }
+  },
+  "environment": {
+    "cpu": "test-cpu",
+    "memoryBytes": 1024,
+    "os": "test-os",
+    "gpu": "test-gpu/test-driver",
+    "windowSystem": "test-qpa",
+    "dpr": 1,
+    "refreshRateHz": 60,
+    "qtVersion": "6.8.3",
+    "compiler": "GNU 13.2.0",
+    "runnerImageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "build": {
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "preset": "linux-gcc-reference",
+    "buildType": "Release",
+    "shared": true,
+    "lto": true,
+    "sanitizers": "none"
+  }
+}

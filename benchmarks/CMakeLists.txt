@@ -133,3 +133,38 @@ target_compile_definitions(ZzWindowLifecycleBenchmark PRIVATE
     ZZ_WINDOWKIT_DIAGNOSTICS=1)
 target_include_directories(ZzWindowLifecycleBenchmark PRIVATE
     "${PROJECT_SOURCE_DIR}/ZzWindowKit/src/private")
+
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    add_subdirectory(ZzIdleProbe)
+    add_test(NAME benchmark.idle-cpu
+        COMMAND ZzIdleProbe
+            --report "${CMAKE_BINARY_DIR}/reports/benchmark.idle.json")
+    set_tests_properties(benchmark.idle-cpu PROPERTIES
+        LABELS "benchmark;linux"
+        TIMEOUT 45)
+endif()
+
+add_test(NAME benchmark.relative-comparison-valid
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
+        "-DZZ_CURRENT=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
+        -DZZ_MAX_REGRESSION_PERCENT=10
+        -P "${PROJECT_SOURCE_DIR}/cmake/ZzComparePerformanceReport.cmake")
+add_test(NAME benchmark.relative-comparison-rejects-regression
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
+        "-DZZ_CURRENT=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-regressed.json"
+        -DZZ_MAX_REGRESSION_PERCENT=10
+        -P "${PROJECT_SOURCE_DIR}/cmake/ZzComparePerformanceReport.cmake")
+add_test(NAME benchmark.relative-comparison-rejects-environment-mismatch
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
+        "-DZZ_CURRENT=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-mismatched-environment.json"
+        -DZZ_MAX_REGRESSION_PERCENT=10
+        -P "${PROJECT_SOURCE_DIR}/cmake/ZzComparePerformanceReport.cmake")
+set_tests_properties(
+    benchmark.relative-comparison-rejects-regression
+    benchmark.relative-comparison-rejects-environment-mismatch
+    PROPERTIES WILL_FAIL TRUE LABELS "benchmark;unit")
+set_tests_properties(benchmark.relative-comparison-valid PROPERTIES
+    LABELS "benchmark;unit")
