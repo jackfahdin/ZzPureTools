@@ -1,4 +1,11 @@
+#include <memory>
+
+#include <QtWidgets/QApplication>
+
 #include <ZzCore/ZzCoreVersion.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzFluentVersion.h>
 #include <ZzFluentUI/ZzFluentWidgetVersion.h>
 #include <ZzPureTools/ZzAppCoreVersion.h>
@@ -7,8 +14,9 @@
 #include <ZzWindowKit/ZzWindowAgentState.h>
 #include <ZzWindowKit/ZzWindowKitVersion.h>
 
-int main()
+int main(int argc, char *argv[])
 {
+    QApplication application(argc, argv);
     if (ZzCore::ZzCoreVersion::toString() != QStringLiteral("0.1.0")) {
         return 1;
     }
@@ -30,6 +38,13 @@ int main()
     const ZzWindowKit::ZzWindowAgent windowAgent;
     if (windowAgent.state() != ZzWindowKit::ZzWindowAgentState::Detached) {
         return 7;
+    }
+    ZzFluentUI::ZzThemeController controller;
+    controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
+    auto style = std::make_unique<ZzFluentUI::ZzFluentStyle>(
+        &controller);
+    if (style->themeRevision() != controller.snapshot()->revision()) {
+        return 8;
     }
     return 0;
 }

@@ -151,6 +151,13 @@ add_test(NAME architecture.zzwindowkit-boundaries
 set_tests_properties(architecture.zzwindowkit-boundaries PROPERTIES
     LABELS "architecture;windowkit")
 
+add_test(NAME architecture.zzfluent-boundaries
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzFluentBoundaries.cmake")
+set_tests_properties(architecture.zzfluent-boundaries PROPERTIES
+    LABELS "architecture;fluent")
+
 add_executable(ZzCorePublicHeadersTest ZzCorePublicHeadersTest.cpp)
 target_link_libraries(ZzCorePublicHeadersTest PRIVATE Zz::Core)
 zz_configure_first_party_target(ZzCorePublicHeadersTest
