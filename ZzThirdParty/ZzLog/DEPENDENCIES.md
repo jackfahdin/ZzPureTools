@@ -29,12 +29,12 @@ ZzLog 将依赖源码快照保存在组件内部，以保证离线、可复现�
   `ea7de4299689e12b6dddd392f9896f08fb0777ac7168897a244a6d6085043fea`
 - License: MIT
 - Included content: public headers, `src/format.cc`, upstream README, and license
-- ZzLog integration: `format.cc` is compiled into `ZzLog::ZzLog`; fmt public
-  headers support ZzLog's compile-time checked formatting API
+- ZzLog integration: `format.cc` and fmt headers are private implementation
+  dependencies of the vendored spdlog backend; the public formatting API uses
+  C++20 `std::format_string`, and fmt headers are not installed
 
 The verbatim dependency licenses are under `licenses/spdlog/LICENSE.txt` and
 `licenses/fmt/LICENSE.txt` and are also retained in each source snapshot.
 
 依赖许可证原文位于 `licenses/spdlog/LICENSE.txt` 与
 `licenses/fmt/LICENSE.txt`，各自的源码快照中也保留了原始许可证。
-
