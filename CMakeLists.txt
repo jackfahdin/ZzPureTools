@@ -73,3 +73,6 @@ endif()
 if(ZZ_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
+
+include(ZzInstallPackage)
+zz_install_package()
