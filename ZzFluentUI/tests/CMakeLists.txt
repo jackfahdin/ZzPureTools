@@ -143,6 +143,36 @@ set_tests_properties(fluent.navigation-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzFluentItemDelegateTest ZzFluentItemDelegateTest.cpp)
+target_link_libraries(ZzFluentItemDelegateTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzFluentItemDelegateTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentItemDelegateTest)
+zz_enable_sanitizers(ZzFluentItemDelegateTest)
+add_test(NAME fluent.item-delegate COMMAND ZzFluentItemDelegateTest)
+set_tests_properties(fluent.item-delegate PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+add_executable(ZzFluentTitleBarTest ZzFluentTitleBarTest.cpp)
+target_link_libraries(ZzFluentTitleBarTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzFluentTitleBarTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentTitleBarTest)
+zz_enable_sanitizers(ZzFluentTitleBarTest)
+add_test(NAME fluent.title-bar COMMAND ZzFluentTitleBarTest)
+set_tests_properties(fluent.title-bar PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE

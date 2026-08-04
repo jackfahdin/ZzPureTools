@@ -48,6 +48,10 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzNavigationViewPrivate.cpp
     widgets/src/ZzBreadcrumbBar.cpp
     widgets/src/private/ZzBreadcrumbBarPrivate.cpp
+    widgets/src/ZzFluentItemDelegate.cpp
+    widgets/src/private/ZzFluentItemDelegatePrivate.cpp
+    widgets/src/ZzFluentTitleBar.cpp
+    widgets/src/private/ZzFluentTitleBarPrivate.cpp
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
@@ -58,6 +62,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzMessageBar.h
     widgets/include/ZzFluentUI/ZzNavigationView.h
     widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
+    widgets/include/ZzFluentUI/ZzFluentItemDelegate.h
+    widgets/include/ZzFluentUI/ZzFluentTitleBar.h
 )
 
 add_library(ZzFluentUI ${zz_fluent_ui_sources})

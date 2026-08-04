@@ -4,6 +4,8 @@
 
 #include "private/ZzNavigationViewPrivate.h"
 
+#include <ZzFluentUI/ZzFluentItemDelegate.h>
+
 namespace ZzFluentUI {
 
 ZzNavigationView::ZzNavigationView(QWidget *parent)
@@ -39,6 +41,13 @@ void ZzNavigationView::setCompact(bool compact)
     }
     d_ptr->compact = compact;
     setFixedWidth(compact ? 48 : 240);
+    if (auto *delegate = qobject_cast<ZzFluentItemDelegate *>(
+            itemDelegate())) {
+        delegate->setDensity(
+            compact
+                ? ZzItemDensity::Compact
+                : ZzItemDensity::Standard);
+    }
     viewport()->update();
     updateGeometry();
     Q_EMIT compactChanged(compact);
