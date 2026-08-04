@@ -33,6 +33,8 @@ struct ZzRuntimeState final
     std::shared_ptr<ZzBackendLogger> logger;
     std::shared_ptr<ZzBackendSink> consoleSink;
     std::shared_ptr<ZzBackendSink> fileSink;
+    std::shared_ptr<backend::sinks::async_sink> asyncFileSink;
+    std::vector<std::shared_ptr<ZzBackendSink>> synchronousSinks;
     ZzLogConfig config;
     std::filesystem::path filePath;
 };
@@ -112,19 +114,19 @@ ZzLogInitResult failure(ZzLogInitError error, std::string message)
 
 void emitInternalError(std::string_view message) noexcept
 {
-    ZzLogErrorHandler handler;
-    {
-        auto &state = runtime();
-        std::lock_guard<std::mutex> lock(state.lifecycleMutex);
-        handler = state.config.errorHandler;
-    }
+    try {
+        ZzLogErrorHandler handler;
+        {
+            auto &state = runtime();
+            std::lock_guard<std::mutex> lock(state.lifecycleMutex);
+            handler = state.config.errorHandler;
+        }
 
-    if (handler) {
-        try {
+        if (handler) {
             handler(message);
             return;
-        } catch (...) {
         }
+    } catch (...) {
     }
 
     std::fprintf(
@@ -214,8 +216,10 @@ ZzLogInitResult initialize(ZzLogConfig config)
 
     try {
         std::vector<std::shared_ptr<ZzBackendSink>> sinks;
+        std::vector<std::shared_ptr<ZzBackendSink>> synchronousSinks;
         std::shared_ptr<ZzBackendSink> consoleSink;
         std::shared_ptr<ZzBackendSink> fileSink;
+        std::shared_ptr<backend::sinks::async_sink> asyncFileSink;
 
         if (config.console.enabled) {
 #ifdef __ANDROID__
@@ -229,6 +233,7 @@ ZzLogInitResult initialize(ZzLogConfig config)
             console->set_pattern(config.console.pattern);
             consoleSink = console;
             sinks.push_back(consoleSink);
+            synchronousSinks.push_back(consoleSink);
         }
 
         if (config.file.enabled) {
@@ -249,6 +254,7 @@ ZzLogInitResult initialize(ZzLogConfig config)
                     std::make_shared<backend::sinks::async_sink>(
                         std::move(asyncConfig));
                 asyncFile->set_level(toBackendLevel(config.file.level));
+                asyncFileSink = asyncFile;
                 fileSink = std::move(asyncFile);
             } else {
                 auto rotating =
@@ -260,6 +266,7 @@ ZzLogInitResult initialize(ZzLogConfig config)
                 rotating->set_level(toBackendLevel(config.file.level));
                 rotating->set_pattern(config.file.pattern);
                 fileSink = std::move(rotating);
+                synchronousSinks.push_back(fileSink);
             }
             sinks.push_back(fileSink);
         }
@@ -284,6 +291,8 @@ ZzLogInitResult initialize(ZzLogConfig config)
         state.filePath = resolvedFilePath;
         state.consoleSink = std::move(consoleSink);
         state.fileSink = std::move(fileSink);
+        state.asyncFileSink = std::move(asyncFileSink);
+        state.synchronousSinks = std::move(synchronousSinks);
         state.logger = std::move(logger);
         state.activeLogger.store(state.logger.get(), std::memory_order_release);
 
@@ -307,30 +316,43 @@ void shutdown() noexcept
 {
     auto &state = runtime();
     std::shared_ptr<ZzBackendLogger> logger;
-    std::shared_ptr<ZzBackendSink> consoleSink;
-    std::shared_ptr<ZzBackendSink> fileSink;
+    std::vector<std::shared_ptr<ZzBackendSink>> synchronousSinks;
+    std::shared_ptr<backend::sinks::async_sink> asyncFileSink;
     {
         std::lock_guard<std::mutex> lock(state.lifecycleMutex);
         state.activeLogger.store(nullptr, std::memory_order_release);
         logger = std::move(state.logger);
-        consoleSink = std::move(state.consoleSink);
-        fileSink = std::move(state.fileSink);
+        synchronousSinks = std::move(state.synchronousSinks);
+        asyncFileSink = std::move(state.asyncFileSink);
+        state.consoleSink.reset();
+        state.fileSink.reset();
         state.config = ZzLogConfig{};
         state.filePath.clear();
     }
 
-    try {
-        if (logger) {
-            logger->flush();
+    for (const auto &sink : synchronousSinks) {
+        try {
+            sink->flush();
+        } catch (const std::exception &ex) {
+            std::fprintf(
+                stderr,
+                "[ZzLog error] shutdown flush failed: %s\n",
+                ex.what());
+        } catch (...) {
+            std::fprintf(stderr, "[ZzLog error] shutdown flush failed\n");
         }
-    } catch (const std::exception &ex) {
-        std::fprintf(stderr, "[ZzLog error] shutdown flush failed: %s\n", ex.what());
+    }
+    try {
+        if (asyncFileSink
+            && !asyncFileSink->flush_and_wait(std::chrono::seconds(5))) {
+            std::fprintf(stderr, "[ZzLog error] async shutdown flush failed\n");
+        }
     } catch (...) {
-        std::fprintf(stderr, "[ZzLog error] shutdown flush failed\n");
+        std::fprintf(stderr, "[ZzLog error] async shutdown flush failed\n");
     }
     logger.reset();
-    fileSink.reset();
-    consoleSink.reset();
+    asyncFileSink.reset();
+    synchronousSinks.clear();
 }
 
 void flush() noexcept
@@ -345,6 +367,40 @@ void flush() noexcept
         emitInternalError(ex.what());
     } catch (...) {
         emitInternalError("unknown backend error while flushing");
+    }
+}
+
+bool flushAndWait(std::chrono::milliseconds timeout) noexcept
+{
+    if (timeout < std::chrono::milliseconds::zero()) {
+        return false;
+    }
+
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    try {
+        std::vector<std::shared_ptr<ZzBackendSink>> synchronousSinks;
+        std::shared_ptr<backend::sinks::async_sink> asyncSink;
+        {
+            auto &state = runtime();
+            std::lock_guard<std::mutex> lock(state.lifecycleMutex);
+            synchronousSinks = state.synchronousSinks;
+            asyncSink = state.asyncFileSink;
+        }
+
+        for (const auto &sink : synchronousSinks) {
+            sink->flush();
+        }
+        if (!asyncSink) {
+            return true;
+        }
+        const auto now = std::chrono::steady_clock::now();
+        const auto remaining = now < deadline
+            ? std::chrono::duration_cast<std::chrono::milliseconds>(
+                  deadline - now)
+            : std::chrono::milliseconds::zero();
+        return asyncSink->flush_and_wait(remaining);
+    } catch (...) {
+        return false;
     }
 }
 
@@ -368,6 +424,26 @@ std::filesystem::path activeFilePath()
     auto &state = runtime();
     std::lock_guard<std::mutex> lock(state.lifecycleMutex);
     return state.filePath;
+}
+
+std::uint64_t droppedMessageCount() noexcept
+{
+    std::shared_ptr<backend::sinks::async_sink> sink;
+    {
+        auto &state = runtime();
+        std::lock_guard<std::mutex> lock(state.lifecycleMutex);
+        sink = state.asyncFileSink;
+    }
+
+    if (!sink) {
+        return 0;
+    }
+    try {
+        return static_cast<std::uint64_t>(sink->get_overrun_counter())
+            + static_cast<std::uint64_t>(sink->get_discard_counter());
+    } catch (...) {
+        return 0;
+    }
 }
 
 bool setConsoleLevel(ZzLogLevel level) noexcept

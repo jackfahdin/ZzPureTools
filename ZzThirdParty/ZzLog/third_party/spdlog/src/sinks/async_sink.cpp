@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <future>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 
 #include "spdlog/common.h"
@@ -35,7 +37,7 @@ async_sink::async_sink(config async_config)
 
 async_sink::~async_sink() {
     try {
-        q_->enqueue(async_log_msg(async_log_msg::type::terminate));
+        q_->enqueue_control(async_log_msg(async_log_msg::type::terminate));
         worker_thread_.join();
     } catch (...) {
         terminate_worker_ = true;  // as last resort, stop the worker thread using terminate_worker_ flag.
@@ -47,7 +49,33 @@ async_sink::~async_sink() {
 
 void async_sink::log(const details::log_msg &msg) { enqueue_message_(async_log_msg(async_log_msg::type::log, msg)); }
 
-void async_sink::flush() { enqueue_message_(details::async_log_msg(async_log_msg::type::flush)); }
+void async_sink::flush() {
+    q_->enqueue_control(details::async_log_msg(async_log_msg::type::flush));
+}
+
+bool async_sink::flush_and_wait(const std::chrono::milliseconds timeout) {
+    if (timeout < std::chrono::milliseconds::zero()) {
+        return false;
+    }
+
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    auto completion = std::make_shared<std::promise<void>>();
+    auto completed = completion->get_future();
+    try {
+        if (!q_->enqueue_control_until(
+                async_log_msg(async_log_msg::type::flush, completion),
+                deadline)) {
+            return false;
+        }
+        if (completed.wait_until(deadline) != std::future_status::ready) {
+            return false;
+        }
+        completed.get();
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
 
 void async_sink::set_pattern(const std::string &pattern) { set_formatter(std::make_unique<pattern_formatter>(pattern)); }
 
@@ -101,7 +129,9 @@ void async_sink::enqueue_message_(details::async_log_msg &&msg) const {
             q_->enqueue(std::move(msg));
             break;
         case overflow_policy::overrun_oldest:
-            q_->enqueue_nowait(std::move(msg));
+            q_->enqueue_nowait(std::move(msg), [](const async_log_msg &queued) {
+                return queued.message_type() != async_log_msg::type::log;
+            });
             break;
         case overflow_policy::discard_new:
             q_->enqueue_if_have_room(std::move(msg));
@@ -121,7 +151,19 @@ void async_sink::backend_loop_() {
                 backend_log_(incoming_msg);
                 break;
             case async_log_msg::type::flush:
-                backend_flush_();
+                if (const auto &completion = incoming_msg.completion()) {
+                    try {
+                        if (backend_flush_()) {
+                            completion->set_value();
+                        } else {
+                            completion->set_exception(std::make_exception_ptr(
+                                std::runtime_error("async backend flush failed")));
+                        }
+                    } catch (...) {
+                    }
+                } else {
+                    static_cast<void>(backend_flush_());
+                }
                 break;
             case async_log_msg::type::terminate:
                 return;
@@ -145,16 +187,26 @@ void async_sink::backend_log_(const details::log_msg &msg) {
     }
 }
 
-void async_sink::backend_flush_() {
+bool async_sink::backend_flush_() {
+    bool success = true;
     for (const auto &sink : config_.sinks) {
         try {
             sink->flush();
         } catch (const std::exception &ex) {
-            err_helper_.handle_ex("async flush", source_loc{}, ex);
+            success = false;
+            try {
+                err_helper_.handle_ex("async flush", source_loc{}, ex);
+            } catch (...) {
+            }
         } catch (...) {
-            err_helper_.handle_unknown_ex("async flush", source_loc{});
+            success = false;
+            try {
+                err_helper_.handle_unknown_ex("async flush", source_loc{});
+            } catch (...) {
+            }
         }
     }
+    return success;
 }
 }  // namespace sinks
 SPDLOG_NAMESPACE_END

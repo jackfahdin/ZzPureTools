@@ -57,8 +57,10 @@ public:
     void set_pattern(const std::string &pattern) override;
     void set_formatter(std::unique_ptr<formatter> sink_formatter) override;
     // enqueue flush request to the worker thread and return immediately(default)
-    // if you need to wait for the actual flush to finish, call wait_all() after flush() or destruct the sink
     void flush() override;
+
+    // Enqueue a flush barrier and wait until every backend sink has flushed it.
+    [[nodiscard]] bool flush_and_wait(std::chrono::milliseconds timeout);
 
     // non sink interface methods
 
@@ -103,7 +105,7 @@ private:
     void enqueue_message_(details::async_log_msg &&msg) const;
     void backend_loop_();
     void backend_log_(const details::log_msg &msg);
-    void backend_flush_();
+    [[nodiscard]] bool backend_flush_();
 
     config config_;
     std::unique_ptr<queue_t> q_;

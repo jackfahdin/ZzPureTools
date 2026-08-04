@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -80,11 +81,25 @@ int main()
         thread.join();
     }
 
+    ZZ_TEST_CHECK(log::flushAndWait(std::chrono::seconds(5)));
+    ZZ_TEST_CHECK(log::droppedMessageCount() == 0);
+    {
+        std::ifstream flushedInput(filePath);
+        const std::string flushedContents{
+            std::istreambuf_iterator<char>(flushedInput),
+            std::istreambuf_iterator<char>()};
+        ZZ_TEST_CHECK(
+            flushedContents.find("message without formatting")
+            != std::string::npos);
+    }
+
     ZZ_TEST_CHECK(log::setFileLevel(log::ZzLogLevel::Warning));
     ZZ_TEST_CHECK(!log::shouldLog(log::ZzLogLevel::Info));
     log::writeText(log::ZzLogLevel::Error, "runtime {error} text");
     log::shutdown();
     log::shutdown();
+    ZZ_TEST_CHECK(log::droppedMessageCount() == 0);
+    ZZ_TEST_CHECK(log::flushAndWait(std::chrono::milliseconds(10)));
 
     std::ifstream input(filePath);
     const std::string contents{

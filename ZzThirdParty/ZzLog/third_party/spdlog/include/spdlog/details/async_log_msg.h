@@ -4,6 +4,9 @@
 #pragma once
 
 #include <cstdint>
+#include <future>
+#include <memory>
+#include <utility>
 
 #include "./log_msg.h"
 
@@ -17,6 +20,7 @@ public:
     enum class type : std::uint8_t { log, flush, terminate };
     async_log_msg() = default;
     explicit async_log_msg(type type);
+    async_log_msg(type type, std::shared_ptr<std::promise<void>> completion);
     async_log_msg(type type, const log_msg &orig_msg);
     ~async_log_msg() = default;
     async_log_msg(const async_log_msg &other);
@@ -24,10 +28,14 @@ public:
     async_log_msg &operator=(const async_log_msg &other);
     async_log_msg &operator=(async_log_msg &&other) noexcept;
     [[nodiscard]] type message_type() const { return msg_type_; }
+    [[nodiscard]] const std::shared_ptr<std::promise<void>> &completion() const {
+        return completion_;
+    }
 
 private:
     type msg_type_{type::log};
     memory_buf_t buffer_;
+    std::shared_ptr<std::promise<void>> completion_;
     void update_string_views();
 };
 

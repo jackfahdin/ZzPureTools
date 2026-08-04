@@ -9,6 +9,12 @@ namespace details {
 async_log_msg::async_log_msg(const type type)
     : msg_type_{type} {}
 
+async_log_msg::async_log_msg(
+    const type type,
+    std::shared_ptr<std::promise<void>> completion)
+    : msg_type_{type},
+      completion_{std::move(completion)} {}
+
 // copy logger name and payload to buffer so can be used asynchronously
 // note: source location pointers are copied without allocation since they
 // are compiler generated const chars* (__FILE__, __LINE__, __FUNCTION__)
@@ -23,7 +29,8 @@ async_log_msg::async_log_msg(const type type, const log_msg &orig_msg)
 
 async_log_msg::async_log_msg(const async_log_msg &other)
     : log_msg{other},
-      msg_type_{other.msg_type_} {
+      msg_type_{other.msg_type_},
+      completion_{other.completion_} {
     buffer_.append(logger_name);
     buffer_.append(payload);
     update_string_views();
@@ -32,7 +39,8 @@ async_log_msg::async_log_msg(const async_log_msg &other)
 async_log_msg::async_log_msg(async_log_msg &&other) noexcept
     : log_msg{other},
       msg_type_{other.msg_type_},
-      buffer_{std::move(other.buffer_)} {
+      buffer_{std::move(other.buffer_)},
+      completion_{std::move(other.completion_)} {
     update_string_views();
 }
 
@@ -40,6 +48,7 @@ async_log_msg &async_log_msg::operator=(const async_log_msg &other) {
     if (this == &other) return *this;
     log_msg::operator=(other);
     msg_type_ = other.msg_type_;
+    completion_ = other.completion_;
     buffer_.clear();
     buffer_.append(other.buffer_.data(), other.buffer_.data() + other.buffer_.size());
     update_string_views();
@@ -51,6 +60,7 @@ async_log_msg &async_log_msg::operator=(async_log_msg &&other) noexcept {
     log_msg::operator=(other);
     msg_type_ = other.msg_type_;
     buffer_ = std::move(other.buffer_);
+    completion_ = std::move(other.completion_);
     update_string_views();
     return *this;
 }

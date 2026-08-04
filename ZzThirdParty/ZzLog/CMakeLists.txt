@@ -15,8 +15,7 @@ else()
     option(ZZLOG_INSTALL "Generate ZzLog install rules" OFF)
 endif()
 
-set(ZZLOG_SOURCES
-    src/ZzLog.cpp
+set(ZZLOG_BACKEND_SOURCES
     third_party/fmt/src/format.cc
     third_party/spdlog/src/common.cpp
     third_party/spdlog/src/logger.cpp
@@ -34,22 +33,43 @@ set(ZZLOG_SOURCES
 )
 
 if(WIN32)
-    list(APPEND ZZLOG_SOURCES
+    list(APPEND ZZLOG_BACKEND_SOURCES
         third_party/spdlog/src/details/os_windows.cpp
         third_party/spdlog/src/sinks/wincolor_sink.cpp
     )
 else()
-    list(APPEND ZZLOG_SOURCES
+    list(APPEND ZZLOG_BACKEND_SOURCES
         third_party/spdlog/src/details/os_unix.cpp
         third_party/spdlog/src/sinks/ansicolor_sink.cpp
     )
 endif()
 
+add_library(ZzLogBackend OBJECT ${ZZLOG_BACKEND_SOURCES})
+target_compile_features(ZzLogBackend PRIVATE cxx_std_20)
+target_compile_definitions(ZzLogBackend PRIVATE
+    SPDLOG_DISABLE_GLOBAL_LOGGER
+    SPDLOG_NAMESPACE=zzlog_spdlog
+)
+target_include_directories(ZzLogBackend PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
+)
+set_target_properties(ZzLogBackend PROPERTIES
+    CXX_EXTENSIONS OFF
+    POSITION_INDEPENDENT_CODE ON
+)
+
 if(ZZLOG_BUILD_SHARED)
-    add_library(ZzLog SHARED ${ZZLOG_SOURCES})
+    add_library(ZzLog SHARED
+        src/ZzLog.cpp
+        $<TARGET_OBJECTS:ZzLogBackend>
+    )
     target_compile_definitions(ZzLog PRIVATE ZZLOG_BUILDING_LIBRARY PUBLIC ZZLOG_SHARED)
 else()
-    add_library(ZzLog STATIC ${ZZLOG_SOURCES})
+    add_library(ZzLog STATIC
+        src/ZzLog.cpp
+        $<TARGET_OBJECTS:ZzLogBackend>
+    )
     target_compile_definitions(ZzLog PRIVATE ZZLOG_BUILDING_LIBRARY)
 endif()
 
@@ -109,6 +129,38 @@ if(ZZLOG_BUILD_TESTS)
     set_property(TARGET zzlog-format-contract PROPERTY EXCLUDE_FROM_ALL FALSE)
     add_test(NAME zzlog.format-contract COMMAND zzlog-format-contract)
     set_tests_properties(zzlog.format-contract PROPERTIES LABELS "unit;zzlog")
+
+    add_executable(zzlog-overflow
+        tests/overflow/main.cpp
+    )
+    target_link_libraries(zzlog-overflow PRIVATE ZzLog::ZzLog)
+    target_compile_features(zzlog-overflow PRIVATE cxx_std_20)
+    set_property(TARGET zzlog-overflow PROPERTY EXCLUDE_FROM_ALL FALSE)
+    add_test(NAME zzlog.overflow COMMAND zzlog-overflow)
+    set_tests_properties(zzlog.overflow PROPERTIES
+        LABELS "component;zzlog"
+        TIMEOUT 30
+    )
+
+    add_executable(zzlog-async-barrier
+        tests/async_barrier/main.cpp
+        $<TARGET_OBJECTS:ZzLogBackend>
+    )
+    target_link_libraries(zzlog-async-barrier PRIVATE ZzLog::ZzLog)
+    target_compile_features(zzlog-async-barrier PRIVATE cxx_std_20)
+    target_compile_definitions(zzlog-async-barrier PRIVATE
+        SPDLOG_DISABLE_GLOBAL_LOGGER
+        SPDLOG_NAMESPACE=zzlog_spdlog
+    )
+    target_include_directories(zzlog-async-barrier PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
+    )
+    set_property(TARGET zzlog-async-barrier PROPERTY EXCLUDE_FROM_ALL FALSE)
+    add_test(NAME zzlog.async-barrier COMMAND zzlog-async-barrier)
+    set_tests_properties(zzlog.async-barrier PROPERTIES
+        LABELS "component;zzlog"
+        TIMEOUT 30
+    )
 endif()
 
 if(ZZLOG_BUILD_EXAMPLES)
