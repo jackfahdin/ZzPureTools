@@ -280,7 +280,7 @@ QImage zzBuildTextMask(
             const QRect textRect = zzAlignedTextRect(
                 label,
                 label->contentsRect(),
-                label->alignment(),
+                static_cast<int>(label->alignment()),
                 label->text());
             zzPaintMaskRect(&painter, zzMapToSurface(label, textRect, surface));
             ++coverage->labels;
@@ -793,6 +793,8 @@ public:
     }
 
 private Q_SLOTS:
+    // QApplication 接管 setStyle() 传入对象；静态分析器不了解 Qt 所有权。
+    // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
     void initTestCase()
     {
         QLocale::setDefault(QLocale::c());
@@ -821,6 +823,7 @@ private Q_SLOTS:
         QApplication::setStyle(
             new ZzFluentUI::ZzFluentStyle(controller_.get(), fusion));
     }
+    // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
     void rendersThemes_data()
     {

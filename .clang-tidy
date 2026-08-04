@@ -1,0 +1,16 @@
+Checks: >-
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-using,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-unhandled-exception-at-new,
+  -clang-analyzer-optin.performance.Padding,
+  -performance-enum-size
+WarningsAsErrors: ''
+HeaderFilterRegex: '(^|.*/)((ZzCore|ZzWindowKit|ZzFluentUI|ZzPureTools)/(include|src|foundation|widgets|appcore)|(tests|benchmarks)/.*|ZzThirdParty/ZzLog/(include|src))/.*'
+FormatStyle: file
+CheckOptions:
+  performance-unnecessary-value-param.AllowedTypes: '::std::stop_token;std::stop_token'

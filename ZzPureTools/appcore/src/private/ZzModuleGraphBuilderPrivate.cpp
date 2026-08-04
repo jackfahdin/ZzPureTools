@@ -46,12 +46,12 @@ template<typename ZzValue>
 [[nodiscard]] QString zzDescriptorExceptionContext(
     qsizetype registrationIndex,
     const ZzApplicationModule &module,
-    QString exception)
+    const QString &exception)
 {
     return QStringLiteral("registrationIndex=%1; type=%2; exception=%3")
         .arg(registrationIndex)
         .arg(QString::fromLatin1(typeid(module).name()))
-        .arg(std::move(exception));
+        .arg(exception);
 }
 
 } // namespace

@@ -25,9 +25,9 @@ ZzCore::ZzResult<void> ZzNavigationController::setRegistrations(
 }
 
 ZzCore::ZzResult<void> ZzNavigationController::navigate(
-    ZzRouteId routeId)
+    const ZzRouteId &routeId)
 {
-    return d_ptr->navigate(std::move(routeId));
+    return d_ptr->navigate(routeId);
 }
 
 ZzCore::ZzResult<void> ZzNavigationController::goBack()

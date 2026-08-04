@@ -35,8 +35,8 @@ ZzResult<void> settingsStatusResult(const QSettings &settings)
 
 } // namespace
 
-ZzQtSettingsStore::ZzQtSettingsStore(QString filePath)
-    : d_ptr(std::make_unique<ZzQtSettingsStorePrivate>(std::move(filePath)))
+ZzQtSettingsStore::ZzQtSettingsStore(const QString &filePath)
+    : d_ptr(std::make_unique<ZzQtSettingsStorePrivate>(filePath))
 {
     Q_ASSERT(d_ptr->isValid());
 }

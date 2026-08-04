@@ -60,7 +60,8 @@ struct ZzQtLogBridgeGlobalState final
 
 } // namespace
 
-ZzResult<void> ZzQtLogBridgePrivate::install(ZzQtLogBridgeConfig newConfig)
+ZzResult<void> ZzQtLogBridgePrivate::install(
+    const ZzQtLogBridgeConfig &newConfig)
 {
     auto &globalState = zzGlobalState();
     std::lock_guard<std::mutex> lock(globalState.lifecycleMutex);
@@ -142,7 +143,7 @@ void ZzQtLogBridgePrivate::handleMessage(
         if (previousHandler != nullptr) {
             try {
                 previousHandler(type, context, message);
-            } catch (...) {
+            } catch (...) { // NOLINT(bugprone-empty-catch) Qt 回调不得逃逸异常。
             }
         }
         return;
@@ -165,13 +166,13 @@ void ZzQtLogBridgePrivate::handleMessage(
             std::string_view(
                 formattedMessage.constData(),
                 static_cast<std::size_t>(formattedMessage.size())));
-    } catch (...) {
+    } catch (...) { // NOLINT(bugprone-empty-catch) 日志桥不得递归记录异常。
     }
 
     if (activeConfig.chainPreviousHandler && previousHandler != nullptr) {
         try {
             previousHandler(type, context, message);
-        } catch (...) {
+        } catch (...) { // NOLINT(bugprone-empty-catch) Qt 回调不得逃逸异常。
         }
     }
 }

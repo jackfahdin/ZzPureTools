@@ -41,7 +41,7 @@ public:
     [[nodiscard]] ZzCore::ZzResult<void> initialize(
         const QList<ZzPageRegistration> &registrations,
         const QList<ZzNavigationNode> &nodes,
-        ZzRouteId initialRoute,
+        const ZzRouteId &initialRoute,
         ZzFluentUI::ZzThemeController *themeController);
 
     /** @brief 刷新窗口级可翻译静态文本和导航标题缓存。 */

@@ -129,6 +129,10 @@ private Q_SLOTS:
         QVERIFY(logicalZero != nullptr);
         QVERIFY(logicalOne != nullptr);
         QVERIFY(logicalTwo != nullptr);
+        if (logicalZero == nullptr || logicalOne == nullptr
+            || logicalTwo == nullptr) {
+            return;
+        }
         QCOMPARE(logicalZero->accessibleName(), items.at(0));
         QVERIFY(logicalOne->property("zzBreadcrumbCurrent").toBool());
         QVERIFY(logicalZero->geometry().right() < logicalTwo->geometry().left());
@@ -142,6 +146,10 @@ private Q_SLOTS:
         QVERIFY(logicalZero != nullptr);
         QVERIFY(logicalOne != nullptr);
         QVERIFY(logicalTwo != nullptr);
+        if (logicalZero == nullptr || logicalOne == nullptr
+            || logicalTwo == nullptr) {
+            return;
+        }
         QVERIFY(logicalZero->geometry().left() > logicalTwo->geometry().right());
         QVERIFY(logicalOne->property("zzBreadcrumbCurrent").toBool());
 

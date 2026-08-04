@@ -42,22 +42,22 @@ QFont zzScaledFont(
 } // namespace
 
 ZzThemeSnapshot::ZzThemeSnapshot(
-    ZzThemePalette palette,
-    std::array<
+    const ZzThemePalette &palette,
+    const std::array<
         qreal,
-        static_cast<std::size_t>(ZzMetricToken::Count)> metrics,
+        static_cast<std::size_t>(ZzMetricToken::Count)> &metrics,
     std::array<
         QFont,
         static_cast<std::size_t>(ZzTypographyToken::Count)> fonts,
-    std::array<
+    const std::array<
         int,
-        static_cast<std::size_t>(ZzMotionToken::Count)> durations,
+        static_cast<std::size_t>(ZzMotionToken::Count)> &durations,
     quint64 revision,
     bool reducedMotion)
-    : palette_(std::move(palette))
-    , metrics_(std::move(metrics))
+    : palette_(palette)
+    , metrics_(metrics)
     , fonts_(std::move(fonts))
-    , durations_(std::move(durations))
+    , durations_(durations)
     , revision_(revision)
     , reducedMotion_(reducedMotion)
 {

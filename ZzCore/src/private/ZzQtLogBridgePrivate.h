@@ -10,7 +10,8 @@ namespace ZzCore {
 class ZzQtLogBridgePrivate final
 {
 public:
-    [[nodiscard]] ZzResult<void> install(ZzQtLogBridgeConfig config);
+    [[nodiscard]] ZzResult<void> install(
+        const ZzQtLogBridgeConfig &config);
     [[nodiscard]] ZzResult<void> uninstall();
     [[nodiscard]] bool isInstalled() const noexcept;
 

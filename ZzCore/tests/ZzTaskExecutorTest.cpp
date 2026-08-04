@@ -152,7 +152,7 @@ private Q_SLOTS:
         auto context = std::make_unique<QObject>();
         auto continuation = handle.future().then(
             context.get(),
-            [&callbackCount](ZzCore::ZzResult<int>) {
+            [&callbackCount](const ZzCore::ZzResult<int> &) {
                 callbackCount.fetch_add(1, std::memory_order_relaxed);
             });
         context.reset();

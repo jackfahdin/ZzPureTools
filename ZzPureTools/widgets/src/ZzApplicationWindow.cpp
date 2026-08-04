@@ -23,7 +23,7 @@ ZzCore::ZzResult<std::unique_ptr<ZzApplicationWindow>>
 ZzApplicationWindow::create(
     const QList<ZzPageRegistration> &registrations,
     const QList<ZzNavigationNode> &nodes,
-    ZzRouteId initialRoute,
+    const ZzRouteId &initialRoute,
     ZzFluentUI::ZzThemeController *themeController)
 {
     auto window = std::unique_ptr<ZzApplicationWindow>(
@@ -31,7 +31,7 @@ ZzApplicationWindow::create(
     auto initialized = window->initialize(
         registrations,
         nodes,
-        std::move(initialRoute),
+        initialRoute,
         themeController);
     if (!initialized) {
         return ZzCore::ZzResult<std::unique_ptr<
@@ -44,13 +44,13 @@ ZzApplicationWindow::create(
 ZzCore::ZzResult<void> ZzApplicationWindow::initialize(
     const QList<ZzPageRegistration> &registrations,
     const QList<ZzNavigationNode> &nodes,
-    ZzRouteId initialRoute,
+    const ZzRouteId &initialRoute,
     ZzFluentUI::ZzThemeController *themeController)
 {
     return d_ptr->initialize(
         registrations,
         nodes,
-        std::move(initialRoute),
+        initialRoute,
         themeController);
 }
 

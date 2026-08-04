@@ -17,11 +17,16 @@ function(zz_apply_first_party_warnings target_name)
         if(ZZ_WARNINGS_AS_ERRORS)
             list(APPEND zz_warning_options /WX)
         endif()
+        if(ZZ_ENABLE_MSVC_ANALYZE)
+            list(APPEND zz_warning_options /analyze)
+        endif()
     else()
         set(zz_warning_options
             -Wall
             -Wextra
             -Wpedantic
+            -Wconversion
+            -Wshadow
         )
         if(ZZ_WARNINGS_AS_ERRORS)
             list(APPEND zz_warning_options -Werror)

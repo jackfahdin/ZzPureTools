@@ -14,12 +14,12 @@ namespace {
 
 [[nodiscard]] QString zzModuleContext(
     const ZzModuleId &moduleId,
-    QString detail = {})
+    const QString &detail = {})
 {
     QString context = QStringLiteral("moduleId=%1").arg(moduleId.value());
     if (!detail.isEmpty()) {
         context.append(QStringLiteral("; "));
-        context.append(std::move(detail));
+        context.append(detail);
     }
     return context;
 }

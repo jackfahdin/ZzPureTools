@@ -73,14 +73,14 @@ void ZzStyleCache::clearIcons() noexcept
 
 int ZzStyleCache::iconBytes() const noexcept
 {
-    return icons_.totalCost();
+    return static_cast<int>(icons_.totalCost());
 }
 
 int ZzStyleCache::iconCost(QSize physicalSize) const noexcept
 {
     const int width = physicalSize.width();
     const int height = physicalSize.height();
-    const int maximum = icons_.maxCost();
+    const int maximum = static_cast<int>(icons_.maxCost());
     if (width <= 0 || height <= 0 || maximum <= 0) {
         return 0;
     }

@@ -10,6 +10,8 @@
 
 namespace ZzPureTools {
 
+// QApplication 接管 setStyle() 传入对象；静态分析器不了解 Qt 所有权。
+// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 ZzPureApplication::ZzPureApplication(int &argc, char **argv)
     : QApplication(argc, argv)
     , d_ptr(std::make_unique<ZzPureApplicationPrivate>(this))
@@ -17,6 +19,7 @@ ZzPureApplication::ZzPureApplication(int &argc, char **argv)
     QApplication::setStyle(
         new ZzFluentUI::ZzFluentStyle(d_ptr->theme.get()));
 }
+// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 ZzPureApplication::~ZzPureApplication()
 {

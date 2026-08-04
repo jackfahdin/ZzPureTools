@@ -1,7 +1,5 @@
 #include <ZzCore/ZzQtLogBridge.h>
 
-#include <utility>
-
 #include "private/ZzQtLogBridgePrivate.h"
 
 namespace ZzCore {
@@ -18,9 +16,10 @@ ZzQtLogBridge::~ZzQtLogBridge()
     }
 }
 
-ZzResult<void> ZzQtLogBridge::install(ZzQtLogBridgeConfig config)
+ZzResult<void> ZzQtLogBridge::install(
+    const ZzQtLogBridgeConfig &config)
 {
-    return d_ptr->install(std::move(config));
+    return d_ptr->install(config);
 }
 
 ZzResult<void> ZzQtLogBridge::uninstall()

@@ -68,7 +68,7 @@ ZzApplicationWindowPrivate::~ZzApplicationWindowPrivate()
 ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     const QList<ZzPageRegistration> &registrations,
     const QList<ZzNavigationNode> &nodes,
-    ZzRouteId initialRoute,
+    const ZzRouteId &initialRoute,
     ZzFluentUI::ZzThemeController *themeController)
 {
     if (initialized) {
@@ -192,7 +192,7 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
 
     refreshTranslations();
     syncWindowState();
-    auto navigationResult = controller->navigate(std::move(initialRoute));
+    auto navigationResult = controller->navigate(initialRoute);
     if (!navigationResult) {
         return navigationResult;
     }

@@ -168,6 +168,8 @@ class ZzPageLifecycleTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // 被测工厂在失败路径销毁页面树；静态分析器不了解该所有权契约。
+    // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
     void rejectsViewWithDifferentPageParent()
     {
         QWidget expectedParent;
@@ -218,6 +220,7 @@ private Q_SLOTS:
         QVERIFY(viewModelPointer.isNull());
         QVERIFY(presenterPointer.isNull());
     }
+    // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
     void destroysViewBeforePresenterAndViewModel()
     {

@@ -125,7 +125,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::setRegistrations(
 }
 
 ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
-    ZzRouteId routeId)
+    const ZzRouteId &routeId)
 {
     auto valid = validateOperation();
     if (!valid) {
@@ -172,7 +172,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
         return ZzCore::ZzResult<void>::success();
     }
 
-    const ZzCore::ZzError error = activation.error();
+    const ZzCore::ZzError &error = activation.error();
     if (!oldWasFrameworkError && oldRoute.isValid()) {
         appendHistory(oldRoute);
     }

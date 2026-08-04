@@ -11,7 +11,7 @@ namespace ZzCore {
 class ZzQtSettingsStorePrivate final
 {
 public:
-    explicit ZzQtSettingsStorePrivate(QString filePath);
+    explicit ZzQtSettingsStorePrivate(const QString &filePath);
 
     [[nodiscard]] bool isOwnerThread() const noexcept;
     [[nodiscard]] bool isValid() const noexcept;

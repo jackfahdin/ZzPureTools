@@ -1,7 +1,6 @@
 #include <ZzFluentUI/ZzToggleSwitch.h>
 
 #include <algorithm>
-#include <utility>
 
 #include <QtCore/QEvent>
 #include <QtGui/QHideEvent>
@@ -36,10 +35,12 @@ ZzToggleSwitch::ZzToggleSwitch(QWidget *parent)
         });
 }
 
-ZzToggleSwitch::ZzToggleSwitch(QString text, QWidget *parent)
+ZzToggleSwitch::ZzToggleSwitch(
+    const QString &text,
+    QWidget *parent)
     : ZzToggleSwitch(parent)
 {
-    setText(std::move(text));
+    setText(text);
 }
 
 ZzToggleSwitch::~ZzToggleSwitch() = default;

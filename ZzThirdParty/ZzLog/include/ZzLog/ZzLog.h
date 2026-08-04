@@ -118,7 +118,7 @@ struct ZzLogFileOptions final
     ZzLogOverflowPolicy overflowPolicy = ZzLogOverflowPolicy::OverrunOldest;
 
     /** @brief 单个轮转文件的最大字节数，必须大于 0。 */
-    std::size_t maxFileSize = 10 * 1024 * 1024;
+    std::size_t maxFileSize = std::size_t{10} * 1024 * 1024;
 
     /** @brief 保留的轮转文件数量，合法范围为 0 到 200000。 */
     std::size_t maxFiles = 5;

@@ -58,7 +58,8 @@ public:
      * @param routeId 目标页面强类型路由。
      * @return 导航成功，或未注册路由和原始页面 factory 错误。
      */
-    [[nodiscard]] ZzCore::ZzResult<void> navigate(ZzRouteId routeId);
+    [[nodiscard]] ZzCore::ZzResult<void> navigate(
+        const ZzRouteId &routeId);
 
     /**
      * @brief 激活最近历史页面，成功后才移除该历史项。

@@ -48,6 +48,8 @@ template<typename ZzValue>
 [[nodiscard]] QSet<QObject *> zzDirectChildren(QWidget *parent)
 {
     QSet<QObject *> children;
+    // 必须复制快照；后续删除子对象会改变 QObject 的 children 列表。
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization)
     const auto directChildren = parent->children();
     children.reserve(directChildren.size());
     for (auto *child : directChildren) {
@@ -60,6 +62,8 @@ void zzDeleteNewDirectChildren(
     QWidget *parent,
     const QSet<QObject *> &childrenBefore) noexcept
 {
+    // 必须复制快照；循环内 delete 会改变 QObject 的 children 列表。
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization)
     const auto childrenAfter = parent->children();
     for (auto *child : childrenAfter) {
         if (!childrenBefore.contains(child)) {
@@ -274,7 +278,7 @@ ZzPageHostPrivate::createPage(const ZzPageRegistration &registration)
     try {
         auto factoryResult = registration.factory(stack);
         if (!factoryResult) {
-            const auto error = factoryResult.error();
+            const auto &error = factoryResult.error();
             zzDeleteNewDirectChildren(stack, childrenBefore);
             return ZzCore::ZzResult<ZzPagePointer>::failure(error);
         }

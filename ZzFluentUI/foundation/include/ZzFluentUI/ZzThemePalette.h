@@ -34,9 +34,9 @@ public:
 
 private:
     explicit ZzThemePalette(
-        std::array<
+        const std::array<
             QColor,
-            static_cast<std::size_t>(ZzColorToken::Count)> colors);
+            static_cast<std::size_t>(ZzColorToken::Count)> &colors);
 
     std::array<
         QColor,

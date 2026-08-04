@@ -38,7 +38,8 @@ public:
         QList<ZzPageRegistration> registrations);
 
     /** @brief 导航到强类型路由并维护错误页和历史。 */
-    [[nodiscard]] ZzCore::ZzResult<void> navigate(ZzRouteId routeId);
+    [[nodiscard]] ZzCore::ZzResult<void> navigate(
+        const ZzRouteId &routeId);
 
     /** @brief 成功激活历史目标后移除最后一项。 */
     [[nodiscard]] ZzCore::ZzResult<void> goBack();

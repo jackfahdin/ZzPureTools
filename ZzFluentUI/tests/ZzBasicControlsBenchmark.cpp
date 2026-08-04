@@ -296,9 +296,10 @@ private Q_SLOTS:
             icon,
             message};
         const int initialDescendants = zzDescendantCount(roots);
-        const int initialAnimations =
+        const qsizetype initialAnimations =
             host.findChildren<QAbstractAnimation *>().size();
-        const int initialTimers = host.findChildren<QTimer *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
         const int initialCacheBytes = style.iconCacheBytes();
         QVERIFY(initialAnimations >= 1);
         QVERIFY(initialTimers >= 1);

@@ -56,6 +56,9 @@ private Q_SLOTS:
         worker.join();
 
         QVERIFY(workerResult.has_value());
+        if (!workerResult.has_value()) {
+            return;
+        }
         QVERIFY(!*workerResult);
         QCOMPARE(
             workerResult->error().code(),

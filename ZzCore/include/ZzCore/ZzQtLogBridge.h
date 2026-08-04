@@ -39,7 +39,7 @@ public:
      * 调用方必须保证本函数不与 install()、uninstall() 或对象析构并发。
      */
     [[nodiscard]] ZzResult<void> install(
-        ZzQtLogBridgeConfig config = {});
+        const ZzQtLogBridgeConfig &config = {});
 
     /**
      * @brief 恢复安装前的处理器并等待全部在途桥接调用退出。

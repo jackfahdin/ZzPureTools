@@ -35,6 +35,8 @@ public:
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("invalid argument"),
             QStringLiteral("public header smoke"));
+        // 此处有意复制，用于验证公开值类型的复制语义。
+        // NOLINTNEXTLINE(performance-unnecessary-copy-initialization)
         const auto copiedError = originalError;
         if (copiedError.code() != ZzCore::ZzErrorCode::InvalidArgument
             || copiedError.technicalMessage()

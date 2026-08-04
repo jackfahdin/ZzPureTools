@@ -126,7 +126,7 @@ void emitInternalError(std::string_view message) noexcept
             handler(message);
             return;
         }
-    } catch (...) {
+    } catch (...) { // NOLINT(bugprone-empty-catch) 回退到 stderr。
     }
 
     std::fprintf(
@@ -282,7 +282,7 @@ ZzLogInitResult initialize(ZzLogConfig config)
                 [handler = config.errorHandler](const std::string &message) {
                     try {
                         handler(message);
-                    } catch (...) {
+                    } catch (...) { // NOLINT(bugprone-empty-catch) 后端回调不得抛出。
                     }
                 });
         }

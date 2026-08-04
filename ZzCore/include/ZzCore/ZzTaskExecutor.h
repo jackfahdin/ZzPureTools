@@ -118,7 +118,7 @@ public:
                                 ZzErrorCode::Unknown,
                                 QStringLiteral(
                                     "failed to store task result")))));
-                    } catch (...) {
+                    } catch (...) { // NOLINT(bugprone-empty-catch) promise 已不可写。
                     }
                 }
                 state->status.store(

@@ -42,7 +42,10 @@ private:
     QPointer<QWidget> host_;
     ZzWindowCapabilities capabilities_;
     ZzWindowBackdrop backdrop_ = ZzWindowBackdrop::None;
+#if !ZZ_WINDOWKIT_FORCE_QT_CONTEXT \
+    && (defined(Q_OS_WIN) || defined(Q_OS_MACOS))
     ZzWindowColorScheme colorScheme_ = ZzWindowColorScheme::System;
+#endif
 };
 
 } // namespace ZzWindowKit

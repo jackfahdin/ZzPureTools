@@ -21,7 +21,7 @@ public:
      * @brief 创建使用指定 INI 文件的设置存储。
      * @param filePath 设置文件路径，不能为空。
      */
-    explicit ZzQtSettingsStore(QString filePath);
+    explicit ZzQtSettingsStore(const QString &filePath);
 
     /** @brief 释放设置后端；必须在构造线程调用。 */
     ~ZzQtSettingsStore() override;

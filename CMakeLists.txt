@@ -16,6 +16,9 @@ option(ZZ_BUILD_BENCHMARKS "Build ZzPureToolsPro benchmarks" OFF)
 option(ZZ_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ZZ_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ZZ_ENABLE_CLANG_TIDY "Run clang-tidy on explicit first-party sources" OFF)
+option(ZZ_ENABLE_MSVC_ANALYZE
+    "Run MSVC code analysis on explicit first-party sources"
+    OFF)
 option(ZZ_WARNINGS_AS_ERRORS "Treat first-party warnings as errors" OFF)
 option(ZZ_ENABLE_LTO "Enable interprocedural optimization" OFF)
 option(ZZ_BUILD_FLUENT_QUICK "Build the future Qt Quick frontend" OFF)
@@ -32,11 +35,21 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-   AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.1)
-    message(FATAL_ERROR
-        "GCC 13.1 or newer is required; found ${CMAKE_CXX_COMPILER_VERSION}")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+if(APPLE)
+    enable_language(OBJCXX)
+    if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET
+       OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 12.0)
+        message(FATAL_ERROR "macOS deployment target must be 12.0 or newer")
+    endif()
+    set(CMAKE_OBJCXX_STANDARD 20)
+    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+    set(CMAKE_OBJCXX_EXTENSIONS OFF)
 endif()
+
+include(ZzCompilerCapabilities)
+zz_check_compiler_capabilities()
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS
     Core
@@ -50,7 +63,6 @@ if(ZZ_BUILD_TESTS)
     find_package(Qt6 6.8 REQUIRED COMPONENTS Test)
 endif()
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(ZzFirstPartyTarget)
 include(ZzLibraryTarget)
 

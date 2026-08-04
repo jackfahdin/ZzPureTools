@@ -37,7 +37,7 @@ public:
      * @param parent 可为空的 QObject 所有者。
      */
     explicit ZzToggleSwitch(
-        QString text,
+        const QString &text,
         QWidget *parent = nullptr);
 
     /** @brief 销毁私有状态，动画由 QObject parent 自动释放。 */

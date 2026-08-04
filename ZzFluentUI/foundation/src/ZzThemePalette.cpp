@@ -1,8 +1,6 @@
 #include <ZzFluentUI/ZzThemePalette.h>
 
 #include <cmath>
-#include <utility>
-
 #include <QtCore/QtGlobal>
 
 namespace ZzFluentUI {
@@ -83,8 +81,8 @@ ZzColors zzHighContrastColors()
 
 } // namespace
 
-ZzThemePalette::ZzThemePalette(ZzColors colors)
-    : colors_(std::move(colors))
+ZzThemePalette::ZzThemePalette(const ZzColors &colors)
+    : colors_(colors)
 {
 }
 

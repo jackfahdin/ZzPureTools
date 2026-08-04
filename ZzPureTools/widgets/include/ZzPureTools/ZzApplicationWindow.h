@@ -90,14 +90,14 @@ private:
         std::unique_ptr<ZzApplicationWindow>> create(
         const QList<ZzPageRegistration> &registrations,
         const QList<ZzNavigationNode> &nodes,
-        ZzRouteId initialRoute,
+        const ZzRouteId &initialRoute,
         ZzFluentUI::ZzThemeController *themeController);
 
     /** @brief 按固定顺序装配当前不可见窗口。 */
     [[nodiscard]] ZzCore::ZzResult<void> initialize(
         const QList<ZzPageRegistration> &registrations,
         const QList<ZzNavigationNode> &nodes,
-        ZzRouteId initialRoute,
+        const ZzRouteId &initialRoute,
         ZzFluentUI::ZzThemeController *themeController);
 
     /** @brief 原子式消费一次由真实 accepted closeEvent 设置的令牌。 */

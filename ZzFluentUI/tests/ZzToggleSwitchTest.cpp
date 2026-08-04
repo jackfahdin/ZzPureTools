@@ -78,7 +78,8 @@ private Q_SLOTS:
         toggle.setStyle(&style);
         toggle.show();
         QCoreApplication::processEvents();
-        const int before = toggle.findChildren<QVariantAnimation *>().size();
+        const qsizetype before =
+            toggle.findChildren<QVariantAnimation *>().size();
 
         for (int index = 0; index < 20; ++index) {
             toggle.setChecked(!toggle.isChecked());
