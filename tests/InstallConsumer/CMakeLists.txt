@@ -49,7 +49,10 @@ endforeach()
 add_executable(ZzInstallConsumer main.cpp)
 target_compile_features(ZzInstallConsumer PRIVATE cxx_std_20)
 set_target_properties(ZzInstallConsumer PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(ZzInstallConsumer PRIVATE Zz::FluentUI)
+target_link_libraries(ZzInstallConsumer PRIVATE
+    Zz::AppCore
+    Zz::PureTools
+)
 
 add_test(NAME zz.install-consumer.run COMMAND ZzInstallConsumer)
 if(NOT DEFINED ZZ_PACKAGE_ROOT)

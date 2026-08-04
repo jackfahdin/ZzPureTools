@@ -165,6 +165,31 @@ add_test(NAME architecture.zzfluentui-boundaries
 set_tests_properties(architecture.zzfluentui-boundaries PROPERTIES
     LABELS "architecture;fluent;widgets")
 
+add_test(
+    NAME architecture.puretools-boundaries-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzPureToolsBoundariesContract.cmake"
+)
+set_tests_properties(architecture.puretools-boundaries-contract PROPERTIES
+    LABELS "architecture;puretools"
+)
+
+add_test(
+    NAME architecture.puretools-boundaries
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_APPCORE_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/appcore"
+        "-DZZ_WIDGETS_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets"
+        "-DZZ_APPCORE_PUBLIC_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/appcore/include"
+        "-DZZ_WIDGETS_PUBLIC_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/include"
+        "-DZZ_ALLOWED_COMPOSITION_FILE=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/src/private/ZzApplicationWindowPrivate.cpp"
+        -DZZ_REQUIRE_COMPOSITION=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzPureToolsBoundaries.cmake"
+)
+set_tests_properties(architecture.puretools-boundaries PROPERTIES
+    LABELS "architecture;appcore;puretools"
+)
+
 add_executable(ZzCorePublicHeadersTest ZzCorePublicHeadersTest.cpp)
 target_link_libraries(ZzCorePublicHeadersTest PRIVATE Zz::Core)
 zz_configure_first_party_target(ZzCorePublicHeadersTest

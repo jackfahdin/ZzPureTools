@@ -17,6 +17,22 @@ target_link_libraries(ZzAppCore PUBLIC
     Qt6::Core
 )
 
+foreach(zz_app_core_link_property IN ITEMS
+    LINK_LIBRARIES
+    INTERFACE_LINK_LIBRARIES
+)
+    get_target_property(zz_app_core_links
+        ZzAppCore ${zz_app_core_link_property})
+    if(zz_app_core_links MATCHES "-NOTFOUND$")
+        set(zz_app_core_links)
+    endif()
+    if("${zz_app_core_links}" MATCHES
+       "Qt6::(Gui|Widgets|Quick)|Zz::WindowKit|Zz::Fluent(UI|Foundation)")
+        message(FATAL_ERROR
+            "ZzAppCore ${zz_app_core_link_property} contains a UI dependency: ${zz_app_core_links}")
+    endif()
+endforeach()
+
 zz_configure_library_target(ZzAppCore
     EXPORT_NAME AppCore
     PUBLIC_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/appcore/include"
@@ -54,12 +70,49 @@ set(zz_pure_tools_moc_headers
 add_library(ZzPureTools ${zz_pure_tools_sources})
 add_library(Zz::PureTools ALIAS ZzPureTools)
 
-target_link_libraries(ZzPureTools PUBLIC
+target_link_libraries(ZzPureTools
+    PUBLIC
+        Zz::AppCore
+        Zz::FluentFoundation
+        Qt6::Widgets
+    PRIVATE
+        Zz::WindowKit
+        Zz::FluentUI
+)
+
+get_target_property(zz_pure_tools_direct_links
+    ZzPureTools LINK_LIBRARIES)
+foreach(zz_required_private_link IN ITEMS Zz::WindowKit Zz::FluentUI)
+    list(FIND zz_pure_tools_direct_links
+        "${zz_required_private_link}" zz_private_link_index)
+    if(zz_private_link_index EQUAL -1)
+        message(FATAL_ERROR
+            "ZzPureTools must directly link ${zz_required_private_link}")
+    endif()
+endforeach()
+
+get_target_property(zz_pure_tools_interface_links
+    ZzPureTools INTERFACE_LINK_LIBRARIES)
+foreach(zz_required_public_link IN ITEMS
     Zz::AppCore
-    Zz::WindowKit
-    Zz::FluentUI
+    Zz::FluentFoundation
     Qt6::Widgets
 )
+    list(FIND zz_pure_tools_interface_links
+        "${zz_required_public_link}" zz_public_link_index)
+    if(zz_public_link_index EQUAL -1)
+        message(FATAL_ERROR
+            "ZzPureTools must publicly link ${zz_required_public_link}")
+    endif()
+endforeach()
+foreach(zz_private_interface_link IN ITEMS Zz::WindowKit Zz::FluentUI)
+    list(FIND zz_pure_tools_interface_links
+        "${zz_private_interface_link}" zz_leaked_link_index)
+    if(NOT zz_leaked_link_index EQUAL -1)
+        message(FATAL_ERROR
+            "ZzPureTools leaks private dependency ${zz_private_interface_link}")
+    endif()
+endforeach()
 
 zz_configure_library_target(ZzPureTools
     EXPORT_NAME PureTools

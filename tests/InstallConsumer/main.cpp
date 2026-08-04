@@ -1,37 +1,33 @@
-#include <QtWidgets/QApplication>
+#include <ZzPureTools/ZzApplicationBuilder.h>
+#include <ZzPureTools/ZzModuleDescriptor.h>
+#include <ZzPureTools/ZzModuleGraphBuilder.h>
+#include <ZzPureTools/ZzModuleId.h>
+#include <ZzPureTools/ZzNavigationNode.h>
+#include <ZzPureTools/ZzRouteId.h>
 
-#include <ZzFluentUI/ZzBreadcrumbBar.h>
-#include <ZzFluentUI/ZzFluentItemDelegate.h>
-#include <ZzFluentUI/ZzFluentTitleBar.h>
-#include <ZzFluentUI/ZzIconButton.h>
-#include <ZzFluentUI/ZzMessageBar.h>
-#include <ZzFluentUI/ZzNavigationView.h>
-#include <ZzFluentUI/ZzPushButton.h>
-#include <ZzFluentUI/ZzThemeController.h>
-#include <ZzFluentUI/ZzToggleSwitch.h>
-
-int main(int argc, char *argv[])
+int main()
 {
-    QApplication application(argc, argv);
-    ZzFluentUI::ZzThemeController themeController;
-    ZzFluentUI::ZzPushButton pushButton;
-    ZzFluentUI::ZzIconButton iconButton;
-    ZzFluentUI::ZzToggleSwitch toggleSwitch;
-    ZzFluentUI::ZzMessageBar messageBar;
-    ZzFluentUI::ZzNavigationView navigationView;
-    ZzFluentUI::ZzBreadcrumbBar breadcrumbBar;
-    ZzFluentUI::ZzFluentItemDelegate itemDelegate;
-    ZzFluentUI::ZzFluentTitleBar titleBar;
+    ZzPureTools::ZzModuleId moduleId(
+        QStringLiteral("install.consumer"));
+    ZzPureTools::ZzRouteId routeId(QStringLiteral("home"));
+    ZzPureTools::ZzModuleDescriptor descriptor{
+        moduleId,
+        QStringLiteral("1.0.0"),
+        {}};
+    ZzPureTools::ZzNavigationNode navigationNode{
+        routeId,
+        QStringLiteral("ZzInstallConsumer"),
+        QStringLiteral("Home"),
+        {}};
+    ZzPureTools::ZzModuleGraphBuilder moduleGraphBuilder;
+    ZzPureTools::ZzApplicationBuilder applicationBuilder;
 
-    (void)application;
-    (void)themeController;
-    (void)pushButton;
-    (void)iconButton;
-    (void)toggleSwitch;
-    (void)messageBar;
-    (void)navigationView;
-    (void)breadcrumbBar;
-    (void)itemDelegate;
-    (void)titleBar;
+    if (!moduleId.isValid() || !routeId.isValid()
+        || descriptor.id != moduleId
+        || navigationNode.routeId != routeId
+        || moduleGraphBuilder.isFrozen()
+        || applicationBuilder.isFrozen()) {
+        return 1;
+    }
     return 0;
 }

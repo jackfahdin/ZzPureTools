@@ -121,6 +121,7 @@ target_link_libraries(ZzTranslationLifecycleTest PRIVATE
     Qt6::Test
     Zz::PureTools
     Zz::WindowKit
+    Zz::FluentUI
 )
 set_target_properties(ZzTranslationLifecycleTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzTranslationLifecycleTest)
