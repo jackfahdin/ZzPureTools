@@ -112,6 +112,21 @@ set_tests_properties(fluent.toggle-switch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzMessageBarTest ZzMessageBarTest.cpp)
+target_link_libraries(ZzMessageBarTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzMessageBarTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzMessageBarTest)
+zz_enable_sanitizers(ZzMessageBarTest)
+add_test(NAME fluent.message-bar COMMAND ZzMessageBarTest)
+set_tests_properties(fluent.message-bar PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE
