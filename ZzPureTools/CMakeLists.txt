@@ -1,5 +1,7 @@
 set(zz_app_core_sources
     appcore/src/private/ZzAppCoreVersion.cpp
+    appcore/src/ZzModuleId.cpp
+    appcore/src/ZzRouteId.cpp
 )
 set(zz_app_core_moc_headers)
 
@@ -45,3 +47,7 @@ zz_configure_library_target(ZzPureTools
     SOURCES ${zz_pure_tools_sources}
     MOC_HEADERS ${zz_pure_tools_moc_headers}
 )
+
+if(ZZ_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

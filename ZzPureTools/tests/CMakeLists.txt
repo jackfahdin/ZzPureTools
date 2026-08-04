@@ -1,0 +1,8 @@
+add_executable(ZzModuleGraphTest ZzModuleGraphTest.cpp)
+target_link_libraries(ZzModuleGraphTest PRIVATE Qt6::Test Zz::AppCore)
+set_target_properties(ZzModuleGraphTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzModuleGraphTest)
+zz_enable_sanitizers(ZzModuleGraphTest)
+add_test(NAME appcore.module-graph COMMAND ZzModuleGraphTest)
+set_tests_properties(appcore.module-graph PROPERTIES
+    LABELS "unit;appcore")
