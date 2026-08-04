@@ -7,6 +7,7 @@
 #include <QtCore/Qt>
 #include <QtGui/QColor>
 #include <QtGui/QPixmap>
+#include <QtWidgets/QStyleOption>
 
 #include "ZzStyleCache.h"
 
@@ -38,6 +39,51 @@ public:
 
     /** @brief 同步新快照并按变更分类刷新绘制或几何。 */
     void applySnapshot(ZzThemeChangeKinds changes);
+
+    /** @brief 绘制复选框或单选框指示器。 */
+    void drawCheckIndicator(
+        const QStyleOption *option,
+        QPainter *painter,
+        bool radio) const;
+    /** @brief 绘制按钮面板并委托平台样式绘制标签。 */
+    void drawPushButton(
+        const QStyleOptionButton *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制输入控件面板，不接触文本和输入法状态。 */
+    void drawInputPanel(
+        const QStyleOption *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制组合框面板、箭头和平台标签。 */
+    void drawComboBox(
+        const QStyleOptionComboBox *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制标签页表面、选中指示和平台标签。 */
+    void drawTabBarTab(
+        const QStyleOptionTab *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制工具提示面板。 */
+    void drawToolTipPanel(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制确定和不确定进度条。 */
+    void drawProgressBar(
+        const QStyleOptionProgressBar *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制滑块轨道、活动区和手柄。 */
+    void drawSlider(
+        const QStyleOptionSlider *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制菜单选中背景并委托平台样式绘制内容。 */
+    void drawMenuItem(
+        const QStyleOptionMenuItem *option,
+        QPainter *painter,
+        const QWidget *widget) const;
 
     ZzFluentStyle *const q_ptr;
     QPointer<ZzThemeController> controller;

@@ -59,6 +59,23 @@ set_tests_properties(fluent.style PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzFluentStandardControlsTest
+    ZzFluentStandardControlsTest.cpp
+)
+target_link_libraries(ZzFluentStandardControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzFluentStandardControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentStandardControlsTest)
+zz_enable_sanitizers(ZzFluentStandardControlsTest)
+add_test(NAME fluent.standard-controls COMMAND ZzFluentStandardControlsTest)
+set_tests_properties(fluent.standard-controls PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzThemeSwitchBenchmark ZzThemeSwitchBenchmark.cpp)
     target_link_libraries(ZzThemeSwitchBenchmark PRIVATE

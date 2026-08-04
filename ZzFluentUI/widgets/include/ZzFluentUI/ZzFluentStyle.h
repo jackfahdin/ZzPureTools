@@ -11,6 +11,8 @@
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 
+class QStyleOptionComplex;
+
 namespace ZzFluentUI {
 
 class ZzFluentStylePrivate;
@@ -108,6 +110,46 @@ public:
         PrimitiveElement element,
         const QStyleOption *option,
         QPainter *painter,
+        const QWidget *widget = nullptr) const override;
+
+    /**
+     * @brief 绘制按钮、进度、标签页和菜单项，其他控件委托给平台样式。
+     * @param element Qt control 标识。
+     * @param option 非拥有绘制状态。
+     * @param painter 非拥有绘制目标。
+     * @param widget 可选目标控件。
+     */
+    void drawControl(
+        ControlElement element,
+        const QStyleOption *option,
+        QPainter *painter,
+        const QWidget *widget = nullptr) const override;
+
+    /**
+     * @brief 绘制滑块和组合框，其他复合控件委托给平台样式。
+     * @param control Qt complex control 标识。
+     * @param option 非拥有绘制状态。
+     * @param painter 非拥有绘制目标。
+     * @param widget 可选目标控件。
+     */
+    void drawComplexControl(
+        ComplexControl control,
+        const QStyleOptionComplex *option,
+        QPainter *painter,
+        const QWidget *widget = nullptr) const override;
+
+    /**
+     * @brief 返回稳定的 Fluent 子控件区域。
+     * @param control Qt complex control 标识。
+     * @param option 非拥有绘制状态。
+     * @param subControl 待查询的子控件。
+     * @param widget 可选目标控件。
+     * @return 设备无关逻辑坐标区域。
+     */
+    [[nodiscard]] QRect subControlRect(
+        ComplexControl control,
+        const QStyleOptionComplex *option,
+        SubControl subControl,
         const QWidget *widget = nullptr) const override;
 
 private:

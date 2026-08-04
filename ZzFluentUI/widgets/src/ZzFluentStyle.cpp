@@ -4,7 +4,9 @@
 
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QStyleOption>
+#include <QtWidgets/QTextEdit>
 
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentPainter.h>
@@ -56,16 +58,29 @@ int ZzFluentStyle::pixelMetric(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
-    if (metric == PM_ButtonMargin) {
+    switch (metric) {
+    case PM_ButtonMargin:
         return qRound(d_ptr->snapshot->metric(
             ZzMetricToken::HorizontalPadding));
+    case PM_IndicatorWidth:
+    case PM_IndicatorHeight:
+        return 18;
+    case PM_SliderLength:
+        return 20;
+    case PM_SliderThickness:
+        return 4;
+    case PM_ProgressBarChunkWidth:
+        return 1;
+    case PM_TabBarTabHSpace:
+        return 24;
+    case PM_TabBarTabVSpace:
+        return 12;
+    case PM_FocusFrameHMargin:
+    case PM_FocusFrameVMargin:
+        return 2;
+    default:
+        return QProxyStyle::pixelMetric(metric, option, widget);
     }
-    if (metric == PM_FocusFrameHMargin
-        || metric == PM_FocusFrameVMargin) {
-        return qRound(d_ptr->snapshot->metric(
-            ZzMetricToken::FocusStrokeWidth));
-    }
-    return QProxyStyle::pixelMetric(metric, option, widget);
 }
 
 int ZzFluentStyle::styleHint(
@@ -75,9 +90,14 @@ int ZzFluentStyle::styleHint(
     QStyleHintReturn *returnData) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
-    if (hint == SH_Widget_Animate
-        && d_ptr->snapshot->reducedMotion()) {
-        return 0;
+    if (hint == SH_Menu_SubMenuPopupDelay) {
+        return 200;
+    }
+    if (hint == SH_Widget_Animate) {
+        if (d_ptr->snapshot != nullptr
+            && d_ptr->snapshot->reducedMotion()) {
+            return 0;
+        }
     }
     return QProxyStyle::styleHint(hint, option, widget, returnData);
 }
@@ -99,6 +119,12 @@ QPalette ZzFluentStyle::standardPalette() const
         QPalette::ButtonText,
         d_ptr->snapshot->color(ZzColorToken::TextPrimary));
     palette.setColor(
+        QPalette::Button,
+        d_ptr->snapshot->color(ZzColorToken::ControlFill));
+    palette.setColor(
+        QPalette::Mid,
+        d_ptr->snapshot->color(ZzColorToken::ControlStroke));
+    palette.setColor(
         QPalette::Highlight,
         d_ptr->snapshot->color(ZzColorToken::Accent));
     palette.setColor(
@@ -114,9 +140,32 @@ void ZzFluentStyle::drawPrimitive(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if ((element == PE_IndicatorCheckBox
+         || element == PE_IndicatorRadioButton)
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawCheckIndicator(
+            option,
+            painter,
+            element == PE_IndicatorRadioButton);
+        return;
+    }
+    const bool textFrame = element == PE_Frame
+        && (qobject_cast<const QLineEdit *>(widget) != nullptr
+            || qobject_cast<const QTextEdit *>(widget) != nullptr);
+    if ((element == PE_PanelLineEdit
+         || element == PE_FrameLineEdit
+         || textFrame)
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawInputPanel(option, painter, widget);
+        return;
+    }
+    if (element == PE_PanelTipLabel
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawToolTipPanel(option, painter);
+        return;
+    }
     if (element == PE_FrameFocusRect
-        && option != nullptr
-        && painter != nullptr) {
+        && option != nullptr && painter != nullptr) {
         const qreal dpr = widget != nullptr
             ? widget->devicePixelRatioF()
             : 1.0;
@@ -128,6 +177,95 @@ void ZzFluentStyle::drawPrimitive(
         return;
     }
     QProxyStyle::drawPrimitive(element, option, painter, widget);
+}
+
+void ZzFluentStyle::drawControl(
+    ControlElement element,
+    const QStyleOption *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (element == CE_PushButton) {
+        const auto *button = qstyleoption_cast<
+            const QStyleOptionButton *>(option);
+        if (button != nullptr && painter != nullptr) {
+            d_ptr->drawPushButton(button, painter, widget);
+            return;
+        }
+    }
+    if (element == CE_ProgressBar) {
+        const auto *progress = qstyleoption_cast<
+            const QStyleOptionProgressBar *>(option);
+        if (progress != nullptr && painter != nullptr) {
+            d_ptr->drawProgressBar(progress, painter, widget);
+            return;
+        }
+    }
+    if (element == CE_TabBarTab) {
+        const auto *tab = qstyleoption_cast<
+            const QStyleOptionTab *>(option);
+        if (tab != nullptr && painter != nullptr) {
+            d_ptr->drawTabBarTab(tab, painter, widget);
+            return;
+        }
+    }
+    if (element == CE_MenuItem) {
+        const auto *menuItem = qstyleoption_cast<
+            const QStyleOptionMenuItem *>(option);
+        if (menuItem != nullptr && painter != nullptr) {
+            d_ptr->drawMenuItem(menuItem, painter, widget);
+            return;
+        }
+    }
+    QProxyStyle::drawControl(element, option, painter, widget);
+}
+
+void ZzFluentStyle::drawComplexControl(
+    ComplexControl control,
+    const QStyleOptionComplex *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_Slider) {
+        const auto *slider = qstyleoption_cast<
+            const QStyleOptionSlider *>(option);
+        if (slider != nullptr && painter != nullptr) {
+            d_ptr->drawSlider(slider, painter, widget);
+            return;
+        }
+    }
+    if (control == CC_ComboBox) {
+        const auto *combo = qstyleoption_cast<
+            const QStyleOptionComboBox *>(option);
+        if (combo != nullptr && painter != nullptr) {
+            d_ptr->drawComboBox(combo, painter, widget);
+            return;
+        }
+    }
+    QProxyStyle::drawComplexControl(control, option, painter, widget);
+}
+
+QRect ZzFluentStyle::subControlRect(
+    ComplexControl control,
+    const QStyleOptionComplex *option,
+    SubControl subControl,
+    const QWidget *widget) const
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    QRect result = QProxyStyle::subControlRect(
+        control,
+        option,
+        subControl,
+        widget);
+    if (control == CC_Slider && subControl == SC_SliderHandle) {
+        const int length = pixelMetric(PM_SliderLength, option, widget);
+        const QPoint center = result.center();
+        result.setSize(QSize(length, length));
+        result.moveCenter(center);
+    }
+    return result;
 }
 
 } // namespace ZzFluentUI
