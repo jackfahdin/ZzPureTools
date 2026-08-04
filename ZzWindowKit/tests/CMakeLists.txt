@@ -19,3 +19,17 @@ set_tests_properties(windowkit.agent PROPERTIES
     LABELS "unit;windowkit"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+add_executable(ZzWindowKitBootstrapTest
+    ZzWindowKitBootstrapTest.cpp
+)
+target_link_libraries(ZzWindowKitBootstrapTest PRIVATE
+    Qt6::Core
+    Zz::WindowKit
+)
+zz_enable_project_warnings(ZzWindowKitBootstrapTest)
+zz_enable_sanitizers(ZzWindowKitBootstrapTest)
+add_test(NAME windowkit.bootstrap COMMAND ZzWindowKitBootstrapTest)
+set_tests_properties(windowkit.bootstrap PROPERTIES
+    LABELS "unit;windowkit"
+)

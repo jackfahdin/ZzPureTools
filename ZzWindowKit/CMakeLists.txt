@@ -2,6 +2,7 @@ set(zz_window_kit_sources
     src/private/ZzWindowKitVersion.cpp
     src/ZzWindowAgent.cpp
     src/private/ZzWindowAgentPrivate.cpp
+    src/ZzWindowKitBootstrap.cpp
 )
 set(zz_window_kit_moc_headers
     include/ZzWindowKit/ZzWindowAgent.h
