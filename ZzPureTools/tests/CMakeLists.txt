@@ -6,3 +6,11 @@ zz_enable_sanitizers(ZzModuleGraphTest)
 add_test(NAME appcore.module-graph COMMAND ZzModuleGraphTest)
 set_tests_properties(appcore.module-graph PROPERTIES
     LABELS "unit;appcore")
+
+add_executable(ZzApplicationRuntimeTest ZzApplicationRuntimeTest.cpp)
+target_link_libraries(ZzApplicationRuntimeTest PRIVATE Qt6::Test Zz::AppCore)
+set_target_properties(ZzApplicationRuntimeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzApplicationRuntimeTest)
+zz_enable_sanitizers(ZzApplicationRuntimeTest)
+add_test(NAME appcore.runtime COMMAND ZzApplicationRuntimeTest)
+set_tests_properties(appcore.runtime PROPERTIES LABELS "unit;appcore")

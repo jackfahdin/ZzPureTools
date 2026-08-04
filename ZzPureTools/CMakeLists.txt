@@ -2,6 +2,10 @@ set(zz_app_core_sources
     appcore/src/private/ZzAppCoreVersion.cpp
     appcore/src/ZzModuleId.cpp
     appcore/src/ZzRouteId.cpp
+    appcore/src/ZzModuleGraphBuilder.cpp
+    appcore/src/private/ZzModuleGraphBuilderPrivate.cpp
+    appcore/src/ZzApplicationRuntime.cpp
+    appcore/src/private/ZzApplicationRuntimePrivate.cpp
 )
 set(zz_app_core_moc_headers)
 
