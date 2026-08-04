@@ -61,6 +61,9 @@ set(ZZLOG_BUILD_WARNINGS OFF
     CACHE BOOL "Do not inject first-party warnings into vendored code" FORCE)
 
 add_subdirectory(ZzThirdParty/ZzLog EXCLUDE_FROM_ALL)
+if(ZZ_BUILD_TESTS AND TARGET zzlog-smoke)
+    set_property(TARGET zzlog-smoke PROPERTY EXCLUDE_FROM_ALL FALSE)
+endif()
 add_subdirectory(ZzCore)
 add_subdirectory(ZzWindowKit)
 add_subdirectory(ZzFluentUI)
