@@ -78,6 +78,54 @@ function(zz_install_package)
         )
     endforeach()
 
+    set(ZZ_WINDOWKIT_BUILD_QT_MAJOR "${Qt6_VERSION_MAJOR}")
+    set(ZZ_WINDOWKIT_BUILD_QT_MINOR "${Qt6_VERSION_MINOR}")
+
+    if(NOT BUILD_SHARED_LIBS)
+        get_target_property(ZZ_QWK_PRIVATE_INSTALL_DIR
+            ZzWindowKit ZZ_QWK_PRIVATE_INSTALL_DIR)
+        get_target_property(ZZ_QWK_CORE_FILE
+            ZzWindowKit ZZ_QWK_CORE_FILE)
+        get_target_property(ZZ_QWK_WIDGETS_FILE
+            ZzWindowKit ZZ_QWK_WIDGETS_FILE)
+
+        foreach(zz_qwk_property IN ITEMS
+            ZZ_QWK_PRIVATE_INSTALL_DIR
+            ZZ_QWK_CORE_FILE
+            ZZ_QWK_WIDGETS_FILE
+        )
+            if("${${zz_qwk_property}}" STREQUAL ""
+               OR "${${zz_qwk_property}}" MATCHES "-NOTFOUND$")
+                message(FATAL_ERROR
+                    "static package requires ZzWindowKit property ${zz_qwk_property}")
+            endif()
+        endforeach()
+
+        if(WIN32)
+            set(ZZ_QWK_PLATFORM_LIBRARIES "uxtheme")
+        elseif(APPLE)
+            set(ZZ_QWK_PLATFORM_LIBRARIES
+                "-framework Foundation;-framework Cocoa;-framework AppKit"
+            )
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set(ZZ_QWK_PLATFORM_LIBRARIES "${CMAKE_DL_LIBS}")
+        else()
+            message(FATAL_ERROR
+                "ZzWindowKit supports only Windows, macOS, and Linux")
+        endif()
+
+        configure_package_config_file(
+            "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ZzWindowKitPrivateTargets.cmake.in"
+            "${PROJECT_BINARY_DIR}/ZzWindowKitPrivateTargets.cmake"
+            INSTALL_DESTINATION "${zz_package_cmake_dir}"
+        )
+        install(FILES
+            "${PROJECT_BINARY_DIR}/ZzWindowKitPrivateTargets.cmake"
+            DESTINATION "${zz_package_cmake_dir}"
+            COMPONENT Development
+        )
+    endif()
+
     configure_package_config_file(
         "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ZzPureToolsProConfig.cmake.in"
         "${PROJECT_BINARY_DIR}/ZzPureToolsProConfig.cmake"

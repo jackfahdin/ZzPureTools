@@ -10,6 +10,17 @@ find_dependency(Qt6 6.8 REQUIRED COMPONENTS
 )
 find_dependency(ZzLog 0.1 CONFIG REQUIRED)
 
+if(NOT Qt6_VERSION_MAJOR EQUAL @ZZ_WINDOWKIT_BUILD_QT_MAJOR@
+   OR NOT Qt6_VERSION_MINOR EQUAL @ZZ_WINDOWKIT_BUILD_QT_MINOR@)
+    set(ZzPureToolsPro_FOUND FALSE)
+    set(ZzPureToolsPro_NOT_FOUND_MESSAGE
+        "ZzPureToolsPro was built with Qt @ZZ_WINDOWKIT_BUILD_QT_MAJOR@.@ZZ_WINDOWKIT_BUILD_QT_MINOR@, but the consumer found Qt ${Qt6_VERSION_MAJOR}.${Qt6_VERSION_MINOR}")
+    return()
+endif()
+
+if(NOT @BUILD_SHARED_LIBS@)
+    include("${CMAKE_CURRENT_LIST_DIR}/ZzWindowKitPrivateTargets.cmake")
+endif()
 include("${CMAKE_CURRENT_LIST_DIR}/ZzPureToolsProTargets.cmake")
 
 check_required_components(ZzPureToolsPro)

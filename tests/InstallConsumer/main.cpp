@@ -3,6 +3,8 @@
 #include <ZzFluentUI/ZzFluentWidgetVersion.h>
 #include <ZzPureTools/ZzAppCoreVersion.h>
 #include <ZzPureTools/ZzPureToolsVersion.h>
+#include <ZzWindowKit/ZzWindowAgent.h>
+#include <ZzWindowKit/ZzWindowAgentState.h>
 #include <ZzWindowKit/ZzWindowKitVersion.h>
 
 int main()
@@ -24,6 +26,10 @@ int main()
     }
     if (ZzPureTools::ZzPureToolsVersion::toString() != QStringLiteral("0.1.0")) {
         return 6;
+    }
+    const ZzWindowKit::ZzWindowAgent windowAgent;
+    if (windowAgent.state() != ZzWindowKit::ZzWindowAgentState::Detached) {
+        return 7;
     }
     return 0;
 }

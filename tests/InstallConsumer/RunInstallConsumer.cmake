@@ -105,6 +105,14 @@ if(NOT ZZ_OSX_SYSROOT STREQUAL "")
     list(APPEND zz_common_cache_args
         "-DCMAKE_OSX_SYSROOT:PATH=${ZZ_OSX_SYSROOT}")
 endif()
+if(NOT ZZ_XKB_INCLUDE_DIR STREQUAL "")
+    list(APPEND zz_common_cache_args
+        "-DXKB_INCLUDE_DIR:PATH=${ZZ_XKB_INCLUDE_DIR}")
+endif()
+if(NOT ZZ_XKB_LIBRARY STREQUAL "")
+    list(APPEND zz_common_cache_args
+        "-DXKB_LIBRARY:FILEPATH=${ZZ_XKB_LIBRARY}")
+endif()
 
 set(zz_config_args)
 set(zz_ctest_config_args)
@@ -136,6 +144,29 @@ zz_run_process("fresh producer build"
 zz_run_process("fresh producer install"
     "${CMAKE_COMMAND}" --install "${zz_a_dir}"
     --prefix "${zz_b_dir}" ${zz_config_args})
+
+set(zz_install_root "${zz_b_dir}")
+cmake_path(ABSOLUTE_PATH zz_install_root NORMALIZE)
+file(GLOB_RECURSE zz_qwk_installed_cmake_files
+    LIST_DIRECTORIES FALSE
+    "${zz_install_root}/*.cmake")
+foreach(zz_cmake_file IN LISTS zz_qwk_installed_cmake_files)
+    file(READ "${zz_cmake_file}" zz_cmake_content)
+    if(zz_cmake_content MATCHES "QWindowKit::")
+        message(FATAL_ERROR
+            "installed package leaks QWindowKit target: ${zz_cmake_file}")
+    endif()
+endforeach()
+file(GLOB_RECURSE zz_qwk_installed_files
+    LIST_DIRECTORIES FALSE
+    "${zz_install_root}/*")
+set(zz_leaked_qwk_artifacts ${zz_qwk_installed_files})
+list(FILTER zz_leaked_qwk_artifacts INCLUDE REGEX
+    "/(QWKCore|QWKWidgets)/|/QWindowKit(Config|Targets)[^/]*\\.cmake$")
+if(zz_leaked_qwk_artifacts)
+    message(FATAL_ERROR
+        "installed package leaks QWindowKit files: ${zz_leaked_qwk_artifacts}")
+endif()
 
 file(GLOB_RECURSE zz_installed_configs
     LIST_DIRECTORIES FALSE

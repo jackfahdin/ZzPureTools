@@ -69,9 +69,15 @@ target_link_libraries(ZzWindowKit
         Qt6::Gui
         Qt6::Widgets
     PRIVATE
-        QWindowKit::Core
-        QWindowKit::Widgets
+        "$<BUILD_INTERFACE:QWindowKit::Core>"
+        "$<BUILD_INTERFACE:QWindowKit::Widgets>"
 )
+if(NOT BUILD_SHARED_LIBS)
+    target_link_libraries(ZzWindowKit
+        INTERFACE
+            "$<INSTALL_INTERFACE:$<LINK_ONLY:ZzPrivate::WindowKitWidgetsBackend>>"
+    )
+endif()
 target_compile_definitions(ZzWindowKit PRIVATE
     "ZZ_WINDOWKIT_FORCE_QT_CONTEXT=$<BOOL:${ZZ_WINDOWKIT_FORCE_QT_CONTEXT}>"
 )
@@ -85,6 +91,35 @@ zz_configure_library_target(ZzWindowKit
     SOURCES ${zz_window_kit_sources}
     MOC_HEADERS ${zz_window_kit_moc_headers}
 )
+
+if(NOT BUILD_SHARED_LIBS)
+    set(zz_qwk_private_install_dir
+        "${CMAKE_INSTALL_LIBDIR}/zzpuretoolspro/private"
+    )
+    set(zz_qwk_core_file
+        "ZzWindowKitBackendCore${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+    set(zz_qwk_widgets_file
+        "ZzWindowKitBackendWidgets${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+
+    set_target_properties(ZzWindowKit PROPERTIES
+        ZZ_QWK_PRIVATE_INSTALL_DIR "${zz_qwk_private_install_dir}"
+        ZZ_QWK_CORE_FILE "${zz_qwk_core_file}"
+        ZZ_QWK_WIDGETS_FILE "${zz_qwk_widgets_file}"
+    )
+
+    install(FILES "$<TARGET_FILE:QWKCore>"
+        DESTINATION "${zz_qwk_private_install_dir}"
+        RENAME "${zz_qwk_core_file}"
+        COMPONENT Development
+    )
+    install(FILES "$<TARGET_FILE:QWKWidgets>"
+        DESTINATION "${zz_qwk_private_install_dir}"
+        RENAME "${zz_qwk_widgets_file}"
+        COMPONENT Development
+    )
+endif()
 
 if(ZZ_BUILD_TESTS)
     add_subdirectory(tests)

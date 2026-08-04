@@ -59,13 +59,23 @@ target_link_libraries(ZzInstallConsumer PRIVATE
 )
 
 add_test(NAME zz.install-consumer.run COMMAND ZzInstallConsumer)
+if(NOT DEFINED ZZ_PACKAGE_ROOT)
+    message(FATAL_ERROR
+        "ZZ_PACKAGE_ROOT is required to locate installed runtime libraries")
+endif()
 if(WIN32)
-    if(NOT DEFINED ZZ_PACKAGE_ROOT)
-        message(FATAL_ERROR
-            "ZZ_PACKAGE_ROOT is required to locate installed DLL files")
-    endif()
     set_tests_properties(zz.install-consumer.run PROPERTIES
         ENVIRONMENT_MODIFICATION
             "PATH=path_list_prepend:${ZZ_PACKAGE_ROOT}/${CMAKE_INSTALL_BINDIR};PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+elseif(APPLE)
+    set_tests_properties(zz.install-consumer.run PROPERTIES
+        ENVIRONMENT_MODIFICATION
+            "DYLD_LIBRARY_PATH=path_list_prepend:${ZZ_PACKAGE_ROOT}/${CMAKE_INSTALL_LIBDIR};DYLD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+elseif(UNIX)
+    set_tests_properties(zz.install-consumer.run PROPERTIES
+        ENVIRONMENT_MODIFICATION
+            "LD_LIBRARY_PATH=path_list_prepend:${ZZ_PACKAGE_ROOT}/${CMAKE_INSTALL_LIBDIR};LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )
 endif()

@@ -1,0 +1,20 @@
+@PACKAGE_INIT@
+
+if(NOT TARGET ZzPrivate::WindowKitCoreBackend)
+    add_library(ZzPrivate::WindowKitCoreBackend STATIC IMPORTED)
+endif()
+set_target_properties(ZzPrivate::WindowKitCoreBackend PROPERTIES
+    IMPORTED_LOCATION
+        "${PACKAGE_PREFIX_DIR}/@ZZ_QWK_PRIVATE_INSTALL_DIR@/@ZZ_QWK_CORE_FILE@"
+    INTERFACE_LINK_LIBRARIES "Qt6::Core;Qt6::Gui;${CMAKE_DL_LIBS}"
+)
+
+if(NOT TARGET ZzPrivate::WindowKitWidgetsBackend)
+    add_library(ZzPrivate::WindowKitWidgetsBackend STATIC IMPORTED)
+endif()
+set_target_properties(ZzPrivate::WindowKitWidgetsBackend PROPERTIES
+    IMPORTED_LOCATION
+        "${PACKAGE_PREFIX_DIR}/@ZZ_QWK_PRIVATE_INSTALL_DIR@/@ZZ_QWK_WIDGETS_FILE@"
+    INTERFACE_LINK_LIBRARIES
+        "ZzPrivate::WindowKitCoreBackend;Qt6::Core;Qt6::Gui;Qt6::Widgets;@ZZ_QWK_PLATFORM_LIBRARIES@"
+)
