@@ -2,3 +2,4 @@
 
 add_subdirectory(ZzWindowKitDemo)
 add_subdirectory(ZzFluentFoundationDemo)
+add_subdirectory(ZzFluentControlsGallery)
