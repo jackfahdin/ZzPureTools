@@ -3,8 +3,14 @@
 #include <utility>
 
 #include "private/ZzWindowAgentPrivate.h"
+#include "private/ZzQWindowKitBackend.h"
 
 namespace ZzWindowKit {
+
+ZzWindowAgent::ZzWindowAgent(QObject *parent)
+    : ZzWindowAgent(std::make_unique<ZzQWindowKitBackend>(), parent)
+{
+}
 
 ZzWindowAgent::ZzWindowAgent(
     std::unique_ptr<ZzWindowBackend> backend,

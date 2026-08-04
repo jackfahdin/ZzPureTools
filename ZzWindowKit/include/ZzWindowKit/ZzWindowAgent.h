@@ -36,6 +36,12 @@ class ZZ_WINDOWKIT_EXPORT ZzWindowAgent final : public QObject
     Q_DISABLE_COPY_MOVE(ZzWindowAgent)
 
 public:
+    /**
+     * @brief 创建使用默认无边框后端的窗口代理。
+     * @param parent 可选 QObject 所有者，不影响宿主窗口所有权。
+     */
+    explicit ZzWindowAgent(QObject *parent = nullptr);
+
     /** @brief 销毁代理及其独占后端，不销毁宿主窗口或标题栏控件。 */
     ~ZzWindowAgent() override;
 

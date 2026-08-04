@@ -1,0 +1,399 @@
+#include "ZzQWindowKitBackend.h"
+
+#include <utility>
+
+#include <QtCore/QOperatingSystemVersion>
+#include <QtCore/QPoint>
+#include <QtCore/QString>
+#include <QtCore/QVariant>
+#include <QtCore/QtGlobal>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QStyleHints>
+#include <QtWidgets/QWidget>
+
+#include <QWKWidgets/widgetwindowagent.h>
+
+#include <ZzCore/ZzError.h>
+#include <ZzCore/ZzErrorCode.h>
+
+namespace ZzWindowKit {
+
+namespace {
+
+template<typename ZzValue>
+[[nodiscard]] ZzCore::ZzResult<ZzValue> zzBackendFailure(
+    ZzCore::ZzErrorCode code,
+    QString message)
+{
+    return ZzCore::ZzResult<ZzValue>::failure(
+        ZzCore::ZzError(code, std::move(message)));
+}
+
+[[nodiscard]] ZzCore::ZzResult<ZzWindowApplyState>
+zzUnsupportedApplyState()
+{
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        ZzWindowApplyState::Unsupported);
+}
+
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+[[nodiscard]] bool zzUsesDarkColors(ZzWindowColorScheme colorScheme)
+{
+    switch (colorScheme) {
+    case ZzWindowColorScheme::System:
+        return QGuiApplication::styleHints()->colorScheme()
+            == Qt::ColorScheme::Dark;
+    case ZzWindowColorScheme::Light:
+        return false;
+    case ZzWindowColorScheme::Dark:
+        return true;
+    }
+    return false;
+}
+#endif
+
+#if defined(Q_OS_WIN)
+[[nodiscard]] bool zzIsWindows10OrGreater()
+{
+    return QOperatingSystemVersion::current()
+        >= QOperatingSystemVersion::Windows10;
+}
+
+[[nodiscard]] bool zzIsWindows11OrGreater()
+{
+    const auto version = QOperatingSystemVersion::current();
+    return version.majorVersion() > 10
+        || (version.majorVersion() == 10 && version.microVersion() >= 22000);
+}
+
+[[nodiscard]] bool zzIsWindows1122H2OrGreater()
+{
+    const auto version = QOperatingSystemVersion::current();
+    return version.majorVersion() > 10
+        || (version.majorVersion() == 10 && version.microVersion() >= 22621);
+}
+
+[[nodiscard]] bool zzWindowsSupportsBackdrop(ZzWindowBackdrop backdrop)
+{
+    switch (backdrop) {
+    case ZzWindowBackdrop::None:
+        return true;
+    case ZzWindowBackdrop::Blur:
+        return zzIsWindows10OrGreater();
+    case ZzWindowBackdrop::Acrylic:
+    case ZzWindowBackdrop::Mica:
+        return zzIsWindows11OrGreater();
+    case ZzWindowBackdrop::MicaAlt:
+        return zzIsWindows1122H2OrGreater();
+    case ZzWindowBackdrop::Automatic:
+        return zzIsWindows10OrGreater();
+    }
+    return false;
+}
+#endif
+
+} // namespace
+
+ZzQWindowKitBackend::ZzQWindowKitBackend() = default;
+
+ZzQWindowKitBackend::~ZzQWindowKitBackend()
+{
+    agent_.reset();
+    host_.clear();
+}
+
+ZzCore::ZzResult<void> ZzQWindowKitBackend::attach(QWidget *window)
+{
+    if (agent_ != nullptr) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("QWindowKit backend is already attached"));
+    }
+    if (window == nullptr) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("QWindowKit host must not be null"));
+    }
+
+    auto agent = std::make_unique<QWK::WidgetWindowAgent>(nullptr);
+    if (!agent->setup(window)) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral("QWindowKit failed to attach the host window"));
+    }
+
+    host_ = window;
+    agent_ = std::move(agent);
+
+#if ZZ_WINDOWKIT_FORCE_QT_CONTEXT
+    capabilities_ = {};
+#elif defined(Q_OS_WIN)
+    if (zzIsWindows10OrGreater()) {
+        capabilities_ = ZzWindowCapability::SystemMenu
+            | ZzWindowCapability::Blur;
+        if (zzIsWindows11OrGreater()) {
+            capabilities_ |= ZzWindowCapability::Acrylic;
+            capabilities_ |= ZzWindowCapability::Mica;
+            capabilities_ |= ZzWindowCapability::MicaAlt;
+            capabilities_ |= ZzWindowCapability::SnapLayout;
+        }
+    }
+#elif defined(Q_OS_MACOS)
+    capabilities_ = ZzWindowCapability::Blur
+        | ZzWindowCapability::NativeSystemButtons;
+#elif defined(Q_OS_LINUX)
+    const auto platformName = QGuiApplication::platformName();
+    if (platformName == QStringLiteral("xcb")
+        || platformName.startsWith(QStringLiteral("wayland"))) {
+        capabilities_ = ZzWindowCapability::SystemMenu;
+    }
+#else
+    capabilities_ = {};
+#endif
+
+    return ZzCore::ZzResult<void>::success();
+}
+
+ZzCore::ZzResult<void> ZzQWindowKitBackend::configureChrome(
+    const ZzWindowChromeConfiguration &configuration)
+{
+    if (agent_ == nullptr) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("QWindowKit backend is not attached"));
+    }
+
+    agent_->setTitleBar(configuration.titleBar);
+    agent_->setSystemButton(
+        QWK::WindowAgentBase::WindowIcon, configuration.windowIcon);
+    agent_->setSystemButton(
+        QWK::WindowAgentBase::Minimize, configuration.minimizeButton);
+    agent_->setSystemButton(
+        QWK::WindowAgentBase::Maximize, configuration.maximizeButton);
+    agent_->setSystemButton(
+        QWK::WindowAgentBase::Close, configuration.closeButton);
+    for (auto *widget : configuration.interactiveWidgets) {
+        agent_->setHitTestVisible(widget, true);
+    }
+    return ZzCore::ZzResult<void>::success();
+}
+
+ZzWindowCapabilities ZzQWindowKitBackend::capabilities() const noexcept
+{
+    return capabilities_;
+}
+
+ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setBackdrop(
+    ZzWindowBackdrop backdrop)
+{
+    if (agent_ == nullptr || host_.isNull()) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("QWindowKit backend is not attached"));
+    }
+
+#if ZZ_WINDOWKIT_FORCE_QT_CONTEXT
+    if (backdrop == ZzWindowBackdrop::None) {
+        backdrop_ = ZzWindowBackdrop::None;
+        return ZzCore::ZzResult<ZzWindowApplyState>::success(
+            ZzWindowApplyState::Applied);
+    }
+    return zzUnsupportedApplyState();
+#elif defined(Q_OS_WIN)
+    auto resolvedBackdrop = backdrop;
+    if (resolvedBackdrop == ZzWindowBackdrop::Automatic) {
+        if (zzIsWindows11OrGreater()) {
+            resolvedBackdrop = ZzWindowBackdrop::Mica;
+        } else if (zzIsWindows10OrGreater()) {
+            resolvedBackdrop = ZzWindowBackdrop::Blur;
+        }
+    }
+    if (!zzWindowsSupportsBackdrop(resolvedBackdrop)
+        || resolvedBackdrop == ZzWindowBackdrop::Automatic) {
+        return zzUnsupportedApplyState();
+    }
+
+    const auto micaDisabled = agent_->setWindowAttribute(
+        QStringLiteral("mica"), false);
+    const auto micaAltDisabled = agent_->setWindowAttribute(
+        QStringLiteral("mica-alt"), false);
+    const auto acrylicDisabled = agent_->setWindowAttribute(
+        QStringLiteral("acrylic-material"), false);
+    const auto blurDisabled = agent_->setWindowAttribute(
+        QStringLiteral("dwm-blur"), false);
+
+    bool previousDisabled = true;
+    switch (backdrop_) {
+    case ZzWindowBackdrop::Mica:
+        previousDisabled = micaDisabled;
+        break;
+    case ZzWindowBackdrop::MicaAlt:
+        previousDisabled = micaAltDisabled;
+        break;
+    case ZzWindowBackdrop::Acrylic:
+        previousDisabled = acrylicDisabled;
+        break;
+    case ZzWindowBackdrop::Blur:
+        previousDisabled = blurDisabled;
+        break;
+    case ZzWindowBackdrop::None:
+    case ZzWindowBackdrop::Automatic:
+        break;
+    }
+
+    bool requestedEnabled = true;
+    switch (resolvedBackdrop) {
+    case ZzWindowBackdrop::Mica:
+        requestedEnabled = agent_->setWindowAttribute(
+            QStringLiteral("mica"), true);
+        break;
+    case ZzWindowBackdrop::MicaAlt:
+        requestedEnabled = agent_->setWindowAttribute(
+            QStringLiteral("mica-alt"), true);
+        break;
+    case ZzWindowBackdrop::Acrylic:
+        requestedEnabled = agent_->setWindowAttribute(
+            QStringLiteral("acrylic-material"), true);
+        break;
+    case ZzWindowBackdrop::Blur:
+        requestedEnabled = agent_->setWindowAttribute(
+            QStringLiteral("dwm-blur"), true);
+        break;
+    case ZzWindowBackdrop::None:
+    case ZzWindowBackdrop::Automatic:
+        break;
+    }
+    if (!previousDisabled || !requestedEnabled) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral("QWindowKit failed to update the window backdrop"));
+    }
+
+    backdrop_ = resolvedBackdrop;
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        hasNativeHandle()
+            ? ZzWindowApplyState::Applied
+            : ZzWindowApplyState::Deferred);
+#elif defined(Q_OS_MACOS)
+    auto resolvedBackdrop = backdrop;
+    if (resolvedBackdrop == ZzWindowBackdrop::Automatic) {
+        resolvedBackdrop = ZzWindowBackdrop::Blur;
+    }
+    if (resolvedBackdrop != ZzWindowBackdrop::None
+        && resolvedBackdrop != ZzWindowBackdrop::Blur) {
+        return zzUnsupportedApplyState();
+    }
+
+    const auto attribute = resolvedBackdrop == ZzWindowBackdrop::None
+        ? QStringLiteral("none")
+        : (zzUsesDarkColors(colorScheme_)
+               ? QStringLiteral("dark")
+               : QStringLiteral("light"));
+    if (!agent_->setWindowAttribute(
+            QStringLiteral("blur-effect"), attribute)) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral("QWindowKit failed to update the window backdrop"));
+    }
+    backdrop_ = resolvedBackdrop;
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        hasNativeHandle()
+            ? ZzWindowApplyState::Applied
+            : ZzWindowApplyState::Deferred);
+#elif defined(Q_OS_LINUX)
+    if (backdrop != ZzWindowBackdrop::None) {
+        return zzUnsupportedApplyState();
+    }
+    backdrop_ = ZzWindowBackdrop::None;
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        ZzWindowApplyState::Applied);
+#else
+    Q_UNUSED(backdrop);
+    return zzUnsupportedApplyState();
+#endif
+}
+
+ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setColorScheme(
+    ZzWindowColorScheme colorScheme)
+{
+    if (agent_ == nullptr || host_.isNull()) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("QWindowKit backend is not attached"));
+    }
+
+#if ZZ_WINDOWKIT_FORCE_QT_CONTEXT
+    Q_UNUSED(colorScheme);
+    return zzUnsupportedApplyState();
+#elif defined(Q_OS_WIN)
+    if (!zzIsWindows10OrGreater()) {
+        return zzUnsupportedApplyState();
+    }
+    if (!agent_->setWindowAttribute(
+            QStringLiteral("dark-mode"), zzUsesDarkColors(colorScheme))) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral("QWindowKit failed to update the color scheme"));
+    }
+    colorScheme_ = colorScheme;
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        hasNativeHandle()
+            ? ZzWindowApplyState::Applied
+            : ZzWindowApplyState::Deferred);
+#elif defined(Q_OS_MACOS)
+    if (backdrop_ != ZzWindowBackdrop::Blur) {
+        return zzUnsupportedApplyState();
+    }
+    const auto attribute = zzUsesDarkColors(colorScheme)
+        ? QStringLiteral("dark")
+        : QStringLiteral("light");
+    if (!agent_->setWindowAttribute(
+            QStringLiteral("blur-effect"), attribute)) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral("QWindowKit failed to update the color scheme"));
+    }
+    colorScheme_ = colorScheme;
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        hasNativeHandle()
+            ? ZzWindowApplyState::Applied
+            : ZzWindowApplyState::Deferred);
+#else
+    Q_UNUSED(colorScheme);
+    return zzUnsupportedApplyState();
+#endif
+}
+
+ZzCore::ZzResult<void> ZzQWindowKitBackend::showSystemMenu(
+    const QPoint &globalPosition)
+{
+    if (agent_ == nullptr || host_.isNull()) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("QWindowKit backend is not attached"));
+    }
+
+#if ZZ_WINDOWKIT_FORCE_QT_CONTEXT || defined(Q_OS_MACOS)
+    Q_UNUSED(globalPosition);
+    return zzBackendFailure<void>(
+        ZzCore::ZzErrorCode::Unsupported,
+        QStringLiteral("system menu is unavailable on this window backend"));
+#elif defined(Q_OS_WIN) || defined(Q_OS_LINUX)
+    agent_->showSystemMenu(globalPosition);
+    return ZzCore::ZzResult<void>::success();
+#else
+    Q_UNUSED(globalPosition);
+    return zzBackendFailure<void>(
+        ZzCore::ZzErrorCode::Unsupported,
+        QStringLiteral("system menu is unavailable on this platform"));
+#endif
+}
+
+bool ZzQWindowKitBackend::hasNativeHandle() const noexcept
+{
+    return !host_.isNull()
+        && host_->testAttribute(Qt::WA_WState_Created)
+        && host_->windowHandle() != nullptr;
+}
+
+} // namespace ZzWindowKit

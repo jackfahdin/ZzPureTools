@@ -19,6 +19,11 @@ option(ZZ_ENABLE_CLANG_TIDY "Run clang-tidy on explicit first-party sources" OFF
 option(ZZ_WARNINGS_AS_ERRORS "Treat first-party warnings as errors" OFF)
 option(ZZ_ENABLE_LTO "Enable interprocedural optimization" OFF)
 option(ZZ_BUILD_FLUENT_QUICK "Build the future Qt Quick frontend" OFF)
+option(
+    ZZ_WINDOWKIT_FORCE_QT_CONTEXT
+    "Force QWindowKit to use the portable Qt window context"
+    OFF
+)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
