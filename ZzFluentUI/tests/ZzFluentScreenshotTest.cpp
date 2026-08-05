@@ -68,6 +68,7 @@
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
+#include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -1230,6 +1231,249 @@ private:
     QPointer<ZzFluentUI::ZzActionCard> hoverCard;
     QPointer<ZzFluentUI::ZzActionCard> focusCard;
 };
+
+/** @brief 保存轮播截图中文字遮罩及其覆盖数量。 */
+struct ZzCarouselTextMask final
+{
+    QImage image;
+    int carousels = 0;
+    int titles = 0;
+    int descriptions = 0;
+};
+
+/** @brief 构造轮播图片、空态、禁用、焦点、边界和 RTL 视觉矩阵。 */
+class ZzCarouselScreenshotSurface final
+{
+public:
+    /** @brief 创建六个只消费本地 QStandardItemModel 的固定轮播。 */
+    ZzCarouselScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzCarouselScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Carousel Views"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(24, 24, 24, 24);
+        grid->setHorizontalSpacing(16);
+        grid->setVerticalSpacing(16);
+        const QPixmap preview = zzCardScreenshotPixmap(window.palette());
+
+        carousels_.at(0) = addCarousel(
+            grid,
+            0,
+            0,
+            QStringLiteral("Image at first boundary"),
+            QStringLiteral("Seven bounded indicators from nine model rows"),
+            preview,
+            9,
+            0);
+        carousels_.at(1) = addCarousel(
+            grid,
+            0,
+            1,
+            QStringLiteral("Empty image placeholder"),
+            QStringLiteral("No decoration role is supplied"),
+            {},
+            3,
+            1);
+        carousels_.at(2) = addCarousel(
+            grid,
+            0,
+            2,
+            QStringLiteral(
+                "A deliberately long carousel title that must remain inside"),
+            QStringLiteral(
+                "A long description verifies elision without changing layout"),
+            preview,
+            3,
+            1);
+        carousels_.at(3) = addCarousel(
+            grid,
+            1,
+            0,
+            QStringLiteral("Disabled carousel"),
+            QStringLiteral("Image and controls use the disabled palette"),
+            preview,
+            3,
+            1);
+        carousels_.at(3)->setEnabled(false);
+        carousels_.at(4) = addCarousel(
+            grid,
+            1,
+            1,
+            QStringLiteral("Keyboard focus"),
+            {},
+            preview,
+            3,
+            1);
+        carousels_.at(5) = addCarousel(
+            grid,
+            1,
+            2,
+            QStringLiteral("RTL at last boundary"),
+            QStringLiteral("Buttons, icons and content direction are mirrored"),
+            preview,
+            3,
+            2);
+        carousels_.at(5)->setLayoutDirection(Qt::RightToLeft);
+    }
+
+    /** @brief 展示画面并确定性设置唯一键盘焦点状态。 */
+    void polish()
+    {
+        window.show();
+        window.activateWindow();
+        QCoreApplication::processEvents();
+        carousels_.at(4)->setFocus(Qt::TabFocusReason);
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏轮播截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    /** @brief 返回指定视觉位置的轮播视图。 */
+    [[nodiscard]] ZzFluentUI::ZzCarouselView *carousel(
+        std::size_t index) const
+    {
+        return carousels_.at(index);
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 创建一个 model 归属视图 QObject 树的轮播单元。 */
+    ZzFluentUI::ZzCarouselView *addCarousel(
+        QGridLayout *grid,
+        int row,
+        int column,
+        const QString &title,
+        const QString &description,
+        const QPixmap &decoration,
+        int itemCount,
+        int currentRow)
+    {
+        auto *view = new ZzFluentUI::ZzCarouselView(&window);
+        view->setAccessibleName(title);
+        view->setAnimationDuration(0);
+        auto *model = new QStandardItemModel(view);
+        for (int itemRow = 0; itemRow < itemCount; ++itemRow) {
+            const bool current = itemRow == currentRow;
+            auto *item = new QStandardItem(
+                current
+                    ? title
+                    : QStringLiteral("Neighbor item %1").arg(itemRow + 1));
+            item->setData(
+                current ? description : QStringLiteral("Neighbor description"),
+                ZzFluentUI::ZzCarouselView::DescriptionRole);
+            item->setData(
+                current
+                    ? QStringLiteral("Accessible %1").arg(title)
+                    : QStringLiteral("Accessible neighbor"),
+                Qt::AccessibleTextRole);
+            if (!decoration.isNull()) {
+                item->setData(decoration, Qt::DecorationRole);
+            }
+            model->appendRow(item);
+        }
+        view->setModel(model);
+        view->setCurrentRow(currentRow);
+        grid->addWidget(view, row, column);
+        return view;
+    }
+
+    std::array<QPointer<ZzFluentUI::ZzCarouselView>, 6> carousels_{};
+};
+
+/** @brief 构造只覆盖轮播当前项标题和说明的字体差异遮罩。 */
+ZzCarouselTextMask zzBuildCarouselTextMask(QWidget *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzCarouselTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    const auto carousels =
+        surface->findChildren<ZzFluentUI::ZzCarouselView *>();
+    for (ZzFluentUI::ZzCarouselView *carousel : carousels) {
+        if (!carousel->isVisible() || carousel->viewport() == nullptr
+            || !carousel->currentIndex().isValid()) {
+            continue;
+        }
+        ++result.carousels;
+        const QModelIndex current = carousel->currentIndex();
+        const QString title = current.data(Qt::DisplayRole).toString();
+        const QString description = current
+            .data(ZzFluentUI::ZzCarouselView::DescriptionRole)
+            .toString();
+        const QRect itemRect = carousel->visualRect(current);
+        const int bandHeight = description.isEmpty() ? 52 : 76;
+        const QRect bandRect(
+            itemRect.left(),
+            std::max(itemRect.top(), itemRect.bottom() - bandHeight + 1),
+            itemRect.width(),
+            std::min(bandHeight, itemRect.height()));
+        const QRect textRect = bandRect.adjusted(16, 8, -16, -8);
+
+        QFont titleFont = carousel->font();
+        titleFont.setWeight(QFont::DemiBold);
+        const QFontMetrics titleMetrics(titleFont);
+        const QString displayedTitle = titleMetrics.elidedText(
+            title,
+            Qt::ElideRight,
+            textRect.width());
+        const QRect titleBounds(
+            textRect.left(),
+            textRect.top(),
+            textRect.width(),
+            titleMetrics.height());
+        const QRect titlePixels = titleMetrics.boundingRect(
+            titleBounds,
+            Qt::AlignLeading | Qt::AlignVCenter,
+            displayedTitle);
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(carousel->viewport(), titlePixels, surface));
+        ++result.titles;
+
+        if (!description.isEmpty()) {
+            const QFontMetrics descriptionMetrics(carousel->font());
+            const QString displayedDescription =
+                descriptionMetrics.elidedText(
+                    description,
+                    Qt::ElideRight,
+                    textRect.width());
+            const QRect descriptionBounds(
+                textRect.left(),
+                textRect.top() + titleMetrics.height() + 2,
+                textRect.width(),
+                std::max(
+                    0,
+                    textRect.height() - titleMetrics.height() - 2));
+            const QRect descriptionPixels = descriptionMetrics.boundingRect(
+                descriptionBounds,
+                Qt::AlignLeading | Qt::AlignTop | Qt::TextWordWrap,
+                displayedDescription);
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(
+                    carousel->viewport(), descriptionPixels, surface));
+            ++result.descriptions;
+        }
+    }
+    painter.end();
+    return result;
+}
 
 /** @brief 保存标签页截图中文字遮罩及覆盖数量。 */
 struct ZzTabTextMask final
@@ -4272,6 +4516,23 @@ QImage zzRenderCardSurface(ZzCardScreenshotSurface *surface, qreal dpr)
     return image;
 }
 
+/** @brief 将独立轮播窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderCarouselSurface(
+    ZzCarouselScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 把窗口和独立菜单渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderSurface(ZzScreenshotSurface *surface, qreal dpr)
 {
@@ -4528,6 +4789,127 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 卡片非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersCarouselThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("carousel-view-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("carousel-view-light");
+        QTest::newRow("carousel-view-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("carousel-view-dark");
+        QTest::newRow("carousel-view-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("carousel-view-high-contrast");
+    }
+
+    void rendersCarouselThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzCarouselScreenshotSurface surface;
+        surface.polish();
+        QCOMPARE(
+            surface.window.findChildren<ZzFluentUI::ZzCarouselView *>()
+                .size(),
+            6);
+        QCOMPARE(
+            surface.window.findChildren<QAbstractAnimation *>().size(),
+            6);
+        QCOMPARE(surface.carousel(0)->currentRow(), 0);
+        QCOMPARE(surface.carousel(0)->model()->rowCount(), 9);
+        QVERIFY(surface.carousel(1)
+                    ->currentIndex()
+                    .data(Qt::DecorationRole)
+                    .isNull());
+        QVERIFY(surface.carousel(2)
+                    ->currentIndex()
+                    .data(Qt::DisplayRole)
+                    .toString()
+                    .size()
+                > 40);
+        QVERIFY(!surface.carousel(3)->isEnabled());
+        QVERIFY(surface.carousel(4)->hasFocus());
+        QCOMPARE(surface.carousel(5)->layoutDirection(), Qt::RightToLeft);
+        QCOMPARE(surface.carousel(5)->currentRow(), 2);
+
+        const QImage actual = zzRenderCarouselSurface(&surface, actualDpr_);
+        QCOMPARE(
+            actual.size(),
+            QSize(
+                qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+                qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        const ZzCarouselTextMask mask = zzBuildCarouselTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.carousels, 6);
+        QCOMPARE(mask.titles, 6);
+        QCOMPARE(mask.descriptions, 5);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 轮播非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)

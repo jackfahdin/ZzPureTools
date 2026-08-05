@@ -44,6 +44,7 @@
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
+#include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
@@ -854,6 +855,49 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
                     ? QStringLiteral("Project preview selected")
                     : QStringLiteral("Project preview cleared"));
         });
+
+    layout->addWidget(zzSectionTitle(QStringLiteral("Carousel"), container));
+    auto *carousel = new ZzFluentUI::ZzCarouselView(container);
+    carousel->setAccessibleName(QStringLiteral("Project highlights"));
+    carousel->setAnimationDuration(220);
+    carousel->setWrapAroundEnabled(true);
+    carousel->setFixedHeight(240);
+    auto *carouselModel = new QStandardItemModel(carousel);
+    const QPixmap carouselPreview = zzCardPreviewPixmap(carousel->palette());
+    const std::array<std::pair<QString, QString>, 3> carouselItems{{
+        {QStringLiteral("Performance profile"),
+         QStringLiteral("Local model and preconstructed preview")},
+        {QStringLiteral("Empty preview"),
+         QStringLiteral("Standard placeholder without business loading")},
+        {QStringLiteral("Cross-platform release"),
+         QStringLiteral("Linux, Windows and macOS presentation contract")}}};
+    for (std::size_t index = 0; index < carouselItems.size(); ++index) {
+        const auto &[title, description] = carouselItems[index];
+        auto *item = new QStandardItem(title);
+        item->setData(
+            description,
+            ZzFluentUI::ZzCarouselView::DescriptionRole);
+        if (index != 1) {
+            item->setData(carouselPreview, Qt::DecorationRole);
+        }
+        carouselModel->appendRow(item);
+    }
+    carousel->setModel(carouselModel);
+    auto *carouselStatus = new QLabel(
+        QStringLiteral("Item 1 of 3"),
+        container);
+    QObject::connect(
+        carousel,
+        &ZzFluentUI::ZzCarouselView::currentRowChanged,
+        carouselStatus,
+        [carouselStatus, carouselModel](int row) {
+            carouselStatus->setText(
+                QStringLiteral("Item %1 of %2")
+                    .arg(row + 1)
+                    .arg(carouselModel->rowCount()));
+        });
+    layout->addWidget(carousel);
+    layout->addWidget(carouselStatus);
     layout->addStretch(1);
     return container;
 }
