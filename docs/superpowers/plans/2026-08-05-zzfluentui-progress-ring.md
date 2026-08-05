@@ -81,6 +81,16 @@ public:
     /** @brief 返回能够呈现圆环轮廓的最小正方形尺寸。 */
     [[nodiscard]] QSize minimumSizeHint() const override;
 
+public Q_SLOTS:
+    /** @brief 转发 Qt 范围设置并立即同步不确定动画状态。 */
+    void setRange(int minimum, int maximum);
+
+    /** @brief 转发 Qt 最小值设置并立即同步不确定动画状态。 */
+    void setMinimum(int minimum);
+
+    /** @brief 转发 Qt 最大值设置并立即同步不确定动画状态。 */
+    void setMaximum(int maximum);
+
 Q_SIGNALS:
     /** @brief 有效圆环线宽实际变化后发出。 */
     void ringWidthChanged(int width);
@@ -108,6 +118,7 @@ private:
 设计约束：
 
 - 不新增 `busy`、`minimum`、`maximum`、`value`、`format` 或 `textVisible` 的重复属性；调用者直接使用 `QProgressBar` API。
+- Qt 公开的 `QProgressBar` 没有 `rangeChanged` 信号，因此派生类用同签名 public slots 转发三个范围 setter，并在基类完成状态收敛后立即同步动画；状态仍只存于 `QProgressBar`。绘制入口再次同步，以覆盖通过基类指针或属性系统写入范围的路径。
 - `setRange(0, 0)` 是唯一不确定状态；其他相等范围仍按 Qt 的确定值契约呈现，不执行除法。
 - `ringWidth` 是唯一新增外观属性，范围固定为 1 至 64，重复设置不发信号。
 - 不暴露动画相位、动画对象、主题控制器或 painter；截图和测试不得依赖 private API。

@@ -112,6 +112,21 @@ set_tests_properties(fluent.toggle-switch PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzProgressRingTest ZzProgressRingTest.cpp)
+target_link_libraries(ZzProgressRingTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzProgressRingTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzProgressRingTest)
+zz_enable_sanitizers(ZzProgressRingTest)
+add_test(NAME fluent.progress-ring COMMAND ZzProgressRingTest)
+set_tests_properties(fluent.progress-ring PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMessageBarTest ZzMessageBarTest.cpp)
 target_link_libraries(ZzMessageBarTest PRIVATE
     Qt6::Test
