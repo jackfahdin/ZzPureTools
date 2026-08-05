@@ -231,3 +231,40 @@ private:
 - 四个示例 smoke、flow-layout 四档 DPR 截图和 Release benchmark。
 
 最终结果追加到本文，必须记录 commit、Qt/编译器、自动验证范围、性能原始数据、截图人工检查范围，以及 Windows/macOS 尚待对应工具链或真机验证的限制。
+
+## 12. 交付结果
+
+**状态：** 已于 2026-08-06 完成本批次实现与本机质量门禁。验证基于提交 `11c1d729ce6789b29b760c41348bef050731f2c7`，使用 Qt 6.11.1、GCC 15.2.0 和 Clang 20.1.8。
+
+### 12.1 提交记录
+
+- `dba3120`：规划高性能流式布局批次，完成旧版逐行审计、公开契约、性能预算和验证矩阵设计。
+- `9e5d241`：实现四文件 Pimpl 的 `ZzFlowLayout`，覆盖 widget、spacer、嵌套 layout、隐藏项、height-for-width、RTL 与双轴 spacing。
+- `5fad78b`：接入 25 项布局单元测试、安装消费、公开头和架构质量门禁。
+- `390986d`：增加 1000 项重排、线性复杂度、高度缓存和对象稳定性性能门禁。
+- `11c1d72`：接入控件画廊以及 Light、Dark、HighContrast 三主题四档 DPR 的 12 张视觉基线。
+
+### 12.2 Linux 自动验证
+
+- `linux-gcc-release` shared Release 全量构建与 CTest 通过，共 `95/95`。
+- `linux-static-release` static Release 全量构建与 CTest 通过，共 `95/95`。
+- `linux-clang-asan-benchmarks` 在 ASan+UBSan 下全量构建与 CTest 通过，共 `107/107`。
+- shared/static `ZzClangTidy` 均完成 `144/144` 个翻译单元，未输出诊断。
+- fresh install consumer、package relocation、公开头独立编译、完整架构审计、FluentUI 边界、二进制依赖和许可证安装审计通过。
+- `ZzPlatformCompileTest` 与四个示例的 offscreen smoke 通过；截图回归在 DPR 1.0、1.25、1.5、2.0 四档全部通过。
+
+### 12.3 性能结果
+
+在活动 Linux reference 发布机的固定 CPU 亲和、Xvfb 和 llvmpipe 环境中，1000 个 item 连续重排 200 帧的 P50 为 `0.014 ms`、P95 为 `0.016 ms`、max 为 `0.019 ms`，低于 `4 ms` 门限。累计访问 `200000` 个 item，单帧最大访问 `1000` 个 item。
+
+10000 次同宽度 `heightForWidth()` 缓存查询耗时 `0.013 ms`；1000 项与 100 项的耗时比为 `10.085`，低于线性复杂度门限 `15`。布局拥有 1 个 QObject 后代、0 个 animation 和 0 个 timer，重排过程没有产生逐项对象。
+
+### 12.4 视觉检查
+
+新增 `flow-layout-{light,dark,high-contrast}.png`，每个主题覆盖 DPR 1.0、1.25、1.5、2.0，共 12 张。已人工检查 Light、Dark、HighContrast 的 DPR 1.0 和 Light 的 DPR 2.0：窄容器稳定换为三行，宽容器保持单行，RTL 与 LTR 正确镜像，没有重叠、裁切、错误行距或逻辑顺序反转。
+
+### 12.5 跨平台状态
+
+- preset matrix contract 与 Linux/Windows/macOS gate script contract 通过，矩阵继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static。
+- 新增源码没有 `Q_OS_*`、`_WIN32`、`__APPLE__` 平台分支，没有 Qt Private API、平台原生头、编译器扩展、绝对路径、`QWindowKit::` 依赖泄漏或链式命名空间。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、preset、公开 ABI、依赖方向和条件编译静态审计，尚未在对应平台完成编译、安装消费或真机交互验证；不得将本节结果表述为这些平台已经运行通过。
