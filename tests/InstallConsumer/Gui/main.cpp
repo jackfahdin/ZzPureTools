@@ -22,6 +22,7 @@
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
@@ -106,6 +107,16 @@ int main(int argc, char *argv[])
         QStringLiteral("Open preview"));
     ZzFluentUI::ZzProgressRing progressRing;
     ZzFluentUI::ZzProgressRing busyRing;
+    QWidget flowHost;
+    auto *flowLayout = new ZzFluentUI::ZzFlowLayout(5, 7, &flowHost);
+    flowLayout->setContentsMargins(0, 0, 0, 0);
+    auto *flowFirst = new QWidget(&flowHost);
+    auto *flowSecond = new QWidget(&flowHost);
+    flowFirst->setFixedSize(40, 20);
+    flowSecond->setFixedSize(40, 20);
+    flowLayout->addWidget(flowFirst);
+    flowLayout->addWidget(flowSecond);
+    flowLayout->setGeometry(QRect(0, 0, 84, 60));
     ZzFluentUI::ZzScrollArea scrollArea;
     ZzFluentUI::ZzSpinBox integerInput;
     ZzFluentUI::ZzDoubleSpinBox floatingInput;
@@ -261,6 +272,12 @@ int main(int argc, char *argv[])
         || progressRing.ringWidth() != 6
         || busyRing.minimum() != 0
         || busyRing.maximum() != 0
+        || flowLayout->count() != 2
+        || flowLayout->horizontalSpacing() != 5
+        || flowLayout->verticalSpacing() != 7
+        || flowFirst->geometry() != QRect(0, 0, 40, 20)
+        || flowSecond->geometry() != QRect(0, 27, 40, 20)
+        || flowLayout->heightForWidth(84) != 47
         || horizontalScrollBar->orientation() != Qt::Horizontal
         || horizontalScrollBar->minimum() != 10
         || horizontalScrollBar->maximum() != 110

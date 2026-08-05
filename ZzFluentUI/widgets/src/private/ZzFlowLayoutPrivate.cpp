@@ -129,7 +129,8 @@ int ZzFlowLayoutPrivate::doLayout(
     };
 
     for (QLayoutItem *const item : items) {
-        if (item == nullptr || item->isEmpty()) {
+        if (item == nullptr
+            || (item->widget() != nullptr && item->isEmpty())) {
             continue;
         }
         const QSizePolicy::ControlTypes currentTypes =
@@ -212,7 +213,8 @@ void ZzFlowLayoutPrivate::ensureSizeHints() const
     QSizePolicy::ControlTypes previousTypes;
 
     for (QLayoutItem *const item : items) {
-        if (item == nullptr || item->isEmpty()) {
+        if (item == nullptr
+            || (item->widget() != nullptr && item->isEmpty())) {
             continue;
         }
         const QSize minimum = item->minimumSize().expandedTo(QSize(0, 0));

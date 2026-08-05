@@ -138,7 +138,7 @@ private:
 
 ### 5.1 有效 item 与尺寸
 
-- 遍历容器时跳过 null 和 `QLayoutItem::isEmpty()`，隐藏 widget 不占行、间距或高度；重新显示后 Qt 的 LayoutRequest 触发 invalidate。
+- 遍历容器时跳过 null；仅当 item 包含 widget 且 `isEmpty()` 时跳过，使隐藏 widget 不占行、间距或高度。spacer 和嵌套 layout 即使报告 empty 也继续按尺寸契约参与布局；重新显示 widget 后 Qt 的 LayoutRequest 触发 invalidate。
 - 每个有效 item 每次重排只读取一次 size hint、minimum、maximum 和 control type。首选尺寸先扩展到 minimum，再限制到 maximum。
 - item 首选宽度大于可用行宽时，在不低于 minimum width 的前提下收敛到可用宽度；minimum 本身仍超宽时允许单项溢出，但必须独占一行，后续项不能重叠。
 - `item->hasHeightForWidth()` 时用最终分配宽度计算高度，再限制到 item 的 minimum/maximum height。

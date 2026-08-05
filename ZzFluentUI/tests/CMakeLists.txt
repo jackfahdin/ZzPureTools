@@ -169,6 +169,21 @@ set_tests_properties(fluent.roller-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzFlowLayoutTest ZzFlowLayoutTest.cpp)
+target_link_libraries(ZzFlowLayoutTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzFlowLayoutTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzFlowLayoutTest)
+zz_enable_sanitizers(ZzFlowLayoutTest)
+add_test(NAME fluent.flow-layout COMMAND ZzFlowLayoutTest)
+set_tests_properties(fluent.flow-layout PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
 qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
     PREFIX "/zzfluent/buttons"

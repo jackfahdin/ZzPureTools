@@ -21,6 +21,7 @@ set(zz_installed_header_specs
     "Zz::FluentUI|ZzFluentUI/ZzProgressRing.h"
     "Zz::FluentUI|ZzFluentUI/ZzScrollArea.h"
     "Zz::FluentUI|ZzFluentUI/ZzScrollBar.h"
+    "Zz::FluentUI|ZzFluentUI/ZzFlowLayout.h"
     "Zz::FluentUI|ZzFluentUI/ZzSpinBox.h"
     "Zz::FluentUI|ZzFluentUI/ZzDoubleSpinBox.h"
     "Zz::FluentUI|ZzFluentUI/ZzMultiSelectComboBox.h"
