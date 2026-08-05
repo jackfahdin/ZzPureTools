@@ -1,3 +1,6 @@
+string(REPLACE ";" "\\;" zz_release_osx_architectures
+    "${CMAKE_OSX_ARCHITECTURES}")
+
 add_test(NAME release.blocked-without-evidence
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -5,6 +8,9 @@ add_test(NAME release.blocked-without-evidence
         "-DZZ_QT_PREFIX=${ZZ_QT_PREFIX}"
         "-DZZ_C_COMPILER=${CMAKE_C_COMPILER}"
         "-DZZ_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        "-DZZ_OSX_ARCHITECTURES=${zz_release_osx_architectures}"
+        "-DZZ_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+        "-DZZ_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}"
         "-DZZ_EXPECTED_BLOCKERS=qwindowkit.upstream-provenance;qmsetup.windeployqt-5.15.2-derived-work;project.license"
         -P "${PROJECT_SOURCE_DIR}/cmake/ZzExpectConfigureFailure.cmake")
 set_tests_properties(release.blocked-without-evidence PROPERTIES

@@ -25,9 +25,8 @@ if("${work_dir}" STREQUAL "${work_anchor}"
     message(FATAL_ERROR "拒绝不安全的发布配置测试目录：${work_dir}")
 endif()
 
-file(REMOVE_RECURSE "${work_dir}")
-execute_process(
-    COMMAND "${CMAKE_COMMAND}"
+set(configure_command
+    "${CMAKE_COMMAND}"
         -S "${source_dir}"
         -B "${work_dir}"
         -G Ninja
@@ -37,7 +36,25 @@ execute_process(
         "-DZZ_QT_PREFIX=${ZZ_QT_PREFIX}"
         -DZZ_RELEASE_BUILD=ON
         "-DZZ_RELEASE_FORCED_BLOCKERS=${ZZ_EXPECTED_BLOCKERS}"
-        -DZZ_BUILD_TESTS=OFF
+        -DZZ_BUILD_TESTS=OFF)
+if(NOT "${ZZ_OSX_ARCHITECTURES}" STREQUAL "")
+    string(REPLACE ";" "\\;" osx_architectures
+        "${ZZ_OSX_ARCHITECTURES}")
+    list(APPEND configure_command
+        "-DCMAKE_OSX_ARCHITECTURES:STRING=${osx_architectures}")
+endif()
+if(NOT "${ZZ_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
+    list(APPEND configure_command
+        "-DCMAKE_OSX_DEPLOYMENT_TARGET:STRING=${ZZ_OSX_DEPLOYMENT_TARGET}")
+endif()
+if(NOT "${ZZ_OSX_SYSROOT}" STREQUAL "")
+    list(APPEND configure_command
+        "-DCMAKE_OSX_SYSROOT:PATH=${ZZ_OSX_SYSROOT}")
+endif()
+
+file(REMOVE_RECURSE "${work_dir}")
+execute_process(
+    COMMAND ${configure_command}
     RESULT_VARIABLE result
     OUTPUT_VARIABLE stdout
     ERROR_VARIABLE stderr)

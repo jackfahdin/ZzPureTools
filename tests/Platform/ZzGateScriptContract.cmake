@@ -47,6 +47,12 @@ set(required_tokens
     "tests/Platform/ZzBinaryDependencyCheck.cmake|-E chdir \"\${binary_directory}\""
     "tests/Platform/ZzBinaryDependencyCheck.cmake|[A-Za-z0-9_.+-]+"
     "tests/Platform/ZzBinaryDependencyCheck.cmake|\"\${ZZ_OTOOL}\" -L \"\${binary_name}\""
+    "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_ARCHITECTURES:STRING="
+    "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_DEPLOYMENT_TARGET:STRING="
+    "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_SYSROOT:PATH="
+    "tests/Release/CMakeLists.txt|-DZZ_OSX_ARCHITECTURES="
+    "tests/Release/CMakeLists.txt|-DZZ_OSX_DEPLOYMENT_TARGET="
+    "tests/Release/CMakeLists.txt|-DZZ_OSX_SYSROOT="
     "docs/third-party/THIRD_PARTY_NOTICES.md|GCC Runtime Library Exception")
 
 foreach(requirement IN LISTS required_tokens)
