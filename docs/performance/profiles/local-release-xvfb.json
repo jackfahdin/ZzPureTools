@@ -40,6 +40,12 @@
     "lto": true,
     "sanitizers": "none"
   },
+  "execution": {
+    "xvfbLogicalCpu": 8,
+    "benchmarkLogicalCpu": 10,
+    "parallelism": 1,
+    "cpuAffinityRequired": true
+  },
   "xvfbArguments": [
     "-screen",
     "0",

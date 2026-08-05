@@ -32,6 +32,9 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 | 编译器 | GCC 15.2.0 |
 | libstdc++ | `libstdc++.so.6.0.35` |
 | CMake preset | `linux-gcc-reference` |
+| Xvfb CPU 亲和性 | 逻辑 CPU 8，P-core 4 |
+| benchmark CPU 亲和性 | 逻辑 CPU 10，P-core 5 |
+| 测试并行度 | 1 |
 
 本机物理环境没有 immutable container image。为保持可审计身份，`environment.runnerImageDigest` 固定为 `local-release-xvfb.json` 原始字节的 SHA-256：
 
@@ -53,9 +56,13 @@ export ZZ_GPU_IDENTITY="Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24"
 
 cmake --preset linux-gcc-reference
 cmake --build --preset linux-gcc-reference
-xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp' \
-  ctest --preset linux-gcc-reference -L benchmark --output-on-failure
+taskset -c 8 xvfb-run -a \
+  -s '-screen 0 1920x1080x24 -nolisten tcp' \
+  taskset -c 10 ctest --preset linux-gcc-reference \
+    -L benchmark --output-on-failure -j1
 ```
+
+CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，被测进程固定到另一物理 P-core 的逻辑 CPU 10。这样避免显示服务与 GUI 进程互相抢占同一物理核心，也避免调度迁移把数十微秒噪声计入 16.7 ms 动画 P95。不得在缺少 `taskset`、CPU 编号变化或亲和性设置失败时降级运行；必须更新档案、提交并重新采集。
 
 固定采样条件如下：
 
