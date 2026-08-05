@@ -173,13 +173,17 @@ elseif(ZZ_SYSTEM_NAME STREQUAL "Windows" AND ZZ_COMPILER_ID STREQUAL "MSVC")
         message(FATAL_ERROR "ZZ_DUMPBIN must name the captured dumpbin.exe")
     endif()
     foreach(binary IN LISTS scan_files)
+        get_filename_component(binary_directory "${binary}" DIRECTORY)
+        get_filename_component(binary_name "${binary}" NAME)
         zz_run_tool(headers "dumpbin headers for ${binary}"
-            "${ZZ_DUMPBIN}" /nologo /headers "${binary}")
+            "${CMAKE_COMMAND}" -E chdir "${binary_directory}"
+            "${ZZ_DUMPBIN}" /nologo /headers "${binary_name}")
         if(NOT headers MATCHES "8664 machine \\(x64\\)")
             message(FATAL_ERROR "Expected an MSVC x64 binary: ${binary}")
         endif()
         zz_run_tool(dependents "dumpbin dependents for ${binary}"
-            "${ZZ_DUMPBIN}" /nologo /dependents "${binary}")
+            "${CMAKE_COMMAND}" -E chdir "${binary_directory}"
+            "${ZZ_DUMPBIN}" /nologo /dependents "${binary_name}")
         zz_reject_path_leaks("${dependents}" "${binary}")
         string(REGEX MATCHALL
             "[A-Za-z0-9_.+-]+\\.[dD][lL][lL]" dependencies "${dependents}")
