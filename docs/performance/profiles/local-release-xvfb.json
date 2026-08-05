@@ -30,8 +30,17 @@
     "qt": "6.11.1",
     "compiler": "GNU 15.2.0",
     "libstdcxx": "libstdc++.so.6.0.35",
+    "cmake": "4.3.3",
+    "ninja": "1.12.1",
     "mesa": "26.0.3-1ubuntu1",
     "xkbcommonRuntime": "1.13.1-1"
+  },
+  "configuration": {
+    "gccPath": "/usr/bin/gcc-15",
+    "gxxPath": "/usr/bin/g++-15",
+    "qtRoot": "/home/zz/Qt/6.11.1/gcc_64",
+    "xkbcommonInclude": "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro/build/dependencies/xkbcommon/root/usr/include",
+    "xkbcommonLibrary": "/usr/lib/x86_64-linux-gnu/libxkbcommon.so.0"
   },
   "build": {
     "preset": "linux-gcc-reference",

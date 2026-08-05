@@ -31,6 +31,7 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 | Qt | 6.11.1 |
 | 编译器 | GCC 15.2.0 |
 | libstdc++ | `libstdc++.so.6.0.35` |
+| CMake / Ninja | 4.3.3 / 1.12.1 |
 | CMake preset | `linux-gcc-reference` |
 | Xvfb CPU 亲和性 | 逻辑 CPU 8，P-core 4 |
 | benchmark CPU 亲和性 | 逻辑 CPU 10，P-core 5 |
@@ -53,8 +54,13 @@ export ZZ_BENCHMARK_COMMIT="$(git rev-parse --verify HEAD)"
 export ZZ_RUNNER_IMAGE_DIGEST="sha256:$(sha256sum \
   docs/performance/profiles/local-release-xvfb.json | awk '{print $1}')"
 export ZZ_GPU_IDENTITY="Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24"
+export GCC_13=/usr/bin/gcc-15
+export GXX_13=/usr/bin/g++-15
+export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
-cmake --preset linux-gcc-reference
+cmake --preset linux-gcc-reference \
+  -DXKB_INCLUDE_DIR="$PWD/build/dependencies/xkbcommon/root/usr/include" \
+  -DXKB_LIBRARY=/usr/lib/x86_64-linux-gnu/libxkbcommon.so.0
 cmake --build --preset linux-gcc-reference
 taskset -c 8 xvfb-run -a \
   -s '-screen 0 1920x1080x24 -nolisten tcp' \
