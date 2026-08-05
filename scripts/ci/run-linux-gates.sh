@@ -24,7 +24,7 @@ cmake -DZZ_PRESETS_FILE="$source_dir/CMakePresets.json" \
 
 run_preset() {
   local preset=$1
-  cmake --preset "$preset"
+  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
   cmake --build --preset "$preset"
   ctest --preset "$preset" --output-on-failure
 }
@@ -32,7 +32,7 @@ run_preset() {
 run_preset linux-gcc-debug
 
 for preset in linux-clang-tidy-release linux-clang-tidy-static; do
-  cmake --preset "$preset"
+  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
   cmake --build --preset "$preset"
   cmake --build --preset "$preset" --target ZzClangTidy
   ctest --preset "$preset" --output-on-failure

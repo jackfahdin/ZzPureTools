@@ -4,7 +4,7 @@
 
 `.github/workflows/ci.yml` 已建立，但在仓库首次推送到 GitHub 并产生真实运行记录前，状态只能写为“待首次运行”。工作流通过本地语法和静态契约不等于 GitHub 托管 runner 已经通过，也不能据此修改 `PLATFORM_SUPPORT_ZH.md` 中的原生平台状态。
 
-该工作流只执行配置、编译、静态分析、CTest、安装消费、重定位和二进制依赖检查。它不发布包、不创建 tag、不上传可分发二进制，也不启用 `ZZ_RELEASE_BUILD=ON`。正式发布仍要求仓库外合规证据和人工真机清单。
+该工作流只执行配置、编译、示例构建、静态分析、CTest、安装消费、重定位和二进制依赖检查。Linux 还在 offscreen 平台启动并自动关闭四个示例；Windows 和 macOS 只编译示例，不把托管 runner 上的进程启动视为交互验收。工作流不发布包、不创建 tag、不上传可分发二进制，也不启用 `ZZ_RELEASE_BUILD=ON`。正式发布仍要求仓库外合规证据和人工真机清单。
 
 ## 触发条件与权限
 
@@ -21,11 +21,11 @@
 | Job | 固定 runner | Qt/工具链 | 自动覆盖 |
 |---|---|---|---|
 | `contracts` | `ubuntu-24.04` | runner 自带 CMake | Preset、原生脚本和工作流静态契约 |
-| `linux` | `ubuntu-24.04` | Qt 6.8.3、GCC 14、Clang 18、offscreen | GCC Debug/Release、shared/static/LTO、clang-tidy shared/static、ASan+UBSan |
-| `windows-msvc` | `windows-2022` | Qt 6.8.3 MSVC 2022 x64 | MSVC shared/static、`/analyze`、LTO、dumpbin ABI 检查 |
-| `windows-mingw` | `windows-2022` | Qt 6.8.3 MinGW 13.1.0 | 官方 Qt MinGW shared/static、LTO、objdump ABI 检查 |
-| `macos arm64` | `macos-15` | Qt 6.8.3、Apple Clang、LLVM 18 tidy | arm64 shared/static、LTO、clang-tidy、`lipo` 精确架构检查 |
-| `macos x86_64` | `macos-15-intel` | Qt 6.8.3、Apple Clang、LLVM 18 tidy | x86_64 shared/static、LTO、clang-tidy、`lipo` 精确架构检查 |
+| `linux` | `ubuntu-24.04` | Qt 6.8.3、GCC 14、Clang 18、offscreen | GCC Debug/Release、shared/static/LTO、clang-tidy shared/static、ASan+UBSan、四示例编译与冒烟 |
+| `windows-msvc` | `windows-2022` | Qt 6.8.3 MSVC 2022 x64 | MSVC shared/static、`/analyze`、LTO、四示例编译、dumpbin ABI 检查 |
+| `windows-mingw` | `windows-2022` | Qt 6.8.3 MinGW 13.1.0 | 官方 Qt MinGW shared/static、LTO、四示例编译、objdump ABI 检查 |
+| `macos arm64` | `macos-15` | Qt 6.8.3、Apple Clang、LLVM 18 tidy | arm64 shared/static、LTO、clang-tidy、四示例编译、`lipo` 精确架构检查 |
+| `macos x86_64` | `macos-15-intel` | Qt 6.8.3、Apple Clang、LLVM 18 tidy | x86_64 shared/static、LTO、clang-tidy、四示例编译、`lipo` 精确架构检查 |
 
 Qt 模块显式包含 `qtsvg` 和提供 `Qt6::LinguistTools` 的 `qttools`。Windows MinGW job 还从同一 Qt SDK 安装 `tools_mingw1310` 和 `tools_ninja`，然后用 `Assert-QtMinGWKit.ps1` 验证 target triple、GCC 精确版本、qmake prefix 和 xspec，禁止混用 MSVC Qt 或系统 MinGW。
 

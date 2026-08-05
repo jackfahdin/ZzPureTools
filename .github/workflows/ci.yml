@@ -122,7 +122,7 @@ jobs:
           ZZ_RUN_TIDY: ${{ matrix.run_tidy }}
         run: |
           for preset in $ZZ_PRESETS; do
-            cmake --preset "$preset"
+            cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
             cmake --build --preset "$preset" --parallel 2
             if [[ "$ZZ_RUN_TIDY" == true ]]; then
               cmake --build --preset "$preset" --target ZzClangTidy
@@ -193,7 +193,7 @@ jobs:
           foreach ($preset in @(
               'windows-msvc2022-release',
               'windows-msvc2022-static')) {
-              cmake --preset $preset
+              cmake --preset $preset -DZZ_BUILD_EXAMPLES=ON
               if ($LASTEXITCODE -ne 0) { throw "Configure failed: $preset" }
               cmake --build --preset $preset --parallel 2
               if ($LASTEXITCODE -ne 0) { throw "Build failed: $preset" }
@@ -268,7 +268,7 @@ jobs:
           foreach ($preset in @(
               'windows-mingw-release',
               'windows-mingw-static')) {
-              cmake --preset $preset
+              cmake --preset $preset -DZZ_BUILD_EXAMPLES=ON
               if ($LASTEXITCODE -ne 0) { throw "Configure failed: $preset" }
               cmake --build --preset $preset --parallel 2
               if ($LASTEXITCODE -ne 0) { throw "Build failed: $preset" }
@@ -349,7 +349,7 @@ jobs:
           ZZ_EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
           for preset in "$ZZ_SHARED_PRESET" "$ZZ_STATIC_PRESET"; do
-            cmake --preset "$preset"
+            cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
             cmake --build --preset "$preset" --parallel 2
             cmake --build --preset "$preset" --target ZzClangTidy
             ctest --preset "$preset" --output-on-failure

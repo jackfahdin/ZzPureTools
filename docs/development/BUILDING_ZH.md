@@ -167,7 +167,7 @@ bash scripts/ci/run-macos-gates.sh
 pwsh -NoProfile -File scripts/ci/run-windows-gates.ps1
 ```
 
-当前 Linux runner 直接在活动本机参考环境运行 GCC shared/static/LTO、Clang 检查、sanitizer 和性能比较。只有设置合法 `ZZ_UBUNTU2204_BUILD_IMAGE` 时才追加 `scripts/ci/run-ubuntu2204-release-gates.sh`；原 Ubuntu 22.04 档案与本机档案不得混用。
+当前 Linux runner 直接在活动本机参考环境运行 GCC shared/static/LTO、Clang 检查、sanitizer、四示例编译与 offscreen 冒烟，以及性能比较。Windows 和 macOS runner 在每个 shared/static 组合中编译四个示例，但不将自动构建记录为真机交互结果。只有设置合法 `ZZ_UBUNTU2204_BUILD_IMAGE` 时才追加 `scripts/ci/run-ubuntu2204-release-gates.sh`；原 Ubuntu 22.04 档案与本机档案不得混用。
 
 ## GitHub Actions CI
 

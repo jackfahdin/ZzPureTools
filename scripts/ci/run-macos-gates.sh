@@ -33,7 +33,7 @@ for preset in "${presets[@]}"; do
     exit 1
   }
 
-  cmake --preset "$preset"
+  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
   cmake --build --preset "$preset"
   cmake --build --preset "$preset" --target ZzClangTidy
   ctest --preset "$preset" --output-on-failure

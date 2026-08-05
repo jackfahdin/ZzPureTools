@@ -91,7 +91,7 @@ $presets = @(
     'windows-mingw-static'
 )
 foreach ($preset in $presets) {
-    Invoke-Native cmake @('--preset', $preset)
+    Invoke-Native cmake @('--preset', $preset, '-DZZ_BUILD_EXAMPLES=ON')
     if ($preset -like 'windows-msvc*') {
         Assert-ConfiguredPreset $preset 'MSVC' `
             (Get-Command cl.exe -ErrorAction Stop).Source $msvcQt

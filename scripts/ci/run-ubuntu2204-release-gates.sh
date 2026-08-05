@@ -40,7 +40,7 @@ run_preset() {
     exit 1
   }
   cmake -E remove_directory "$build_dir"
-  cmake --preset "$preset" "$@"
+  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON "$@"
   cmake --build --preset "$preset"
   ctest --preset "$preset" --output-on-failure
 }

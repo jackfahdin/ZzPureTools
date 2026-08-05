@@ -58,6 +58,16 @@ foreach(required_token IN LISTS required_tokens)
     endif()
 endforeach()
 
+string(REGEX MATCHALL
+    "cmake --preset[^\r\n]*-DZZ_BUILD_EXAMPLES=ON"
+    example_configure_commands
+    "${workflow}")
+list(LENGTH example_configure_commands example_configure_count)
+if(NOT example_configure_count EQUAL 4)
+    message(FATAL_ERROR
+        "GitHub Actions must enable examples in all four platform configure paths")
+endif()
+
 set(forbidden_tokens
     "pull_request_target:"
     "ubuntu-latest"
