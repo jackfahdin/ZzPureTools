@@ -26,6 +26,7 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QFormLayout>
+#include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
@@ -46,6 +47,7 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
+#include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
@@ -55,6 +57,7 @@
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzNavigationView.h>
@@ -796,6 +799,417 @@ private:
     QStandardItemModel treeModel;
 };
 
+/** @brief 保存卡片截图中文字遮罩及其覆盖数量。 */
+struct ZzCardTextMask final
+{
+    QImage image;
+    int actionCards = 0;
+    int imageCards = 0;
+};
+
+/** @brief 返回卡片标题使用的半粗体字体。 */
+QFont zzCardTitleFont(const QWidget *card)
+{
+    QFont result = card->font();
+    result.setWeight(QFont::DemiBold);
+    return result;
+}
+
+/** @brief 将一段省略后文字的精确像素边界加入卡片遮罩。 */
+void zzMaskCardText(
+    QPainter *painter,
+    const QWidget *card,
+    QWidget *surface,
+    const QRect &bounds,
+    const QFont &font,
+    const QString &text)
+{
+    if (bounds.isEmpty() || text.isEmpty()) {
+        return;
+    }
+    const QFontMetrics metrics(font);
+    const QString displayed = metrics.elidedText(
+        text,
+        Qt::ElideRight,
+        bounds.width());
+    const QRect textRect = metrics.boundingRect(
+        bounds,
+        Qt::AlignLeading | Qt::AlignVCenter,
+        displayed);
+    zzPaintMaskRect(
+        painter,
+        QRect(card->mapTo(surface, textRect.topLeft()), textRect.size()));
+}
+
+/** @brief 按操作卡生产布局公式遮罩标题与说明。 */
+void zzMaskActionCardText(
+    ZzFluentUI::ZzActionCard *card,
+    QWidget *surface,
+    QPainter *painter)
+{
+    constexpr int horizontalPadding = 12;
+    constexpr int verticalPadding = 10;
+    constexpr int contentSpacing = 10;
+    constexpr int textSpacing = 2;
+    constexpr int indicatorExtent = 16;
+    const QRect bounds = card->rect();
+    const QRect content = bounds.adjusted(
+        horizontalPadding,
+        verticalPadding,
+        -horizontalPadding,
+        -verticalPadding);
+    if (content.isEmpty()) {
+        return;
+    }
+
+    int logicalLeft = content.left();
+    int logicalRight = content.right();
+    if (!card->icon().isNull()) {
+        const int styleIconExtent = card->style()->pixelMetric(
+            QStyle::PM_SmallIconSize,
+            nullptr,
+            card);
+        const QSize requested = card->iconSize().isValid()
+            ? card->iconSize()
+            : QSize(styleIconExtent, styleIconExtent);
+        const int extent = std::clamp(
+            std::max(requested.width(), requested.height()),
+            1,
+            content.height());
+        logicalLeft += extent + contentSpacing;
+    }
+    if (card->isTrailingIndicatorVisible()) {
+        logicalRight -= indicatorExtent + contentSpacing;
+    }
+    const int textWidth = std::max(0, logicalRight - logicalLeft + 1);
+    if (textWidth <= 0) {
+        return;
+    }
+
+    const QFont titleFont = zzCardTitleFont(card);
+    const QFontMetrics titleMetrics(titleFont);
+    const QFontMetrics descriptionMetrics(card->font());
+    const int titleHeight = titleMetrics.height();
+    QRect logicalTitle;
+    QRect logicalDescription;
+    if (card->description().isEmpty()) {
+        logicalTitle = QRect(
+            logicalLeft,
+            content.center().y() - titleHeight / 2,
+            textWidth,
+            titleHeight);
+    } else {
+        const int textHeight = titleHeight
+            + textSpacing
+            + descriptionMetrics.height();
+        const int textTop = content.center().y() - textHeight / 2;
+        logicalTitle = QRect(
+            logicalLeft,
+            textTop,
+            textWidth,
+            titleHeight);
+        logicalDescription = QRect(
+            logicalLeft,
+            textTop + titleHeight + textSpacing,
+            textWidth,
+            descriptionMetrics.height());
+    }
+    const QRect titleRect = QStyle::visualRect(
+        card->layoutDirection(),
+        bounds,
+        logicalTitle);
+    const QRect descriptionRect = QStyle::visualRect(
+        card->layoutDirection(),
+        bounds,
+        logicalDescription);
+    zzMaskCardText(
+        painter,
+        card,
+        surface,
+        titleRect,
+        titleFont,
+        card->text());
+    zzMaskCardText(
+        painter,
+        card,
+        surface,
+        descriptionRect,
+        card->font(),
+        card->description());
+}
+
+/** @brief 按图片卡生产布局公式遮罩标题与说明。 */
+void zzMaskImageCardText(
+    ZzFluentUI::ZzImageCard *card,
+    QWidget *surface,
+    QPainter *painter)
+{
+    constexpr int padding = 12;
+    constexpr int textSpacing = 2;
+    constexpr int emptyTitleHeight = 52;
+    constexpr int descriptionHeight = 72;
+    const QRect bounds = card->rect().adjusted(1, 1, -1, -1);
+    if (bounds.isEmpty()) {
+        return;
+    }
+    const int contentHeight = card->description().isEmpty()
+        ? emptyTitleHeight
+        : descriptionHeight;
+    const int imageHeight = std::max(0, bounds.height() - contentHeight);
+    const QRect imageRect(
+        bounds.left(),
+        bounds.top(),
+        bounds.width(),
+        imageHeight);
+    const QRect textContent(
+        bounds.left() + padding,
+        imageRect.bottom() + 1,
+        std::max(0, bounds.width() - 2 * padding),
+        contentHeight);
+    if (textContent.isEmpty()) {
+        return;
+    }
+
+    const QFont titleFont = zzCardTitleFont(card);
+    const QFontMetrics titleMetrics(titleFont);
+    const QFontMetrics descriptionMetrics(card->font());
+    const int titleHeight = titleMetrics.height();
+    QRect titleRect;
+    QRect descriptionRect;
+    if (card->description().isEmpty()) {
+        titleRect = QRect(
+            textContent.left(),
+            textContent.center().y() - titleHeight / 2,
+            textContent.width(),
+            titleHeight);
+    } else {
+        const int totalTextHeight = titleHeight
+            + textSpacing
+            + descriptionMetrics.height();
+        const int textTop = textContent.center().y() - totalTextHeight / 2;
+        titleRect = QRect(
+            textContent.left(),
+            textTop,
+            textContent.width(),
+            titleHeight);
+        descriptionRect = QRect(
+            textContent.left(),
+            textTop + titleHeight + textSpacing,
+            textContent.width(),
+            descriptionMetrics.height());
+    }
+    zzMaskCardText(
+        painter,
+        card,
+        surface,
+        titleRect,
+        titleFont,
+        card->text());
+    zzMaskCardText(
+        painter,
+        card,
+        surface,
+        descriptionRect,
+        card->font(),
+        card->description());
+}
+
+/** @brief 构造只覆盖卡片标题和说明的字体差异遮罩。 */
+ZzCardTextMask zzBuildCardTextMask(QWidget *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzCardTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto actionCards =
+        surface->findChildren<ZzFluentUI::ZzActionCard *>();
+    for (ZzFluentUI::ZzActionCard *card : actionCards) {
+        if (card->isVisible()) {
+            zzMaskActionCardText(card, surface, &painter);
+            ++result.actionCards;
+        }
+    }
+    const auto imageCards =
+        surface->findChildren<ZzFluentUI::ZzImageCard *>();
+    for (ZzFluentUI::ZzImageCard *card : imageCards) {
+        if (card->isVisible()) {
+            zzMaskImageCardText(card, surface, &painter);
+            ++result.imageCards;
+        }
+    }
+    painter.end();
+    return result;
+}
+
+/** @brief 使用当前 palette 构造能明确显示裁剪和适配差异的图片。 */
+QPixmap zzCardScreenshotPixmap(const QPalette &palette)
+{
+    QPixmap pixmap(640, 320);
+    pixmap.fill(palette.color(QPalette::AlternateBase));
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(palette.color(QPalette::Highlight));
+    painter.drawRect(QRect(0, 0, 205, 320));
+    painter.setBrush(palette.color(QPalette::Button));
+    painter.drawRect(QRect(435, 0, 205, 320));
+    painter.setBrush(palette.color(QPalette::Base));
+    painter.drawEllipse(QPoint(320, 160), 102, 102);
+    painter.setBrush(palette.color(QPalette::Mid));
+    painter.drawRoundedRect(QRect(276, 116, 88, 88), 8, 8);
+    painter.end();
+    return pixmap;
+}
+
+/** @brief 构造只包含卡片及其视觉状态的独立确定性截图面。 */
+class ZzCardScreenshotSurface final
+{
+public:
+    /** @brief 创建六张操作卡和四张图片卡的固定视觉矩阵。 */
+    ZzCardScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzCardScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Cards"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *root = new QVBoxLayout(&window);
+        root->setContentsMargins(24, 24, 24, 24);
+        root->setSpacing(24);
+
+        auto *actions = new QGridLayout;
+        actions->setContentsMargins(0, 0, 0, 0);
+        actions->setHorizontalSpacing(16);
+        actions->setVerticalSpacing(16);
+        const auto addAction = [this, actions](
+                                   int row,
+                                   int column,
+                                   const QString &title,
+                                   const QString &description) {
+            auto *card = new ZzFluentUI::ZzActionCard(
+                title,
+                description,
+                &window);
+            card->setIcon(window.style()->standardIcon(QStyle::SP_ComputerIcon));
+            card->setFixedHeight(88);
+            actions->addWidget(card, row, column);
+            return card;
+        };
+        addAction(
+            0,
+            0,
+            QStringLiteral("Normal action"),
+            QStringLiteral("Default enabled card"));
+        hoverCard = addAction(
+            0,
+            1,
+            QStringLiteral("Hover action"),
+            QStringLiteral("Pointer is over this card"));
+        focusCard = addAction(
+            0,
+            2,
+            QStringLiteral("Focused action"),
+            QStringLiteral("Keyboard focus ring"));
+        auto *disabled = addAction(
+            1,
+            0,
+            QStringLiteral("Disabled action"),
+            QStringLiteral("Unavailable command"));
+        disabled->setEnabled(false);
+        auto *checked = addAction(
+            1,
+            1,
+            QStringLiteral("Checked action"),
+            QStringLiteral("Persistent selection"));
+        checked->setCheckable(true);
+        checked->setChecked(true);
+        auto *rtl = addAction(
+            1,
+            2,
+            QStringLiteral("RTL action"),
+            QStringLiteral("Mirrored content order"));
+        rtl->setLayoutDirection(Qt::RightToLeft);
+        root->addLayout(actions);
+
+        auto *images = new QHBoxLayout;
+        images->setContentsMargins(0, 0, 0, 0);
+        images->setSpacing(16);
+        const QPixmap preview = zzCardScreenshotPixmap(window.palette());
+        const auto addImage = [this, images](
+                                  const QString &title,
+                                  const QString &description) {
+            auto *card = new ZzFluentUI::ZzImageCard(
+                title,
+                description,
+                &window);
+            images->addWidget(card, 1);
+            return card;
+        };
+        auto *crop = addImage(
+            QStringLiteral("Crop image"),
+            QStringLiteral("Fill and center crop"));
+        crop->setPixmap(preview);
+        auto *fit = addImage(
+            QStringLiteral("Fit image"),
+            QStringLiteral("Show the complete image"));
+        fit->setPixmap(preview);
+        fit->setAspectRatioMode(Qt::KeepAspectRatio);
+        addImage(
+            QStringLiteral("Empty image"),
+            QStringLiteral("Platform file placeholder"));
+        auto *disabledImage = addImage(
+            QStringLiteral("Disabled image"),
+            QStringLiteral("Reduced image opacity"));
+        disabledImage->setPixmap(preview);
+        disabledImage->setEnabled(false);
+        root->addLayout(images, 1);
+    }
+
+    /** @brief 展示画面并确定性设置 hover 与键盘焦点状态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        hoverCard->setAttribute(Qt::WA_UnderMouse, true);
+        hoverCard->update();
+        focusCard->setFocus(Qt::TabFocusReason);
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏卡片截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    QPointer<ZzFluentUI::ZzActionCard> hoverCard;
+    QPointer<ZzFluentUI::ZzActionCard> focusCard;
+};
+
+/** @brief 将独立卡片窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderCardSurface(ZzCardScreenshotSurface *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 把窗口和独立菜单渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderSurface(ZzScreenshotSurface *surface, qreal dpr)
 {
@@ -957,6 +1371,102 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 非文字区域差异比例 %3 超过门限 %4，actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersCardThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("cards-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("cards-light");
+        QTest::newRow("cards-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("cards-dark");
+        QTest::newRow("cards-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("cards-high-contrast");
+    }
+
+    void rendersCardThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzCardScreenshotSurface surface;
+        surface.polish();
+        const QImage actual = zzRenderCardSurface(&surface, actualDpr_);
+        QCOMPARE(
+            actual.size(),
+            QSize(
+                qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+                qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        const ZzCardTextMask mask = zzBuildCardTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.actionCards, 6);
+        QCOMPARE(mask.imageCards, 4);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 卡片非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
                 .arg(differenceRatio, 0, 'f', 6)
