@@ -29,6 +29,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QCompleter>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHBoxLayout>
@@ -85,6 +86,7 @@ namespace {
 
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QPoint zzMenuOrigin(914, 590);
+constexpr QPoint zzComboBoxPopupOrigin(770, 570);
 constexpr int zzTextMaskPadding = 2;
 constexpr int zzChannelTolerance = 3;
 constexpr qreal zzReferenceMaximumDifferenceRatio = 0.005;
@@ -1803,6 +1805,332 @@ ZzTextInputTextMask zzBuildTextInputTextMask(QWidget *surface, qreal dpr)
     return result;
 }
 
+/** @brief 保存组合框截图中文字遮罩及闭合面、编辑器和 popup 覆盖数量。 */
+struct ZzComboBoxTextMask final
+{
+    QImage image;
+    int comboBoxes = 0;
+    int closedLabels = 0;
+    int editableEditors = 0;
+    int popupItems = 0;
+};
+
+/** @brief 构造标准组合框闭合面与 popup 关键视觉状态的确定性截图面。 */
+class ZzComboBoxScreenshotSurface final
+{
+public:
+    /** @brief 创建文字、图标、方向、交互与 popup 状态的固定矩阵。 */
+    ZzComboBoxScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzComboBoxScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Combo Boxes"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(70, 62, 70, 62);
+        grid->setHorizontalSpacing(58);
+        grid->setVerticalSpacing(76);
+
+        const auto addComboBox = [this, grid](int row, int column) {
+            auto *comboBox = new QComboBox(&window);
+            comboBox->setFixedSize(300, 48);
+            grid->addWidget(comboBox, row, column);
+            return comboBox;
+        };
+
+        auto *normal = addComboBox(0, 0);
+        normal->addItems({
+            QStringLiteral("Balanced"),
+            QStringLiteral("Compact"),
+            QStringLiteral("Comfortable")});
+
+        auto *placeholder = addComboBox(0, 1);
+        placeholder->setPlaceholderText(QStringLiteral("Select environment"));
+        placeholder->addItems({
+            QStringLiteral("Local"),
+            QStringLiteral("Remote")});
+        placeholder->setCurrentIndex(-1);
+
+        auto *icon = addComboBox(0, 2);
+        icon->addItem(
+            QIcon(QStringLiteral(
+                ":/zzfluent/screenshots/ZzFluentTestSquare.svg")),
+            QStringLiteral("Icon option"));
+        icon->addItem(QStringLiteral("Text option"));
+
+        auto *editable = addComboBox(1, 0);
+        editable->setEditable(true);
+        editable->setInsertPolicy(QComboBox::NoInsert);
+        editable->addItems({
+            QStringLiteral("Debug"),
+            QStringLiteral("Release"),
+            QStringLiteral("RelWithDebInfo")});
+        editable->setEditText(QStringLiteral("Editable target"));
+        editable->setCompleter(new QCompleter(
+            QStringList{
+                QStringLiteral("Debug"),
+                QStringLiteral("Release"),
+                QStringLiteral("RelWithDebInfo")},
+            editable));
+
+        auto *longText = addComboBox(1, 1);
+        longText->addItem(QStringLiteral(
+            "A deliberately long selection that must stay inside the field"));
+
+        auto *rightToLeft = addComboBox(1, 2);
+        rightToLeft->setLayoutDirection(Qt::RightToLeft);
+        rightToLeft->addItems({
+            QStringLiteral("RTL primary"),
+            QStringLiteral("RTL secondary")});
+
+        auto *focused = addComboBox(2, 0);
+        focused->addItems({
+            QStringLiteral("Focused option"),
+            QStringLiteral("Alternative")});
+        focusComboBox = focused;
+
+        auto *hovered = addComboBox(2, 1);
+        hovered->addItems({
+            QStringLiteral("Hovered option"),
+            QStringLiteral("Alternative")});
+        hoverComboBox = hovered;
+
+        auto *disabled = addComboBox(2, 2);
+        disabled->addItem(QStringLiteral("Disabled option"));
+        disabled->setEnabled(false);
+
+        popupComboBox = addComboBox(3, 0);
+        auto *popupModel = new QStandardItemModel(popupComboBox);
+        auto *selectedItem = new QStandardItem(
+            QIcon(QStringLiteral(
+                ":/zzfluent/screenshots/ZzFluentTestSquare.svg")),
+            QStringLiteral("Selected item"));
+        popupModel->appendRow(selectedItem);
+        popupModel->appendRow(new QStandardItem(
+            QStringLiteral("Hovered item")));
+        auto *disabledItem = new QStandardItem(
+            QStringLiteral("Disabled item"));
+        disabledItem->setEnabled(false);
+        popupModel->appendRow(disabledItem);
+        popupModel->appendRow(new QStandardItem(
+            QStringLiteral("Long popup item for clipping")));
+        popupComboBox->setModel(popupModel);
+        popupComboBox->setCurrentIndex(0);
+        popupComboBox->setMaxVisibleItems(4);
+    }
+
+    /** @brief 展示画面并通过真实事件固定 focus、hover 与 popup item 状态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (focusComboBox != nullptr) {
+            focusComboBox->setFocus(Qt::TabFocusReason);
+        }
+        if (hoverComboBox != nullptr) {
+            hoverComboBox->setAttribute(Qt::WA_UnderMouse, true);
+            const QPoint center = hoverComboBox->rect().center();
+            const QPoint globalCenter = hoverComboBox->mapToGlobal(center);
+            QEnterEvent enter{
+                QPointF(center),
+                QPointF(center),
+                QPointF(globalCenter)};
+            QCoreApplication::sendEvent(hoverComboBox, &enter);
+            QMouseEvent move(
+                QEvent::MouseMove,
+                QPointF(center),
+                QPointF(globalCenter),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(hoverComboBox, &move);
+        }
+        if (popupComboBox != nullptr) {
+            popupComboBox->showPopup();
+            QCoreApplication::processEvents();
+            QAbstractItemView *popupView = popupComboBox->view();
+            if (popupView != nullptr && popupView->viewport() != nullptr) {
+                popupView->setCurrentIndex(popupComboBox->model()->index(0, 0));
+                const QModelIndex hovered = popupComboBox->model()->index(1, 0);
+                popupView->scrollTo(hovered);
+                const QRect hoveredRect = popupView->visualRect(hovered);
+                popupView->viewport()->setAttribute(Qt::WA_UnderMouse, true);
+                const QPoint center = hoveredRect.center();
+                const QPoint globalCenter =
+                    popupView->viewport()->mapToGlobal(center);
+                QMouseEvent move(
+                    QEvent::MouseMove,
+                    QPointF(center),
+                    QPointF(globalCenter),
+                    Qt::NoButton,
+                    Qt::NoButton,
+                    Qt::NoModifier);
+                QCoreApplication::sendEvent(popupView->viewport(), &move);
+            }
+        }
+        if (focusComboBox != nullptr) {
+            focusComboBox->setFocus(Qt::TabFocusReason);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回组合框 popup 的公开顶层窗口；未创建时返回空指针。 */
+    [[nodiscard]] QWidget *popupWindow() const noexcept
+    {
+        if (popupComboBox == nullptr || popupComboBox->view() == nullptr) {
+            return nullptr;
+        }
+        return popupComboBox->view()->window();
+    }
+
+    /** @brief 返回打开 popup 的标准组合框。 */
+    [[nodiscard]] QComboBox *openComboBox() const noexcept
+    {
+        return popupComboBox;
+    }
+
+    /** @brief 关闭 popup 并隐藏组合框截图窗口。 */
+    void hide()
+    {
+        if (popupComboBox != nullptr) {
+            popupComboBox->hidePopup();
+        }
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    QPointer<QComboBox> focusComboBox;
+    QPointer<QComboBox> hoverComboBox;
+    QPointer<QComboBox> popupComboBox;
+};
+
+/** @brief 为独立组合框画面遮罩闭合文字、编辑器文字与 popup item 文字。 */
+ZzComboBoxTextMask zzBuildComboBoxTextMask(
+    ZzComboBoxScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzComboBoxTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    const auto comboBoxes = surface->window.findChildren<QComboBox *>();
+    for (QComboBox *comboBox : comboBoxes) {
+        if (!comboBox->isVisible()) {
+            continue;
+        }
+        ++result.comboBoxes;
+        if (comboBox->isEditable()) {
+            QLineEdit *editor = comboBox->lineEdit();
+            if (editor == nullptr || editor->displayText().isEmpty()) {
+                continue;
+            }
+            QStyleOptionFrame option;
+            option.initFrom(editor);
+            const QRect contents = editor->style()->subElementRect(
+                QStyle::SE_LineEditContents,
+                &option,
+                editor);
+            const QRect textRect = zzAlignedTextRect(
+                editor,
+                contents.adjusted(2, 0, -2, 0),
+                static_cast<int>(editor->alignment() | Qt::AlignVCenter),
+                editor->displayText());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(editor, textRect, &surface->window));
+            ++result.editableEditors;
+            continue;
+        }
+
+        const QString text = comboBox->currentIndex() < 0
+            ? comboBox->placeholderText()
+            : comboBox->currentText();
+        if (text.isEmpty()) {
+            continue;
+        }
+        QStyleOptionComboBox option;
+        option.initFrom(comboBox);
+        option.rect = comboBox->rect();
+        option.editable = comboBox->isEditable();
+        QRect contents = comboBox->style()->subControlRect(
+            QStyle::CC_ComboBox,
+            &option,
+            QStyle::SC_ComboBoxEditField,
+            comboBox);
+        if (comboBox->currentIndex() >= 0
+            && !comboBox->itemIcon(comboBox->currentIndex()).isNull()) {
+            const int decorationWidth = comboBox->iconSize().width() + 4;
+            QRect logicalContents = QStyle::visualRect(
+                comboBox->layoutDirection(),
+                comboBox->rect(),
+                contents);
+            logicalContents.adjust(decorationWidth, 0, 0, 0);
+            contents = QStyle::visualRect(
+                comboBox->layoutDirection(),
+                comboBox->rect(),
+                logicalContents);
+        }
+        const int alignment = static_cast<int>(
+            comboBox->layoutDirection() == Qt::RightToLeft
+                ? Qt::AlignRight | Qt::AlignVCenter
+                : Qt::AlignLeft | Qt::AlignVCenter);
+        const QRect textRect = zzAlignedTextRect(
+            comboBox,
+            contents,
+            alignment,
+            text);
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(comboBox, textRect, &surface->window));
+        ++result.closedLabels;
+    }
+
+    QComboBox *openComboBox = surface->openComboBox();
+    QWidget *popupWindow = surface->popupWindow();
+    if (openComboBox != nullptr && popupWindow != nullptr) {
+        QAbstractItemView *popupView = openComboBox->view();
+        QAbstractItemModel *model = popupView->model();
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const QModelIndex index = model->index(row, 0);
+            const QString text = index.data(Qt::DisplayRole).toString();
+            const QRect visual = popupView->visualRect(index);
+            if (text.isEmpty() || visual.isEmpty()) {
+                continue;
+            }
+            QRect contents = visual.adjusted(12, 0, -8, 0);
+            if (!index.data(Qt::DecorationRole).value<QIcon>().isNull()) {
+                contents.adjust(openComboBox->iconSize().width() + 4, 0, 0, 0);
+            }
+            const QRect localText = zzAlignedTextRect(
+                popupView,
+                contents,
+                Qt::AlignLeft | Qt::AlignVCenter,
+                text);
+            const QPoint popupOffset = popupView->viewport()->mapTo(
+                popupWindow,
+                localText.topLeft());
+            zzPaintMaskRect(
+                &painter,
+                QRect(zzComboBoxPopupOrigin + popupOffset, localText.size()));
+            ++result.popupItems;
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 保存数值输入截图中文字遮罩及控件覆盖数量。 */
 struct ZzSpinBoxTextMask final
 {
@@ -2145,6 +2473,27 @@ QImage zzRenderTextInputSurface(
     image.fill(Qt::transparent);
     QPainter painter(&image);
     surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将组合框窗口和公开 popup 窗口合成到固定物理画布。 */
+QImage zzRenderComboBoxSurface(
+    ZzComboBoxScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    QWidget *popupWindow = surface->popupWindow();
+    if (popupWindow != nullptr && popupWindow->isVisible()) {
+        popupWindow->render(&painter, zzComboBoxPopupOrigin);
+    }
     painter.end();
     return image;
 }
@@ -2756,6 +3105,21 @@ private Q_SLOTS:
             << QStringLiteral("spin-box-controls-high-contrast");
     }
 
+    void rendersComboBoxThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("combo-box-controls-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("combo-box-controls-light");
+        QTest::newRow("combo-box-controls-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("combo-box-controls-dark");
+        QTest::newRow("combo-box-controls-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("combo-box-controls-high-contrast");
+    }
+
     void rendersTextInputThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -2933,6 +3297,100 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 数值输入非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersComboBoxThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzComboBoxScreenshotSurface surface;
+        surface.polish();
+        QWidget *popupWindow = surface.popupWindow();
+        QVERIFY(popupWindow != nullptr);
+        QVERIFY(popupWindow->isVisible());
+        QVERIFY(surface.openComboBox() != nullptr);
+        QCOMPARE(surface.openComboBox()->style(), QApplication::style());
+        QCOMPARE(surface.openComboBox()->view()->style(),
+                 QApplication::style());
+        QCOMPARE(surface.openComboBox()->view()->viewport()->style(),
+                 QApplication::style());
+        QCOMPARE(surface.window.findChildren<QComboBox *>().size(), 10);
+        const QImage actual = zzRenderComboBoxSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzComboBoxTextMask mask = zzBuildComboBoxTextMask(
+            &surface,
+            actualDpr_);
+        QCOMPARE(mask.comboBoxes, 10);
+        QCOMPARE(mask.closedLabels, 9);
+        QCOMPARE(mask.editableEditors, 1);
+        QCOMPARE(mask.popupItems, 4);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 组合框非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
