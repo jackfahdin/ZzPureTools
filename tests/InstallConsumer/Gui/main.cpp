@@ -1,12 +1,16 @@
 #include <QtCore/QDate>
 #include <QtCore/QCoreApplication>
+#include <QtGui/QActionGroup>
 #include <QtGui/QIntValidator>
 #include <QtGui/QKeyEvent>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTextEdit>
 
@@ -54,6 +58,38 @@ int main(int argc, char *argv[])
         QStringList{QStringLiteral("120"), QStringLiteral("240")},
         &editableSelection));
     editableSelection.setEditText(QStringLiteral("42"));
+    QMenu popupMenu;
+    popupMenu.setStyle(&fluentStyle);
+    QAction *openAction = popupMenu.addAction(QStringLiteral("&Open"));
+    openAction->setShortcut(QKeySequence::Open);
+    openAction->setData(71);
+    QAction *automaticAction = popupMenu.addAction(
+        QStringLiteral("Automatic"));
+    automaticAction->setCheckable(true);
+    automaticAction->setChecked(true);
+    auto *modeGroup = new QActionGroup(&popupMenu);
+    modeGroup->setExclusive(true);
+    QAction *localAction = popupMenu.addAction(QStringLiteral("Local"));
+    QAction *remoteAction = popupMenu.addAction(QStringLiteral("Remote"));
+    localAction->setCheckable(true);
+    remoteAction->setCheckable(true);
+    localAction->setChecked(true);
+    modeGroup->addAction(localAction);
+    modeGroup->addAction(remoteAction);
+    QMenu *exportMenu = popupMenu.addMenu(QStringLiteral("Export"));
+    QAction *jsonAction = exportMenu->addAction(QStringLiteral("JSON"));
+    popupMenu.setDefaultAction(openAction);
+    popupMenu.setActiveAction(automaticAction);
+    QMenuBar menuBar;
+    menuBar.setNativeMenuBar(false);
+    menuBar.setStyle(&fluentStyle);
+    QMenu *fileMenu = menuBar.addMenu(QStringLiteral("&File"));
+    QAction *saveAction = fileMenu->addAction(
+        QStringLiteral("&Save"));
+    saveAction->setShortcut(QKeySequence::Save);
+    QPushButton toolTipHost;
+    toolTipHost.setStyle(&fluentStyle);
+    toolTipHost.setToolTip(QStringLiteral("Installed tooltip"));
     ZzFluentUI::ZzCalendar calendar;
     ZzFluentUI::ZzCalendarPicker picker;
     ZzFluentUI::ZzActionCard actionCard(
@@ -109,6 +145,15 @@ int main(int argc, char *argv[])
         &comboOption,
         QSize(8, 8),
         &selection);
+    QStyleOptionMenuItem menuItemOption;
+    menuItemOption.initFrom(&popupMenu);
+    menuItemOption.menuItemType = QStyleOptionMenuItem::Normal;
+    menuItemOption.text = openAction->text();
+    const QSize menuItemSize = fluentStyle.sizeFromContents(
+        QStyle::CT_MenuItem,
+        &menuItemOption,
+        QSize(80, 8),
+        &popupMenu);
     QKeyEvent downPress(
         QEvent::KeyPress,
         Qt::Key_Down,
@@ -134,6 +179,22 @@ int main(int argc, char *argv[])
         || !comboEditor->hasAcceptableInput()
         || editableSelection.completer() == nullptr
         || editableSelection.insertPolicy() != QComboBox::NoInsert
+        || popupMenu.style() != &fluentStyle
+        || openAction->shortcut() != QKeySequence::Open
+        || openAction->data().toInt() != 71
+        || !automaticAction->isChecked()
+        || !localAction->isChecked()
+        || remoteAction->isChecked()
+        || popupMenu.defaultAction() != openAction
+        || popupMenu.activeAction() != automaticAction
+        || QMenu::menuInAction(exportMenu->menuAction()) != exportMenu
+        || jsonAction->text() != QStringLiteral("JSON")
+        || menuItemSize.height() < 32
+        || menuBar.style() != &fluentStyle
+        || menuBar.isNativeMenuBar()
+        || !menuBar.actions().contains(fileMenu->menuAction())
+        || saveAction->shortcut() != QKeySequence::Save
+        || toolTipHost.toolTip() != QStringLiteral("Installed tooltip")
         || calendar.selectedDate() != expectedDate
         || picker.date() != expectedDate
         || picker.calendar() == nullptr

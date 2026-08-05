@@ -10,13 +10,17 @@
 #include <QtCore/QEvent>
 #include <QtCore/QSet>
 #include <QtCore/QTimer>
+#include <QtGui/QAction>
 #include <QtGui/QEnterEvent>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QStyleOption>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QVBoxLayout>
@@ -1315,6 +1319,209 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机组合框 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresPopupSurfaceRenderingAndStability()
+    {
+        constexpr int menuCount = 50;
+        constexpr int menuBarCount = 50;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<QMenu *> menus;
+        std::vector<QMenuBar *> menuBars;
+        std::vector<QAction *> menuPrimaryActions;
+        std::vector<QAction *> menuSecondaryActions;
+        std::vector<QAction *> menuBarPrimaryActions;
+        std::vector<QAction *> menuBarSecondaryActions;
+        menus.reserve(menuCount);
+        menuBars.reserve(menuBarCount);
+        menuPrimaryActions.reserve(menuCount);
+        menuSecondaryActions.reserve(menuCount);
+        menuBarPrimaryActions.reserve(menuBarCount);
+        menuBarSecondaryActions.reserve(menuBarCount);
+        const QIcon sharedIcon = style.standardIcon(QStyle::SP_DirIcon);
+
+        for (int index = 0; index < menuCount; ++index) {
+            auto *menu = new QMenu(&host);
+            menu->setStyle(&style);
+            QAction *primary = menu->addAction(
+                sharedIcon,
+                QStringLiteral("Open workspace"));
+            primary->setShortcut(QKeySequence::Open);
+            QAction *secondary = menu->addAction(
+                QStringLiteral("Automatic sync"));
+            secondary->setCheckable(true);
+            secondary->setChecked((index % 2) != 0);
+            menu->addSeparator();
+            QAction *disabled = menu->addAction(
+                QStringLiteral("Unavailable"));
+            disabled->setEnabled(false);
+            QMenu *submenu = menu->addMenu(QStringLiteral("Export"));
+            submenu->setStyle(&style);
+            submenu->addAction(QStringLiteral("JSON"));
+            menu->setDefaultAction(primary);
+            menu->setActiveAction(secondary);
+            menu->setLayoutDirection(
+                (index % 4) == 0
+                    ? Qt::RightToLeft
+                    : Qt::LeftToRight);
+            menu->ensurePolished();
+            menu->adjustSize();
+            menu->resize(240, menu->height());
+            menus.push_back(menu);
+            menuPrimaryActions.push_back(primary);
+            menuSecondaryActions.push_back(secondary);
+        }
+
+        for (int index = 0; index < menuBarCount; ++index) {
+            auto *menuBar = new QMenuBar(&host);
+            menuBar->setNativeMenuBar(false);
+            menuBar->setStyle(&style);
+            QAction *primary = menuBar->addAction(QStringLiteral("File"));
+            QAction *secondary = menuBar->addAction(QStringLiteral("Edit"));
+            QAction *disabled = menuBar->addAction(QStringLiteral("Help"));
+            disabled->setEnabled(false);
+            menuBar->setActiveAction(primary);
+            menuBar->setLayoutDirection(
+                (index % 4) == 0
+                    ? Qt::RightToLeft
+                    : Qt::LeftToRight);
+            menuBar->resize(240, 32);
+            menuBar->ensurePolished();
+            menuBars.push_back(menuBar);
+            menuBarPrimaryActions.push_back(primary);
+            menuBarSecondaryActions.push_back(secondary);
+        }
+
+        QImage target(QSize(240, 192), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        QStyleOption toolTip;
+        toolTip.rect = QRect(12, 142, 216, 40);
+        toolTip.state = QStyle::State_Enabled;
+        toolTip.palette = style.standardPalette();
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            const int menuIndex = sequence % menuCount;
+            const int menuBarIndex = sequence % menuBarCount;
+            menuSecondaryActions[static_cast<std::size_t>(menuIndex)]
+                ->setChecked((sequence % 2) != 0);
+            menuBars[static_cast<std::size_t>(menuBarIndex)]
+                ->setActiveAction(
+                    (sequence % 2) == 0
+                        ? menuBarPrimaryActions[
+                              static_cast<std::size_t>(menuBarIndex)]
+                        : menuBarSecondaryActions[
+                              static_cast<std::size_t>(menuBarIndex)]);
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            for (QMenu *menu : menus) {
+                menu->render(&painter);
+            }
+            for (QMenuBar *menuBar : menuBars) {
+                menuBar->render(&painter);
+            }
+            style.drawPrimitive(
+                QStyle::PE_PanelTipLabel,
+                &toolTip,
+                &painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            const int index = round % (menuCount + menuBarCount);
+            if (index < menuCount) {
+                QMenu *menu = menus[static_cast<std::size_t>(index)];
+                QAction *primary = menuPrimaryActions[
+                    static_cast<std::size_t>(index)];
+                QAction *secondary = menuSecondaryActions[
+                    static_cast<std::size_t>(index)];
+                primary->setEnabled(false);
+                primary->setText(QString::number(round));
+                secondary->setChecked(!secondary->isChecked());
+                menu->setDefaultAction(secondary);
+                menu->setActiveAction(primary);
+                menu->setLayoutDirection(Qt::RightToLeft);
+                menu->setLayoutDirection(
+                    (index % 4) == 0
+                        ? Qt::RightToLeft
+                        : Qt::LeftToRight);
+                menu->setActiveAction(secondary);
+                menu->setDefaultAction(primary);
+                secondary->setChecked((index % 2) != 0);
+                primary->setText(QStringLiteral("Open workspace"));
+                primary->setEnabled(true);
+            } else {
+                const int menuBarIndex = index - menuCount;
+                QMenuBar *menuBar = menuBars[
+                    static_cast<std::size_t>(menuBarIndex)];
+                QAction *primary = menuBarPrimaryActions[
+                    static_cast<std::size_t>(menuBarIndex)];
+                QAction *secondary = menuBarSecondaryActions[
+                    static_cast<std::size_t>(menuBarIndex)];
+                primary->setEnabled(false);
+                primary->setText(QString::number(round));
+                menuBar->setActiveAction(secondary);
+                menuBar->setLayoutDirection(Qt::RightToLeft);
+                menuBar->setLayoutDirection(
+                    (menuBarIndex % 4) == 0
+                        ? Qt::RightToLeft
+                        : Qt::LeftToRight);
+                menuBar->setActiveAction(primary);
+                primary->setText(QStringLiteral("File"));
+                primary->setEnabled(true);
+            }
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-popup-surfaces controls=100 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机弹出表面 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }

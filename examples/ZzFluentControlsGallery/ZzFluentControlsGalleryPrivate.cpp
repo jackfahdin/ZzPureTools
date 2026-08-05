@@ -4,6 +4,7 @@
 
 #include <QtCore/QDate>
 #include <QtCore/QLocale>
+#include <QtGui/QActionGroup>
 #include <QtGui/QFont>
 #include <QtGui/QCloseEvent>
 #include <QtGui/QPainter>
@@ -23,12 +24,14 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSplitter>
+#include <QtWidgets/QStyle>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QTreeView>
@@ -333,7 +336,8 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     subtle->setAppearance(ZzFluentUI::ZzButtonAppearance::Subtle);
     auto *icon = new ZzFluentUI::ZzIconButton(container);
     icon->setAccessibleName(QStringLiteral("Refresh"));
-    icon->setToolTip(QStringLiteral("Refresh"));
+    icon->setToolTip(QStringLiteral(
+        "Refresh the current workspace snapshot"));
     icon->setIconDescriptor({
         QStringLiteral(":/zzfluent/gallery/ZzGalleryRefresh.svg"),
         true});
@@ -723,13 +727,49 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
     tree->setMinimumHeight(150);
     layout->addWidget(tree, 1);
 
+    auto *menuBar = new QMenuBar(container);
+    menuBar->setNativeMenuBar(false);
+    QMenu *fileMenu = menuBar->addMenu(QStringLiteral("&File"));
+    fileMenu->addAction(QStringLiteral("&Open"), QKeySequence::Open);
+    fileMenu->addAction(QStringLiteral("&Save"), QKeySequence::Save);
+    QMenu *viewMenu = menuBar->addMenu(QStringLiteral("&View"));
+    QAction *compact = viewMenu->addAction(QStringLiteral("Compact mode"));
+    compact->setCheckable(true);
+    compact->setChecked(true);
+    QAction *help = menuBar->addAction(QStringLiteral("Help"));
+    help->setEnabled(false);
+    layout->addWidget(menuBar);
+
     auto *commandRow = new QHBoxLayout;
     auto *menuButton = new QPushButton(QStringLiteral("Menu"), container);
     auto *menu = new QMenu(menuButton);
-    menu->addAction(QStringLiteral("Open workspace"));
-    menu->addAction(QStringLiteral("Save snapshot"));
+    menu->addSection(QStringLiteral("Workspace"));
+    QAction *openWorkspace = menu->addAction(
+        menuButton->style()->standardIcon(QStyle::SP_DirIcon),
+        QStringLiteral("Open workspace"));
+    openWorkspace->setShortcut(QKeySequence::Open);
+    QAction *automaticSync = menu->addAction(
+        QStringLiteral("Automatic sync"));
+    automaticSync->setCheckable(true);
+    automaticSync->setChecked(true);
     menu->addSeparator();
-    menu->addAction(QStringLiteral("Close"));
+    auto *modeGroup = new QActionGroup(menu);
+    modeGroup->setExclusive(true);
+    QAction *local = menu->addAction(QStringLiteral("Local mode"));
+    QAction *remote = menu->addAction(QStringLiteral("Remote mode"));
+    local->setCheckable(true);
+    remote->setCheckable(true);
+    local->setChecked(true);
+    modeGroup->addAction(local);
+    modeGroup->addAction(remote);
+    QMenu *exportMenu = menu->addMenu(QStringLiteral("Export"));
+    exportMenu->addAction(QStringLiteral("JSON"));
+    exportMenu->addAction(QStringLiteral("CSV"));
+    QMenu *rtlMenu = menu->addMenu(QStringLiteral("RTL preview"));
+    rtlMenu->setLayoutDirection(Qt::RightToLeft);
+    rtlMenu->addAction(QStringLiteral("Right to left"));
+    QAction *unavailable = menu->addAction(QStringLiteral("Unavailable"));
+    unavailable->setEnabled(false);
     menuButton->setMenu(menu);
     auto *dialogButton = new ZzFluentUI::ZzPushButton(
         QStringLiteral("Dialog"), container);

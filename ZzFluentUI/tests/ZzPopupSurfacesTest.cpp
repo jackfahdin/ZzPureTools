@@ -1,11 +1,25 @@
+#include <array>
+#include <cstddef>
+#include <vector>
+
+#include <QtCore/QAbstractAnimation>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QEvent>
+#include <QtCore/QTimer>
+#include <QtGui/QAccessible>
 #include <QtGui/QAction>
+#include <QtGui/QActionGroup>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QStyleOption>
+#include <QtWidgets/QToolTip>
+#include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -31,6 +45,25 @@ bool zzContainsColor(const QImage &image, const QColor &expected)
         }
     }
     return false;
+}
+
+/** @brief 处理普通事件与延迟销毁，保证对象统计稳定。 */
+void zzFlushDeferredObjects()
+{
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCoreApplication::processEvents();
+}
+
+/** @brief 通过公开 window type 查找当前可见的标准工具提示。 */
+QWidget *zzVisibleToolTipWindow()
+{
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
+        if (widget != nullptr && widget->isVisible()
+            && widget->windowType() == Qt::ToolTip) {
+            return widget;
+        }
+    }
+    return nullptr;
 }
 
 /** @brief 将菜单项绘制到透明图像供状态颜色检查。 */
@@ -292,6 +325,309 @@ private Q_SLOTS:
         QVERIFY(!action.isChecked());
         QCOMPARE(toggledSpy.count(), 1);
         QCOMPARE(triggeredSpy.count(), 1);
+    }
+
+    void preservesActionsGroupsAndNativeSignals()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QMenu menu(QStringLiteral("Workspace"));
+        menu.setStyle(&style);
+        menu.setToolTipsVisible(true);
+
+        QPixmap iconPixmap(12, 12);
+        iconPixmap.fill(Qt::green);
+        QAction *open = menu.addAction(
+            QIcon(iconPixmap),
+            QStringLiteral("&Open"));
+        open->setShortcut(QKeySequence::Open);
+        open->setData(17);
+        open->setToolTip(QStringLiteral("Open workspace"));
+        open->setMenuRole(QAction::ApplicationSpecificRole);
+        QAction *section = menu.addSection(QStringLiteral("Mode"));
+        auto *group = new QActionGroup(&menu);
+        group->setExclusive(true);
+        QAction *local = menu.addAction(QStringLiteral("&Local"));
+        QAction *remote = menu.addAction(QStringLiteral("&Remote"));
+        local->setCheckable(true);
+        remote->setCheckable(true);
+        group->addAction(local);
+        group->addAction(remote);
+        local->setChecked(true);
+        QAction *separator = menu.addSeparator();
+        QMenu *submenu = menu.addMenu(QStringLiteral("E&xport"));
+        QAction *json = submenu->addAction(QStringLiteral("JSON"));
+        QAction *disabled = menu.addAction(QStringLiteral("Unavailable"));
+        disabled->setEnabled(false);
+        menu.setDefaultAction(open);
+        menu.setActiveAction(local);
+
+        QCOMPARE(menu.title(), QStringLiteral("Workspace"));
+        QVERIFY(menu.toolTipsVisible());
+        QCOMPARE(open->shortcut(), QKeySequence::Open);
+        QCOMPARE(open->data().toInt(), 17);
+        QCOMPARE(open->toolTip(), QStringLiteral("Open workspace"));
+        QCOMPARE(open->menuRole(), QAction::ApplicationSpecificRole);
+        QVERIFY(!open->icon().isNull());
+        QVERIFY(section->isSeparator());
+        QCOMPARE(section->text(), QStringLiteral("Mode"));
+        QVERIFY(separator->isSeparator());
+        QCOMPARE(QMenu::menuInAction(submenu->menuAction()), submenu);
+        QCOMPARE(menu.defaultAction(), open);
+        QCOMPARE(menu.activeAction(), local);
+        QVERIFY(!disabled->isEnabled());
+
+        QSignalSpy menuTriggeredSpy(&menu, &QMenu::triggered);
+        QSignalSpy groupTriggeredSpy(group, &QActionGroup::triggered);
+        QSignalSpy remoteToggledSpy(remote, &QAction::toggled);
+        remote->trigger();
+        QVERIFY(remote->isChecked());
+        QVERIFY(!local->isChecked());
+        QCOMPARE(menuTriggeredSpy.count(), 1);
+        QCOMPARE(groupTriggeredSpy.count(), 1);
+        QCOMPARE(remoteToggledSpy.count(), 1);
+
+        QSignalSpy submenuTriggeredSpy(submenu, &QMenu::triggered);
+        json->trigger();
+        QCOMPARE(submenuTriggeredSpy.count(), 1);
+        QCOMPARE(menuTriggeredSpy.count(), 2);
+        QSignalSpy disabledTriggeredSpy(disabled, &QAction::triggered);
+        disabled->trigger();
+        QCOMPARE(disabledTriggeredSpy.count(), 0);
+    }
+
+    void preservesKeyboardAndSubmenuNavigation()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QMenu menu;
+        menu.setStyle(&style);
+        QAction *open = menu.addAction(QStringLiteral("&Open"));
+        QAction *disabled = menu.addAction(QStringLiteral("Disabled"));
+        disabled->setEnabled(false);
+        QAction *check = menu.addAction(QStringLiteral("&Check"));
+        check->setCheckable(true);
+        QMenu *submenu = menu.addMenu(QStringLiteral("E&xport"));
+        submenu->setStyle(&style);
+        submenu->addAction(QStringLiteral("JSON"));
+
+        menu.show();
+        menu.setFocus();
+        menu.setActiveAction(open);
+        QCoreApplication::processEvents();
+        QVERIFY(menu.isVisible());
+        QCOMPARE(menu.activeAction(), open);
+
+        QTest::keyClick(&menu, Qt::Key_Down);
+        QCOMPARE(menu.activeAction(), check);
+        QSignalSpy checkTriggeredSpy(check, &QAction::triggered);
+        QTest::keyClick(&menu, Qt::Key_Return);
+        QCoreApplication::processEvents();
+        QCOMPARE(checkTriggeredSpy.count(), 1);
+        QVERIFY(check->isChecked());
+        QVERIFY(!menu.isVisible());
+
+        menu.show();
+        menu.setActiveAction(submenu->menuAction());
+        QCoreApplication::processEvents();
+        QTest::keyClick(&menu, Qt::Key_Right);
+        QTRY_VERIFY(submenu->isVisible());
+        QTest::keyClick(submenu, Qt::Key_Escape);
+        QTRY_VERIFY(!submenu->isVisible());
+        QTest::keyClick(&menu, Qt::Key_Escape);
+        QTRY_VERIFY(!menu.isVisible());
+
+        QSignalSpy openTriggeredSpy(open, &QAction::triggered);
+        menu.show();
+        menu.setFocus();
+        QCoreApplication::processEvents();
+        QTest::keyClick(&menu, Qt::Key_O);
+        QTRY_COMPARE(openTriggeredSpy.count(), 1);
+        QVERIFY(!menu.isVisible());
+    }
+
+    void preservesMenuBarNavigationAndAccessibility()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        QMenuBar menuBar(&host);
+        menuBar.setNativeMenuBar(false);
+        menuBar.setStyle(&style);
+        QMenu *fileMenu = menuBar.addMenu(QStringLiteral("&File"));
+        QMenu *editMenu = menuBar.addMenu(QStringLiteral("&Edit"));
+        fileMenu->setStyle(&style);
+        editMenu->setStyle(&style);
+        QAction *open = fileMenu->addAction(QStringLiteral("&Open"));
+        editMenu->addAction(QStringLiteral("&Undo"));
+        QAction *disabled = menuBar.addAction(QStringLiteral("Disabled"));
+        disabled->setEnabled(false);
+        host.resize(360, 80);
+        menuBar.resize(360, 32);
+        host.show();
+        menuBar.setFocus();
+        menuBar.setActiveAction(fileMenu->menuAction());
+        QCoreApplication::processEvents();
+
+        QCOMPARE(menuBar.activeAction(), fileMenu->menuAction());
+        QTest::keyClick(&menuBar, Qt::Key_Right);
+        QCOMPARE(menuBar.activeAction(), editMenu->menuAction());
+        QTest::keyClick(&menuBar, Qt::Key_Left);
+        QCOMPARE(menuBar.activeAction(), fileMenu->menuAction());
+        QTest::keyClick(&menuBar, Qt::Key_Return);
+        QTRY_VERIFY(fileMenu->isVisible());
+        QTest::keyClick(fileMenu, Qt::Key_Escape);
+        QTRY_VERIFY(!fileMenu->isVisible());
+
+        QAccessibleInterface *menuInterface =
+            QAccessible::queryAccessibleInterface(fileMenu);
+        QAccessibleInterface *barInterface =
+            QAccessible::queryAccessibleInterface(&menuBar);
+        if (menuInterface == nullptr || barInterface == nullptr) {
+            QFAIL("标准菜单或菜单栏缺少无障碍接口");
+            return;
+        }
+        QCOMPARE(menuInterface->role(), QAccessible::PopupMenu);
+        QCOMPARE(barInterface->role(), QAccessible::MenuBar);
+        QVERIFY(menuInterface->childCount() >= 1);
+        QVERIFY(barInterface->childCount() >= 2);
+        QAccessibleInterface *openInterface = menuInterface->child(0);
+        QVERIFY(openInterface != nullptr);
+        QCOMPARE(openInterface->role(), QAccessible::MenuItem);
+        QVERIFY(openInterface->text(QAccessible::Name).contains(
+            QStringLiteral("Open")));
+        QCOMPARE(open->text(), QStringLiteral("&Open"));
+        QVERIFY(disabled->isEnabled() == false);
+    }
+
+    void preservesStandardToolTipLifecycleAndAccessibility()
+    {
+        QWidget host;
+        host.resize(240, 80);
+        host.setToolTip(QStringLiteral("Host tooltip"));
+        host.show();
+        QCoreApplication::processEvents();
+        const QPoint position = host.mapToGlobal(QPoint(20, 20));
+        const QString plainText = QStringLiteral(
+            "A standard tooltip with enough text to exercise sizing.");
+        QToolTip::showText(position, plainText, &host, host.rect(), 2500);
+        QTRY_VERIFY(zzVisibleToolTipWindow() != nullptr);
+        QWidget *tipWindow = zzVisibleToolTipWindow();
+        QVERIFY(tipWindow != nullptr);
+        auto *label = qobject_cast<QLabel *>(tipWindow);
+        QVERIFY(label != nullptr);
+        QCOMPARE(label->text(), plainText);
+        QCOMPARE(tipWindow->windowType(), Qt::ToolTip);
+        QAccessibleInterface *tipInterface =
+            QAccessible::queryAccessibleInterface(tipWindow);
+        if (tipInterface == nullptr) {
+            QFAIL("标准工具提示缺少无障碍接口");
+            return;
+        }
+        QCOMPARE(tipInterface->role(), QAccessible::ToolTip);
+        QVERIFY(tipInterface->text(QAccessible::Name).contains(
+            QStringLiteral("standard tooltip")));
+
+        const QString richText = QStringLiteral("<b>Build</b> complete");
+        QToolTip::showText(position, richText, &host, host.rect(), 2500);
+        QTRY_VERIFY(zzVisibleToolTipWindow() != nullptr);
+        QWidget *richTipWindow = zzVisibleToolTipWindow();
+        QVERIFY(richTipWindow != nullptr);
+        auto *richLabel = qobject_cast<QLabel *>(richTipWindow);
+        QVERIFY(richLabel != nullptr);
+        QCOMPARE(richLabel->text(), richText);
+        QToolTip::hideText();
+        QTRY_VERIFY(zzVisibleToolTipWindow() == nullptr);
+        QCOMPARE(host.toolTip(), QStringLiteral("Host tooltip"));
+    }
+
+    void keepsPerInstanceInfrastructureStable()
+    {
+        constexpr int menuCount = 50;
+        constexpr int menuBarCount = 50;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        std::vector<QMenu *> menus;
+        std::vector<QMenuBar *> menuBars;
+        std::vector<QAction *> primaryActions;
+        std::vector<QAction *> secondaryActions;
+        menus.reserve(menuCount);
+        menuBars.reserve(menuBarCount);
+        primaryActions.reserve(menuCount + menuBarCount);
+        secondaryActions.reserve(menuCount + menuBarCount);
+
+        for (int index = 0; index < menuCount; ++index) {
+            auto *menu = new QMenu(&host);
+            menu->setStyle(&style);
+            QAction *primary = menu->addAction(QStringLiteral("Primary"));
+            QAction *secondary = menu->addAction(QStringLiteral("Secondary"));
+            primary->setCheckable(true);
+            menu->setDefaultAction(primary);
+            menu->setActiveAction(secondary);
+            menu->ensurePolished();
+            menu->adjustSize();
+            menus.push_back(menu);
+            primaryActions.push_back(primary);
+            secondaryActions.push_back(secondary);
+        }
+        for (int index = 0; index < menuBarCount; ++index) {
+            auto *menuBar = new QMenuBar(&host);
+            menuBar->setNativeMenuBar(false);
+            menuBar->setStyle(&style);
+            QAction *primary = menuBar->addAction(QStringLiteral("Primary"));
+            QAction *secondary = menuBar->addAction(QStringLiteral("Secondary"));
+            menuBar->setActiveAction(primary);
+            menuBar->ensurePolished();
+            menuBar->adjustSize();
+            menuBars.push_back(menuBar);
+            primaryActions.push_back(primary);
+            secondaryActions.push_back(secondary);
+        }
+        zzFlushDeferredObjects();
+        const qsizetype initialObjects =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            const int index = round % (menuCount + menuBarCount);
+            QAction *primary = primaryActions[static_cast<std::size_t>(index)];
+            QAction *secondary = secondaryActions[static_cast<std::size_t>(index)];
+            primary->setEnabled(false);
+            primary->setChecked(true);
+            primary->setText(QString::number(round));
+            secondary->setVisible(false);
+            if (index < menuCount) {
+                QMenu *menu = menus[static_cast<std::size_t>(index)];
+                menu->setActiveAction(primary);
+                menu->setDefaultAction(secondary);
+                menu->setLayoutDirection(Qt::RightToLeft);
+                menu->setLayoutDirection(Qt::LeftToRight);
+                menu->setDefaultAction(primary);
+                menu->setActiveAction(secondary);
+            } else {
+                QMenuBar *menuBar = menuBars[
+                    static_cast<std::size_t>(index - menuCount)];
+                menuBar->setActiveAction(secondary);
+                menuBar->setLayoutDirection(Qt::RightToLeft);
+                menuBar->setLayoutDirection(Qt::LeftToRight);
+                menuBar->setActiveAction(primary);
+            }
+            secondary->setVisible(true);
+            primary->setText(QStringLiteral("Primary"));
+            primary->setChecked(false);
+            primary->setEnabled(true);
+        }
+        zzFlushDeferredObjects();
+        QCOMPARE(host.findChildren<QObject *>().size(), initialObjects);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
     }
 };
 
