@@ -5,6 +5,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QPalette>
 #include <QtGui/QPen>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QStyle>
 
 #include <ZzFluentUI/ZzCalendar.h>
@@ -80,7 +81,10 @@ void ZzCalendarPrivate::paintCell(
         painter->drawRoundedRect(cellRect, radius, radius);
     }
 
-    if (selected && q_ptr->hasFocus()) {
+    const QWidget *focusWidget = QApplication::focusWidget();
+    const bool hasFocusWithin = q_ptr->hasFocus()
+        || (focusWidget != nullptr && q_ptr->isAncestorOf(focusWidget));
+    if (selected && hasFocusWithin) {
         painter->setBrush(Qt::NoBrush);
         painter->setPen(QPen(
             q_ptr->palette().color(activeGroup, QPalette::HighlightedText),

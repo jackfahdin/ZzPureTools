@@ -53,6 +53,7 @@ private Q_SLOTS:
         if (focusTarget == nullptr) {
             return;
         }
+        QVERIFY(focusTarget == &calendar || calendar.isAncestorOf(focusTarget));
         QTest::keyClick(focusTarget, Qt::Key_Right);
         QCOMPARE(calendar.selectedDate(), selected.addDays(1));
         QTest::keyClick(focusTarget, Qt::Key_PageDown);
@@ -102,6 +103,43 @@ private Q_SLOTS:
         QCOMPARE(picker.maximumDate(), maximum);
         QCOMPARE(picker.date(), selected);
         QCOMPARE(calendar->selectedDate(), selected);
+        calendar->setSelectedDate(selected.addDays(1));
+        QCOMPARE(picker.date(), selected.addDays(1));
+    }
+
+    void clampsRangesAndEmitsOnlyNativeDateSignals()
+    {
+        const QDate minimum(2026, 1, 1);
+        const QDate maximum(2026, 12, 31);
+        const QDate selected(2026, 8, 5);
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setDateRange(minimum, maximum);
+        calendar.setSelectedDate(minimum.addDays(-1));
+        QCOMPARE(calendar.selectedDate(), minimum);
+        calendar.setSelectedDate(maximum.addDays(1));
+        QCOMPARE(calendar.selectedDate(), maximum);
+        calendar.setSelectedDate(selected);
+        QSignalSpy calendarSpy(
+            &calendar,
+            &QCalendarWidget::selectionChanged);
+
+        calendar.setSelectedDate(selected);
+        QCOMPARE(calendarSpy.count(), 0);
+        calendar.setSelectedDate(selected.addDays(1));
+        QCOMPARE(calendarSpy.count(), 1);
+        calendar.setSelectedDate(selected.addDays(1));
+        QCOMPARE(calendarSpy.count(), 1);
+
+        ZzFluentUI::ZzCalendarPicker picker;
+        picker.setDateRange(minimum, maximum);
+        picker.setDate(selected);
+        QSignalSpy pickerSpy(&picker, &QDateEdit::dateChanged);
+        picker.setDate(selected);
+        QCOMPARE(pickerSpy.count(), 0);
+        picker.setDate(selected.addDays(1));
+        QCOMPARE(pickerSpy.count(), 1);
+        picker.setDate(selected.addDays(1));
+        QCOMPARE(pickerSpy.count(), 1);
     }
 
     void repeatedRenderingDoesNotAllocateChildren()
