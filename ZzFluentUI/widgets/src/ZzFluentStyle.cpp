@@ -74,7 +74,6 @@ int ZzFluentStyle::pixelMetric(
     case PM_ScrollBarExtent:
         return 12;
     case PM_ScrollBarSliderMin:
-        return 24;
     case PM_TabBarTabHSpace:
         return 24;
     case PM_TabBarTabVSpace:

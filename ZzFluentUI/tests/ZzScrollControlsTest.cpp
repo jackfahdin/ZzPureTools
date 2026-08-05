@@ -428,7 +428,13 @@ private Q_SLOTS:
         bar.resize(12, 240);
         bar.show();
         auto *animation = bar.findChild<QAbstractAnimation *>();
-        QVERIFY(animation != nullptr);
+        if (animation == nullptr) {
+            QTest::qFail(
+                "未找到滚动条悬停动画",
+                __FILE__,
+                __LINE__);
+            return;
+        }
 
         zzSendEnter(&bar);
         QVERIFY(QTest::qWaitFor([animation] {
