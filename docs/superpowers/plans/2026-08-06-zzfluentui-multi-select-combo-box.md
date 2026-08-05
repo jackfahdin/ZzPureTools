@@ -1,8 +1,10 @@
 # ZzFluentUI 多选组合框实施计划
 
+**状态：** 已于 2026-08-06 完成本批次实现与本机质量门禁；Windows MSVC、Windows Qt SDK MinGW 与 macOS 保持待原生环境验证状态。
+
 **目标：** 提供一个以稳定 key 管理本地值语义选项、支持鼠标和键盘多选、在关闭面板中展示选择摘要的 `ZzMultiSelectComboBox`，完整复用现有 Fluent 组合框、popup 与 item delegate 外观，并消除旧版固定选择位图、多状态源、Qt 内部 popup 操作和交互期动画风险。
 
-**架构：** `ZzMultiSelectComboBox` 继承 `QComboBox` 以复用公开 popup 定位、焦点、窗口关闭和 ComboBox 无障碍角色。私有 `QAbstractListModel` 唯一保存 `QList<ZzMultiSelectOption>`；`selected` 字段通过 `Qt::CheckStateRole` 暴露，标准 `QListView` 与 `ZzFluentItemDelegate` 展示复选状态。关闭面板使用一个无 frame、只读、不可聚焦的内部 `QLineEdit` 展示派生摘要，使 `QComboBox::currentText()` 和标准无障碍 Value 保持同步，但不得成为第二份选择真值。
+**架构：** `ZzMultiSelectComboBox` 继承 `QComboBox` 以复用公开 popup 定位、焦点、窗口关闭和 ComboBox 无障碍角色。私有 `QAbstractListModel` 唯一保存 `QList<ZzMultiSelectOption>`；`selected` 字段通过 `Qt::CheckStateRole` 暴露，标准 `QListView` 与 `ZzFluentItemDelegate` 展示复选状态。一个隐藏、只读、不可聚焦的内部 `QLineEdit` 只同步派生摘要、`QComboBox::currentText()` 与标准无障碍 Value；关闭面板由控件在标准 `SC_ComboBoxEditField` 内绘制缓存摘要，避免内部 editor 与组合框重复绘制 frame。
 
 **技术栈：** Qt 6.8+ Widgets、C++20、CMake Presets、Qt Test、Clang-Tidy、ASan/UBSan。
 
@@ -108,8 +110,8 @@ public:
         const QString &key,
         bool selected);
     [[nodiscard]] bool setOptionSelectedAt(int index, bool selected);
-    void setSelectedKeys(QStringList keys);
-    void setSelectedIndexes(QList<int> indexes);
+    void setSelectedKeys(const QStringList &keys);
+    void setSelectedIndexes(const QList<int> &indexes);
     void selectAll();
     void clearSelection();
 
@@ -166,9 +168,9 @@ widgets/src/private/ZzMultiSelectComboBoxPrivate.cpp
 
 ### 4.2 关闭面板摘要
 
-- 构造时调用一次 `QComboBox::setEditable(true)` 并取得 Qt 管理的 `QLineEdit`；line edit 设置 read-only、NoFocus、无 frame，不接受业务编辑或 completer。
-- 每次选择实际变化后从模型顺序生成一次 `selectedText` 缓存，写入 line edit 并把 cursor 固定到起始端；绘制只消费缓存，不扫描模型。
-- 无选择时 line edit 文本为空并展示同步后的 placeholder。公开 `setPlaceholderText()` 同时更新 QComboBox 与 line edit。
+- 构造时调用一次 `QComboBox::setEditable(true)` 并取得 Qt 管理的 `QLineEdit`；line edit 设置 read-only、NoFocus、无 frame并隐藏，不接受业务编辑或 completer，也不参与可见 frame 绘制。
+- 每次选择实际变化后从模型顺序生成一次 `selectedText` 缓存并写入 line edit；`paintEvent()` 先保留 `QComboBox` 标准外框与箭头，再在 style 返回的 `SC_ComboBoxEditField` 内使用 palette、字体度量、RTL 对齐和 `ElideRight` 绘制摘要，不扫描模型。
+- 无选择时 line edit 文本为空，公开 `setPlaceholderText()` 同时更新 QComboBox 与 line edit；可见占位文字由同一 `paintEvent()` 使用 `QPalette::PlaceholderText` 绘制。
 - QComboBox `currentIndex` 始终恢复为 -1，不能作为选择真值；内部 line edit 只保存派生展示文本，使标准 `currentText()` 与 QAccessible Value 可读。
 - model reset、insert/remove 和选择变化后更新摘要；文本或 icon 随 options reset 更新。不存在外部 model mutation，因此不需要猜测第三方通知顺序。
 
@@ -180,13 +182,13 @@ widgets/src/private/ZzMultiSelectComboBoxPrivate.cpp
 - viewport 左键 press 只更新 current index，release 只切换当前 enabled 行并消费事件；双击不得切换两次。滚动条、wheel 和 hover 继续交给标准 view。
 - popup 内提前消费 Space、Enter、Return 的 ShortcutOverride，并在 press 切换 current enabled 行、release 结束短生命周期关闭保护；Up/Down/Home/End/PageUp/PageDown 和类型搜索交给 `QListView`；Escape、Tab、窗口失活和外部点击沿 QComboBox popup 关闭路径处理。
 - 关闭状态下 Space、Enter、Return、F4、Alt+Down、Up/Down 打开 popup；普通字符不修改只读摘要。combo 本体 wheel 不改变选择，避免滚轮静默改业务值。
-- line edit 上的鼠标 press 转为 combo 的 `showPopup()`；它本身不可聚焦、不可选择或编辑摘要。
+- 关闭面板点击继续由 `QComboBox` 标准输入路径打开 popup；隐藏 line edit 本身不可聚焦、不可选择或编辑摘要，其事件过滤路径只保留 Qt 直接派发场景的一致性。
 - `hidePopup()` 先执行 QComboBox 标准关闭，再恢复 `currentIndex == -1` 和模型派生摘要；不检查 cursor 全局位置，不查找 QFrame，不修改 popup layout/window flags，不创建 timer/animation/QSS/动态属性。
 
 ### 4.4 生命周期与性能
 
 - 每实例固定创建一个 model、Qt editable line edit、一个 list view 和一个 delegate；首次 popup 可能由 Qt 延迟创建 container，但预热后选择切换不增加对象。
-- Pimpl 一次堆分配只在构造阶段发生。摘要 cache 只在选择变化时重建，不在 paint、layout、hover 或滚动热路径分配。
+- Pimpl 一次堆分配只在构造阶段发生。摘要 cache 只在选择变化时重建；paint 只读取缓存并计算当前宽度的省略文本，不扫描模型或创建对象树。
 - 不创建 `QPropertyAnimation`、`QTimer`、QProxyStyle、QStandardItem、QAction、QSS、pixmap cache 或主题单例连接。
 - 所有 GUI 状态只在 GUI 线程访问；Qt 事件边界不传播异常。
 
@@ -194,13 +196,13 @@ widgets/src/private/ZzMultiSelectComboBoxPrivate.cpp
 
 新增 `ZzFluentUI/tests/ZzMultiSelectComboBoxTest.cpp` 与 CTest `fluent.multi-select-combo-box`：
 
-- 验证默认 option/selection count、8 个最大可见项、placeholder、StrongFocus、只读内部 editor 和最小 32px Fluent 尺寸。
+- 验证默认 option/selection count、8 个最大可见项、placeholder、StrongFocus、隐藏只读内部 editor 和最小 32px Fluent 尺寸。
 - 验证 set/add/remove/removeAt/clear、空 key、重复 key、重复 text、逗号 text、icon、payload、enabled、selected 和 40 项以上集合；覆盖旧版第 33 行越界条件。
 - 验证 setSelectedKeys/indexes 的去重、未知 key、负数、等于 count、顺序收敛、disabled 项、selectAll/clear 和无变化信号。
 - 使用 `QAbstractItemModelTester` 验证 reset/insert/remove、有效 parent rowCount、invalid index、Display/Edit/Decoration/User/Key/CheckState role 与 flags。
 - 验证批量操作最多一次 `selectionChanged`，用户鼠标/Space/Enter 每次产生一次 `optionToggled`；程序化操作不产生 user intent。
 - 显示真实 popup，验证点击两项后 popup 仍打开、复选状态更新、Escape/Tab/外部点击关闭；键盘 Up/Down/Home/End/Page 键不直接改变选择。
-- 验证 line edit 鼠标打开、combo wheel 不改变选择、currentIndex 保持 -1、selectedText/currentText/placeholder 同步，长文本从起始端显示。
+- 验证关闭面板与内部 editor 直接事件均可打开 popup、combo wheel 不改变选择、currentIndex 保持 -1、selectedText/currentText/placeholder 同步，长文本从起始端显示。
 - 覆盖 Light/Dark/HighContrast、LTR/RTL、disabled combo、disabled row、重复文本与图标。
 - `QAccessible` 主控件保持 ComboBox role、name、派生 summary value、focusable/disabled 状态；popup row 使用标准 ListItem/checkable/checked/disabled 状态，不注册自定义 accessible interface。
 - 预构造 100 个控件、每个 20 条 option，预热 popup 后执行 1000 轮单项/bulk/selectAll/clear/direction/enabled/placeholder 切换，恢复初值并处理 deferred delete；QObject、animation 和 timer 数量不增长。
@@ -226,7 +228,7 @@ widgets/src/private/ZzMultiSelectComboBoxPrivate.cpp
 - 每帧只切换一个控件的一项选择并渲染到预分配 `QImage`；计时区不创建控件、model、delegate、option、popup、animation、timer 或图片。
 - 当前活动 Linux 参考环境渲染 P95 `<= 16.7 ms`；普通环境只记录数据。
 - 1000 轮选择、bulk、selectAll/clear、direction、enabled 与 placeholder 变化后，恢复状态并确保 descendants/animations/timers 与预热后一致。
-- 单个 10000 项模型执行 100 轮“100 个 key 的 bulk 选择 + selectedKeys 查询”，记录总耗时和最终选择数；首次正式 reference 测量后再设置宽松绝对门限，不写未测猜测。
+- 单个 10000 项模型执行 100 轮“100 个 key 的 bulk 选择 + selectedKeys 查询”，记录总耗时和最终选择数；首次正式 reference 实测为 `29.237 ms` 后，将宽松绝对门限锁定为 `60 ms`。
 - paint/sizeHint/popup scroll 不得扫描总模型；一次选择变化最多执行一次 O(n) 摘要/keys 构建。
 
 ## 8. 视觉基线
@@ -303,5 +305,70 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 - 私有 option model 是唯一选择真值；摘要、check role 和用户信号均由它派生，没有固定容量或 text 反向解析。
 - 鼠标和键盘可连续切换多项且 popup 保持打开；Escape、Tab、外部点击和窗口失活仍由 Qt 正确关闭。
 - 每实例基础设施固定，没有自定义 popup、Qt 内部对象查找、QSS、timer、animation、动态属性或逐项 QObject。
-- Light、Dark、HighContrast x 四档 DPR 视觉基线通过；参考机渲染 P95 满足 16.7ms，大集合门限由正式实测确定。
+- Light、Dark、HighContrast x 四档 DPR 视觉基线通过；参考机渲染 P95 满足 16.7ms，`100x10000` 批量选择满足 60ms 门限。
 - Linux GCC、Clang、ASan/UBSan、clang-tidy、安装消费通过；Windows MSVC、Qt SDK MinGW 与 macOS 待验证状态如实记录。
+
+## 13. 交付结果
+
+本批次已于 2026-08-06 完成交付，结果如下。
+
+### 13.1 生产实现
+
+- 新增公开值类型 `ZzMultiSelectOption` 与最终类 `ZzMultiSelectComboBox`；四文件 Pimpl 隔离私有 model、view、delegate 和输入装配，公开 API 只暴露值语义快照、稳定 key、批量选择与用户意图信号。
+- 私有 `ZzMultiSelectOptionModel` 独占 `QList<ZzMultiSelectOption>`，通过标准 `DisplayRole`、`DecorationRole`、`UserRole`、`KeyRole` 与 `CheckStateRole` 提供展示和选择状态；没有逐项 QObject、widget 或第二份 selection model 真值。
+- 空 key 与重复 key 在写入边界规范化为无花括号 UUID；重复 text、包含逗号的 text、disabled 预选项和调用方 `QVariant` payload 均保持原值，选择查询始终按模型顺序返回。
+- 关闭摘要只在有效变化后重建。隐藏只读 editor 继续同步 `currentText()`、placeholder 与无障碍 Value；可见摘要在标准 combo edit-field 内按 palette、RTL 和字体度量绘制，消除了双 frame，paint 不遍历 option model。
+- 鼠标 release、Space、Enter 与 Return 可连续切换 enabled 行且 popup 保持打开；Escape、Tab、外部点击和窗口失活继续使用 Qt 标准关闭路径。关闭状态的 wheel 不改变选择，`currentIndex` 始终恢复为 -1。
+
+### 13.2 功能、安装与示例验证
+
+- 活动本机环境为 Ubuntu 26.04 LTS x86_64、Intel Core i7-14700、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8、CMake 4.3.3；全部验证复用已有 `/home/zz/Qt/6.11.1/gcc_64`。
+- Linux GCC 15 shared Release、GCC 15 static Release、Clang 20 ASan+UBSan shared 三套全量 CTest 均为 `93/93` 通过，sanitizer 未报告内存或未定义行为问题。
+- 三套测试树均通过 `install.consumer` 和 `platform.package-relocation`，覆盖 fresh producer/install/consumer、shared/static 安装接口、公开 MOC、metatype、包重定位与二进制依赖。
+- `example.fluent-controls` 画廊 smoke 与其余三个应用示例 smoke 在三套测试树内全部通过；画廊展示图标、重复文本、逗号文本、disabled row、稳定 key、payload 和实时派生摘要。
+- 功能测试覆盖 40 项以上边界、reset/insert/remove、外部 `model()->setData(CheckStateRole)`、批量信号、鼠标连续选择、Space/Enter、Escape/Tab/外部点击、wheel、LTR/RTL、disabled、长摘要、对象稳定性和标准 `QAccessible` 状态。
+
+### 13.3 静态分析与视觉验证
+
+- shared `linux-clang-tidy-release` 与 static `linux-clang-tidy-static` 的编译数据库各含 323 条记录；两套均选择一方翻译单元 `136/136`，在 `warnings-as-errors` 下完整通过。
+- reference 编译数据库下对 `ZzBasicControlsBenchmark.cpp` 追加定向 Clang-Tidy，未产生一方代码诊断。
+- 新增 Light、Dark、HighContrast x DPR 1.0、1.25、1.5、2.0 共 12 张多选组合框基线；关闭更新模式后 `fluent.screenshot-100/125/150/200` 全部通过。
+- 已人工检查 DPR 1.0 三主题与 DPR 2.0 Light：摘要和 popup 均非空，popup 向上展开且不遮挡来源控件，keyboard current、hover、disabled、icon、RTL 和长文本状态可辨识，无双 frame、错误裁切或不连贯重叠。
+- preset matrix contract、公开头、完整架构、ZzFluentUI 边界和 gate script contract 均通过。
+
+### 13.4 性能结果
+
+活动发布参考指纹仍为 `local-release-xvfb`，使用代码 HEAD `29b944b`、GCC 15.2、Release/shared/LTO、固定 CPU 亲和性、版本化 profile digest 与 renderer identity。`benchmark.fluent-basic-controls` 的 CTest 属性显式设置 `QT_QPA_PLATFORM=offscreen`，因此以下数据是预分配 `QImage` 的离屏控件绘制结果，不表述为 xcb 合成器帧时间：
+
+```text
+P50: 2.983 ms
+P95: 3.046 ms
+max: 3.095 ms
+descendants: 2100
+animations: 0
+timers: 0
+100 x 10000 条批量选择: 28.140 ms
+selectedKeys 读取结果数: 10000
+```
+
+- 100 个多选组合框、每框 20 条 option、10 帧预热和 120 帧正式渲染的 P95 低于 `16.7 ms` 门限。
+- 100 轮一万项模型批量选择与查询低于 `60 ms` 门限；该门限由首次正式实测 `29.237 ms` 留出约两倍波动空间后锁定。
+- 1000 轮单项、bulk、selectAll/clear、direction、enabled 和 placeholder 变化后，对象数量恢复到预热值；组件未创建 animation 或 timer。
+
+### 13.5 跨平台状态
+
+- preset matrix 继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static。
+- 本批全部 C++/CMake 差异只使用 Qt 6 Widgets/Core/Gui 公共 API、标准 C++20 与组件 private header；静态扫描未发现原生平台头、Qt Private API、编译器扩展、平台宏或新增条件分支。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、预设、公开 ABI、依赖方向和条件编译静态审计，尚未完成对应工具链编译、安装消费或真机交互验证。
+- 本批未访问 GitHub CLI、未运行或读取远端 CI、未 push，也未下载 Qt SDK；远端 CI 按用户要求继续暂缓。
+
+### 13.6 提交记录
+
+```text
+81bca96 文档：规划Fluent多选组合框批次
+fb3f0fd 控件：实现Fluent多选组合框
+e128c6f 测试：接入多选组合框质量与安装消费
+54393dd 性能：锁定多选组合框批量选择预算
+3fa9cf3 测试：补齐多选组合框多主题视觉基线
+29b944b 测试：锁定多选摘要绘制结构
+```
