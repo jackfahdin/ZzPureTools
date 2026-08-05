@@ -25,6 +25,7 @@
 #include <QtTest/QTest>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QAbstractItemView>
+#include <QtWidgets/QAbstractSpinBox>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
@@ -41,6 +42,7 @@
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QSlider>
+#include <QtWidgets/QSpinBox>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTabBar>
@@ -69,6 +71,8 @@
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSpinBox.h>
+#include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -1574,6 +1578,209 @@ private:
     QPointer<ZzFluentUI::ZzScrollArea> area;
 };
 
+/** @brief 保存数值输入截图中文字遮罩及控件覆盖数量。 */
+struct ZzSpinBoxTextMask final
+{
+    QImage image;
+    int spinBoxes = 0;
+    int editors = 0;
+};
+
+/** @brief 构造只包含数值输入关键视觉状态的独立确定性截图面。 */
+class ZzSpinBoxScreenshotSurface final
+{
+public:
+    /** @brief 创建符号、方向、文字和交互状态的固定矩阵。 */
+    ZzSpinBoxScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzSpinBoxScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Spin Boxes"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(70, 64, 70, 64);
+        grid->setHorizontalSpacing(58);
+        grid->setVerticalSpacing(72);
+
+        const auto addInteger = [this, grid](
+                                    int row,
+                                    int column,
+                                    int value) {
+            auto *spinBox = new ZzFluentUI::ZzSpinBox(&window);
+            spinBox->setRange(-100, 100);
+            spinBox->setValue(value);
+            spinBox->setFixedSize(300, 48);
+            grid->addWidget(spinBox, row, column);
+            return spinBox;
+        };
+        const auto addFloating = [this, grid](
+                                     int row,
+                                     int column,
+                                     qreal value) {
+            auto *spinBox = new ZzFluentUI::ZzDoubleSpinBox(&window);
+            spinBox->setRange(-100.0, 100.0);
+            spinBox->setDecimals(2);
+            spinBox->setValue(value);
+            spinBox->setFixedSize(300, 48);
+            grid->addWidget(spinBox, row, column);
+            return spinBox;
+        };
+
+        addInteger(0, 0, 24);
+        auto *floating = addFloating(0, 1, 1.25);
+        floating->setSuffix(QStringLiteral(" ms"));
+        auto *standard = new QSpinBox(&window);
+        standard->setRange(-100, 100);
+        standard->setValue(36);
+        standard->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
+        standard->setFixedSize(300, 48);
+        grid->addWidget(standard, 0, 2);
+
+        auto *arrows = addInteger(1, 0, 42);
+        arrows->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
+        auto *readOnly = addFloating(1, 1, 3.14);
+        readOnly->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        readOnly->setReadOnly(true);
+        auto *rtl = addInteger(1, 2, -18);
+        rtl->setLayoutDirection(Qt::RightToLeft);
+
+        auto *prefix = addInteger(2, 0, 48);
+        prefix->setPrefix(QStringLiteral("0x"));
+        prefix->setDisplayIntegerBase(16);
+        auto *special = addInteger(2, 1, 0);
+        special->setRange(0, 100);
+        special->setSpecialValueText(QStringLiteral("Automatic"));
+        focusBox = addFloating(2, 2, 6.5);
+
+        hoverBox = addInteger(3, 0, 27);
+        pressedBox = addInteger(3, 1, 12);
+        pressedInitialValue = pressedBox->value();
+        auto *disabled = addFloating(3, 2, 8.75);
+        disabled->setEnabled(false);
+    }
+
+    /** @brief 展示画面并通过真实事件固定 focus、hover 和 pressed。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (focusBox != nullptr) {
+            focusBox->setFocus(Qt::TabFocusReason);
+        }
+        if (hoverBox != nullptr) {
+            hoverBox->setAttribute(Qt::WA_UnderMouse, true);
+            const QPoint buttonCenter = upButtonCenter(hoverBox);
+            const QPoint globalCenter = hoverBox->mapToGlobal(buttonCenter);
+            QEnterEvent enter{
+                QPointF(buttonCenter),
+                QPointF(buttonCenter),
+                QPointF(globalCenter)};
+            QCoreApplication::sendEvent(hoverBox, &enter);
+            QMouseEvent move(
+                QEvent::MouseMove,
+                QPointF(buttonCenter),
+                QPointF(globalCenter),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(hoverBox, &move);
+        }
+        if (pressedBox != nullptr) {
+            pressedBox->setAttribute(Qt::WA_UnderMouse, true);
+            QTest::mousePress(
+                pressedBox,
+                Qt::LeftButton,
+                Qt::NoModifier,
+                upButtonCenter(pressedBox));
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回按下示例是否通过原生命中执行了增量动作。 */
+    [[nodiscard]] bool pressedStepWasTriggered() const noexcept
+    {
+        return pressedBox != nullptr
+            && pressedBox->value() == pressedInitialValue + 1;
+    }
+
+    /** @brief 隐藏数值输入截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 使用公开 style option 计算指定控件的上按钮中心。 */
+    static QPoint upButtonCenter(QAbstractSpinBox *spinBox)
+    {
+        QStyleOptionSpinBox option;
+        option.initFrom(spinBox);
+        option.rect = spinBox->rect();
+        option.buttonSymbols = spinBox->buttonSymbols();
+        option.subControls = QStyle::SC_All;
+        option.stepEnabled = QAbstractSpinBox::StepUpEnabled
+            | QAbstractSpinBox::StepDownEnabled;
+        option.frame = spinBox->hasFrame();
+        return spinBox->style()->subControlRect(
+            QStyle::CC_SpinBox,
+            &option,
+            QStyle::SC_SpinBoxUp,
+            spinBox).center();
+    }
+
+    QPointer<ZzFluentUI::ZzDoubleSpinBox> focusBox;
+    QPointer<ZzFluentUI::ZzSpinBox> hoverBox;
+    QPointer<ZzFluentUI::ZzSpinBox> pressedBox;
+    int pressedInitialValue = 0;
+};
+
+/** @brief 为独立数值输入画面精确遮罩内部编辑器文字。 */
+ZzSpinBoxTextMask zzBuildSpinBoxTextMask(QWidget *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzSpinBoxTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto spinBoxes = surface->findChildren<QAbstractSpinBox *>();
+    for (QAbstractSpinBox *spinBox : spinBoxes) {
+        if (!spinBox->isVisible()) {
+            continue;
+        }
+        ++result.spinBoxes;
+        auto *editor = spinBox->findChild<QLineEdit *>();
+        if (editor == nullptr || !editor->isVisible()
+            || editor->displayText().isEmpty()) {
+            continue;
+        }
+        QStyleOptionFrame option;
+        option.initFrom(editor);
+        const QRect contents = editor->style()->subElementRect(
+            QStyle::SE_LineEditContents,
+            &option,
+            editor);
+        const QRect textRect = zzAlignedTextRect(
+            editor,
+            contents.adjusted(2, 0, -2, 0),
+            static_cast<int>(editor->alignment() | Qt::AlignVCenter),
+            editor->displayText());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(editor, textRect, surface));
+        ++result.editors;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 为独立环形进度画面构造只覆盖居中文字的像素遮罩。 */
 ZzProgressRingTextMask zzBuildProgressRingTextMask(
     QWidget *surface,
@@ -1686,6 +1893,23 @@ QImage zzRenderProgressRingSurface(
 /** @brief 将独立滚动控件窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderScrollControlsSurface(
     ZzScrollControlsScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将独立数值输入窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderSpinBoxSurface(
+    ZzSpinBoxScreenshotSurface *surface,
     qreal dpr)
 {
     const QSize physicalSize(
@@ -2267,6 +2491,107 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 滚动控件像素差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersSpinBoxThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("spin-box-controls-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("spin-box-controls-light");
+        QTest::newRow("spin-box-controls-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("spin-box-controls-dark");
+        QTest::newRow("spin-box-controls-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("spin-box-controls-high-contrast");
+    }
+
+    void rendersSpinBoxThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzSpinBoxScreenshotSurface surface;
+        surface.polish();
+        QVERIFY(surface.pressedStepWasTriggered());
+        QCOMPARE(
+            surface.window.findChildren<QAbstractSpinBox *>().size(),
+            12);
+        const QImage actual = zzRenderSpinBoxSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzSpinBoxTextMask mask = zzBuildSpinBoxTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.spinBoxes, 12);
+        QCOMPARE(mask.editors, 12);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 数值输入非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
