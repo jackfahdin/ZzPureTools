@@ -2,7 +2,9 @@
 #include <memory>
 #include <utility>
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QString>
+#include <QtCore/QTimer>
 
 #include <ZzPureTools/ZzApplicationBuilder.h>
 #include <ZzPureTools/ZzNavigationNode.h>
@@ -76,6 +78,17 @@ int main(int argc, char *argv[])
     if (!secondWindowResult) {
         application.beginShutdown();
         return EXIT_FAILURE;
+    }
+
+    bool timeoutValid = false;
+    const int timeout = qEnvironmentVariableIntValue(
+        "ZZ_PURETOOLS_DEMO_AUTO_CLOSE_MS",
+        &timeoutValid);
+    if (timeoutValid && timeout > 0) {
+        QTimer::singleShot(
+            timeout,
+            &application,
+            &QCoreApplication::quit);
     }
 
     return application.exec();
