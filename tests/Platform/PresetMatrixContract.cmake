@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.23)
+
 if(NOT DEFINED ZZ_PRESETS_FILE)
     message(FATAL_ERROR "Missing -DZZ_PRESETS_FILE=...")
 endif()
