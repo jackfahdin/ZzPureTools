@@ -144,6 +144,67 @@ if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         TIMEOUT 45)
 endif()
 
+if(ZZ_PERFORMANCE_REFERENCE)
+    function(zz_add_reference_gate gate_name producer scenario metric)
+        set(options STRICT_MAX)
+        set(one_value_arguments MAX_P95 MAX_VALUE)
+        cmake_parse_arguments(PARSE_ARGV 4 gate
+            "${options}" "${one_value_arguments}" "")
+        if(gate_UNPARSED_ARGUMENTS)
+            message(FATAL_ERROR
+                "Unknown reference gate arguments: ${gate_UNPARSED_ARGUMENTS}")
+        endif()
+        if(NOT DEFINED gate_MAX_P95 AND NOT DEFINED gate_MAX_VALUE)
+            message(FATAL_ERROR
+                "Reference gate ${gate_name} requires a threshold")
+        endif()
+
+        set(gate_command
+            "${CMAKE_COMMAND}"
+            "-DZZ_REPORT=${CMAKE_BINARY_DIR}/reports/benchmark.${scenario}.json"
+            "-DZZ_SCENARIO=${scenario}"
+            "-DZZ_METRIC=${metric}"
+            "-DZZ_FINGERPRINT_REFERENCE=${CMAKE_BINARY_DIR}/reports/benchmark.startup.json")
+        if(DEFINED gate_MAX_P95)
+            list(APPEND gate_command "-DZZ_MAX_P95=${gate_MAX_P95}")
+        endif()
+        if(DEFINED gate_MAX_VALUE)
+            list(APPEND gate_command "-DZZ_MAX_VALUE=${gate_MAX_VALUE}")
+        endif()
+        if(gate_STRICT_MAX)
+            list(APPEND gate_command -DZZ_STRICT_MAX=TRUE)
+        endif()
+        list(APPEND gate_command
+            -P "${PROJECT_SOURCE_DIR}/cmake/ZzVerifyPerformanceReport.cmake")
+
+        add_test(NAME "benchmark.reference-gate.${gate_name}"
+            COMMAND ${gate_command})
+        set(gate_dependencies "${producer}")
+        if(NOT "${producer}" STREQUAL "benchmark.startup")
+            list(APPEND gate_dependencies benchmark.startup)
+        endif()
+        set_tests_properties("benchmark.reference-gate.${gate_name}" PROPERTIES
+            DEPENDS "${gate_dependencies}"
+            LABELS "benchmark;reference-gate"
+            TIMEOUT 10)
+    endfunction()
+
+    zz_add_reference_gate(startup benchmark.startup
+        startup external-total MAX_P95 300 MAX_VALUE 300)
+    zz_add_reference_gate(theme-switch benchmark.theme-switch
+        theme-switch latency MAX_P95 50)
+    zz_add_reference_gate(animation benchmark.animation
+        animation frame-time MAX_P95 16.7)
+    zz_add_reference_gate(large-model benchmark.large-model
+        large-model frame-time MAX_P95 16.7)
+    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+        zz_add_reference_gate(idle-cpu benchmark.idle-cpu
+            idle average-cpu-percent MAX_VALUE 0.5 STRICT_MAX)
+        zz_add_reference_gate(idle-rss benchmark.idle-cpu
+            idle rss-growth-percent MAX_VALUE 10)
+    endif()
+endif()
+
 add_test(NAME benchmark.relative-comparison-valid
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
