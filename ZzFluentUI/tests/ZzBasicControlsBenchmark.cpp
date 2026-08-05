@@ -14,6 +14,7 @@
 #include <QtGui/QEnterEvent>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
+#include <QtGui/QPixmap>
 #include <QtTest/QTest>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
@@ -33,6 +34,7 @@
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
+#include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzIconButton.h>
@@ -69,6 +71,9 @@ constexpr qreal zzRollerPickerReferenceMilliseconds = 75.0;
 constexpr qreal zzFlowLayoutReferenceMilliseconds = 4.0;
 constexpr qreal zzFlowLayoutComplexityRatio = 15.0;
 constexpr qreal zzDigitalDisplayReferenceMilliseconds = 8.0;
+constexpr qreal zzCarouselReferenceP95Milliseconds = 12.0;
+constexpr qreal zzCarouselComplexityRatio = 2.0;
+constexpr int zzCarouselMaximumDataCallsPerFrame = 6;
 
 /** @brief 提供不分配 QObject 的固定尺寸流式布局性能项。 */
 class ZzBenchmarkFlowItem final : public QLayoutItem
@@ -219,6 +224,92 @@ public:
 private:
     mutable QSet<int> requestedRows_;
     mutable int multiDataCalls_ = 0;
+};
+
+/** @brief 提供不分配逐行对象并记录轮播数据访问范围的即时模型。 */
+class ZzBenchmarkCarouselModel final : public QAbstractListModel
+{
+public:
+    /** @brief 创建指定逻辑行数且共享同一预构造图片的模型。 */
+    ZzBenchmarkCarouselModel(
+        int rowCount,
+        const QPixmap &sharedPixmap,
+        QObject *parent = nullptr)
+        : QAbstractListModel(parent)
+        , rowCount_(std::max(0, rowCount))
+        , sharedPixmap_(sharedPixmap)
+    {
+    }
+
+    /** @brief 返回根节点下的逻辑行数。 */
+    [[nodiscard]] int rowCount(
+        const QModelIndex &parent = QModelIndex()) const override
+    {
+        return parent.isValid() ? 0 : rowCount_;
+    }
+
+    /** @brief 即时生成当前行展示数据并记录访问是否越过目标行。 */
+    [[nodiscard]] QVariant data(
+        const QModelIndex &index,
+        int role = Qt::DisplayRole) const override
+    {
+        if (!index.isValid() || index.row() < 0
+            || index.row() >= rowCount_) {
+            return {};
+        }
+        ++dataCalls_;
+        if (requestedRow_ < 0) {
+            requestedRow_ = index.row();
+        } else if (requestedRow_ != index.row()) {
+            mixedRowsRequested_ = true;
+        }
+        switch (role) {
+        case Qt::DisplayRole:
+            return QStringLiteral("Carousel %1").arg(index.row());
+        case Qt::DecorationRole:
+            return sharedPixmap_;
+        case ZzFluentUI::ZzCarouselView::DescriptionRole:
+            return QStringLiteral("Shared benchmark item");
+        case Qt::AccessibleTextRole:
+            return QStringLiteral("Accessible carousel %1").arg(index.row());
+        default:
+            return {};
+        }
+    }
+
+    /** @brief 发出一次不改变行数的完整模型 reset。 */
+    void resetModel()
+    {
+        beginResetModel();
+        endResetModel();
+    }
+
+    /** @brief 清空单帧访问统计。 */
+    void resetStatistics() const noexcept
+    {
+        dataCalls_ = 0;
+        requestedRow_ = -1;
+        mixedRowsRequested_ = false;
+    }
+
+    /** @brief 返回单帧 data 调用次数。 */
+    [[nodiscard]] int dataCalls() const noexcept
+    {
+        return dataCalls_;
+    }
+
+    /** @brief 判断本帧是否只请求了给定当前行。 */
+    [[nodiscard]] bool requestedOnlyRow(int row) const noexcept
+    {
+        return requestedRow_ == row && !mixedRowsRequested_;
+    }
+
+private:
+    int rowCount_ = 0;
+    QPixmap sharedPixmap_;
+    mutable int dataCalls_ = 0;
+    mutable int requestedRow_ = -1;
+    mutable bool mixedRowsRequested_ = false;
 };
 
 /** @brief 绘制指定连续四十行并返回纳秒耗时。 */
@@ -2438,6 +2529,244 @@ private Q_SLOTS:
                 p95 <= zzDigitalDisplayReferenceMilliseconds,
                 qPrintable(QStringLiteral(
                     "参考机百个数字显示 P95 %1 ms 超过8 ms预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void keepsCarouselModelAccessAndObjectsBounded()
+    {
+        constexpr int navigationRounds = 5000;
+        constexpr int stabilityRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QPixmap sharedPixmap(320, 180);
+        sharedPixmap.fill(style.standardPalette().color(QPalette::Highlight));
+        ZzBenchmarkCarouselModel model(zzModelRows, sharedPixmap);
+        ZzFluentUI::ZzCarouselView view;
+        view.setStyle(&style);
+        view.setPalette(style.standardPalette());
+        view.setAnimationDuration(0);
+        view.setWrapAroundEnabled(true);
+        view.setModel(&model);
+        view.resize(420, 240);
+        view.show();
+        QCoreApplication::processEvents();
+
+        const qsizetype initialDescendants =
+            view.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            view.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            view.findChildren<QTimer *>().size();
+        QCOMPARE(initialAnimations, 1);
+        QCOMPARE(initialTimers, 0);
+
+        QImage target(view.size(), QImage::Format_ARGB32_Premultiplied);
+        qint64 totalDataCalls = 0;
+        int maximumDataCalls = 0;
+        bool requestedOnlyCurrentRows = true;
+        for (int round = 0; round < navigationRounds; ++round) {
+            const int targetRow = (round * 997) % zzModelRows;
+            model.resetStatistics();
+            view.setCurrentRow(targetRow);
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            view.render(&painter);
+            painter.end();
+            requestedOnlyCurrentRows = requestedOnlyCurrentRows
+                && model.requestedOnlyRow(targetRow);
+            maximumDataCalls = std::max(
+                maximumDataCalls,
+                model.dataCalls());
+            totalDataCalls += model.dataCalls();
+        }
+        QVERIFY(requestedOnlyCurrentRows);
+        QVERIFY(maximumDataCalls <= zzCarouselMaximumDataCallsPerFrame);
+        QVERIFY(totalDataCalls
+                <= qint64(navigationRounds
+                          * zzCarouselMaximumDataCallsPerFrame));
+
+        const QFont baseFont = view.font();
+        QFont alternateFont = baseFont;
+        alternateFont.setPointSize(baseFont.pointSize() + 1);
+        for (int round = 0; round < stabilityRounds; ++round) {
+            view.setCurrentRow((round * 991) % zzModelRows);
+            view.resize(420 + (round % 3), 240 + (round % 2));
+            view.setLayoutDirection(
+                (round % 2) == 0 ? Qt::LeftToRight : Qt::RightToLeft);
+            view.setFont((round % 2) == 0 ? baseFont : alternateFont);
+            if ((round % 100) == 0) {
+                controller.setMode(
+                    controller.mode() == ZzFluentUI::ZzThemeMode::Light
+                        ? ZzFluentUI::ZzThemeMode::Dark
+                        : ZzFluentUI::ZzThemeMode::Light);
+            }
+            model.resetModel();
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+
+        QCOMPARE(view.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(view.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(view.findChildren<QTimer *>().size(), initialTimers);
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-carousel navigation=5000 rows=100000 "
+                   "total-data=%1 max-data-per-frame=%2 descendants=%3 "
+                   "animations=%4 timers=%5 resets=1000")
+                   .arg(totalDataCalls)
+                   .arg(maximumDataCalls)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+    }
+
+    void measuresCarouselRenderingAndComplexity()
+    {
+        constexpr int carouselCount = 40;
+        constexpr int columnCount = 5;
+        constexpr int cellWidth = 240;
+        constexpr int cellHeight = 160;
+        constexpr int measuredFrames = 120;
+        constexpr int complexityRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QPixmap sharedPixmap(320, 180);
+        sharedPixmap.fill(style.standardPalette().color(QPalette::Highlight));
+        ZzBenchmarkCarouselModel model(zzModelRows, sharedPixmap);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<ZzFluentUI::ZzCarouselView *> carousels;
+        carousels.reserve(carouselCount);
+        for (int index = 0; index < carouselCount; ++index) {
+            auto *carousel = new ZzFluentUI::ZzCarouselView(&host);
+            carousel->setStyle(&style);
+            carousel->setAnimationDuration(0);
+            carousel->setWrapAroundEnabled(true);
+            carousel->setModel(&model);
+            carousel->setCurrentRow((index * 997) % zzModelRows);
+            carousel->setGeometry(
+                (index % columnCount) * cellWidth,
+                (index / columnCount) * cellHeight,
+                cellWidth,
+                cellHeight);
+            carousels.push_back(carousel);
+        }
+        host.resize(
+            columnCount * cellWidth,
+            (carouselCount / columnCount) * cellHeight);
+        host.show();
+        QCoreApplication::processEvents();
+
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        QCOMPARE(initialAnimations, carouselCount);
+        QCOMPARE(initialTimers, 0);
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(measuredFrames);
+        for (int frame = -zzWarmupFrames; frame < measuredFrames; ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            QElapsedTimer timer;
+            timer.start();
+            for (int index = 0; index < carouselCount; ++index) {
+                carousels[static_cast<std::size_t>(index)]->setCurrentRow(
+                    (sequence * 41 + index * 997) % zzModelRows);
+            }
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        ZzBenchmarkCarouselModel smallModel(20, sharedPixmap);
+        ZzBenchmarkCarouselModel largeModel(zzModelRows, sharedPixmap);
+        ZzFluentUI::ZzCarouselView smallView;
+        ZzFluentUI::ZzCarouselView largeView;
+        for (ZzFluentUI::ZzCarouselView *view : {&smallView, &largeView}) {
+            view->setStyle(&style);
+            view->setAnimationDuration(0);
+            view->setWrapAroundEnabled(true);
+            view->resize(420, 240);
+            view->show();
+        }
+        smallView.setModel(&smallModel);
+        largeView.setModel(&largeModel);
+        QCoreApplication::processEvents();
+        QImage complexityTarget(
+            QSize(420, 240),
+            QImage::Format_ARGB32_Premultiplied);
+        const auto measureRepeated = [&complexityTarget](
+                                         ZzFluentUI::ZzCarouselView *view,
+                                         int rowCount) {
+            for (int warmup = 0; warmup < 50; ++warmup) {
+                view->setCurrentRow((warmup * 17) % rowCount);
+                complexityTarget.fill(Qt::transparent);
+                QPainter painter(&complexityTarget);
+                view->render(&painter);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            for (int round = 0; round < complexityRounds; ++round) {
+                view->setCurrentRow((round * 17) % rowCount);
+                complexityTarget.fill(Qt::transparent);
+                QPainter painter(&complexityTarget);
+                view->render(&painter);
+            }
+            return timer.nsecsElapsed();
+        };
+        const qint64 smallNanoseconds = measureRepeated(&smallView, 20);
+        const qint64 largeNanoseconds =
+            measureRepeated(&largeView, zzModelRows);
+        const qreal complexityRatio =
+            static_cast<qreal>(largeNanoseconds)
+            / static_cast<qreal>(std::max<qint64>(1, smallNanoseconds));
+        QVERIFY2(
+            complexityRatio <= zzCarouselComplexityRatio,
+            qPrintable(QStringLiteral(
+                "十万项与二十项轮播绘制耗时比 %1 超过固定预算2.0")
+                           .arg(complexityRatio, 0, 'f', 3)));
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-carousel controls=40 rows=100000 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6 ratio-100000-to-20=%7")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers)
+                   .arg(complexityRatio, 0, 'f', 3);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzCarouselReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机四十个轮播 P95 %1 ms 超过12 ms预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }
