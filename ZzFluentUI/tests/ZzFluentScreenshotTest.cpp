@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <exception>
@@ -14,6 +15,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QStringList>
 #include <QtGui/QAction>
+#include <QtGui/QActionGroup>
 #include <QtGui/QFontDatabase>
 #include <QtGui/QFontInfo>
 #include <QtGui/QImage>
@@ -38,6 +40,7 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
@@ -87,6 +90,10 @@ namespace {
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QPoint zzMenuOrigin(914, 590);
 constexpr QPoint zzComboBoxPopupOrigin(770, 570);
+constexpr std::array<QPoint, 3> zzPopupMenuOrigins{
+    QPoint(70, 190),
+    QPoint(450, 190),
+    QPoint(830, 190)};
 constexpr int zzTextMaskPadding = 2;
 constexpr int zzChannelTolerance = 3;
 constexpr qreal zzReferenceMaximumDifferenceRatio = 0.005;
@@ -2131,6 +2138,441 @@ ZzComboBoxTextMask zzBuildComboBoxTextMask(
     return result;
 }
 
+/** @brief 绘制一个由标准 tooltip primitive 和 QLabel 组成的确定性提示。 */
+class ZzToolTipScreenshotFixture final : public QWidget
+{
+public:
+    /** @brief 创建固定文本、尺寸与换行策略的提示夹具。 */
+    ZzToolTipScreenshotFixture(
+        const QString &text,
+        bool richText,
+        QWidget *parent)
+        : QWidget(parent)
+        , label(new QLabel(text, this))
+    {
+        setFixedSize(330, richText ? 92 : 58);
+        label->setTextFormat(richText ? Qt::RichText : Qt::PlainText);
+        label->setWordWrap(richText);
+        label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        label->setGeometry(rect().adjusted(12, 8, -12, -8));
+        QPalette labelPalette = palette();
+        labelPalette.setColor(
+            QPalette::WindowText,
+            labelPalette.color(QPalette::ToolTipText));
+        label->setPalette(labelPalette);
+    }
+
+protected:
+    /** @brief 仅绘制标准 tooltip 面板，文字继续由 QLabel 绘制。 */
+    void paintEvent(QPaintEvent *event) override
+    {
+        if (event == nullptr) {
+            return;
+        }
+        QStyleOption option;
+        option.initFrom(this);
+        option.rect = rect();
+        QPainter painter(this);
+        style()->drawPrimitive(
+            QStyle::PE_PanelTipLabel,
+            &option,
+            &painter,
+            this);
+    }
+
+private:
+    QLabel *const label;
+};
+
+/** @brief 绘制实际菜单无法保持的按下态，其他内容仍委托标准 style。 */
+class ZzPressedMenuItemScreenshotFixture final : public QWidget
+{
+public:
+    /** @brief 创建含 pressed 与 disabled 两个固定状态的预览面。 */
+    explicit ZzPressedMenuItemScreenshotFixture(QWidget *parent)
+        : QWidget(parent)
+    {
+        setFixedSize(330, 116);
+    }
+
+    /** @brief 返回两个菜单项文字的局部遮罩矩形。 */
+    [[nodiscard]] std::array<QRect, 2> textRects() const noexcept
+    {
+        return {
+            QRect(48, 12, 230, 40),
+            QRect(48, 64, 230, 40)};
+    }
+
+protected:
+    /** @brief 用公开 style option 绘制菜单 panel 和两个状态项。 */
+    void paintEvent(QPaintEvent *event) override
+    {
+        if (event == nullptr) {
+            return;
+        }
+        QPainter painter(this);
+        QStyleOption panel;
+        panel.initFrom(this);
+        panel.rect = rect();
+        style()->drawPrimitive(
+            QStyle::PE_PanelMenu,
+            &panel,
+            &painter,
+            this);
+
+        QStyleOptionMenuItem pressed;
+        pressed.initFrom(this);
+        pressed.rect = QRect(8, 8, 314, 44);
+        pressed.state = QStyle::State_Enabled | QStyle::State_Sunken;
+        pressed.palette = palette();
+        pressed.menuItemType = QStyleOptionMenuItem::Normal;
+        pressed.text = QStringLiteral("Pressed command\tCtrl+P");
+        pressed.reservedShortcutWidth = 76;
+        style()->drawControl(
+            QStyle::CE_MenuItem,
+            &pressed,
+            &painter,
+            this);
+
+        QStyleOptionMenuItem disabled = pressed;
+        disabled.rect = QRect(8, 60, 314, 44);
+        disabled.state = QStyle::State_None;
+        disabled.text = QStringLiteral("Disabled command");
+        disabled.reservedShortcutWidth = 0;
+        style()->drawControl(
+            QStyle::CE_MenuItem,
+            &disabled,
+            &painter,
+            this);
+    }
+};
+
+/** @brief 保存弹出表面截图中文字遮罩与各类覆盖数量。 */
+struct ZzPopupSurfaceTextMask final
+{
+    QImage image;
+    int menuBars = 0;
+    int menuBarItems = 0;
+    int menus = 0;
+    int menuItems = 0;
+    int shortcuts = 0;
+    int toolTips = 0;
+    int previewItems = 0;
+};
+
+/** @brief 构造标准菜单、菜单栏、提示与方向状态的固定截图面。 */
+class ZzPopupSurfaceScreenshotSurface final
+{
+public:
+    /** @brief 创建真实 Qt popup surface 与确定性补充状态。 */
+    ZzPopupSurfaceScreenshotSurface()
+        : primaryMenu(&window)
+        , rtlMenu(&window)
+        , stateMenu(&window)
+    {
+        window.setObjectName(QStringLiteral("zzPopupSurfaceScreenshot"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Popup Surfaces"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        auto *primaryBar = new QMenuBar(&window);
+        primaryBar->setNativeMenuBar(false);
+        primaryBar->setGeometry(60, 50, 1080, 40);
+        QMenu *fileMenu = primaryBar->addMenu(QStringLiteral("&File"));
+        fileMenu->addAction(QStringLiteral("&Open"), QKeySequence::Open);
+        fileMenu->addAction(QStringLiteral("&Save"), QKeySequence::Save);
+        QMenu *editMenu = primaryBar->addMenu(QStringLiteral("&Edit"));
+        editMenu->addAction(QStringLiteral("&Undo"), QKeySequence::Undo);
+        QAction *disabledBarAction = primaryBar->addAction(
+            QStringLiteral("Disabled"));
+        disabledBarAction->setEnabled(false);
+        primaryMenuBar = primaryBar;
+        activeMenuBarAction = editMenu->menuAction();
+
+        auto *rightToLeftBar = new QMenuBar(&window);
+        rightToLeftBar->setNativeMenuBar(false);
+        rightToLeftBar->setLayoutDirection(Qt::RightToLeft);
+        rightToLeftBar->setGeometry(60, 110, 1080, 40);
+        QMenu *rtlFile = rightToLeftBar->addMenu(QStringLiteral("RTL File"));
+        rtlFile->addAction(QStringLiteral("RTL command"));
+        rightToLeftBar->addAction(QStringLiteral("RTL Help"));
+        rtlMenuBar = rightToLeftBar;
+        activeRtlMenuBarAction = rtlFile->menuAction();
+
+        configurePrimaryMenu();
+        configureRtlMenu();
+        configureStateMenu();
+
+        auto *plainTip = new ZzToolTipScreenshotFixture(
+            QStringLiteral("Plain tooltip with standard timing semantics"),
+            false,
+            &window);
+        plainTip->move(70, 580);
+        auto *richTip = new ZzToolTipScreenshotFixture(
+            QStringLiteral(
+                "<b>Build complete</b><br/>Rich text remains owned by Qt."),
+            true,
+            &window);
+        richTip->move(450, 560);
+        pressedPreview = new ZzPressedMenuItemScreenshotFixture(&window);
+        pressedPreview->move(830, 560);
+    }
+
+    /** @brief 展示并完成真实菜单几何、active action 与 palette 计算。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (primaryMenuBar != nullptr && activeMenuBarAction != nullptr) {
+            primaryMenuBar->setActiveAction(activeMenuBarAction);
+        }
+        if (rtlMenuBar != nullptr && activeRtlMenuBarAction != nullptr) {
+            rtlMenuBar->setActiveAction(activeRtlMenuBarAction);
+        }
+        for (QMenu *menu : menus()) {
+            menu->setMinimumWidth(300);
+            menu->setPalette(QApplication::palette());
+            menu->setAttribute(Qt::WA_DontShowOnScreen);
+            menu->show();
+            QCoreApplication::processEvents();
+            menu->adjustSize();
+        }
+        primaryMenu.setActiveAction(primaryActiveAction);
+        rtlMenu.setActiveAction(rtlActiveAction);
+        stateMenu.setActiveAction(stateActiveAction);
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回两个用于截图的实际 menu bar。 */
+    [[nodiscard]] std::array<QMenuBar *, 2> menuBars() const noexcept
+    {
+        return {primaryMenuBar, rtlMenuBar};
+    }
+
+    /** @brief 返回三个用于截图的实际 popup menu。 */
+    [[nodiscard]] std::array<QMenu *, 3> menus() noexcept
+    {
+        return {&primaryMenu, &rtlMenu, &stateMenu};
+    }
+
+    /** @brief 返回 pressed 补充夹具。 */
+    [[nodiscard]] ZzPressedMenuItemScreenshotFixture *preview()
+        const noexcept
+    {
+        return pressedPreview;
+    }
+
+    /** @brief 隐藏全部顶层菜单和主窗口。 */
+    void hide()
+    {
+        for (QMenu *menu : menus()) {
+            menu->hide();
+        }
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 填充 LTR 菜单的 section、icon、check、radio 和 shortcut。 */
+    void configurePrimaryMenu()
+    {
+        primaryMenu.addSection(QStringLiteral("Workspace"));
+        QAction *open = primaryMenu.addAction(
+            QIcon(QStringLiteral(
+                ":/zzfluent/screenshots/ZzFluentTestSquare.svg")),
+            QStringLiteral("&Open workspace"));
+        open->setShortcut(QKeySequence::Open);
+        primaryMenu.setDefaultAction(open);
+        QAction *automatic = primaryMenu.addAction(
+            QStringLiteral("Automatic sync"));
+        automatic->setCheckable(true);
+        automatic->setChecked(true);
+        primaryActiveAction = automatic;
+        primaryMenu.addSeparator();
+        auto *modeGroup = new QActionGroup(&primaryMenu);
+        modeGroup->setExclusive(true);
+        QAction *local = primaryMenu.addAction(QStringLiteral("Local mode"));
+        QAction *remote = primaryMenu.addAction(QStringLiteral("Remote mode"));
+        local->setCheckable(true);
+        remote->setCheckable(true);
+        local->setChecked(true);
+        modeGroup->addAction(local);
+        modeGroup->addAction(remote);
+        QMenu *exportMenu = primaryMenu.addMenu(QStringLiteral("Export"));
+        exportMenu->addAction(QStringLiteral("JSON"));
+        exportMenu->addAction(QStringLiteral("CSV"));
+    }
+
+    /** @brief 填充 RTL 菜单并选中 submenu 以显示镜像 chevron。 */
+    void configureRtlMenu()
+    {
+        rtlMenu.setLayoutDirection(Qt::RightToLeft);
+        rtlMenu.addSection(QStringLiteral("RTL commands"));
+        QAction *icon = rtlMenu.addAction(
+            QIcon(QStringLiteral(
+                ":/zzfluent/screenshots/ZzFluentTestSquare.svg")),
+            QStringLiteral("Icon command"));
+        icon->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
+        QAction *radio = rtlMenu.addAction(QStringLiteral("Selected radio"));
+        radio->setCheckable(true);
+        radio->setChecked(true);
+        QMenu *submenu = rtlMenu.addMenu(QStringLiteral("RTL submenu"));
+        submenu->addAction(QStringLiteral("Nested command"));
+        rtlActiveAction = submenu->menuAction();
+        QAction *disabled = rtlMenu.addAction(QStringLiteral("Disabled RTL"));
+        disabled->setEnabled(false);
+    }
+
+    /** @brief 填充普通、hover、disabled、separator 与 submenu 状态。 */
+    void configureStateMenu()
+    {
+        stateMenu.addAction(QStringLiteral("Normal command"));
+        QAction *hovered = stateMenu.addAction(QStringLiteral("Hovered command"));
+        stateActiveAction = hovered;
+        QAction *disabled = stateMenu.addAction(QStringLiteral("Disabled command"));
+        disabled->setEnabled(false);
+        stateMenu.addSeparator();
+        QAction *shortcut = stateMenu.addAction(QStringLiteral("Shortcut command"));
+        shortcut->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S));
+        QMenu *submenu = stateMenu.addMenu(QStringLiteral("Submenu"));
+        submenu->addAction(QStringLiteral("Nested"));
+    }
+
+    QMenu primaryMenu;
+    QMenu rtlMenu;
+    QMenu stateMenu;
+    QPointer<QMenuBar> primaryMenuBar;
+    QPointer<QMenuBar> rtlMenuBar;
+    QPointer<QAction> activeMenuBarAction;
+    QPointer<QAction> activeRtlMenuBarAction;
+    QPointer<QAction> primaryActiveAction;
+    QPointer<QAction> rtlActiveAction;
+    QPointer<QAction> stateActiveAction;
+    QPointer<ZzPressedMenuItemScreenshotFixture> pressedPreview;
+};
+
+/** @brief 为菜单栏、菜单、shortcut、tooltip 与补充状态构造文字遮罩。 */
+ZzPopupSurfaceTextMask zzBuildPopupSurfaceTextMask(
+    ZzPopupSurfaceScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzPopupSurfaceTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    for (QMenuBar *menuBar : surface->menuBars()) {
+        if (menuBar == nullptr || !menuBar->isVisible()) {
+            continue;
+        }
+        ++result.menuBars;
+        for (QAction *action : menuBar->actions()) {
+            if (!action->isVisible() || action->text().isEmpty()) {
+                continue;
+            }
+            const QRect geometry = menuBar->actionGeometry(action);
+            const QRect textRect = zzAlignedTextRect(
+                menuBar,
+                geometry.adjusted(8, 0, -8, 0),
+                Qt::AlignCenter,
+                action->text());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(menuBar, textRect, &surface->window));
+            ++result.menuBarItems;
+        }
+    }
+
+    const auto menus = surface->menus();
+    for (std::size_t menuIndex = 0; menuIndex < menus.size(); ++menuIndex) {
+        QMenu *menu = menus[menuIndex];
+        if (menu == nullptr || !menu->isVisible()) {
+            continue;
+        }
+        ++result.menus;
+        for (QAction *action : menu->actions()) {
+            if (!action->isVisible() || action->text().isEmpty()) {
+                continue;
+            }
+            const QRect geometry = menu->actionGeometry(action);
+            const bool hasShortcut = !action->shortcut().isEmpty();
+            QRect mainContents = geometry.adjusted(
+                42,
+                0,
+                hasShortcut ? -118 : -34,
+                0);
+            const int mainAlignment = static_cast<int>(
+                menu->layoutDirection() == Qt::RightToLeft
+                    ? Qt::AlignRight | Qt::AlignVCenter
+                    : Qt::AlignLeft | Qt::AlignVCenter);
+            const QRect mainText = zzAlignedTextRect(
+                menu,
+                mainContents,
+                mainAlignment,
+                action->text());
+            zzPaintMaskRect(
+                &painter,
+                mainText.translated(zzPopupMenuOrigins[menuIndex]));
+            ++result.menuItems;
+
+            if (hasShortcut) {
+                const QString shortcut = action->shortcut().toString(
+                    QKeySequence::NativeText);
+                QRect shortcutContents = geometry.adjusted(170, 0, -32, 0);
+                const int shortcutAlignment = static_cast<int>(
+                    menu->layoutDirection() == Qt::RightToLeft
+                        ? Qt::AlignLeft | Qt::AlignVCenter
+                        : Qt::AlignRight | Qt::AlignVCenter);
+                const QRect shortcutText = zzAlignedTextRect(
+                    menu,
+                    shortcutContents,
+                    shortcutAlignment,
+                    shortcut);
+                zzPaintMaskRect(
+                    &painter,
+                    shortcutText.translated(zzPopupMenuOrigins[menuIndex]));
+                ++result.shortcuts;
+            }
+        }
+    }
+
+    const auto labels = surface->window.findChildren<QLabel *>();
+    for (QLabel *label : labels) {
+        if (!label->isVisible() || label->text().isEmpty()) {
+            continue;
+        }
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(label, label->rect(), &surface->window));
+        ++result.toolTips;
+    }
+
+    ZzPressedMenuItemScreenshotFixture *preview = surface->preview();
+    if (preview != nullptr) {
+        for (const QRect &textRect : preview->textRects()) {
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(preview, textRect, &surface->window));
+            ++result.previewItems;
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 保存数值输入截图中文字遮罩及控件覆盖数量。 */
 struct ZzSpinBoxTextMask final
 {
@@ -2493,6 +2935,29 @@ QImage zzRenderComboBoxSurface(
     QWidget *popupWindow = surface->popupWindow();
     if (popupWindow != nullptr && popupWindow->isVisible()) {
         popupWindow->render(&painter, zzComboBoxPopupOrigin);
+    }
+    painter.end();
+    return image;
+}
+
+/** @brief 把主窗口和三个标准 popup menu 合成到固定物理画布。 */
+QImage zzRenderPopupSurface(
+    ZzPopupSurfaceScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    const auto menus = surface->menus();
+    for (std::size_t index = 0; index < menus.size(); ++index) {
+        if (menus[index] != nullptr && menus[index]->isVisible()) {
+            menus[index]->render(&painter, zzPopupMenuOrigins[index]);
+        }
     }
     painter.end();
     return image;
@@ -3120,6 +3585,21 @@ private Q_SLOTS:
             << QStringLiteral("combo-box-controls-high-contrast");
     }
 
+    void rendersPopupSurfaceThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("popup-surfaces-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("popup-surfaces-light");
+        QTest::newRow("popup-surfaces-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("popup-surfaces-dark");
+        QTest::newRow("popup-surfaces-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("popup-surfaces-high-contrast");
+    }
+
     void rendersTextInputThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -3391,6 +3871,96 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 组合框非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersPopupSurfaceThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzPopupSurfaceScreenshotSurface surface;
+        surface.polish();
+        for (QMenu *menu : surface.menus()) {
+            QVERIFY(menu != nullptr);
+            QVERIFY(menu->isVisible());
+            QCOMPARE(menu->style(), QApplication::style());
+        }
+        const QImage actual = zzRenderPopupSurface(&surface, actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzPopupSurfaceTextMask mask = zzBuildPopupSurfaceTextMask(
+            &surface,
+            actualDpr_);
+        QCOMPARE(mask.menuBars, 2);
+        QCOMPARE(mask.menuBarItems, 5);
+        QCOMPARE(mask.menus, 3);
+        QVERIFY(mask.menuItems >= 16);
+        QVERIFY(mask.shortcuts >= 3);
+        QCOMPARE(mask.toolTips, 2);
+        QCOMPARE(mask.previewItems, 2);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 弹出表面非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
