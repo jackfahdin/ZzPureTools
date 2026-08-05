@@ -19,14 +19,19 @@
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QFrame>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QLCDNumber>
+#include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolBar>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -74,6 +79,8 @@ constexpr qreal zzDigitalDisplayReferenceMilliseconds = 8.0;
 constexpr qreal zzCarouselReferenceP95Milliseconds = 12.0;
 constexpr qreal zzCarouselComplexityRatio = 2.0;
 constexpr int zzCarouselMaximumDataCallsPerFrame = 6;
+constexpr qreal zzCommandStatusReferenceP95Milliseconds = 12.0;
+constexpr qreal zzCommandStatusComplexityRatio = 2.0;
 
 /** @brief 提供不分配 QObject 的固定尺寸流式布局性能项。 */
 class ZzBenchmarkFlowItem final : public QLayoutItem
@@ -2767,6 +2774,255 @@ private Q_SLOTS:
                 p95 <= zzCarouselReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机四十个轮播 P95 %1 ms 超过12 ms预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresCommandStatusRenderingAndComplexity()
+    {
+        constexpr int toolBarCount = 30;
+        constexpr int statusBarCount = 30;
+        constexpr int actionsPerToolBar = 8;
+        constexpr int columnCount = 5;
+        constexpr int cellWidth = 280;
+        constexpr int cellHeight = 88;
+        constexpr int measuredFrames = 120;
+        constexpr int stabilityRounds = 1000;
+        constexpr int complexityRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        host.setAutoFillBackground(true);
+        std::vector<QToolBar *> toolBars;
+        std::vector<QStatusBar *> statusBars;
+        std::vector<QAction *> toggles;
+        std::vector<QAction *> enabledActions;
+        toolBars.reserve(toolBarCount);
+        statusBars.reserve(statusBarCount);
+        toggles.reserve(toolBarCount);
+        enabledActions.reserve(toolBarCount);
+
+        for (int index = 0; index < toolBarCount; ++index) {
+            const int left = (index % columnCount) * cellWidth;
+            const int top = (index / columnCount) * cellHeight;
+            auto *toolBar = new QToolBar(
+                QStringLiteral("Commands %1").arg(index),
+                &host);
+            toolBar->setStyle(&style);
+            toolBar->setMovable(true);
+            toolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+            toolBar->setGeometry(left, top, cellWidth, 40);
+            QAction *toggle = nullptr;
+            QAction *enabledAction = nullptr;
+            for (int actionIndex = 0;
+                 actionIndex < actionsPerToolBar;
+                 ++actionIndex) {
+                QAction *action = toolBar->addAction(
+                    QStringLiteral("Action %1").arg(actionIndex + 1));
+                if (actionIndex == 0) {
+                    action->setCheckable(true);
+                    toggle = action;
+                }
+                if (actionIndex == 1) {
+                    enabledAction = action;
+                }
+                if (actionIndex == actionsPerToolBar - 1) {
+                    auto *menu = new QMenu(toolBar);
+                    menu->setStyle(&style);
+                    menu->addAction(QStringLiteral("Local"));
+                    menu->addAction(QStringLiteral("Remote"));
+                    action->setMenu(menu);
+                }
+            }
+            toolBar->insertSeparator(toolBar->actions().at(4));
+            for (QAction *action : toolBar->actions()) {
+                QWidget *button = toolBar->widgetForAction(action);
+                if (button != nullptr) {
+                    button->setStyle(&style);
+                }
+            }
+            Q_ASSERT(toggle != nullptr);
+            Q_ASSERT(enabledAction != nullptr);
+            toggles.push_back(toggle);
+            enabledActions.push_back(enabledAction);
+            toolBars.push_back(toolBar);
+
+            auto *status = new QStatusBar(&host);
+            status->setStyle(&style);
+            status->setSizeGripEnabled((index % 2) == 0);
+            status->addWidget(
+                new QLabel(QStringLiteral("Ready"), status),
+                1);
+            status->addPermanentWidget(
+                new QLabel(QStringLiteral("Local"), status));
+            status->setGeometry(left, top + 48, cellWidth, 32);
+            status->showMessage(QStringLiteral("Warm"), 0);
+            statusBars.push_back(status);
+        }
+
+        host.resize(
+            columnCount * cellWidth,
+            ((toolBarCount + columnCount - 1) / columnCount) * cellHeight);
+        host.show();
+        QCoreApplication::processEvents();
+
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        const qsizetype initialStyles =
+            host.findChildren<QStyle *>().size();
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(measuredFrames);
+
+        for (int frame = -zzWarmupFrames; frame < measuredFrames; ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            QElapsedTimer timer;
+            timer.start();
+            for (int index = 0; index < toolBarCount; ++index) {
+                toggles.at(static_cast<std::size_t>(index))->setChecked(
+                    ((sequence + index) % 2) != 0);
+                enabledActions.at(static_cast<std::size_t>(index))->setEnabled(
+                    ((sequence + index) % 5) != 0);
+            }
+            for (int index = 0; index < statusBarCount; ++index) {
+                statusBars.at(static_cast<std::size_t>(index))->showMessage(
+                    QStringLiteral("Frame %1").arg(sequence + index),
+                    0);
+            }
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int round = 0; round < stabilityRounds; ++round) {
+            const std::size_t index = static_cast<std::size_t>(
+                round % toolBarCount);
+            toolBars.at(index)->setOrientation(
+                (round % 2) == 0 ? Qt::Horizontal : Qt::Vertical);
+            toolBars.at(index)->setLayoutDirection(
+                (round % 2) == 0
+                    ? Qt::LeftToRight
+                    : Qt::RightToLeft);
+            toggles.at(index)->setChecked((round % 3) == 0);
+            statusBars.at(index)->showMessage(QString::number(round), 0);
+            if ((round % 100) == 0) {
+                controller.setMode(
+                    controller.mode() == ZzFluentUI::ZzThemeMode::Light
+                        ? ZzFluentUI::ZzThemeMode::Dark
+                        : ZzFluentUI::ZzThemeMode::Light);
+            }
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+        QCOMPARE(host.findChildren<QStyle *>().size(), initialStyles);
+        QVERIFY(std::all_of(
+            toolBars.cbegin(),
+            toolBars.cend(),
+            [&style](const QToolBar *toolBar) {
+                return toolBar->style() == &style;
+            }));
+        QVERIFY(std::all_of(
+            statusBars.cbegin(),
+            statusBars.cend(),
+            [&style](const QStatusBar *statusBar) {
+                return statusBar->style() == &style;
+            }));
+
+        QToolBar smallToolBar;
+        QToolBar largeToolBar;
+        for (QToolBar *toolBar : {&smallToolBar, &largeToolBar}) {
+            toolBar->setStyle(&style);
+            toolBar->setToolButtonStyle(Qt::ToolButtonTextOnly);
+            toolBar->resize(220, 40);
+        }
+        for (int index = 0; index < 4; ++index) {
+            smallToolBar.addAction(QStringLiteral("Action %1").arg(index));
+        }
+        for (int index = 0; index < 40; ++index) {
+            largeToolBar.addAction(QStringLiteral("Action %1").arg(index));
+        }
+        for (QToolBar *toolBar : {&smallToolBar, &largeToolBar}) {
+            toolBar->show();
+            QCoreApplication::processEvents();
+            for (QAction *action : toolBar->actions()) {
+                QWidget *button = toolBar->widgetForAction(action);
+                if (button != nullptr) {
+                    button->setStyle(&style);
+                }
+            }
+        }
+        QImage complexityTarget(
+            QSize(220, 40),
+            QImage::Format_ARGB32_Premultiplied);
+        const auto measureToolBar =
+            [&complexityTarget](QToolBar *toolBar) {
+            for (int warmup = 0; warmup < 50; ++warmup) {
+                complexityTarget.fill(Qt::transparent);
+                QPainter painter(&complexityTarget);
+                toolBar->render(&painter);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            for (int round = 0; round < complexityRounds; ++round) {
+                complexityTarget.fill(Qt::transparent);
+                QPainter painter(&complexityTarget);
+                toolBar->render(&painter);
+            }
+            return timer.nsecsElapsed();
+        };
+        const qint64 smallNanoseconds = measureToolBar(&smallToolBar);
+        const qint64 largeNanoseconds = measureToolBar(&largeToolBar);
+        const qreal complexityRatio =
+            static_cast<qreal>(largeNanoseconds)
+            / static_cast<qreal>(std::max<qint64>(1, smallNanoseconds));
+        QVERIFY2(
+            complexityRatio <= zzCommandStatusComplexityRatio,
+            qPrintable(QStringLiteral(
+                "四十 action 与四 action 工具栏绘制耗时比 %1 超过2.0预算")
+                           .arg(complexityRatio, 0, 'f', 3)));
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-command-status toolbars=30 status-bars=30 "
+                   "actions=8 frames=120 P50=%1 ms P95=%2 ms max=%3 ms "
+                   "descendants=%4 animations=%5 timers=%6 styles=%7 "
+                   "ratio-40-to-4=%8")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers)
+                   .arg(initialStyles)
+                   .arg(complexityRatio, 0, 'f', 3);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzCommandStatusReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机命令与状态表面 P95 %1 ms 超过12 ms预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }
