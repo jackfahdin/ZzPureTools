@@ -2,6 +2,8 @@
 
 **Goal:** 以 Qt 6.8+ 的成熟日期交互为内核，在 `Zz::FluentUI` 中交付高性能、可键盘操作、可访问、支持高 DPI 与多主题的 `ZzCalendar` 和 `ZzCalendarPicker`。
 
+**Status:** 已于 2026-08-05 完成本批次实现与本机质量门禁；CI 按用户要求不参与本批次验收。
+
 **Architecture:** `ZzCalendar` 直接继承 `QCalendarWidget`，保留 Qt 的日期范围、当前页、区域设置、键盘和无障碍模型，只覆写日期单元格呈现。`ZzCalendarPicker` 直接继承 `QDateEdit`，通过 `setCalendarPopup(true)` 和 `setCalendarWidget()` 装配唯一的 `ZzCalendar`。两个公开类均采用四文件 PIMPL；私有对象只保存展示状态和非拥有 Qt 子对象指针，不复制日期模型，不访问业务数据。
 
 **Tech Stack:** Qt 6.8+ Core/Gui/Widgets/Test、C++20、CMake 3.23、CTest、Qt Test、`Zz::FluentFoundation`、`Zz::FluentUI`。
@@ -217,9 +219,9 @@ private:
 
 ## 5. Task 1：建立日历与日期选择器行为契约
 
-- [ ] 在 `ZzFluentUI/tests/CMakeLists.txt` 注册 `ZzCalendarControlsTest`，链接 `Qt6::Test`、`Qt6::Widgets` 和 `Zz::FluentUI`，启用 AUTOMOC、严格告警和 Sanitizer。
-- [ ] 测试名固定为 `fluent.calendar-controls`，标签为 `fluent;unit;component;accessibility`，使用 `QT_QPA_PLATFORM=offscreen`。
-- [ ] 先写以下失败测试，再加入生产源码：
+- [x] 在 `ZzFluentUI/tests/CMakeLists.txt` 注册 `ZzCalendarControlsTest`，链接 `Qt6::Test`、`Qt6::Widgets` 和 `Zz::FluentUI`，启用 AUTOMOC、严格告警和 Sanitizer。
+- [x] 测试名固定为 `fluent.calendar-controls`，标签为 `fluent;unit;component;accessibility`，使用 `QT_QPA_PLATFORM=offscreen`。
+- [x] 先写以下失败测试，再加入生产源码：
   - 默认 selected date 有效，grid 关闭，垂直周号隐藏，选择模式为单选。
   - `setDateRange()` 与 `setSelectedDate()` 保持 Qt 范围收敛行为。
   - 方向键改变选中日期，PageUp/PageDown 改变当前页。
@@ -238,20 +240,20 @@ cmake --build --preset linux-gcc-debug --target ZzCalendarControlsTest
 
 ## 6. Task 2：实现 ZzCalendar
 
-- [ ] 创建公开头和四文件 PIMPL。
-- [ ] private 构造时一次性缓存字符串 `1` 到 `31`。
-- [ ] 构造函数设置：
+- [x] 创建公开头和四文件 PIMPL。
+- [x] private 构造时一次性缓存字符串 `1` 到 `31`。
+- [x] 构造函数设置：
   - `setGridVisible(false)`；
   - `setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader)`；
   - `setHorizontalHeaderFormat(QCalendarWidget::ShortDayNames)`；
   - `setSelectionMode(QCalendarWidget::SingleSelection)`；
   - `setFocusPolicy(Qt::StrongFocus)`。
-- [ ] 连接 `currentPageChanged` 到 `updateCells()`，不得创建中间模型。
-- [ ] `paintCell()` 对 painter 空指针或无效 date 采用 Debug 断言并安全返回。
-- [ ] 使用 `QPainter::save()/restore()`，开启抗锯齿和文字抗锯齿。
-- [ ] 选中背景、今日边框、焦点、禁用态、相邻月份和高对比度全部从 palette 推导，不写死主题 RGB。
-- [ ] 边框宽度按 `devicePixelRatioF()` 对齐至少一个物理像素。
-- [ ] `changeEvent()` 先调用基类，再对 PaletteChange、StyleChange、FontChange、EnabledChange、ApplicationPaletteChange 执行 `updateCells()`；只有字体和 style 变化调用 `updateGeometry()`。
+- [x] 连接 `currentPageChanged` 到 `updateCells()`，不得创建中间模型。
+- [x] `paintCell()` 对 painter 空指针或无效 date 采用 Debug 断言并安全返回。
+- [x] 使用 `QPainter::save()/restore()`，开启抗锯齿和文字抗锯齿。
+- [x] 选中背景、今日边框、焦点、禁用态、相邻月份和高对比度全部从 palette 推导，不写死主题 RGB。
+- [x] 边框宽度按 `devicePixelRatioF()` 对齐至少一个物理像素。
+- [x] `changeEvent()` 先调用基类，再对 PaletteChange、StyleChange、FontChange、EnabledChange、ApplicationPaletteChange 执行 `updateCells()`；只有字体和 style 变化调用 `updateGeometry()`。
 
 最小绿灯：
 
@@ -262,13 +264,13 @@ ctest --preset linux-gcc-debug -R '^fluent\.calendar-controls$' --output-on-fail
 
 ## 7. Task 3：实现 ZzCalendarPicker
 
-- [ ] 创建公开头和四文件 PIMPL。
-- [ ] 构造唯一 `ZzCalendar`，调用 `setCalendarPopup(true)` 和 `setCalendarWidget(calendar)`。
-- [ ] 初始 `displayFormat` 使用构造时 `locale().dateFormat(QLocale::ShortFormat)`；之后不覆盖调用者格式。
-- [ ] 默认 date 使用 `QDate::currentDate()`，保留 `QDateEdit` 的 date range 默认值。
-- [ ] 设置 StrongFocus、accelerated 和 wrapping 的明确默认值：`setAccelerated(true)`、`setWrapping(false)`。
-- [ ] `calendar()` 只返回 private 中的非拥有指针，不提供替换日历 API。
-- [ ] 不覆写 `showPopup()`，不手工计算屏幕坐标，不创建 `Qt::Popup` 窗口。
+- [x] 创建公开头和四文件 PIMPL。
+- [x] 构造唯一 `ZzCalendar`，调用 `setCalendarPopup(true)` 和 `setCalendarWidget(calendar)`。
+- [x] 初始 `displayFormat` 使用构造时 `locale().dateFormat(QLocale::ShortFormat)`；之后不覆盖调用者格式。
+- [x] 默认 date 使用 `QDate::currentDate()`，保留 `QDateEdit` 的 date range 默认值。
+- [x] 设置 StrongFocus、accelerated 和 wrapping 的明确默认值：`setAccelerated(true)`、`setWrapping(false)`。
+- [x] `calendar()` 只返回 private 中的非拥有指针，不提供替换日历 API。
+- [x] 不覆写 `showPopup()`，不手工计算屏幕坐标，不创建 `Qt::Popup` 窗口。
 
 完成后扩展 Task 1 测试，并验证 picker 销毁后没有悬空弹层或 QObject 双重释放。
 
@@ -276,35 +278,35 @@ ctest --preset linux-gcc-debug -R '^fluent\.calendar-controls$' --output-on-fail
 
 ### 8.1 可访问性
 
-- [ ] 在 `ZzFluentAccessibilityTest.cpp` 中构造 calendar 和 picker。
-- [ ] 为顶层控件设置可本地化 `accessibleName`，确认 `QAccessible::queryAccessibleInterface()` 非空。
-- [ ] 确认 picker 可聚焦，calendar 的内部可访问子树由 Qt 提供；禁止注册替代 Qt 日期表格的自定义 interface。
-- [ ] 用键盘完成 date 改变，测试不得依赖鼠标坐标或平台弹层位置。
+- [x] 在 `ZzFluentAccessibilityTest.cpp` 中构造 calendar 和 picker。
+- [x] 为顶层控件设置可本地化 `accessibleName`，确认 `QAccessible::queryAccessibleInterface()` 非空。
+- [x] 确认 picker 可聚焦，calendar 的内部可访问子树由 Qt 提供；禁止注册替代 Qt 日期表格的自定义 interface。
+- [x] 用键盘完成 date 改变，测试不得依赖鼠标坐标或平台弹层位置。
 
 ### 8.2 视觉
 
-- [ ] 在 `ZzFluentScreenshotTest.cpp` 增加一个固定 7×6 日期面的 calendar 和一个 picker。
-- [ ] 日期固定为 `2026-08-05`，locale 固定 `QLocale::c()`，first day 固定 Monday，避免当前日期和系统区域造成基线漂移。
-- [ ] 覆盖 Light、Dark、HighContrast、Disabled、selected、today 与相邻月份文本。
-- [ ] 使用现有四个 DPR 基线和文字遮罩策略，不新增另一套截图框架。
-- [ ] 只在本机 Qt 6.11.1 参考环境更新基线；其他 Qt minor 使用既有兼容容差。
+- [x] 在 `ZzFluentScreenshotTest.cpp` 增加一个固定 7×6 日期面的 calendar 和一个 picker。
+- [x] picker 日期固定为 `2026-08-05`，calendar 选中日期固定为 `2026-08-06`，locale 固定 `QLocale::c()`，first day 固定 Monday；分开日期用于同时显示今天描边和选中背景。
+- [x] 覆盖 Light、Dark、HighContrast、Disabled、selected、today 与相邻月份文本。
+- [x] 使用现有四个 DPR 基线和文字遮罩策略，不新增另一套截图框架。
+- [x] 只在本机 Qt 6.11.1 参考环境更新基线；其他 Qt minor 使用既有兼容容差。
 
 ### 8.3 性能
 
-- [ ] 在 `ZzBasicControlsBenchmark.cpp` 增加日历可见月重复 render 测量。
-- [ ] 预热 10 次、测量 100 次，页面在 12 个月之间循环。
-- [ ] 每轮 render 前只修改 current page 和 selected date，不创建新控件。
-- [ ] 记录 P50/P95/max；参考环境 P95 预算为 16.7ms，普通开发环境只记录不执行绝对阈值。
-- [ ] 1000 次页面切换前后，calendar/picker 后代 QObject、动画和 timer 数量必须保持不变。
+- [x] 在 `ZzBasicControlsBenchmark.cpp` 增加日历可见月重复 render 测量。
+- [x] 预热 10 次、测量 100 次，页面在 12 个月之间循环。
+- [x] 每轮 render 前只修改 current page 和 selected date，不创建新控件。
+- [x] 记录 P50/P95/max；参考环境 P95 预算为 16.7ms，普通开发环境只记录不执行绝对阈值。
+- [x] 1000 次页面切换前后，calendar/picker 后代 QObject、动画和 timer 数量必须保持不变。
 
 ## 9. Task 5：示例、安装消费与边界
 
-- [ ] 在 `ZzFluentControlsGallery` 增加不带业务逻辑的 Calendar 区域，展示固定日期、范围和 picker/date 同步。
-- [ ] 连接只允许更新相邻展示标签，不访问数据模型、网络、存储或 AppCore。
-- [ ] gallery 必须在 1024×720 与 800×600 下不遮挡；需要滚动时复用现有页面容器。
-- [ ] 在 `tests/InstallConsumer/main.cpp` 只包含并构造两个安装后的公共头，验证 `Zz::FluentUI` 传递依赖完整。
-- [ ] 重新配置后，现有 public-header aggregate 必须自动发现两个新头；不得手写第二份头文件列表。
-- [ ] 运行 `architecture.complete-audit` 与 `architecture.zzfluentui-boundaries`，确认无 Qt Private、QWK、业务或第三方实现依赖。
+- [x] 在 `ZzFluentControlsGallery` 增加不带业务逻辑的 Calendar 区域，展示固定日期、范围和 picker/date 同步。
+- [x] 连接只允许同步相邻展示控件，不访问数据模型、网络、存储或 AppCore。
+- [x] gallery 必须在 1024×720 与 800×600 下不遮挡；需要滚动时复用现有页面容器。
+- [x] 保留 `tests/InstallConsumer/main.cpp` 的无 GUI AppCore 职责，在 `tests/InstallConsumer/Gui/main.cpp` 构造两个安装后控件，验证 `Zz::FluentUI` 传递依赖完整。
+- [x] 重新配置后，现有 public-header aggregate 必须自动发现两个新头；不得创建第二套公开头聚合框架。
+- [x] 运行 `architecture.complete-audit` 与 `architecture.zzfluentui-boundaries`，确认无 Qt Private、QWK、业务或第三方实现依赖。
 
 ## 10. 提交边界
 
@@ -361,3 +363,27 @@ ctest --preset linux-clang-asan --output-on-failure
 - 页面切换与 render 性能满足参考预算，对象、timer 和 animation 数量稳定。
 - 安装消费者、公共头、架构边界、GCC、Clang Tidy 和 ASan/UBSan 通过。
 - 复杂卡片和可撕标签页仍保持独立待实施批次，不被本提交隐式引入。
+
+## 13. 实际交付记录
+
+### 13.1 提交
+
+- `69e9f20`：规划日历控件批次。
+- `4a104c7`：实现 `ZzCalendar`、`ZzCalendarPicker` 与基础行为测试。
+- `ff00b51`：接入无障碍、性能、画廊和安装消费。
+- `5613129`：加入四套 DPR、三种主题的日历视觉基线。
+- `3a87998`：完善内部焦点识别、范围收敛、双向同步和原生信号契约。
+- `fd72b54`：分离今天描边与选中背景的截图状态。
+- `792a2fc`：允许在 800×600 小窗口中通过滚动区浏览完整画廊。
+
+### 13.2 本机结果
+
+- 环境：Ubuntu 26.04、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8。
+- GCC Release：启用 examples 与 benchmark 后构建通过，99 项测试全部通过。
+- Clang Tidy：120 个第一方翻译单元通过，`warnings-as-errors` 未产生错误。
+- Clang ASan/UBSan：启用 examples 与 benchmark 后构建通过，99 项测试全部通过。
+- 截图：Light、Dark、HighContrast × DPR 1.0/1.25/1.5/2.0 共 12 张基线比较通过。
+- 安装消费：无 GUI AppCore 消费者与 Fluent GUI 消费者均从隔离安装树编译、链接和运行通过。
+- Release 日历月渲染：P50 `0.259 ms`、P95 `0.268 ms`、max `0.292 ms`；普通开发环境只记录，不更新发布参考基线。
+- 稳定性：1000 次 Calendar/Picker 页面与日期切换后，后代 QObject、动画、timer 和图标缓存数量不变。
+- 平台边界：本批次未调用 GitHub CLI、未运行远端 CI；Windows、MinGW 与 macOS 保持 Qt 公共 API 和无平台条件分支的源码边界，等待后续人工平台验证。
