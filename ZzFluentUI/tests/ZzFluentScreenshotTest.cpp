@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDate>
 #include <QtCore/QDir>
@@ -38,6 +39,7 @@
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
+#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
@@ -65,6 +67,8 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzScrollArea.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -1403,6 +1407,173 @@ public:
     QWidget window;
 };
 
+/** @brief 构造只包含滚动控件关键视觉状态的独立确定性截图面。 */
+class ZzScrollControlsScreenshotSurface final
+{
+public:
+    /**
+     * @brief 创建普通、交互、RTL、禁用、原生回退和双轴滚动状态。
+     */
+    ZzScrollControlsScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzScrollControlsScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Scroll Controls"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        createHorizontal(80, 8, 18);
+        hoverBar = createHorizontal(160, 24, 38);
+        pressedBar = createHorizontal(240, 44, 54);
+        auto *rtl = createHorizontal(320, 18, 72);
+        rtl->setLayoutDirection(Qt::RightToLeft);
+        auto *disabled = createHorizontal(400, 54, 46);
+        disabled->setEnabled(false);
+
+        auto *standard = new QScrollBar(Qt::Horizontal, &window);
+        standard->setGeometry(60, 480, 500, 12);
+        standard->setRange(0, 100);
+        standard->setPageStep(32);
+        standard->setValue(62);
+        standard->setAttribute(Qt::WA_UnderMouse, true);
+
+        createVertical(680, 5, 24);
+        auto *longVertical = createVertical(800, 72, 68);
+        longVertical->setInvertedAppearance(true);
+
+        area = new ZzFluentUI::ZzScrollArea(&window);
+        area->setGeometry(650, 470, 490, 260);
+        auto *content = new QWidget;
+        content->setFixedSize(760, 430);
+        content->setAutoFillBackground(true);
+        QPalette contentPalette = content->palette();
+        contentPalette.setColor(
+            QPalette::Window,
+            window.palette().color(QPalette::AlternateBase));
+        content->setPalette(contentPalette);
+        auto *accentBlock = new QWidget(content);
+        accentBlock->setGeometry(80, 70, 520, 250);
+        accentBlock->setAutoFillBackground(true);
+        QPalette accentPalette = accentBlock->palette();
+        accentPalette.setColor(
+            QPalette::Window,
+            window.palette().color(QPalette::Highlight));
+        accentBlock->setPalette(accentPalette);
+        area->setWidget(content);
+    }
+
+    /** @brief 展示画面并把 hover 与 pressed 同步到确定终态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (area != nullptr) {
+            if (auto *horizontal = area->fluentHorizontalScrollBar();
+                horizontal != nullptr) {
+                horizontal->setValue(horizontal->maximum() / 2);
+            }
+            if (auto *vertical = area->fluentVerticalScrollBar();
+                vertical != nullptr) {
+                vertical->setValue(vertical->maximum() / 2);
+            }
+        }
+        if (hoverBar != nullptr) {
+            hoverBar->setAttribute(Qt::WA_UnderMouse, true);
+            const QPointF center = QRectF(hoverBar->rect()).center();
+            QEnterEvent enter(center, center, center);
+            QCoreApplication::sendEvent(hoverBar, &enter);
+        }
+        if (pressedBar != nullptr) {
+            pressedBar->setAttribute(Qt::WA_UnderMouse, true);
+            QStyleOptionSlider option;
+            option.initFrom(pressedBar);
+            option.subControls = QStyle::SC_All;
+            option.orientation = pressedBar->orientation();
+            option.minimum = pressedBar->minimum();
+            option.maximum = pressedBar->maximum();
+            option.pageStep = pressedBar->pageStep();
+            option.singleStep = pressedBar->singleStep();
+            option.sliderPosition = pressedBar->sliderPosition();
+            option.sliderValue = pressedBar->value();
+            option.upsideDown = false;
+            const QRect slider = pressedBar->style()->subControlRect(
+                QStyle::CC_ScrollBar,
+                &option,
+                QStyle::SC_ScrollBarSlider,
+                pressedBar);
+            QTest::mousePress(
+                pressedBar,
+                Qt::LeftButton,
+                Qt::NoModifier,
+                slider.center());
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回 pressed 示例是否保持 Qt 原生拖动按下状态。 */
+    [[nodiscard]] bool pressedStateIsActive() const noexcept
+    {
+        return pressedBar != nullptr && pressedBar->isSliderDown();
+    }
+
+    /** @brief 返回当前画布内仍在运行的滚动条动画数量。 */
+    [[nodiscard]] qsizetype runningAnimationCount() const
+    {
+        const auto animations = window.findChildren<QAbstractAnimation *>();
+        return std::count_if(
+            animations.cbegin(),
+            animations.cend(),
+            [](const QAbstractAnimation *animation) {
+                return animation->state() == QAbstractAnimation::Running;
+            });
+    }
+
+    /** @brief 隐藏滚动控件截图窗口并停止全部呈现动画。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 创建固定位置和范围的水平 Fluent 滚动条。 */
+    ZzFluentUI::ZzScrollBar *createHorizontal(
+        int top,
+        int pageStep,
+        int value)
+    {
+        auto *scrollBar = new ZzFluentUI::ZzScrollBar(
+            Qt::Horizontal,
+            &window);
+        scrollBar->setGeometry(60, top, 500, 12);
+        scrollBar->setRange(0, 100);
+        scrollBar->setPageStep(pageStep);
+        scrollBar->setValue(value);
+        return scrollBar;
+    }
+
+    /** @brief 创建固定位置和范围的垂直 Fluent 滚动条。 */
+    ZzFluentUI::ZzScrollBar *createVertical(
+        int left,
+        int pageStep,
+        int value)
+    {
+        auto *scrollBar = new ZzFluentUI::ZzScrollBar(
+            Qt::Vertical,
+            &window);
+        scrollBar->setGeometry(left, 80, 12, 320);
+        scrollBar->setRange(0, 100);
+        scrollBar->setPageStep(pageStep);
+        scrollBar->setValue(value);
+        return scrollBar;
+    }
+
+    QPointer<ZzFluentUI::ZzScrollBar> hoverBar;
+    QPointer<ZzFluentUI::ZzScrollBar> pressedBar;
+    QPointer<ZzFluentUI::ZzScrollArea> area;
+};
+
 /** @brief 为独立环形进度画面构造只覆盖居中文字的像素遮罩。 */
 ZzProgressRingTextMask zzBuildProgressRingTextMask(
     QWidget *surface,
@@ -1498,6 +1669,23 @@ QImage zzRenderTabSurface(ZzTabScreenshotSurface *surface, qreal dpr)
 /** @brief 将独立环形进度窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderProgressRingSurface(
     ZzProgressRingScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将独立滚动控件窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderScrollControlsSurface(
+    ZzScrollControlsScreenshotSurface *surface,
     qreal dpr)
 {
     const QSize physicalSize(
@@ -1977,6 +2165,108 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 环形进度非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersScrollControlThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("scroll-controls-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("scroll-controls-light");
+        QTest::newRow("scroll-controls-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("scroll-controls-dark");
+        QTest::newRow("scroll-controls-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("scroll-controls-high-contrast");
+    }
+
+    void rendersScrollControlThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzScrollControlsScreenshotSurface surface;
+        surface.polish();
+        QVERIFY(surface.pressedStateIsActive());
+        QCOMPARE(surface.runningAnimationCount(), 0);
+        QCOMPARE(
+            surface.window.findChildren<ZzFluentUI::ZzScrollBar *>().size(),
+            9);
+        QCOMPARE(surface.window.findChildren<QScrollBar *>().size(), 10);
+        const QImage actual = zzRenderScrollControlsSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        QImage mask(expectedPhysicalSize, QImage::Format_Grayscale8);
+        mask.setDevicePixelRatio(actualDpr_);
+        mask.fill(0);
+        surface.hide();
+        QCOMPARE(surface.runningAnimationCount(), 0);
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 滚动控件像素差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
