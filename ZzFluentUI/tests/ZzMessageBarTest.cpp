@@ -109,7 +109,9 @@ private Q_SLOTS:
         QCoreApplication::processEvents();
         sendLeave(&bar);
 
-        QTRY_COMPARE_WITH_TIMEOUT(closeSpy.count(), 1, 500);
+        QVERIFY(QTest::qWaitFor(
+            [&closeSpy] { return closeSpy.count() == 1; }, 500));
+        QCOMPARE(closeSpy.count(), 1);
         QCOMPARE(bar.findChildren<QTimer *>().size(), 1);
         QVERIFY(bar.isVisible());
     }
@@ -129,7 +131,9 @@ private Q_SLOTS:
         beforeHover.setSingleShot(true);
         QSignalSpy beforeHoverSpy(&beforeHover, &QTimer::timeout);
         beforeHover.start(25);
-        QTRY_COMPARE_WITH_TIMEOUT(beforeHoverSpy.count(), 1, 500);
+        QVERIFY(QTest::qWaitFor(
+            [&beforeHoverSpy] { return beforeHoverSpy.count() == 1; }, 500));
+        QCOMPARE(beforeHoverSpy.count(), 1);
         QEnterEvent enter(
             QPointF(1.0, 1.0),
             QPointF(1.0, 1.0),
@@ -140,11 +144,15 @@ private Q_SLOTS:
         hoverWindow.setSingleShot(true);
         QSignalSpy hoverWindowSpy(&hoverWindow, &QTimer::timeout);
         hoverWindow.start(130);
-        QTRY_COMPARE_WITH_TIMEOUT(hoverWindowSpy.count(), 1, 500);
+        QVERIFY(QTest::qWaitFor(
+            [&hoverWindowSpy] { return hoverWindowSpy.count() == 1; }, 500));
+        QCOMPARE(hoverWindowSpy.count(), 1);
         QCOMPARE(closeSpy.count(), 0);
 
         sendLeave(&bar);
-        QTRY_COMPARE_WITH_TIMEOUT(closeSpy.count(), 1, 500);
+        QVERIFY(QTest::qWaitFor(
+            [&closeSpy] { return closeSpy.count() == 1; }, 500));
+        QCOMPARE(closeSpy.count(), 1);
     }
 
     void hiddenBarDoesNotConsumeTimeout()
@@ -163,13 +171,17 @@ private Q_SLOTS:
         hiddenWindow.setSingleShot(true);
         QSignalSpy hiddenWindowSpy(&hiddenWindow, &QTimer::timeout);
         hiddenWindow.start(80);
-        QTRY_COMPARE_WITH_TIMEOUT(hiddenWindowSpy.count(), 1, 500);
+        QVERIFY(QTest::qWaitFor(
+            [&hiddenWindowSpy] { return hiddenWindowSpy.count() == 1; }, 500));
+        QCOMPARE(hiddenWindowSpy.count(), 1);
         QCOMPARE(closeSpy.count(), 0);
 
         bar.show();
         QCoreApplication::processEvents();
         sendLeave(&bar);
-        QTRY_COMPARE_WITH_TIMEOUT(closeSpy.count(), 1, 500);
+        QVERIFY(QTest::qWaitFor(
+            [&closeSpy] { return closeSpy.count() == 1; }, 500));
+        QCOMPARE(closeSpy.count(), 1);
     }
 
     void refreshesTranslatedClosePresentation()

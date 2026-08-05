@@ -25,7 +25,8 @@ function Assert-UnderRoot(
     [string]$Label
 ) {
     $rootWithSlash =
-        $Root.TrimEnd('\\', '/') + [IO.Path]::DirectorySeparatorChar
+        $Root.TrimEnd([char[]]@('\', '/')) +
+        [IO.Path]::DirectorySeparatorChar
     if (-not $Child.StartsWith(
             $rootWithSlash,
             [StringComparison]::OrdinalIgnoreCase)) {

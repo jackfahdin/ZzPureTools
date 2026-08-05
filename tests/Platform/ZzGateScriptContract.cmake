@@ -32,6 +32,7 @@ set(required_tokens
     "scripts/ci/run-windows-gates.ps1|windows-mingw-release"
     "scripts/ci/run-windows-gates.ps1|windows-mingw-static"
     "scripts/ci/run-windows-gates.ps1|-DZZ_BUILD_EXAMPLES=ON"
+    "scripts/ci/Assert-QtMinGWKit.ps1|TrimEnd([char[]]@('\\', '/'))"
     "scripts/ci/run-macos-gates.sh|macos-clang-release-arm64"
     "scripts/ci/run-macos-gates.sh|macos-clang-release-x86_64"
     "scripts/ci/run-macos-gates.sh|macos-clang-static-arm64"

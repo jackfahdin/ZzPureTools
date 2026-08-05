@@ -208,7 +208,9 @@ private Q_SLOTS:
         secondClose->click();
 
         QCOMPARE(application.windowCount(), 2);
-        QTRY_COMPARE(application.windowCount(), 1);
+        QVERIFY(QTest::qWaitFor(
+            [&application] { return application.windowCount() == 1; }));
+        QCOMPARE(application.windowCount(), 1);
         QVERIFY(!first.isNull());
         QVERIFY(second.isNull());
         application.beginShutdown();
@@ -321,7 +323,9 @@ private Q_SLOTS:
         QVERIFY(windows.second->close());
         QCOMPARE(application.windowCount(), 2);
         QVERIFY(!closing.isNull());
-        QTRY_COMPARE(application.windowCount(), 1);
+        QVERIFY(QTest::qWaitFor(
+            [&application] { return application.windowCount() == 1; }));
+        QCOMPARE(application.windowCount(), 1);
         QVERIFY(closing.isNull());
 
         for (int iteration = 0; iteration < 4; ++iteration) {
@@ -349,7 +353,9 @@ private Q_SLOTS:
         QVERIFY(!observed.isNull());
 
         QVERIFY(windows.second->close());
-        QTRY_COMPARE(application.windowCount(), 1);
+        QVERIFY(QTest::qWaitFor(
+            [&application] { return application.windowCount() == 1; }));
+        QCOMPARE(application.windowCount(), 1);
         QVERIFY(observed.isNull());
         application.beginShutdown();
     }

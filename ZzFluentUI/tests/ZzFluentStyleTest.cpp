@@ -223,8 +223,12 @@ private Q_SLOTS:
         }
         QGuiApplication::setFont(changed);
 
-        QTRY_COMPARE(topLevel.styleChangeCount(), 1);
-        QTRY_COMPARE(child.styleChangeCount(), 1);
+        QVERIFY(QTest::qWaitFor([&topLevel, &child] {
+            return topLevel.styleChangeCount() == 1 &&
+                   child.styleChangeCount() == 1;
+        }));
+        QCOMPARE(topLevel.styleChangeCount(), 1);
+        QCOMPARE(child.styleChangeCount(), 1);
         QGuiApplication::setFont(original);
     }
 };

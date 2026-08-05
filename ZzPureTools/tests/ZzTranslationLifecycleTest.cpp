@@ -327,9 +327,12 @@ private Q_SLOTS:
         QVERIFY(translator.load(QStringLiteral(ZZ_TRANSLATION_TEST_QM)));
         QVERIFY(application.installTranslator(&translator));
 
-        QTRY_COMPARE(
-            first->windowTitle(),
-            QStringLiteral("ZzPureTools translated"));
+        QVERIFY(QTest::qWaitFor([first] {
+            return first->windowTitle() ==
+                   QStringLiteral("ZzPureTools translated");
+        }));
+        QCOMPARE(
+            first->windowTitle(), QStringLiteral("ZzPureTools translated"));
         QCOMPARE(
             second->windowTitle(),
             QStringLiteral("ZzPureTools translated"));
@@ -347,9 +350,15 @@ private Q_SLOTS:
             QVariant(QStringLiteral("Owned translated")));
 
         QVERIFY(application.removeTranslator(&translator));
-        QTRY_COMPARE(firstLabel->text(), QStringLiteral("Owned marker"));
+        QVERIFY(QTest::qWaitFor([firstLabel] {
+            return firstLabel->text() == QStringLiteral("Owned marker");
+        }));
+        QCOMPARE(firstLabel->text(), QStringLiteral("Owned marker"));
         QCOMPARE(secondLabel->text(), QStringLiteral("Owned marker"));
-        QTRY_COMPARE(first->windowTitle(), QStringLiteral("ZzPureTools"));
+        QVERIFY(QTest::qWaitFor([first] {
+            return first->windowTitle() == QStringLiteral("ZzPureTools");
+        }));
+        QCOMPARE(first->windowTitle(), QStringLiteral("ZzPureTools"));
         QCOMPARE(second->windowTitle(), QStringLiteral("ZzPureTools"));
         QCOMPARE(firstTitleBar->title(), first->windowTitle());
         QCOMPARE(secondTitleBar->title(), second->windowTitle());

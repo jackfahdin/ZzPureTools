@@ -106,7 +106,10 @@ private Q_SLOTS:
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         controller.setReducedMotion(true);
 
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        QVERIFY(QTest::qWaitFor([animation] {
+            return animation->state() == QAbstractAnimation::Stopped;
+        }));
+        QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
     }
 
     void keepsStableLogicalGeometryAndRtlRendering()

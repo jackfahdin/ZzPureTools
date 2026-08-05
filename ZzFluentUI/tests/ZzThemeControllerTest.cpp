@@ -96,7 +96,8 @@ private Q_SLOTS:
         }
 
         QGuiApplication::setFont(changed);
-        QTRY_COMPARE(spy.count(), 1);
+        QVERIFY(QTest::qWaitFor([&spy] { return spy.count() == 1; }));
+        QCOMPARE(spy.count(), 1);
         const auto changes = spy.at(0)
                                  .at(1)
                                  .value<ZzFluentUI::ZzThemeChangeKinds>();

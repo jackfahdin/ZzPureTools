@@ -45,6 +45,9 @@ endif()
 
 add_library(ZzLogBackend OBJECT ${ZZLOG_BACKEND_SOURCES})
 target_compile_features(ZzLogBackend PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(ZzLogBackend PRIVATE /utf-8)
+endif()
 target_compile_definitions(ZzLogBackend PRIVATE
     SPDLOG_DISABLE_GLOBAL_LOGGER
     SPDLOG_NAMESPACE=zzlog_spdlog
