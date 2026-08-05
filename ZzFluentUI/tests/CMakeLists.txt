@@ -142,6 +142,21 @@ set_tests_properties(fluent.calendar-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzCardControlsTest ZzCardControlsTest.cpp)
+target_link_libraries(ZzCardControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzCardControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzCardControlsTest)
+zz_enable_sanitizers(ZzCardControlsTest)
+add_test(NAME fluent.card-controls COMMAND ZzCardControlsTest)
+set_tests_properties(fluent.card-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzNavigationControlsTest ZzNavigationControlsTest.cpp)
 target_link_libraries(ZzNavigationControlsTest PRIVATE
     Qt6::Gui

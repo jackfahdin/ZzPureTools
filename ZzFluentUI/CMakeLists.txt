@@ -48,6 +48,10 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzCalendarPrivate.cpp
     widgets/src/ZzCalendarPicker.cpp
     widgets/src/private/ZzCalendarPickerPrivate.cpp
+    widgets/src/ZzActionCard.cpp
+    widgets/src/private/ZzActionCardPrivate.cpp
+    widgets/src/ZzImageCard.cpp
+    widgets/src/private/ZzImageCardPrivate.cpp
     widgets/src/ZzNavigationView.cpp
     widgets/src/private/ZzNavigationViewPrivate.cpp
     widgets/src/ZzBreadcrumbBar.cpp
@@ -66,6 +70,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzMessageBar.h
     widgets/include/ZzFluentUI/ZzCalendar.h
     widgets/include/ZzFluentUI/ZzCalendarPicker.h
+    widgets/include/ZzFluentUI/ZzActionCard.h
+    widgets/include/ZzFluentUI/ZzImageCard.h
     widgets/include/ZzFluentUI/ZzNavigationView.h
     widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
     widgets/include/ZzFluentUI/ZzFluentItemDelegate.h
