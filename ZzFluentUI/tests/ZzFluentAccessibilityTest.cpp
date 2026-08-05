@@ -21,6 +21,8 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
 
@@ -65,19 +67,33 @@ private Q_SLOTS:
         toggle.setChecked(true);
         ZzFluentUI::ZzNavigationView navigation;
         navigation.setAccessibleName(QStringLiteral("Primary navigation"));
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.addTab(new QWidget, QStringLiteral("Overview"));
+        tabs.setAccessibleName(QStringLiteral("Workspace tabs"));
 
         QAccessibleInterface *pushInterface = zzAccessible(&push);
         QAccessibleInterface *iconInterface = zzAccessible(&icon);
         QAccessibleInterface *toggleInterface = zzAccessible(&toggle);
         QAccessibleInterface *navigationInterface = zzAccessible(&navigation);
+        QAccessibleInterface *tabListInterface =
+            zzAccessible(tabs.fluentTabBar());
         QVERIFY(pushInterface != nullptr);
         QVERIFY(iconInterface != nullptr);
         QVERIFY(toggleInterface != nullptr);
         QVERIFY(navigationInterface != nullptr);
+        QVERIFY(tabListInterface != nullptr);
         QCOMPARE(pushInterface->role(), QAccessible::Button);
         QCOMPARE(iconInterface->role(), QAccessible::Button);
         QCOMPARE(toggleInterface->role(), QAccessible::CheckBox);
         QCOMPARE(navigationInterface->role(), QAccessible::List);
+        QCOMPARE(tabListInterface->role(), QAccessible::PageTabList);
+        QVERIFY(tabListInterface->childCount() >= 1);
+        QAccessibleInterface *pageTabInterface =
+            tabListInterface->child(0);
+        QVERIFY(pageTabInterface != nullptr);
+        QCOMPARE(
+            pageTabInterface->text(QAccessible::Name),
+            QStringLiteral("Overview"));
         QCOMPARE(
             pushInterface->text(QAccessible::Name),
             QStringLiteral("Apply changes"));

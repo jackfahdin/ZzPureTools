@@ -49,15 +49,6 @@ private:
     bool canceled = false;
 };
 
-/** @brief 判断标签形状是否沿垂直方向排列。 */
-bool zzIsVerticalShape(QTabBar::Shape shape) noexcept
-{
-    return shape == QTabBar::RoundedWest
-        || shape == QTabBar::RoundedEast
-        || shape == QTabBar::TriangularWest
-        || shape == QTabBar::TriangularEast;
-}
-
 } // namespace
 
 ZzTabMimeData::ZzTabMimeData(
@@ -169,29 +160,7 @@ const ZzTabMimeData *ZzTabBarPrivate::validPayload(
 
 int ZzTabBarPrivate::insertionIndex(const QPoint &position) const
 {
-    const int tabCount = q_ptr->count();
-    if (tabCount <= 0) {
-        return 0;
-    }
-
-    const bool vertical = zzIsVerticalShape(q_ptr->shape());
-    for (int index = 0; index < tabCount; ++index) {
-        const QRect tab = q_ptr->tabRect(index);
-        if (vertical) {
-            if (position.y() < tab.center().y()) {
-                return index;
-            }
-            continue;
-        }
-
-        const bool beforeCenter = q_ptr->layoutDirection() == Qt::RightToLeft
-            ? position.x() > tab.center().x()
-            : position.x() < tab.center().x();
-        if (beforeCenter) {
-            return index;
-        }
-    }
-    return tabCount;
+    return zzTabInsertionIndex(q_ptr, position);
 }
 
 QRect ZzTabBarPrivate::insertionIndicatorRect() const
@@ -200,7 +169,7 @@ QRect ZzTabBarPrivate::insertionIndicatorRect() const
         return {};
     }
 
-    const bool vertical = zzIsVerticalShape(q_ptr->shape());
+    const bool vertical = zzIsVerticalTabShape(q_ptr->shape());
     if (q_ptr->count() == 0) {
         return vertical
             ? QRect(0, 0, q_ptr->width(), zzTabDropIndicatorExtent)

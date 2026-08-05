@@ -1,15 +1,20 @@
 #include <QtCore/QPointer>
+#include <QtCore/QSet>
 #include <QtGui/QAccessible>
 #include <QtGui/QDragEnterEvent>
 #include <QtCore/QMimeData>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtCore/QAbstractAnimation>
+#include <QtCore/QTimer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QStyle>
 
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+
+#include "../widgets/src/private/ZzTabBarPrivate.h"
 
 namespace {
 
@@ -232,6 +237,151 @@ private Q_SLOTS:
 
         QVERIFY(!event.isAccepted());
         QCOMPARE(tabs.count(), 1);
+    }
+
+    void computesInsertionSlotsForLtrRtlAndVerticalBars()
+    {
+        ZzFluentUI::ZzTabBar bar;
+        bar.addTab(QStringLiteral("One"));
+        bar.addTab(QStringLiteral("Two"));
+        bar.addTab(QStringLiteral("Three"));
+        bar.resize(360, 40);
+        bar.show();
+        QCoreApplication::processEvents();
+
+        bar.setLayoutDirection(Qt::LeftToRight);
+        QCoreApplication::processEvents();
+        const QRect firstLtr = bar.tabRect(0);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(
+                    firstLtr.center().x() - 1,
+                    firstLtr.center().y())),
+            0);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(
+                    firstLtr.center().x() + 1,
+                    firstLtr.center().y())),
+            1);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(bar.width() + 10, 10)),
+            bar.count());
+
+        bar.setLayoutDirection(Qt::RightToLeft);
+        QCoreApplication::processEvents();
+        const QRect firstRtl = bar.tabRect(0);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(
+                    firstRtl.center().x() + 1,
+                    firstRtl.center().y())),
+            0);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(
+                    firstRtl.center().x() - 1,
+                    firstRtl.center().y())),
+            1);
+
+        bar.setShape(QTabBar::RoundedWest);
+        bar.resize(80, 300);
+        QCoreApplication::processEvents();
+        const QRect firstVertical = bar.tabRect(0);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(
+                    firstVertical.center().x(),
+                    firstVertical.center().y() - 1)),
+            0);
+        QCOMPARE(
+            ZzFluentUI::zzTabInsertionIndex(
+                &bar,
+                QPoint(
+                    firstVertical.center().x(),
+                    firstVertical.center().y() + 1)),
+            1);
+    }
+
+    void keepsPagesAndQObjectBudgetsStableAcrossTransfers()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        QSet<QWidget *> expectedPages;
+        for (int index = 0; index < 20; ++index) {
+            QWidget *page = zzCreatePage(
+                QStringLiteral("page-%1").arg(index));
+            source.addTab(page, QString::number(index));
+            expectedPages.insert(page);
+        }
+
+        const qsizetype sourceObjectCount =
+            source.findChildren<QObject *>().size();
+        const qsizetype targetObjectCount =
+            target.findChildren<QObject *>().size();
+        const qsizetype timerCount =
+            source.findChildren<QTimer *>().size()
+            + target.findChildren<QTimer *>().size();
+        const qsizetype animationCount =
+            source.findChildren<QAbstractAnimation *>().size()
+            + target.findChildren<QAbstractAnimation *>().size();
+
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            QWidget *page = source.widget(0);
+            QVERIFY(page != nullptr);
+            QVERIFY(source.transferTabTo(&target, 0));
+            const int targetIndex = target.indexOf(page);
+            QVERIFY(targetIndex >= 0);
+            QVERIFY(target.transferTabTo(&source, targetIndex));
+        }
+
+        QSet<QWidget *> actualPages;
+        for (int index = 0; index < source.count(); ++index) {
+            actualPages.insert(source.widget(index));
+        }
+        QCOMPARE(actualPages, expectedPages);
+        QCOMPARE(source.count(), 20);
+        QCOMPARE(target.count(), 0);
+        QCOMPARE(
+            source.findChildren<QObject *>().size(),
+            sourceObjectCount);
+        QCOMPARE(
+            target.findChildren<QObject *>().size(),
+            targetObjectCount);
+        QCOMPARE(
+            source.findChildren<QTimer *>().size()
+                + target.findChildren<QTimer *>().size(),
+            timerCount);
+        QCOMPARE(
+            source.findChildren<QAbstractAnimation *>().size()
+                + target.findChildren<QAbstractAnimation *>().size(),
+            animationCount);
+    }
+
+    void keepsNativeCtrlTabNavigation()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.addTab(
+            zzCreatePage(QStringLiteral("keyboard-a")),
+            QStringLiteral("A"));
+        tabs.addTab(
+            zzCreatePage(QStringLiteral("keyboard-b")),
+            QStringLiteral("B"));
+        tabs.setCurrentIndex(0);
+        tabs.show();
+        tabs.setFocus(Qt::TabFocusReason);
+        QCoreApplication::processEvents();
+
+        QTest::keyClick(&tabs, Qt::Key_Tab, Qt::ControlModifier);
+
+        QCOMPARE(tabs.currentIndex(), 1);
     }
 
     void keepsNativeAccessibilityRoles()

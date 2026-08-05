@@ -4,6 +4,7 @@
 #include <QtCore/QPoint>
 #include <QtCore/QPointer>
 #include <QtCore/QRect>
+#include <QtWidgets/QTabBar>
 
 class QDragMoveEvent;
 class QMouseEvent;
@@ -13,6 +14,55 @@ namespace ZzFluentUI {
 
 class ZzTabBar;
 class ZzTabWidget;
+
+/** @brief 判断标签形状是否沿垂直方向排列。 */
+[[nodiscard]] inline bool zzIsVerticalTabShape(
+    QTabBar::Shape shape) noexcept
+{
+    return shape == QTabBar::RoundedWest
+        || shape == QTabBar::RoundedEast
+        || shape == QTabBar::TriangularWest
+        || shape == QTabBar::TriangularEast;
+}
+
+/**
+ * @brief 使用公开 tabRect 计算布局方向感知的目标插入槽位。
+ * @param tabBar 非空标签栏。
+ * @param position 标签栏局部坐标。
+ * @return 范围为 0 到 count 的插入槽位，参数为空时返回 -1。
+ */
+[[nodiscard]] inline int zzTabInsertionIndex(
+    const QTabBar *tabBar,
+    const QPoint &position)
+{
+    if (tabBar == nullptr) {
+        return -1;
+    }
+    const int tabCount = tabBar->count();
+    if (tabCount <= 0) {
+        return 0;
+    }
+
+    const bool vertical = zzIsVerticalTabShape(tabBar->shape());
+    for (int index = 0; index < tabCount; ++index) {
+        const QRect tab = tabBar->tabRect(index);
+        if (vertical) {
+            if (position.y() < tab.center().y()) {
+                return index;
+            }
+            continue;
+        }
+
+        const bool beforeCenter =
+            tabBar->layoutDirection() == Qt::RightToLeft
+            ? position.x() > tab.center().x()
+            : position.x() < tab.center().x();
+        if (beforeCenter) {
+            return index;
+        }
+    }
+    return tabCount;
+}
 
 /** @brief 保存仅限本进程使用的安全标签拖拽引用。 */
 class ZzTabMimeData final : public QMimeData
