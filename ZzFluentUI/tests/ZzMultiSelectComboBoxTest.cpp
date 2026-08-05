@@ -119,6 +119,7 @@ private Q_SLOTS:
         }
         QVERIFY(editor->isReadOnly());
         QVERIFY(!editor->hasFrame());
+        QVERIFY(editor->isHidden());
         QCOMPARE(editor->focusPolicy(), Qt::NoFocus);
 
         box.setPlaceholderText(QStringLiteral("Select environments"));
