@@ -100,6 +100,20 @@ public:
     [[nodiscard]] QPalette standardPalette() const override;
 
     /**
+     * @brief 为数值输入框提供可缩放的最小 Fluent 内容尺寸。
+     * @param type Qt 内容类型。
+     * @param option 可选绘制状态。
+     * @param contentsSize 平台根据文本和字体计算的内容尺寸。
+     * @param widget 可选目标控件。
+     * @return 保留平台测量且满足 Fluent 最小命中尺寸的结果。
+     */
+    [[nodiscard]] QSize sizeFromContents(
+        ContentsType type,
+        const QStyleOption *option,
+        const QSize &contentsSize,
+        const QWidget *widget = nullptr) const override;
+
+    /**
      * @brief 绘制 Fluent 焦点与滚动区域角落，其余原语委托给平台样式。
      * @param element Qt primitive 标识。
      * @param option 非拥有绘制状态。
@@ -126,7 +140,7 @@ public:
         const QWidget *widget = nullptr) const override;
 
     /**
-     * @brief 绘制滑块、组合框和滚动条，其他复合控件委托给平台样式。
+     * @brief 绘制滑块、组合框、数值输入框和滚动条。
      * @param control Qt complex control 标识。
      * @param option 非拥有绘制状态。
      * @param painter 非拥有绘制目标。
@@ -153,7 +167,7 @@ public:
         const QWidget *widget = nullptr) const override;
 
     /**
-     * @brief 使用与滚动条绘制相同的稳定矩形执行命中测试。
+     * @brief 使用与绘制相同的稳定矩形执行复合控件命中测试。
      * @param control Qt complex control 标识。
      * @param option 非拥有绘制状态。
      * @param position 控件局部坐标。

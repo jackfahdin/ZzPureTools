@@ -13,6 +13,7 @@
 #include <QtGui/QPen>
 #include <QtSvg/QSvgRenderer>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QAbstractSpinBox>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -355,6 +356,175 @@ void ZzFluentStylePrivate::drawComboBox(
         Qt::RoundJoin));
     painter->drawPath(arrow);
     painter->restore();
+}
+
+void ZzFluentStylePrivate::drawSpinBox(
+    const QStyleOptionSpinBox *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    if (option->frame
+        && option->subControls.testFlag(QStyle::SC_SpinBoxFrame)) {
+        drawInputPanel(option, painter, widget);
+    }
+    if (option->buttonSymbols == QAbstractSpinBox::NoButtons) {
+        return;
+    }
+
+    const bool widgetEnabled = option->state.testFlag(
+        QStyle::State_Enabled);
+    const auto drawButton = [this, option, painter, widgetEnabled](
+                                QStyle::SubControl subControl,
+                                QAbstractSpinBox::StepEnabledFlag stepFlag,
+                                bool increase) {
+        if (!option->subControls.testFlag(subControl)) {
+            return;
+        }
+        const QRect rect = spinBoxSubControlRect(option, subControl);
+        if (rect.isEmpty()) {
+            return;
+        }
+        const bool stepEnabled = widgetEnabled
+            && option->stepEnabled.testFlag(stepFlag);
+        const bool active = option->activeSubControls.testFlag(
+            subControl);
+        const bool hovered = active && option->state.testFlag(
+            QStyle::State_MouseOver);
+        const bool pressed = active && option->state.testFlag(
+            QStyle::State_Sunken);
+
+        QColor fill = Qt::transparent;
+        if (pressed) {
+            fill = snapshot->color(ZzColorToken::ControlFillPressed);
+        } else if (hovered) {
+            fill = snapshot->color(ZzColorToken::ControlFillHover);
+        }
+        const QPalette::ColorGroup group = stepEnabled
+            ? QPalette::Normal
+            : QPalette::Disabled;
+        const QColor glyph = option->palette.color(
+            group,
+            QPalette::Text);
+        const QPointF center = QRectF(rect).center();
+
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(fill);
+        painter->drawRect(rect);
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(
+            glyph,
+            1.5,
+            Qt::SolidLine,
+            Qt::RoundCap,
+            Qt::RoundJoin));
+        QPainterPath symbol;
+        if (option->buttonSymbols == QAbstractSpinBox::PlusMinus) {
+            symbol.moveTo(center.x() - 3.5, center.y());
+            symbol.lineTo(center.x() + 3.5, center.y());
+            if (increase) {
+                symbol.moveTo(center.x(), center.y() - 3.5);
+                symbol.lineTo(center.x(), center.y() + 3.5);
+            }
+        } else {
+            const qreal direction = increase ? -1.0 : 1.0;
+            symbol.moveTo(
+                center.x() - 3.5,
+                center.y() - (1.5 * direction));
+            symbol.lineTo(center.x(), center.y() + (2.0 * direction));
+            symbol.lineTo(
+                center.x() + 3.5,
+                center.y() - (1.5 * direction));
+        }
+        painter->drawPath(symbol);
+        painter->restore();
+    };
+
+    drawButton(
+        QStyle::SC_SpinBoxUp,
+        QAbstractSpinBox::StepUpEnabled,
+        true);
+    drawButton(
+        QStyle::SC_SpinBoxDown,
+        QAbstractSpinBox::StepDownEnabled,
+        false);
+}
+
+QRect ZzFluentStylePrivate::spinBoxSubControlRect(
+    const QStyleOptionSpinBox *option,
+    QStyle::SubControl subControl) const
+{
+    if (option == nullptr || option->rect.isEmpty()) {
+        return {};
+    }
+    const QRect frame = option->rect;
+    if (subControl == QStyle::SC_SpinBoxFrame) {
+        return frame;
+    }
+
+    const bool hasButtons = option->buttonSymbols
+        != QAbstractSpinBox::NoButtons;
+    const int buttonWidth = hasButtons
+        ? std::min(28, frame.width())
+        : 0;
+    const int contentWidth = std::max(0, frame.width() - buttonWidth);
+    const int leftPadding = std::min(8, contentWidth / 2);
+    const int rightPadding = std::min(4, std::max(
+        0,
+        contentWidth - leftPadding));
+    const int verticalPadding = frame.height() >= 3 ? 1 : 0;
+    const QRect logicalEdit(
+        frame.left() + leftPadding,
+        frame.top() + verticalPadding,
+        std::max(0, contentWidth - leftPadding - rightPadding),
+        std::max(0, frame.height() - (2 * verticalPadding)));
+    if (subControl == QStyle::SC_SpinBoxEditField) {
+        return QStyle::visualRect(
+            option->direction,
+            frame,
+            logicalEdit);
+    }
+    if (!hasButtons) {
+        return {};
+    }
+
+    const int upperHeight = (frame.height() + 1) / 2;
+    const QRect logicalUp(
+        frame.right() - buttonWidth + 1,
+        frame.top(),
+        buttonWidth,
+        upperHeight);
+    const QRect logicalDown(
+        logicalUp.left(),
+        logicalUp.bottom() + 1,
+        buttonWidth,
+        frame.height() - upperHeight);
+    if (subControl == QStyle::SC_SpinBoxUp) {
+        return QStyle::visualRect(option->direction, frame, logicalUp);
+    }
+    if (subControl == QStyle::SC_SpinBoxDown) {
+        return QStyle::visualRect(option->direction, frame, logicalDown);
+    }
+    return {};
+}
+
+QStyle::SubControl ZzFluentStylePrivate::hitTestSpinBox(
+    const QStyleOptionSpinBox *option,
+    const QPoint &position) const
+{
+    if (option == nullptr || !option->rect.contains(position)) {
+        return QStyle::SC_None;
+    }
+    for (const QStyle::SubControl subControl : {
+             QStyle::SC_SpinBoxUp,
+             QStyle::SC_SpinBoxDown,
+             QStyle::SC_SpinBoxEditField}) {
+        if (spinBoxSubControlRect(option, subControl).contains(position)) {
+            return subControl;
+        }
+    }
+    return QStyle::SC_SpinBoxFrame;
 }
 
 void ZzFluentStylePrivate::drawTabBarTab(

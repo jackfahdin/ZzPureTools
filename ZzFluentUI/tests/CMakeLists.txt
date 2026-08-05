@@ -142,6 +142,21 @@ set_tests_properties(fluent.scroll-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzSpinBoxControlsTest ZzSpinBoxControlsTest.cpp)
+target_link_libraries(ZzSpinBoxControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzSpinBoxControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSpinBoxControlsTest)
+zz_enable_sanitizers(ZzSpinBoxControlsTest)
+add_test(NAME fluent.spin-box-controls COMMAND ZzSpinBoxControlsTest)
+set_tests_properties(fluent.spin-box-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMessageBarTest ZzMessageBarTest.cpp)
 target_link_libraries(ZzMessageBarTest PRIVATE
     Qt6::Test

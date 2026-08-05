@@ -161,6 +161,24 @@ QPalette ZzFluentStyle::standardPalette() const
     return palette;
 }
 
+QSize ZzFluentStyle::sizeFromContents(
+    ContentsType type,
+    const QStyleOption *option,
+    const QSize &contentsSize,
+    const QWidget *widget) const
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    QSize result = QProxyStyle::sizeFromContents(
+        type,
+        option,
+        contentsSize,
+        widget);
+    if (type == CT_SpinBox) {
+        result = result.expandedTo(QSize(96, 32));
+    }
+    return result;
+}
+
 void ZzFluentStyle::drawPrimitive(
     PrimitiveElement element,
     const QStyleOption *option,
@@ -279,6 +297,14 @@ void ZzFluentStyle::drawComplexControl(
             return;
         }
     }
+    if (control == CC_SpinBox) {
+        const auto *spinBox = qstyleoption_cast<
+            const QStyleOptionSpinBox *>(option);
+        if (spinBox != nullptr && painter != nullptr) {
+            d_ptr->drawSpinBox(spinBox, painter, widget);
+            return;
+        }
+    }
     if (control == CC_ScrollBar) {
         const auto *scrollBar = qstyleoption_cast<
             const QStyleOptionSlider *>(option);
@@ -308,6 +334,13 @@ QRect ZzFluentStyle::subControlRect(
         result.setSize(QSize(length, length));
         result.moveCenter(center);
     }
+    if (control == CC_SpinBox) {
+        const auto *spinBox = qstyleoption_cast<
+            const QStyleOptionSpinBox *>(option);
+        if (spinBox != nullptr) {
+            return d_ptr->spinBoxSubControlRect(spinBox, subControl);
+        }
+    }
     if (control == CC_ScrollBar) {
         const auto *scrollBar = qstyleoption_cast<
             const QStyleOptionSlider *>(option);
@@ -325,6 +358,13 @@ QStyle::SubControl ZzFluentStyle::hitTestComplexControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_SpinBox) {
+        const auto *spinBox = qstyleoption_cast<
+            const QStyleOptionSpinBox *>(option);
+        if (spinBox != nullptr) {
+            return d_ptr->hitTestSpinBox(spinBox, position);
+        }
+    }
     if (control == CC_ScrollBar) {
         const auto *scrollBar = qstyleoption_cast<
             const QStyleOptionSlider *>(option);
