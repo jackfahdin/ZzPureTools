@@ -76,6 +76,21 @@ set_tests_properties(fluent.standard-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzTextInputControlsTest ZzTextInputControlsTest.cpp)
+target_link_libraries(ZzTextInputControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzTextInputControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzTextInputControlsTest)
+zz_enable_sanitizers(ZzTextInputControlsTest)
+add_test(NAME fluent.text-input-controls COMMAND ZzTextInputControlsTest)
+set_tests_properties(fluent.text-input-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
 qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
     PREFIX "/zzfluent/buttons"

@@ -100,7 +100,7 @@ public:
     [[nodiscard]] QPalette standardPalette() const override;
 
     /**
-     * @brief 为数值输入框提供可缩放的最小 Fluent 内容尺寸。
+     * @brief 为文本和数值输入框提供可缩放的最小 Fluent 内容尺寸。
      * @param type Qt 内容类型。
      * @param option 可选绘制状态。
      * @param contentsSize 平台根据文本和字体计算的内容尺寸。

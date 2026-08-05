@@ -295,9 +295,13 @@ void ZzFluentStylePrivate::drawInputPanel(
     const QPalette::ColorGroup group = enabled
         ? QPalette::Normal
         : QPalette::Disabled;
-    const QColor fill = enabled
-        ? option->palette.color(group, QPalette::Base)
-        : snapshot->color(ZzColorToken::ControlFillDisabled);
+    QColor fill = option->palette.color(group, QPalette::Base);
+    if (!enabled) {
+        fill = snapshot->color(ZzColorToken::ControlFillDisabled);
+    } else if (option->state.testFlag(QStyle::State_MouseOver)
+               && !option->state.testFlag(QStyle::State_HasFocus)) {
+        fill = snapshot->color(ZzColorToken::ControlFillHover);
+    }
     const QColor stroke = option->state.testFlag(QStyle::State_HasFocus)
         ? option->palette.color(group, QPalette::Highlight)
         : snapshot->color(ZzColorToken::ControlStroke);

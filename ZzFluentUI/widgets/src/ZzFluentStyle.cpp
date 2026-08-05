@@ -5,6 +5,7 @@
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTextEdit>
 
@@ -173,7 +174,7 @@ QSize ZzFluentStyle::sizeFromContents(
         option,
         contentsSize,
         widget);
-    if (type == CT_SpinBox) {
+    if (type == CT_LineEdit || type == CT_SpinBox) {
         result = result.expandedTo(QSize(96, 32));
     }
     return result;
@@ -197,7 +198,8 @@ void ZzFluentStyle::drawPrimitive(
     }
     const bool textFrame = element == PE_Frame
         && (qobject_cast<const QLineEdit *>(widget) != nullptr
-            || qobject_cast<const QTextEdit *>(widget) != nullptr);
+            || qobject_cast<const QTextEdit *>(widget) != nullptr
+            || qobject_cast<const QPlainTextEdit *>(widget) != nullptr);
     if ((element == PE_PanelLineEdit
          || element == PE_FrameLineEdit
          || textFrame)
