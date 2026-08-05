@@ -602,7 +602,7 @@ void ZzFluentStylePrivate::drawScrollBar(
         handle.setWidth(thickness);
         handle.moveCenter(QRectF(slider).center());
     }
-    const QColor handleColor = focused
+    const QColor handleColor = focused || pressed
         ? option->palette.color(group, QPalette::Highlight)
         : option->palette.color(group, QPalette::Text);
     painter->setBrush(handleColor);

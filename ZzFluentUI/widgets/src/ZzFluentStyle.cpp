@@ -193,6 +193,13 @@ void ZzFluentStyle::drawPrimitive(
         d_ptr->drawToolTipPanel(option, painter);
         return;
     }
+    if (element == PE_PanelScrollAreaCorner
+        && option != nullptr && painter != nullptr) {
+        painter->fillRect(
+            option->rect,
+            option->palette.color(QPalette::Window));
+        return;
+    }
     if (element == PE_FrameFocusRect
         && option != nullptr && painter != nullptr) {
         const qreal dpr = widget != nullptr

@@ -100,7 +100,7 @@ public:
     [[nodiscard]] QPalette standardPalette() const override;
 
     /**
-     * @brief 绘制 Fluent 焦点原语，其余原语委托给平台基础样式。
+     * @brief 绘制 Fluent 焦点与滚动区域角落，其余原语委托给平台样式。
      * @param element Qt primitive 标识。
      * @param option 非拥有绘制状态。
      * @param painter 非拥有绘制目标。

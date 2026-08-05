@@ -36,6 +36,22 @@ bool zzContainsOpaquePixel(const QImage &image)
     return false;
 }
 
+/** @brief 把滚动条 style option 绘制到同尺寸透明图像。 */
+QImage zzRenderScrollOption(
+    const ZzFluentUI::ZzFluentStyle &style,
+    const QStyleOptionSlider &option)
+{
+    QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    style.drawComplexControl(
+        QStyle::CC_ScrollBar,
+        &option,
+        &painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 构造可独立查询滚动条几何的完整 style option。 */
 QStyleOptionSlider zzScrollOption(
     Qt::Orientation orientation,
@@ -352,6 +368,55 @@ private Q_SLOTS:
             painter.end();
             QVERIFY(zzContainsOpaquePixel(image));
         }
+    }
+
+    void distinguishesPressedStateAndFillsAreaCorner()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionSlider hovered = zzScrollOption(
+            Qt::Horizontal,
+            QRect(0, 0, 240, 12),
+            0,
+            100,
+            25,
+            50);
+        hovered.palette = style.standardPalette();
+        hovered.state |= QStyle::State_MouseOver;
+        hovered.activeSubControls = QStyle::SC_ScrollBarSlider;
+        QStyleOptionSlider pressed = hovered;
+        pressed.state |= QStyle::State_Sunken;
+        const QImage hoveredImage = zzRenderScrollOption(style, hovered);
+        const QImage pressedImage = zzRenderScrollOption(style, pressed);
+        const QPoint sliderCenter = style.subControlRect(
+            QStyle::CC_ScrollBar,
+            &pressed,
+            QStyle::SC_ScrollBarSlider).center();
+
+        QCOMPARE(
+            hoveredImage.pixelColor(sliderCenter),
+            hovered.palette.color(QPalette::Text));
+        QCOMPARE(
+            pressedImage.pixelColor(sliderCenter),
+            pressed.palette.color(QPalette::Highlight));
+        QVERIFY(hoveredImage != pressedImage);
+
+        QStyleOption corner;
+        corner.rect = QRect(0, 0, 12, 12);
+        corner.palette = style.standardPalette();
+        QImage cornerImage(
+            corner.rect.size(),
+            QImage::Format_ARGB32_Premultiplied);
+        cornerImage.fill(Qt::magenta);
+        QPainter painter(&cornerImage);
+        style.drawPrimitive(
+            QStyle::PE_PanelScrollAreaCorner,
+            &corner,
+            &painter);
+        painter.end();
+        QCOMPARE(
+            cornerImage.pixelColor(corner.rect.center()),
+            corner.palette.color(QPalette::Window));
     }
 
     void boundsAnimationAndStopsWhenInactive()
