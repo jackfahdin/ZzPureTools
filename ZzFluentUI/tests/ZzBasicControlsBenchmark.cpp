@@ -16,6 +16,7 @@
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QCompleter>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
@@ -40,6 +41,7 @@
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -1522,6 +1524,158 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机弹出表面 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresSuggestBoxRenderingFilteringAndStability()
+    {
+        constexpr int boxCount = 100;
+        constexpr int suggestionCount = 20;
+        constexpr int columnCount = 10;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        host.resize(columnCount * 152, 10 * 40);
+        std::vector<ZzFluentUI::ZzSuggestBox *> boxes;
+        boxes.reserve(boxCount);
+        QList<ZzFluentUI::ZzSuggestion> suggestions;
+        suggestions.reserve(suggestionCount);
+        const QIcon sharedIcon = style.standardIcon(QStyle::SP_FileIcon);
+        for (int item = 0; item < suggestionCount; ++item) {
+            suggestions.append({
+                QStringLiteral("suggestion-%1").arg(item),
+                QStringLiteral("Command %1").arg(item),
+                (item % 4) == 0 ? sharedIcon : QIcon{},
+                item,
+                (item % 7) != 0});
+        }
+        for (int index = 0; index < boxCount; ++index) {
+            auto *box = new ZzFluentUI::ZzSuggestBox(&host);
+            box->setStyle(&style);
+            box->setSuggestions(suggestions);
+            box->setPlaceholderText(QStringLiteral("Search command"));
+            box->setGeometry(
+                (index % columnCount) * 152,
+                (index / columnCount) * 40,
+                144,
+                32);
+            box->setText(QStringLiteral("warmup"));
+            box->setText({});
+            boxes.push_back(box);
+        }
+        host.show();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            ZzFluentUI::ZzSuggestBox *changed = boxes.at(
+                static_cast<std::size_t>(sequence % boxCount));
+            changed->setText(
+                (sequence % 2) == 0 ? QStringLiteral("Com") : QString{});
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            const int index = round % boxCount;
+            ZzFluentUI::ZzSuggestBox *box = boxes.at(
+                static_cast<std::size_t>(index));
+            box->setText(QString::number(round));
+            box->setCaseSensitivity(Qt::CaseSensitive);
+            box->setFilterMode(Qt::MatchStartsWith);
+            box->setMaximumVisibleItems((round % 100) + 1);
+            box->setLayoutDirection(Qt::RightToLeft);
+            const QString temporaryKey = box->addSuggestion(
+                QStringLiteral("Temporary"), round);
+            QVERIFY(box->removeSuggestion(temporaryKey));
+            box->setText({});
+            box->setCaseSensitivity(Qt::CaseInsensitive);
+            box->setFilterMode(Qt::MatchContains);
+            box->setMaximumVisibleItems(8);
+            box->setLayoutDirection(Qt::LeftToRight);
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        ZzFluentUI::ZzSuggestBox large;
+        QList<ZzFluentUI::ZzSuggestion> largeSuggestions;
+        largeSuggestions.reserve(10000);
+        for (int index = 0; index < 10000; ++index) {
+            largeSuggestions.append({
+                QStringLiteral("large-%1").arg(index),
+                QStringLiteral("Command group %1 item %2")
+                    .arg(index % 100)
+                    .arg(index),
+                {},
+                index,
+                true});
+        }
+        large.setSuggestions(std::move(largeSuggestions));
+        QElapsedTimer filterTimer;
+        filterTimer.start();
+        qint64 matchedRows = 0;
+        for (int round = 0; round < 100; ++round) {
+            large.completer()->setCompletionPrefix(
+                QStringLiteral("group %1").arg(round));
+            matchedRows +=
+                large.completer()->completionModel()->rowCount();
+        }
+        const qreal filterMilliseconds =
+            static_cast<qreal>(filterTimer.nsecsElapsed()) / 1000000.0;
+        QVERIFY(matchedRows > 0);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-suggest-box controls=100 suggestions=20 "
+                   "frames=120 P50=%1 ms P95=%2 ms max=%3 ms "
+                   "descendants=%4 animations=%5 timers=%6 "
+                   "filter-100x10000=%7 ms matched=%8")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers)
+                   .arg(filterMilliseconds, 0, 'f', 3)
+                   .arg(matchedRows);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机搜索建议框 P95 %1 ms 超过16.7 ms帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }

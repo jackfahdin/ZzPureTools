@@ -65,7 +65,7 @@ QString ZzSuggestBox::addSuggestion(
     QIcon icon)
 {
     return addSuggestion({{}, std::move(text), std::move(icon),
-                          std::move(payload)});
+                          std::move(payload), true});
 }
 
 QString ZzSuggestBox::addSuggestion(ZzSuggestion suggestion)

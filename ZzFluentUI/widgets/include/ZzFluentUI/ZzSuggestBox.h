@@ -28,6 +28,9 @@ struct ZzSuggestion final
 
     /** @brief 由调用方解释的值语义载荷，不得保存业务对象裸指针。 */
     QVariant data;
+
+    /** @brief 是否允许用户高亮并激活该建议。 */
+    bool enabled = true;
 };
 
 class ZzSuggestBoxPrivate;

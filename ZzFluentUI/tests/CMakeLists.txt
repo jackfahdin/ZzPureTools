@@ -121,6 +121,21 @@ set_tests_properties(fluent.combo-box-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzSuggestBoxTest ZzSuggestBoxTest.cpp)
+target_link_libraries(ZzSuggestBoxTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzSuggestBoxTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSuggestBoxTest)
+zz_enable_sanitizers(ZzSuggestBoxTest)
+add_test(NAME fluent.suggest-box COMMAND ZzSuggestBoxTest)
+set_tests_properties(fluent.suggest-box PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
 qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
     PREFIX "/zzfluent/buttons"

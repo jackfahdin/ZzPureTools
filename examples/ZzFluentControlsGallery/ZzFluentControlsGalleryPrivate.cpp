@@ -57,6 +57,7 @@
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
@@ -427,6 +428,32 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     rightToLeftChoice->addItems({
         QStringLiteral("Primary"),
         QStringLiteral("Secondary")});
+    auto *suggestBox = new ZzFluentUI::ZzSuggestBox(container);
+    suggestBox->setAccessibleName(QStringLiteral("Command search"));
+    suggestBox->setPlaceholderText(QStringLiteral("Search commands"));
+    suggestBox->setSuggestions({
+        {QStringLiteral("open-local"), QStringLiteral("Open workspace"),
+         suggestBox->style()->standardIcon(QStyle::SP_DirOpenIcon),
+         QStringLiteral("local"), true},
+        {QStringLiteral("open-remote"), QStringLiteral("Open workspace"),
+         suggestBox->style()->standardIcon(QStyle::SP_DriveNetIcon),
+         QStringLiteral("remote"), true},
+        {QStringLiteral("clean"), QStringLiteral("Clean build output"),
+         {}, QStringLiteral("clean"), true},
+        {QStringLiteral("unavailable"),
+         QStringLiteral("Deploy to unavailable target"), {},
+         QStringLiteral("deploy"), false}});
+    auto *suggestResult = new QLabel(QStringLiteral("No command selected"),
+                                     container);
+    QObject::connect(
+        suggestBox,
+        &ZzFluentUI::ZzSuggestBox::suggestionActivated,
+        suggestResult,
+        [suggestResult](const ZzFluentUI::ZzSuggestion &suggestion) {
+            suggestResult->setText(QStringLiteral("%1 [%2]")
+                                       .arg(suggestion.text,
+                                            suggestion.data.toString()));
+        });
     datePicker = new ZzFluentUI::ZzCalendarPicker(container);
     datePicker->setAccessibleName(QStringLiteral("Due date"));
     datePicker->setLocale(QLocale::c());
@@ -446,6 +473,8 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->addRow(QStringLiteral("Build target"), editableTarget);
     form->addRow(QStringLiteral("Unavailable"), disabledChoice);
     form->addRow(QStringLiteral("RTL choice"), rightToLeftChoice);
+    form->addRow(QStringLiteral("Command"), suggestBox);
+    form->addRow(QStringLiteral("Selection"), suggestResult);
     form->addRow(QStringLiteral("Due date"), datePicker);
 
     auto *workers = new ZzFluentUI::ZzSpinBox(container);

@@ -19,6 +19,7 @@ namespace {
 
 constexpr int ZzSuggestionKeyRole = Qt::UserRole + 1;
 constexpr int ZzSuggestionPayloadRole = Qt::UserRole + 2;
+constexpr int ZzSuggestionEnabledRole = Qt::UserRole + 3;
 
 /** @brief 生成当前集合内唯一、无花括号的建议键。 */
 QString zzUniqueSuggestionKey(
@@ -81,9 +82,25 @@ public:
             return item.key;
         case ZzSuggestionPayloadRole:
             return item.data;
+        case ZzSuggestionEnabledRole:
+            return item.enabled;
         default:
             return {};
         }
+    }
+
+    /** @brief 返回当前行是否允许被 completer 选中和激活。 */
+    [[nodiscard]] Qt::ItemFlags flags(
+        const QModelIndex &index) const override
+    {
+        Qt::ItemFlags result = QAbstractListModel::flags(index);
+        if (!index.isValid() || index.row() < 0
+            || index.row() >= rowCount()
+            || !items_.at(index.row()).enabled) {
+            result.setFlag(Qt::ItemIsEnabled, false);
+            result.setFlag(Qt::ItemIsSelectable, false);
+        }
+        return result;
     }
 
     /** @brief 一次 reset 全部值，并规范化每一条唯一键。 */
@@ -260,7 +277,8 @@ ZzSuggestion ZzSuggestBoxPrivate::suggestionFromIndex(
         index.data(ZzSuggestionKeyRole).toString(),
         index.data(Qt::EditRole).toString(),
         qvariant_cast<QIcon>(index.data(Qt::DecorationRole)),
-        index.data(ZzSuggestionPayloadRole)};
+        index.data(ZzSuggestionPayloadRole),
+        index.data(ZzSuggestionEnabledRole).toBool()};
 }
 
 bool ZzSuggestBoxPrivate::isSupportedFilterMode(

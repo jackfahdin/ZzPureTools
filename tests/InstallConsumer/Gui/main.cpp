@@ -24,6 +24,7 @@
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -103,6 +104,7 @@ int main(int argc, char *argv[])
     ZzFluentUI::ZzScrollArea scrollArea;
     ZzFluentUI::ZzSpinBox integerInput;
     ZzFluentUI::ZzDoubleSpinBox floatingInput;
+    ZzFluentUI::ZzSuggestBox suggestBox;
     ZzFluentUI::ZzTabWidget sourceTabs;
     ZzFluentUI::ZzTabWidget targetTabs;
     QWidget *tabPage = new QWidget;
@@ -131,6 +133,16 @@ int main(int argc, char *argv[])
     floatingInput.setRange(-10.0, 10.0);
     floatingInput.setDecimals(2);
     floatingInput.setValue(1.25);
+    suggestBox.setStyle(&fluentStyle);
+    const QString localSuggestionKey = suggestBox.addSuggestion(
+        QStringLiteral("Open local"), 41);
+    const QString remoteSuggestionKey = suggestBox.addSuggestion({
+        localSuggestionKey,
+        QStringLiteral("Open remote"),
+        {},
+        82,
+        true});
+    suggestBox.completer()->setCompletionPrefix(QStringLiteral("remote"));
     QStyleOptionFrame lineOption;
     lineOption.initFrom(&lineEdit);
     const QSize lineSize = fluentStyle.sizeFromContents(
@@ -225,6 +237,15 @@ int main(int argc, char *argv[])
         || floatingInput.decimals() != 2
         || floatingInput.value() != 1.25
         || floatingInput.buttonSymbols() != QAbstractSpinBox::PlusMinus
+        || suggestBox.style() != &fluentStyle
+        || suggestBox.suggestionCount() != 2
+        || localSuggestionKey.isEmpty()
+        || remoteSuggestionKey.isEmpty()
+        || remoteSuggestionKey == localSuggestionKey
+        || suggestBox.filterMode() != Qt::MatchContains
+        || suggestBox.completer() == nullptr
+        || suggestBox.completer()->completionModel()->rowCount() != 1
+        || suggestBox.suggestions().at(1).data.toInt() != 82
         || sourceTabs.fluentTabBar() == nullptr
         || !sourceTabs.transferTabTo(&targetTabs, 0)
         || sourceTabs.count() != 0
