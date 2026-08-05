@@ -16,6 +16,8 @@ set(zz_installed_header_specs
     "Zz::FluentFoundation|ZzFluentUI/ZzFluentFoundationExport.h"
     "Zz::FluentUI|ZzFluentUI/ZzFluentWidgetVersion.h"
     "Zz::FluentUI|ZzFluentUI/ZzFluentUIExport.h"
+    "Zz::FluentUI|ZzFluentUI/ZzCalendar.h"
+    "Zz::FluentUI|ZzFluentUI/ZzCalendarPicker.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreVersion.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreExport.h"
     "Zz::PureTools|ZzPureTools/ZzPureToolsVersion.h"
@@ -56,22 +58,44 @@ target_link_libraries(ZzInstallConsumer PRIVATE
 )
 
 add_test(NAME zz.install-consumer.run COMMAND ZzInstallConsumer)
+
+add_executable(ZzFluentInstallConsumer Gui/main.cpp)
+target_compile_features(ZzFluentInstallConsumer PRIVATE cxx_std_20)
+set_target_properties(ZzFluentInstallConsumer PROPERTIES CXX_EXTENSIONS OFF)
+target_link_libraries(ZzFluentInstallConsumer PRIVATE Zz::FluentUI)
+add_test(
+    NAME zz.fluent-install-consumer.run
+    COMMAND ZzFluentInstallConsumer
+)
+set_tests_properties(zz.fluent-install-consumer.run PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(NOT DEFINED ZZ_PACKAGE_ROOT)
     message(FATAL_ERROR
         "ZZ_PACKAGE_ROOT is required to locate installed runtime libraries")
 endif()
 if(WIN32)
-    set_tests_properties(zz.install-consumer.run PROPERTIES
+    set_tests_properties(
+        zz.install-consumer.run
+        zz.fluent-install-consumer.run
+        PROPERTIES
         ENVIRONMENT_MODIFICATION
             "PATH=path_list_prepend:${ZZ_PACKAGE_ROOT}/${CMAKE_INSTALL_BINDIR};PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )
 elseif(APPLE)
-    set_tests_properties(zz.install-consumer.run PROPERTIES
+    set_tests_properties(
+        zz.install-consumer.run
+        zz.fluent-install-consumer.run
+        PROPERTIES
         ENVIRONMENT_MODIFICATION
             "DYLD_LIBRARY_PATH=path_list_prepend:${ZZ_PACKAGE_ROOT}/${CMAKE_INSTALL_LIBDIR};DYLD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )
 elseif(UNIX)
-    set_tests_properties(zz.install-consumer.run PROPERTIES
+    set_tests_properties(
+        zz.install-consumer.run
+        zz.fluent-install-consumer.run
+        PROPERTIES
         ENVIRONMENT_MODIFICATION
             "LD_LIBRARY_PATH=path_list_prepend:${ZZ_PACKAGE_ROOT}/${CMAKE_INSTALL_LIBDIR};LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )

@@ -19,6 +19,8 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzCalendar.h>
+#include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
@@ -149,13 +151,32 @@ qreal zzPercentileMilliseconds(
 }
 
 /** @brief 统计一组 QObject 根节点的全部后代数量。 */
-qsizetype zzDescendantCount(const std::array<QObject *, 4> &roots)
+template<std::size_t N>
+qsizetype zzDescendantCount(const std::array<QObject *, N> &roots)
 {
     qsizetype total = 0;
     for (QObject *root : roots) {
         total += root->findChildren<QObject *>().size();
     }
     return total;
+}
+
+/** @brief 切换到指定月份并将完整日历渲染到复用图像。 */
+qint64 zzRenderCalendarFrame(
+    ZzFluentUI::ZzCalendar *calendar,
+    QImage *target,
+    int sequence)
+{
+    const int month = (sequence % 12) + 1;
+    QElapsedTimer timer;
+    timer.start();
+    calendar->setCurrentPage(2026, month);
+    calendar->setSelectedDate(QDate(2026, month, 15));
+    target->fill(Qt::transparent);
+    QPainter painter(target);
+    calendar->render(&painter);
+    painter.end();
+    return timer.nsecsElapsed();
 }
 
 /** @brief 向 QWidget 同步发送一次进入和离开序列。 */
@@ -268,15 +289,25 @@ private Q_SLOTS:
         auto *message = new ZzFluentUI::ZzMessageBar(&host);
         message->setText(QStringLiteral("Saved"));
         message->setTimeoutMilliseconds(60000);
+        auto *calendar = new ZzFluentUI::ZzCalendar(&host);
+        calendar->setDateRange(QDate(2026, 1, 1), QDate(2026, 12, 31));
+        calendar->setSelectedDate(QDate(2026, 8, 5));
+        auto *picker = new ZzFluentUI::ZzCalendarPicker(&host);
+        picker->setDateRange(QDate(2026, 1, 1), QDate(2026, 12, 31));
+        picker->setDate(QDate(2026, 8, 5));
         toggle->setStyle(&style);
         button->setStyle(&style);
         icon->setStyle(&style);
         message->setStyle(&style);
+        calendar->setStyle(&style);
+        picker->setStyle(&style);
         layout->addWidget(toggle);
         layout->addWidget(button);
         layout->addWidget(icon);
         layout->addWidget(message);
-        host.resize(320, 240);
+        layout->addWidget(calendar);
+        layout->addWidget(picker);
+        host.resize(360, 640);
         host.show();
         QCoreApplication::processEvents();
 
@@ -286,15 +317,20 @@ private Q_SLOTS:
             zzSendHoverCycle(button);
             zzSendHoverCycle(icon);
             zzSendHoverCycle(message);
+            const int month = (warmup % 12) + 1;
+            calendar->setCurrentPage(2026, month);
+            picker->calendar()->setCurrentPage(2026, month);
         }
         icon->setEnabled(true);
         QCoreApplication::processEvents();
 
-        const std::array<QObject *, 4> roots{
+        const std::array<QObject *, 6> roots{
             toggle,
             button,
             icon,
-            message};
+            message,
+            calendar,
+            picker};
         const qsizetype initialDescendants = zzDescendantCount(roots);
         const qsizetype initialAnimations =
             host.findChildren<QAbstractAnimation *>().size();
@@ -312,6 +348,11 @@ private Q_SLOTS:
             zzSendHoverCycle(button);
             zzSendHoverCycle(icon);
             zzSendHoverCycle(message);
+            const int month = (iteration % 12) + 1;
+            calendar->setCurrentPage(2026, month);
+            calendar->setSelectedDate(QDate(2026, month, 15));
+            picker->calendar()->setCurrentPage(2026, month);
+            picker->setDate(QDate(2026, month, 15));
         }
         icon->setEnabled(true);
         QCoreApplication::processEvents();
@@ -331,6 +372,57 @@ private Q_SLOTS:
                    .arg(initialAnimations)
                    .arg(initialTimers)
                    .arg(initialCacheBytes);
+    }
+
+    void measuresCalendarMonthRendering()
+    {
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setLocale(QLocale::c());
+        calendar.setFirstDayOfWeek(Qt::Monday);
+        calendar.setDateRange(QDate(2026, 1, 1), QDate(2026, 12, 31));
+        calendar.setSelectedDate(QDate(2026, 8, 5));
+        calendar.resize(320, 280);
+        calendar.show();
+        QCoreApplication::processEvents();
+        QImage target(
+            calendar.size(),
+            QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzMeasuredFrames);
+
+        for (int frame = -zzWarmupFrames;
+             frame < zzMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            const qint64 elapsed = zzRenderCalendarFrame(
+                &calendar,
+                &target,
+                sequence);
+            if (frame >= 0) {
+                samples.push_back(elapsed);
+            }
+        }
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-calendar monthRender P50=%1 ms "
+                   "P95=%2 ms max=%3 ms")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机日历 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
     }
 };
 

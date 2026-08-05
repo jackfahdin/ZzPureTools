@@ -2,6 +2,8 @@
 
 #include <array>
 
+#include <QtCore/QDate>
+#include <QtCore/QLocale>
 #include <QtGui/QFont>
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QButtonGroup>
@@ -32,6 +34,8 @@
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzCalendar.h>
+#include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
@@ -278,9 +282,16 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
         QStringLiteral("Balanced"),
         QStringLiteral("Compact"),
         QStringLiteral("Comfortable")});
+    datePicker = new ZzFluentUI::ZzCalendarPicker(container);
+    datePicker->setAccessibleName(QStringLiteral("Due date"));
+    datePicker->setLocale(QLocale::c());
+    datePicker->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
+    datePicker->setDateRange(QDate(2026, 1, 1), QDate(2026, 12, 31));
+    datePicker->setDate(QDate(2026, 8, 5));
     form->addRow(QStringLiteral("Name"), name);
     form->addRow(QStringLiteral("Notes"), notes);
     form->addRow(QStringLiteral("Density"), density);
+    form->addRow(QStringLiteral("Due date"), datePicker);
     layout->addLayout(form);
 
     auto *slider = new QSlider(Qt::Horizontal, container);
@@ -333,8 +344,34 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
     table->verticalHeader()->hide();
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     table->setCurrentIndex(tableModel->index(1, 1));
-    table->setFixedHeight(200);
+    table->setFixedHeight(150);
     layout->addWidget(table);
+
+    layout->addWidget(zzSectionTitle(QStringLiteral("Calendar"), container));
+    calendar = new ZzFluentUI::ZzCalendar(container);
+    calendar->setAccessibleName(QStringLiteral("Release calendar"));
+    calendar->setLocale(QLocale::c());
+    calendar->setFirstDayOfWeek(Qt::Monday);
+    calendar->setDateRange(QDate(2026, 1, 1), QDate(2026, 12, 31));
+    calendar->setSelectedDate(QDate(2026, 8, 5));
+    calendar->setFixedHeight(230);
+    layout->addWidget(calendar);
+    if (datePicker != nullptr) {
+        QObject::connect(
+            datePicker,
+            &QDateEdit::dateChanged,
+            calendar,
+            &QCalendarWidget::setSelectedDate);
+        QObject::connect(
+            calendar,
+            &QCalendarWidget::selectionChanged,
+            datePicker,
+            [this] {
+                if (calendar != nullptr && datePicker != nullptr) {
+                    datePicker->setDate(calendar->selectedDate());
+                }
+            });
+    }
 
     layout->addWidget(zzSectionTitle(QStringLiteral("Tree"), container));
     treeModel = new QStandardItemModel(container);
@@ -352,7 +389,7 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
     tree->header()->hide();
     tree->expandAll();
     tree->setCurrentIndex(workspace->index());
-    tree->setMinimumHeight(220);
+    tree->setMinimumHeight(150);
     layout->addWidget(tree, 1);
 
     auto *commandRow = new QHBoxLayout;

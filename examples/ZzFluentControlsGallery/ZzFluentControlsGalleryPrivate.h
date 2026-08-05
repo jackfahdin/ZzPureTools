@@ -9,6 +9,8 @@ class QWidget;
 
 namespace ZzFluentUI {
 
+class ZzCalendar;
+class ZzCalendarPicker;
 class ZzThemeController;
 
 } // namespace ZzFluentUI
@@ -47,6 +49,8 @@ public:
     QStandardItemModel *listModel = nullptr;
     QStandardItemModel *tableModel = nullptr;
     QStandardItemModel *treeModel = nullptr;
+    ZzFluentUI::ZzCalendarPicker *datePicker = nullptr;
+    ZzFluentUI::ZzCalendar *calendar = nullptr;
 };
 
 } // namespace ZzExamples

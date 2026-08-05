@@ -11,6 +11,8 @@
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
+#include <ZzFluentUI/ZzCalendar.h>
+#include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
@@ -211,6 +213,45 @@ private Q_SLOTS:
             QVERIFY(interface != nullptr);
             QCOMPARE(interface->role(), QAccessible::Button);
         }
+    }
+
+    void exposesCalendarSemanticsAndKeyboardNavigation()
+    {
+        QWidget window;
+        auto *layout = new QVBoxLayout(&window);
+        auto *picker = new ZzFluentUI::ZzCalendarPicker(&window);
+        auto *calendar = new ZzFluentUI::ZzCalendar(&window);
+        const QDate selectedDate(2026, 8, 5);
+        picker->setAccessibleName(QStringLiteral("Project due date"));
+        picker->setDate(selectedDate);
+        calendar->setAccessibleName(QStringLiteral("Project calendar"));
+        calendar->setSelectedDate(selectedDate);
+        layout->addWidget(picker);
+        layout->addWidget(calendar);
+        window.show();
+        calendar->setFocus(Qt::TabFocusReason);
+        QCoreApplication::processEvents();
+
+        QAccessibleInterface *pickerInterface = zzAccessible(picker);
+        QAccessibleInterface *calendarInterface = zzAccessible(calendar);
+        QVERIFY(pickerInterface != nullptr);
+        QVERIFY(calendarInterface != nullptr);
+        QCOMPARE(
+            pickerInterface->text(QAccessible::Name),
+            QStringLiteral("Project due date"));
+        QCOMPARE(
+            calendarInterface->text(QAccessible::Name),
+            QStringLiteral("Project calendar"));
+        QCOMPARE(picker->focusPolicy(), Qt::StrongFocus);
+        QVERIFY(calendarInterface->childCount() > 0);
+
+        QWidget *focusTarget = QApplication::focusWidget();
+        QVERIFY(focusTarget != nullptr);
+        if (focusTarget == nullptr) {
+            return;
+        }
+        QTest::keyClick(focusTarget, Qt::Key_Right);
+        QCOMPARE(calendar->selectedDate(), selectedDate.addDays(1));
     }
 };
 
