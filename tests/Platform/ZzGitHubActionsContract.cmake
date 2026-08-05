@@ -25,7 +25,6 @@ set(required_tokens
     "macos-15-intel"
     "QT_VERSION: '6.8.3'"
     "QT_QPA_PLATFORM: offscreen"
-    "modules: qtsvg qttools"
     "actions/checkout@11d5960a326750d5838078e36cf38b85af677262"
     "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1"
     "jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730"
@@ -88,5 +87,14 @@ foreach(forbidden_token IN LISTS forbidden_tokens)
             "GitHub Actions workflow contains forbidden token: ${forbidden_token}")
     endif()
 endforeach()
+
+string(REGEX MATCH
+    "modules:[^\r\n]*(qtsvg|qttools)"
+    base_component_module_declaration
+    "${workflow}")
+if(NOT base_component_module_declaration STREQUAL "")
+    message(FATAL_ERROR
+        "QtSvg and QtTools belong to the desktop base kit, not aqt modules")
+endif()
 
 message(STATUS "GitHub Actions workflow contract passed")

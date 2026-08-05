@@ -25,7 +25,7 @@
 
 ## GitHub 托管 CI 状态
 
-`.github/workflows/ci.yml` 已建立 Ubuntu 24.04、Windows Server 2022 MSVC/Qt MinGW、macOS 15 arm64/x86_64 矩阵。当前仓库尚未产生 GitHub Actions 运行 URL，因此状态为“待首次运行”，下方平台行继续保持“未执行”。工作流通过后先记录为 GitHub 托管兼容证据；Windows Server 2022 不替代 Windows 10/11，Ubuntu offscreen 不替代 KDE/GNOME X11/Wayland，只有 OS、架构和 ABI 完全匹配的原生日志才能把对应行提升为“静态验证通过”。详细边界和日志处理见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+`.github/workflows/ci.yml` 已在 GitHub 上启动 Ubuntu 24.04、Windows Server 2022 MSVC/Qt MinGW、macOS 15 arm64/x86_64 矩阵。前两次运行分别暴露了配置契约和 Qt 安装参数问题，目前还没有同一提交的完整成功矩阵，所以下方平台行继续保持“未执行”。工作流通过后先记录为 GitHub 托管兼容证据；Windows Server 2022 不替代 Windows 10/11，Ubuntu offscreen 不替代 KDE/GNOME X11/Wayland，只有 OS、架构和 ABI 完全匹配的原生日志才能把对应行提升为“静态验证通过”。详细边界和日志处理见 `docs/development/GITHUB_ACTIONS_ZH.md`。
 
 ## Windows 矩阵
 

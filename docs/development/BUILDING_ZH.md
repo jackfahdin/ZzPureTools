@@ -171,7 +171,7 @@ pwsh -NoProfile -File scripts/ci/run-windows-gates.ps1
 
 ## GitHub Actions CI
 
-`.github/workflows/ci.yml` 使用固定版本的 Ubuntu、Windows、macOS arm64 和 macOS Intel runner 执行跨平台矩阵。它复用本文件定义的 CMake Preset，但不执行本机性能基线、不创建发布包，也不替代真机验收。工作流结构、Action 固定摘要、ABI 隔离方法和首次运行处理流程见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+`.github/workflows/ci.yml` 使用固定版本的 Ubuntu、Windows、macOS arm64 和 macOS Intel runner 执行跨平台矩阵。它复用本文件定义的 CMake Preset，但不执行本机性能基线、不创建发布包，也不替代真机验收。工作流结构、Action 固定摘要、ABI 隔离方法和远端运行处理流程见 `docs/development/GITHUB_ACTIONS_ZH.md`。
 
 上传 GitHub 前可在任意具备 CMake 3.23+ 的环境运行静态契约：
 

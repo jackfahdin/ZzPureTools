@@ -105,7 +105,6 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          modules: qtsvg qttools
           cache: true
           install-deps: false
 
@@ -163,7 +162,6 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2022_64
-          modules: qtsvg qttools
           cache: true
 
       - name: Enter Visual Studio 2022 x64 environment
@@ -234,7 +232,6 @@ jobs:
           host: windows
           target: desktop
           arch: win64_mingw
-          modules: qtsvg qttools
           tools: >-
             tools_mingw1310,qt.tools.win64_mingw1310
             tools_ninja,qt.tools.ninja
@@ -320,7 +317,6 @@ jobs:
           host: mac
           target: desktop
           arch: clang_64
-          modules: qtsvg qttools
           cache: true
 
       - name: Register native macOS toolchain
