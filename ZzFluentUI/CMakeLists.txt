@@ -51,6 +51,8 @@ set(zz_fluent_ui_sources
     widgets/src/ZzDoubleSpinBox.cpp
     widgets/src/ZzSuggestBox.cpp
     widgets/src/private/ZzSuggestBoxPrivate.cpp
+    widgets/src/ZzMultiSelectComboBox.cpp
+    widgets/src/private/ZzMultiSelectComboBoxPrivate.cpp
     widgets/src/ZzMessageBar.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
     widgets/src/ZzCalendar.cpp
@@ -86,6 +88,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzSpinBox.h
     widgets/include/ZzFluentUI/ZzDoubleSpinBox.h
     widgets/include/ZzFluentUI/ZzSuggestBox.h
+    widgets/include/ZzFluentUI/ZzMultiSelectComboBox.h
     widgets/include/ZzFluentUI/ZzMessageBar.h
     widgets/include/ZzFluentUI/ZzCalendar.h
     widgets/include/ZzFluentUI/ZzCalendarPicker.h
