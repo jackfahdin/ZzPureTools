@@ -37,6 +37,7 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
@@ -47,6 +48,7 @@
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTableView>
+#include <QtWidgets/QTextBrowser>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QTreeView>
@@ -1578,6 +1580,229 @@ private:
     QPointer<ZzFluentUI::ZzScrollArea> area;
 };
 
+/** @brief 保存标准文本输入截图中文字遮罩及控件覆盖数量。 */
+struct ZzTextInputTextMask final
+{
+    QImage image;
+    int lineEdits = 0;
+    int textEdits = 0;
+    int plainTextEdits = 0;
+};
+
+/** @brief 构造只包含标准文本输入关键视觉状态的确定性截图面。 */
+class ZzTextInputScreenshotSurface final
+{
+public:
+    /** @brief 创建编辑器类型、方向、文本和交互状态的固定矩阵。 */
+    ZzTextInputScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzTextInputScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Text Inputs"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(70, 54, 70, 54);
+        grid->setHorizontalSpacing(58);
+        grid->setVerticalSpacing(54);
+
+        const auto addLine = [this, grid](
+                                 int row,
+                                 int column,
+                                 const QString &text) {
+            auto *editor = new QLineEdit(&window);
+            editor->setText(text);
+            editor->setFixedSize(300, 48);
+            grid->addWidget(editor, row, column);
+            return editor;
+        };
+
+        addLine(0, 0, QStringLiteral("Workspace"));
+        auto *placeholder = addLine(0, 1, {});
+        placeholder->setPlaceholderText(QStringLiteral("Search settings"));
+        auto *password = addLine(0, 2, QStringLiteral("Fluent-2026"));
+        password->setEchoMode(QLineEdit::Password);
+
+        auto *clearAction = addLine(1, 0, QStringLiteral("Clear action"));
+        clearAction->setClearButtonEnabled(true);
+        auto *rtl = addLine(1, 1, QStringLiteral("RTL input"));
+        rtl->setLayoutDirection(Qt::RightToLeft);
+        rtl->setAlignment(Qt::AlignRight);
+        auto *readOnly = addLine(1, 2, QStringLiteral("Read-only value"));
+        readOnly->setReadOnly(true);
+
+        focusEditor = addLine(2, 0, QStringLiteral("Focused text"));
+        focusEditor->selectAll();
+        hoverEditor = addLine(2, 1, QStringLiteral("Hovered text"));
+        auto *disabled = addLine(2, 2, QStringLiteral("Disabled value"));
+        disabled->setEnabled(false);
+
+        auto *rich = new QTextEdit(&window);
+        rich->setHtml(QStringLiteral(
+            "<b>Rich text</b><br>Selection and formatting"));
+        rich->setFixedSize(300, 104);
+        grid->addWidget(rich, 3, 0);
+        auto *plain = new QPlainTextEdit(&window);
+        plain->setPlainText(QStringLiteral(
+            "Plain text\nLarge-document editor"));
+        plain->setFixedSize(300, 104);
+        grid->addWidget(plain, 3, 1);
+        auto *browser = new QTextBrowser(&window);
+        browser->setPlainText(QStringLiteral(
+            "Read-only browser\nLink-ready content"));
+        browser->setFixedSize(300, 104);
+        grid->addWidget(browser, 3, 2);
+    }
+
+    /** @brief 展示画面并通过真实事件固定 focus 与 hover 状态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (focusEditor != nullptr) {
+            focusEditor->setFocus(Qt::TabFocusReason);
+            focusEditor->selectAll();
+        }
+        if (hoverEditor != nullptr) {
+            hoverEditor->setAttribute(Qt::WA_UnderMouse, true);
+            const QPoint center = hoverEditor->rect().center();
+            const QPoint globalCenter = hoverEditor->mapToGlobal(center);
+            QEnterEvent enter{
+                QPointF(center),
+                QPointF(center),
+                QPointF(globalCenter)};
+            QCoreApplication::sendEvent(hoverEditor, &enter);
+            QMouseEvent move(
+                QEvent::MouseMove,
+                QPointF(center),
+                QPointF(globalCenter),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(hoverEditor, &move);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回 clear action 是否由 Qt 原生编辑器创建。 */
+    [[nodiscard]] bool hasNativeClearAction() const
+    {
+        const auto lineEdits = window.findChildren<QLineEdit *>();
+        return std::any_of(
+            lineEdits.cbegin(),
+            lineEdits.cend(),
+            [](const QLineEdit *editor) {
+                return !editor->findChildren<QAbstractButton *>().isEmpty();
+            });
+    }
+
+    /** @brief 隐藏标准文本输入截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    QPointer<QLineEdit> focusEditor;
+    QPointer<QLineEdit> hoverEditor;
+};
+
+/** @brief 为独立标准文本输入画面精确遮罩编辑器文字。 */
+ZzTextInputTextMask zzBuildTextInputTextMask(QWidget *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzTextInputTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    const auto lineEdits = surface->findChildren<QLineEdit *>();
+    for (QLineEdit *lineEdit : lineEdits) {
+        if (!lineEdit->isVisible()) {
+            continue;
+        }
+        ++result.lineEdits;
+        const QString text = lineEdit->text().isEmpty()
+            ? lineEdit->placeholderText()
+            : lineEdit->displayText();
+        if (text.isEmpty()) {
+            continue;
+        }
+        QStyleOptionFrame option;
+        option.initFrom(lineEdit);
+        const QRect contents = lineEdit->style()->subElementRect(
+            QStyle::SE_LineEditContents,
+            &option,
+            lineEdit);
+        const QRect textRect = zzAlignedTextRect(
+            lineEdit,
+            contents.adjusted(2, 0, -2, 0),
+            static_cast<int>(lineEdit->alignment() | Qt::AlignVCenter),
+            text);
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(lineEdit, textRect, surface));
+    }
+
+    const auto textEdits = surface->findChildren<QTextEdit *>();
+    for (QTextEdit *textEdit : textEdits) {
+        if (!textEdit->isVisible() || textEdit->viewport() == nullptr) {
+            continue;
+        }
+        ++result.textEdits;
+        if (textEdit->toPlainText().isEmpty()) {
+            continue;
+        }
+        const QRect bounds = textEdit->viewport()->rect().adjusted(
+            4,
+            4,
+            -4,
+            -4);
+        const QRect textRect = zzAlignedTextRect(
+            textEdit,
+            bounds,
+            Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+            textEdit->toPlainText());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(textEdit->viewport(), textRect, surface));
+    }
+
+    const auto plainTextEdits = surface->findChildren<QPlainTextEdit *>();
+    for (QPlainTextEdit *textEdit : plainTextEdits) {
+        if (!textEdit->isVisible() || textEdit->viewport() == nullptr) {
+            continue;
+        }
+        ++result.plainTextEdits;
+        if (textEdit->toPlainText().isEmpty()) {
+            continue;
+        }
+        const QRect bounds = textEdit->viewport()->rect().adjusted(
+            4,
+            4,
+            -4,
+            -4);
+        const QRect textRect = zzAlignedTextRect(
+            textEdit,
+            bounds,
+            Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+            textEdit->toPlainText());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(textEdit->viewport(), textRect, surface));
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 保存数值输入截图中文字遮罩及控件覆盖数量。 */
 struct ZzSpinBoxTextMask final
 {
@@ -1893,6 +2118,23 @@ QImage zzRenderProgressRingSurface(
 /** @brief 将独立滚动控件窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderScrollControlsSurface(
     ZzScrollControlsScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将独立标准文本输入窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderTextInputSurface(
+    ZzTextInputScreenshotSurface *surface,
     qreal dpr)
 {
     const QSize physicalSize(
@@ -2512,6 +2754,105 @@ private Q_SLOTS:
         QTest::newRow("spin-box-controls-high-contrast")
             << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
             << QStringLiteral("spin-box-controls-high-contrast");
+    }
+
+    void rendersTextInputThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("text-input-controls-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("text-input-controls-light");
+        QTest::newRow("text-input-controls-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("text-input-controls-dark");
+        QTest::newRow("text-input-controls-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("text-input-controls-high-contrast");
+    }
+
+    void rendersTextInputThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzTextInputScreenshotSurface surface;
+        surface.polish();
+        QVERIFY(surface.hasNativeClearAction());
+        const QImage actual = zzRenderTextInputSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzTextInputTextMask mask = zzBuildTextInputTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.lineEdits, 9);
+        QCOMPARE(mask.textEdits, 2);
+        QCOMPARE(mask.plainTextEdits, 1);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 文本输入非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
     }
 
     void rendersSpinBoxThemes()
