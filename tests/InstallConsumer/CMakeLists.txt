@@ -19,6 +19,8 @@ set(zz_installed_header_specs
     "Zz::FluentUI|ZzFluentUI/ZzCalendar.h"
     "Zz::FluentUI|ZzFluentUI/ZzCalendarPicker.h"
     "Zz::FluentUI|ZzFluentUI/ZzProgressRing.h"
+    "Zz::FluentUI|ZzFluentUI/ZzScrollArea.h"
+    "Zz::FluentUI|ZzFluentUI/ZzScrollBar.h"
     "Zz::FluentUI|ZzFluentUI/ZzTabBar.h"
     "Zz::FluentUI|ZzFluentUI/ZzTabWidget.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreVersion.h"

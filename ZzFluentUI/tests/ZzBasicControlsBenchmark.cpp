@@ -29,6 +29,7 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -737,6 +738,144 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机环形进度 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresScrollBarRenderingAndStability()
+    {
+        constexpr int scrollBarCount = 100;
+        constexpr int columnCount = 10;
+        constexpr int cellWidth = 88;
+        constexpr int cellHeight = 20;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<ZzFluentUI::ZzScrollBar *> scrollBars;
+        scrollBars.reserve(scrollBarCount);
+
+        for (int index = 0; index < scrollBarCount; ++index) {
+            auto *scrollBar = new ZzFluentUI::ZzScrollBar(
+                Qt::Horizontal,
+                &host);
+            scrollBar->setGeometry(
+                (index % columnCount) * cellWidth,
+                (index / columnCount) * cellHeight,
+                cellWidth - 8,
+                12);
+            scrollBar->setRange(0, 1000 + index);
+            scrollBar->setPageStep(20 + (index % 61));
+            scrollBar->setValue((index * 37) % 1001);
+            scrollBars.push_back(scrollBar);
+        }
+
+        host.resize(
+            columnCount * cellWidth,
+            (scrollBarCount / columnCount) * cellHeight);
+        host.show();
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        QCOMPARE(initialAnimations, scrollBarCount);
+        QCOMPARE(initialTimers, 0);
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            for (int index = 0; index < scrollBarCount; ++index) {
+                scrollBars[static_cast<std::size_t>(index)]->setValue(
+                    (sequence * 13 + index * 37) % 1001);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            for (int index = 0; index < scrollBarCount; ++index) {
+                auto *scrollBar = scrollBars[static_cast<std::size_t>(index)];
+                const int maximum = 100 + ((round + index) % 1000);
+                scrollBar->setRange(0, maximum);
+                scrollBar->setValue((round * 7 + index) % (maximum + 1));
+                scrollBar->setOrientation(
+                    ((round + index) % 2) == 0
+                        ? Qt::Horizontal
+                        : Qt::Vertical);
+                zzSendHoverCycle(scrollBar);
+            }
+        }
+        for (ZzFluentUI::ZzScrollBar *scrollBar : scrollBars) {
+            scrollBar->setOrientation(Qt::Horizontal);
+        }
+
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        const auto runningAnimationCount = [&host] {
+            const auto animations =
+                host.findChildren<QAbstractAnimation *>();
+            return std::count_if(
+                animations.cbegin(),
+                animations.cend(),
+                [](const QAbstractAnimation *animation) {
+                    return animation->state()
+                        == QAbstractAnimation::Running;
+                });
+        };
+        for (ZzFluentUI::ZzScrollBar *scrollBar : scrollBars) {
+            QEnterEvent enter(
+                QPointF(1.0, 1.0),
+                QPointF(1.0, 1.0),
+                QPointF(1.0, 1.0));
+            QCoreApplication::sendEvent(scrollBar, &enter);
+        }
+        host.hide();
+        QCOMPARE(runningAnimationCount(), 0);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-scroll-bars controls=100 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机滚动条 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }

@@ -6,6 +6,8 @@
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzScrollArea.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 
@@ -22,6 +24,7 @@ int main(int argc, char *argv[])
         QStringLiteral("Open preview"));
     ZzFluentUI::ZzProgressRing progressRing;
     ZzFluentUI::ZzProgressRing busyRing;
+    ZzFluentUI::ZzScrollArea scrollArea;
     ZzFluentUI::ZzTabWidget sourceTabs;
     ZzFluentUI::ZzTabWidget targetTabs;
     QWidget *tabPage = new QWidget;
@@ -33,6 +36,18 @@ int main(int argc, char *argv[])
     progressRing.setValue(70);
     progressRing.setRingWidth(6);
     busyRing.setRange(0, 0);
+    ZzFluentUI::ZzScrollBar *horizontalScrollBar =
+        scrollArea.fluentHorizontalScrollBar();
+    ZzFluentUI::ZzScrollBar *verticalScrollBar =
+        scrollArea.fluentVerticalScrollBar();
+    if (horizontalScrollBar == nullptr || verticalScrollBar == nullptr) {
+        return 1;
+    }
+    horizontalScrollBar->setRange(10, 110);
+    horizontalScrollBar->setValue(60);
+    verticalScrollBar->setRange(20, 220);
+    verticalScrollBar->setPageStep(40);
+    verticalScrollBar->setValue(120);
 
     if (calendar.selectedDate() != expectedDate
         || picker.date() != expectedDate
@@ -46,6 +61,15 @@ int main(int argc, char *argv[])
         || progressRing.ringWidth() != 6
         || busyRing.minimum() != 0
         || busyRing.maximum() != 0
+        || horizontalScrollBar->orientation() != Qt::Horizontal
+        || horizontalScrollBar->minimum() != 10
+        || horizontalScrollBar->maximum() != 110
+        || horizontalScrollBar->value() != 60
+        || verticalScrollBar->orientation() != Qt::Vertical
+        || verticalScrollBar->minimum() != 20
+        || verticalScrollBar->maximum() != 220
+        || verticalScrollBar->pageStep() != 40
+        || verticalScrollBar->value() != 120
         || sourceTabs.fluentTabBar() == nullptr
         || !sourceTabs.transferTabTo(&targetTabs, 0)
         || sourceTabs.count() != 0

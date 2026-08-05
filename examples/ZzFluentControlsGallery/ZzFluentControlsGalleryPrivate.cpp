@@ -25,7 +25,6 @@
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
-#include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSplitter>
 #include <QtWidgets/QTableView>
@@ -49,6 +48,8 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzScrollArea.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
@@ -202,9 +203,8 @@ ZzFluentControlsGalleryPrivate::ZzFluentControlsGalleryPrivate(
 
     buildThemeSelector(rootLayout);
 
-    auto *scrollArea = new QScrollArea(q_ptr);
+    auto *scrollArea = new ZzFluentUI::ZzScrollArea(q_ptr);
     scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
     auto *content = new QWidget(scrollArea);
     content->setMinimumSize(1120, 980);
     auto *contentLayout = new QHBoxLayout(content);
@@ -387,6 +387,63 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     progress->setValue(68);
     progress->setFormat(QStringLiteral("68% complete"));
     layout->addWidget(progress);
+
+    layout->addWidget(zzSectionTitle(QStringLiteral("Scrolling"), container));
+    auto *scrollRow = new QHBoxLayout;
+    scrollRow->setContentsMargins(0, 0, 0, 0);
+    scrollRow->setSpacing(12);
+    auto *horizontalBars = new QVBoxLayout;
+    horizontalBars->setContentsMargins(0, 0, 0, 0);
+    horizontalBars->setSpacing(10);
+
+    auto *horizontal = new ZzFluentUI::ZzScrollBar(
+        Qt::Horizontal,
+        container);
+    horizontal->setRange(0, 100);
+    horizontal->setPageStep(12);
+    horizontal->setValue(36);
+    horizontal->setFixedHeight(12);
+    horizontalBars->addWidget(horizontal);
+
+    auto *rightToLeft = new ZzFluentUI::ZzScrollBar(
+        Qt::Horizontal,
+        container);
+    rightToLeft->setLayoutDirection(Qt::RightToLeft);
+    rightToLeft->setRange(0, 100);
+    rightToLeft->setPageStep(42);
+    rightToLeft->setValue(68);
+    rightToLeft->setFixedHeight(12);
+    horizontalBars->addWidget(rightToLeft);
+
+    auto *disabled = new ZzFluentUI::ZzScrollBar(
+        Qt::Horizontal,
+        container);
+    disabled->setRange(0, 100);
+    disabled->setPageStep(24);
+    disabled->setValue(52);
+    disabled->setEnabled(false);
+    disabled->setFixedHeight(12);
+    horizontalBars->addWidget(disabled);
+    scrollRow->addLayout(horizontalBars, 1);
+
+    auto *shortVertical = new ZzFluentUI::ZzScrollBar(
+        Qt::Vertical,
+        container);
+    shortVertical->setRange(0, 100);
+    shortVertical->setPageStep(8);
+    shortVertical->setValue(24);
+    shortVertical->setFixedSize(12, 92);
+    scrollRow->addWidget(shortVertical);
+
+    auto *longVertical = new ZzFluentUI::ZzScrollBar(
+        Qt::Vertical,
+        container);
+    longVertical->setRange(0, 100);
+    longVertical->setPageStep(55);
+    longVertical->setValue(64);
+    longVertical->setFixedSize(12, 92);
+    scrollRow->addWidget(longVertical);
+    layout->addLayout(scrollRow);
 
     auto *ringRow = new QHBoxLayout;
     ringRow->setContentsMargins(0, 0, 0, 0);
