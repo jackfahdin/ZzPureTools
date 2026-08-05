@@ -39,6 +39,8 @@
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzRoller.h>
+#include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
@@ -59,6 +61,8 @@ constexpr int zzMaximumIconCacheBytes = 4 * 1024 * 1024;
 constexpr qreal zzReferenceP95Milliseconds = 16.7;
 constexpr qreal zzSuggestFilterReferenceMilliseconds = 50.0;
 constexpr qreal zzMultiSelectReferenceMilliseconds = 60.0;
+constexpr qreal zzRollerComplexityRatio = 2.0;
+constexpr qreal zzRollerPickerReferenceMilliseconds = 75.0;
 
 /** @brief 记录 10 万行即时模型的批量数据访问范围与调用数量。 */
 class ZzBenchmarkRowsModel final : public QAbstractListModel
@@ -1853,6 +1857,247 @@ private Q_SLOTS:
                 qPrintable(QStringLiteral(
                     "参考机100x10000条多选操作耗时 %1 ms 超过60 ms预算")
                                .arg(selectionMilliseconds, 0, 'f', 3)));
+        }
+    }
+
+    void measuresRollerRenderingComplexityAndTransactions()
+    {
+        constexpr int rollerCount = 100;
+        constexpr int rollerItemCount = 10000;
+        constexpr int columnCount = 10;
+        constexpr int stateChangeRounds = 1000;
+        constexpr int complexityRounds = 1000;
+        constexpr int pickerCount = 20;
+        constexpr int pickerTransactionRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+
+        QStringList largeItems;
+        largeItems.reserve(rollerItemCount);
+        for (int item = 0; item < rollerItemCount; ++item) {
+            largeItems.append(QStringLiteral("Roller item %1").arg(item));
+        }
+        std::vector<ZzFluentUI::ZzRoller *> rollers;
+        rollers.reserve(rollerCount);
+        for (int index = 0; index < rollerCount; ++index) {
+            auto *roller = new ZzFluentUI::ZzRoller(&host);
+            roller->setStyle(&style);
+            roller->setItems(largeItems);
+            roller->setCurrentIndex((index * 97) % rollerItemCount);
+            roller->setGeometry(
+                (index % columnCount) * 144,
+                (index / columnCount) * 180,
+                136,
+                180);
+            rollers.push_back(roller);
+        }
+        host.resize(columnCount * 144, 10 * 180);
+        host.show();
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        QCOMPARE(initialAnimations, 0);
+        QCOMPARE(initialTimers, 0);
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            ZzFluentUI::ZzRoller *changed = rollers.at(
+                static_cast<std::size_t>(sequence % rollerCount));
+            changed->setCurrentIndex(
+                (sequence * 83) % rollerItemCount);
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        const QFont baseFont = host.font();
+        QFont alternateFont = baseFont;
+        alternateFont.setBold(!baseFont.bold());
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            ZzFluentUI::ZzRoller *roller = rollers.at(
+                static_cast<std::size_t>(round % rollerCount));
+            roller->setCurrentIndex((round * 71) % rollerItemCount);
+            roller->setWrapping((round % 2) == 0);
+            roller->setLayoutDirection(
+                (round % 2) == 0
+                    ? Qt::LeftToRight
+                    : Qt::RightToLeft);
+            roller->setEnabled((round % 3) != 0);
+            if ((round % 100) == 0) {
+                roller->setFont(alternateFont);
+                roller->setFont(baseFont);
+            }
+        }
+        for (ZzFluentUI::ZzRoller *roller : rollers) {
+            roller->setEnabled(true);
+            roller->setLayoutDirection(Qt::LeftToRight);
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        ZzFluentUI::ZzRoller small;
+        ZzFluentUI::ZzRoller large;
+        small.setStyle(&style);
+        large.setStyle(&style);
+        small.setItems(largeItems.sliced(0, 20));
+        large.setItems(largeItems);
+        small.setCurrentIndex(10);
+        large.setCurrentIndex(5000);
+        small.resize(160, 180);
+        large.resize(160, 180);
+        QImage complexityTarget(
+            QSize(160, 180),
+            QImage::Format_ARGB32_Premultiplied);
+        const auto renderRepeated = [&complexityTarget](
+                                        ZzFluentUI::ZzRoller *roller) {
+            for (int warmup = 0; warmup < 100; ++warmup) {
+                complexityTarget.fill(Qt::transparent);
+                QPainter painter(&complexityTarget);
+                roller->render(&painter);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            for (int round = 0; round < complexityRounds; ++round) {
+                complexityTarget.fill(Qt::transparent);
+                QPainter painter(&complexityTarget);
+                roller->render(&painter);
+            }
+            return timer.nsecsElapsed();
+        };
+        const qint64 smallPaintNanoseconds = renderRepeated(&small);
+        const qint64 largePaintNanoseconds = renderRepeated(&large);
+        const qreal complexityRatio =
+            static_cast<qreal>(largePaintNanoseconds)
+            / static_cast<qreal>(std::max<qint64>(
+                1,
+                smallPaintNanoseconds));
+        QVERIFY2(
+            complexityRatio <= zzRollerComplexityRatio,
+            qPrintable(QStringLiteral(
+                "万项Roller绘制耗时比 %1 超过固定可见行预算2.0")
+                           .arg(complexityRatio, 0, 'f', 3)));
+
+        QWidget pickerHost;
+        pickerHost.setStyle(&style);
+        pickerHost.setPalette(style.standardPalette());
+        std::vector<ZzFluentUI::ZzRollerPicker *> pickers;
+        pickers.reserve(pickerCount);
+        const QStringList pickerItems = largeItems.sliced(0, 20);
+        for (int index = 0; index < pickerCount; ++index) {
+            auto *picker = new ZzFluentUI::ZzRollerPicker(&pickerHost);
+            picker->setStyle(&style);
+            picker->setColumns({
+                {QStringLiteral("first"), pickerItems,
+                 index % 20, true, 96},
+                {QStringLiteral("second"), pickerItems,
+                 (index + 1) % 20, false, 96},
+                {QStringLiteral("third"), pickerItems,
+                 (index + 2) % 20, true, 96}});
+            picker->setGeometry(
+                (index % 5) * 220,
+                (index / 5) * 40,
+                212,
+                32);
+            pickers.push_back(picker);
+        }
+        pickerHost.resize(1100, 160);
+        pickerHost.show();
+        for (ZzFluentUI::ZzRollerPicker *picker : pickers) {
+            picker->showPopup();
+            picker->cancelPopup();
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        const qsizetype pickerDescendants =
+            pickerHost.findChildren<QObject *>().size();
+        const qsizetype pickerAnimations =
+            pickerHost.findChildren<QAbstractAnimation *>().size();
+        const qsizetype pickerTimers =
+            pickerHost.findChildren<QTimer *>().size();
+        QCOMPARE(pickerAnimations, 0);
+        QCOMPARE(pickerTimers, 0);
+
+        QElapsedTimer pickerTimer;
+        pickerTimer.start();
+        for (int round = 0; round < pickerTransactionRounds; ++round) {
+            ZzFluentUI::ZzRollerPicker *picker = pickers.at(
+                static_cast<std::size_t>(round % pickerCount));
+            picker->showPopup();
+            picker->setCurrentIndexes({
+                round % 20,
+                (round * 3) % 20,
+                (round * 7) % 20});
+            if ((round % 2) == 0) {
+                picker->acceptPopup();
+            } else {
+                picker->cancelPopup();
+            }
+        }
+        const qreal pickerMilliseconds =
+            static_cast<qreal>(pickerTimer.nsecsElapsed()) / 1000000.0;
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        QCOMPARE(pickerHost.findChildren<QObject *>().size(),
+                 pickerDescendants);
+        QCOMPARE(pickerHost.findChildren<QAbstractAnimation *>().size(),
+                 pickerAnimations);
+        QCOMPARE(pickerHost.findChildren<QTimer *>().size(), pickerTimers);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-roller controls=100 items=10000 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6 paint-ratio=%7 "
+                   "picker-1000x20=%8 ms picker-descendants=%9")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers)
+                   .arg(complexityRatio, 0, 'f', 3)
+                   .arg(pickerMilliseconds, 0, 'f', 3)
+                   .arg(pickerDescendants);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机滚轮 P95 %1 ms 超过16.7 ms帧预算")
+                               .arg(p95, 0, 'f', 3)));
+            QVERIFY2(
+                pickerMilliseconds
+                    <= zzRollerPickerReferenceMilliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机1000次Picker事务耗时 %1 ms 超过75 ms预算")
+                               .arg(pickerMilliseconds, 0, 'f', 3)));
         }
     }
 
