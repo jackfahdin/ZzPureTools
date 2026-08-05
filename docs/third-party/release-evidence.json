@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "review": {
+    "reviewer": null,
+    "reviewedAt": null
+  },
+  "releaseBlockers": [
+    {
+      "id": "qwindowkit.upstream-provenance",
+      "reason": "Exact upstream commit and source archive are not verified"
+    },
+    {
+      "id": "qmsetup.windeployqt-5.15.2-derived-work",
+      "reason": "Derived-work source and redistribution review are not verified"
+    },
+    {
+      "id": "project.license",
+      "reason": "The project license and owner approval are not present"
+    }
+  ],
+  "evidence": {
+    "qwindowkit": {
+      "upstreamCommit": null,
+      "sourceArchive": null,
+      "provenanceReview": null
+    },
+    "windeployqtDerivedWork": {
+      "upstreamProject": "Qt",
+      "upstreamVersion": "5.15.2",
+      "upstreamFile": "qttools/src/windeployqt/utils.cpp",
+      "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp",
+      "upstreamSource": null,
+      "upstreamLicense": null,
+      "localSourceSha256": null,
+      "redistributionConclusion": null,
+      "reviewRecord": null
+    },
+    "projectLicense": {
+      "spdxExpression": null,
+      "licenseFile": null,
+      "approvalRecord": null
+    }
+  }
+}

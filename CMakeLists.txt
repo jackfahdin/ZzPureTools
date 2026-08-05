@@ -22,6 +22,7 @@ option(ZZ_ENABLE_MSVC_ANALYZE
 option(ZZ_WARNINGS_AS_ERRORS "Treat first-party warnings as errors" OFF)
 option(ZZ_ENABLE_LTO "Enable interprocedural optimization" OFF)
 option(ZZ_BUILD_FLUENT_QUICK "Build the future Qt Quick frontend" OFF)
+option(ZZ_RELEASE_BUILD "Enable verified release packaging" OFF)
 option(ZZ_BUNDLE_GNU_RUNTIME
     "Bundle the selected GNU C++ runtime in Linux release packages"
     OFF)
@@ -29,6 +30,10 @@ set(ZZ_GNU_RUNTIME_LICENSE_DIR "" CACHE PATH
     "Directory containing COPYING3 and COPYING.RUNTIME for GNU runtime bundling")
 set(ZZ_QT_PREFIX "" CACHE PATH
     "Exact Qt SDK prefix recorded by platform and release gates")
+set(ZZ_RELEASE_EVIDENCE_ROOT "" CACHE PATH
+    "Directory containing external reviewed release evidence")
+set(ZZ_RELEASE_FORCED_BLOCKERS "" CACHE STRING
+    "Additional fail-only blocker ids used by release contract tests")
 option(
     ZZ_WINDOWKIT_FORCE_QT_CONTEXT
     "Force QWindowKit to use the portable Qt window context"
@@ -114,6 +119,14 @@ if(ZZ_BUNDLE_GNU_RUNTIME)
             set(ZZ_GNU_LIBGCC_PATH "${zz_runtime_real_path}")
         endif()
     endforeach()
+endif()
+
+if(ZZ_RELEASE_BUILD)
+    include(ZzReleaseChecks)
+    zz_verify_release_evidence(
+        SOURCE_ROOT "${PROJECT_SOURCE_DIR}"
+        EVIDENCE_ROOT "${ZZ_RELEASE_EVIDENCE_ROOT}"
+        FORCED_BLOCKERS ${ZZ_RELEASE_FORCED_BLOCKERS})
 endif()
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS

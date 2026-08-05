@@ -183,12 +183,51 @@ function(zz_install_package)
             COMPONENT Runtime)
     endif()
 
-    if(EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
+    if(ZZ_RELEASE_BUILD)
         install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/ZzPureToolsPro"
-            COMPONENT Runtime
-        )
-    else()
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses"
+            RENAME PROJECT-LICENSE
+            COMPONENT Runtime)
+        install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/LICENSE"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/qwindowkit"
+            COMPONENT Runtime)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/LICENSE"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/qwindowkit"
+            RENAME qmsetup-LICENSE
+            COMPONENT Runtime)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/src/syscmdline/LICENSE"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/qwindowkit"
+            RENAME syscmdline-LICENSE
+            COMPONENT Runtime)
+        install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/LICENSE"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/ZzLog"
+            COMPONENT Runtime)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/licenses/spdlog/LICENSE.txt"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/ZzLog"
+            RENAME spdlog-LICENSE.txt
+            COMPONENT Runtime)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/licenses/fmt/LICENSE.txt"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/ZzLog"
+            RENAME fmt-LICENSE.txt
+            COMPONENT Runtime)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/docs/third-party/THIRD_PARTY_NOTICES.md"
+            "${PROJECT_SOURCE_DIR}/docs/third-party/qwindowkit-vendor.json"
+            "${PROJECT_SOURCE_DIR}/docs/third-party/release-evidence.json"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro"
+            COMPONENT Runtime)
+    elseif(NOT EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
         message(STATUS
             "ZzPureToolsPro LICENSE is absent; binary publication remains blocked")
     endif()

@@ -7,6 +7,7 @@
 - 版本：1.5.1.0。
 - 上游：https://github.com/stdware/qwindowkit。
 - 许可证：Apache-2.0。
+- SPDX 结论：`Apache-2.0`；实现脉络中单独保留的 FramelessHelper 通知为 `MIT`。该结论仍受发布证据门禁约束，不替代来源审核。
 - 版权声明：Copyright (C) 2023-present Stdware Collections；Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)。Linux 原生上下文还包含 Copyright (C) 2025-2027 Wing-summer (wingsummer)。
 - 源码证据：`ZzThirdParty/qwindowkit/CMakeLists.txt`、`ZzThirdParty/qwindowkit/LICENSE`、`ZzThirdParty/qwindowkit/src/core/windowagentbase.cpp`、`ZzThirdParty/qwindowkit/src/core/contexts/linuxx11context.cpp`。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/qwindowkit/LICENSE`。
@@ -16,6 +17,7 @@
 
 - 上游：https://github.com/wangwenx190/framelesshelper。
 - 许可证：MIT。
+- SPDX 结论：`MIT`。
 - 版权声明：Copyright (C) 2021-2023 by wangwenx190 (Yuhang Zhao)。
 - 源码证据：`ZzThirdParty/qwindowkit/README.md` 说明实现脉络；`ZzThirdParty/qwindowkit/docs/framelesshelper-related.md` 保存 MIT 许可证正文和版权声明；QWindowKit 当前源码文件标注 Apache-2.0。
 - 发布包通知位置：`share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md`。
@@ -23,7 +25,10 @@
 
 ## qmsetup
 
+- 版本：1.0.0.0。
+- 上游：https://github.com/stdware/qmsetup。
 - 许可证：MIT。
+- SPDX 结论：`MIT`。
 - 版权声明：Copyright (c) Stdware Collections。
 - 源码证据：`ZzThirdParty/qwindowkit/qmsetup/LICENSE`。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/qwindowkit/qmsetup-LICENSE`。
@@ -34,6 +39,7 @@
 - 版本：1.0.0.0。
 - 上游：https://github.com/SineStriker/syscmdline。
 - 许可证：MIT。
+- SPDX 结论：`MIT`。
 - 版权声明：Copyright (c) 2023 SineStriker。
 - 源码证据：`ZzThirdParty/qwindowkit/qmsetup/src/syscmdline/CMakeLists.txt`、`ZzThirdParty/qwindowkit/qmsetup/src/syscmdline/LICENSE`。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/qwindowkit/syscmdline-LICENSE`。
@@ -41,21 +47,23 @@
 
 ## ZzLog、spdlog 与 fmt
 
-- ZzLog：项目内日志封装，发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/LICENSE`。
-- spdlog：来源为 ZzLog 固定的 vendored 源码，许可证为 MIT，发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt`。
-- fmt：来源为 ZzLog 固定的 vendored 源码，许可证为 MIT，发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt`。
-- 版本和源码身份以 `ZzThirdParty/ZzLog/DEPENDENCIES.md` 及对应 vendored 源码为准；正式发布仍须经过 Task 8 的安装许可证审计。
+- ZzLog：版本 0.1.0，项目内日志封装；发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/LICENSE`。
+- spdlog：来源 `https://github.com/gabime/spdlog.git`，导入修订 `d24088deaa441a79267df8ae3dbc567fbe2a5e03`，声明版本 2.0.0（未发布开发分支），SPDX 结论为 `MIT`；发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt`。
+- fmt：来源 `https://github.com/fmtlib/fmt`，版本 12.1.0，源码归档 SHA-256 为 `ea7de4299689e12b6dddd392f9896f08fb0777ac7168897a244a6d6085043fea`，SPDX 结论为 `MIT`；发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt`。
+- 版本和源码身份同时记录于 `ZzThirdParty/ZzLog/DEPENDENCIES.md` 及对应 vendored 源码；正式发布仍须经过安装许可证审计。
 
 ## GNU C++ 运行库
 
 - Linux 发布构建可从经过审核的 Ubuntu 22.04 不可变构建镜像中随包安装 `libstdc++.so.6` 和 `libgcc_s.so.1`。
 - 运行库来源和版本由该镜像内选定的 GCC 13.1+ 编译器 `-print-file-name` 结果确定，禁止从执行检查的宿主系统临时选择。
 - libstdc++ 与 libgcc 适用 GPL-3.0-or-later with GCC Runtime Library Exception；发布包许可证位置为 `share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3` 和 `share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME`。
+- SPDX 结论：`GPL-3.0-or-later WITH GCC-exception-3.1`。
 - 仅 `ZZ_BUNDLE_GNU_RUNTIME=ON` 的 Linux GNU Release shared 包包含上述两个运行库；Ubuntu 22.04 门禁必须验证实际加载的是包内文件。
 
 ## 发布阻塞项
 
 - `qwindowkit.upstream-provenance`：当前 vendor 目录没有可验证的上游 commit，也没有原始归档 SHA-256；发布前必须由来源证据补齐并复核。
 - `qmsetup.windeployqt-5.15.2-derived-work`：发布前必须确认注明派生自 `windeployqt 5.15.2` 的本地代码及其再分发依据。
+- `project.license`：发布前必须提供仓库根 `LICENSE`、明确的 SPDX 表达式和项目所有者批准记录；正式包中的固定位置为 `share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
 
 在上述阻塞项消除、项目许可证落地并通过最终许可证安装审计前，不得把当前构建标记为可发布二进制包。
