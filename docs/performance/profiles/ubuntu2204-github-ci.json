@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "profileId": "ubuntu2204-github-ci",
+  "status": "pending-user-validation",
+  "roles": [
+    "future-linux-ci-reference"
+  ],
+  "host": {
+    "osCompatibilityBaseline": "Ubuntu 22.04",
+    "cpu": null,
+    "physicalCores": null,
+    "logicalCpus": null,
+    "memoryBytes": null,
+    "gpuAndDriver": null,
+    "runnerImageDigest": null
+  },
+  "display": {
+    "qtPlatform": null,
+    "geometry": null,
+    "depth": null,
+    "dpr": null,
+    "refreshRateHz": null
+  },
+  "toolchain": {
+    "qtMinimum": "6.8.0",
+    "gccMinimum": "13.1",
+    "exactQt": null,
+    "exactCompiler": null,
+    "exactLibstdcxx": null
+  },
+  "build": {
+    "preset": "linux-gcc-reference",
+    "buildType": "Release",
+    "shared": true,
+    "lto": true,
+    "sanitizers": "none"
+  },
+  "activationRule": "Only activate after GitHub or replacement-host reports pass all absolute gates and preserve a reviewed immutable runner digest."
+}

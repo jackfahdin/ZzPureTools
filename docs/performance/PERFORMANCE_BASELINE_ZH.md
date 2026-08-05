@@ -1,66 +1,74 @@
-# Linux 性能基线状态
+# Linux 性能参考档案与基线
 
-## 当前结论
+## 档案选择
 
-正式 Linux 参考基线尚未建立，状态为阻断。
+项目同时记录两个 Linux 性能参考档案，但任何一次报告只能属于其中一个档案，禁止跨档案比较。
 
-`docs/performance/reference/linux/` 下的六份 JSON 在参考机完成审核前必须保持缺失。不得把 `build/` 中的本机报告复制到该目录，也不得手工修改 reporter 输出。本状态不会影响普通开发机验证采样器和比较器，但所有依赖正式参考指纹的绝对门禁与相对回归门禁都必须失败。
+| 档案 | 状态 | 用途 |
+|---|---|---|
+| `local-release-xvfb` | 当前选用，等待同 commit 最终基线 | 本机性能参考与本地发布性能门禁 |
+| `ubuntu2204-github-ci` | 待用户在 GitHub 或新主机验证 | 原规划的 Ubuntu 22.04 兼容 CI 参考档案 |
 
-阻断原因如下：
+负责人于 2026-08-05 确认：现阶段只有当前主机，因此选用 `local-release-xvfb` 作为发布参考档案。以后上传 GitHub 或购置新主机时，先完成 `ubuntu2204-github-ci` 的独立验证，再决定是否切换活动档案。切换不得删除本机档案及其 Git 历史，也不得把两个档案的 JSON 混为同一基线。
 
-- 尚未指定并审核 Linux 参考机及 immutable runner image digest。
-- 当前会话是 Ubuntu 26.04 LTS 上的 X11 转发，GPU 为未加速的 Mesa llvmpipe，不符合 Ubuntu 22.04 发布构建与稳定硬件渲染环境要求。
-- 当前六个候选报告不是在同一 commit、同一 `linux-gcc-reference` preset 下生成，不能组成可比较基线。
+结构化档案位于：
 
-## 本机候选证据
+- `docs/performance/profiles/local-release-xvfb.json`
+- `docs/performance/profiles/ubuntu2204-github-ci.json`
 
-以下信息只证明采样代码已运行，不是性能承诺，也不得用作 CI 基线：
+## 当前本机参考环境
 
-| 字段 | 本机观测值 |
+seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没有连接物理显示器，Qt 只能看到 0×0 output，无法完成窗口 exposed 验收。因此自动性能门禁固定使用同机专用 Xvfb，不使用 SSH 转发 display，也不把 Intel GPU 冒充为 benchmark renderer。
+
+| 字段 | 固定值 |
 |---|---|
 | CPU | Intel Core i7-14700，1 socket，20 core，28 logical CPU |
 | RAM | 32,708,890,624 bytes |
-| GPU/驱动 | Mesa llvmpipe，LLVM 21.1.8，Mesa 26.0.3，未加速 |
-| 显示 | xcb，60 Hz，DPR 1.0，X11 转发 display |
-| OS | Ubuntu 26.04 LTS |
+| 主机 GPU | Intel UHD Graphics 770，i915，当前不参与 Xvfb 绘制 |
+| benchmark renderer | Mesa llvmpipe，LLVM 21.1.8，Mesa 26.0.3 |
+| 显示 | Xvfb 21.1.22，xcb，1920×1080×24，60 Hz，DPR 1.0 |
+| OS | Ubuntu 26.04 LTS，kernel 7.0.0-28-generic |
 | Qt | 6.11.1 |
 | 编译器 | GCC 15.2.0 |
 | libstdc++ | `libstdc++.so.6.0.35` |
-| 构建 preset | `linux-gcc-benchmarks` |
-| 空闲预热/测量 | 5 秒 / 30 秒 |
-| 空闲 CPU | 0%，单样本 |
-| RSS 起始/结束 | 42,450,944 / 42,450,944 bytes |
-| RSS 增长 | 0%，单样本 |
-| 原始候选报告 | `build/linux-gcc-benchmarks/reports/benchmark.*.json`，构建树文件，不纳入 Git |
+| CMake preset | `linux-gcc-reference` |
 
-空闲 probe 使用 `Qt::PreciseTimer` 完整等待测量区间。CPU 百分比由进程 `utime + stime`、`CLK_TCK` 和实际墙钟计算，不除以逻辑 CPU 数；RSS 同时保留起止值，只有增长百分比按契约截断到非负数。
+本机物理环境没有 immutable container image。为保持可审计身份，`environment.runnerImageDigest` 固定为 `local-release-xvfb.json` 原始字节的 SHA-256：
 
-## 正式基线建立条件
+```bash
+sha256sum docs/performance/profiles/local-release-xvfb.json
+```
 
-负责人必须先确认以下参考机身份，实施者才能生成正式文件：
+任何档案字段变化都会改变 digest，并强制重新采集六份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
 
-- CPU 型号、物理核和逻辑核数量。
-- RAM 总字节数。
-- GPU 型号及精确驱动版本，禁止 `unknown` 和软件渲染器。
-- 显示刷新率、DPR、Linux 桌面和窗口协议。
-- Linux 镜像 immutable digest，格式为 `sha256:` 加 64 位小写十六进制。
-- Qt、GCC 和 libstdc++ 精确版本。
+## 测量与文件映射
 
-在参考机上从干净工作树执行：
+所有报告必须来自干净工作树的同一 HEAD，使用相同档案 digest 和 renderer identity：
 
 ```bash
 export ZZ_BENCHMARK_COMMIT="$(git rev-parse --verify HEAD)"
-export ZZ_RUNNER_IMAGE_DIGEST="sha256:<审核后的镜像摘要>"
-export ZZ_GPU_IDENTITY="<GPU 型号和驱动版本>"
+export ZZ_RUNNER_IMAGE_DIGEST="sha256:$(sha256sum \
+  docs/performance/profiles/local-release-xvfb.json | awk '{print $1}')"
+export ZZ_GPU_IDENTITY="Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24"
 
 cmake --preset linux-gcc-reference
 cmake --build --preset linux-gcc-reference
-ctest --preset linux-gcc-reference -L benchmark --output-on-failure
+xvfb-run -a -s '-screen 0 1920x1080x24 -nolisten tcp' \
+  ctest --preset linux-gcc-reference -L benchmark --output-on-failure
 ```
 
-只有全部绝对门禁通过后，才允许逐字复制下列 reporter 输出：
+固定采样条件如下：
 
-| reporter 输出 | Git 基线路径 |
+| 场景 | 预热 | 正式样本 |
+|---|---:|---:|
+| 启动 | 5 个子进程 | 30 个子进程 |
+| 主题切换 | 10 轮 | 100 轮 |
+| 动画 | 10 次 toggle | 100 次 toggle 的全部相邻 Paint 间隔 |
+| 10 万行模型 | 10 帧 | 100 帧 |
+| 窗口生命周期 | 0 | 100 个窗口 |
+| 空闲 | 5 秒 | 30 秒单区间 |
+
+| reporter 输出 | 活动基线路径 |
 |---|---|
 | `build/linux-gcc-reference/reports/benchmark.startup.json` | `docs/performance/reference/linux/startup.json` |
 | `build/linux-gcc-reference/reports/benchmark.theme-switch.json` | `docs/performance/reference/linux/theme-switch.json` |
@@ -69,4 +77,20 @@ ctest --preset linux-gcc-reference -L benchmark --output-on-failure
 | `build/linux-gcc-reference/reports/benchmark.window-lifecycle.json` | `docs/performance/reference/linux/window-lifecycle.json` |
 | `build/linux-gcc-reference/reports/benchmark.idle.json` | `docs/performance/reference/linux/idle.json` |
 
-六份文件必须具有相同的 `build.commit`、`environment.runnerImageDigest` 和完整环境指纹。复制后使用 `cmake/ZzVerifyPerformanceReport.cmake` 执行启动 300 ms、主题 50 ms、动画/大模型 16.7 ms、空闲 CPU 严格低于 0.5% 和 RSS 增长不超过 10% 的绝对门禁，再使用 `cmake/ZzComparePerformanceReport.cmake` 验证同环境报告的 10% 相对回归限制。
+六份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足启动 P95/max 不超过 300 ms、主题 P95 不超过 50 ms、动画与大模型 P95 不超过 16.7 ms、空闲 CPU 严格低于 0.5%、RSS 增长不超过 10%，并完成窗口生命周期计数和 ASan/UBSan 门禁。
+
+## 原 CI 参考档案
+
+`ubuntu2204-github-ci` 保留原架构要求：Ubuntu 22.04 兼容构建环境、Qt 6.8+、GCC 13.1+、Release/shared/LTO，以及审核后的 immutable runner image digest。其 CPU、RAM、GPU、显示和精确工具链目前为空，因此状态必须保持 `pending-user-validation`。
+
+用户在 GitHub 平台自行验证或新主机到位后，应执行以下流程：
+
+1. 补全 `ubuntu2204-github-ci.json` 的所有 `null` 字段并提交。
+2. 使用该档案的 SHA-256 和真实 GPU/驱动身份运行全部 reference benchmark。
+3. 执行全部绝对阈值和 ASan/UBSan，不接受“仅构建通过”。
+4. 把报告保存在独立的档案目录并记录 commit，不覆盖本机档案证据。
+5. 只有负责人明确切换活动档案后，CI 才能用新档案判定发布。
+
+## 发布边界
+
+本机档案通过性能门禁，只能解除性能参考机这一项阻断。根 `LICENSE` 缺失、第三方溯源或许可证据不完整、Windows/macOS 真机清单未完成等独立条件仍然阻止正式发布，不得因为本机性能达标而绕过。
