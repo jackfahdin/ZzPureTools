@@ -180,8 +180,8 @@ QSize ZzFluentStyle::sizeFromContents(
         || type == CT_ComboBox) {
         result = result.expandedTo(QSize(96, 32));
     }
-    if (type == CT_ItemViewItem
-        && d_ptr->isComboBoxPopupWidget(widget)) {
+    if ((type == CT_ItemViewItem || type == CT_MenuItem)
+        && d_ptr->isComboBoxPopupContext(widget)) {
         result.setHeight(qMax(result.height(), 32));
     }
     return result;
@@ -250,7 +250,7 @@ void ZzFluentStyle::drawControl(
     Q_ASSERT(QThread::currentThread() == thread());
     if (element == CE_ItemViewItem
         && option != nullptr && painter != nullptr
-        && d_ptr->isComboBoxPopupWidget(widget)) {
+        && d_ptr->isComboBoxPopupContext(widget)) {
         const auto *item = qstyleoption_cast<
             const QStyleOptionViewItem *>(option);
         if (item != nullptr) {
@@ -286,6 +286,13 @@ void ZzFluentStyle::drawControl(
         const auto *menuItem = qstyleoption_cast<
             const QStyleOptionMenuItem *>(option);
         if (menuItem != nullptr && painter != nullptr) {
+            if (d_ptr->isComboBoxPopupContext(widget)) {
+                d_ptr->drawComboBoxPopupMenuItem(
+                    menuItem,
+                    painter,
+                    widget);
+                return;
+            }
             d_ptr->drawMenuItem(menuItem, painter, widget);
             return;
         }

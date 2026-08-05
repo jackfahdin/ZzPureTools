@@ -435,13 +435,13 @@ QStyle::SubControl ZzFluentStylePrivate::hitTestComboBox(
     return QStyle::SC_None;
 }
 
-bool ZzFluentStylePrivate::isComboBoxPopupWidget(
+bool ZzFluentStylePrivate::isComboBoxPopupContext(
     const QWidget *widget) const noexcept
 {
     const QWidget *current = widget;
     while (current != nullptr) {
         if (qobject_cast<const QComboBox *>(current) != nullptr) {
-            return current != widget;
+            return true;
         }
         current = current->parentWidget();
     }
@@ -501,6 +501,67 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
         adjusted.palette.color(group, QPalette::Text));
     q_ptr->QProxyStyle::drawControl(
         QStyle::CE_ItemViewItem,
+        &adjusted,
+        painter,
+        widget);
+}
+
+void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
+    const QStyleOptionMenuItem *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    QStyleOptionMenuItem adjusted = *option;
+    const bool current = adjusted.checked;
+    const bool hovered = adjusted.state.testFlag(QStyle::State_Selected)
+        || adjusted.state.testFlag(QStyle::State_MouseOver);
+    const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
+
+    if (current || hovered) {
+        const QRectF surface = QRectF(adjusted.rect).adjusted(
+            2.0,
+            2.0,
+            -2.0,
+            -2.0);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(snapshot->color(
+            current
+                ? ZzColorToken::ControlFillPressed
+                : ZzColorToken::ControlFillHover));
+        painter->drawRoundedRect(
+            surface,
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall),
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall));
+        if (current) {
+            const QRect logicalIndicator(
+                adjusted.rect.left() + 4,
+                adjusted.rect.center().y() - 8,
+                3,
+                16);
+            const QRect indicator = QStyle::visualRect(
+                adjusted.direction,
+                adjusted.rect,
+                logicalIndicator);
+            painter->setBrush(snapshot->color(ZzColorToken::Accent));
+            painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
+        }
+        painter->restore();
+    }
+
+    adjusted.checked = false;
+    adjusted.checkType = QStyleOptionMenuItem::NotCheckable;
+    adjusted.state.setFlag(QStyle::State_Selected, false);
+    adjusted.state.setFlag(QStyle::State_MouseOver, false);
+    const QPalette::ColorGroup group = enabled
+        ? QPalette::Normal
+        : QPalette::Disabled;
+    adjusted.palette.setColor(
+        QPalette::Text,
+        adjusted.palette.color(group, QPalette::Text));
+    q_ptr->QProxyStyle::drawControl(
+        QStyle::CE_MenuItem,
         &adjusted,
         painter,
         widget);

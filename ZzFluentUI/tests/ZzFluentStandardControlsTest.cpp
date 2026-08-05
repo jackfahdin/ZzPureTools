@@ -225,6 +225,32 @@ private Q_SLOTS:
             controller.snapshot()->color(
                 ZzFluentUI::ZzColorToken::Accent)));
 
+        QStyleOptionMenuItem menuItem;
+        menuItem.rect = item.rect;
+        menuItem.state = QStyle::State_Enabled | QStyle::State_Selected;
+        menuItem.palette = style.standardPalette();
+        menuItem.text = QStringLiteral("Selected item");
+        menuItem.checkType = QStyleOptionMenuItem::Exclusive;
+        menuItem.checked = true;
+        const QSize popupMenuItem = style.sizeFromContents(
+            QStyle::CT_MenuItem,
+            &menuItem,
+            QSize(80, 8),
+            popupView);
+        QVERIFY(popupMenuItem.height() >= 32);
+        image.fill(Qt::transparent);
+        painter.begin(&image);
+        style.drawControl(
+            QStyle::CE_MenuItem,
+            &menuItem,
+            &painter,
+            popupView);
+        painter.end();
+        QVERIFY(zzContainsColor(
+            image,
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::Accent)));
+
         QListView ordinaryView;
         const QSize ordinaryBase = style.baseStyle()->sizeFromContents(
             QStyle::CT_ItemViewItem,
@@ -238,6 +264,19 @@ private Q_SLOTS:
                 QSize(80, 8),
                 &ordinaryView),
             ordinaryBase);
+        QMenu ordinaryMenu;
+        const QSize ordinaryMenuBase = style.baseStyle()->sizeFromContents(
+            QStyle::CT_MenuItem,
+            &menuItem,
+            QSize(80, 8),
+            &ordinaryMenu);
+        QCOMPARE(
+            style.sizeFromContents(
+                QStyle::CT_MenuItem,
+                &menuItem,
+                QSize(80, 8),
+                &ordinaryMenu),
+            ordinaryMenuBase);
     }
 
     void drawsProgressAndPopupControls()

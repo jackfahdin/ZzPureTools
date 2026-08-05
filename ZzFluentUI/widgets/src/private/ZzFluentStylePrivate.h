@@ -69,12 +69,17 @@ public:
     [[nodiscard]] QStyle::SubControl hitTestComboBox(
         const QStyleOptionComboBox *option,
         const QPoint &position) const;
-    /** @brief 判断目标控件是否位于标准组合框的弹出视图内。 */
-    [[nodiscard]] bool isComboBoxPopupWidget(
+    /** @brief 判断绘制上下文是否由标准组合框或其 popup 子控件发起。 */
+    [[nodiscard]] bool isComboBoxPopupContext(
         const QWidget *widget) const noexcept;
     /** @brief 绘制组合框弹出项状态并委托平台绘制内容。 */
     void drawComboBoxPopupItem(
         const QStyleOptionViewItem *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 绘制使用菜单 delegate 的组合框弹出项并保留平台内容。 */
+    void drawComboBoxPopupMenuItem(
+        const QStyleOptionMenuItem *option,
         QPainter *painter,
         const QWidget *widget) const;
     /** @brief 绘制数值输入框面板、按钮状态和符号。 */
