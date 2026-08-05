@@ -47,6 +47,8 @@ set(zz_fluent_ui_sources
     widgets/src/ZzScrollBar.cpp
     widgets/src/private/ZzScrollBarPrivate.cpp
     widgets/src/ZzScrollArea.cpp
+    widgets/src/ZzFlowLayout.cpp
+    widgets/src/private/ZzFlowLayoutPrivate.cpp
     widgets/src/ZzSpinBox.cpp
     widgets/src/ZzDoubleSpinBox.cpp
     widgets/src/ZzSuggestBox.cpp
@@ -89,6 +91,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzProgressRing.h
     widgets/include/ZzFluentUI/ZzScrollBar.h
     widgets/include/ZzFluentUI/ZzScrollArea.h
+    widgets/include/ZzFluentUI/ZzFlowLayout.h
     widgets/include/ZzFluentUI/ZzSpinBox.h
     widgets/include/ZzFluentUI/ZzDoubleSpinBox.h
     widgets/include/ZzFluentUI/ZzSuggestBox.h
