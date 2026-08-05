@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "Jackfahdin",
+  "reviewedAt": "2026-08-05T06:05:49Z",
+  "conclusion": "approved",
+  "upstream": "https://github.com/stdware/qwindowkit.git",
+  "upstreamCommit": "2813c1f810cb3fb1999a14ad524124562081f2c2",
+  "archiveSha256": "cd0d3ad3c94ce5c0965337f2e59262613d684f46d6ce0c45613726e751d3d90c",
+  "submodules": {
+    "qmsetup": "bd2ce397ee1400e4a72d3ed8ce6b6baed24baeb4",
+    "syscmdline": "0c9f3de8b11bd2f33b03bea5521bf446af4ead69"
+  },
+  "vendorLayout": "Submodule contents are expanded and both .gitmodules files are omitted; all other tracked bytes match the pinned commits"
+}

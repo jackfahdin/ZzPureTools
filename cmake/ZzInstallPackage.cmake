@@ -227,6 +227,12 @@ function(zz_install_package)
             "${PROJECT_SOURCE_DIR}/docs/third-party/release-evidence.json"
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro"
             COMPONENT Runtime)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/project-license-approval.json"
+            "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/qwindowkit-provenance-review.json"
+            "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/windeployqt-redistribution-review.json"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/reviews"
+            COMPONENT Runtime)
     elseif(NOT EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
         message(STATUS
             "ZzPureToolsPro LICENSE is absent; binary publication remains blocked")

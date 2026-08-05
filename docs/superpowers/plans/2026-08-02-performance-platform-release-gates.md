@@ -16,9 +16,9 @@
 - Linux 是第一阶段动态、Sanitizer、性能和真实窗口验证平台。
 - Windows/macOS 第一阶段必须在原生 runner 编译所有条件分支，完成严格警告、公开头、安装消费和二进制依赖检查。
 - Windows Snap Layout/DPI/多屏/材质和 macOS 原生按钮/全屏/Retina/blur 仍是人工真机验收，禁止把“编译通过”写成“功能验收通过”。
-- qwindowkit 准确上游 commit 已完成技术核对，但在具名来源审核签署前，`ZZ_RELEASE_BUILD=ON` 必须失败。
-- Qt 5.15.2 派生代码的上游字节和许可证已固定，但再分发结论尚未由具名审核人签署，因此必须继续阻止正式发布。
-- 仓库根项目许可证已由负责人选择 MIT 并落地；在具名项目所有者批准记录签署前，它仍是独立发布阻断项。
+- qwindowkit 准确上游 commit、归档摘要和具名来源审核已经固定；摘要变化时 `ZZ_RELEASE_BUILD=ON` 必须重新失败关闭。
+- Qt 5.15.2 派生构建工具已按 GPLv3 加 Qt GPL Exception 完成具名审核，并由安装门禁保证不进入 ZzPureToolsPro 包。
+- 仓库根项目许可证已由 Jackfahdin 选择并批准为 MIT，许可证正文和批准记录摘要均由 manifest 锁定。
 
 ## 八份计划的执行顺序
 

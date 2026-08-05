@@ -56,7 +56,10 @@ set(required_files
     share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt
     share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md
     share/ZzPureToolsPro/qwindowkit-vendor.json
-    share/ZzPureToolsPro/release-evidence.json)
+    share/ZzPureToolsPro/release-evidence.json
+    share/ZzPureToolsPro/reviews/project-license-approval.json
+    share/ZzPureToolsPro/reviews/qwindowkit-provenance-review.json
+    share/ZzPureToolsPro/reviews/windeployqt-redistribution-review.json)
 if(runtime_cache)
     list(APPEND required_files
         share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3
@@ -84,6 +87,13 @@ if(NOT runtime_cache
     message(FATAL_ERROR "未捆绑 GNU runtime 的发布包含有陈旧运行库许可证")
 endif()
 
+foreach(forbidden_tool IN ITEMS bin/qmcorecmd bin/qmcorecmd.exe)
+    if(EXISTS "${install_root}/${forbidden_tool}")
+        message(FATAL_ERROR
+            "Qt 派生构建工具不得进入 ZzPureToolsPro 安装包：${forbidden_tool}")
+    endif()
+endforeach()
+
 set(notices_path
     "${install_root}/share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md")
 file(READ "${notices_path}" notices)
@@ -95,6 +105,8 @@ set(required_notice_tokens
     spdlog
     fmt
     "GCC Runtime Library Exception"
+    "GPL-3.0-only WITH Qt-GPL-exception-1.0"
+    Jackfahdin
     "1.5.1.0"
     "https://github.com/stdware/qwindowkit"
     "d24088deaa441a79267df8ae3dbc567fbe2a5e03"
@@ -108,7 +120,10 @@ set(required_notice_tokens
     "share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt"
     "share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt"
     "share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3"
-    "share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME")
+    "share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME"
+    "share/ZzPureToolsPro/reviews/project-license-approval.json"
+    "share/ZzPureToolsPro/reviews/qwindowkit-provenance-review.json"
+    "share/ZzPureToolsPro/reviews/windeployqt-redistribution-review.json")
 foreach(token IN LISTS required_notice_tokens)
     string(FIND "${notices}" "${token}" token_position)
     if(token_position EQUAL -1)

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "Jackfahdin",
+  "reviewedAt": "2026-08-05T06:05:49Z",
+  "conclusion": "approved",
+  "licenseExpression": "GPL-3.0-only WITH Qt-GPL-exception-1.0",
+  "upstream": {
+    "project": "Qt qttools",
+    "version": "5.15.2",
+    "commit": "cc52debd905e0ed061290d6fd00a5f1ab67478a5",
+    "file": "src/shared/winutils/utils.cpp",
+    "sourceSha256": "6620d8eccfa7c3be50ad6040633beecbd536f91d4358e4c891c6015a7162a1dd",
+    "licenseSha256": "0dbe024961f6ab5c52689cbd036c977975d0d0f6a67ff97762d96cb819dd5652"
+  },
+  "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp",
+  "localSourceSha256": "7009e6061c21dcfcf838960249fbc165d05adcca2b944a85d6fd2d65eb2f5957",
+  "distributionScope": "Vendored build-time qmsetup tool only; excluded from ZzPureToolsPro runtime and development installation packages",
+  "conditions": [
+    "Retain the Qt origin and license expression in THIRD_PARTY_NOTICES.md",
+    "Do not describe the Qt-derived section as MIT-licensed",
+    "Do not install qmcorecmd or the Qt-derived source in ZzPureToolsPro binary packages"
+  ]
+}

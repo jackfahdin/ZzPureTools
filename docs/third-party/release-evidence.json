@@ -1,23 +1,10 @@
 {
   "schemaVersion": 1,
   "review": {
-    "reviewer": null,
-    "reviewedAt": null
+    "reviewer": "Jackfahdin",
+    "reviewedAt": "2026-08-05T06:05:49Z"
   },
-  "releaseBlockers": [
-    {
-      "id": "qwindowkit.upstream-provenance",
-      "reason": "The upstream commit and archive are pinned, but a named provenance review is not present"
-    },
-    {
-      "id": "qmsetup.windeployqt-5.15.2-derived-work",
-      "reason": "The Qt source and license are pinned, but a named redistribution review is not present"
-    },
-    {
-      "id": "project.license",
-      "reason": "The MIT license is present, but the named owner approval record is not present"
-    }
-  ],
+  "releaseBlockers": [],
   "evidence": {
     "qwindowkit": {
       "upstreamCommit": "2813c1f810cb3fb1999a14ad524124562081f2c2",
@@ -26,7 +13,11 @@
         "path": "qwindowkit/qwindowkit-2813c1f810cb3fb1999a14ad524124562081f2c2.tar.gz",
         "sha256": "cd0d3ad3c94ce5c0965337f2e59262613d684f46d6ce0c45613726e751d3d90c"
       },
-      "provenanceReview": null
+      "provenanceReview": {
+        "scope": "repository",
+        "path": "docs/third-party/reviews/qwindowkit-provenance-review.json",
+        "sha256": "949dda0f8742e6edddaa829840f09c714ecd6317844a00b8431c78f5f59f5d77"
+      }
     },
     "windeployqtDerivedWork": {
       "upstreamProject": "Qt",
@@ -44,17 +35,25 @@
         "sha256": "0dbe024961f6ab5c52689cbd036c977975d0d0f6a67ff97762d96cb819dd5652"
       },
       "localSourceSha256": "7009e6061c21dcfcf838960249fbc165d05adcca2b944a85d6fd2d65eb2f5957",
-      "redistributionConclusion": null,
-      "reviewRecord": null
+      "redistributionConclusion": "approved",
+      "reviewRecord": {
+        "scope": "repository",
+        "path": "docs/third-party/reviews/windeployqt-redistribution-review.json",
+        "sha256": "ed0c50afb8a3451a9cd7265b0d5208a2a6d955db5008d7d91fdafc0b45b6a682"
+      }
     },
     "projectLicense": {
       "spdxExpression": "MIT",
       "licenseFile": {
         "scope": "repository",
         "path": "LICENSE",
-        "sha256": "c31b3f81c668a3078115bef26a83b9941dd42d94221119536bd98865e0e06a30"
+        "sha256": "0242feef8300bb6ac2b3b68ab4bc9e635ae17e44020a4056a8a648df5cb64ff1"
       },
-      "approvalRecord": null
+      "approvalRecord": {
+        "scope": "repository",
+        "path": "docs/third-party/reviews/project-license-approval.json",
+        "sha256": "8b9fe2b0458d59a181aed62aab53063ebb092885a29fc247dfafc7589c78bc0a"
+      }
     }
   }
 }

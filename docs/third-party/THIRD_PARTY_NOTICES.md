@@ -6,10 +6,10 @@
 
 - 许可证：MIT。
 - SPDX 结论：`MIT`。
-- 版权声明：Copyright (c) 2026 ZzPureToolsPro contributors。
+- 版权声明：Copyright (c) 2026 Jackfahdin。
 - 源码证据：仓库根 `LICENSE`，其 SHA-256 由 `release-evidence.json` 锁定。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
-- 审核状态：许可证正文已经落地；具名项目所有者批准记录仍由 `project.license` 阻塞项跟踪。
+- 审核状态：项目所有者 Jackfahdin 已批准 MIT，记录安装到 `share/ZzPureToolsPro/reviews/project-license-approval.json`。
 
 ## QWindowKit
 
@@ -18,7 +18,7 @@
 - 上游提交：`2813c1f810cb3fb1999a14ad524124562081f2c2`。
 - 源码归档 SHA-256：`cd0d3ad3c94ce5c0965337f2e59262613d684f46d6ce0c45613726e751d3d90c`。
 - 许可证：Apache-2.0。
-- SPDX 结论：`Apache-2.0`；实现脉络中单独保留的 FramelessHelper 通知为 `MIT`。该结论仍受发布证据门禁约束，不替代来源审核。
+- SPDX 结论：`Apache-2.0`；实现脉络中单独保留的 FramelessHelper 通知为 `MIT`。来源审核记录安装到 `share/ZzPureToolsPro/reviews/qwindowkit-provenance-review.json`。
 - 版权声明：Copyright (C) 2023-present Stdware Collections；Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)。Linux 原生上下文还包含 Copyright (C) 2025-2027 Wing-summer (wingsummer)。
 - 源码证据：`ZzThirdParty/qwindowkit/CMakeLists.txt`、`ZzThirdParty/qwindowkit/LICENSE`、`ZzThirdParty/qwindowkit/src/core/windowagentbase.cpp`、`ZzThirdParty/qwindowkit/src/core/contexts/linuxx11context.cpp`。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/qwindowkit/LICENSE`。
@@ -32,7 +32,7 @@
 - 版权声明：Copyright (C) 2021-2023 by wangwenx190 (Yuhang Zhao)。
 - 源码证据：`ZzThirdParty/qwindowkit/README.md` 说明实现脉络；`ZzThirdParty/qwindowkit/docs/framelesshelper-related.md` 保存 MIT 许可证正文和版权声明；QWindowKit 当前源码文件标注 Apache-2.0。
 - 发布包通知位置：`share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md`。
-- 分发说明：仓库不包含独立的 FramelessHelper 二进制或归档。其实现脉络的上游来源和再许可关系仍须随 `qwindowkit.upstream-provenance` 一并审核，本文档不把该关系写成已经完成的发布许可结论。
+- 分发说明：仓库不包含独立的 FramelessHelper 二进制或归档。其实现脉络的上游来源和再许可关系已随 `qwindowkit.upstream-provenance` 完成审核。
 
 ## qmsetup
 
@@ -44,7 +44,7 @@
 - 版权声明：Copyright (c) Stdware Collections。
 - 源码证据：`ZzThirdParty/qwindowkit/qmsetup/LICENSE`。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/qwindowkit/qmsetup-LICENSE`。
-- 分发说明：qmsetup 只参与配置和构建，不作为 ZzPureToolsPro 运行库安装。`ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp` 含有修改自 Qt 5.15.2 `qttools/src/shared/winutils/utils.cpp` 的代码；Qt 原文件适用 GPLv3 加 Qt GPL Exception，不能被 qmsetup 顶层 MIT 声明覆盖，其再分发依据由 `qmsetup.windeployqt-5.15.2-derived-work` 阻塞项跟踪。
+- 分发说明：qmsetup 只参与配置和构建，不作为 ZzPureToolsPro 运行库安装。`ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp` 含有修改自 Qt 5.15.2 `qttools/src/shared/winutils/utils.cpp` 的代码；Qt 原文件适用 `GPL-3.0-only WITH Qt-GPL-exception-1.0`，不能被 qmsetup 顶层 MIT 声明覆盖。再分发审核记录安装到 `share/ZzPureToolsPro/reviews/windeployqt-redistribution-review.json`，安装审计同时禁止 `qmcorecmd` 进入产品包。
 
 ## syscmdline
 
@@ -73,10 +73,10 @@
 - SPDX 结论：`GPL-3.0-or-later WITH GCC-exception-3.1`。
 - 仅 `ZZ_BUNDLE_GNU_RUNTIME=ON` 的 Linux GNU Release shared 包包含上述两个运行库；Ubuntu 22.04 门禁必须验证实际加载的是包内文件。
 
-## 发布阻塞项
+## 已完成合规项目
 
-- `qwindowkit.upstream-provenance`：上游 commit、子模块 commit 和归档 SHA-256 已固定；发布前仍须由具名审核人签署来源审核记录。
-- `qmsetup.windeployqt-5.15.2-derived-work`：上游源码、许可证和本地摘要已固定；发布前仍须由具名审核人签署 GPLv3 加 Qt GPL Exception 下的再分发结论。
-- `project.license`：仓库根 `LICENSE` 和 `MIT` SPDX 表达式已经落地；发布前仍须提供具名项目所有者批准记录。正式包中的固定位置为 `share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
+- `qwindowkit.upstream-provenance`：上游和子模块 commit、归档 SHA-256 与具名来源审核记录均已固定。
+- `qmsetup.windeployqt-5.15.2-derived-work`：上游源码、许可证、本地摘要和构建期隔离条件均已由 Jackfahdin 批准。
+- `project.license`：根 `LICENSE`、`MIT` SPDX 表达式和 Jackfahdin 所有者批准记录均已固定；正式包中的许可证位置为 `share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
 
-在上述阻塞项消除、项目许可证具名批准记录完成并通过最终许可证安装审计前，不得把当前构建标记为可发布二进制包。
+上述三项完成不替代 Windows、macOS 和 Linux 交互真机门禁；最终许可证安装审计与全部平台证据仍必须同时通过。

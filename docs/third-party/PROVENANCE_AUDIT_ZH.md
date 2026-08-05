@@ -71,9 +71,9 @@ sha256sum \
 
 ## 当前结论
 
-技术身份、上游字节和摘要已经固定，但以下人工证据仍为空，因此两个第三方阻塞项必须继续存在：
+技术身份、上游字节和摘要已经固定，Jackfahdin 于 `2026-08-05T06:05:49Z` 签署以下记录：
 
-- `qwindowkit.upstream-provenance`：缺少具名来源审核记录和 UTC 审核时间。
-- `qmsetup.windeployqt-5.15.2-derived-work`：缺少具名再分发审核记录、UTC 审核时间和 `approved` 结论。
+- `docs/third-party/reviews/qwindowkit-provenance-review.json`：QWindowKit 来源审核结论为 `approved`。
+- `docs/third-party/reviews/windeployqt-redistribution-review.json`：Qt 派生构建工具按 `GPL-3.0-only WITH Qt-GPL-exception-1.0` 审核，结论为 `approved`。
 
-不得仅通过删除 `releaseBlockers`、填写审核人占位文本或把 qmsetup 顶层 MIT 许可证套用到 Qt 派生片段来解除阻断。
+第二项批准仅适用于 vendored qmsetup 构建工具：必须保留来源和许可证通知，不得将派生片段描述为 MIT，不得把 `qmcorecmd` 或派生源码安装到 ZzPureToolsPro 二进制包。摘要或分发范围变化后必须重新审核。
