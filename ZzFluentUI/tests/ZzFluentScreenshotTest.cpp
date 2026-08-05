@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDate>
 #include <QtCore/QDir>
 #include <QtCore/QLocale>
 #include <QtCore/QPointer>
@@ -47,6 +48,8 @@
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzCalendar.h>
+#include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
@@ -690,9 +693,17 @@ private:
             QStringLiteral("Balanced"),
             QStringLiteral("Compact"),
             QStringLiteral("Comfortable")});
+        auto *datePicker = new ZzFluentUI::ZzCalendarPicker(container);
+        datePicker->setLocale(QLocale::c());
+        datePicker->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
+        datePicker->setDateRange(
+            QDate(2026, 1, 1),
+            QDate(2026, 12, 31));
+        datePicker->setDate(QDate(2026, 8, 5));
         form->addRow(QStringLiteral("Name"), name);
         form->addRow(QStringLiteral("Notes"), notes);
         form->addRow(QStringLiteral("Density"), mode);
+        form->addRow(QStringLiteral("Due date"), datePicker);
         layout->addLayout(form);
 
         auto *slider = new QSlider(Qt::Horizontal, container);
@@ -743,8 +754,19 @@ private:
         table->verticalHeader()->hide();
         table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
         table->setCurrentIndex(tableModel.index(1, 1));
-        table->setFixedHeight(216);
+        table->setFixedHeight(130);
         layout->addWidget(table);
+
+        layout->addWidget(new QLabel(QStringLiteral("Calendar"), container));
+        auto *calendar = new ZzFluentUI::ZzCalendar(container);
+        calendar->setLocale(QLocale::c());
+        calendar->setFirstDayOfWeek(Qt::Monday);
+        calendar->setDateRange(
+            QDate(2026, 8, 3),
+            QDate(2026, 8, 28));
+        calendar->setSelectedDate(QDate(2026, 8, 5));
+        calendar->setFixedHeight(270);
+        layout->addWidget(calendar);
 
         layout->addWidget(new QLabel(QStringLiteral("Tree"), container));
         auto *rootItem = new QStandardItem(QStringLiteral("Workspace"));
@@ -761,7 +783,7 @@ private:
         tree->header()->hide();
         tree->expandAll();
         tree->setCurrentIndex(rootItem->index());
-        tree->setFixedHeight(230);
+        tree->setFixedHeight(135);
         layout->addWidget(tree);
         layout->addWidget(new QLabel(QStringLiteral("Menu"), container));
         layout->addStretch(1);
