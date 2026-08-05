@@ -189,4 +189,62 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
 ## 12. 交付结果
 
-待实现完成后填写。
+本批次已于 2026-08-06 完成交付，结果如下。
+
+### 12.1 生产实现
+
+- `ZzFluentStyle` 已直接覆盖标准 `QComboBox`，没有新增空包装控件或第二份 current index/current text 状态。
+- `CT_ComboBox` 保留 Qt base style 测量，并只保证最小 `96 x 32` 逻辑尺寸；frame、edit field 与 32px arrow sub-control 使用同一组方向安全几何和命中区域。
+- closed panel 已覆盖 normal、hover、focus、disabled 与 popup-open chevron；editable line edit 继续由 Qt 管理，不产生双 frame。
+- popup item 通过公开 QWidget 父链识别组合框上下文，覆盖 hover、selected accent、disabled text 与 32px 最小行高；普通 `QMenu` 和普通 item view 不受影响。
+- Qt 6.11 的 popup delegate 可能通过 `CE_MenuItem` 而不是 `CE_ItemViewItem` 绘制，因此提交 `740fde4` 补充了菜单式 delegate 路径；该路径使用同一公开父链判定并继续委托 base style 绘制内容。
+- 生产路径没有替换 model、view、delegate 或 popup，没有新增每实例 style、事件过滤器、animation、timer、stylesheet、动态属性或平台条件分支。
+
+### 12.2 功能与安装验证
+
+- Linux GCC 15 shared Release：全量 CTest `90/90` 通过。
+- Linux GCC 15 static Release：全量 CTest `90/90` 通过。
+- Linux Clang 20 ASan+UBSan：全量 CTest `90/90` 通过，无 sanitizer 报告。
+- shared、static 与 sanitizer 构建均通过 fresh producer、install、consumer 流程；安装消费者成功验证 non-editable 与 editable 标准组合框。
+- model/view、树模型、placeholder、角色数据、增删重置、editable、validator、completer、insert policy、duplicates、键盘、鼠标、信号与 `QAccessible::ComboBox` 语义均通过自动测试。
+- 公开头、生成代码、包重定位、二进制依赖、完整架构、Fluent 边界、画廊 smoke 与应用示例均包含在全量门禁中通过。
+
+### 12.3 静态分析与视觉验证
+
+- shared `linux-clang-tidy-release`：项目翻译单元 `129/129` 通过。
+- static `linux-clang-tidy-static`：项目翻译单元 `129/129` 通过。
+- 新增 Light、Dark、HighContrast x DPR 1.0、1.25、1.5、2.0 共 12 张独立组合框基线；关闭更新模式后四档截图测试 `4/4` 通过。
+- 已人工检查 DPR 1.0 三主题与 DPR 2.0 Light：画面非空，无裁切、重叠、双 frame 或 popup 错位，focus、hover、disabled、RTL、editable 与 selected item 状态清晰可辨。
+- 组合框最小尺寸引起的既有全控件画面变化已同步更新 12 张基线，并继续参加严格像素比较。
+
+### 12.4 性能结果
+
+本机参考发布环境为 Ubuntu 26.04、GCC 15.2.0、Clang 20.1.8、Qt 6.11.1。`linux-gcc-reference` 下 100 个组合框、10 帧预热与 120 帧正式渲染结果为：
+
+```text
+P50: 2.745 ms
+P95: 2.762 ms
+max: 2.810 ms
+descendants: 1950
+animations: 0
+timers: 0
+```
+
+P95 低于 `16.7 ms` 参考门限；1000 轮 current index、enabled、direction、model 数据与 focus 状态切换后没有 QObject、animation 或 timer 增长。Qt 6.11 反复切换 editable 会累积其内部 delegate，因此稳定性门禁先完成一次 editable 往返预热，再保持每个组合框既定 editable 模式，以约束 Fluent 自身不增加对象。
+
+### 12.5 跨平台状态
+
+- preset matrix、Linux/Windows/macOS gate script contract、公开头和完整架构边界检查均通过。
+- 本批源码未引入 `Q_OS_*`、`_WIN32`、`__APPLE__` 分支、Qt Private 头、`QWindowKit::` 目标泄漏、链式命名空间、stylesheet、事件过滤器或动态属性，使用范围限于 Qt Widgets 公共 API 与标准 C++20。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 本批只完成源码静态审计，尚未在对应平台编译、安装消费或真机验证；不得将当前结果表述为这些平台已经运行通过。
+- 按当前项目决策，本批未访问 GitHub CLI、未运行远端 CI、未 push，也未下载新的 Qt SDK。
+
+### 12.6 提交记录
+
+```text
+8c53726 文档：规划Fluent标准组合框批次
+ca93cbd 控件：完善Fluent标准组合框样式
+de00de9 测试：接入组合框质量与安装消费
+740fde4 控件：兼容组合框菜单式弹出项
+4a0d87b 测试：补齐组合框多主题视觉基线
+```
