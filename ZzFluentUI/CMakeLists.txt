@@ -44,6 +44,10 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzToggleSwitchPrivate.cpp
     widgets/src/ZzMessageBar.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
+    widgets/src/ZzCalendar.cpp
+    widgets/src/private/ZzCalendarPrivate.cpp
+    widgets/src/ZzCalendarPicker.cpp
+    widgets/src/private/ZzCalendarPickerPrivate.cpp
     widgets/src/ZzNavigationView.cpp
     widgets/src/private/ZzNavigationViewPrivate.cpp
     widgets/src/ZzBreadcrumbBar.cpp
@@ -60,6 +64,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzIconButton.h
     widgets/include/ZzFluentUI/ZzToggleSwitch.h
     widgets/include/ZzFluentUI/ZzMessageBar.h
+    widgets/include/ZzFluentUI/ZzCalendar.h
+    widgets/include/ZzFluentUI/ZzCalendarPicker.h
     widgets/include/ZzFluentUI/ZzNavigationView.h
     widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
     widgets/include/ZzFluentUI/ZzFluentItemDelegate.h

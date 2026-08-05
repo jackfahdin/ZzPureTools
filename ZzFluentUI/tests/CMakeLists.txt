@@ -127,6 +127,21 @@ set_tests_properties(fluent.message-bar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzCalendarControlsTest ZzCalendarControlsTest.cpp)
+target_link_libraries(ZzCalendarControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzCalendarControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzCalendarControlsTest)
+zz_enable_sanitizers(ZzCalendarControlsTest)
+add_test(NAME fluent.calendar-controls COMMAND ZzCalendarControlsTest)
+set_tests_properties(fluent.calendar-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzNavigationControlsTest ZzNavigationControlsTest.cpp)
 target_link_libraries(ZzNavigationControlsTest PRIVATE
     Qt6::Gui
