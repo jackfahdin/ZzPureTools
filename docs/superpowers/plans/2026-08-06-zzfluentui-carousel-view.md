@@ -135,10 +135,10 @@ class ZZ_FLUENT_UI_EXPORT ZzCarouselView final
     Q_DISABLE_COPY_MOVE(ZzCarouselView)
 
 public:
-    enum ItemDataRole {
+    enum ZzItemDataRole {
         DescriptionRole = Qt::UserRole + 1
     };
-    Q_ENUM(ItemDataRole)
+    Q_ENUM(ZzItemDataRole)
 
     explicit ZzCarouselView(QWidget *parent = nullptr);
     ~ZzCarouselView() override;
@@ -161,6 +161,7 @@ public:
     [[nodiscard]] QModelIndex indexAt(const QPoint &point) const override;
 
 public Q_SLOTS:
+    void setRootIndex(const QModelIndex &index) override;
     void showPrevious();
     void showNext();
 
@@ -217,6 +218,7 @@ private:
 - 非空 model 首次安装后选择 root 下第 0 行第 0 列；空 model 保持无效索引和 `currentRow == -1`。
 - `setCurrentRow()` 对越界行 no-op；合法同值不发信号。model insert/remove/reset 后比较派生 row，只在值实际变化时发一次 `currentRowChanged`。
 - `setModel()` 不取得 model 所有权，断开旧 model 观察连接，并让基类重建 selection model。
+- `setRootIndex()` 为新 root 重新初始化当前项，不保留 root 外索引或过渡状态。
 
 ### 5.3 导航
 
