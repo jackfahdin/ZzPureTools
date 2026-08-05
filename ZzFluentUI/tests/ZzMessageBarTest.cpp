@@ -116,7 +116,7 @@ private Q_SLOTS:
         QVERIFY(bar.isVisible());
     }
 
-    void hoverPausesAndResumesRemainingTimeout()
+    void hoverPausesAndResumesTimeout()
     {
         ZzFluentUI::ZzMessageBar bar;
         QSignalSpy closeSpy(
@@ -126,30 +126,22 @@ private Q_SLOTS:
         bar.show();
         QCoreApplication::processEvents();
         sendLeave(&bar);
+        auto *timeoutTimer = bar.findChild<QTimer *>();
+        QVERIFY(timeoutTimer != nullptr);
+        QVERIFY(timeoutTimer->isActive());
 
-        QTimer beforeHover;
-        beforeHover.setSingleShot(true);
-        QSignalSpy beforeHoverSpy(&beforeHover, &QTimer::timeout);
-        beforeHover.start(25);
-        QVERIFY(QTest::qWaitFor(
-            [&beforeHoverSpy] { return beforeHoverSpy.count() == 1; }, 500));
-        QCOMPARE(beforeHoverSpy.count(), 1);
         QEnterEvent enter(
             QPointF(1.0, 1.0),
             QPointF(1.0, 1.0),
             QPointF(1.0, 1.0));
         QCoreApplication::sendEvent(&bar, &enter);
+        QVERIFY(!timeoutTimer->isActive());
 
-        QTimer hoverWindow;
-        hoverWindow.setSingleShot(true);
-        QSignalSpy hoverWindowSpy(&hoverWindow, &QTimer::timeout);
-        hoverWindow.start(130);
-        QVERIFY(QTest::qWaitFor(
-            [&hoverWindowSpy] { return hoverWindowSpy.count() == 1; }, 500));
-        QCOMPARE(hoverWindowSpy.count(), 1);
+        QTest::qWait(130);
         QCOMPARE(closeSpy.count(), 0);
 
         sendLeave(&bar);
+        QVERIFY(timeoutTimer->isActive());
         QVERIFY(QTest::qWaitFor(
             [&closeSpy] { return closeSpy.count() == 1; }, 500));
         QCOMPARE(closeSpy.count(), 1);
