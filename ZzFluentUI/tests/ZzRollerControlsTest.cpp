@@ -112,7 +112,9 @@ private Q_SLOTS:
         QCOMPARE(roller.sizeHint().height(), 180);
 
         QLineEdit *editor = roller.findChild<QLineEdit *>();
-        QVERIFY(editor != nullptr);
+        if (editor == nullptr) {
+            QFAIL("滚轮缺少内部只读编辑器");
+        }
         QVERIFY(editor->isReadOnly());
         QVERIFY(editor->isHidden());
         QCOMPARE(editor->focusPolicy(), Qt::NoFocus);
