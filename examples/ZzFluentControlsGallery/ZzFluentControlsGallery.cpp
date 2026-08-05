@@ -15,7 +15,7 @@ ZzFluentControlsGallery::ZzFluentControlsGallery(
           themeController))
 {
     setWindowTitle(QStringLiteral("ZzFluentUI Controls"));
-    setMinimumSize(960, 680);
+    setMinimumSize(640, 480);
     resize(1280, 840);
 }
 
