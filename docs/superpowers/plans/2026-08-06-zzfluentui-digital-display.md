@@ -159,3 +159,64 @@ if (element == CE_ShapedFrame
 ```
 
 提交标题使用中文简述，正文用多个中文段落说明修改细节。不 push，不调用 GitHub CLI，不处理远端 CI，不下载 Qt。
+
+## 9. 交付结果
+
+**状态：** 已于 2026-08-06 完成本批次实现与本机质量门禁。代码验证基于提交 `80298696cca132f9ee50fb58f8e5ccf2a52b0c5a`，使用本机 Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8 和 CMake 4.3.3；全程复用 `/home/zz/Qt/6.11.1/gcc_64`，没有下载新的 Qt SDK。
+
+### 9.1 生产实现
+
+- 没有增加 `ZzLCDNumber` 空包装类或新的公开 ABI。标准 `QLCDNumber` 继续作为显示值、进制、段样式、溢出和无障碍语义的唯一所有者。
+- 应用级 `ZzFluentStyle` 只在 `CE_ShapedFrame` 且 widget 为 `QLCDNumber` 时绘制 Fluent 表面；普通 `QFrame` 继续委托基础样式，未扩大样式路由范围。
+- `QFrame::NoFrame` 作为透明状态，不增加动态属性、对象名约定或第二份状态。绘制热路径不修改 palette、geometry 或 widget 状态。
+- 旧版自动时钟、200 ms timer、主题单例、每实例 proxy style、QSS 和系统时间读取均未迁移。需要时钟时，由应用 presenter 生成文本并调用标准 `display()`。
+- 生产路径只增加一次圆角 fill/stroke 绘制，不创建每实例 QObject、animation、timer 或 pixmap cache。
+
+### 9.2 提交记录
+
+- `7b7a519`：规划 Fluent 数字显示批次，完成旧版逐行审计、架构取舍、性能预算和验证矩阵设计。
+- `9fa3c5b`：在应用级 `ZzFluentStyle` 中实现数字显示表面和透明 frame 路径。
+- `4c1fc7e`：接入标准语义、溢出、主题、无障碍、对象稳定性、安装消费和性能门禁。
+- `8029869`：接入控件画廊以及三主题四档 DPR 的 12 张视觉基线。
+
+### 9.3 Linux 自动验证
+
+- `linux-gcc-release` shared Release 全量构建与 CTest 通过，共 `95/95`。
+- `linux-static-release` static Release 全量构建与 CTest 通过，共 `95/95`。
+- `linux-clang-asan-benchmarks` 在 ASan+UBSan 下全量构建与 CTest 通过，共 `107/107`；未报告内存错误或未定义行为。
+- shared `linux-clang-tidy-release` 与 static `linux-clang-tidy-static` 均完成 `144/144` 个一方翻译单元，在 `warnings-as-errors` 下以 0 退出，未输出工程内诊断。
+- fresh install consumer、package relocation、公开头独立编译、完整架构审计、FluentUI 边界、二进制依赖和许可证安装审计通过。
+- `ZzPlatformCompileTest`、四个示例 offscreen smoke 和控件画廊 shared/static smoke 通过；数字显示截图回归在 DPR 1.0、1.25、1.5、2.0 四档全部通过。
+
+### 9.4 性能结果
+
+活动 Linux reference 发布机使用固定 CPU 亲和、Xvfb 1920x1080x24 和 Mesa llvmpipe。100 个 `QLCDNumber` 每帧更新数值并离屏绘制，预热后采集 120 帧：
+
+```text
+P50: 4.935 ms
+P95: 5.035 ms
+max: 5.095 ms
+descendants: 100
+animations: 0
+timers: 0
+```
+
+P95 低于 `8 ms` 硬门限。1000 轮数值、enabled、frame style 和主题切换后，QObject 后代仍为 100，animation 与 timer 仍为 0，所有控件继续复用同一个应用级 style。
+
+Clang 20 ASan+UBSan 定向运行的补充数据为 P50 `6.437 ms`、P95 `6.644 ms`、max `6.762 ms`；该数据只用于验证插桩路径稳定性，不替代 Release reference 结果。
+
+### 9.5 视觉检查
+
+新增 `digital-display-{light,dark,high-contrast}.png`，每个主题覆盖 DPR 1.0、1.25、1.5、2.0，共 12 张。已人工检查 Light、Dark、HighContrast 的 DPR 1.0 和 Light 的 DPR 2.0：
+
+- 常规十进制、负数、小数、Hex `bEEF`、disabled 和透明状态均清晰，没有数字裁切、控件重叠或边框断裂。
+- Filled 与 Flat 段样式辨识稳定；Outline 保留 Qt 原生较轻的段线表现。
+- `QFrame::NoFrame` 没有意外底板，Light/Dark/HighContrast 的 frame 与文本对比可辨识。
+
+### 9.6 跨平台状态
+
+- preset matrix contract 与 Linux/Windows/macOS gate script contract 通过，矩阵继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static。
+- 本批 C++ 差异没有 `Q_OS_*`、`_WIN32`、`__APPLE__` 平台分支，没有 Qt Private API、平台原生头、编译器扩展、绝对路径、`QWindowKit::` 依赖泄漏或链式命名空间。
+- 本批没有新增公开头或导出类型；安装消费者只通过 Qt 公共 `QLCDNumber` 与已安装的 `ZzFluentStyle` 验证协议。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、preset、公开 ABI、依赖方向和条件编译静态审计，尚未在对应平台完成编译、安装消费或真机交互验证；不得将本节结果表述为这些平台已经运行通过。
+- 本批未访问 GitHub CLI、未运行或读取远端 CI、未 push；远端 CI 按用户要求继续暂缓。
