@@ -1,5 +1,9 @@
 #include <QtCore/QDate>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QStyleOption>
+#include <QtWidgets/QTextEdit>
 
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
@@ -10,12 +14,22 @@
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzThemeController.h>
 
 int main(int argc, char *argv[])
 {
     QApplication application(argc, argv);
+    ZzFluentUI::ZzThemeController themeController;
+    ZzFluentUI::ZzFluentStyle fluentStyle(&themeController);
+    QLineEdit lineEdit(QStringLiteral("Alpha"));
+    QTextEdit textEdit(QStringLiteral("Beta"));
+    QPlainTextEdit plainTextEdit(QStringLiteral("Gamma"));
+    lineEdit.setStyle(&fluentStyle);
+    textEdit.setStyle(&fluentStyle);
+    plainTextEdit.setStyle(&fluentStyle);
     ZzFluentUI::ZzCalendar calendar;
     ZzFluentUI::ZzCalendarPicker picker;
     ZzFluentUI::ZzActionCard actionCard(
@@ -57,8 +71,23 @@ int main(int argc, char *argv[])
     floatingInput.setRange(-10.0, 10.0);
     floatingInput.setDecimals(2);
     floatingInput.setValue(1.25);
+    QStyleOptionFrame lineOption;
+    lineOption.initFrom(&lineEdit);
+    const QSize lineSize = fluentStyle.sizeFromContents(
+        QStyle::CT_LineEdit,
+        &lineOption,
+        QSize(8, 8),
+        &lineEdit);
 
-    if (calendar.selectedDate() != expectedDate
+    if (lineEdit.style() != &fluentStyle
+        || textEdit.style() != &fluentStyle
+        || plainTextEdit.style() != &fluentStyle
+        || lineEdit.text() != QStringLiteral("Alpha")
+        || textEdit.toPlainText() != QStringLiteral("Beta")
+        || plainTextEdit.toPlainText() != QStringLiteral("Gamma")
+        || lineSize.width() < 96
+        || lineSize.height() < 32
+        || calendar.selectedDate() != expectedDate
         || picker.date() != expectedDate
         || picker.calendar() == nullptr
         || picker.calendarWidget() != picker.calendar()

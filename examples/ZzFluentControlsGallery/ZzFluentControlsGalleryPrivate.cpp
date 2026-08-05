@@ -22,6 +22,7 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
@@ -360,10 +361,27 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->setContentsMargins(0, 0, 0, 0);
     form->setVerticalSpacing(8);
     auto *name = new QLineEdit(container);
-    name->setText(QStringLiteral("Workspace"));
+    name->setPlaceholderText(QStringLiteral("Workspace name"));
+    name->setClearButtonEnabled(true);
+    auto *password = new QLineEdit(container);
+    password->setText(QStringLiteral("Fluent-2026"));
+    password->setEchoMode(QLineEdit::Password);
     auto *notes = new QTextEdit(container);
-    notes->setPlainText(QStringLiteral("Fluent controls\nCross-platform UI"));
+    notes->setHtml(QStringLiteral(
+        "<b>Fluent controls</b><br>Cross-platform UI"));
     notes->setFixedHeight(72);
+    auto *output = new QPlainTextEdit(container);
+    output->setPlainText(QStringLiteral("configure: ok\nbuild: ready"));
+    output->setFixedHeight(72);
+    auto *rightToLeftText = new QLineEdit(container);
+    rightToLeftText->setLayoutDirection(Qt::RightToLeft);
+    rightToLeftText->setText(QStringLiteral("RTL input"));
+    auto *readOnlyText = new QLineEdit(container);
+    readOnlyText->setText(QStringLiteral("Read-only value"));
+    readOnlyText->setReadOnly(true);
+    auto *disabledText = new QLineEdit(container);
+    disabledText->setText(QStringLiteral("Disabled value"));
+    disabledText->setEnabled(false);
     auto *density = new QComboBox(container);
     density->addItems({
         QStringLiteral("Balanced"),
@@ -376,7 +394,12 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     datePicker->setDateRange(QDate(2026, 1, 1), QDate(2026, 12, 31));
     datePicker->setDate(QDate(2026, 8, 5));
     form->addRow(QStringLiteral("Name"), name);
+    form->addRow(QStringLiteral("Password"), password);
     form->addRow(QStringLiteral("Notes"), notes);
+    form->addRow(QStringLiteral("Output"), output);
+    form->addRow(QStringLiteral("RTL text"), rightToLeftText);
+    form->addRow(QStringLiteral("Read only"), readOnlyText);
+    form->addRow(QStringLiteral("Disabled"), disabledText);
     form->addRow(QStringLiteral("Density"), density);
     form->addRow(QStringLiteral("Due date"), datePicker);
 

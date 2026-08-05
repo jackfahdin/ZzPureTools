@@ -14,7 +14,10 @@
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleOptionViewItem>
+#include <QtWidgets/QTextEdit>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -1025,6 +1028,160 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机数值输入 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresTextInputRenderingAndStability()
+    {
+        constexpr int lineCount = 50;
+        constexpr int richCount = 25;
+        constexpr int plainCount = 25;
+        constexpr int controlCount = lineCount + richCount + plainCount;
+        constexpr int columnCount = 10;
+        constexpr int cellWidth = 132;
+        constexpr int cellHeight = 56;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<QLineEdit *> lines;
+        std::vector<QTextEdit *> richEditors;
+        std::vector<QPlainTextEdit *> plainEditors;
+        lines.reserve(lineCount);
+        richEditors.reserve(richCount);
+        plainEditors.reserve(plainCount);
+
+        for (int index = 0; index < controlCount; ++index) {
+            const QRect geometry(
+                (index % columnCount) * cellWidth,
+                (index / columnCount) * cellHeight,
+                cellWidth - 8,
+                index < lineCount ? 32 : 48);
+            if (index < lineCount) {
+                auto *editor = new QLineEdit(&host);
+                editor->setStyle(&style);
+                editor->setGeometry(geometry);
+                editor->setText(QStringLiteral("Value %1").arg(index));
+                editor->setPlaceholderText(QStringLiteral("Input"));
+                lines.push_back(editor);
+            } else if (index < lineCount + richCount) {
+                auto *editor = new QTextEdit(&host);
+                editor->setStyle(&style);
+                editor->setGeometry(geometry);
+                editor->setPlainText(QStringLiteral("Rich %1").arg(index));
+                richEditors.push_back(editor);
+            } else {
+                auto *editor = new QPlainTextEdit(&host);
+                editor->setStyle(&style);
+                editor->setGeometry(geometry);
+                editor->setPlainText(QStringLiteral("Plain %1").arg(index));
+                plainEditors.push_back(editor);
+            }
+        }
+
+        host.resize(
+            columnCount * cellWidth,
+            (controlCount / columnCount) * cellHeight);
+        host.show();
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            for (int index = 0; index < lineCount; ++index) {
+                lines[static_cast<std::size_t>(index)]->setText(
+                    QString::number(sequence * 13 + index));
+            }
+            for (int index = 0; index < richCount; ++index) {
+                richEditors[static_cast<std::size_t>(index)]->setPlainText(
+                    QString::number(sequence * 7 + index));
+            }
+            for (int index = 0; index < plainCount; ++index) {
+                plainEditors[static_cast<std::size_t>(index)]->setPlainText(
+                    QString::number(sequence * 11 + index));
+            }
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            const bool alternate = round % 2 == 0;
+            const Qt::LayoutDirection direction = alternate
+                ? Qt::LeftToRight
+                : Qt::RightToLeft;
+            for (int index = 0; index < lineCount; ++index) {
+                QLineEdit *editor = lines[static_cast<std::size_t>(index)];
+                editor->setText(QString::number(round + index));
+                editor->setPlaceholderText(QString::number(index));
+                editor->setReadOnly(alternate);
+                editor->setLayoutDirection(direction);
+            }
+            for (int index = 0; index < richCount; ++index) {
+                QTextEdit *editor =
+                    richEditors[static_cast<std::size_t>(index)];
+                editor->setPlainText(QString::number(round + index));
+                editor->setReadOnly(alternate);
+                editor->setLayoutDirection(direction);
+            }
+            for (int index = 0; index < plainCount; ++index) {
+                QPlainTextEdit *editor =
+                    plainEditors[static_cast<std::size_t>(index)];
+                editor->setPlainText(QString::number(round + index));
+                editor->setReadOnly(alternate);
+                editor->setLayoutDirection(direction);
+            }
+        }
+
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-text-inputs controls=100 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机文本输入 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }
