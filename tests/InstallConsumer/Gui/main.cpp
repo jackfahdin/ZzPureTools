@@ -13,12 +13,16 @@
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolBar>
+#include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzCalendar.h>
@@ -111,6 +115,33 @@ int main(int argc, char *argv[]) {
   QPushButton toolTipHost;
   toolTipHost.setStyle(&fluentStyle);
   toolTipHost.setToolTip(QStringLiteral("Installed tooltip"));
+  QMainWindow commandWindow;
+  commandWindow.setStyle(&fluentStyle);
+  auto *commandToolBar = new QToolBar(QStringLiteral("Commands"));
+  commandToolBar->setStyle(&fluentStyle);
+  commandWindow.addToolBar(commandToolBar);
+  QAction *commandAction = commandToolBar->addAction(
+      QStringLiteral("Build"));
+  commandAction->setCheckable(true);
+  commandAction->trigger();
+  auto *commandStatusBar = new QStatusBar;
+  commandStatusBar->setStyle(&fluentStyle);
+  commandWindow.setStatusBar(commandStatusBar);
+  commandStatusBar->showMessage(QStringLiteral("Ready"), 0);
+  commandWindow.resize(360, 180);
+  commandWindow.show();
+  QCoreApplication::processEvents();
+  QWidget *commandButton = commandToolBar->widgetForAction(commandAction);
+  if (commandButton != nullptr) {
+    commandButton->setStyle(&fluentStyle);
+  }
+  QImage commandImage(
+      commandToolBar->size(),
+      QImage::Format_ARGB32_Premultiplied);
+  commandImage.fill(Qt::transparent);
+  QPainter commandPainter(&commandImage);
+  commandToolBar->render(&commandPainter);
+  commandPainter.end();
   ZzFluentUI::ZzCalendar calendar;
   ZzFluentUI::ZzCalendarPicker picker;
   ZzFluentUI::ZzActionCard actionCard(QStringLiteral("Settings"),
@@ -246,6 +277,31 @@ int main(int argc, char *argv[]) {
       QStyle::CT_MenuItem, &menuItemOption, QSize(80, 8), &popupMenu);
   QKeyEvent downPress(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
   QCoreApplication::sendEvent(&selection, &downPress);
+
+  if (commandToolBar->style() != &fluentStyle) {
+    return 20;
+  }
+  if (commandToolBar->orientation() != Qt::Horizontal) {
+    return 21;
+  }
+  if (commandButton == nullptr) {
+    return 22;
+  }
+  if (commandButton->style() != &fluentStyle) {
+    return 23;
+  }
+  if (!commandAction->isChecked()) {
+    return 24;
+  }
+  if (commandStatusBar->style() != &fluentStyle) {
+    return 25;
+  }
+  if (commandStatusBar->currentMessage() != QStringLiteral("Ready")) {
+    return 26;
+  }
+  if (commandImage.pixelColor(commandImage.rect().center()).alpha() == 0) {
+    return 27;
+  }
 
   if (lineEdit.style() != &fluentStyle || textEdit.style() != &fluentStyle ||
       plainTextEdit.style() != &fluentStyle ||

@@ -76,6 +76,26 @@ set_tests_properties(fluent.standard-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzCommandStatusSurfacesTest
+    ZzCommandStatusSurfacesTest.cpp
+)
+target_link_libraries(ZzCommandStatusSurfacesTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzCommandStatusSurfacesTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzCommandStatusSurfacesTest)
+zz_enable_sanitizers(ZzCommandStatusSurfacesTest)
+add_test(
+    NAME fluent.command-status-surfaces
+    COMMAND ZzCommandStatusSurfacesTest
+)
+set_tests_properties(fluent.command-status-surfaces PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzPopupSurfacesTest ZzPopupSurfacesTest.cpp)
 target_link_libraries(ZzPopupSurfacesTest PRIVATE
     Qt6::Test

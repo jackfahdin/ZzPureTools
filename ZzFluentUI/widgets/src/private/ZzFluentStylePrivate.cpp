@@ -341,6 +341,7 @@ void ZzFluentStylePrivate::drawToolBarPanel(
     const QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
     const qreal pixelWidth = 1.0
         / qMax(1.0, painter->device()->devicePixelRatioF());
+    const qreal inset = pixelWidth / 2.0;
     const QRectF bounds(option->rect);
 
     painter->save();
@@ -349,18 +350,26 @@ void ZzFluentStylePrivate::drawToolBarPanel(
     painter->setPen(QPen(stroke, pixelWidth));
     if (toolBar == nullptr || toolBar->toolBarArea == Qt::NoToolBarArea) {
         painter->drawRect(bounds.adjusted(
-            pixelWidth / 2.0,
-            pixelWidth / 2.0,
-            -pixelWidth / 2.0,
-            -pixelWidth / 2.0));
+            inset,
+            inset,
+            -inset,
+            -inset));
     } else if (toolBar->toolBarArea == Qt::TopToolBarArea) {
-        painter->drawLine(bounds.bottomLeft(), bounds.bottomRight());
+        painter->drawLine(
+            QPointF(bounds.left(), bounds.bottom() - inset),
+            QPointF(bounds.right(), bounds.bottom() - inset));
     } else if (toolBar->toolBarArea == Qt::BottomToolBarArea) {
-        painter->drawLine(bounds.topLeft(), bounds.topRight());
+        painter->drawLine(
+            QPointF(bounds.left(), bounds.top() + inset),
+            QPointF(bounds.right(), bounds.top() + inset));
     } else if (toolBar->toolBarArea == Qt::LeftToolBarArea) {
-        painter->drawLine(bounds.topRight(), bounds.bottomRight());
+        painter->drawLine(
+            QPointF(bounds.right() - inset, bounds.top()),
+            QPointF(bounds.right() - inset, bounds.bottom()));
     } else if (toolBar->toolBarArea == Qt::RightToolBarArea) {
-        painter->drawLine(bounds.topLeft(), bounds.bottomLeft());
+        painter->drawLine(
+            QPointF(bounds.left() + inset, bounds.top()),
+            QPointF(bounds.left() + inset, bounds.bottom()));
     }
     painter->restore();
 }
@@ -450,7 +459,9 @@ void ZzFluentStylePrivate::drawStatusBarPanel(
     painter->setPen(QPen(
         snapshot->color(ZzColorToken::ControlStroke),
         pixelWidth));
-    painter->drawLine(bounds.topLeft(), bounds.topRight());
+    painter->drawLine(
+        QPointF(bounds.left(), bounds.top() + pixelWidth / 2.0),
+        QPointF(bounds.right(), bounds.top() + pixelWidth / 2.0));
     painter->restore();
 }
 
