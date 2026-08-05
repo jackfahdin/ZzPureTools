@@ -24,6 +24,7 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
@@ -32,9 +33,11 @@
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSplitter>
+#include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolBar>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
@@ -1054,7 +1057,117 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
         flowLayout->addWidget(button);
     }
     layout->addWidget(flowHost);
+
+    layout->addWidget(zzSectionTitle(
+        QStringLiteral("Command and status"),
+        container));
+    layout->addWidget(buildCommandStatusHost(container));
     return container;
+}
+
+QWidget *ZzFluentControlsGalleryPrivate::buildCommandStatusHost(
+    QWidget *parent)
+{
+    auto *host = new QWidget(parent);
+    auto *layout = new QVBoxLayout(host);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    auto *window = new QMainWindow(host);
+    window->setWindowFlags(Qt::Widget);
+    window->setMinimumHeight(260);
+    auto *workspace = new QLabel(
+        QStringLiteral("Workspace ready"),
+        window);
+    workspace->setAlignment(Qt::AlignCenter);
+    window->setCentralWidget(workspace);
+
+    auto *commands = new QToolBar(
+        QStringLiteral("Workspace commands"),
+        window);
+    commands->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
+    commands->setMovable(true);
+    commands->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    window->addToolBar(Qt::TopToolBarArea, commands);
+
+    const auto addCommand = [commands, workspace](
+                                const QIcon &icon,
+                                const QString &text) {
+        QAction *action = commands->addAction(icon, text);
+        QObject::connect(
+            action,
+            &QAction::triggered,
+            workspace,
+            [workspace, text] {
+                workspace->setText(
+                    QStringLiteral("%1 completed").arg(text));
+            });
+        return action;
+    };
+    addCommand(
+        commands->style()->standardIcon(QStyle::SP_DirOpenIcon),
+        QStringLiteral("Open"));
+    QAction *watch = addCommand(
+        commands->style()->standardIcon(QStyle::SP_BrowserReload),
+        QStringLiteral("Watch"));
+    watch->setCheckable(true);
+    watch->setChecked(true);
+    QAction *unavailable = addCommand(
+        commands->style()->standardIcon(QStyle::SP_DialogCancelButton),
+        QStringLiteral("Deploy"));
+    unavailable->setEnabled(false);
+    commands->addSeparator();
+    QAction *target = addCommand(
+        commands->style()->standardIcon(QStyle::SP_ComputerIcon),
+        QStringLiteral("Target"));
+    auto *targetMenu = new QMenu(commands);
+    targetMenu->addAction(QStringLiteral("Linux x86_64"));
+    targetMenu->addAction(QStringLiteral("Windows x86_64"));
+    targetMenu->addAction(QStringLiteral("macOS universal"));
+    target->setMenu(targetMenu);
+    for (const QString &text : {
+             QStringLiteral("Configure"),
+             QStringLiteral("Build"),
+             QStringLiteral("Test"),
+             QStringLiteral("Package"),
+             QStringLiteral("Publish")}) {
+        addCommand(
+            commands->style()->standardIcon(QStyle::SP_FileDialogDetailedView),
+            text);
+    }
+
+    auto *views = new QToolBar(QStringLiteral("Workspace views"), window);
+    views->setAllowedAreas(Qt::LeftToolBarArea | Qt::RightToolBarArea);
+    views->setMovable(true);
+    views->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    for (const auto &[icon, text] : {
+             std::pair{QStyle::SP_FileDialogContentsView,
+                       QStringLiteral("Files")},
+             std::pair{QStyle::SP_ComputerIcon, QStringLiteral("Targets")},
+             std::pair{QStyle::SP_FileDialogInfoView,
+                       QStringLiteral("Diagnostics")}}) {
+        views->addAction(views->style()->standardIcon(icon), text);
+    }
+    window->addToolBar(Qt::LeftToolBarArea, views);
+
+    auto *status = new QStatusBar(window);
+    status->setSizeGripEnabled(true);
+    status->addPermanentWidget(new QLabel(QStringLiteral("Local"), status));
+    status->showMessage(QStringLiteral("Ready"), 0);
+    window->setStatusBar(status);
+    QObject::connect(
+        commands,
+        &QToolBar::actionTriggered,
+        status,
+        [status](QAction *action) {
+            if (action != nullptr) {
+                status->showMessage(
+                    QStringLiteral("Command: %1").arg(action->text()),
+                    1800);
+            }
+        });
+
+    layout->addWidget(window);
+    return host;
 }
 
 void ZzFluentControlsGalleryPrivate::showDialog()

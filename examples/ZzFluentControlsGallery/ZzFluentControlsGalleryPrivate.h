@@ -42,6 +42,9 @@ public:
     /** @brief 构造 Table、Tree、菜单和 Dialog 展示列。 */
     [[nodiscard]] QWidget *buildDataColumn(QWidget *parent);
 
+    /** @brief 构造只更新本地展示状态的标准命令与状态宿主。 */
+    [[nodiscard]] QWidget *buildCommandStatusHost(QWidget *parent);
+
     /** @brief 构造一个不访问业务对象的非模态示例 Dialog。 */
     void showDialog();
 

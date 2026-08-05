@@ -42,6 +42,7 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
@@ -50,7 +51,9 @@
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QSlider>
+#include <QtWidgets/QSizeGrip>
 #include <QtWidgets/QSpinBox>
+#include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QStyleOptionButton>
@@ -58,6 +61,7 @@
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTextBrowser>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QVBoxLayout>
@@ -1470,6 +1474,372 @@ ZzCarouselTextMask zzBuildCarouselTextMask(QWidget *surface, qreal dpr)
                     carousel->viewport(), descriptionPixels, surface));
             ++result.descriptions;
         }
+    }
+    painter.end();
+    return result;
+}
+
+/** @brief 保存命令与状态截图中文字遮罩及覆盖数量。 */
+struct ZzCommandStatusTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int toolButtons = 0;
+    int statusMessages = 0;
+};
+
+/** @brief 构造标准工具栏、工具按钮与状态栏的确定性视觉矩阵。 */
+class ZzCommandStatusScreenshotSurface final
+{
+public:
+    /** @brief 创建横向、纵向、RTL、溢出和双状态栏场景。 */
+    ZzCommandStatusScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzCommandStatusScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Command Workspace"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        auto *central = new QWidget(&window);
+        auto *root = new QVBoxLayout(central);
+        root->setContentsMargins(28, 24, 28, 24);
+        root->setSpacing(16);
+        auto *heading = new QLabel(QStringLiteral("Release workspace"), central);
+        QFont headingFont = heading->font();
+        headingFont.setWeight(QFont::DemiBold);
+        headingFont.setPointSize(15);
+        heading->setFont(headingFont);
+        root->addWidget(heading);
+        root->addWidget(new QLabel(
+            QStringLiteral("Build 4821 | Linux x86_64 | Release"),
+            central));
+
+        auto *summary = new QWidget(central);
+        auto *summaryLayout = new QGridLayout(summary);
+        summaryLayout->setContentsMargins(0, 8, 0, 8);
+        summaryLayout->setHorizontalSpacing(48);
+        summaryLayout->setVerticalSpacing(14);
+        summaryLayout->addWidget(
+            new QLabel(QStringLiteral("Configuration"), summary), 0, 0);
+        summaryLayout->addWidget(
+            new QLabel(QStringLiteral("Ready"), summary), 0, 1);
+        summaryLayout->addWidget(
+            new QLabel(QStringLiteral("Tests"), summary), 1, 0);
+        summaryLayout->addWidget(
+            new QLabel(QStringLiteral("97 passed"), summary), 1, 1);
+        summaryLayout->setColumnStretch(2, 1);
+        root->addWidget(summary);
+
+        overflowBar_ = new QToolBar(
+            QStringLiteral("Compact build commands"),
+            central);
+        overflowBar_->setMovable(false);
+        overflowBar_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        overflowBar_->setFixedWidth(520);
+        for (int index = 0; index < 12; ++index) {
+            QAction *action = overflowBar_->addAction(
+                window.style()->standardIcon(QStyle::SP_FileIcon),
+                QStringLiteral("Command %1").arg(index + 1));
+            if (index == 11) {
+                lastOverflowAction_ = action;
+            }
+        }
+        root->addWidget(overflowBar_, 0, Qt::AlignLeft);
+        root->addStretch(1);
+
+        normalStatus_ = new QStatusBar(central);
+        normalStatus_->setSizeGripEnabled(false);
+        normalStatus_->addWidget(
+            new QLabel(QStringLiteral("Ready"), normalStatus_),
+            1);
+        normalStatus_->addPermanentWidget(
+            new QLabel(QStringLiteral("main"), normalStatus_));
+        root->addWidget(normalStatus_);
+        window.setCentralWidget(central);
+
+        topBar_ = new QToolBar(QStringLiteral("Build commands"), &window);
+        topBar_->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
+        topBar_->setMovable(true);
+        topBar_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        topBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_DirOpenIcon),
+            QStringLiteral("Open workspace"));
+        QAction *watch = topBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_BrowserReload),
+            QStringLiteral("Watch"));
+        watch->setCheckable(true);
+        watch->setChecked(true);
+        QAction *unavailable = topBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_DialogCancelButton),
+            QStringLiteral("Deploy"));
+        unavailable->setEnabled(false);
+        topBar_->addSeparator();
+        menuAction_ = topBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_ComputerIcon),
+            QStringLiteral("Target"));
+        auto *targetMenu = new QMenu(topBar_);
+        targetMenu->addAction(QStringLiteral("Linux x86_64"));
+        targetMenu->addAction(QStringLiteral("Windows x86_64"));
+        targetMenu->addAction(QStringLiteral("macOS universal"));
+        menuAction_->setMenu(targetMenu);
+        for (const QString &text : {
+                 QStringLiteral("Configure"),
+                 QStringLiteral("Build all"),
+                 QStringLiteral("Run tests"),
+                 QStringLiteral("Package")}) {
+            topBar_->addAction(
+                window.style()->standardIcon(QStyle::SP_FileDialogDetailedView),
+                text);
+        }
+        window.addToolBar(Qt::TopToolBarArea, topBar_);
+
+        leftBar_ = new QToolBar(QStringLiteral("State commands"), &window);
+        leftBar_->setAllowedAreas(Qt::LeftToolBarArea | Qt::RightToolBarArea);
+        leftBar_->setMovable(true);
+        leftBar_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        checkedAction_ = leftBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_DialogApplyButton),
+            QStringLiteral("Checked command"));
+        checkedAction_->setCheckable(true);
+        checkedAction_->setChecked(true);
+        disabledAction_ = leftBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_TrashIcon),
+            QStringLiteral("Disabled command"));
+        disabledAction_->setEnabled(false);
+        hoverAction_ = leftBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_BrowserReload),
+            QStringLiteral("Hovered command"));
+        pressedAction_ = leftBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_MediaStop),
+            QStringLiteral("Pressed command"));
+        focusAction_ = leftBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_MessageBoxInformation),
+            QStringLiteral("Focused command"));
+        QAction *more = leftBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_TitleBarUnshadeButton),
+            QStringLiteral("More commands"));
+        auto *moreMenu = new QMenu(leftBar_);
+        moreMenu->addAction(QStringLiteral("Inspect"));
+        moreMenu->addAction(QStringLiteral("Archive"));
+        more->setMenu(moreMenu);
+        window.addToolBar(Qt::LeftToolBarArea, leftBar_);
+
+        rtlBar_ = new QToolBar(QStringLiteral("RTL commands"), &window);
+        rtlBar_->setAllowedAreas(Qt::LeftToolBarArea | Qt::RightToolBarArea);
+        rtlBar_->setMovable(true);
+        rtlBar_->setLayoutDirection(Qt::RightToLeft);
+        rtlBar_->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        rtlBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_DialogOpenButton),
+            QStringLiteral("Open"));
+        rtlBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_FileDialogInfoView),
+            QStringLiteral("Details"));
+        rtlBar_->addSeparator();
+        rtlBar_->addAction(
+            window.style()->standardIcon(QStyle::SP_DialogSaveButton),
+            QStringLiteral("Save"));
+        window.addToolBar(Qt::RightToolBarArea, rtlBar_);
+
+        bottomStatus_ = new QStatusBar(&window);
+        bottomStatus_->setSizeGripEnabled(true);
+        bottomStatus_->addPermanentWidget(new QLabel(
+            QStringLiteral("Local | 8 workers"),
+            bottomStatus_));
+        bottomStatus_->showMessage(QStringLiteral("Synchronizing artifacts"), 0);
+        window.setStatusBar(bottomStatus_);
+    }
+
+    /** @brief 展示场景并固定 hover、pressed 与键盘焦点状态。 */
+    void polish()
+    {
+        window.show();
+        window.activateWindow();
+        QCoreApplication::processEvents();
+        hoverButton_ = qobject_cast<QToolButton *>(
+            leftBar_->widgetForAction(hoverAction_));
+        pressedButton_ = qobject_cast<QToolButton *>(
+            leftBar_->widgetForAction(pressedAction_));
+        focusButton_ = qobject_cast<QToolButton *>(
+            leftBar_->widgetForAction(focusAction_));
+        if (hoverButton_ != nullptr) {
+            hoverButton_->setAttribute(Qt::WA_UnderMouse, true);
+            hoverButton_->update();
+        }
+        if (pressedButton_ != nullptr) {
+            pressedButton_->setDown(true);
+        }
+        if (focusButton_ != nullptr) {
+            focusButton_->setFocus(Qt::TabFocusReason);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏命令与状态截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    /** @brief 返回顶部文本工具栏。 */
+    [[nodiscard]] QToolBar *topBar() const noexcept
+    {
+        return topBar_;
+    }
+
+    /** @brief 返回左侧图标工具栏。 */
+    [[nodiscard]] QToolBar *leftBar() const noexcept
+    {
+        return leftBar_;
+    }
+
+    /** @brief 返回右侧 RTL 工具栏。 */
+    [[nodiscard]] QToolBar *rtlBar() const noexcept
+    {
+        return rtlBar_;
+    }
+
+    /** @brief 返回保证产生溢出的窄工具栏。 */
+    [[nodiscard]] QToolBar *overflowBar() const noexcept
+    {
+        return overflowBar_;
+    }
+
+    /** @brief 返回窄工具栏最后一个 action。 */
+    [[nodiscard]] QAction *lastOverflowAction() const noexcept
+    {
+        return lastOverflowAction_;
+    }
+
+    /** @brief 返回已选中 action。 */
+    [[nodiscard]] QAction *checkedAction() const noexcept
+    {
+        return checkedAction_;
+    }
+
+    /** @brief 返回已禁用 action。 */
+    [[nodiscard]] QAction *disabledAction() const noexcept
+    {
+        return disabledAction_;
+    }
+
+    /** @brief 返回带标准菜单的 action。 */
+    [[nodiscard]] QAction *menuAction() const noexcept
+    {
+        return menuAction_;
+    }
+
+    /** @brief 返回固定按下状态的工具按钮。 */
+    [[nodiscard]] QToolButton *pressedButton() const noexcept
+    {
+        return pressedButton_;
+    }
+
+    /** @brief 返回固定键盘焦点的工具按钮。 */
+    [[nodiscard]] QToolButton *focusButton() const noexcept
+    {
+        return focusButton_;
+    }
+
+    /** @brief 返回固定 hover 状态的工具按钮。 */
+    [[nodiscard]] QToolButton *hoverButton() const noexcept
+    {
+        return hoverButton_;
+    }
+
+    /** @brief 返回没有临时消息的内嵌状态栏。 */
+    [[nodiscard]] QStatusBar *normalStatus() const noexcept
+    {
+        return normalStatus_;
+    }
+
+    /** @brief 返回带临时消息和 size grip 的窗口状态栏。 */
+    [[nodiscard]] QStatusBar *bottomStatus() const noexcept
+    {
+        return bottomStatus_;
+    }
+
+    QMainWindow window;
+
+private:
+    QPointer<QToolBar> topBar_;
+    QPointer<QToolBar> leftBar_;
+    QPointer<QToolBar> rtlBar_;
+    QPointer<QToolBar> overflowBar_;
+    QPointer<QStatusBar> normalStatus_;
+    QPointer<QStatusBar> bottomStatus_;
+    QPointer<QAction> lastOverflowAction_;
+    QPointer<QAction> checkedAction_;
+    QPointer<QAction> disabledAction_;
+    QPointer<QAction> menuAction_;
+    QPointer<QAction> hoverAction_;
+    QPointer<QAction> pressedAction_;
+    QPointer<QAction> focusAction_;
+    QPointer<QToolButton> hoverButton_;
+    QPointer<QToolButton> pressedButton_;
+    QPointer<QToolButton> focusButton_;
+};
+
+/** @brief 构造命令与状态截图的跨字体栅格化差异遮罩。 */
+ZzCommandStatusTextMask zzBuildCommandStatusTextMask(
+    QWidget *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzCommandStatusTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    for (QLabel *label : surface->findChildren<QLabel *>()) {
+        if (!label->isVisible() || label->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            label,
+            label->contentsRect(),
+            static_cast<int>(label->alignment()),
+            label->text());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(label, textRect, surface));
+        ++result.labels;
+    }
+
+    for (QToolButton *button : surface->findChildren<QToolButton *>()) {
+        if (!button->isVisible() || button->text().isEmpty()
+            || button->toolButtonStyle() == Qt::ToolButtonIconOnly) {
+            continue;
+        }
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(
+                button,
+                button->contentsRect().adjusted(2, 2, -2, -2),
+                surface));
+        ++result.toolButtons;
+    }
+
+    for (QStatusBar *status : surface->findChildren<QStatusBar *>()) {
+        if (!status->isVisible() || status->currentMessage().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            status,
+            status->contentsRect().adjusted(6, 0, -160, 0),
+            Qt::AlignLeft | Qt::AlignVCenter,
+            status->currentMessage());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(status, textRect, surface));
+        ++result.statusMessages;
     }
     painter.end();
     return result;
@@ -4533,6 +4903,23 @@ QImage zzRenderCarouselSurface(
     return image;
 }
 
+/** @brief 将独立命令与状态窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderCommandStatusSurface(
+    ZzCommandStatusScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 把窗口和独立菜单渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderSurface(ZzScreenshotSurface *surface, qreal dpr)
 {
@@ -4910,6 +5297,132 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 轮播非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersCommandStatusThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("command-status-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("command-status-light");
+        QTest::newRow("command-status-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("command-status-dark");
+        QTest::newRow("command-status-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("command-status-high-contrast");
+    }
+
+    void rendersCommandStatusThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzCommandStatusScreenshotSurface surface;
+        surface.polish();
+        QCOMPARE(surface.window.findChildren<QToolBar *>().size(), 4);
+        QCOMPARE(surface.topBar()->orientation(), Qt::Horizontal);
+        QCOMPARE(surface.leftBar()->orientation(), Qt::Vertical);
+        QCOMPARE(surface.rtlBar()->orientation(), Qt::Vertical);
+        QCOMPARE(surface.rtlBar()->layoutDirection(), Qt::RightToLeft);
+        QVERIFY(surface.checkedAction()->isChecked());
+        QVERIFY(!surface.disabledAction()->isEnabled());
+        QVERIFY(surface.menuAction()->menu() != nullptr);
+        QVERIFY(surface.hoverButton() != nullptr);
+        QVERIFY(surface.hoverButton()->underMouse());
+        QVERIFY(surface.pressedButton() != nullptr);
+        QVERIFY(surface.pressedButton()->isDown());
+        QVERIFY(surface.focusButton() != nullptr);
+        QVERIFY(surface.focusButton()->hasFocus());
+        QWidget *overflowWidget = surface.overflowBar()->widgetForAction(
+            surface.lastOverflowAction());
+        QVERIFY(overflowWidget != nullptr);
+        QVERIFY(!overflowWidget->isVisible());
+        QVERIFY(surface.normalStatus()->currentMessage().isEmpty());
+        QCOMPARE(
+            surface.bottomStatus()->currentMessage(),
+            QStringLiteral("Synchronizing artifacts"));
+        QVERIFY(surface.bottomStatus()->isSizeGripEnabled());
+        QSizeGrip *sizeGrip =
+            surface.bottomStatus()->findChild<QSizeGrip *>();
+        QVERIFY(sizeGrip != nullptr);
+        QVERIFY(sizeGrip->isVisible());
+
+        const QImage actual = zzRenderCommandStatusSurface(
+            &surface,
+            actualDpr_);
+        QCOMPARE(
+            actual.size(),
+            QSize(
+                qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+                qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        const ZzCommandStatusTextMask mask =
+            zzBuildCommandStatusTextMask(&surface.window, actualDpr_);
+        QVERIFY(mask.labels >= 8);
+        QVERIFY(mask.toolButtons >= 8);
+        QCOMPARE(mask.statusMessages, 1);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 命令与状态非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
