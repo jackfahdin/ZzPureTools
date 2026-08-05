@@ -1,0 +1,261 @@
+#include <QtCore/QPointer>
+#include <QtGui/QAccessible>
+#include <QtGui/QDragEnterEvent>
+#include <QtCore/QMimeData>
+#include <QtTest/QSignalSpy>
+#include <QtTest/QTest>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QStyle>
+
+#include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzTabWidget.h>
+
+namespace {
+
+/** @brief 创建带稳定对象名的轻量测试页面。 */
+QWidget *zzCreatePage(const QString &name, QWidget *parent = nullptr)
+{
+    auto *page = new QLabel(name, parent);
+    page->setObjectName(name);
+    return page;
+}
+
+/** @brief 为标签设置全部需要跨容器保留的公开元数据。 */
+void zzSetTabMetadata(
+    ZzFluentUI::ZzTabWidget *tabs,
+    int index)
+{
+    tabs->setTabToolTip(index, QStringLiteral("工具提示"));
+    tabs->setTabWhatsThis(index, QStringLiteral("上下文帮助"));
+    tabs->setTabEnabled(index, false);
+    tabs->fluentTabBar()->setTabData(
+        index,
+        QStringLiteral("stable-data"));
+    tabs->fluentTabBar()->setTabTextColor(index, QColor(21, 84, 156));
+}
+
+} // namespace
+
+class ZzTabControlsTest final : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void exposesStableDefaults()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+
+        QVERIFY(tabs.fluentTabBar() != nullptr);
+        QCOMPARE(tabs.fluentTabBar()->parentWidget(), &tabs);
+        QVERIFY(tabs.isMovable());
+        QVERIFY(tabs.fluentTabBar()->isTearOffEnabled());
+        QVERIFY(tabs.fluentTabBar()->isTabTransferEnabled());
+        QVERIFY(tabs.fluentTabBar()->acceptDrops());
+        QVERIFY(tabs.fluentTabBar()->usesScrollButtons());
+        QCOMPARE(tabs.fluentTabBar()->elideMode(), Qt::ElideRight);
+    }
+
+    void emitsCapabilityChangesOnlyForRealUpdates()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        QSignalSpy tearOffSpy(
+            tabs.fluentTabBar(),
+            &ZzFluentUI::ZzTabBar::tearOffEnabledChanged);
+        QSignalSpy transferSpy(
+            tabs.fluentTabBar(),
+            &ZzFluentUI::ZzTabBar::tabTransferEnabledChanged);
+
+        tabs.fluentTabBar()->setTearOffEnabled(true);
+        tabs.fluentTabBar()->setTabTransferEnabled(true);
+        QCOMPARE(tearOffSpy.count(), 0);
+        QCOMPARE(transferSpy.count(), 0);
+
+        tabs.fluentTabBar()->setTearOffEnabled(false);
+        tabs.fluentTabBar()->setTabTransferEnabled(false);
+        QCOMPARE(tearOffSpy.count(), 1);
+        QCOMPARE(transferSpy.count(), 1);
+        QCOMPARE(tearOffSpy.at(0).at(0).toBool(), false);
+        QCOMPARE(transferSpy.at(0).at(0).toBool(), false);
+    }
+
+    void transfersPageAndCompleteMetadata()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        QWidget *first = zzCreatePage(QStringLiteral("first"));
+        QWidget *moved = zzCreatePage(QStringLiteral("moved"));
+        QWidget *last = zzCreatePage(QStringLiteral("last"));
+        const QIcon icon = source.style()->standardIcon(
+            QStyle::SP_FileIcon);
+
+        source.addTab(first, QStringLiteral("First"));
+        source.addTab(moved, icon, QStringLiteral("Moved"));
+        target.addTab(last, QStringLiteral("Last"));
+        zzSetTabMetadata(&source, 1);
+        QSignalSpy transferredSpy(
+            &target,
+            &ZzFluentUI::ZzTabWidget::tabTransferred);
+
+        QVERIFY(source.transferTabTo(&target, 1, 0));
+        QCOMPARE(source.count(), 1);
+        QCOMPARE(target.count(), 2);
+        QCOMPARE(target.widget(0), moved);
+        QCOMPARE(target.tabText(0), QStringLiteral("Moved"));
+        QCOMPARE(target.tabIcon(0).cacheKey(), icon.cacheKey());
+        QCOMPARE(target.tabToolTip(0), QStringLiteral("工具提示"));
+        QCOMPARE(target.tabWhatsThis(0), QStringLiteral("上下文帮助"));
+        QVERIFY(!target.isTabEnabled(0));
+        QCOMPARE(
+            target.fluentTabBar()->tabData(0).toString(),
+            QStringLiteral("stable-data"));
+        QCOMPARE(
+            target.fluentTabBar()->tabTextColor(0),
+            QColor(21, 84, 156));
+        QCOMPARE(target.currentWidget(), moved);
+        QCOMPARE(transferredSpy.count(), 1);
+        QCOMPARE(
+            qvariant_cast<ZzFluentUI::ZzTabWidget *>(
+                transferredSpy.at(0).at(0)),
+            &source);
+        QCOMPARE(transferredSpy.at(0).at(1).toInt(), 1);
+        QCOMPARE(transferredSpy.at(0).at(2).toInt(), 0);
+        QCOMPARE(
+            qvariant_cast<QWidget *>(transferredSpy.at(0).at(3)),
+            moved);
+    }
+
+    void reordersWithinSameContainerByInsertionSlot()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        QWidget *a = zzCreatePage(QStringLiteral("a"));
+        QWidget *b = zzCreatePage(QStringLiteral("b"));
+        QWidget *c = zzCreatePage(QStringLiteral("c"));
+        tabs.addTab(a, QStringLiteral("A"));
+        tabs.addTab(b, QStringLiteral("B"));
+        tabs.addTab(c, QStringLiteral("C"));
+
+        QVERIFY(tabs.transferTabTo(&tabs, 0, 3));
+        QCOMPARE(tabs.widget(0), b);
+        QCOMPARE(tabs.widget(1), c);
+        QCOMPARE(tabs.widget(2), a);
+
+        QVERIFY(tabs.transferTabTo(&tabs, 2, 0));
+        QCOMPARE(tabs.widget(0), a);
+        QCOMPARE(tabs.widget(1), b);
+        QCOMPARE(tabs.widget(2), c);
+
+        QVERIFY(tabs.transferTabTo(&tabs, 1, 2));
+        QCOMPARE(tabs.widget(1), b);
+    }
+
+    void rejectsInvalidTransfersWithoutChangingSource()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        QWidget *page = zzCreatePage(QStringLiteral("guarded"));
+        source.addTab(page, QStringLiteral("Guarded"));
+
+        QVERIFY(!source.transferTabTo(nullptr, 0));
+        QVERIFY(!source.transferTabTo(&target, -1));
+        QVERIFY(!source.transferTabTo(&target, 1));
+        target.fluentTabBar()->setTabTransferEnabled(false);
+        QVERIFY(!source.transferTabTo(&target, 0));
+        QCOMPARE(source.count(), 1);
+        QCOMPARE(source.widget(0), page);
+        QCOMPARE(target.count(), 0);
+    }
+
+    void forwardsTearOffIntentWithoutRemovingPage()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        QWidget *page = zzCreatePage(QStringLiteral("tear-off"));
+        tabs.addTab(page, QStringLiteral("Tear off"));
+        QSignalSpy spy(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tearOffRequested);
+        const QPoint globalPosition(240, 160);
+
+        QVERIFY(QMetaObject::invokeMethod(
+            tabs.fluentTabBar(),
+            "tearOffRequested",
+            Qt::DirectConnection,
+            Q_ARG(int, 0),
+            Q_ARG(QPoint, globalPosition)));
+
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(spy.at(0).at(0).toInt(), 0);
+        QCOMPARE(qvariant_cast<QWidget *>(spy.at(0).at(1)), page);
+        QCOMPARE(spy.at(0).at(2).toPoint(), globalPosition);
+        QCOMPARE(tabs.count(), 1);
+        QCOMPARE(tabs.widget(0), page);
+    }
+
+    void closeRequestIsIntentOnly()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        QPointer<QWidget> page = zzCreatePage(QStringLiteral("closable"));
+        tabs.addTab(page, QStringLiteral("Closable"));
+        tabs.setTabsClosable(true);
+        QSignalSpy spy(&tabs, &QTabWidget::tabCloseRequested);
+
+        QVERIFY(QMetaObject::invokeMethod(
+            tabs.fluentTabBar(),
+            "tabCloseRequested",
+            Qt::DirectConnection,
+            Q_ARG(int, 0)));
+
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(tabs.count(), 1);
+        QCOMPARE(tabs.widget(0), page);
+        QVERIFY(!page.isNull());
+    }
+
+    void rejectsForgedMimePayload()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.addTab(
+            zzCreatePage(QStringLiteral("mime")),
+            QStringLiteral("MIME"));
+        QMimeData mimeData;
+        mimeData.setData(
+            QStringLiteral("application/x-zz-fluent-tab-v1"),
+            QByteArrayLiteral("1"));
+        QDragEnterEvent event(
+            QPoint(4, 4),
+            Qt::MoveAction,
+            &mimeData,
+            Qt::LeftButton,
+            Qt::NoModifier);
+
+        QApplication::sendEvent(tabs.fluentTabBar(), &event);
+
+        QVERIFY(!event.isAccepted());
+        QCOMPARE(tabs.count(), 1);
+    }
+
+    void keepsNativeAccessibilityRoles()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.addTab(
+            zzCreatePage(QStringLiteral("accessible")),
+            QStringLiteral("Overview"));
+        tabs.setAccessibleName(QStringLiteral("Workspace tabs"));
+
+        QAccessibleInterface *interface =
+            QAccessible::queryAccessibleInterface(tabs.fluentTabBar());
+        QVERIFY(interface != nullptr);
+        QCOMPARE(interface->role(), QAccessible::PageTabList);
+        QVERIFY(interface->childCount() >= 1);
+        QAccessibleInterface *tabInterface = interface->child(0);
+        QVERIFY(tabInterface != nullptr);
+        QCOMPARE(tabInterface->role(), QAccessible::PageTab);
+        QCOMPARE(
+            tabInterface->text(QAccessible::Name),
+            QStringLiteral("Overview"));
+    }
+};
+
+QTEST_MAIN(ZzTabControlsTest)
+
+#include "ZzTabControlsTest.moc"

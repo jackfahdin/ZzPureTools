@@ -157,6 +157,21 @@ set_tests_properties(fluent.card-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzTabControlsTest ZzTabControlsTest.cpp)
+target_link_libraries(ZzTabControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzTabControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzTabControlsTest)
+zz_enable_sanitizers(ZzTabControlsTest)
+add_test(NAME fluent.tab-controls COMMAND ZzTabControlsTest)
+set_tests_properties(fluent.tab-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzNavigationControlsTest ZzNavigationControlsTest.cpp)
 target_link_libraries(ZzNavigationControlsTest PRIVATE
     Qt6::Gui
