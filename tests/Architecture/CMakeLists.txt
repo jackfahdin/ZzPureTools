@@ -124,6 +124,18 @@ set_tests_properties(architecture.boundaries PROPERTIES
     LABELS "architecture"
 )
 
+set(zz_target_manifest
+    "${CMAKE_CURRENT_BINARY_DIR}/ZzTargetLinks-$<CONFIG>.txt")
+file(GENERATE OUTPUT "${zz_target_manifest}" CONTENT
+"ZzCore|$<TARGET_PROPERTY:ZzCore,LINK_LIBRARIES>|$<TARGET_PROPERTY:ZzCore,INTERFACE_LINK_LIBRARIES>\nZzWindowKit|$<TARGET_PROPERTY:ZzWindowKit,LINK_LIBRARIES>|$<TARGET_PROPERTY:ZzWindowKit,INTERFACE_LINK_LIBRARIES>\nZzFluentFoundation|$<TARGET_PROPERTY:ZzFluentFoundation,LINK_LIBRARIES>|$<TARGET_PROPERTY:ZzFluentFoundation,INTERFACE_LINK_LIBRARIES>\nZzFluentUI|$<TARGET_PROPERTY:ZzFluentUI,LINK_LIBRARIES>|$<TARGET_PROPERTY:ZzFluentUI,INTERFACE_LINK_LIBRARIES>\nZzAppCore|$<TARGET_PROPERTY:ZzAppCore,LINK_LIBRARIES>|$<TARGET_PROPERTY:ZzAppCore,INTERFACE_LINK_LIBRARIES>\nZzPureTools|$<TARGET_PROPERTY:ZzPureTools,LINK_LIBRARIES>|$<TARGET_PROPERTY:ZzPureTools,INTERFACE_LINK_LIBRARIES>\n")
+add_test(NAME architecture.complete-audit
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        "-DZZ_TARGET_MANIFEST=${zz_target_manifest}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzArchitectureAudit.cmake")
+set_tests_properties(architecture.complete-audit PROPERTIES
+    LABELS "architecture")
+
 add_test(
     NAME architecture.zzcore-dependencies
     COMMAND "${CMAKE_COMMAND}"

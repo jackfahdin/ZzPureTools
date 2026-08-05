@@ -92,6 +92,8 @@ set_target_properties(ZzLog PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
+    ZZ_PUBLIC_HEADERS "ZzLog/Version.h;ZzLog/ZzLog.h"
+    EXPORT_PROPERTIES ZZ_PUBLIC_HEADERS
 )
 
 if(COMMAND zz_enable_project_warnings)

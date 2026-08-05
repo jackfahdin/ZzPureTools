@@ -1,4 +1,5 @@
 add_subdirectory(Architecture)
+add_subdirectory(Platform)
 
 set(zz_install_consumer_support_dir
     "${CMAKE_CURRENT_BINARY_DIR}/InstallConsumer")
