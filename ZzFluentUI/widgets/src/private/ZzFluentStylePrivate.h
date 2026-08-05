@@ -62,6 +62,10 @@ public:
         const QStyleOption *option,
         QPainter *painter,
         const QWidget *widget) const;
+    /** @brief 绘制标准数字显示控件的 Fluent 圆角表面。 */
+    void drawDigitalDisplayFrame(
+        const QStyleOptionFrame *option,
+        QPainter *painter) const;
     /** @brief 绘制组合框面板、箭头和平台标签。 */
     void drawComboBox(
         const QStyleOptionComboBox *option,

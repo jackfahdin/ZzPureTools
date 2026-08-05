@@ -5,6 +5,7 @@
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleOption>
@@ -322,6 +323,15 @@ void ZzFluentStyle::drawControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (element == CE_ShapedFrame
+        && qobject_cast<const QLCDNumber *>(widget) != nullptr) {
+        const auto *frame = qstyleoption_cast<
+            const QStyleOptionFrame *>(option);
+        if (frame != nullptr && painter != nullptr) {
+            d_ptr->drawDigitalDisplayFrame(frame, painter);
+            return;
+        }
+    }
     if (element == CE_ItemViewItem
         && option != nullptr && painter != nullptr
         && d_ptr->isComboBoxPopupContext(widget)) {

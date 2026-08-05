@@ -15,6 +15,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QAbstractSpinBox>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -323,6 +324,33 @@ void ZzFluentStylePrivate::drawInputPanel(
             -strokeWidth / 2.0),
         radius,
         radius);
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawDigitalDisplayFrame(
+    const QStyleOptionFrame *option,
+    QPainter *painter) const
+{
+    if (option->frameShape == QFrame::NoFrame) {
+        return;
+    }
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const QColor fill = snapshot->color(
+        enabled
+            ? ZzColorToken::SurfaceSecondary
+            : ZzColorToken::ControlFillDisabled);
+    const QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
+    const QRectF panel = QRectF(option->rect).adjusted(
+        0.5,
+        0.5,
+        -0.5,
+        -0.5);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(stroke, 1.0));
+    painter->setBrush(fill);
+    painter->drawRoundedRect(panel, 6.0, 6.0);
     painter->restore();
 }
 

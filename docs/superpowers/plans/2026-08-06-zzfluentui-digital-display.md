@@ -100,7 +100,7 @@ if (element == CE_ShapedFrame
 - enabled 状态使用 `SurfaceSecondary` 填充和 `ControlStroke` 边框；disabled 使用 `ControlFillDisabled` 填充，边框仍保持高对比可辨识。
 - 颜色来自当前不可变 theme snapshot，不读文件、不创建 pixmap、不分配 QObject、不修改 widget palette 或 geometry。
 - frame 绘制后直接返回，数字段继续由 `QLCDNumber::paintEvent()` 的后续 Qt 原生路径绘制。
-- `QFrame::NoFrame` 保持透明：控件不请求 shaped frame 时不绘制 surface；样式不保存第二份透明状态。
+- `QFrame::NoFrame` 保持透明：Qt 即使请求 shaped frame，样式也直接返回且不绘制 surface；样式不保存第二份透明状态。
 
 ### 3.3 Qt 原生语义
 

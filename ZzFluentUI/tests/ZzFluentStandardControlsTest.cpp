@@ -1,13 +1,19 @@
 #include <QtCore/QCoreApplication>
+#include <QtCore/QTimer>
 #include <QtCore/QtGlobal>
+#include <QtCore/QAbstractAnimation>
+#include <QtGui/QAccessible>
 #include <QtGui/QAction>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
+#include <QtTest/QSignalSpy>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QFrame>
+#include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
@@ -57,6 +63,25 @@ bool zzContainsOpaquePixel(const QImage &image)
         }
     }
     return false;
+}
+
+/** @brief 统计接近目标颜色的不透明像素数量。 */
+int zzColorPixelCount(const QImage &image, const QColor &expected)
+{
+    constexpr int tolerance = 8;
+    int count = 0;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QColor actual = image.pixelColor(x, y);
+            if (actual.alpha() > 0
+                && qAbs(actual.red() - expected.red()) <= tolerance
+                && qAbs(actual.green() - expected.green()) <= tolerance
+                && qAbs(actual.blue() - expected.blue()) <= tolerance) {
+                ++count;
+            }
+        }
+    }
+    return count;
 }
 
 /** @brief 判断矩形为空或完全位于给定边界内。 */
@@ -317,6 +342,202 @@ private Q_SLOTS:
         QCOMPARE(tabs.count(), 2);
         QCOMPARE(menu.style(), &style);
         QCOMPARE(dialog.style(), &style);
+    }
+
+    void preservesDigitalDisplayProtocol()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QLCDNumber display;
+        display.setStyle(&style);
+        display.setDigitCount(8);
+
+        display.setDecMode();
+        display.display(-42.5);
+        QCOMPARE(display.mode(), QLCDNumber::Dec);
+        QCOMPARE(display.value(), -42.5);
+
+        display.setHexMode();
+        display.display(255);
+        QCOMPARE(display.mode(), QLCDNumber::Hex);
+        QCOMPARE(display.intValue(), 255);
+
+        display.setOctMode();
+        display.display(64);
+        QCOMPARE(display.mode(), QLCDNumber::Oct);
+        QCOMPARE(display.intValue(), 64);
+
+        display.setBinMode();
+        display.display(5);
+        QCOMPARE(display.mode(), QLCDNumber::Bin);
+        QCOMPARE(display.intValue(), 5);
+
+        for (const QLCDNumber::SegmentStyle segmentStyle : {
+                 QLCDNumber::Outline,
+                 QLCDNumber::Filled,
+                 QLCDNumber::Flat}) {
+            display.setSegmentStyle(segmentStyle);
+            QCOMPARE(display.segmentStyle(), segmentStyle);
+        }
+        display.setSmallDecimalPoint(true);
+        QVERIFY(display.smallDecimalPoint());
+        display.setDecMode();
+        display.display(QStringLiteral("12:34"));
+        QVERIFY(!display.checkOverflow(1234));
+
+        display.setDigitCount(3);
+        QSignalSpy overflowSpy(&display, &QLCDNumber::overflow);
+        display.display(12345);
+        QCOMPARE(overflowSpy.count(), 1);
+
+        display.setAccessibleName(QStringLiteral("计数值"));
+        QAccessibleInterface *accessible =
+            QAccessible::queryAccessibleInterface(&display);
+        QVERIFY(accessible != nullptr);
+        QCOMPARE(
+            accessible->text(QAccessible::Name),
+            QStringLiteral("计数值"));
+        display.setEnabled(false);
+        QVERIFY(accessible->state().disabled);
+    }
+
+    void drawsScopedDigitalDisplaySurface()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QLCDNumber display;
+        display.setStyle(&style);
+
+        QStyleOptionFrame option;
+        option.rect = QRect(0, 0, 160, 56);
+        option.state = QStyle::State_Enabled;
+        option.frameShape = QFrame::Box;
+        option.palette = style.standardPalette();
+        QImage image(
+            option.rect.size(),
+            QImage::Format_ARGB32_Premultiplied);
+        QPainter painter;
+
+        for (const ZzFluentUI::ZzThemeMode mode : {
+                 ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark,
+                 ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            image.fill(Qt::transparent);
+            painter.begin(&image);
+            style.drawControl(
+                QStyle::CE_ShapedFrame,
+                &option,
+                &painter,
+                &display);
+            painter.end();
+            QCOMPARE(
+                image.pixelColor(option.rect.center()),
+                controller.snapshot()->color(
+                    ZzFluentUI::ZzColorToken::SurfaceSecondary));
+            QVERIFY(zzContainsColor(
+                image,
+                controller.snapshot()->color(
+                    ZzFluentUI::ZzColorToken::ControlStroke)));
+        }
+
+        option.state = QStyle::State_None;
+        image.fill(Qt::transparent);
+        painter.begin(&image);
+        style.drawControl(
+            QStyle::CE_ShapedFrame,
+            &option,
+            &painter,
+            &display);
+        painter.end();
+        QCOMPARE(
+            image.pixelColor(option.rect.center()),
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::ControlFillDisabled));
+
+        QFrame ordinaryFrame;
+        ordinaryFrame.setStyle(&style);
+        option.state = QStyle::State_Enabled;
+        QImage actual(
+            option.rect.size(),
+            QImage::Format_ARGB32_Premultiplied);
+        QImage expected = actual;
+        actual.fill(Qt::transparent);
+        expected.fill(Qt::transparent);
+        painter.begin(&actual);
+        style.drawControl(
+            QStyle::CE_ShapedFrame,
+            &option,
+            &painter,
+            &ordinaryFrame);
+        painter.end();
+        painter.begin(&expected);
+        style.baseStyle()->drawControl(
+            QStyle::CE_ShapedFrame,
+            &option,
+            &painter,
+            &ordinaryFrame);
+        painter.end();
+        QCOMPARE(actual, expected);
+
+        display.setEnabled(true);
+        display.setDigitCount(6);
+        display.display(1234);
+        display.resize(option.rect.size());
+        display.setFrameStyle(QFrame::Box | QFrame::Plain);
+        image.fill(Qt::transparent);
+        painter.begin(&image);
+        display.render(&painter);
+        painter.end();
+        const QColor surface = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::SurfaceSecondary);
+        const int framedSurfacePixels = zzColorPixelCount(image, surface);
+        QVERIFY(framedSurfacePixels > 0);
+
+        display.setFrameStyle(QFrame::NoFrame);
+        image.fill(Qt::transparent);
+        painter.begin(&image);
+        display.render(&painter);
+        painter.end();
+        QVERIFY(zzColorPixelCount(image, surface)
+                < framedSurfacePixels / 3);
+    }
+
+    void keepsDigitalDisplayObjectCountStable()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QLCDNumber display;
+        display.setStyle(&style);
+        display.resize(160, 56);
+
+        const qsizetype descendants =
+            display.findChildren<QObject *>().size();
+        const qsizetype animations =
+            display.findChildren<QAbstractAnimation *>().size();
+        const qsizetype timers = display.findChildren<QTimer *>().size();
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            display.display(iteration);
+            display.setEnabled(iteration % 2 == 0);
+            display.setFrameStyle(
+                iteration % 3 == 0
+                    ? QFrame::NoFrame
+                    : QFrame::Box | QFrame::Plain);
+            if (iteration % 100 == 0) {
+                controller.setMode(
+                    controller.mode() == ZzFluentUI::ZzThemeMode::Light
+                        ? ZzFluentUI::ZzThemeMode::Dark
+                        : ZzFluentUI::ZzThemeMode::Light);
+            }
+        }
+        QCOMPARE(display.style(), &style);
+        QCOMPARE(display.findChildren<QObject *>().size(), descendants);
+        QCOMPARE(
+            display.findChildren<QAbstractAnimation *>().size(),
+            animations);
+        QCOMPARE(display.findChildren<QTimer *>().size(), timers);
+        QCOMPARE(animations, 0);
+        QCOMPARE(timers, 0);
     }
 
     void drawsEveryPromisedFluentSurface()
