@@ -4,6 +4,8 @@
 
 `.github/workflows/ci.yml` 已在 GitHub 托管 runner 上产生真实运行记录。首次运行暴露了 CMake 3.23 策略声明问题，第二次运行暴露了 aqt 可选模块参数问题，第三次运行已经证明全部平台的 Qt 6.8.3 安装成功，并继续暴露 Qt 6.8 严格告警、MSVC UTF-8 和 MinGW 路径校验问题。当前定义已逐项修复这些问题，在同一提交的完整矩阵变绿前仍不得记为“GitHub 托管 CI 通过”，也不能据此修改 `PLATFORM_SUPPORT_ZH.md` 中的原生平台状态。
 
+macOS 托管 job 使用 macOS 15 runner 构建 deployment target 13.3。Qt 6.8 自身可支持 macOS 12，但 ZzLog 公共 API 使用 `std::format_string`，Apple libc++ 的 C++20 format 运行库要求 deployment target 13.3 或更高；不得通过关闭标准库能力探针伪装 macOS 12 兼容。
+
 该工作流只执行配置、编译、示例构建、静态分析、CTest、安装消费、重定位和二进制依赖检查。Linux 还在 offscreen 平台启动并自动关闭四个示例；Windows 和 macOS 只编译示例，不把托管 runner 上的进程启动视为交互验收。工作流不发布包、不创建 tag、不上传可分发二进制，也不启用 `ZZ_RELEASE_BUILD=ON`。正式发布仍要求仓库外合规证据和人工真机清单。
 
 ## 触发条件与权限

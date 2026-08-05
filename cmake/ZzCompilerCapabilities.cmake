@@ -18,6 +18,12 @@ function(zz_check_compiler_capabilities)
             message(FATAL_ERROR
                 "ZzPureToolsPro requires Apple Clang 15 or newer")
         endif()
+        if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET
+           OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 13.3)
+            message(FATAL_ERROR
+                "ZzPureToolsPro requires macOS deployment target 13.3 or "
+                "newer for the C++20 format runtime")
+        endif()
     elseif(MSVC)
         if(MSVC_VERSION LESS 1938)
             message(FATAL_ERROR

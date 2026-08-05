@@ -24,7 +24,7 @@
 | Linux Clang | Clang/Clang++ 17 | `GCC_13_TOOLCHAIN_ROOT` 必须提供兼容的 libstdc++ 工具链 |
 | Windows MSVC | Visual Studio 2022，MSVC 19.38 | 从 x64 Developer PowerShell 执行 |
 | Windows MinGW | Qt SDK 随附的 MinGW-w64 GCC 13+ | Qt kit、工具链和 Ninja 必须来自同一官方 Qt SDK |
-| macOS | Apple Clang 15 | deployment target 最低为 macOS 12.0 |
+| macOS | Apple Clang 15 | deployment target 最低为 macOS 13.3，以满足 Apple libc++ 的 C++20 format 运行库要求 |
 
 Linux 完整 runner 还需要 Bash、Xvfb、`xdpyinfo`、`taskset`、`sha256sum` 和常规 binutils。Ubuntu 22.04 兼容镜像审计需要 Docker、`file`、`ldd`、`readelf`、`strings` 与受审 GNU runtime 许可证。Windows runner 需要 PowerShell 7、`dumpbin.exe` 和 Qt MinGW 的 `objdump.exe`。macOS runner 需要 `lipo` 和两个架构匹配的 Qt SDK。
 

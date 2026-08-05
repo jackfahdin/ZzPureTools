@@ -264,7 +264,7 @@
         "CMAKE_C_COMPILER": "$env{APPLE_CLANG}",
         "CMAKE_CXX_COMPILER": "$env{APPLE_CLANGXX}",
         "CMAKE_OBJCXX_COMPILER": "$env{APPLE_CLANGXX}",
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "12.0",
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.3",
         "ZZ_BUILD_TESTS": true,
         "ZZ_BUILD_BENCHMARKS": false,
         "ZZ_WARNINGS_AS_ERRORS": true,

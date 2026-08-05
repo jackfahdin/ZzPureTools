@@ -46,10 +46,10 @@ Windows 静态结果的证据至少引用 `build/gate-evidence/windows-native.lo
 
 | ID | 状态 | OS/版本 | 工具链/版本 | Qt 版本/根标识 | 架构 | 链接 | Configure/Build/CTest | 交互结果 | 设备/显示器 | 证据路径 | 日期 | 审核人 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `macos-12-arm64-shared` | 未执行 | macOS 12+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_ARM64_ROOT` | arm64 | shared | 未执行 | 未执行 | - | - | - | - |
-| `macos-12-arm64-static` | 未执行 | macOS 12+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_ARM64_ROOT` | arm64 | static | 未执行 | 未执行 | - | - | - | - |
-| `macos-12-x86_64-shared` | 未执行 | macOS 12+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_X86_64_ROOT` | x86_64 | shared | 未执行 | 未执行 | - | - | - | - |
-| `macos-12-x86_64-static` | 未执行 | macOS 12+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_X86_64_ROOT` | x86_64 | static | 未执行 | 未执行 | - | - | - | - |
+| `macos-13-arm64-shared` | 未执行 | macOS 13.3+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_ARM64_ROOT` | arm64 | shared | 未执行 | 未执行 | - | - | - | - |
+| `macos-13-arm64-static` | 未执行 | macOS 13.3+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_ARM64_ROOT` | arm64 | static | 未执行 | 未执行 | - | - | - | - |
+| `macos-13-x86_64-shared` | 未执行 | macOS 13.3+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_X86_64_ROOT` | x86_64 | shared | 未执行 | 未执行 | - | - | - | - |
+| `macos-13-x86_64-static` | 未执行 | macOS 13.3+ | Apple Clang 15+ | Qt 6.8+ / `QT_MACOS_X86_64_ROOT` | x86_64 | static | 未执行 | 未执行 | - | - | - | - |
 
 macOS 静态结果的证据至少引用 `build/gate-evidence/macos-native.log`，其中 `lipo` 必须证明每个 probe 只有预期架构；真机结果同时引用签署的 macOS 人工清单。
 

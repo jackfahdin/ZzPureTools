@@ -10,14 +10,14 @@ Qt/工具链:
 
 # macOS 真机验收清单
 
-本清单至少在 macOS 12+ 最低兼容环境和当前发布版 macOS 执行。arm64 与 x86_64 使用各自架构匹配的 Qt SDK 和产物；Rosetta 只能用于运行验证，不能代替 x86_64 Qt SDK 构建证据。开始前保存 `build/gate-evidence/macos-native.log` 和每个产物的 `lipo` 结果。
+本清单至少在 macOS 13.3+ 最低兼容环境和当前发布版 macOS 执行。arm64 与 x86_64 使用各自架构匹配的 Qt SDK 和产物；Rosetta 只能用于运行验证，不能代替 x86_64 Qt SDK 构建证据。开始前保存 `build/gate-evidence/macos-native.log` 和每个产物的 `lipo` 结果。
 
 | 检查项 | 预期行为 | 实际结果 | 截图/日志路径 | 问题链接 |
 |---|---|---|---|---|
-| [ ] macOS 12+ / arm64 shared | 原生启动、退出和基础导航正常，产物只有 arm64 架构 |  |  |  |
-| [ ] macOS 12+ / arm64 static | 原生启动、退出和基础导航正常，不依赖未部署的一方 dylib |  |  |  |
-| [ ] macOS 12+ / x86_64 shared | x86_64 启动、退出和基础导航正常，产物只有 x86_64 架构 |  |  |  |
-| [ ] macOS 12+ / x86_64 static | x86_64 启动、退出和基础导航正常，不依赖未部署的一方 dylib |  |  |  |
+| [ ] macOS 13.3+ / arm64 shared | 原生启动、退出和基础导航正常，产物只有 arm64 架构 |  |  |  |
+| [ ] macOS 13.3+ / arm64 static | 原生启动、退出和基础导航正常，不依赖未部署的一方 dylib |  |  |  |
+| [ ] macOS 13.3+ / x86_64 shared | x86_64 启动、退出和基础导航正常，产物只有 x86_64 架构 |  |  |  |
+| [ ] macOS 13.3+ / x86_64 static | x86_64 启动、退出和基础导航正常，不依赖未部署的一方 dylib |  |  |  |
 | [ ] 当前发布版 macOS | 四个架构/链接组合在当前系统完成基础运行 |  |  |  |
 | [ ] Retina | 标题栏、文字、图标和 resize 命中区域清晰且尺寸正确 |  |  |  |
 | [ ] 多显示器 | 跨 Retina/非 Retina 显示器移动后 DPR、几何和绘制及时更新 |  |  |  |

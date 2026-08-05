@@ -221,10 +221,10 @@ set(required_platform_rows
     windows-11-msvc-static
     windows-11-mingw-shared
     windows-11-mingw-static
-    macos-12-arm64-shared
-    macos-12-arm64-static
-    macos-12-x86_64-shared
-    macos-12-x86_64-static
+    macos-13-arm64-shared
+    macos-13-arm64-static
+    macos-13-x86_64-shared
+    macos-13-x86_64-static
     linux-x11-kde
     linux-x11-gnome
     linux-wayland-kde

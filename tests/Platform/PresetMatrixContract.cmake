@@ -258,7 +258,7 @@ foreach(index RANGE 0 ${last_preset})
         string(JSON lto GET "${presets_json}"
             configurePresets ${index} cacheVariables ZZ_ENABLE_LTO)
         if(NOT "${build_type}" STREQUAL "Release"
-           OR NOT "${deployment}" STREQUAL "12.0"
+           OR NOT "${deployment}" STREQUAL "13.3"
            OR NOT tests OR NOT warnings OR NOT tidy OR NOT lto)
             message(FATAL_ERROR
                 "Incomplete macOS gate options in macos-clang-base")
