@@ -93,6 +93,20 @@ int ZzFluentStyle::pixelMetric(
         return 4;
     case PM_MenuBarItemSpacing:
         return 2;
+    case PM_ToolBarFrameWidth:
+        return 0;
+    case PM_ToolBarHandleExtent:
+        return 10;
+    case PM_ToolBarItemSpacing:
+    case PM_ToolBarItemMargin:
+        return 4;
+    case PM_ToolBarSeparatorExtent:
+        return 8;
+    case PM_ToolBarExtensionExtent:
+        return 28;
+    case PM_ToolBarIconSize:
+        return qRound(d_ptr->snapshot->metric(
+            ZzMetricToken::IconMedium));
     case PM_ToolTipLabelFrameWidth:
         return 8;
     default:
@@ -191,6 +205,9 @@ QSize ZzFluentStyle::sizeFromContents(
         || type == CT_SpinBox
         || type == CT_ComboBox) {
         result = result.expandedTo(QSize(96, 32));
+    }
+    if (type == CT_ToolButton) {
+        result = result.expandedTo(QSize(32, 32));
     }
     if (type == CT_ItemViewItem
         && d_ptr->isComboBoxPopupContext(widget)) {
@@ -294,6 +311,34 @@ void ZzFluentStyle::drawPrimitive(
         d_ptr->drawMenuBarPanel(option, painter);
         return;
     }
+    if (element == PE_PanelButtonTool
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawToolButtonPanel(option, painter);
+        return;
+    }
+    if (element == PE_PanelToolBar
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawToolBarPanel(option, painter);
+        return;
+    }
+    if (element == PE_IndicatorToolBarHandle
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawToolBarHandle(option, painter);
+        return;
+    }
+    if (element == PE_IndicatorToolBarSeparator
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawToolBarSeparator(option, painter);
+        return;
+    }
+    if (element == PE_PanelStatusBar
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawStatusBarPanel(option, painter);
+        return;
+    }
+    if (element == PE_FrameStatusBarItem && painter != nullptr) {
+        return;
+    }
     if (element == PE_PanelScrollAreaCorner
         && option != nullptr && painter != nullptr) {
         painter->fillRect(
@@ -365,6 +410,11 @@ void ZzFluentStyle::drawControl(
             d_ptr->drawTabBarTab(tab, painter, widget);
             return;
         }
+    }
+    if (element == CE_ToolBar
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawToolBarPanel(option, painter);
+        return;
     }
     if (element == CE_MenuEmptyArea
         && option != nullptr && painter != nullptr) {

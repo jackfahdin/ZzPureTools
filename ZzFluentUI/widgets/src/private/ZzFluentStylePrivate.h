@@ -57,6 +57,26 @@ public:
         const QStyleOptionButton *option,
         QPainter *painter,
         const QWidget *widget) const;
+    /** @brief 绘制标准工具按钮的轻量交互表面。 */
+    void drawToolButtonPanel(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制标准工具栏背景和停靠方向边界。 */
+    void drawToolBarPanel(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 使用固定六点绘制标准工具栏拖动柄。 */
+    void drawToolBarHandle(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制与工具栏方向正交的物理像素分隔线。 */
+    void drawToolBarSeparator(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制标准状态栏的安静表面和顶部边界。 */
+    void drawStatusBarPanel(
+        const QStyleOption *option,
+        QPainter *painter) const;
     /** @brief 绘制输入控件面板，不接触文本和输入法状态。 */
     void drawInputPanel(
         const QStyleOption *option,

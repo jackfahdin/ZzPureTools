@@ -287,6 +287,173 @@ void ZzFluentStylePrivate::drawPushButton(
     }
 }
 
+void ZzFluentStylePrivate::drawToolButtonPanel(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const bool pressed = option->state.testFlag(QStyle::State_Sunken);
+    const bool hovered = option->state.testFlag(QStyle::State_MouseOver);
+    const bool checked = option->state.testFlag(QStyle::State_On);
+    if (!enabled || (!pressed && !hovered && !checked)) {
+        return;
+    }
+
+    const ZzColorToken fillToken = pressed
+        ? ZzColorToken::ControlFillPressed
+        : (hovered
+               ? ZzColorToken::ControlFillHover
+               : ZzColorToken::ControlFill);
+    const qreal strokeWidth = snapshot->metric(
+        ZzMetricToken::StrokeThin);
+    const qreal radius = snapshot->metric(
+        ZzMetricToken::CornerRadiusSmall);
+    QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
+    if (!checked) {
+        stroke.setAlpha(0);
+    }
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(stroke, strokeWidth));
+    painter->setBrush(snapshot->color(fillToken));
+    painter->drawRoundedRect(
+        QRectF(option->rect).adjusted(
+            strokeWidth / 2.0,
+            strokeWidth / 2.0,
+            -strokeWidth / 2.0,
+            -strokeWidth / 2.0),
+        radius,
+        radius);
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawToolBarPanel(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    if (option->rect.isEmpty()) {
+        return;
+    }
+    const auto *toolBar = qstyleoption_cast<
+        const QStyleOptionToolBar *>(option);
+    const QColor fill = snapshot->color(ZzColorToken::Surface);
+    const QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
+    const qreal pixelWidth = 1.0
+        / qMax(1.0, painter->device()->devicePixelRatioF());
+    const QRectF bounds(option->rect);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+    painter->fillRect(bounds, fill);
+    painter->setPen(QPen(stroke, pixelWidth));
+    if (toolBar == nullptr || toolBar->toolBarArea == Qt::NoToolBarArea) {
+        painter->drawRect(bounds.adjusted(
+            pixelWidth / 2.0,
+            pixelWidth / 2.0,
+            -pixelWidth / 2.0,
+            -pixelWidth / 2.0));
+    } else if (toolBar->toolBarArea == Qt::TopToolBarArea) {
+        painter->drawLine(bounds.bottomLeft(), bounds.bottomRight());
+    } else if (toolBar->toolBarArea == Qt::BottomToolBarArea) {
+        painter->drawLine(bounds.topLeft(), bounds.topRight());
+    } else if (toolBar->toolBarArea == Qt::LeftToolBarArea) {
+        painter->drawLine(bounds.topRight(), bounds.bottomRight());
+    } else if (toolBar->toolBarArea == Qt::RightToolBarArea) {
+        painter->drawLine(bounds.topLeft(), bounds.bottomLeft());
+    }
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawToolBarHandle(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    if (option->rect.width() < 4 || option->rect.height() < 4) {
+        return;
+    }
+    const bool horizontal = option->state.testFlag(
+        QStyle::State_Horizontal);
+    const int columns = horizontal ? 2 : 3;
+    const int rows = horizontal ? 3 : 2;
+    constexpr qreal spacing = 3.0;
+    constexpr qreal radius = 0.75;
+    const QPointF center = QRectF(option->rect).center();
+    const qreal firstX = center.x()
+        - static_cast<qreal>(columns - 1) * spacing / 2.0;
+    const qreal firstY = center.y()
+        - static_cast<qreal>(rows - 1) * spacing / 2.0;
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(snapshot->color(ZzColorToken::TextSecondary));
+    for (int row = 0; row < rows; ++row) {
+        for (int column = 0; column < columns; ++column) {
+            painter->drawEllipse(
+                QPointF(
+                    firstX + static_cast<qreal>(column) * spacing,
+                    firstY + static_cast<qreal>(row) * spacing),
+                radius,
+                radius);
+        }
+    }
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawToolBarSeparator(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    if (option->rect.isEmpty()) {
+        return;
+    }
+    const bool horizontal = option->state.testFlag(
+        QStyle::State_Horizontal);
+    const qreal pixelWidth = 1.0
+        / qMax(1.0, painter->device()->devicePixelRatioF());
+    const QRectF bounds(option->rect);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+    painter->setPen(QPen(
+        snapshot->color(ZzColorToken::ControlStroke),
+        pixelWidth));
+    if (horizontal) {
+        painter->drawLine(
+            QPointF(bounds.center().x(), bounds.top() + 4.0),
+            QPointF(bounds.center().x(), bounds.bottom() - 4.0));
+    } else {
+        painter->drawLine(
+            QPointF(bounds.left() + 4.0, bounds.center().y()),
+            QPointF(bounds.right() - 4.0, bounds.center().y()));
+    }
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawStatusBarPanel(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    if (option->rect.isEmpty()) {
+        return;
+    }
+    const qreal pixelWidth = 1.0
+        / qMax(1.0, painter->device()->devicePixelRatioF());
+    const QRectF bounds(option->rect);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+    painter->fillRect(
+        bounds,
+        snapshot->color(ZzColorToken::SurfaceSecondary));
+    painter->setPen(QPen(
+        snapshot->color(ZzColorToken::ControlStroke),
+        pixelWidth));
+    painter->drawLine(bounds.topLeft(), bounds.topRight());
+    painter->restore();
+}
+
 void ZzFluentStylePrivate::drawInputPanel(
     const QStyleOption *option,
     QPainter *painter,

@@ -68,7 +68,7 @@ public:
         Qt::LayoutDirection direction = Qt::LeftToRight);
 
     /**
-     * @brief 映射 Fluent 控件与弹出表面尺寸，其余指标委托给平台样式。
+     * @brief 映射 Fluent 控件、命令栏与弹出表面尺寸，其余指标委托给平台样式。
      * @param metric Qt 样式尺寸标识。
      * @param option 可选绘制状态。
      * @param widget 可选目标控件。
@@ -100,7 +100,7 @@ public:
     [[nodiscard]] QPalette standardPalette() const override;
 
     /**
-     * @brief 为输入控件、菜单项和菜单栏项提供可缩放的最小尺寸。
+     * @brief 为输入控件、工具按钮和菜单项提供可缩放的最小尺寸。
      * @param type Qt 内容类型。
      * @param option 可选绘制状态。
      * @param contentsSize 平台根据文本和字体计算的内容尺寸。
@@ -114,7 +114,7 @@ public:
         const QWidget *widget = nullptr) const override;
 
     /**
-     * @brief 绘制 Fluent 焦点、输入框、菜单和提示面板原语。
+     * @brief 绘制 Fluent 焦点、输入框、命令栏、状态栏和弹出面板原语。
      * @param element Qt primitive 标识。
      * @param option 非拥有绘制状态。
      * @param painter 非拥有绘制目标。
@@ -127,7 +127,7 @@ public:
         const QWidget *widget = nullptr) const override;
 
     /**
-     * @brief 绘制按钮、进度、标签页、菜单栏与弹出菜单项。
+     * @brief 绘制按钮、进度、标签页、工具栏与弹出菜单项。
      * @param element Qt control 标识。
      * @param option 非拥有绘制状态。
      * @param painter 非拥有绘制目标。
