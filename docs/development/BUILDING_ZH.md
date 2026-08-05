@@ -190,7 +190,7 @@ ctest --test-dir build/linux-gcc-release \
 
 ## 正式发布配置
 
-`ZZ_RELEASE_BUILD=ON` 是失败关闭的正式发布模式。除普通工具链变量外，还必须提供根 `LICENSE`、清空并通过审核的两个 manifest，以及 `ZZ_RELEASE_EVIDENCE_ROOT` 中逐字节匹配的外部证据。Linux 捆绑 GNU runtime 时还需要：
+`ZZ_RELEASE_BUILD=ON` 是失败关闭的正式发布模式。仓库根 `LICENSE` 已固定为 MIT；除普通工具链变量外，还必须提供具名项目所有者批准记录、清空并通过审核的两个 manifest，以及 `ZZ_RELEASE_EVIDENCE_ROOT` 中逐字节匹配的外部证据。Linux 捆绑 GNU runtime 时还需要：
 
 ```bash
 cmake -S . -B build/release-audit -G Ninja \

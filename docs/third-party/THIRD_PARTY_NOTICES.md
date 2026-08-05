@@ -2,6 +2,15 @@
 
 本文档记录 ZzPureToolsPro 当前 QWindowKit 依赖链中可由仓库文件直接确认的版本、版权和许可证证据。这里的“发布包位置”是最终发布包要求的位置；当前开发安装不代表发布许可审查已经完成。
 
+## ZzPureToolsPro
+
+- 许可证：MIT。
+- SPDX 结论：`MIT`。
+- 版权声明：Copyright (c) 2026 ZzPureToolsPro contributors。
+- 源码证据：仓库根 `LICENSE`，其 SHA-256 由 `release-evidence.json` 锁定。
+- 发布包许可证位置：`share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
+- 审核状态：许可证正文已经落地；具名项目所有者批准记录仍由 `project.license` 阻塞项跟踪。
+
 ## QWindowKit
 
 - 版本：1.5.1.0。
@@ -64,6 +73,6 @@
 
 - `qwindowkit.upstream-provenance`：当前 vendor 目录没有可验证的上游 commit，也没有原始归档 SHA-256；发布前必须由来源证据补齐并复核。
 - `qmsetup.windeployqt-5.15.2-derived-work`：发布前必须确认注明派生自 `windeployqt 5.15.2` 的本地代码及其再分发依据。
-- `project.license`：发布前必须提供仓库根 `LICENSE`、明确的 SPDX 表达式和项目所有者批准记录；正式包中的固定位置为 `share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
+- `project.license`：仓库根 `LICENSE` 和 `MIT` SPDX 表达式已经落地；发布前仍须提供具名项目所有者批准记录。正式包中的固定位置为 `share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
 
-在上述阻塞项消除、项目许可证落地并通过最终许可证安装审计前，不得把当前构建标记为可发布二进制包。
+在上述阻塞项消除、项目许可证具名批准记录完成并通过最终许可证安装审计前，不得把当前构建标记为可发布二进制包。

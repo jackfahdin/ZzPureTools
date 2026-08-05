@@ -15,7 +15,7 @@
     },
     {
       "id": "project.license",
-      "reason": "The project license and owner approval are not present"
+      "reason": "The MIT license is present, but the named owner approval record is not present"
     }
   ],
   "evidence": {
@@ -36,8 +36,12 @@
       "reviewRecord": null
     },
     "projectLicense": {
-      "spdxExpression": null,
-      "licenseFile": null,
+      "spdxExpression": "MIT",
+      "licenseFile": {
+        "scope": "repository",
+        "path": "LICENSE",
+        "sha256": "c31b3f81c668a3078115bef26a83b9941dd42d94221119536bd98865e0e06a30"
+      },
       "approvalRecord": null
     }
   }
