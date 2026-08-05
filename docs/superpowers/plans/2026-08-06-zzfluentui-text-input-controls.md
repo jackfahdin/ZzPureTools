@@ -170,4 +170,58 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
 ## 12. 交付结果
 
-待实现完成后填写。
+本批次已于 2026-08-06 完成交付，结果如下。
+
+### 12.1 生产实现
+
+- `ZzFluentStyle` 已统一覆盖 `QLineEdit`、`QTextEdit`、`QPlainTextEdit` 与派生的 `QTextBrowser`，没有新增空包装控件或第二份编辑状态。
+- `CT_LineEdit` 保留 Qt base style 测量，并只保证最小 `96 x 32` 逻辑尺寸；多行编辑器继续使用 Qt 原生 document、viewport 与布局尺寸。
+- 输入 frame 已覆盖 normal、hover、focus、disabled、read-only、LTR 与 RTL；style 不读取文本内容，不接触输入法、validator、document、cursor、selection、clipboard 或 context menu。
+- 生产路径没有新增每实例 style、事件过滤器、animation、timer、stylesheet、动态属性或平台条件分支。
+
+### 12.2 功能与安装验证
+
+- Linux GCC 15 shared Release：全量 CTest `89/89` 通过。
+- Linux GCC 15 static Release：全量 CTest `89/89` 通过。
+- Linux Clang 20 ASan+UBSan：全量 CTest `89/89` 通过，无 sanitizer 报告。
+- shared、static 与 sanitizer 构建均通过 fresh producer、install、consumer 流程；安装消费者成功创建并验证 `QLineEdit`、`QTextEdit` 与 `QPlainTextEdit`。
+- 公开头、生成代码、包重定位、二进制依赖、完整架构、Fluent 边界、画廊 smoke 与应用示例均包含在全量门禁中通过。
+
+### 12.3 静态分析与视觉验证
+
+- shared `linux-clang-tidy-release`：项目翻译单元 `128/128` 通过。
+- static `linux-clang-tidy-static`：项目翻译单元 `128/128` 通过。
+- 新增 Light、Dark、HighContrast x DPR 1.0、1.25、1.5、2.0 共 12 张独立文本输入基线；关闭更新模式后四档截图测试 `4/4` 通过。
+- 已人工检查 DPR 1.0 三主题与 DPR 2.0 Light：画面非空，无裁切、重叠或双 frame，focus、hover、disabled、clear action、RTL 与多行状态清晰可辨。
+- 应用级 `QLineEdit` 样式引起的既有全控件与数值输入基线变化已同步，并继续参加严格像素比较。
+
+### 12.4 性能结果
+
+本机参考发布环境为 Ubuntu 26.04、GCC 15.2.0、Clang 20.1.8、Qt 6.11.1。`linux-gcc-reference` 下 100 个文本编辑器、10 帧预热与 120 帧正式渲染结果为：
+
+```text
+P50: 2.154 ms
+P95: 2.169 ms
+max: 2.193 ms
+descendants: 725
+animations: 0
+timers: 0
+```
+
+P95 低于 `16.7 ms` 参考门限；1000 轮 text、placeholder、read-only、enabled、direction 与 focus 状态切换后没有 QObject、animation 或 timer 增长。
+
+### 12.5 跨平台状态
+
+- preset matrix、Linux/Windows/macOS gate script contract、公开头和完整架构边界检查均通过。
+- 本批源码未引入 `Q_OS_*`、`_WIN32`、`__APPLE__` 分支、Qt Private 头、`QWindowKit::` 目标泄漏或链式命名空间，使用范围限于 Qt Widgets 公共 API 与标准 C++20。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 本批只完成源码静态审计，尚未在对应平台编译、安装消费或真机验证；不得将当前结果表述为这些平台已经运行通过。
+- 按当前项目决策，本批未访问 GitHub CLI、未运行远端 CI、未 push，也未下载新的 Qt SDK。
+
+### 12.6 提交记录
+
+```text
+9e79031 文档：规划Fluent标准文本输入批次
+dd94151 控件：完善Fluent标准文本输入样式
+6c6824f 测试：接入文本输入质量与安装消费
+7284af1 测试：补齐文本输入多主题视觉基线
+```
