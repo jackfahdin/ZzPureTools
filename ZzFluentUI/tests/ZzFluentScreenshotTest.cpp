@@ -764,7 +764,7 @@ private:
         calendar->setDateRange(
             QDate(2026, 8, 3),
             QDate(2026, 8, 28));
-        calendar->setSelectedDate(QDate(2026, 8, 5));
+        calendar->setSelectedDate(QDate(2026, 8, 6));
         calendar->setFixedHeight(270);
         layout->addWidget(calendar);
 
