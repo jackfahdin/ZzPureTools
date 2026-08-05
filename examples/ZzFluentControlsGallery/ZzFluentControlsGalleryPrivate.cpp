@@ -50,6 +50,7 @@
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
+#include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
@@ -454,6 +455,43 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
                                        .arg(suggestion.text,
                                             suggestion.data.toString()));
         });
+    auto *multiSelect =
+        new ZzFluentUI::ZzMultiSelectComboBox(container);
+    multiSelect->setAccessibleName(QStringLiteral("Deployment scopes"));
+    multiSelect->setPlaceholderText(QStringLiteral("Select scopes"));
+    multiSelect->setOptions({
+        {QStringLiteral("local"), QStringLiteral("Desktop"),
+         multiSelect->style()->standardIcon(QStyle::SP_ComputerIcon),
+         QStringLiteral("local"), true, true},
+        {QStringLiteral("remote"), QStringLiteral("Desktop"),
+         multiSelect->style()->standardIcon(QStyle::SP_DriveNetIcon),
+         QStringLiteral("remote"), true, false},
+        {QStringLiteral("telemetry"), QStringLiteral("Logs, metrics"),
+         {}, QStringLiteral("telemetry"), true, true},
+        {QStringLiteral("retired"), QStringLiteral("Retired target"),
+         {}, QStringLiteral("retired"), false, false}});
+    auto *multiSelectResult = new QLabel(multiSelect->selectedText(),
+                                         container);
+    QObject::connect(
+        multiSelect,
+        &ZzFluentUI::ZzMultiSelectComboBox::selectionChanged,
+        multiSelectResult,
+        [multiSelect, multiSelectResult]() {
+            multiSelectResult->setText(multiSelect->selectedText());
+        });
+    QObject::connect(
+        multiSelect,
+        &ZzFluentUI::ZzMultiSelectComboBox::optionToggled,
+        multiSelectResult,
+        [multiSelectResult](
+            const ZzFluentUI::ZzMultiSelectOption &option,
+            bool selected) {
+            multiSelectResult->setToolTip(
+                QStringLiteral("%1 [%2]")
+                    .arg(option.key,
+                         selected ? QStringLiteral("selected")
+                                  : QStringLiteral("cleared")));
+        });
     datePicker = new ZzFluentUI::ZzCalendarPicker(container);
     datePicker->setAccessibleName(QStringLiteral("Due date"));
     datePicker->setLocale(QLocale::c());
@@ -475,6 +513,8 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->addRow(QStringLiteral("RTL choice"), rightToLeftChoice);
     form->addRow(QStringLiteral("Command"), suggestBox);
     form->addRow(QStringLiteral("Selection"), suggestResult);
+    form->addRow(QStringLiteral("Deployment scopes"), multiSelect);
+    form->addRow(QStringLiteral("Selected scopes"), multiSelectResult);
     form->addRow(QStringLiteral("Due date"), datePicker);
 
     auto *workers = new ZzFluentUI::ZzSpinBox(container);

@@ -120,60 +120,34 @@ bool ZzMultiSelectComboBox::setOptionSelected(
     const QString &key,
     bool selected)
 {
-    if (!d_ptr->setOptionSelected(key, selected)) {
-        return false;
-    }
-    d_ptr->refreshSummary();
-    Q_EMIT selectionChanged();
-    return true;
+    return d_ptr->setOptionSelected(key, selected);
 }
 
 bool ZzMultiSelectComboBox::setOptionSelectedAt(
     int index,
     bool selected)
 {
-    if (!d_ptr->setOptionSelectedAt(index, selected)) {
-        return false;
-    }
-    d_ptr->refreshSummary();
-    Q_EMIT selectionChanged();
-    return true;
+    return d_ptr->setOptionSelectedAt(index, selected);
 }
 
 void ZzMultiSelectComboBox::setSelectedKeys(QStringList keys)
 {
-    if (!d_ptr->setSelectedKeys(keys)) {
-        return;
-    }
-    d_ptr->refreshSummary();
-    Q_EMIT selectionChanged();
+    (void)d_ptr->setSelectedKeys(keys);
 }
 
 void ZzMultiSelectComboBox::setSelectedIndexes(QList<int> indexes)
 {
-    if (!d_ptr->setSelectedIndexes(indexes)) {
-        return;
-    }
-    d_ptr->refreshSummary();
-    Q_EMIT selectionChanged();
+    (void)d_ptr->setSelectedIndexes(indexes);
 }
 
 void ZzMultiSelectComboBox::selectAll()
 {
-    if (!d_ptr->selectAll()) {
-        return;
-    }
-    d_ptr->refreshSummary();
-    Q_EMIT selectionChanged();
+    (void)d_ptr->selectAll();
 }
 
 void ZzMultiSelectComboBox::clearSelection()
 {
-    if (!d_ptr->clearSelection()) {
-        return;
-    }
-    d_ptr->refreshSummary();
-    Q_EMIT selectionChanged();
+    (void)d_ptr->clearSelection();
 }
 
 QList<ZzMultiSelectOption> ZzMultiSelectComboBox::selectedOptions() const
@@ -217,6 +191,15 @@ void ZzMultiSelectComboBox::showPopup()
     if (!d_ptr->view->currentIndex().isValid()) {
         d_ptr->view->setCurrentIndex(d_ptr->view->model()->index(0, 0));
     }
+}
+
+void ZzMultiSelectComboBox::hidePopup()
+{
+    if (d_ptr->keepPopupOpen) {
+        return;
+    }
+    QComboBox::hidePopup();
+    d_ptr->refreshSummary();
 }
 
 bool ZzMultiSelectComboBox::eventFilter(

@@ -136,6 +136,24 @@ set_tests_properties(fluent.suggest-box PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
+target_link_libraries(ZzMultiSelectComboBoxTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzMultiSelectComboBoxTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzMultiSelectComboBoxTest)
+zz_enable_sanitizers(ZzMultiSelectComboBoxTest)
+add_test(
+    NAME fluent.multi-select-combo-box
+    COMMAND ZzMultiSelectComboBoxTest
+)
+set_tests_properties(fluent.multi-select-combo-box PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
 qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
     PREFIX "/zzfluent/buttons"

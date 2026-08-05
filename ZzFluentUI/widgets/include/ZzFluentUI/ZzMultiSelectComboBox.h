@@ -78,11 +78,11 @@ class ZZ_FLUENT_UI_EXPORT ZzMultiSelectComboBox final : public QComboBox
 
 public:
     /** @brief 公开只读选项模型中的稳定扩展 role。 */
-    enum DataRole {
+    enum ZzDataRole {
         /** @brief 返回当前选项唯一键的 role。 */
         KeyRole = Qt::UserRole + 1
     };
-    Q_ENUM(DataRole)
+    Q_ENUM(ZzDataRole)
 
     /**
      * @brief 创建拥有私有值模型和标准 QListView popup 的多选组合框。
@@ -202,6 +202,9 @@ public:
 
     /** @brief 打开标准 QComboBox popup 并恢复多选事件过滤顺序。 */
     void showPopup() override;
+
+    /** @brief 关闭标准 popup 后恢复无单选行的摘要展示状态。 */
+    void hidePopup() override;
 
 Q_SIGNALS:
     /** @brief 选项发生有效 reset、insert、remove 或 clear 后发出。 */

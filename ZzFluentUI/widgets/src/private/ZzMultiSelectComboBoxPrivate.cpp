@@ -404,6 +404,28 @@ ZzMultiSelectComboBoxPrivate::ZzMultiSelectComboBoxPrivate(
     q_ptr->setMaxVisibleItems(8);
     q_ptr->setFocusPolicy(Qt::StrongFocus);
     q_ptr->QComboBox::setCurrentIndex(-1);
+    QObject::connect(
+        model,
+        &QAbstractItemModel::dataChanged,
+        q_ptr,
+        [this](
+            const QModelIndex &,
+            const QModelIndex &,
+            const QList<int> &roles) {
+            if (roles.isEmpty() || roles.contains(Qt::CheckStateRole)) {
+                refreshSummary();
+                Q_EMIT q_ptr->selectionChanged();
+            }
+        });
+    QObject::connect(
+        q_ptr,
+        qOverload<int>(&QComboBox::currentIndexChanged),
+        q_ptr,
+        [this](int index) {
+            if (index != -1) {
+                refreshSummary();
+            }
+        });
     installEventFilters();
 }
 
@@ -549,13 +571,35 @@ bool ZzMultiSelectComboBoxPrivate::handleEvent(
             return true;
         }
     }
-    if (watched == view && event->type() == QEvent::KeyPress) {
+    if (watched == view && event->type() == QEvent::ShortcutOverride) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Space
+            || key->key() == Qt::Key_Return
+            || key->key() == Qt::Key_Enter) {
+            event->accept();
+            return true;
+        }
+    }
+    if (watched == view
+        && (event->type() == QEvent::KeyPress
+            || event->type() == QEvent::KeyRelease)) {
         const auto *key = static_cast<QKeyEvent *>(event);
         if (key->key() == Qt::Key_Space
             || key->key() == Qt::Key_Return
             || key->key() == Qt::Key_Enter) {
-            (void)toggleFromUser(view->currentIndex().row());
+            if (event->type() == QEvent::KeyPress) {
+                keepPopupOpen = true;
+                (void)toggleFromUser(view->currentIndex().row());
+            } else {
+                keepPopupOpen = false;
+            }
             return true;
+        }
+        if (event->type() == QEvent::KeyPress
+            && (key->key() == Qt::Key_Tab
+                || key->key() == Qt::Key_Backtab)) {
+            q_ptr->hidePopup();
+            return false;
         }
     }
     if (watched != view->viewport()) {
@@ -595,9 +639,7 @@ bool ZzMultiSelectComboBoxPrivate::toggleFromUser(int index)
         || !model->setSelectedAt(index, !before.selected)) {
         return false;
     }
-    refreshSummary();
     const ZzMultiSelectOption after = model->itemAt(index);
-    Q_EMIT q_ptr->selectionChanged();
     Q_EMIT q_ptr->optionToggled(after, after.selected);
     return true;
 }

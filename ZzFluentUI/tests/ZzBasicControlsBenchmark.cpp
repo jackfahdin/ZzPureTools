@@ -36,6 +36,7 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
+#include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollBar.h>
@@ -1684,6 +1685,167 @@ private Q_SLOTS:
                 qPrintable(QStringLiteral(
                     "参考机100x10000条建议过滤耗时 %1 ms 超过50 ms预算")
                                .arg(filterMilliseconds, 0, 'f', 3)));
+        }
+    }
+
+    void measuresMultiSelectRenderingSelectionAndStability()
+    {
+        constexpr int boxCount = 100;
+        constexpr int optionCount = 20;
+        constexpr int columnCount = 10;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        host.resize(columnCount * 152, 10 * 40);
+        std::vector<ZzFluentUI::ZzMultiSelectComboBox *> boxes;
+        boxes.reserve(boxCount);
+        QList<ZzFluentUI::ZzMultiSelectOption> options;
+        options.reserve(optionCount);
+        const QIcon sharedIcon = style.standardIcon(QStyle::SP_FileIcon);
+        for (int item = 0; item < optionCount; ++item) {
+            options.append({
+                QStringLiteral("option-%1").arg(item),
+                QStringLiteral("Scope %1").arg(item),
+                (item % 4) == 0 ? sharedIcon : QIcon{},
+                item,
+                (item % 7) != 0,
+                false});
+        }
+        for (int index = 0; index < boxCount; ++index) {
+            auto *box = new ZzFluentUI::ZzMultiSelectComboBox(&host);
+            box->setStyle(&style);
+            box->setOptions(options);
+            box->setPlaceholderText(QStringLiteral("Select scopes"));
+            box->setGeometry(
+                (index % columnCount) * 152,
+                (index / columnCount) * 40,
+                144,
+                32);
+            boxes.push_back(box);
+        }
+        host.show();
+        for (ZzFluentUI::ZzMultiSelectComboBox *box : boxes) {
+            box->showPopup();
+            box->hidePopup();
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            ZzFluentUI::ZzMultiSelectComboBox *changed = boxes.at(
+                static_cast<std::size_t>(sequence % boxCount));
+            (void)changed->setOptionSelectedAt(
+                1,
+                ((sequence / boxCount) % 2) == 0);
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            ZzFluentUI::ZzMultiSelectComboBox *box = boxes.at(
+                static_cast<std::size_t>(round % boxCount));
+            const int row = round % optionCount;
+            (void)box->setOptionSelectedAt(row, true);
+            box->setSelectedIndexes({row, (row + 1) % optionCount});
+            box->selectAll();
+            box->clearSelection();
+            box->setLayoutDirection(Qt::RightToLeft);
+            box->setPlaceholderText(QStringLiteral("Temporary"));
+            box->setEnabled(false);
+            box->setEnabled(true);
+            box->setPlaceholderText(QStringLiteral("Select scopes"));
+            box->setLayoutDirection(Qt::LeftToRight);
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+        for (const ZzFluentUI::ZzMultiSelectComboBox *box : boxes) {
+            QCOMPARE(box->selectionCount(), 0);
+            QCOMPARE(box->currentIndex(), -1);
+        }
+
+        ZzFluentUI::ZzMultiSelectComboBox large;
+        QList<ZzFluentUI::ZzMultiSelectOption> largeOptions;
+        largeOptions.reserve(10000);
+        for (int index = 0; index < 10000; ++index) {
+            largeOptions.append({
+                QStringLiteral("large-%1").arg(index),
+                QStringLiteral("Large scope %1").arg(index),
+                {}, index, true, false});
+        }
+        large.setOptions(std::move(largeOptions));
+        std::array<QStringList, 100> keySets;
+        for (int round = 0; round < 100; ++round) {
+            QStringList &keys = keySets.at(static_cast<std::size_t>(round));
+            keys.reserve(100);
+            for (int item = 0; item < 100; ++item) {
+                keys.append(QStringLiteral("large-%1").arg(
+                    ((round * 97) + (item * 83)) % 10000));
+            }
+        }
+        QElapsedTimer selectionTimer;
+        selectionTimer.start();
+        qint64 selectedRowsRead = 0;
+        for (const QStringList &keys : keySets) {
+            large.setSelectedKeys(keys);
+            selectedRowsRead += large.selectedKeys().size();
+        }
+        const qreal selectionMilliseconds =
+            static_cast<qreal>(selectionTimer.nsecsElapsed()) / 1000000.0;
+        QCOMPARE(large.selectionCount(), 100);
+        QCOMPARE(selectedRowsRead, qint64(10000));
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-multi-select controls=100 options=20 "
+                   "frames=120 P50=%1 ms P95=%2 ms max=%3 ms "
+                   "descendants=%4 animations=%5 timers=%6 "
+                   "selection-100x10000=%7 ms selected-reads=%8")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers)
+                   .arg(selectionMilliseconds, 0, 'f', 3)
+                   .arg(selectedRowsRead);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机多选组合框 P95 %1 ms 超过16.7 ms帧预算")
+                               .arg(p95, 0, 'f', 3)));
         }
     }
 

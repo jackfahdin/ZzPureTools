@@ -102,6 +102,7 @@ public:
     QLineEdit *editor = nullptr;
     ZzFluentItemDelegate *delegate = nullptr;
     QPersistentModelIndex pressedIndex;
+    bool keepPopupOpen = false;
 };
 
 } // namespace ZzFluentUI

@@ -1,4 +1,5 @@
 #include <QtCore/QDate>
+#include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
 #include <QtGui/QActionGroup>
 #include <QtGui/QIntValidator>
@@ -18,6 +19,7 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzImageCard.h>
+#include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
@@ -105,6 +107,7 @@ int main(int argc, char *argv[])
     ZzFluentUI::ZzSpinBox integerInput;
     ZzFluentUI::ZzDoubleSpinBox floatingInput;
     ZzFluentUI::ZzSuggestBox suggestBox;
+    ZzFluentUI::ZzMultiSelectComboBox multiSelect;
     ZzFluentUI::ZzTabWidget sourceTabs;
     ZzFluentUI::ZzTabWidget targetTabs;
     QWidget *tabPage = new QWidget;
@@ -143,6 +146,16 @@ int main(int argc, char *argv[])
         82,
         true});
     suggestBox.completer()->setCompletionPrefix(QStringLiteral("remote"));
+    multiSelect.setStyle(&fluentStyle);
+    multiSelect.setOptions({
+        {QStringLiteral("shared"), QStringLiteral("Desktop"), {}, 17,
+         true, false},
+        {QStringLiteral("shared"), QStringLiteral("Desktop"), {}, 29,
+         true, false},
+        {{}, QStringLiteral("Logs, metrics"), {}, 41, false, true}});
+    multiSelect.setSelectedKeys({
+        multiSelect.options().at(0).key,
+        multiSelect.options().at(2).key});
     QStyleOptionFrame lineOption;
     lineOption.initFrom(&lineEdit);
     const QSize lineSize = fluentStyle.sizeFromContents(
@@ -246,6 +259,21 @@ int main(int argc, char *argv[])
         || suggestBox.completer() == nullptr
         || suggestBox.completer()->completionModel()->rowCount() != 1
         || suggestBox.suggestions().at(1).data.toInt() != 82
+        || multiSelect.style() != &fluentStyle
+        || multiSelect.optionCount() != 3
+        || multiSelect.selectionCount() != 2
+        || multiSelect.currentIndex() != -1
+        || multiSelect.options().at(0).key
+            == multiSelect.options().at(1).key
+        || multiSelect.options().at(2).key.isEmpty()
+        || multiSelect.selectedText()
+            != QStringLiteral("Desktop, Logs, metrics")
+        || multiSelect.currentText() != multiSelect.selectedText()
+        || multiSelect.selectedOptions().at(1).data.toInt() != 41
+        || multiSelect.model()->data(
+               multiSelect.model()->index(0, 0),
+               ZzFluentUI::ZzMultiSelectComboBox::KeyRole).toString()
+            != multiSelect.options().at(0).key
         || sourceTabs.fluentTabBar() == nullptr
         || !sourceTabs.transferTabTo(&targetTabs, 0)
         || sourceTabs.count() != 0

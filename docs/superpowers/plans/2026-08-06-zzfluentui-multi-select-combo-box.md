@@ -82,10 +82,10 @@ class ZZ_FLUENT_UI_EXPORT ZzMultiSelectComboBox final : public QComboBox
                    WRITE setPlaceholderText)
 
 public:
-    enum DataRole {
+    enum ZzDataRole {
         KeyRole = Qt::UserRole + 1
     };
-    Q_ENUM(DataRole)
+    Q_ENUM(ZzDataRole)
 
     explicit ZzMultiSelectComboBox(QWidget *parent = nullptr);
     ~ZzMultiSelectComboBox() override;
@@ -178,10 +178,10 @@ widgets/src/private/ZzMultiSelectComboBoxPrivate.cpp
 - 已选状态来自 `CheckStateRole`，键盘 current index 只负责 focus ring；不得把 `QItemSelectionModel` 当第二份多选状态。
 - 为保留多选 popup，只把公开控件自身作为固定 event filter 安装到 view 和 viewport。`showPopup()` 前 remove/install 同一 filter，利用 Qt 公开的“最后安装先执行”规则，不创建 helper QObject。
 - viewport 左键 press 只更新 current index，release 只切换当前 enabled 行并消费事件；双击不得切换两次。滚动条、wheel 和 hover 继续交给标准 view。
-- popup 内 Space、Enter、Return 切换 current enabled 行并保持打开；Up/Down/Home/End/PageUp/PageDown 和类型搜索交给 `QListView`；Escape、Tab、窗口失活和外部点击交给 QComboBox popup 关闭路径。
+- popup 内提前消费 Space、Enter、Return 的 ShortcutOverride，并在 press 切换 current enabled 行、release 结束短生命周期关闭保护；Up/Down/Home/End/PageUp/PageDown 和类型搜索交给 `QListView`；Escape、Tab、窗口失活和外部点击沿 QComboBox popup 关闭路径处理。
 - 关闭状态下 Space、Enter、Return、F4、Alt+Down、Up/Down 打开 popup；普通字符不修改只读摘要。combo 本体 wheel 不改变选择，避免滚轮静默改业务值。
 - line edit 上的鼠标 press 转为 combo 的 `showPopup()`；它本身不可聚焦、不可选择或编辑摘要。
-- 不覆写 `hidePopup()`，不检查 cursor 全局位置，不查找 QFrame，不修改 popup layout/window flags，不创建 timer/animation/QSS/动态属性。
+- `hidePopup()` 先执行 QComboBox 标准关闭，再恢复 `currentIndex == -1` 和模型派生摘要；不检查 cursor 全局位置，不查找 QFrame，不修改 popup layout/window flags，不创建 timer/animation/QSS/动态属性。
 
 ### 4.4 生命周期与性能
 
