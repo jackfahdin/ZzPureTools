@@ -202,6 +202,13 @@ set_tests_properties(architecture.puretools-boundaries PROPERTIES
     LABELS "architecture;appcore;puretools"
 )
 
+add_test(NAME architecture.documentation-audit
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzDocumentationAudit.cmake")
+set_tests_properties(architecture.documentation-audit PROPERTIES
+    LABELS "architecture;documentation")
+
 add_executable(ZzCorePublicHeadersTest ZzCorePublicHeadersTest.cpp)
 target_link_libraries(ZzCorePublicHeadersTest PRIVATE Zz::Core)
 zz_configure_first_party_target(ZzCorePublicHeadersTest
