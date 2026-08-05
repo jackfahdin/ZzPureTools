@@ -102,7 +102,7 @@ function(zz_check_windows_dependency dependency mode binary)
     endif()
     set(system_pattern
         "^(kernel32|user32|gdi32|shell32|ole32|oleaut32|advapi32|comdlg32|comctl32|dwmapi|uxtheme|shlwapi|imm32|winmm|ws2_32|version|bcrypt|setupapi|userenv|authz|ntdll|msvcrt)\\.dll$")
-    if(name MATCHES "^zz[a-z0-9_]*\\.dll$"
+    if(name MATCHES "^(lib)?zz[a-z0-9_]*\\.dll$"
        OR name MATCHES "^qt6[a-z0-9_]*\\.dll$"
        OR name MATCHES "^api-ms-win-[a-z0-9_.-]+\\.dll$"
        OR name MATCHES "${system_pattern}")

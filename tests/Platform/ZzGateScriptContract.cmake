@@ -47,6 +47,7 @@ set(required_tokens
     "tests/Platform/ZzBinaryDependencyCheck.cmake|-E chdir \"\${binary_directory}\""
     "tests/Platform/ZzBinaryDependencyCheck.cmake|[A-Za-z0-9_.+-]+"
     "tests/Platform/ZzBinaryDependencyCheck.cmake|msvcrt"
+    "tests/Platform/ZzBinaryDependencyCheck.cmake|^(lib)?zz"
     "tests/Platform/ZzBinaryDependencyCheck.cmake|\"\${ZZ_DUMPBIN}\" /nologo /dependents \"\${binary_name}\""
     "tests/Platform/ZzBinaryDependencyCheck.cmake|\"\${ZZ_OTOOL}\" -L \"\${binary_name}\""
     "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_ARCHITECTURES:STRING="
