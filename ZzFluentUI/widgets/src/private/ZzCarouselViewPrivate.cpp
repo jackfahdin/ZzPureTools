@@ -6,13 +6,16 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QEasingCurve>
 #include <QtCore/QItemSelectionModel>
+#include <QtCore/QPointer>
 #include <QtCore/QVariantAnimation>
+#include <QtGui/QAccessible>
 #include <QtGui/QIcon>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QAbstractItemDelegate>
+#include <QtWidgets/QAccessibleWidget>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QStyledItemDelegate>
@@ -30,6 +33,272 @@ constexpr int zzCarouselButtonExtent = 32;
 constexpr int zzCarouselButtonMargin = 12;
 constexpr int zzCarouselMaximumIndicators = 7;
 constexpr qreal zzCarouselCornerRadius = 6.0;
+
+#if QT_CONFIG(accessibility)
+
+/** @brief 将轮播视图当前模型项映射为固定复用的虚拟无障碍子节点。 */
+class ZzAccessibleCarouselItem final : public QAccessibleInterface {
+public:
+  /** @brief 创建不持有视图所有权的当前项接口。 */
+  explicit ZzAccessibleCarouselItem(ZzCarouselView *view) : view_(view) {}
+
+  /** @brief 仅在视图和当前模型索引仍有效时返回 true。 */
+  [[nodiscard]] bool isValid() const override {
+    return view_ != nullptr && view_->currentIndex().isValid();
+  }
+
+  /** @brief 虚拟模型项没有对应 QObject。 */
+  [[nodiscard]] QObject *object() const override { return nullptr; }
+
+  /** @brief 当前项不包含子节点。 */
+  [[nodiscard]] QAccessibleInterface *childAt(int, int) const override {
+    return nullptr;
+  }
+
+  /** @brief 返回轮播视图专用无障碍父接口。 */
+  [[nodiscard]] QAccessibleInterface *parent() const override {
+    return view_ == nullptr
+               ? nullptr
+               : QAccessible::queryAccessibleInterface(view_.data());
+  }
+
+  /** @brief 当前项不包含子节点。 */
+  [[nodiscard]] QAccessibleInterface *child(int) const override {
+    return nullptr;
+  }
+
+  /** @brief 当前项不包含子节点。 */
+  [[nodiscard]] int childCount() const override { return 0; }
+
+  /** @brief 当前项不包含子节点，因此始终返回 -1。 */
+  [[nodiscard]] int indexOfChild(const QAccessibleInterface *) const override {
+    return -1;
+  }
+
+  /**
+   * @brief 从标准 model role 动态读取当前项无障碍文本。
+   * @param textType 请求的文本语义。
+   * @return 当前项名称、说明或帮助文本。
+   */
+  [[nodiscard]] QString text(QAccessible::Text textType) const override {
+    if (!isValid()) {
+      return {};
+    }
+    const QModelIndex current = view_->currentIndex();
+    switch (textType) {
+    case QAccessible::Name: {
+      const QString accessibleName =
+          current.data(Qt::AccessibleTextRole).toString();
+      return accessibleName.isEmpty() ? current.data(Qt::DisplayRole).toString()
+                                      : accessibleName;
+    }
+    case QAccessible::Description: {
+      const QString accessibleDescription =
+          current.data(Qt::AccessibleDescriptionRole).toString();
+      return accessibleDescription.isEmpty()
+                 ? current.data(ZzCarouselView::DescriptionRole).toString()
+                 : accessibleDescription;
+    }
+    case QAccessible::Help:
+      return current.data(Qt::ToolTipRole).toString();
+    default:
+      return {};
+    }
+  }
+
+  /** @brief 虚拟只读模型项不接受无障碍文本写入。 */
+  void setText(QAccessible::Text, const QString &) override {}
+
+  /** @brief 返回当前 item 内容区对应的全局屏幕矩形。 */
+  [[nodiscard]] QRect rect() const override {
+    if (!isValid() || view_->viewport() == nullptr) {
+      return {};
+    }
+    const QRect localRect = view_->visualRect(view_->currentIndex());
+    return localRect.translated(view_->viewport()->mapToGlobal(QPoint()));
+  }
+
+  /** @brief 将固定虚拟节点声明为标准列表项。 */
+  [[nodiscard]] QAccessible::Role role() const override {
+    return QAccessible::ListItem;
+  }
+
+  /** @brief 根据视图、选择模型和 item flags 派生当前状态。 */
+  [[nodiscard]] QAccessible::State state() const override {
+    QAccessible::State result;
+    if (!isValid()) {
+      result.invalid = true;
+      result.invisible = true;
+      return result;
+    }
+
+    const QModelIndex current = view_->currentIndex();
+    const Qt::ItemFlags flags = current.flags();
+    result.disabled = !view_->isEnabled() || !flags.testFlag(Qt::ItemIsEnabled);
+    result.selectable = flags.testFlag(Qt::ItemIsSelectable);
+    result.selected = view_->selectionModel() != nullptr &&
+                      view_->selectionModel()->isSelected(current);
+    result.focusable = view_->focusPolicy() != Qt::NoFocus;
+    result.focused = view_->hasFocus();
+    result.readOnly = true;
+    result.active = view_->isActiveWindow();
+    result.invisible = !view_->isVisible();
+    result.offscreen = rect().isEmpty();
+    return result;
+  }
+
+private:
+  QPointer<ZzCarouselView> view_;
+};
+
+/** @brief 将当前项接口的所有权显式转移给 Qt 无障碍缓存。 */
+[[nodiscard]] QAccessible::Id
+zzRegisterAccessibleCarouselItem(ZzCarouselView *view) {
+  // Qt 缓存接管指针，并由 ZzAccessibleCarouselView 析构时按 Id 删除。
+  // NOLINTNEXTLINE(cppcoreguidelines-owning-memory,clang-analyzer-cplusplus.NewDeleteLeaks)
+  return QAccessible::registerAccessibleInterface(
+      new ZzAccessibleCarouselItem(view));
+}
+
+/** @brief 为轮播视图提供列表语义、当前项和真实按钮组成的可访问树。 */
+class ZzAccessibleCarouselView final : public QAccessibleWidget {
+public:
+  /** @brief 注册一个固定当前项，并引用两个由 Qt 管理的真实按钮。 */
+  ZzAccessibleCarouselView(ZzCarouselView *view, QToolButton *previousButton,
+                           QToolButton *nextButton)
+      : QAccessibleWidget(view, QAccessible::List), view_(view),
+        previousButton_(previousButton), nextButton_(nextButton),
+        itemInterfaceId_(zzRegisterAccessibleCarouselItem(view)) {}
+
+  /** @brief 从 Qt 无障碍缓存中删除唯一虚拟当前项。 */
+  ~ZzAccessibleCarouselView() override {
+    if (itemInterfaceId_ != 0) {
+      QAccessible::deleteAccessibleInterface(itemInterfaceId_);
+    }
+  }
+
+  /** @brief 按全局坐标优先命中按钮，其次命中当前模型项。 */
+  [[nodiscard]] QAccessibleInterface *childAt(int x, int y) const override {
+    const QPoint point(x, y);
+    for (QToolButton *button : {previousButton_.data(), nextButton_.data()}) {
+      QAccessibleInterface *buttonInterface = accessibleButton(button);
+      if (buttonInterface != nullptr &&
+          buttonInterface->rect().contains(point)) {
+        return buttonInterface;
+      }
+    }
+    QAccessibleInterface *item = itemInterface();
+    return item != nullptr && item->rect().contains(point) ? item : nullptr;
+  }
+
+  /** @brief 返回当前拥有键盘焦点的按钮或模型项。 */
+  [[nodiscard]] QAccessibleInterface *focusChild() const override {
+    for (QToolButton *button : {previousButton_.data(), nextButton_.data()}) {
+      if (button != nullptr && button->hasFocus()) {
+        return accessibleButton(button);
+      }
+    }
+    return view_ != nullptr && view_->hasFocus() ? itemInterface() : nullptr;
+  }
+
+  /** @brief 返回当前项以及当前可见的两个真实箭头按钮数量。 */
+  [[nodiscard]] int childCount() const override {
+    int count = hasCurrentItem() ? 1 : 0;
+    count += isAccessibleButton(previousButton_.data()) ? 1 : 0;
+    count += isAccessibleButton(nextButton_.data()) ? 1 : 0;
+    return count;
+  }
+
+  /** @brief 按当前项、上一项按钮、下一项按钮的稳定顺序返回子接口。 */
+  [[nodiscard]] QAccessibleInterface *child(int index) const override {
+    if (index < 0) {
+      return nullptr;
+    }
+    if (hasCurrentItem()) {
+      if (index == 0) {
+        return itemInterface();
+      }
+      --index;
+    }
+    for (QToolButton *button : {previousButton_.data(), nextButton_.data()}) {
+      if (!isAccessibleButton(button)) {
+        continue;
+      }
+      if (index == 0) {
+        return accessibleButton(button);
+      }
+      --index;
+    }
+    return nullptr;
+  }
+
+  /** @brief 返回子接口在当前可访问树中的动态索引。 */
+  [[nodiscard]] int
+  indexOfChild(const QAccessibleInterface *candidate) const override {
+    if (candidate == nullptr) {
+      return -1;
+    }
+    int index = 0;
+    if (hasCurrentItem()) {
+      if (candidate == itemInterface()) {
+        return index;
+      }
+      ++index;
+    }
+    for (QToolButton *button : {previousButton_.data(), nextButton_.data()}) {
+      if (!isAccessibleButton(button)) {
+        continue;
+      }
+      if (candidate == accessibleButton(button)) {
+        return index;
+      }
+      ++index;
+    }
+    return -1;
+  }
+
+private:
+  /** @brief 判断轮播当前索引是否可作为虚拟子节点暴露。 */
+  [[nodiscard]] bool hasCurrentItem() const {
+    return view_ != nullptr && view_->currentIndex().isValid();
+  }
+
+  /** @brief 判断真实按钮当前是否属于可见无障碍树。 */
+  [[nodiscard]] static bool isAccessibleButton(const QToolButton *button) {
+    return button != nullptr && button->isVisible();
+  }
+
+  /** @brief 查询由 Qt 原生按钮实现提供的无障碍接口。 */
+  [[nodiscard]] static QAccessibleInterface *
+  accessibleButton(QToolButton *button) {
+    return isAccessibleButton(button)
+               ? QAccessible::queryAccessibleInterface(button)
+               : nullptr;
+  }
+
+  /** @brief 返回固定复用的当前模型项接口。 */
+  [[nodiscard]] QAccessibleInterface *itemInterface() const {
+    return QAccessible::accessibleInterface(itemInterfaceId_);
+  }
+
+  QPointer<ZzCarouselView> view_;
+  QPointer<QToolButton> previousButton_;
+  QPointer<QToolButton> nextButton_;
+  QAccessible::Id itemInterfaceId_ = 0;
+};
+
+/** @brief 将轮播视图接口的所有权显式转移给 Qt 无障碍缓存。 */
+[[nodiscard]] QAccessible::Id
+zzRegisterAccessibleCarouselView(ZzCarouselView *view,
+                                 QToolButton *previousButton,
+                                 QToolButton *nextButton) {
+  // Qt 缓存接管指针，并由 ZzCarouselViewPrivate 析构时按 Id 删除。
+  // NOLINTNEXTLINE(cppcoreguidelines-owning-memory,clang-analyzer-cplusplus.NewDeleteLeaks)
+  return QAccessible::registerAccessibleInterface(
+      new ZzAccessibleCarouselView(view, previousButton, nextButton));
+}
+
+#endif
 
 /**
  * @brief 计算 KeepAspectRatioByExpanding 对应的源裁剪矩形。
@@ -239,11 +508,20 @@ ZzCarouselViewPrivate::ZzCarouselViewPrivate(ZzCarouselView *q)
   updateButtonIcons();
   updateButtonGeometry();
   updateButtons();
+#if QT_CONFIG(accessibility)
+  accessibleInterfaceId =
+      zzRegisterAccessibleCarouselView(q_ptr, previousButton, nextButton);
+#endif
 }
 
 ZzCarouselViewPrivate::~ZzCarouselViewPrivate() {
   animation->stop();
   disconnectModel();
+#if QT_CONFIG(accessibility)
+  if (accessibleInterfaceId != 0) {
+    QAccessible::deleteAccessibleInterface(accessibleInterfaceId);
+  }
+#endif
 }
 
 QRect ZzCarouselViewPrivate::contentRect() const {

@@ -310,6 +310,21 @@ set_tests_properties(fluent.card-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzCarouselViewTest ZzCarouselViewTest.cpp)
+target_link_libraries(ZzCarouselViewTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzCarouselViewTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzCarouselViewTest)
+zz_enable_sanitizers(ZzCarouselViewTest)
+add_test(NAME fluent.carousel-view COMMAND ZzCarouselViewTest)
+set_tests_properties(fluent.carousel-view PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzTabControlsTest ZzTabControlsTest.cpp)
 target_link_libraries(ZzTabControlsTest PRIVATE
     Qt6::Test

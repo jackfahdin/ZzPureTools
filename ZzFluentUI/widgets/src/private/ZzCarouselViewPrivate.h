@@ -4,6 +4,7 @@
 #include <QtCore/QMetaObject>
 #include <QtCore/QPersistentModelIndex>
 #include <QtCore/QRect>
+#include <QtGui/QAccessible>
 
 class QAbstractItemModel;
 class QPainter;
@@ -102,6 +103,10 @@ public:
   int animationDurationMilliseconds = 220;
   bool wrapAroundEnabled = false;
   bool changingModelContext = false;
+#if QT_CONFIG(accessibility)
+  /** @brief 轮播视图专用无障碍接口在 Qt 全局缓存中的标识。 */
+  QAccessible::Id accessibleInterfaceId = 0;
+#endif
 };
 
 } // namespace ZzFluentUI
