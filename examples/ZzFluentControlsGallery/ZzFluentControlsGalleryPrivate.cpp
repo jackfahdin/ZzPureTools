@@ -12,6 +12,7 @@
 #include <QtWidgets/QButtonGroup>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QCompleter>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QFormLayout>
@@ -387,6 +388,41 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
         QStringLiteral("Balanced"),
         QStringLiteral("Compact"),
         QStringLiteral("Comfortable")});
+    auto *environment = new QComboBox(container);
+    environment->setPlaceholderText(QStringLiteral("Select environment"));
+    environment->addItems({
+        QStringLiteral("Local"),
+        QStringLiteral("Staging"),
+        QStringLiteral("Production")});
+    environment->setCurrentIndex(-1);
+    auto *storage = new QComboBox(container);
+    storage->addItem(
+        storage->style()->standardIcon(QStyle::SP_DriveHDIcon),
+        QStringLiteral("Local disk"));
+    storage->addItem(
+        storage->style()->standardIcon(QStyle::SP_DriveNetIcon),
+        QStringLiteral("Network share"));
+    auto *editableTarget = new QComboBox(container);
+    editableTarget->setEditable(true);
+    editableTarget->setInsertPolicy(QComboBox::NoInsert);
+    editableTarget->addItems({
+        QStringLiteral("Debug"),
+        QStringLiteral("Release"),
+        QStringLiteral("RelWithDebInfo")});
+    editableTarget->setCompleter(new QCompleter(
+        QStringList{
+            QStringLiteral("Debug"),
+            QStringLiteral("Release"),
+            QStringLiteral("RelWithDebInfo")},
+        editableTarget));
+    auto *disabledChoice = new QComboBox(container);
+    disabledChoice->addItem(QStringLiteral("Unavailable"));
+    disabledChoice->setEnabled(false);
+    auto *rightToLeftChoice = new QComboBox(container);
+    rightToLeftChoice->setLayoutDirection(Qt::RightToLeft);
+    rightToLeftChoice->addItems({
+        QStringLiteral("Primary"),
+        QStringLiteral("Secondary")});
     datePicker = new ZzFluentUI::ZzCalendarPicker(container);
     datePicker->setAccessibleName(QStringLiteral("Due date"));
     datePicker->setLocale(QLocale::c());
@@ -401,6 +437,11 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->addRow(QStringLiteral("Read only"), readOnlyText);
     form->addRow(QStringLiteral("Disabled"), disabledText);
     form->addRow(QStringLiteral("Density"), density);
+    form->addRow(QStringLiteral("Environment"), environment);
+    form->addRow(QStringLiteral("Storage"), storage);
+    form->addRow(QStringLiteral("Build target"), editableTarget);
+    form->addRow(QStringLiteral("Unavailable"), disabledChoice);
+    form->addRow(QStringLiteral("RTL choice"), rightToLeftChoice);
     form->addRow(QStringLiteral("Due date"), datePicker);
 
     auto *workers = new ZzFluentUI::ZzSpinBox(container);

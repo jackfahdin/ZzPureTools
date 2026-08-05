@@ -91,6 +91,21 @@ set_tests_properties(fluent.text-input-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzComboBoxControlsTest ZzComboBoxControlsTest.cpp)
+target_link_libraries(ZzComboBoxControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzComboBoxControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzComboBoxControlsTest)
+zz_enable_sanitizers(ZzComboBoxControlsTest)
+add_test(NAME fluent.combo-box-controls COMMAND ZzComboBoxControlsTest)
+set_tests_properties(fluent.combo-box-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
 qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
     PREFIX "/zzfluent/buttons"

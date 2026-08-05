@@ -1,5 +1,10 @@
 #include <QtCore/QDate>
+#include <QtCore/QCoreApplication>
+#include <QtGui/QIntValidator>
+#include <QtGui/QKeyEvent>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QCompleter>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleOption>
@@ -30,6 +35,25 @@ int main(int argc, char *argv[])
     lineEdit.setStyle(&fluentStyle);
     textEdit.setStyle(&fluentStyle);
     plainTextEdit.setStyle(&fluentStyle);
+    QComboBox selection;
+    selection.setStyle(&fluentStyle);
+    selection.addItem(QStringLiteral("Local"), 17);
+    selection.addItem(QStringLiteral("Remote"), 29);
+    selection.setCurrentIndex(0);
+    QComboBox editableSelection;
+    editableSelection.setStyle(&fluentStyle);
+    editableSelection.setEditable(true);
+    editableSelection.setInsertPolicy(QComboBox::NoInsert);
+    editableSelection.addItems({QStringLiteral("12"), QStringLiteral("24")});
+    QLineEdit *comboEditor = editableSelection.lineEdit();
+    if (comboEditor == nullptr) {
+        return 1;
+    }
+    comboEditor->setValidator(new QIntValidator(0, 999, comboEditor));
+    editableSelection.setCompleter(new QCompleter(
+        QStringList{QStringLiteral("120"), QStringLiteral("240")},
+        &editableSelection));
+    editableSelection.setEditText(QStringLiteral("42"));
     ZzFluentUI::ZzCalendar calendar;
     ZzFluentUI::ZzCalendarPicker picker;
     ZzFluentUI::ZzActionCard actionCard(
@@ -78,6 +102,18 @@ int main(int argc, char *argv[])
         &lineOption,
         QSize(8, 8),
         &lineEdit);
+    QStyleOptionComboBox comboOption;
+    comboOption.initFrom(&selection);
+    const QSize comboSize = fluentStyle.sizeFromContents(
+        QStyle::CT_ComboBox,
+        &comboOption,
+        QSize(8, 8),
+        &selection);
+    QKeyEvent downPress(
+        QEvent::KeyPress,
+        Qt::Key_Down,
+        Qt::NoModifier);
+    QCoreApplication::sendEvent(&selection, &downPress);
 
     if (lineEdit.style() != &fluentStyle
         || textEdit.style() != &fluentStyle
@@ -87,6 +123,17 @@ int main(int argc, char *argv[])
         || plainTextEdit.toPlainText() != QStringLiteral("Gamma")
         || lineSize.width() < 96
         || lineSize.height() < 32
+        || selection.style() != &fluentStyle
+        || selection.currentIndex() != 1
+        || selection.currentData().toInt() != 29
+        || comboSize.width() < 96
+        || comboSize.height() < 32
+        || editableSelection.style() != &fluentStyle
+        || editableSelection.lineEdit() != comboEditor
+        || comboEditor->text() != QStringLiteral("42")
+        || !comboEditor->hasAcceptableInput()
+        || editableSelection.completer() == nullptr
+        || editableSelection.insertPolicy() != QComboBox::NoInsert
         || calendar.selectedDate() != expectedDate
         || picker.date() != expectedDate
         || picker.calendar() == nullptr

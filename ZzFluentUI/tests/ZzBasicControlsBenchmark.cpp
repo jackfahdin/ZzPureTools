@@ -14,6 +14,7 @@
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleOptionViewItem>
@@ -1182,6 +1183,138 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机文本输入 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresComboBoxRenderingAndStability()
+    {
+        constexpr int comboBoxCount = 100;
+        constexpr int columnCount = 10;
+        constexpr int cellWidth = 132;
+        constexpr int cellHeight = 40;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<QComboBox *> comboBoxes;
+        comboBoxes.reserve(comboBoxCount);
+
+        for (int index = 0; index < comboBoxCount; ++index) {
+            auto *comboBox = new QComboBox(&host);
+            comboBox->setStyle(&style);
+            comboBox->setGeometry(
+                (index % columnCount) * cellWidth,
+                (index / columnCount) * cellHeight,
+                cellWidth - 8,
+                32);
+            comboBox->addItems({
+                QStringLiteral("Option 0"),
+                QStringLiteral("Option 1"),
+                QStringLiteral("Option 2"),
+                QStringLiteral("Option 3")});
+            comboBox->setEditable((index % 2) != 0);
+            comboBox->setCurrentIndex(index % comboBox->count());
+            comboBox->setEnabled((index % 10) != 0);
+            comboBox->setLayoutDirection(
+                (index % 4) == 0
+                    ? Qt::RightToLeft
+                    : Qt::LeftToRight);
+            if ((index % 5) == 0) {
+                comboBox->setItemIcon(
+                    0,
+                    style.standardIcon(QStyle::SP_DirIcon));
+            }
+            comboBoxes.push_back(comboBox);
+        }
+
+        host.resize(columnCount * cellWidth, 400);
+        host.show();
+        QCoreApplication::processEvents();
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            for (int index = 0; index < comboBoxCount; ++index) {
+                comboBoxes[static_cast<std::size_t>(index)]->setCurrentIndex(
+                    (sequence + index) % 4);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            const int index = round % comboBoxCount;
+            QComboBox *comboBox = comboBoxes[static_cast<std::size_t>(index)];
+            const bool editable = (index % 2) != 0;
+            const bool enabled = (index % 10) != 0;
+            const Qt::LayoutDirection direction = (index % 4) == 0
+                ? Qt::RightToLeft
+                : Qt::LeftToRight;
+            comboBox->setCurrentIndex((round + index) % 4);
+            comboBox->setEnabled(!enabled);
+            comboBox->setEditable(editable);
+            comboBox->setLayoutDirection(
+                direction == Qt::LeftToRight
+                    ? Qt::RightToLeft
+                    : Qt::LeftToRight);
+            comboBox->setItemText(0, QString::number(round));
+            comboBox->setItemText(0, QStringLiteral("Option 0"));
+            comboBox->setLayoutDirection(direction);
+            comboBox->setEditable(editable);
+            comboBox->setEnabled(enabled);
+            comboBox->setCurrentIndex(index % 4);
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents();
+
+        QCOMPARE(host.findChildren<QObject *>().size(), initialDescendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(),
+                 initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-combo-boxes controls=100 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机组合框 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }
