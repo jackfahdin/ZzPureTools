@@ -100,7 +100,7 @@ public:
     [[nodiscard]] QPalette standardPalette() const override;
 
     /**
-     * @brief 为文本和数值输入框提供可缩放的最小 Fluent 内容尺寸。
+     * @brief 为文本、数值和组合输入框提供可缩放的最小 Fluent 内容尺寸。
      * @param type Qt 内容类型。
      * @param option 可选绘制状态。
      * @param contentsSize 平台根据文本和字体计算的内容尺寸。
@@ -127,7 +127,7 @@ public:
         const QWidget *widget = nullptr) const override;
 
     /**
-     * @brief 绘制按钮、进度、标签页和菜单项，其他控件委托给平台样式。
+     * @brief 绘制按钮、进度、标签页、组合框弹出项和菜单项。
      * @param element Qt control 标识。
      * @param option 非拥有绘制状态。
      * @param painter 非拥有绘制目标。

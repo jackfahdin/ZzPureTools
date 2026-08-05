@@ -4,10 +4,12 @@
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
+#include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
@@ -55,6 +57,12 @@ bool zzContainsOpaquePixel(const QImage &image)
         }
     }
     return false;
+}
+
+/** @brief 判断矩形为空或完全位于给定边界内。 */
+bool zzContainedOrEmpty(const QRect &bounds, const QRect &candidate)
+{
+    return candidate.isEmpty() || bounds.contains(candidate);
 }
 
 } // namespace
@@ -107,6 +115,129 @@ private Q_SLOTS:
         comboBox.setCurrentIndex(0);
         QTest::keyClick(&comboBox, Qt::Key_Down);
         QCOMPARE(comboBox.currentIndex(), 1);
+    }
+
+    void providesStableComboBoxGeometry()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+
+        for (const Qt::LayoutDirection direction : {
+                 Qt::LeftToRight,
+                 Qt::RightToLeft}) {
+            for (const QSize size : {QSize(120, 36), QSize(18, 9)}) {
+                QStyleOptionComboBox option;
+                option.rect = QRect(QPoint(0, 0), size);
+                option.direction = direction;
+                option.state = QStyle::State_Enabled;
+                option.subControls = QStyle::SC_All;
+
+                const QRect frame = style.subControlRect(
+                    QStyle::CC_ComboBox,
+                    &option,
+                    QStyle::SC_ComboBoxFrame);
+                const QRect edit = style.subControlRect(
+                    QStyle::CC_ComboBox,
+                    &option,
+                    QStyle::SC_ComboBoxEditField);
+                const QRect arrow = style.subControlRect(
+                    QStyle::CC_ComboBox,
+                    &option,
+                    QStyle::SC_ComboBoxArrow);
+
+                QCOMPARE(frame, option.rect);
+                QVERIFY(zzContainedOrEmpty(option.rect, edit));
+                QVERIFY(zzContainedOrEmpty(option.rect, arrow));
+                QVERIFY(!edit.intersects(arrow));
+                QVERIFY(!arrow.isEmpty());
+                if (arrow.width() < option.rect.width()) {
+                    if (direction == Qt::LeftToRight) {
+                        QVERIFY(arrow.center().x() > option.rect.center().x());
+                    } else {
+                        QVERIFY(arrow.center().x() < option.rect.center().x());
+                    }
+                }
+                QCOMPARE(
+                    style.hitTestComplexControl(
+                        QStyle::CC_ComboBox,
+                        &option,
+                        arrow.center()),
+                    QStyle::SC_ComboBoxArrow);
+                if (!edit.isEmpty()) {
+                    QCOMPARE(
+                        style.hitTestComplexControl(
+                            QStyle::CC_ComboBox,
+                            &option,
+                            edit.center()),
+                        QStyle::SC_ComboBoxEditField);
+                }
+            }
+        }
+
+        QStyleOptionComboBox option;
+        const QSize contents(220, 48);
+        const QSize base = style.baseStyle()->sizeFromContents(
+            QStyle::CT_ComboBox,
+            &option,
+            contents);
+        const QSize fluent = style.sizeFromContents(
+            QStyle::CT_ComboBox,
+            &option,
+            contents);
+        QVERIFY(fluent.width() >= 96);
+        QVERIFY(fluent.height() >= 32);
+        QVERIFY(fluent.width() >= base.width());
+        QVERIFY(fluent.height() >= base.height());
+    }
+
+    void scopesPopupItemStylingToComboBoxes()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox comboBox;
+        comboBox.setStyle(&style);
+        comboBox.addItems({QStringLiteral("One"), QStringLiteral("Two")});
+        QAbstractItemView *popupView = comboBox.view();
+        QVERIFY(popupView != nullptr);
+
+        QStyleOptionViewItem item;
+        item.rect = QRect(0, 0, 160, 32);
+        item.state = QStyle::State_Enabled | QStyle::State_Selected;
+        item.palette = style.standardPalette();
+        const QSize popupItem = style.sizeFromContents(
+            QStyle::CT_ItemViewItem,
+            &item,
+            QSize(80, 8),
+            popupView);
+        QVERIFY(popupItem.height() >= 32);
+
+        QImage image(item.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(
+            QStyle::CE_ItemViewItem,
+            &item,
+            &painter,
+            popupView);
+        painter.end();
+        QVERIFY(zzContainsColor(
+            image,
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::Accent)));
+
+        QListView ordinaryView;
+        const QSize ordinaryBase = style.baseStyle()->sizeFromContents(
+            QStyle::CT_ItemViewItem,
+            &item,
+            QSize(80, 8),
+            &ordinaryView);
+        QCOMPARE(
+            style.sizeFromContents(
+                QStyle::CT_ItemViewItem,
+                &item,
+                QSize(80, 8),
+                &ordinaryView),
+            ordinaryBase);
     }
 
     void drawsProgressAndPopupControls()

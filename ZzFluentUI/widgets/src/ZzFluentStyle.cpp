@@ -4,6 +4,7 @@
 
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleOption>
@@ -174,8 +175,14 @@ QSize ZzFluentStyle::sizeFromContents(
         option,
         contentsSize,
         widget);
-    if (type == CT_LineEdit || type == CT_SpinBox) {
+    if (type == CT_LineEdit
+        || type == CT_SpinBox
+        || type == CT_ComboBox) {
         result = result.expandedTo(QSize(96, 32));
+    }
+    if (type == CT_ItemViewItem
+        && d_ptr->isComboBoxPopupWidget(widget)) {
+        result.setHeight(qMax(result.height(), 32));
     }
     return result;
 }
@@ -241,6 +248,16 @@ void ZzFluentStyle::drawControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (element == CE_ItemViewItem
+        && option != nullptr && painter != nullptr
+        && d_ptr->isComboBoxPopupWidget(widget)) {
+        const auto *item = qstyleoption_cast<
+            const QStyleOptionViewItem *>(option);
+        if (item != nullptr) {
+            d_ptr->drawComboBoxPopupItem(item, painter, widget);
+            return;
+        }
+    }
     if (element == CE_PushButton) {
         const auto *button = qstyleoption_cast<
             const QStyleOptionButton *>(option);
@@ -336,6 +353,16 @@ QRect ZzFluentStyle::subControlRect(
         result.setSize(QSize(length, length));
         result.moveCenter(center);
     }
+    if (control == CC_ComboBox
+        && (subControl == SC_ComboBoxFrame
+            || subControl == SC_ComboBoxEditField
+            || subControl == SC_ComboBoxArrow)) {
+        const auto *comboBox = qstyleoption_cast<
+            const QStyleOptionComboBox *>(option);
+        if (comboBox != nullptr) {
+            return d_ptr->comboBoxSubControlRect(comboBox, subControl);
+        }
+    }
     if (control == CC_SpinBox) {
         const auto *spinBox = qstyleoption_cast<
             const QStyleOptionSpinBox *>(option);
@@ -360,6 +387,13 @@ QStyle::SubControl ZzFluentStyle::hitTestComplexControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_ComboBox) {
+        const auto *comboBox = qstyleoption_cast<
+            const QStyleOptionComboBox *>(option);
+        if (comboBox != nullptr) {
+            return d_ptr->hitTestComboBox(comboBox, position);
+        }
+    }
     if (control == CC_SpinBox) {
         const auto *spinBox = qstyleoption_cast<
             const QStyleOptionSpinBox *>(option);

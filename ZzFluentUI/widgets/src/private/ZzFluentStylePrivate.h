@@ -61,6 +61,22 @@ public:
         const QStyleOptionComboBox *option,
         QPainter *painter,
         const QWidget *widget) const;
+    /** @brief 计算组合框 frame、edit 与 arrow 的方向安全矩形。 */
+    [[nodiscard]] QRect comboBoxSubControlRect(
+        const QStyleOptionComboBox *option,
+        QStyle::SubControl subControl) const;
+    /** @brief 使用组合框稳定矩形执行命中测试。 */
+    [[nodiscard]] QStyle::SubControl hitTestComboBox(
+        const QStyleOptionComboBox *option,
+        const QPoint &position) const;
+    /** @brief 判断目标控件是否位于标准组合框的弹出视图内。 */
+    [[nodiscard]] bool isComboBoxPopupWidget(
+        const QWidget *widget) const noexcept;
+    /** @brief 绘制组合框弹出项状态并委托平台绘制内容。 */
+    void drawComboBoxPopupItem(
+        const QStyleOptionViewItem *option,
+        QPainter *painter,
+        const QWidget *widget) const;
     /** @brief 绘制数值输入框面板、按钮状态和符号。 */
     void drawSpinBox(
         const QStyleOptionSpinBox *option,

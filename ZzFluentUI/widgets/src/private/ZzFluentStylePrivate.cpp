@@ -14,6 +14,7 @@
 #include <QtSvg/QSvgRenderer>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QAbstractSpinBox>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -342,24 +343,167 @@ void ZzFluentStylePrivate::drawComboBox(
         option,
         QStyle::SC_ComboBoxArrow,
         widget);
+    if (arrowRect.isEmpty()) {
+        return;
+    }
     const QPointF center = QRectF(arrowRect).center();
     const qreal halfWidth = qMin(4.0, arrowRect.width() / 4.0);
     const qreal halfHeight = qMin(2.5, arrowRect.height() / 6.0);
+    const bool popupOpen = option->state.testFlag(QStyle::State_On);
     QPainterPath arrow;
-    arrow.moveTo(center.x() - halfWidth, center.y() - halfHeight);
-    arrow.lineTo(center.x(), center.y() + halfHeight);
-    arrow.lineTo(center.x() + halfWidth, center.y() - halfHeight);
+    if (popupOpen) {
+        arrow.moveTo(center.x() - halfWidth, center.y() + halfHeight);
+        arrow.lineTo(center.x(), center.y() - halfHeight);
+        arrow.lineTo(center.x() + halfWidth, center.y() + halfHeight);
+    } else {
+        arrow.moveTo(center.x() - halfWidth, center.y() - halfHeight);
+        arrow.lineTo(center.x(), center.y() + halfHeight);
+        arrow.lineTo(center.x() + halfWidth, center.y() - halfHeight);
+    }
+    const QPalette::ColorGroup group = option->state.testFlag(
+        QStyle::State_Enabled)
+        ? QPalette::Normal
+        : QPalette::Disabled;
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setBrush(Qt::NoBrush);
     painter->setPen(QPen(
-        option->palette.color(QPalette::Text),
+        option->palette.color(group, QPalette::Text),
         1.5,
         Qt::SolidLine,
         Qt::RoundCap,
         Qt::RoundJoin));
     painter->drawPath(arrow);
     painter->restore();
+}
+
+QRect ZzFluentStylePrivate::comboBoxSubControlRect(
+    const QStyleOptionComboBox *option,
+    QStyle::SubControl subControl) const
+{
+    if (option == nullptr || option->rect.isEmpty()) {
+        return {};
+    }
+    if (subControl == QStyle::SC_ComboBoxFrame) {
+        return option->rect;
+    }
+
+    const QRect bounds = option->rect;
+    const int arrowWidth = qMin(32, bounds.width());
+    const QRect logicalArrow(
+        bounds.right() - arrowWidth + 1,
+        bounds.top(),
+        arrowWidth,
+        bounds.height());
+    if (subControl == QStyle::SC_ComboBoxArrow) {
+        return QStyle::visualRect(
+            option->direction,
+            bounds,
+            logicalArrow);
+    }
+    if (subControl == QStyle::SC_ComboBoxEditField) {
+        const int left = qMin(bounds.right() + 1, bounds.left() + 12);
+        const int right = logicalArrow.left() - 1;
+        if (right < left) {
+            return {};
+        }
+        return QStyle::visualRect(
+            option->direction,
+            bounds,
+            QRect(
+                QPoint(left, bounds.top()),
+                QPoint(right, bounds.bottom())));
+    }
+    return {};
+}
+
+QStyle::SubControl ZzFluentStylePrivate::hitTestComboBox(
+    const QStyleOptionComboBox *option,
+    const QPoint &position) const
+{
+    if (option == nullptr || !option->rect.contains(position)) {
+        return QStyle::SC_None;
+    }
+    for (const QStyle::SubControl subControl : {
+             QStyle::SC_ComboBoxArrow,
+             QStyle::SC_ComboBoxEditField,
+             QStyle::SC_ComboBoxFrame}) {
+        if (comboBoxSubControlRect(option, subControl).contains(position)) {
+            return subControl;
+        }
+    }
+    return QStyle::SC_None;
+}
+
+bool ZzFluentStylePrivate::isComboBoxPopupWidget(
+    const QWidget *widget) const noexcept
+{
+    const QWidget *current = widget;
+    while (current != nullptr) {
+        if (qobject_cast<const QComboBox *>(current) != nullptr) {
+            return current != widget;
+        }
+        current = current->parentWidget();
+    }
+    return false;
+}
+
+void ZzFluentStylePrivate::drawComboBoxPopupItem(
+    const QStyleOptionViewItem *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    QStyleOptionViewItem adjusted = *option;
+    const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
+    const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
+    const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
+
+    if (selected || hovered) {
+        const QRectF surface = QRectF(adjusted.rect).adjusted(
+            2.0,
+            2.0,
+            -2.0,
+            -2.0);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(snapshot->color(
+            selected
+                ? ZzColorToken::ControlFillPressed
+                : ZzColorToken::ControlFillHover));
+        painter->drawRoundedRect(
+            surface,
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall),
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall));
+        if (selected) {
+            const QRect logicalIndicator(
+                adjusted.rect.left() + 4,
+                adjusted.rect.center().y() - 8,
+                3,
+                16);
+            const QRect indicator = QStyle::visualRect(
+                adjusted.direction,
+                adjusted.rect,
+                logicalIndicator);
+            painter->setBrush(snapshot->color(ZzColorToken::Accent));
+            painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
+        }
+        painter->restore();
+    }
+
+    adjusted.state.setFlag(QStyle::State_Selected, false);
+    adjusted.state.setFlag(QStyle::State_MouseOver, false);
+    const QPalette::ColorGroup group = enabled
+        ? QPalette::Normal
+        : QPalette::Disabled;
+    adjusted.palette.setColor(
+        QPalette::Text,
+        adjusted.palette.color(group, QPalette::Text));
+    q_ptr->QProxyStyle::drawControl(
+        QStyle::CE_ItemViewItem,
+        &adjusted,
+        painter,
+        widget);
 }
 
 void ZzFluentStylePrivate::drawSpinBox(
