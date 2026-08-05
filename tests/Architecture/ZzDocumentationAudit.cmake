@@ -14,6 +14,7 @@ set(required_docs
     docs/release/MANUAL_LINUX_CHECKLIST_ZH.md
     docs/performance/PERFORMANCE_BASELINE_ZH.md
     docs/third-party/RELEASE_BLOCKERS_ZH.md
+    docs/third-party/PROVENANCE_AUDIT_ZH.md
     docs/third-party/THIRD_PARTY_NOTICES.md
     docs/third-party/qwindowkit-vendor.json
     docs/third-party/release-evidence.json)

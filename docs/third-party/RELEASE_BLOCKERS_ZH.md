@@ -4,15 +4,17 @@
 
 ## qwindowkit.upstream-provenance
 
-- 缺失证据：QWindowKit 精确的 40 位上游 commit、对应源码归档、归档 SHA-256 和来源审核记录。
+- 已有证据：QWindowKit 上游 commit 已定位为 `2813c1f810cb3fb1999a14ad524124562081f2c2`，对应 GitHub 源码归档和 SHA-256 已写入 manifest；qmsetup 与 syscmdline 子模块 commit 也已逐文件核对。
+- 缺失证据：包含具名审核人和 UTC 时间的来源审核记录。
 - 责任角色：第三方依赖维护者提交证据，发布合规审核人复核来源和摘要。
-- 当前状态：未解决，不得声明 QWindowKit 来源已经完成发布审核。
+- 当前状态：技术核对完成、人工审核未签署，不得声明 QWindowKit 来源已经完成发布审核。
 
 ## qmsetup.windeployqt-5.15.2-derived-work
 
-- 缺失证据：Qt 5.15.2 `qttools/src/windeployqt/utils.cpp` 上游源码、对应许可证、本地派生文件摘要和再分发审核结论。
+- 已有证据：Qt 5.15.2 `qttools/src/shared/winutils/utils.cpp`、`LICENSE.GPL3-EXCEPT` 和本地派生文件的 SHA-256 已写入 manifest；原文件明确采用 GPLv3 加 Qt GPL Exception。
+- 缺失证据：具名审核人签署的再分发结论与 UTC 时间。
 - 责任角色：第三方依赖维护者准备逐字节来源，发布合规审核人签署再分发结论与日期。
-- 当前状态：未解决，本地 `ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp` 不能仅凭源码注释获得发布放行。
+- 当前状态：技术核对完成、再分发审核未签署；本地 `ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp` 不能仅凭源码注释获得发布放行，也不能整体按 qmsetup 的 MIT 结论覆盖该派生代码。
 
 ## project.license
 

@@ -41,9 +41,9 @@ file(WRITE "${fixture_evidence}/qwindowkit/source.tar.gz"
     "Fixture QWindowKit source archive bytes.\n")
 file(WRITE "${fixture_evidence}/qwindowkit/provenance-review.json"
     "{\"reviewer\":\"fixture-reviewer\",\"reviewedAt\":\"2026-08-02T00:00:00Z\"}\n")
-file(WRITE "${fixture_evidence}/qt-5.15.2/utils.cpp"
+file(WRITE "${fixture_evidence}/qt-5.15.2/qttools-src-shared-winutils-utils.cpp"
     "// Fixture Qt 5.15.2 upstream source bytes.\n")
-file(WRITE "${fixture_evidence}/qt-5.15.2/LICENSES.txt"
+file(WRITE "${fixture_evidence}/qt-5.15.2/LICENSE.GPL3-EXCEPT"
     "Fixture Qt upstream license bytes.\n")
 file(WRITE "${fixture_evidence}/reviews/windeployqt-review.json"
     "{\"reviewer\":\"fixture-reviewer\",\"reviewedAt\":\"2026-08-02T00:00:00Z\",\"conclusion\":\"approved\"}\n")
@@ -57,8 +57,12 @@ file(SHA256
 file(SHA256 "${fixture_evidence}/qwindowkit/source.tar.gz" q_archive_sha)
 file(SHA256
     "${fixture_evidence}/qwindowkit/provenance-review.json" q_review_sha)
-file(SHA256 "${fixture_evidence}/qt-5.15.2/utils.cpp" qt_source_sha)
-file(SHA256 "${fixture_evidence}/qt-5.15.2/LICENSES.txt" qt_license_sha)
+file(SHA256
+    "${fixture_evidence}/qt-5.15.2/qttools-src-shared-winutils-utils.cpp"
+    qt_source_sha)
+file(SHA256
+    "${fixture_evidence}/qt-5.15.2/LICENSE.GPL3-EXCEPT"
+    qt_license_sha)
 file(SHA256
     "${fixture_evidence}/reviews/windeployqt-review.json" qt_review_sha)
 file(SHA256
@@ -118,16 +122,16 @@ set(release_template [=[
     "windeployqtDerivedWork": {
       "upstreamProject": "Qt",
       "upstreamVersion": "5.15.2",
-      "upstreamFile": "qttools/src/windeployqt/utils.cpp",
+      "upstreamFile": "qttools/src/shared/winutils/utils.cpp",
       "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp",
       "upstreamSource": {
         "scope": "external",
-        "path": "qt-5.15.2/utils.cpp",
+        "path": "qt-5.15.2/qttools-src-shared-winutils-utils.cpp",
         "sha256": "@qt_source_sha@"
       },
       "upstreamLicense": {
         "scope": "external",
-        "path": "qt-5.15.2/LICENSES.txt",
+        "path": "qt-5.15.2/LICENSE.GPL3-EXCEPT",
         "sha256": "@qt_license_sha@"
       },
       "localSourceSha256": "@local_source_sha@",

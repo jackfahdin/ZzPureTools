@@ -462,7 +462,7 @@ function(zz_verify_release_evidence)
         evidence windeployqtDerivedWork upstreamFile)
     if(NOT upstream_file_valid
        OR NOT "${upstream_file}" STREQUAL
-              "qttools/src/windeployqt/utils.cpp")
+              "qttools/src/shared/winutils/utils.cpp")
         list(APPEND derived_work_errors
             "windeployqtDerivedWork.upstreamFile 路径不符合固定来源")
     endif()

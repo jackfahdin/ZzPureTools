@@ -7,11 +7,11 @@
   "releaseBlockers": [
     {
       "id": "qwindowkit.upstream-provenance",
-      "reason": "Exact upstream commit and source archive are not verified"
+      "reason": "The upstream commit and archive are pinned, but a named provenance review is not present"
     },
     {
       "id": "qmsetup.windeployqt-5.15.2-derived-work",
-      "reason": "Derived-work source and redistribution review are not verified"
+      "reason": "The Qt source and license are pinned, but a named redistribution review is not present"
     },
     {
       "id": "project.license",
@@ -20,18 +20,30 @@
   ],
   "evidence": {
     "qwindowkit": {
-      "upstreamCommit": null,
-      "sourceArchive": null,
+      "upstreamCommit": "2813c1f810cb3fb1999a14ad524124562081f2c2",
+      "sourceArchive": {
+        "scope": "external",
+        "path": "qwindowkit/qwindowkit-2813c1f810cb3fb1999a14ad524124562081f2c2.tar.gz",
+        "sha256": "cd0d3ad3c94ce5c0965337f2e59262613d684f46d6ce0c45613726e751d3d90c"
+      },
       "provenanceReview": null
     },
     "windeployqtDerivedWork": {
       "upstreamProject": "Qt",
       "upstreamVersion": "5.15.2",
-      "upstreamFile": "qttools/src/windeployqt/utils.cpp",
+      "upstreamFile": "qttools/src/shared/winutils/utils.cpp",
       "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp",
-      "upstreamSource": null,
-      "upstreamLicense": null,
-      "localSourceSha256": null,
+      "upstreamSource": {
+        "scope": "external",
+        "path": "qt-5.15.2/qttools-src-shared-winutils-utils.cpp",
+        "sha256": "6620d8eccfa7c3be50ad6040633beecbd536f91d4358e4c891c6015a7162a1dd"
+      },
+      "upstreamLicense": {
+        "scope": "external",
+        "path": "qt-5.15.2/LICENSE.GPL3-EXCEPT",
+        "sha256": "0dbe024961f6ab5c52689cbd036c977975d0d0f6a67ff97762d96cb819dd5652"
+      },
+      "localSourceSha256": "7009e6061c21dcfcf838960249fbc165d05adcca2b944a85d6fd2d65eb2f5957",
       "redistributionConclusion": null,
       "reviewRecord": null
     },

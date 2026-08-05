@@ -2,12 +2,29 @@
   "name": "QWindowKit",
   "declaredVersion": "1.5.1.0",
   "upstreamUrl": "https://github.com/stdware/qwindowkit",
-  "upstreamCommit": null,
+  "upstreamCommit": "2813c1f810cb3fb1999a14ad524124562081f2c2",
   "importDate": "2026-08-02",
-  "archiveSha256": null,
+  "archiveSha256": "cd0d3ad3c94ce5c0965337f2e59262613d684f46d6ce0c45613726e751d3d90c",
   "licenses": ["Apache-2.0", "MIT"],
-  "localPatches": [],
-  "validatedMatrix": [],
+  "localPatches": [
+    {
+      "kind": "vendor-layout",
+      "paths": [".gitmodules", "qmsetup/.gitmodules"],
+      "description": "Submodule contents are expanded in-tree and Git metadata files are omitted; all vendored source bytes otherwise match the pinned commits"
+    }
+  ],
+  "validatedMatrix": [
+    {
+      "platform": "Ubuntu 26.04 LTS x86_64",
+      "qtVersion": "6.11.1",
+      "toolchains": ["GCC 15.2.0", "Clang 20.1.8"],
+      "modes": ["shared", "static", "LTO", "ASan+UBSan"],
+      "result": "automated-gates-passed",
+      "sourceCommit": "936f5d9c5f9d2079b7da0c62c208d7252aa7ff99",
+      "evidence": "build/gate-evidence/linux-native.log",
+      "validatedAt": "2026-08-05T05:44:01Z"
+    }
+  ],
   "releaseBlockers": [
     "qwindowkit.upstream-provenance",
     "qmsetup.windeployqt-5.15.2-derived-work"
