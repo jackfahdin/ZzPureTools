@@ -1,7 +1,6 @@
 #include <concepts>
 #include <cstdlib>
 #include <memory>
-#include <stop_token>
 #include <utility>
 
 #include <QtCore/QCoreApplication>
@@ -11,6 +10,8 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzCore/ZzResult.h>
+#include <ZzCore/ZzStopSource.h>
+#include <ZzCore/ZzStopToken.h>
 #include <ZzCore/ZzTaskExecutor.h>
 #include <ZzCore/ZzTaskHandle.h>
 #include <ZzCore/ZzTaskStatus.h>
@@ -66,7 +67,15 @@ public:
         }
 
         ZzCore::ZzTaskExecutor executor(1);
-        auto handle = executor.submit<int>([](std::stop_token) {
+        ZzCore::ZzStopSource stopSource;
+        const ZzCore::ZzStopToken stopToken = stopSource.token();
+        if (!stopToken.stopPossible() || stopToken.stopRequested()
+            || !stopSource.requestStop() || stopSource.requestStop()
+            || !stopToken.stopRequested()) {
+            return EXIT_FAILURE;
+        }
+
+        auto handle = executor.submit<int>([](ZzCore::ZzStopToken) {
             return ZzCore::ZzResult<int>::success(9);
         });
         static_assert(std::same_as<

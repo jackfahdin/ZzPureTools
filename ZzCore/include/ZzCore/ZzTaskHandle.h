@@ -3,13 +3,13 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
-#include <stop_token>
 #include <utility>
 
 #include <QtCore/QFuture>
 #include <QtCore/QPromise>
 
 #include <ZzCore/ZzResult.h>
+#include <ZzCore/ZzStopSource.h>
 #include <ZzCore/ZzTaskStatus.h>
 
 namespace ZzCore {
@@ -21,7 +21,7 @@ struct ZzTaskControl
     virtual ~ZzTaskControl() = default;
 
     std::uint64_t taskId = 0;
-    std::stop_source stopSource;
+    ZzStopSource stopSource;
     std::atomic<ZzTaskStatus> status{ZzTaskStatus::Pending};
 
     bool requestCancellation() noexcept
@@ -34,7 +34,7 @@ struct ZzTaskControl
                     ZzTaskStatus::CancellationRequested,
                     std::memory_order_acq_rel,
                     std::memory_order_acquire)) {
-                static_cast<void>(stopSource.request_stop());
+                static_cast<void>(stopSource.requestStop());
                 return true;
             }
         }

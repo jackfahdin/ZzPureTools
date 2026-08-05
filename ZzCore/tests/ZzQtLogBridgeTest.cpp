@@ -218,7 +218,7 @@ private Q_SLOTS:
             ZzCore::ZzQtLogBridge bridge;
             QVERIFY(bridge.install({.chainPreviousHandler = true}));
 
-            std::jthread writer([] {
+            std::thread writer([] {
                 qWarning("concurrent-uninstall-warning");
             });
             const bool previousEntered =
@@ -227,7 +227,7 @@ private Q_SLOTS:
             QSemaphore uninstallStarted;
             QSemaphore uninstallReturned;
             std::atomic<bool> uninstallSucceeded{false};
-            std::jthread uninstaller([&] {
+            std::thread uninstaller([&] {
                 uninstallStarted.release();
                 const auto result = bridge.uninstall();
                 uninstallSucceeded.store(

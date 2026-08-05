@@ -4,7 +4,6 @@
 #include <exception>
 #include <functional>
 #include <memory>
-#include <stop_token>
 #include <type_traits>
 #include <utility>
 
@@ -16,6 +15,7 @@
 
 #include <ZzCore/ZzCoreExport.h>
 #include <ZzCore/ZzError.h>
+#include <ZzCore/ZzStopToken.h>
 #include <ZzCore/ZzTaskHandle.h>
 
 namespace ZzCore {
@@ -44,7 +44,7 @@ public:
     /**
      * @brief 请求取消并等待全部任务退出后销毁执行器。
      *
-     * 必须在 owner 线程调用。未响应 stop_token 的 callable 会延长析构时间。
+     * 必须在 owner 线程调用。未响应 ZzStopToken 的 callable 会延长析构时间。
      */
     ~ZzTaskExecutor() override;
 
@@ -54,7 +54,7 @@ public:
     ZzTaskExecutor &operator=(ZzTaskExecutor &&) = delete;
 
     /**
-     * @brief 提交接收 std::stop_token 的后台任务。
+     * @brief 提交接收 ZzStopToken 的后台任务。
      * @tparam ZzValue 成功值类型，可以是仅移动类型。
      * @tparam ZzCallable 可移动调用对象类型。
      * @param callable 返回 ZzResult<ZzValue> 的调用对象。
@@ -64,9 +64,9 @@ public:
      * 取消的任务不会调用 callable。仅移动结果必须由唯一消费者调用 takeResult()。
      */
     template<typename ZzValue, typename ZzCallable>
-    requires std::invocable<ZzCallable &, std::stop_token>
+    requires std::invocable<ZzCallable &, ZzStopToken>
         && std::same_as<
-            std::invoke_result_t<ZzCallable &, std::stop_token>,
+            std::invoke_result_t<ZzCallable &, ZzStopToken>,
             ZzResult<ZzValue>>
     [[nodiscard]] ZzTaskHandle<ZzValue> submit(ZzCallable &&callable)
     {
@@ -96,7 +96,7 @@ public:
                     }
 
                     try {
-                        return std::invoke(task, state->stopSource.get_token());
+                        return std::invoke(task, state->stopSource.token());
                     } catch (const std::exception &exception) {
                         return ZzResult<ZzValue>::failure(ZzError(
                             ZzErrorCode::Unknown,

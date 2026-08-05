@@ -46,16 +46,14 @@ function(zz_check_compiler_capabilities)
     check_cxx_source_compiles([[
         #include <format>
         #include <source_location>
-        #include <stop_token>
         #include <string>
 
         int main()
         {
-            std::stop_source source;
             const auto location = std::source_location::current();
             const std::string text =
                 std::format("{}:{}", location.line(), 42);
-            return source.stop_requested() || text.empty();
+            return text.empty();
         }
     ]] ZZ_HAS_REQUIRED_CXX20_LIBRARY)
 
@@ -63,6 +61,6 @@ function(zz_check_compiler_capabilities)
     if(NOT ZZ_HAS_REQUIRED_CXX20_LIBRARY)
         message(FATAL_ERROR
             "The selected C++ standard library lacks "
-            "format/source_location/stop_token")
+            "format/source_location")
     endif()
 endfunction()

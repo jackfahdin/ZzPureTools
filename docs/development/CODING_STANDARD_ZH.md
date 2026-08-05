@@ -6,7 +6,7 @@
 
 - 项目只支持 C++20，必须关闭编译器语言扩展，不得为旧编译器增加降低语言标准的兼容分支。
 - Qt 最低版本为 6.8。优先使用 Qt 6.8 以后公开且跨平台的 API，不以 Qt Private API 换取短期便利。
-- 可使用 Concept、ranges、`std::span`、`std::source_location`、`std::jthread` 和 `std::stop_token`，前提是它们能明确接口、所有权或取消语义。
+- 可使用 Concept、ranges、`std::span` 和 `std::source_location`；跨平台任务取消统一使用 `ZzStopSource` 与 `ZzStopToken`，不得在公共接口直接暴露当前 Apple libc++ 尚未实现的 `std::stop_token`。
 - 协程只能进入经过设计的异步边界。开始、挂起、恢复线程、取消、接收者销毁和异常路径必须有测试；不得在 paint、事件分发或简单信号链中只为语法形式引入协程。
 - paint、布局、模型遍历和高频事件属于热路径。热路径禁止不必要的堆分配、字符串查找、临时容器、锁和层层虚调用。
 - 关键返回值使用 `[[nodiscard]]`；能够证明不抛异常的析构、移动和只读查询使用 `noexcept`。

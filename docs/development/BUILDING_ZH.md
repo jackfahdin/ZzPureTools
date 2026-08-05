@@ -12,7 +12,7 @@
 
 - CMake 3.23 或更高版本。
 - Qt 6.8 或更高版本，包含 Core、Gui、Widgets、Svg、Concurrent；测试还需要 Qt Test。
-- 能执行 C++20 `<format>`、`<source_location>` 和 `<stop_token>` 的标准库。
+- 能执行 C++20 `<format>` 和 `<source_location>` 的标准库；协作取消统一使用 ZzCore 的 `ZzStopToken`，避免 Apple libc++ 尚未提供标准停止令牌时破坏跨平台构建。
 - Git 和对应生成器；Ninja preset 需要 Ninja。
 - shared 与 static 必须使用同一平台和同一 ABI 的 Qt 开发包。
 

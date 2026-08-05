@@ -64,7 +64,7 @@ private Q_SLOTS:
         std::atomic<ZzCore::ZzErrorCode> errorCode{
             ZzCore::ZzErrorCode::None};
 
-        std::jthread worker([&] {
+        std::thread worker([&] {
             const auto result = agent->attach(&host);
             if (!result) {
                 errorCode.store(

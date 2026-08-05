@@ -13,4 +13,4 @@ WarningsAsErrors: ''
 HeaderFilterRegex: '(^|.*/)((ZzCore|ZzWindowKit|ZzFluentUI|ZzPureTools)/(include|src|foundation|widgets|appcore)|(tests|benchmarks)/.*|ZzThirdParty/ZzLog/(include|src))/.*'
 FormatStyle: file
 CheckOptions:
-  performance-unnecessary-value-param.AllowedTypes: '::std::stop_token;std::stop_token'
+  performance-unnecessary-value-param.AllowedTypes: '::ZzCore::ZzStopToken;ZzCore::ZzStopToken'

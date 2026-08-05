@@ -3,7 +3,6 @@
 #include <atomic>
 #include <memory>
 #include <stdexcept>
-#include <stop_token>
 #include <thread>
 
 #include <QtCore/QCoreApplication>
@@ -22,7 +21,7 @@ private Q_SLOTS:
     void returnsValue()
     {
         ZzCore::ZzTaskExecutor executor(2);
-        auto handle = executor.submit<int>([](std::stop_token) {
+        auto handle = executor.submit<int>([](ZzCore::ZzStopToken) {
             return ZzCore::ZzResult<int>::success(42);
         });
         handle.future().waitForFinished();
@@ -32,7 +31,7 @@ private Q_SLOTS:
     void convertsException()
     {
         ZzCore::ZzTaskExecutor executor(1);
-        auto handle = executor.submit<int>([](std::stop_token)
+        auto handle = executor.submit<int>([](ZzCore::ZzStopToken)
             -> ZzCore::ZzResult<int> {
             throw std::runtime_error("failure");
         });
@@ -45,8 +44,8 @@ private Q_SLOTS:
     void cooperativelyCancels()
     {
         ZzCore::ZzTaskExecutor executor(1);
-        auto handle = executor.submit<int>([](std::stop_token token) {
-            while (!token.stop_requested()) {
+        auto handle = executor.submit<int>([](ZzCore::ZzStopToken token) {
+            while (!token.stopRequested()) {
                 QThread::yieldCurrentThread();
             }
             return ZzCore::ZzResult<int>::failure(
@@ -65,7 +64,7 @@ private Q_SLOTS:
     {
         ZzCore::ZzTaskExecutor executor(1);
         QVERIFY(executor.shutdown(QDeadlineTimer(1000)));
-        auto handle = executor.submit<int>([](std::stop_token) {
+        auto handle = executor.submit<int>([](ZzCore::ZzStopToken) {
             return ZzCore::ZzResult<int>::success(1);
         });
         handle.future().waitForFinished();
@@ -80,9 +79,9 @@ private Q_SLOTS:
         QSemaphore runningTaskStarted;
 
         auto running = executor.submit<int>([&runningTaskStarted](
-            std::stop_token token) {
+            ZzCore::ZzStopToken token) {
             runningTaskStarted.release();
-            while (!token.stop_requested()) {
+            while (!token.stopRequested()) {
                 QThread::yieldCurrentThread();
             }
             return ZzCore::ZzResult<int>::failure(
@@ -92,7 +91,7 @@ private Q_SLOTS:
         });
 
         QVERIFY(runningTaskStarted.tryAcquire(1, 1000));
-        auto queued = executor.submit<int>([](std::stop_token) {
+        auto queued = executor.submit<int>([](ZzCore::ZzStopToken) {
             return ZzCore::ZzResult<int>::success(99);
         });
 
@@ -111,7 +110,7 @@ private Q_SLOTS:
     {
         ZzCore::ZzTaskExecutor executor(1);
         auto handle = executor.submit<std::unique_ptr<int>>(
-            [](std::stop_token) {
+            [](ZzCore::ZzStopToken) {
                 return ZzCore::ZzResult<std::unique_ptr<int>>::success(
                     std::make_unique<int>(7));
             });
@@ -127,7 +126,7 @@ private Q_SLOTS:
     void lateCancelDoesNotOverwriteFinished()
     {
         ZzCore::ZzTaskExecutor executor(1);
-        auto handle = executor.submit<int>([](std::stop_token) {
+        auto handle = executor.submit<int>([](ZzCore::ZzStopToken) {
             return ZzCore::ZzResult<int>::success(1);
         });
         handle.future().waitForFinished();
@@ -142,7 +141,7 @@ private Q_SLOTS:
         QSemaphore started;
         QSemaphore allowCompletion;
         std::atomic<int> callbackCount{0};
-        auto handle = executor.submit<int>([&](std::stop_token) {
+        auto handle = executor.submit<int>([&](ZzCore::ZzStopToken) {
             started.release();
             allowCompletion.acquire();
             return ZzCore::ZzResult<int>::success(1);
@@ -169,10 +168,10 @@ private Q_SLOTS:
         ZzCore::ZzTaskExecutor executor(1);
         QSemaphore started;
         QSemaphore allowCompletion;
-        auto handle = executor.submit<int>([&](std::stop_token token) {
+        auto handle = executor.submit<int>([&](ZzCore::ZzStopToken token) {
             started.release();
             allowCompletion.acquire();
-            if (token.stop_requested()) {
+            if (token.stopRequested()) {
                 return ZzCore::ZzResult<int>::failure(
                     ZzCore::ZzError(
                         ZzCore::ZzErrorCode::Cancelled,
@@ -183,10 +182,11 @@ private Q_SLOTS:
         QVERIFY(started.tryAcquire(1, 1000));
 
         QVERIFY(!executor.shutdown(QDeadlineTimer(10)));
-        std::jthread releaser([&allowCompletion] {
+        std::thread releaser([&allowCompletion] {
             allowCompletion.release();
         });
         QVERIFY(executor.shutdown(QDeadlineTimer(2000)));
+        releaser.join();
         handle.future().waitForFinished();
         QCOMPARE(
             handle.future().result().error().code(),

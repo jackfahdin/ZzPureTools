@@ -50,7 +50,7 @@ private Q_SLOTS:
             temporary.filePath(QStringLiteral("settings.ini")));
         std::optional<ZzCore::ZzResult<QVariant>> workerResult;
 
-        std::jthread worker([&store, &workerResult] {
+        std::thread worker([&store, &workerResult] {
             workerResult.emplace(store.read(QStringLiteral("theme/mode")));
         });
         worker.join();
