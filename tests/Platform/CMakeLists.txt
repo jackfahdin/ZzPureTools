@@ -97,3 +97,10 @@ set_tests_properties(platform.package-relocation PROPERTIES
     LABELS "platform;install;headers"
     RUN_SERIAL TRUE
     TIMEOUT 900)
+
+add_test(NAME platform.gate-script-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzGateScriptContract.cmake")
+set_tests_properties(platform.gate-script-contract PROPERTIES
+    LABELS "platform;contract")

@@ -39,6 +39,20 @@
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/qwindowkit/syscmdline-LICENSE`。
 - 分发说明：syscmdline 是 qmsetup 构建工具依赖，不作为 ZzPureToolsPro 运行库安装。
 
+## ZzLog、spdlog 与 fmt
+
+- ZzLog：项目内日志封装，发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/LICENSE`。
+- spdlog：来源为 ZzLog 固定的 vendored 源码，许可证为 MIT，发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt`。
+- fmt：来源为 ZzLog 固定的 vendored 源码，许可证为 MIT，发布包许可证位置为 `share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt`。
+- 版本和源码身份以 `ZzThirdParty/ZzLog/DEPENDENCIES.md` 及对应 vendored 源码为准；正式发布仍须经过 Task 8 的安装许可证审计。
+
+## GNU C++ 运行库
+
+- Linux 发布构建可从经过审核的 Ubuntu 22.04 不可变构建镜像中随包安装 `libstdc++.so.6` 和 `libgcc_s.so.1`。
+- 运行库来源和版本由该镜像内选定的 GCC 13.1+ 编译器 `-print-file-name` 结果确定，禁止从执行检查的宿主系统临时选择。
+- libstdc++ 与 libgcc 适用 GPL-3.0-or-later with GCC Runtime Library Exception；发布包许可证位置为 `share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3` 和 `share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME`。
+- 仅 `ZZ_BUNDLE_GNU_RUNTIME=ON` 的 Linux GNU Release shared 包包含上述两个运行库；Ubuntu 22.04 门禁必须验证实际加载的是包内文件。
+
 ## 发布阻塞项
 
 - `qwindowkit.upstream-provenance`：当前 vendor 目录没有可验证的上游 commit，也没有原始归档 SHA-256；发布前必须由来源证据补齐并复核。

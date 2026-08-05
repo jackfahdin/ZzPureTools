@@ -22,6 +22,13 @@ option(ZZ_ENABLE_MSVC_ANALYZE
 option(ZZ_WARNINGS_AS_ERRORS "Treat first-party warnings as errors" OFF)
 option(ZZ_ENABLE_LTO "Enable interprocedural optimization" OFF)
 option(ZZ_BUILD_FLUENT_QUICK "Build the future Qt Quick frontend" OFF)
+option(ZZ_BUNDLE_GNU_RUNTIME
+    "Bundle the selected GNU C++ runtime in Linux release packages"
+    OFF)
+set(ZZ_GNU_RUNTIME_LICENSE_DIR "" CACHE PATH
+    "Directory containing COPYING3 and COPYING.RUNTIME for GNU runtime bundling")
+set(ZZ_QT_PREFIX "" CACHE PATH
+    "Exact Qt SDK prefix recorded by platform and release gates")
 option(
     ZZ_WINDOWKIT_FORCE_QT_CONTEXT
     "Force QWindowKit to use the portable Qt window context"
@@ -51,6 +58,64 @@ endif()
 include(ZzCompilerCapabilities)
 zz_check_compiler_capabilities()
 
+if(ZZ_BUNDLE_GNU_RUNTIME)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux"
+       OR NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+       OR NOT BUILD_SHARED_LIBS
+       OR NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+        message(FATAL_ERROR
+            "ZZ_BUNDLE_GNU_RUNTIME requires Linux, GNU, Release, and shared libraries")
+    endif()
+    if(NOT IS_ABSOLUTE "${ZZ_GNU_RUNTIME_LICENSE_DIR}"
+       OR NOT IS_DIRECTORY "${ZZ_GNU_RUNTIME_LICENSE_DIR}")
+        message(FATAL_ERROR
+            "ZZ_GNU_RUNTIME_LICENSE_DIR must be an absolute existing directory")
+    endif()
+    foreach(zz_runtime_license IN ITEMS COPYING3 COPYING.RUNTIME)
+        set(zz_runtime_license_path
+            "${ZZ_GNU_RUNTIME_LICENSE_DIR}/${zz_runtime_license}")
+        if(NOT EXISTS "${zz_runtime_license_path}"
+           OR IS_DIRECTORY "${zz_runtime_license_path}")
+            message(FATAL_ERROR
+                "GNU runtime license is absent: ${zz_runtime_license_path}")
+        endif()
+        file(SIZE "${zz_runtime_license_path}" zz_runtime_license_size)
+        if(zz_runtime_license_size EQUAL 0)
+            message(FATAL_ERROR
+                "GNU runtime license is empty: ${zz_runtime_license_path}")
+        endif()
+    endforeach()
+
+    foreach(zz_runtime_name IN ITEMS libstdc++.so.6 libgcc_s.so.1)
+        execute_process(
+            COMMAND "${CMAKE_CXX_COMPILER}"
+                "-print-file-name=${zz_runtime_name}"
+            RESULT_VARIABLE zz_runtime_result
+            OUTPUT_VARIABLE zz_runtime_candidate
+            ERROR_VARIABLE zz_runtime_error
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(NOT zz_runtime_result EQUAL 0
+           OR "${zz_runtime_candidate}" STREQUAL ""
+           OR "${zz_runtime_candidate}" STREQUAL "${zz_runtime_name}"
+           OR NOT EXISTS "${zz_runtime_candidate}"
+           OR IS_DIRECTORY "${zz_runtime_candidate}")
+            message(FATAL_ERROR
+                "Unable to resolve ${zz_runtime_name} from ${CMAKE_CXX_COMPILER}: ${zz_runtime_error}")
+        endif()
+        file(REAL_PATH "${zz_runtime_candidate}" zz_runtime_real_path)
+        if(NOT EXISTS "${zz_runtime_real_path}"
+           OR IS_DIRECTORY "${zz_runtime_real_path}")
+            message(FATAL_ERROR
+                "Resolved GNU runtime is not a regular file: ${zz_runtime_real_path}")
+        endif()
+        if(zz_runtime_name STREQUAL "libstdc++.so.6")
+            set(ZZ_GNU_LIBSTDCXX_PATH "${zz_runtime_real_path}")
+        else()
+            set(ZZ_GNU_LIBGCC_PATH "${zz_runtime_real_path}")
+        endif()
+    endforeach()
+endif()
+
 find_package(Qt6 6.8 REQUIRED COMPONENTS
     Core
     Gui
@@ -76,6 +141,19 @@ add_subdirectory(ZzCore)
 add_subdirectory(ZzWindowKit)
 add_subdirectory(ZzFluentUI)
 add_subdirectory(ZzPureTools)
+
+if(ZZ_BUNDLE_GNU_RUNTIME)
+    foreach(zz_runtime_target IN ITEMS
+        ZzLog
+        ZzCore
+        ZzWindowKit
+        ZzFluentFoundation
+        ZzFluentUI
+        ZzAppCore
+        ZzPureTools)
+        set_property(TARGET ${zz_runtime_target} PROPERTY INSTALL_RPATH "$ORIGIN")
+    endforeach()
+endif()
 
 if(ZZ_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)

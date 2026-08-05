@@ -156,6 +156,33 @@ function(zz_install_package)
         COMPONENT Development
     )
 
+    if(ZZ_BUNDLE_GNU_RUNTIME)
+        foreach(zz_runtime_variable IN ITEMS
+            ZZ_GNU_LIBSTDCXX_PATH
+            ZZ_GNU_LIBGCC_PATH)
+            if(NOT DEFINED ${zz_runtime_variable}
+               OR NOT EXISTS "${${zz_runtime_variable}}"
+               OR IS_DIRECTORY "${${zz_runtime_variable}}")
+                message(FATAL_ERROR
+                    "GNU runtime input is invalid: ${zz_runtime_variable}")
+            endif()
+        endforeach()
+        install(FILES "${ZZ_GNU_LIBSTDCXX_PATH}"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            RENAME libstdc++.so.6
+            COMPONENT Runtime)
+        install(FILES "${ZZ_GNU_LIBGCC_PATH}"
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            RENAME libgcc_s.so.1
+            COMPONENT Runtime)
+        install(FILES
+            "${ZZ_GNU_RUNTIME_LICENSE_DIR}/COPYING3"
+            "${ZZ_GNU_RUNTIME_LICENSE_DIR}/COPYING.RUNTIME"
+            DESTINATION
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/gcc-runtime"
+            COMPONENT Runtime)
+    endif()
+
     if(EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
         install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/ZzPureToolsPro"

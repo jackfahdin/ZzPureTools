@@ -3075,6 +3075,8 @@ git commit -m "测试：建立平台安装与二进制门禁" \
 
 ## Task 7: 建立三平台 runner 与 Ubuntu 22.04 运行门禁
 
+> **2026-08-05 发布参考环境变更（优先于本 Task 后续旧文字）：** 当前唯一可用的 Ubuntu 26.04 / Qt 6.11.1 / GCC 15.2 主机已选为活动 Linux 发布参考机，`run-linux-gates.sh` 必须在该主机直接执行 `linux-gcc-release`、`linux-static-release`、`linux-gcc-release-lto`、`linux-static-release-lto`。原 `ubuntu2204-github-ci` 环境及脚本完整保留为 `pending-user-validation`；仅当 `ZZ_UBUNTU2204_BUILD_IMAGE` 已提供合法 immutable digest 时追加执行，不再作为当前参考机发布的前置条件。两套环境记录和性能报告不得混用，未来切换活动参考机必须先提交独立验证证据。
+
 **Files:**
 - Create: `tests/Platform/ZzGateScriptContract.cmake`
 - Create: `scripts/ci/run-linux-gates.sh`
