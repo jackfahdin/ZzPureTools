@@ -5,9 +5,12 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
+#include <QtGui/QGuiApplication>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
+#include <ZzCore/ZzError.h>
+#include <ZzCore/ZzErrorCode.h>
 #include <ZzWindowKit/ZzWindowAgent.h>
 #include <ZzWindowKit/ZzWindowAgentState.h>
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
@@ -20,6 +23,25 @@ class ZzWindowKitLifecycleTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+#if defined(Q_OS_MACOS)
+    /** @brief 验证非 Cocoa QPA 在创建原生后端前被明确拒绝。 */
+    void rejectsOffscreenBeforeCreatingNativeBackend()
+    {
+        if (QGuiApplication::platformName()
+            != QStringLiteral("offscreen")) {
+            QSKIP("This scenario requires the offscreen Qt platform");
+        }
+
+        QWidget window;
+        ZzWindowKit::ZzWindowAgent agent;
+        const auto result = agent.attach(&window);
+
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::Unsupported);
+        QCOMPARE(agent.state(), ZzWindowKit::ZzWindowAgentState::Failed);
+    }
+#endif
+
     void destroysAgentBeforeWindow()
     {
         for (int index = 0; index < 100; ++index) {

@@ -46,7 +46,22 @@ set_target_properties(ZzWindowKitLifecycleTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWindowKitLifecycleTest)
 zz_enable_sanitizers(ZzWindowKitLifecycleTest)
 add_test(NAME windowkit.lifecycle COMMAND ZzWindowKitLifecycleTest)
+set(zz_windowkit_lifecycle_environment "QT_QPA_PLATFORM=offscreen")
+if(APPLE)
+    set(zz_windowkit_lifecycle_environment "QT_QPA_PLATFORM=cocoa")
+endif()
 set_tests_properties(windowkit.lifecycle PROPERTIES
     LABELS "platform;windowkit"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${zz_windowkit_lifecycle_environment}"
 )
+if(APPLE AND NOT ZZ_WINDOWKIT_FORCE_QT_CONTEXT)
+    add_test(
+        NAME windowkit.offscreen-rejected
+        COMMAND ZzWindowKitLifecycleTest
+            rejectsOffscreenBeforeCreatingNativeBackend
+    )
+    set_tests_properties(windowkit.offscreen-rejected PROPERTIES
+        LABELS "platform;windowkit;contract"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+endif()

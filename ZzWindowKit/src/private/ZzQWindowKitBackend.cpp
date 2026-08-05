@@ -132,6 +132,18 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::attach(QWidget *window)
             QStringLiteral("QWindowKit host must not be null"));
     }
 
+#if defined(Q_OS_MACOS) && !ZZ_WINDOWKIT_FORCE_QT_CONTEXT
+    const auto platformName = QGuiApplication::platformName();
+    if (platformName != QStringLiteral("cocoa")) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::Unsupported,
+            QStringLiteral(
+                "QWindowKit Cocoa backend requires the cocoa Qt platform; "
+                "active platform: %1")
+                .arg(platformName));
+    }
+#endif
+
     auto agent = std::make_unique<QWK::WidgetWindowAgent>(nullptr);
     if (!agent->setup(window)) {
         return zzBackendFailure<void>(

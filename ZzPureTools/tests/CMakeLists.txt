@@ -47,6 +47,10 @@ target_link_libraries(ZzApplicationBuilderTest PRIVATE
 set_target_properties(ZzApplicationBuilderTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzApplicationBuilderTest)
 zz_enable_sanitizers(ZzApplicationBuilderTest)
+set(zz_puretools_window_environment "QT_QPA_PLATFORM=offscreen")
+if(APPLE)
+    set(zz_puretools_window_environment "QT_QPA_PLATFORM=cocoa")
+endif()
 set(builder_scenarios
     buildFreezesModulesAndPages
     buildRejectsDuplicateRoutesBeforeStartingModules
@@ -67,7 +71,7 @@ foreach(scenario IN LISTS builder_scenarios)
     )
     set_tests_properties(puretools.application-builder.${scenario} PROPERTIES
         LABELS "component;puretools"
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT "${zz_puretools_window_environment}"
     )
 endforeach()
 
@@ -99,7 +103,7 @@ foreach(scenario IN LISTS multi_window_scenarios)
     )
     set_tests_properties(puretools.multi-window.${scenario} PROPERTIES
         LABELS "component;puretools"
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT "${zz_puretools_window_environment}"
     )
 endforeach()
 
@@ -138,6 +142,6 @@ foreach(scenario IN LISTS translation_scenarios)
     )
     set_tests_properties(puretools.translation.${scenario} PROPERTIES
         LABELS "component;puretools"
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT "${zz_puretools_window_environment}"
     )
 endforeach()

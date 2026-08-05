@@ -53,6 +53,10 @@ set(required_tokens
     "tests/Release/CMakeLists.txt|-DZZ_OSX_ARCHITECTURES="
     "tests/Release/CMakeLists.txt|-DZZ_OSX_DEPLOYMENT_TARGET="
     "tests/Release/CMakeLists.txt|-DZZ_OSX_SYSROOT="
+    "ZzWindowKit/src/private/ZzQWindowKitBackend.cpp|requires the cocoa Qt platform"
+    "ZzWindowKit/tests/CMakeLists.txt|windowkit.offscreen-rejected"
+    "ZzWindowKit/tests/CMakeLists.txt|QT_QPA_PLATFORM=cocoa"
+    "ZzPureTools/tests/CMakeLists.txt|QT_QPA_PLATFORM=cocoa"
     "docs/third-party/THIRD_PARTY_NOTICES.md|GCC Runtime Library Exception")
 
 foreach(requirement IN LISTS required_tokens)
