@@ -169,6 +169,19 @@ pwsh -NoProfile -File scripts/ci/run-windows-gates.ps1
 
 当前 Linux runner 直接在活动本机参考环境运行 GCC shared/static/LTO、Clang 检查、sanitizer 和性能比较。只有设置合法 `ZZ_UBUNTU2204_BUILD_IMAGE` 时才追加 `scripts/ci/run-ubuntu2204-release-gates.sh`；原 Ubuntu 22.04 档案与本机档案不得混用。
 
+## GitHub Actions CI
+
+`.github/workflows/ci.yml` 使用固定版本的 Ubuntu、Windows、macOS arm64 和 macOS Intel runner 执行跨平台矩阵。它复用本文件定义的 CMake Preset，但不执行本机性能基线、不创建发布包，也不替代真机验收。工作流结构、Action 固定摘要、ABI 隔离方法和首次运行处理流程见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+
+上传 GitHub 前可在任意具备 CMake 3.23+ 的环境运行静态契约：
+
+```bash
+cmake -DZZ_SOURCE_DIR="$PWD" \
+  -P tests/Platform/ZzGitHubActionsContract.cmake
+```
+
+该命令只验证工作流结构和关键门禁是否存在，不会模拟 GitHub runner。首次真实运行前，Windows、macOS 和 GitHub Ubuntu 的平台状态仍保持“未执行”。
+
 ## 安装消费与重定位
 
 每个完整 CTest 都包含外部消费路径。定向执行：

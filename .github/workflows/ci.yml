@@ -1,0 +1,377 @@
+name: Cross-platform CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.8.3'
+
+jobs:
+  contracts:
+    name: Configuration contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify presets and runner contracts
+        shell: bash
+        run: |
+          cmake -DZZ_PRESETS_FILE="$PWD/CMakePresets.json" \
+            -P tests/Platform/PresetMatrixContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -P tests/Platform/ZzGateScriptContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -P tests/Platform/ZzGitHubActionsContract.cmake
+
+  linux:
+    name: Linux / ${{ matrix.id }}
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: gcc
+            presets: linux-gcc-debug linux-gcc-release linux-static-release
+            run_tidy: 'false'
+          - id: gcc-lto
+            presets: linux-gcc-release-lto linux-static-release-lto
+            run_tidy: 'false'
+          - id: clang-tidy
+            presets: linux-clang-tidy-release linux-clang-tidy-static
+            run_tidy: 'true'
+          - id: clang-sanitizers
+            presets: linux-clang-asan
+            run_tidy: 'false'
+    env:
+      GCC_13: /usr/bin/gcc-14
+      GXX_13: /usr/bin/g++-14
+      GCC_13_TOOLCHAIN_ROOT: /usr
+      CLANG_17: /usr/bin/clang-18
+      CLANGXX_17: /usr/bin/clang++-18
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install Linux build tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            clang-18 \
+            clang-tidy-18 \
+            clang-tools-18 \
+            gcc-14 \
+            g++-14 \
+            libgl1-mesa-dev \
+            libx11-xcb-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxcb-cursor-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-render-util0-dev \
+            libxcb-shape0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-xkb-dev
+
+      - name: Set up Python for Qt installer
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtsvg qttools
+          cache: true
+          install-deps: false
+
+      - name: Register Linux Qt kit
+        shell: bash
+        run: |
+          test -x "$QT_ROOT_DIR/bin/qmake"
+          echo "QT_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+
+      - name: Configure, build, and test
+        shell: bash
+        env:
+          ZZ_PRESETS: ${{ matrix.presets }}
+          ZZ_RUN_TIDY: ${{ matrix.run_tidy }}
+        run: |
+          for preset in $ZZ_PRESETS; do
+            cmake --preset "$preset"
+            cmake --build --preset "$preset" --parallel 2
+            if [[ "$ZZ_RUN_TIDY" == true ]]; then
+              cmake --build --preset "$preset" --target ZzClangTidy
+            fi
+            ctest --preset "$preset" --output-on-failure
+          done
+
+      - name: Upload Linux failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-${{ matrix.id }}-failure-logs
+          path: |
+            build/**/CMakeFiles/CMakeConfigureLog.yaml
+            build/**/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  windows-msvc:
+    name: Windows / MSVC 2022
+    needs: contracts
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python for Qt installer
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install MSVC Qt kit
+        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          dir: ${{ runner.temp }}/qt-msvc
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtsvg qttools
+          cache: true
+
+      - name: Enter Visual Studio 2022 x64 environment
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+
+      - name: Register and verify MSVC Qt kit
+        shell: pwsh
+        run: |
+          $qmake = Join-Path $env:QT_ROOT_DIR 'bin/qmake.exe'
+          $qtPrefix = (& $qmake -query QT_INSTALL_PREFIX).Trim()
+          $qtXspec = (& $qmake -query QMAKE_XSPEC).Trim()
+          if ($LASTEXITCODE -ne 0 -or $qtXspec -notmatch '^win32-msvc') {
+              throw "Installed Qt kit is not an MSVC kit: $qtXspec"
+          }
+          if ((Resolve-Path $qtPrefix).Path -ne (Resolve-Path $env:QT_ROOT_DIR).Path) {
+              throw 'MSVC qmake prefix does not match QT_ROOT_DIR'
+          }
+          $dumpbin = (Get-Command dumpbin.exe -ErrorAction Stop).Source
+          "QT_MSVC_ROOT=$env:QT_ROOT_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "ZZ_DUMPBIN=$dumpbin" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Configure, build, and test MSVC
+        shell: pwsh
+        run: |
+          foreach ($preset in @(
+              'windows-msvc2022-release',
+              'windows-msvc2022-static')) {
+              cmake --preset $preset
+              if ($LASTEXITCODE -ne 0) { throw "Configure failed: $preset" }
+              cmake --build --preset $preset --parallel 2
+              if ($LASTEXITCODE -ne 0) { throw "Build failed: $preset" }
+              ctest --preset $preset --output-on-failure
+              if ($LASTEXITCODE -ne 0) { throw "CTest failed: $preset" }
+          }
+
+      - name: Upload MSVC failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-msvc-failure-logs
+          path: |
+            build/**/CMakeFiles/CMakeConfigureLog.yaml
+            build/**/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  windows-mingw:
+    name: Windows / Qt MinGW
+    needs: contracts
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python for Qt installer
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Qt MinGW kit and matching tools
+        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          dir: ${{ runner.temp }}/qt-mingw
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: qtsvg qttools
+          tools: >-
+            tools_mingw1310,qt.tools.win64_mingw1310
+            tools_ninja,qt.tools.ninja
+          cache: true
+
+      - name: Register Qt MinGW SDK
+        shell: pwsh
+        run: |
+          $versionRoot = Split-Path -Parent $env:QT_ROOT_DIR
+          $sdkRoot = Split-Path -Parent $versionRoot
+          $toolchainRoot = Join-Path $sdkRoot 'Tools/mingw1310_64'
+          $ninja = Join-Path $sdkRoot 'Tools/Ninja/ninja.exe'
+          "QT_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_MINGW_ROOT=$env:QT_ROOT_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_MINGW_TOOLCHAIN_ROOT=$toolchainRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
+          'QT_MINGW_EXPECTED_GCC_VERSION=13.1.0' |
+              Out-File -FilePath $env:GITHUB_ENV -Append
+          "NINJA_EXE=$ninja" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Verify Qt MinGW ABI identity
+        shell: pwsh
+        run: |
+          $kit = pwsh -NoProfile -File scripts/ci/Assert-QtMinGWKit.ps1 |
+              ConvertFrom-Json
+          "ZZ_MINGW_OBJDUMP=$($kit.ObjDump)" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Configure, build, and test MinGW
+        shell: pwsh
+        run: |
+          foreach ($preset in @(
+              'windows-mingw-release',
+              'windows-mingw-static')) {
+              cmake --preset $preset
+              if ($LASTEXITCODE -ne 0) { throw "Configure failed: $preset" }
+              cmake --build --preset $preset --parallel 2
+              if ($LASTEXITCODE -ne 0) { throw "Build failed: $preset" }
+              ctest --preset $preset --output-on-failure
+              if ($LASTEXITCODE -ne 0) { throw "CTest failed: $preset" }
+          }
+
+      - name: Upload MinGW failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-mingw-failure-logs
+          path: |
+            build/**/CMakeFiles/CMakeConfigureLog.yaml
+            build/**/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  macos:
+    name: macOS / ${{ matrix.arch }}
+    needs: contracts
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            shared_preset: macos-clang-release-arm64
+            static_preset: macos-clang-static-arm64
+          - arch: x86_64
+            runner: macos-15-intel
+            shared_preset: macos-clang-release-x86_64
+            static_preset: macos-clang-static-x86_64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python for Qt installer
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Install universal macOS Qt kit
+        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtsvg qttools
+          cache: true
+
+      - name: Register native macOS toolchain
+        shell: bash
+        env:
+          ZZ_EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          [[ "$(uname -m)" == "$ZZ_EXPECTED_ARCH" ]]
+          qt_core="$QT_ROOT_DIR/lib/QtCore.framework/QtCore"
+          [[ -f "$qt_core" ]]
+          lipo -archs "$qt_core" | tr ' ' '\n' | grep -Fx "$ZZ_EXPECTED_ARCH"
+          llvm_bin="$(brew --prefix llvm@18)/bin"
+          [[ -x "$llvm_bin/clang-tidy" ]]
+          [[ -x "$llvm_bin/run-clang-tidy" ]]
+          echo "$llvm_bin" >> "$GITHUB_PATH"
+          echo "QT_MACOS_ARM64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          echo "QT_MACOS_X86_64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          echo "APPLE_CLANG=$(xcrun --find clang)" >> "$GITHUB_ENV"
+          echo "APPLE_CLANGXX=$(xcrun --find clang++)" >> "$GITHUB_ENV"
+
+      - name: Configure, build, analyze, and test macOS
+        shell: bash
+        env:
+          ZZ_SHARED_PRESET: ${{ matrix.shared_preset }}
+          ZZ_STATIC_PRESET: ${{ matrix.static_preset }}
+          ZZ_EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          for preset in "$ZZ_SHARED_PRESET" "$ZZ_STATIC_PRESET"; do
+            cmake --preset "$preset"
+            cmake --build --preset "$preset" --parallel 2
+            cmake --build --preset "$preset" --target ZzClangTidy
+            ctest --preset "$preset" --output-on-failure
+
+            probe_count=0
+            probe_path=
+            while IFS= read -r candidate; do
+              probe_path=$candidate
+              probe_count=$((probe_count + 1))
+            done < <(find "build/$preset" -type f \
+              -name ZzPlatformCompileTest -perm -111)
+            [[ $probe_count -eq 1 ]]
+            [[ "$(lipo -archs "$probe_path")" == "$ZZ_EXPECTED_ARCH" ]]
+          done
+
+      - name: Upload macOS failure logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-${{ matrix.arch }}-failure-logs
+          path: |
+            build/**/CMakeFiles/CMakeConfigureLog.yaml
+            build/**/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14

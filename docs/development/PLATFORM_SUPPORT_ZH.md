@@ -23,6 +23,10 @@
 
 这项选择只说明当前从哪台机器执行 Linux 自动发布门禁，不解除项目许可证、第三方来源、Windows/macOS 原生 runner 或三平台人工交互证据要求。
 
+## GitHub 托管 CI 状态
+
+`.github/workflows/ci.yml` 已建立 Ubuntu 24.04、Windows Server 2022 MSVC/Qt MinGW、macOS 15 arm64/x86_64 矩阵。当前仓库尚未产生 GitHub Actions 运行 URL，因此状态为“待首次运行”，下方平台行继续保持“未执行”。工作流通过后先记录为 GitHub 托管兼容证据；Windows Server 2022 不替代 Windows 10/11，Ubuntu offscreen 不替代 KDE/GNOME X11/Wayland，只有 OS、架构和 ABI 完全匹配的原生日志才能把对应行提升为“静态验证通过”。详细边界和日志处理见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+
 ## Windows 矩阵
 
 | ID | 状态 | OS/版本 | 工具链/版本 | Qt 版本/根标识 | 架构 | 链接 | Configure/Build/CTest | 交互结果 | 设备/显示器 | 证据路径 | 日期 | 审核人 |
