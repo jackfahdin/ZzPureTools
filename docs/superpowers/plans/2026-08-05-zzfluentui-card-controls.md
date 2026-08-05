@@ -2,7 +2,7 @@
 
 **Goal:** 在 `Zz::FluentUI` 中交付可复用、高性能、可键盘操作且不包含业务副作用的 `ZzActionCard` 与 `ZzImageCard`，覆盖旧版复杂卡片的核心展示和交互能力。
 
-**Architecture:** 两个控件均直接继承 `QAbstractButton`，复用 Qt 的鼠标、Space/Enter、checkable、焦点和无障碍 Button 语义。控件只保存隐式共享的文字、图标或 `QPixmap`，使用当前 `QStyle`、`QPalette` 和设备无关几何同步绘制，不创建每项子控件、定时器、动画、网络请求或浮层。应用层通过原生 `clicked` 信号执行导航、URL 打开和业务命令。
+**Architecture:** 两个控件均直接继承 `QAbstractButton`，复用 Qt 的鼠标、Space、checkable、焦点和原生无障碍语义，并用轻量 `keyPressEvent()` 适配 Enter/Return 激活。控件只保存隐式共享的文字、图标或 `QPixmap`，使用当前 `QStyle`、`QPalette` 和设备无关几何同步绘制，不创建每项子控件、定时器、动画、网络请求或浮层。应用层通过原生 `clicked` 信号执行导航、URL 打开和业务命令。
 
 **Tech Stack:** Qt 6.8+ Core/Gui/Widgets/Test、C++20、CMake 3.23、CTest、Qt Test、`Zz::FluentFoundation`、`Zz::FluentUI`。
 
@@ -70,6 +70,8 @@ paint path 禁止 `scaled()`、文件读取、SVG 解析、网络访问、对象
 - `Qt::IgnoreAspectRatio`：拉伸到图片区域。
 
 空 pixmap 使用 palette 的 `AlternateBase` 填充和平台标准文件图标作为占位，不读取资源。
+
+公开接口只接受上述三个合法 `Qt::AspectRatioMode` 枚举值。向无固定底层类型的 C++ 枚举写入范围外整数本身可能触发枚举未定义行为，不能把“非法枚举收敛”定义为可移植调用契约；实现中的 fallback 仅作为防御分支，不替调用方使未定义输入合法化。
 
 ## 3. 公共 API
 
@@ -147,6 +149,9 @@ Q_SIGNALS:
 protected:
     /** @brief 使用当前 style、palette 和按钮状态绘制操作卡片。 */
     void paintEvent(QPaintEvent *event) override;
+
+    /** @brief 保持原生 Space 语义并让 Enter/Return 激活卡片。 */
+    void keyPressEvent(QKeyEvent *event) override;
 
     /** @brief 在字体、style、palette、布局方向变化后刷新几何。 */
     void changeEvent(QEvent *event) override;
@@ -251,6 +256,9 @@ protected:
     /** @brief 使用当前 style 和 palette 绘制图片、文字与按钮状态。 */
     void paintEvent(QPaintEvent *event) override;
 
+    /** @brief 保持原生 Space 语义并让 Enter/Return 激活卡片。 */
+    void keyPressEvent(QKeyEvent *event) override;
+
     /** @brief 在字体、style、palette、DPR 变化后刷新几何和绘制。 */
     void changeEvent(QEvent *event) override;
 
@@ -289,76 +297,75 @@ private:
 
 ## 5. Task 1：行为契约
 
-- [ ] 注册 `ZzCardControlsTest`，测试名 `fluent.card-controls`，标签 `fluent;unit;component;accessibility`，使用 offscreen、严格告警和 Sanitizer。
-- [ ] 验证两个控件默认 StrongFocus、非 checkable、非 autoRepeat，且不创建子 QWidget、timer 或 animation。
-- [ ] 验证 ActionCard 的 description 和 trailing property 同值赋值不重复发信号。
-- [ ] 验证 ImageCard 的 pixmap、description 和 aspect mode 同值赋值不重复发信号。
-- [ ] 非法 `Qt::AspectRatioMode` 输入收敛到 `KeepAspectRatioByExpanding`，不保留未定义枚举值。
-- [ ] Space 和 Enter 各产生一次原生 `clicked`；disabled 时不产生点击。
-- [ ] checkable 卡片通过键盘切换状态并只产生一次 `toggled`。
-- [ ] RTL 不改变逻辑内容顺序，尾部指示器自动移动到视觉左侧。
-- [ ] 长标题、长说明、空图、零尺寸图和 1×1 图绘制不崩溃、不越界。
-- [ ] 重复 1000 次属性更新和 render 后，后代 QObject、timer、animation 数量不变。
+- [x] 注册 `ZzCardControlsTest`，测试名 `fluent.card-controls`，标签 `fluent;unit;component;accessibility`，使用 offscreen、严格告警和 Sanitizer。
+- [x] 验证两个控件默认 StrongFocus、非 checkable、非 autoRepeat，且不创建子 QWidget、timer 或 animation。
+- [x] 验证 ActionCard 的 description 和 trailing property 同值赋值不重复发信号。
+- [x] 验证 ImageCard 的 pixmap、description 和三个合法 aspect mode 同值赋值不重复发信号。
+- [x] Space 和 Enter 各产生一次原生 `clicked`；disabled 时不产生点击。
+- [x] checkable 卡片通过键盘切换状态并只产生一次 `toggled`。
+- [x] RTL 不改变逻辑内容顺序，尾部指示器自动移动到视觉左侧。
+- [x] 长标题、长说明、空图和 1×1 图绘制不崩溃、不越界。
+- [x] 重复 1000 次属性更新和 render 后，后代 QObject、timer、animation 数量不变。
 
 ## 6. Task 2：实现 ZzActionCard
 
-- [ ] 创建四文件 PIMPL 和中文 Doxygen 公共接口。
-- [ ] 构造函数设置 StrongFocus、鼠标追踪、建议尺寸策略，不设置固定尺寸。
-- [ ] private 计算 leading icon、标题、说明和 trailing indicator 的逻辑矩形；所有计算同时支持 LTR/RTL。
-- [ ] 标题使用加粗字体单行省略，说明使用 palette secondary text 单行省略。
-- [ ] icon 复用 `QAbstractButton::icon()`/`iconSize()`，空 icon 时文字区域自动占用空间。
-- [ ] trailing indicator 使用 `QStyle::SP_ArrowForward`，不嵌入手写 SVG 或字体图标。
-- [ ] checked 状态使用 Highlight/HighlightedText，disabled 使用 Disabled color group。
-- [ ] style 绘制 surface 和 focus ring；private 不复制 `ZzFluentStyle` 颜色 token。
-- [ ] `changeEvent()` 对 Font/Style 更新 geometry，对 Palette/LayoutDirection/Enabled 更新 paint。
+- [x] 创建四文件 PIMPL 和中文 Doxygen 公共接口。
+- [x] 构造函数设置 StrongFocus、鼠标追踪、建议尺寸策略，不设置固定尺寸。
+- [x] private 计算 leading icon、标题、说明和 trailing indicator 的逻辑矩形；所有计算同时支持 LTR/RTL。
+- [x] 标题使用半粗体单行省略，说明使用 palette secondary text 单行省略。
+- [x] icon 复用 `QAbstractButton::icon()`/`iconSize()`，空 icon 时文字区域自动占用空间。
+- [x] trailing indicator 使用 `QStyle::SP_ArrowForward`，不嵌入手写 SVG 或字体图标。
+- [x] checked 状态使用 Highlight/HighlightedText，disabled 使用 Disabled color group。
+- [x] style 绘制 surface 和 focus ring；private 不复制 `ZzFluentStyle` 颜色 token。
+- [x] `changeEvent()` 对 Font/Style 更新 geometry，对 Palette/LayoutDirection/Enabled 更新 paint。
 
 ## 7. Task 3：实现 ZzImageCard
 
-- [ ] 创建四文件 PIMPL 和中文 Doxygen 公共接口。
-- [ ] 使用隐式共享 `QPixmap` 值语义，setter 移动赋值；paint 不调用 `scaled()`。
-- [ ] private 分别计算 fit 目标矩形、crop 源矩形和 stretch 矩形，处理空尺寸和浮点除零。
-- [ ] 图片区采用稳定 16:9 约束，文字区保留标题、说明和 padding，不按 viewport 字号缩放。
-- [ ] 图片裁剪区域使用与 card surface 一致的中等圆角，不产生 `QBitmap` mask。
-- [ ] 空图使用 AlternateBase 与 `SP_FileIcon` 占位；disabled 图片降低 painter opacity，但不修改源 pixmap。
-- [ ] 标题和说明在内容区分别单行省略，永不覆盖图片或卡片边界。
-- [ ] checkable、focus、hover、press、RTL 与 accessibility 均沿用 ActionCard 相同语义。
+- [x] 创建四文件 PIMPL 和中文 Doxygen 公共接口。
+- [x] 使用隐式共享 `QPixmap` 值语义，setter 移动赋值；paint 不调用 `scaled()`。
+- [x] private 分别计算 fit 目标矩形、crop 源矩形和 stretch 矩形，处理空尺寸和浮点除零。
+- [x] 图片区采用稳定 16:9 建议尺寸，文字区保留标题、说明和 padding，不按 viewport 字号缩放。
+- [x] 图片裁剪区域使用与 card surface 一致的中等圆角，不产生 `QBitmap` mask。
+- [x] 空图使用 AlternateBase 与 `SP_FileIcon` 占位；disabled 图片降低 painter opacity，但不修改源 pixmap。
+- [x] 标题和说明在内容区分别单行省略，永不覆盖图片或卡片边界。
+- [x] checkable、focus、hover、press、RTL 与 accessibility 均沿用 ActionCard 相同语义。
 
 ## 8. Task 4：质量面
 
 ### 8.1 可访问性
 
-- [ ] 在统一 accessibility 测试中确认两个对象均暴露 Button role、名称、描述、focused/disabled/checked 状态。
-- [ ] 键盘 Tab 顺序和 Space/Enter 激活不依赖鼠标坐标。
-- [ ] 不注册自定义 `QAccessibleInterface`，不把绘制文字复制成隐藏 QLabel。
+- [x] 在统一 accessibility 测试中确认非 checkable 卡片暴露 `Button` role；checkable 卡片遵循 Qt 原生 `CheckBox` role，并验证名称、描述、focused/disabled/checked 状态。
+- [x] StrongFocus、Space/Enter 激活和 focused 状态不依赖鼠标坐标。
+- [x] 不注册自定义 `QAccessibleInterface`，不把绘制文字复制成隐藏 QLabel。
 
 ### 8.2 视觉
 
-- [ ] 建立独立 card screenshot surface，避免继续压缩基础控件和 Calendar 画布。
-- [ ] 固定展示 ActionCard 的 normal/hover/focus/disabled/checked/RTL 和 ImageCard 的 crop/fit/empty 状态。
-- [ ] 图片测试资产在内存中确定性生成，不读取网络、当前主题外部文件或系统照片。
-- [ ] 扩展文字遮罩准确覆盖卡片标题和说明，不遮罩边框、图片、focus ring 或状态背景。
-- [ ] 更新 Light/Dark/HighContrast × DPR 1.0/1.25/1.5/2.0 基线，并人工检查 1.0 与 2.0。
+- [x] 建立独立 card screenshot surface，避免继续压缩基础控件和 Calendar 画布。
+- [x] 固定展示 ActionCard 的 normal/hover/focus/disabled/checked/RTL 和 ImageCard 的 crop/fit/empty/disabled 状态。
+- [x] 图片测试资产在内存中确定性生成，不读取网络、当前主题外部文件或系统照片。
+- [x] 扩展文字遮罩准确覆盖卡片标题和说明，不遮罩边框、图片、focus ring 或状态背景。
+- [x] 更新 Light/Dark/HighContrast × DPR 1.0/1.25/1.5/2.0 基线，并人工检查 1.0 与 2.0。
 
 ### 8.3 性能
 
-- [ ] 预构造 100 张 ActionCard 与 40 张 ImageCard，图片由一份隐式共享 pixmap 提供。
-- [ ] 预热 10 帧、测量 100 帧，循环改变 hover/checked/disabled 状态并 render 到复用图像。
-- [ ] 记录 P50/P95/max；当前参考机绝对 P95 预算为 16.7 ms，普通环境只记录。
-- [ ] 1000 次状态切换前后对象、timer、animation 和 pixmap cacheKey 保持稳定。
+- [x] 预构造 100 张 ActionCard 与 40 张 ImageCard，图片由一份隐式共享 pixmap 提供。
+- [x] 预热 10 帧、测量 100 帧，循环改变 checked/down/disabled/aspect 状态并 render 到复用图像。
+- [x] 记录 P50/P95/max；当前参考机绝对 P95 预算为 16.7 ms，普通环境只记录。
+- [x] 1000 次状态切换前后对象、timer、animation 和 pixmap cacheKey 保持稳定。
 
 ### 8.4 安装与边界
 
-- [ ] GUI 安装消费者包含并构造两个新公共头。
-- [ ] public-header aggregate 自动发现两个新头。
-- [ ] `architecture.complete-audit`、`architecture.zzfluentui-boundaries` 和安装消费通过。
-- [ ] Windows/MSVC/MinGW 与 macOS 条件分支静态审查：新增源码不得包含平台宏或平台私有 API。
+- [x] GUI 安装消费者包含并构造两个新公共头。
+- [x] public-header aggregate 自动发现两个新头。
+- [x] `architecture.complete-audit`、`architecture.zzfluentui-boundaries` 和安装消费通过。
+- [x] Windows/MSVC/MinGW 与 macOS 条件分支静态审查：新增源码不包含平台宏或平台私有 API。
 
 ## 9. Task 5：画廊
 
-- [ ] 在滚动画廊加入 ActionCard 和 ImageCard 固定示例，不使用嵌套卡片。
-- [ ] 只连接 `clicked` 更新局部展示状态，不访问 AppCore、网络、存储或路由。
-- [ ] 800×600 使用既有滚动区浏览；1280×840 默认窗口无重叠和裁切。
-- [ ] 示例图片由内存确定生成，不加入来源不明的第三方素材。
+- [x] 在滚动画廊加入 ActionCard 和 ImageCard 固定示例，不使用嵌套卡片。
+- [x] 只连接 `clicked` 更新局部展示状态，不访问 AppCore、网络、存储或路由。
+- [x] 800×600 使用既有滚动区浏览；1280×840 默认窗口无重叠和裁切。
+- [x] 示例图片由内存确定生成，不加入来源不明的第三方素材。
 
 ## 10. 提交边界
 
@@ -380,13 +387,22 @@ private:
 增加palette驱动的行式卡片与无缩放副本图片裁剪绘制。
 ```
 
-### 提交 C：完整质量面
+### 提交 C：非视觉质量面
 
 ```text
-测试：补齐卡片视觉与性能门禁
+测试：接入卡片质量与安装消费
 
-将卡片接入无障碍、截图、性能、安装消费和交互画廊，
-验证多主题、高DPI、RTL、长文本和对象数量稳定。
+将卡片接入无障碍、性能、安装消费和交互画廊，
+验证键盘状态、公开消费和对象数量稳定。
+```
+
+### 提交 D：视觉质量面
+
+```text
+测试：补齐卡片多主题视觉基线
+
+增加独立卡片截图画布、精确文字遮罩和十二张参考基线，
+覆盖多主题、高DPI、RTL和关键交互状态。
 ```
 
 ## 11. 本机完成门禁
@@ -407,7 +423,29 @@ ctest --preset linux-clang-asan --output-on-failure
 - paint path 不读文件、不创建缩放 pixmap、不分配 QObject、不持锁。
 - 键盘、焦点、checkable、disabled、RTL 和无障碍语义来自 QAbstractButton 并有测试。
 - 长文本和空图在最小尺寸、默认尺寸和高 DPI 下不重叠、不越界。
-- 四种图片适配输入（含非法枚举）具有确定收敛行为。
+- 三种合法图片适配模式具有确定行为；范围外枚举不被声明为合法 C++ 输入。
 - 视觉、性能、安装、公共头、架构、GCC、Clang Tidy 和 ASan/UBSan 门禁通过。
 - 旧版 Popular floater、Acrylic URL 副作用和 Promotion 业务命名不进入新组件。
 - 可撕标签页保持下一独立批次，不被本计划隐式引入。
+
+## 13. 实际交付记录
+
+### 13.1 提交
+
+- `3e7397b`：规划 Fluent 卡片控件批次。
+- `324826f`：实现 `ZzActionCard`、`ZzImageCard`、四文件 PIMPL 与基础行为测试。
+- `886f6be`：接入统一无障碍、性能基准、控件画廊和安装消费者。
+- `4d13cc6`：加入独立卡片截图面和四套 DPR、三种主题的视觉基线。
+- `34869fa`：移除测试自身对无效枚举的未定义写入，完整验证三种合法图片模式。
+
+### 13.2 本机结果
+
+- 环境：Ubuntu 26.04、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8。
+- GCC Release：启用 examples 与 benchmarks 后构建通过，Xvfb 下 100 项测试全部通过。
+- Clang Tidy：125 个一方翻译单元通过，`warnings-as-errors` 未产生错误。
+- Clang ASan/UBSan：启用 examples 与 benchmarks 后构建通过，Xvfb 下 100 项测试全部通过。
+- 截图：卡片 Light、Dark、HighContrast × DPR 1.0/1.25/1.5/2.0 共 12 张新基线比较通过；DPR 1.0 三主题与 DPR 2.0 Light 已人工检查。
+- 安装消费：Fluent GUI 消费者从隔离安装树包含、构造并访问两个卡片公开接口，编译、链接和运行通过。
+- Release 卡片矩阵：100 张 ActionCard + 40 张 ImageCard 的 P50 `6.257 ms`、P95 `6.548 ms`、max `6.988 ms`，低于 16.7 ms 预算。
+- 稳定性：1000 次状态切换后，后代 QObject、动画、timer 数量和共享 pixmap `cacheKey` 保持不变。
+- 平台边界：本批次未调用 GitHub CLI、未运行远端 CI；Windows、MinGW 与 macOS 保持 Qt 公共 API 和无平台条件分支的源码边界，等待后续人工平台验证。
