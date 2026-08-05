@@ -22,6 +22,7 @@
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
@@ -619,6 +620,70 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     progress->setValue(68);
     progress->setFormat(QStringLiteral("68% complete"));
     layout->addWidget(progress);
+
+    layout->addWidget(zzSectionTitle(
+        QStringLiteral("Digital display"),
+        container));
+    auto *digitalHost = new QWidget(container);
+    auto *digitalLayout = new ZzFluentUI::ZzFlowLayout(
+        8,
+        8,
+        digitalHost);
+    digitalLayout->setContentsMargins(0, 0, 0, 0);
+    const auto addDigitalDisplay = [digitalHost, digitalLayout](
+                                       const QString &accessibleName,
+                                       int value,
+                                       QLCDNumber::Mode mode,
+                                       QLCDNumber::SegmentStyle segmentStyle,
+                                       bool enabled,
+                                       bool framed) {
+        auto *display = new QLCDNumber(6, digitalHost);
+        display->setAccessibleName(accessibleName);
+        display->setMode(mode);
+        display->setSegmentStyle(segmentStyle);
+        display->display(value);
+        display->setEnabled(enabled);
+        display->setFrameStyle(
+            framed ? QFrame::Box | QFrame::Plain : QFrame::NoFrame);
+        display->setFixedSize(112, 52);
+        digitalLayout->addWidget(display);
+    };
+    addDigitalDisplay(
+        QStringLiteral("Decimal build number"),
+        4821,
+        QLCDNumber::Dec,
+        QLCDNumber::Outline,
+        true,
+        true);
+    addDigitalDisplay(
+        QStringLiteral("Hexadecimal marker"),
+        48879,
+        QLCDNumber::Hex,
+        QLCDNumber::Filled,
+        true,
+        true);
+    addDigitalDisplay(
+        QStringLiteral("Flat signed value"),
+        -125,
+        QLCDNumber::Dec,
+        QLCDNumber::Flat,
+        true,
+        true);
+    addDigitalDisplay(
+        QStringLiteral("Disabled counter"),
+        731,
+        QLCDNumber::Dec,
+        QLCDNumber::Flat,
+        false,
+        true);
+    addDigitalDisplay(
+        QStringLiteral("Transparent counter"),
+        2026,
+        QLCDNumber::Dec,
+        QLCDNumber::Flat,
+        true,
+        false);
+    layout->addWidget(digitalHost);
 
     layout->addWidget(zzSectionTitle(QStringLiteral("Scrolling"), container));
     auto *scrollRow = new QHBoxLayout;

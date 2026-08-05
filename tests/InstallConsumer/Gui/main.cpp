@@ -4,11 +4,14 @@
 #include <QtCore/QTimer>
 #include <QtGui/QActionGroup>
 #include <QtGui/QIntValidator>
+#include <QtGui/QImage>
 #include <QtGui/QKeyEvent>
+#include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
@@ -46,6 +49,19 @@ int main(int argc, char *argv[])
     lineEdit.setStyle(&fluentStyle);
     textEdit.setStyle(&fluentStyle);
     plainTextEdit.setStyle(&fluentStyle);
+    QLCDNumber digitalDisplay;
+    digitalDisplay.setStyle(&fluentStyle);
+    digitalDisplay.setDigitCount(6);
+    digitalDisplay.setSegmentStyle(QLCDNumber::Flat);
+    digitalDisplay.display(2048);
+    digitalDisplay.resize(160, 56);
+    QImage digitalImage(
+        digitalDisplay.size(),
+        QImage::Format_ARGB32_Premultiplied);
+    digitalImage.fill(Qt::transparent);
+    QPainter digitalPainter(&digitalImage);
+    digitalDisplay.render(&digitalPainter);
+    digitalPainter.end();
     QComboBox selection;
     selection.setStyle(&fluentStyle);
     selection.addItem(QStringLiteral("Local"), 17);
@@ -231,6 +247,12 @@ int main(int argc, char *argv[])
         || lineEdit.text() != QStringLiteral("Alpha")
         || textEdit.toPlainText() != QStringLiteral("Beta")
         || plainTextEdit.toPlainText() != QStringLiteral("Gamma")
+        || digitalDisplay.style() != &fluentStyle
+        || digitalDisplay.digitCount() != 6
+        || digitalDisplay.intValue() != 2048
+        || digitalDisplay.segmentStyle() != QLCDNumber::Flat
+        || digitalImage.pixelColor(digitalImage.rect().center()).alpha()
+            == 0
         || lineSize.width() < 96
         || lineSize.height() < 32
         || selection.style() != &fluentStyle
