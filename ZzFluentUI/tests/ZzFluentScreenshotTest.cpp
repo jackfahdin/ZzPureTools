@@ -34,11 +34,13 @@
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QFormLayout>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
@@ -3148,6 +3150,174 @@ ZzFlowLayoutTextMask zzBuildFlowLayoutTextMask(
     return result;
 }
 
+/** @brief 保存数字显示截图中的字体遮罩和标签覆盖数量。 */
+struct ZzDigitalDisplayTextMask final
+{
+    QImage image;
+    int labels = 0;
+};
+
+/** @brief 构造标准数字显示控件的固定状态截图面。 */
+class ZzDigitalDisplayScreenshotSurface final
+{
+public:
+    /** @brief 创建常规、进制、禁用和透明六种显示状态。 */
+    ZzDigitalDisplayScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzDigitalDisplayScreenshot"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Digital Display"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        addDisplay(
+            0,
+            QStringLiteral("Decimal"),
+            QRect(70, 140, 300, 120),
+            4821,
+            QLCDNumber::Dec,
+            QLCDNumber::Outline,
+            true,
+            true);
+        addDisplay(
+            1,
+            QStringLiteral("Negative"),
+            QRect(450, 140, 300, 120),
+            -125,
+            QLCDNumber::Dec,
+            QLCDNumber::Filled,
+            true,
+            true);
+        addDisplay(
+            2,
+            QStringLiteral("Decimal point"),
+            QRect(830, 140, 300, 120),
+            -12,
+            QLCDNumber::Dec,
+            QLCDNumber::Flat,
+            true,
+            true);
+        displays_.at(2)->setSmallDecimalPoint(true);
+        displays_.at(2)->display(-12.5);
+        addDisplay(
+            3,
+            QStringLiteral("Hexadecimal"),
+            QRect(70, 470, 300, 120),
+            48879,
+            QLCDNumber::Hex,
+            QLCDNumber::Outline,
+            true,
+            true);
+        addDisplay(
+            4,
+            QStringLiteral("Disabled"),
+            QRect(450, 470, 300, 120),
+            731,
+            QLCDNumber::Dec,
+            QLCDNumber::Flat,
+            false,
+            true);
+        addDisplay(
+            5,
+            QStringLiteral("No frame"),
+            QRect(830, 470, 300, 120),
+            2026,
+            QLCDNumber::Dec,
+            QLCDNumber::Flat,
+            true,
+            false);
+    }
+
+    /** @brief 展示并同步完成样式和布局事件。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    /** @brief 返回指定逻辑位置的数字显示控件。 */
+    [[nodiscard]] QLCDNumber *display(std::size_t index) const
+    {
+        return displays_.at(index);
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 创建一个固定模式、段样式和 frame 状态的展示组。 */
+    void addDisplay(
+        std::size_t index,
+        const QString &title,
+        const QRect &geometry,
+        int value,
+        QLCDNumber::Mode mode,
+        QLCDNumber::SegmentStyle segmentStyle,
+        bool enabled,
+        bool framed)
+    {
+        auto *label = new QLabel(title, &window);
+        label->setGeometry(
+            geometry.x(),
+            geometry.y() - 40,
+            geometry.width(),
+            28);
+        QFont labelFont = label->font();
+        labelFont.setBold(true);
+        label->setFont(labelFont);
+
+        auto *digitalDisplay = new QLCDNumber(8, &window);
+        digitalDisplay->setAccessibleName(title);
+        digitalDisplay->setGeometry(geometry);
+        digitalDisplay->setMode(mode);
+        digitalDisplay->setSegmentStyle(segmentStyle);
+        digitalDisplay->display(value);
+        digitalDisplay->setEnabled(enabled);
+        digitalDisplay->setFrameStyle(
+            framed ? QFrame::Box | QFrame::Plain : QFrame::NoFrame);
+        displays_.at(index) = digitalDisplay;
+    }
+
+    std::array<QLCDNumber *, 6> displays_{};
+};
+
+/** @brief 遮罩数字显示组标题，数码段保持严格像素比较。 */
+ZzDigitalDisplayTextMask zzBuildDigitalDisplayTextMask(
+    ZzDigitalDisplayScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzDigitalDisplayTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto labels = surface->window.findChildren<QLabel *>();
+    for (QLabel *label : labels) {
+        if (!label->isVisible() || label->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            label,
+            label->rect(),
+            static_cast<int>(label->alignment()),
+            label->text());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(label, textRect, &surface->window));
+        ++result.labels;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 绘制一个由标准 tooltip primitive 和 QLabel 组成的确定性提示。 */
 class ZzToolTipScreenshotFixture final : public QWidget
 {
@@ -4030,6 +4200,23 @@ QImage zzRenderFlowLayoutSurface(
     return image;
 }
 
+/** @brief 将数字显示窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderDigitalDisplaySurface(
+    ZzDigitalDisplayScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 把主窗口和三个标准 popup menu 合成到固定物理画布。 */
 QImage zzRenderPopupSurface(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -4733,6 +4920,21 @@ private Q_SLOTS:
         QTest::newRow("flow-layout-high-contrast")
             << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
             << QStringLiteral("flow-layout-high-contrast");
+    }
+
+    void rendersDigitalDisplayThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("digital-display-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("digital-display-light");
+        QTest::newRow("digital-display-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("digital-display-dark");
+        QTest::newRow("digital-display-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("digital-display-high-contrast");
     }
 
     void rendersPopupSurfaceThemes_data()
@@ -5441,6 +5643,104 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 流式布局非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersDigitalDisplayThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzDigitalDisplayScreenshotSurface surface;
+        surface.polish();
+        QCOMPARE(surface.window.findChildren<QLCDNumber *>().size(), 6);
+        QCOMPARE(surface.display(0)->mode(), QLCDNumber::Dec);
+        QCOMPARE(surface.display(1)->intValue(), -125);
+        QVERIFY(surface.display(2)->smallDecimalPoint());
+        QCOMPARE(surface.display(2)->value(), -12.5);
+        QCOMPARE(surface.display(3)->mode(), QLCDNumber::Hex);
+        QCOMPARE(surface.display(3)->intValue(), 48879);
+        QVERIFY(!surface.display(4)->isEnabled());
+        QCOMPARE(surface.display(5)->frameShape(), QFrame::NoFrame);
+        for (std::size_t index = 0; index < 6; ++index) {
+            QLCDNumber *display = surface.display(index);
+            QVERIFY(surface.window.rect().contains(display->geometry()));
+            for (std::size_t other = index + 1; other < 6; ++other) {
+                QVERIFY(!display->geometry().intersects(
+                    surface.display(other)->geometry()));
+            }
+        }
+
+        const QImage actual = zzRenderDigitalDisplaySurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzDigitalDisplayTextMask mask =
+            zzBuildDigitalDisplayTextMask(&surface, actualDpr_);
+        QCOMPARE(mask.labels, 6);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 数字显示非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
