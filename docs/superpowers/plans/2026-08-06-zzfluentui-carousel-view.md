@@ -323,3 +323,68 @@ private:
 ```
 
 提交标题使用中文简述，正文使用多个中文段落记录实现、验证、性能和平台影响。每个逻辑批次验证后立即提交；不 push，不调用 GitHub CLI，不处理远端 CI，不下载 Qt。
+
+## 13. 交付结果
+
+**状态：** 已于 2026-08-06 完成本批次实现与本机质量门禁。代码验证基于提交 `67576aa3b0b1e39a21414f224c8d7bae2fdb6b7a`，使用本机 Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8 和 CMake 4.3.3；全程复用 `/home/zz/Qt/6.11.1/gcc_64`，没有下载新的 Qt SDK。
+
+### 13.1 生产实现与架构边界
+
+- 新增四文件 Pimpl 的 `ZzCarouselView`，公开层继承 `QAbstractItemView`，以 `QItemSelectionModel::currentIndex()` 作为当前项唯一真值；view 不创建、不拥有且不修改业务 model。
+- 公开 API 支持 root、当前行、边界或环绕导航、键盘、滚轮、鼠标激活和两个固定箭头按钮。标题、说明、图片与无障碍文本只通过 Qt 标准 role 和 `DescriptionRole` 读取。
+- 默认 delegate 普通帧只绘制当前索引，过渡帧最多绘制前后两个索引；底部最多绘制七个指示点。模型行数不进入对象数量、布局遍历或每帧绘制复杂度。
+- 每个 view 只持有一个复用的 `QVariantAnimation` 和固定数量内部控件。自动播放 timer、网络或文件 I/O、URL 打开、图片下载、系统时间、埋点和业务命令均留在应用 presenter。
+- 实现只使用 Qt Core/Gui/Widgets 公共 API 和标准 C++20；没有 QSS、动态属性、Qt Private API、平台原生头、链式命名空间或 `QWindowKit::` 依赖泄漏。
+
+### 13.2 无障碍方案
+
+- `ZzCarouselView` 使用常数数量的专用 `List` 无障碍接口，当前模型项使用一个复用的虚拟 `ListItem` 节点；十万行 model 不会生成逐行 QObject 或逐行无障碍对象。
+- 当前项名称优先读取 `Qt::AccessibleTextRole`，缺失时回退到 `Qt::DisplayRole`；说明读取 `Qt::AccessibleDescriptionRole`，并同步暴露 current、selected、focused、disabled 等可观察状态。
+- 两个真实 `QToolButton` 继续保留 Qt 原生无障碍接口、tooltip 和 accessible name。接口销毁测试确认注册到 Qt 缓存的 Id 会被正确释放，不留下悬空节点。
+
+### 13.3 提交记录
+
+- `8e83c14`：完成旧版 `ZzPromotionView` 及 private 实现的逐行审计，确定 Model/View、固定复杂度与单动画方案。
+- `cd59615`：实现 `ZzCarouselView` 公开 API、Pimpl、默认 delegate、导航、RTL 和绘制路径。
+- `71fb6ff`：接入专项行为测试、常数数量无障碍接口和安装后 GUI 消费者。
+- `5c90aa6`：接入十万行 model、对象稳定性、绘制帧耗时和模型规模复杂度门禁。
+- `67576aa`：接入控件画廊以及三主题四档 DPR 的 12 张视觉基线。
+
+### 13.4 Linux 自动验证
+
+- `linux-gcc-release` shared Release 全量构建与 CTest 通过，共 `96/96`。
+- `linux-static-release` static Release 全量构建与 CTest 通过，共 `96/96`。
+- fresh install consumer、package relocation、公开头独立编译、完整架构审计、FluentUI 边界和文档审计通过。
+- shared/static 控件画廊 offscreen smoke 通过；DPR 1.0、1.25、1.5、2.0 下的 shared/static 完整截图回归通过。
+- Clang 20 ASan+UBSan 下的轮播 benchmark、DPR 1.0 三主题截图和控件画廊 offscreen smoke 定向运行通过，未报告内存错误或未定义行为。
+- 本机 Clang 全树配置受系统 `xkbcommon` 私有头环境影响，因此本批没有把全树 `ZzClangTidy` 记为通过。已使用成功的 GCC compilation database 对轮播生产、测试、benchmark、截图和画廊翻译单元执行 clang-tidy 20 定向检查，均以 0 退出。
+
+### 13.5 性能结果
+
+十万行即时 model 不创建逐行 QObject。连续执行 5000 次 current row 切换与渲染时，model `data()` 总调用为 `15000`，每帧固定 `3` 次且只访问当前行，低于每帧 `6` 次的硬上限。
+
+活动 Linux reference 发布机使用固定 CPU 亲和、Xvfb 1920x1080x24 和 Mesa llvmpipe。预构造 40 个可见轮播，预热后采集 120 帧：
+
+```text
+P50: 5.338 ms
+P95: 5.440 ms
+max: 5.510 ms
+20 行与 100000 行复杂度比: 1.015
+```
+
+P95 低于 `12 ms` 硬门限，模型规模复杂度比低于 `2.0` 硬门限。1000 次导航、resize、RTL、字体、主题和 model reset 后，单 view 测试夹具的 QObject descendants 保持 `13`、animation 保持 `1`、timer 保持 `0`，没有随操作次数或模型规模增长。
+
+普通与 reference Release benchmark 均通过；Clang 20 ASan+UBSan 定向 benchmark 也通过。Sanitizer 数据只用于验证插桩路径稳定性，不替代上述 Release reference 原始结果。
+
+### 13.6 视觉检查
+
+新增 `carousel-view-{light,dark,high-contrast}.png`，每个主题覆盖 DPR 1.0、1.25、1.5、2.0，共 12 张。固定 surface 同时覆盖图片首边界、九行 model 与最多七个指示点、空图片、长标题和说明、整体 disabled、键盘 focus，以及 RTL 尾边界。
+
+已人工检查 Light、Dark、HighContrast 的 DPR 1.0 和 Light 的 DPR 2.0：图片裁剪、空态、文字省略、箭头、焦点、disabled、RTL 与位置指示器均清晰，没有裁切、控件重叠、文字越界或不连贯缩放。
+
+### 13.7 跨平台状态
+
+- 本批继续保留 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static 的 CMake preset 和安装消费契约。
+- 新增公开头只依赖标准 C++20 与 Qt 公共头；导出类型使用项目导出宏，Pimpl 不暴露 private 类型布局，源码没有平台宏或编译器专用扩展。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、preset、公开 ABI、依赖方向和条件编译静态审计，尚未在对应平台完成编译、安装消费或真机交互验证；不得将本节结果表述为这些平台已经运行通过。
+- 本批未访问 GitHub CLI、未运行或读取远端 CI、未 push；远端 CI 按用户要求继续暂缓。
