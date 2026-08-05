@@ -75,6 +75,9 @@ add_library(ZzLog::ZzLog ALIAS ZzLog)
 find_package(Threads REQUIRED)
 
 target_compile_features(ZzLog PUBLIC cxx_std_20)
+target_compile_options(ZzLog PUBLIC
+    "$<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>"
+)
 target_compile_definitions(ZzLog PRIVATE
     SPDLOG_DISABLE_GLOBAL_LOGGER
     SPDLOG_NAMESPACE=zzlog_spdlog
@@ -159,6 +162,9 @@ if(ZZLOG_BUILD_TESTS)
     target_include_directories(zzlog-async-barrier SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
+    )
+    target_compile_options(zzlog-async-barrier PRIVATE
+        "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
     )
     set_property(TARGET zzlog-async-barrier PROPERTY EXCLUDE_FROM_ALL FALSE)
     add_test(NAME zzlog.async-barrier COMMAND zzlog-async-barrier)
