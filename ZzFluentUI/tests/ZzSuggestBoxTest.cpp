@@ -299,7 +299,9 @@ private Q_SLOTS:
         QAbstractItemView *popup = box.completer()->popup();
         QVERIFY(popup != nullptr);
         auto *popupList = qobject_cast<QListView *>(popup);
-        QVERIFY(popupList != nullptr);
+        if (popupList == nullptr) {
+            QFAIL("搜索建议popup不是预期的QListView");
+        }
         QCOMPARE(popup->selectionMode(),
                  QAbstractItemView::SingleSelection);
         QCOMPARE(popup->editTriggers(), QAbstractItemView::NoEditTriggers);
