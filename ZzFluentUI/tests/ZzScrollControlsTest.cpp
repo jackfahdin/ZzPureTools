@@ -143,6 +143,59 @@ private Q_SLOTS:
         QVERIFY(valueSpy.size() >= 5);
     }
 
+    void preservesMouseSliderInteraction()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzScrollBar bar(Qt::Horizontal);
+        bar.setStyle(&style);
+        bar.setRange(0, 100);
+        bar.setPageStep(20);
+        bar.setValue(40);
+        bar.resize(240, 12);
+        bar.show();
+        QCoreApplication::processEvents();
+
+        QStyleOptionSlider option = zzScrollOption(
+            Qt::Horizontal,
+            bar.rect(),
+            bar.minimum(),
+            bar.maximum(),
+            bar.pageStep(),
+            bar.sliderPosition());
+        option.subControls = QStyle::SC_None;
+        const QRect slider = style.subControlRect(
+            QStyle::CC_ScrollBar,
+            &option,
+            QStyle::SC_ScrollBarSlider,
+            &bar);
+        QVERIFY(!slider.isEmpty());
+        QCOMPARE(
+            style.hitTestComplexControl(
+                QStyle::CC_ScrollBar,
+                &option,
+                slider.center(),
+                &bar),
+            QStyle::SC_ScrollBarSlider);
+
+        QTest::mousePress(
+            &bar,
+            Qt::LeftButton,
+            Qt::NoModifier,
+            slider.center());
+        QVERIFY(bar.isSliderDown());
+        QTest::mouseMove(
+            &bar,
+            slider.center() + QPoint(36, 0));
+        QVERIFY(bar.value() > 40);
+        QTest::mouseRelease(
+            &bar,
+            Qt::LeftButton,
+            Qt::NoModifier,
+            slider.center() + QPoint(36, 0));
+        QVERIFY(!bar.isSliderDown());
+    }
+
     void exposesStableGeometryAndHitTesting()
     {
         ZzFluentUI::ZzThemeController controller;

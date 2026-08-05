@@ -726,8 +726,7 @@ QStyle::SubControl ZzFluentStylePrivate::hitTestScrollBar(
              QStyle::SC_ScrollBarSlider,
              QStyle::SC_ScrollBarSubPage,
              QStyle::SC_ScrollBarAddPage}) {
-        if (option->subControls.testFlag(subControl)
-            && scrollBarSubControlRect(option, subControl).contains(position)) {
+        if (scrollBarSubControlRect(option, subControl).contains(position)) {
             return subControl;
         }
     }
