@@ -76,6 +76,21 @@ set_tests_properties(fluent.standard-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzPopupSurfacesTest ZzPopupSurfacesTest.cpp)
+target_link_libraries(ZzPopupSurfacesTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzPopupSurfacesTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPopupSurfacesTest)
+zz_enable_sanitizers(ZzPopupSurfacesTest)
+add_test(NAME fluent.popup-surfaces COMMAND ZzPopupSurfacesTest)
+set_tests_properties(fluent.popup-surfaces PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzTextInputControlsTest ZzTextInputControlsTest.cpp)
 target_link_libraries(ZzTextInputControlsTest PRIVATE
     Qt6::Test

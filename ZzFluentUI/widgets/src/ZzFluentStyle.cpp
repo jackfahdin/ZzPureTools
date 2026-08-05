@@ -83,6 +83,17 @@ int ZzFluentStyle::pixelMetric(
     case PM_FocusFrameHMargin:
     case PM_FocusFrameVMargin:
         return 2;
+    case PM_MenuPanelWidth:
+        return 1;
+    case PM_MenuHMargin:
+    case PM_MenuVMargin:
+    case PM_MenuBarHMargin:
+    case PM_MenuBarVMargin:
+        return 4;
+    case PM_MenuBarItemSpacing:
+        return 2;
+    case PM_ToolTipLabelFrameWidth:
+        return 8;
     default:
         return QProxyStyle::pixelMetric(metric, option, widget);
     }
@@ -135,7 +146,7 @@ QPalette ZzFluentStyle::standardPalette() const
         QPalette::Base,
         surfaceSecondary);
     palette.setColor(QPalette::AlternateBase, controlFill);
-    palette.setColor(QPalette::ToolTipBase, controlFill);
+    palette.setColor(QPalette::ToolTipBase, surfaceSecondary);
     palette.setColor(QPalette::ToolTipText, textPrimary);
     palette.setColor(QPalette::Text, textPrimary);
     palette.setColor(QPalette::PlaceholderText, textSecondary);
@@ -180,8 +191,22 @@ QSize ZzFluentStyle::sizeFromContents(
         || type == CT_ComboBox) {
         result = result.expandedTo(QSize(96, 32));
     }
-    if ((type == CT_ItemViewItem || type == CT_MenuItem)
+    if (type == CT_ItemViewItem
         && d_ptr->isComboBoxPopupContext(widget)) {
+        result.setHeight(qMax(result.height(), 32));
+    }
+    if (type == CT_MenuItem) {
+        const auto *menuItem = qstyleoption_cast<
+            const QStyleOptionMenuItem *>(option);
+        const bool compactSeparator = menuItem != nullptr
+            && menuItem->menuItemType
+                == QStyleOptionMenuItem::Separator
+            && !d_ptr->isComboBoxPopupContext(widget);
+        result.setHeight(qMax(
+            result.height(),
+            compactSeparator ? 9 : 32));
+    }
+    if (type == CT_MenuBar || type == CT_MenuBarItem) {
         result.setHeight(qMax(result.height(), 32));
     }
     return result;
@@ -217,6 +242,19 @@ void ZzFluentStyle::drawPrimitive(
     if (element == PE_PanelTipLabel
         && option != nullptr && painter != nullptr) {
         d_ptr->drawToolTipPanel(option, painter);
+        return;
+    }
+    if (element == PE_PanelMenu
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawMenuPanel(option, painter);
+        return;
+    }
+    if (element == PE_FrameMenu && painter != nullptr) {
+        return;
+    }
+    if (element == PE_PanelMenuBar
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawMenuBarPanel(option, painter);
         return;
     }
     if (element == PE_PanelScrollAreaCorner
@@ -279,6 +317,24 @@ void ZzFluentStyle::drawControl(
             const QStyleOptionTab *>(option);
         if (tab != nullptr && painter != nullptr) {
             d_ptr->drawTabBarTab(tab, painter, widget);
+            return;
+        }
+    }
+    if (element == CE_MenuEmptyArea
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawMenuEmptyArea(option, painter);
+        return;
+    }
+    if (element == CE_MenuBarEmptyArea
+        && option != nullptr && painter != nullptr) {
+        d_ptr->drawMenuBarEmptyArea(option, painter);
+        return;
+    }
+    if (element == CE_MenuBarItem) {
+        const auto *menuItem = qstyleoption_cast<
+            const QStyleOptionMenuItem *>(option);
+        if (menuItem != nullptr && painter != nullptr) {
+            d_ptr->drawMenuBarItem(menuItem, painter, widget);
             return;
         }
     }

@@ -796,6 +796,104 @@ void ZzFluentStylePrivate::drawToolTipPanel(
     painter->restore();
 }
 
+void ZzFluentStylePrivate::drawMenuPanel(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    const qreal strokeWidth = snapshot->metric(
+        ZzMetricToken::StrokeThin);
+    const qreal radius = snapshot->metric(
+        ZzMetricToken::CornerRadiusMedium);
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(
+        snapshot->color(ZzColorToken::ControlStroke),
+        strokeWidth));
+    painter->setBrush(snapshot->color(ZzColorToken::SurfaceSecondary));
+    painter->drawRoundedRect(
+        QRectF(option->rect).adjusted(
+            strokeWidth / 2.0,
+            strokeWidth / 2.0,
+            -strokeWidth / 2.0,
+            -strokeWidth / 2.0),
+        radius,
+        radius);
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawMenuEmptyArea(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    painter->fillRect(
+        option->rect,
+        snapshot->color(ZzColorToken::SurfaceSecondary));
+}
+
+void ZzFluentStylePrivate::drawMenuBarPanel(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    painter->fillRect(
+        option->rect,
+        snapshot->color(ZzColorToken::Surface));
+}
+
+void ZzFluentStylePrivate::drawMenuBarEmptyArea(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    drawMenuBarPanel(option, painter);
+}
+
+void ZzFluentStylePrivate::drawMenuBarItem(
+    const QStyleOptionMenuItem *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const bool pressed = option->state.testFlag(QStyle::State_Sunken);
+    const bool hovered = option->state.testFlag(QStyle::State_Selected)
+        || option->state.testFlag(QStyle::State_MouseOver);
+    if (enabled && (pressed || hovered)) {
+        const QRectF surface = QRectF(option->rect).adjusted(
+            2.0,
+            2.0,
+            -2.0,
+            -2.0);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(snapshot->color(
+            pressed
+                ? ZzColorToken::ControlFillPressed
+                : ZzColorToken::ControlFillHover));
+        painter->drawRoundedRect(
+            surface,
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall),
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall));
+        painter->restore();
+    }
+
+    QStyleOptionMenuItem adjusted = *option;
+    adjusted.state.setFlag(QStyle::State_Sunken, false);
+    adjusted.state.setFlag(QStyle::State_Selected, false);
+    adjusted.state.setFlag(QStyle::State_MouseOver, false);
+    adjusted.palette.setColor(
+        QPalette::All,
+        QPalette::Button,
+        Qt::transparent);
+    adjusted.palette.setColor(
+        QPalette::All,
+        QPalette::Window,
+        Qt::transparent);
+    q_ptr->QProxyStyle::drawControl(
+        QStyle::CE_MenuBarItem,
+        &adjusted,
+        painter,
+        widget);
+}
+
 void ZzFluentStylePrivate::drawProgressBar(
     const QStyleOptionProgressBar *option,
     QPainter *painter,
@@ -1118,20 +1216,158 @@ void ZzFluentStylePrivate::drawMenuItem(
     const QWidget *widget) const
 {
     QStyleOptionMenuItem adjusted = *option;
-    if (adjusted.state.testFlag(QStyle::State_Selected)) {
-        painter->fillRect(
-            adjusted.rect,
-            adjusted.palette.color(QPalette::Highlight));
-        adjusted.palette.setColor(
-            QPalette::Text,
-            adjusted.palette.color(QPalette::HighlightedText));
+    const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
+    const bool pressed = adjusted.state.testFlag(QStyle::State_Sunken);
+    const bool hovered = adjusted.state.testFlag(QStyle::State_Selected)
+        || adjusted.state.testFlag(QStyle::State_MouseOver);
+    if (adjusted.menuItemType == QStyleOptionMenuItem::Separator) {
+        if (adjusted.text.isEmpty()) {
+            const QRect lineBounds = adjusted.rect.adjusted(8, 0, -8, 0);
+            painter->save();
+            painter->setPen(QPen(
+                snapshot->color(ZzColorToken::ControlStroke),
+                snapshot->metric(ZzMetricToken::StrokeThin)));
+            painter->drawLine(
+                QPointF(lineBounds.left(), lineBounds.center().y()),
+                QPointF(lineBounds.right(), lineBounds.center().y()));
+            painter->restore();
+            return;
+        }
         adjusted.state.setFlag(QStyle::State_Selected, false);
+        adjusted.state.setFlag(QStyle::State_MouseOver, false);
+        adjusted.state.setFlag(QStyle::State_Sunken, false);
+        q_ptr->QProxyStyle::drawControl(
+            QStyle::CE_MenuItem,
+            &adjusted,
+            painter,
+            widget);
+        return;
+    }
+
+    if (enabled && (pressed || hovered)) {
+        const QRectF surface = QRectF(adjusted.rect).adjusted(
+            4.0,
+            2.0,
+            -4.0,
+            -2.0);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(snapshot->color(
+            pressed
+                ? ZzColorToken::ControlFillPressed
+                : ZzColorToken::ControlFillHover));
+        painter->drawRoundedRect(
+            surface,
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall),
+            snapshot->metric(ZzMetricToken::CornerRadiusSmall));
+        painter->restore();
+    }
+
+    const QRect originalRect = adjusted.rect;
+    const bool submenu = adjusted.menuItemType
+        == QStyleOptionMenuItem::SubMenu;
+    const bool customCheck = adjusted.checked
+        && adjusted.checkType != QStyleOptionMenuItem::NotCheckable
+        && adjusted.icon.isNull();
+    adjusted.state.setFlag(QStyle::State_Selected, false);
+    adjusted.state.setFlag(QStyle::State_MouseOver, false);
+    adjusted.state.setFlag(QStyle::State_Sunken, false);
+    if (customCheck) {
+        adjusted.checked = false;
+    }
+    if (submenu) {
+        const int trailingWidth = qMin(28, adjusted.rect.width());
+        const QRect logicalContent = adjusted.rect.adjusted(
+            0,
+            0,
+            -trailingWidth,
+            0);
+        adjusted.rect = QStyle::visualRect(
+            adjusted.direction,
+            originalRect,
+            logicalContent);
+        adjusted.menuItemType = QStyleOptionMenuItem::Normal;
     }
     q_ptr->QProxyStyle::drawControl(
         QStyle::CE_MenuItem,
         &adjusted,
         painter,
         widget);
+
+    const QPalette::ColorGroup group = enabled
+        ? QPalette::Normal
+        : QPalette::Disabled;
+    const QColor markColor = customCheck && enabled
+        ? adjusted.palette.color(group, QPalette::Highlight)
+        : adjusted.palette.color(group, QPalette::Text);
+    if (customCheck) {
+        const QRect logicalIndicator(
+            originalRect.left() + 8,
+            originalRect.center().y() - 8,
+            16,
+            16);
+        const QRect indicator = QStyle::visualRect(
+            adjusted.direction,
+            originalRect,
+            logicalIndicator);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(QPen(markColor, 2.0));
+        painter->setBrush(Qt::NoBrush);
+        if (option->checkType == QStyleOptionMenuItem::Exclusive) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(markColor);
+            painter->drawEllipse(QPointF(indicator.center()), 4.0, 4.0);
+        } else {
+            QPainterPath check;
+            check.moveTo(
+                indicator.left() + 2.0,
+                indicator.center().y());
+            check.lineTo(
+                indicator.center().x() - 1.0,
+                indicator.bottom() - 3.0);
+            check.lineTo(
+                indicator.right() - 1.0,
+                indicator.top() + 2.0);
+            painter->drawPath(check);
+        }
+        painter->restore();
+    }
+
+    if (submenu) {
+        const QRect logicalArrow(
+            originalRect.right() - 22,
+            originalRect.center().y() - 6,
+            14,
+            12);
+        const QRect arrowRect = QStyle::visualRect(
+            adjusted.direction,
+            originalRect,
+            logicalArrow);
+        const qreal direction = adjusted.direction == Qt::RightToLeft
+            ? -1.0
+            : 1.0;
+        const QPointF center = arrowRect.center();
+        QPainterPath chevron;
+        chevron.moveTo(
+            center.x() - (direction * 2.5),
+            center.y() - 4.0);
+        chevron.lineTo(
+            center.x() + (direction * 1.5),
+            center.y());
+        chevron.lineTo(
+            center.x() - (direction * 2.5),
+            center.y() + 4.0);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(QPen(
+            adjusted.palette.color(group, QPalette::Text),
+            1.5));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawPath(chevron);
+        painter->restore();
+    }
 }
 
 void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)

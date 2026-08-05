@@ -84,6 +84,11 @@ private Q_SLOTS:
         QCOMPARE(style.pixelMetric(QStyle::PM_IndicatorHeight), 18);
         QCOMPARE(style.pixelMetric(QStyle::PM_SliderLength), 20);
         QCOMPARE(style.pixelMetric(QStyle::PM_TabBarTabHSpace), 24);
+        QCOMPARE(style.pixelMetric(QStyle::PM_MenuPanelWidth), 1);
+        QCOMPARE(style.pixelMetric(QStyle::PM_MenuHMargin), 4);
+        QCOMPARE(style.pixelMetric(QStyle::PM_MenuVMargin), 4);
+        QCOMPARE(style.pixelMetric(QStyle::PM_MenuBarItemSpacing), 2);
+        QCOMPARE(style.pixelMetric(QStyle::PM_ToolTipLabelFrameWidth), 8);
         QCOMPARE(style.styleHint(QStyle::SH_Menu_SubMenuPopupDelay), 200);
     }
 
@@ -270,13 +275,14 @@ private Q_SLOTS:
             &menuItem,
             QSize(80, 8),
             &ordinaryMenu);
-        QCOMPARE(
-            style.sizeFromContents(
-                QStyle::CT_MenuItem,
-                &menuItem,
-                QSize(80, 8),
-                &ordinaryMenu),
-            ordinaryMenuBase);
+        const QSize ordinaryMenuFluent = style.sizeFromContents(
+            QStyle::CT_MenuItem,
+            &menuItem,
+            QSize(80, 8),
+            &ordinaryMenu);
+        QVERIFY(ordinaryMenuFluent.width() >= ordinaryMenuBase.width());
+        QVERIFY(ordinaryMenuFluent.height() >= ordinaryMenuBase.height());
+        QVERIFY(ordinaryMenuFluent.height() >= 32);
     }
 
     void drawsProgressAndPopupControls()

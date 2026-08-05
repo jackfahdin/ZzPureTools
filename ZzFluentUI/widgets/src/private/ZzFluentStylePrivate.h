@@ -104,6 +104,27 @@ public:
     void drawToolTipPanel(
         const QStyleOption *option,
         QPainter *painter) const;
+    /** @brief 绘制标准菜单的圆角弹出表面。 */
+    void drawMenuPanel(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制标准菜单未被 action 覆盖的区域。 */
+    void drawMenuEmptyArea(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制与应用窗口一致的菜单栏背景。 */
+    void drawMenuBarPanel(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制菜单栏未被 action 覆盖的区域。 */
+    void drawMenuBarEmptyArea(
+        const QStyleOption *option,
+        QPainter *painter) const;
+    /** @brief 绘制菜单栏项交互表面并委托平台绘制内容。 */
+    void drawMenuBarItem(
+        const QStyleOptionMenuItem *option,
+        QPainter *painter,
+        const QWidget *widget) const;
     /** @brief 绘制确定和不确定进度条。 */
     void drawProgressBar(
         const QStyleOptionProgressBar *option,
@@ -127,7 +148,7 @@ public:
     [[nodiscard]] QStyle::SubControl hitTestScrollBar(
         const QStyleOptionSlider *option,
         const QPoint &position) const;
-    /** @brief 绘制菜单选中背景并委托平台样式绘制内容。 */
+    /** @brief 绘制菜单状态、标记和箭头并委托平台绘制内容。 */
     void drawMenuItem(
         const QStyleOptionMenuItem *option,
         QPainter *painter,
