@@ -79,6 +79,7 @@
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -90,6 +91,7 @@ namespace {
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QPoint zzMenuOrigin(914, 590);
 constexpr QPoint zzComboBoxPopupOrigin(770, 570);
+constexpr QPoint zzSuggestBoxPopupOrigin(770, 660);
 constexpr std::array<QPoint, 3> zzPopupMenuOrigins{
     QPoint(70, 190),
     QPoint(450, 190),
@@ -2138,6 +2140,252 @@ ZzComboBoxTextMask zzBuildComboBoxTextMask(
     return result;
 }
 
+/** @brief 保存搜索建议框截图的输入文字、popup 文字与覆盖数量。 */
+struct ZzSuggestBoxTextMask final
+{
+    QImage image;
+    int suggestBoxes = 0;
+    int inputTexts = 0;
+    int popupItems = 0;
+};
+
+/** @brief 构造搜索输入状态与真实 completer popup 的确定性截图面。 */
+class ZzSuggestBoxScreenshotSurface final
+{
+public:
+    /** @brief 创建 placeholder、状态、方向、长文本与 popup 固定矩阵。 */
+    ZzSuggestBoxScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzSuggestBoxScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Suggest Boxes"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(70, 62, 70, 62);
+        grid->setHorizontalSpacing(58);
+        grid->setVerticalSpacing(76);
+
+        const auto addBox = [this, grid](int row, int column) {
+            auto *box = new ZzFluentUI::ZzSuggestBox(&window);
+            box->setFixedSize(300, 48);
+            grid->addWidget(box, row, column);
+            return box;
+        };
+
+        auto *placeholder = addBox(0, 0);
+        placeholder->setPlaceholderText(QStringLiteral("Search commands"));
+
+        auto *typed = addBox(0, 1);
+        typed->setText(QStringLiteral("Typed command"));
+
+        auto *readOnly = addBox(0, 2);
+        readOnly->setText(QStringLiteral("Read-only search"));
+        readOnly->setReadOnly(true);
+
+        auto *disabled = addBox(1, 0);
+        disabled->setText(QStringLiteral("Disabled search"));
+        disabled->setEnabled(false);
+
+        auto *rightToLeft = addBox(1, 1);
+        rightToLeft->setLayoutDirection(Qt::RightToLeft);
+        rightToLeft->setText(QStringLiteral("RTL suggestion search"));
+
+        auto *longText = addBox(1, 2);
+        longText->setText(QStringLiteral(
+            "A deliberately long query that must remain inside the field"));
+        longText->setCursorPosition(0);
+
+        auto *caseSensitive = addBox(2, 0);
+        caseSensitive->setCaseSensitivity(Qt::CaseSensitive);
+        caseSensitive->setText(QStringLiteral("Case-sensitive query"));
+
+        auto *hovered = addBox(2, 1);
+        hovered->setText(QStringLiteral("Hovered search"));
+        hoverBox = hovered;
+
+        popupBox = addBox(2, 2);
+        popupBox->setPlaceholderText(QStringLiteral("Search suggestions"));
+        popupBox->setMaximumVisibleItems(4);
+        popupBox->setSuggestions({
+            {QStringLiteral("open"), QStringLiteral("Open workspace"),
+             QIcon(QStringLiteral(
+                 ":/zzfluent/screenshots/ZzFluentTestSquare.svg")),
+             1, true},
+            {QStringLiteral("settings"), QStringLiteral("Open settings"),
+             {}, 2, true},
+            {QStringLiteral("disabled"),
+             QStringLiteral("Unavailable command"), {}, 3, false},
+            {QStringLiteral("clean"), QStringLiteral("Clean build output"),
+             {}, 4, true},
+            {QStringLiteral("long"),
+             QStringLiteral(
+                 "A long popup suggestion that must elide inside the view"),
+             {}, 5, true}});
+    }
+
+    /** @brief 展示画面并固定 hover、focus、selected 与 popup hover 状态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (hoverBox != nullptr) {
+            hoverBox->setAttribute(Qt::WA_UnderMouse, true);
+            const QPoint center = hoverBox->rect().center();
+            const QPoint globalCenter = hoverBox->mapToGlobal(center);
+            QEnterEvent enter{
+                QPointF(center), QPointF(center), QPointF(globalCenter)};
+            QCoreApplication::sendEvent(hoverBox, &enter);
+            QMouseEvent move(
+                QEvent::MouseMove,
+                QPointF(center),
+                QPointF(globalCenter),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(hoverBox, &move);
+        }
+        if (popupBox != nullptr) {
+            popupBox->setFocus(Qt::TabFocusReason);
+            popupBox->showSuggestions();
+            QCoreApplication::processEvents();
+            QAbstractItemView *popup = popupBox->completer()->popup();
+            if (popup != nullptr && popup->model() != nullptr
+                && popup->viewport() != nullptr) {
+                popupBox->completer()->setCurrentRow(0);
+                popup->setCurrentIndex(popupBox->completer()->currentIndex());
+                const QModelIndex hovered = popup->model()->index(1, 0);
+                popup->scrollTo(hovered);
+                const QRect hoveredRect = popup->visualRect(hovered);
+                popup->viewport()->setAttribute(Qt::WA_UnderMouse, true);
+                const QPoint center = hoveredRect.center();
+                const QPoint globalCenter =
+                    popup->viewport()->mapToGlobal(center);
+                QMouseEvent move(
+                    QEvent::MouseMove,
+                    QPointF(center),
+                    QPointF(globalCenter),
+                    Qt::NoButton,
+                    Qt::NoButton,
+                    Qt::NoModifier);
+                QCoreApplication::sendEvent(popup->viewport(), &move);
+            }
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回当前打开的搜索建议框。 */
+    [[nodiscard]] ZzFluentUI::ZzSuggestBox *openBox() const noexcept
+    {
+        return popupBox;
+    }
+
+    /** @brief 返回 completer 公开 popup 顶层窗口。 */
+    [[nodiscard]] QWidget *popupWindow() const noexcept
+    {
+        if (popupBox == nullptr || popupBox->completer() == nullptr
+            || popupBox->completer()->popup() == nullptr) {
+            return nullptr;
+        }
+        return popupBox->completer()->popup()->window();
+    }
+
+    /** @brief 关闭 popup 并隐藏截图窗口。 */
+    void hide()
+    {
+        if (popupBox != nullptr) {
+            popupBox->hideSuggestions();
+        }
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    QPointer<ZzFluentUI::ZzSuggestBox> hoverBox;
+    QPointer<ZzFluentUI::ZzSuggestBox> popupBox;
+};
+
+/** @brief 遮罩搜索输入与 popup item 文字，保留其余视觉像素比较。 */
+ZzSuggestBoxTextMask zzBuildSuggestBoxTextMask(
+    ZzSuggestBoxScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzSuggestBoxTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    const auto boxes =
+        surface->window.findChildren<ZzFluentUI::ZzSuggestBox *>();
+    for (ZzFluentUI::ZzSuggestBox *box : boxes) {
+        if (!box->isVisible()) {
+            continue;
+        }
+        ++result.suggestBoxes;
+        const QString text = box->displayText().isEmpty()
+            ? box->placeholderText()
+            : box->displayText();
+        if (text.isEmpty()) {
+            continue;
+        }
+        QStyleOptionFrame option;
+        option.initFrom(box);
+        const QRect contents = box->style()->subElementRect(
+            QStyle::SE_LineEditContents,
+            &option,
+            box);
+        const QRect textRect = zzAlignedTextRect(
+            box,
+            contents.adjusted(2, 0, -2, 0),
+            static_cast<int>(box->alignment() | Qt::AlignVCenter),
+            text);
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(box, textRect, &surface->window));
+        ++result.inputTexts;
+    }
+
+    ZzFluentUI::ZzSuggestBox *openBox = surface->openBox();
+    QWidget *popupWindow = surface->popupWindow();
+    if (openBox != nullptr && popupWindow != nullptr) {
+        QAbstractItemView *popup = openBox->completer()->popup();
+        QAbstractItemModel *model = popup->model();
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const QModelIndex index = model->index(row, 0);
+            const QString text = index.data(Qt::DisplayRole).toString();
+            const QRect visual = popup->visualRect(index);
+            if (text.isEmpty() || visual.isEmpty()
+                || !visual.intersects(popup->viewport()->rect())) {
+                continue;
+            }
+            QRect contents = visual.adjusted(12, 0, -8, 0);
+            if (!index.data(Qt::DecorationRole).value<QIcon>().isNull()) {
+                contents.adjust(popup->iconSize().width() + 4, 0, 0, 0);
+            }
+            const QRect localText = zzAlignedTextRect(
+                popup,
+                contents,
+                Qt::AlignLeft | Qt::AlignVCenter,
+                text);
+            const QPoint popupOffset = popup->viewport()->mapTo(
+                popupWindow,
+                localText.topLeft());
+            zzPaintMaskRect(
+                &painter,
+                QRect(zzSuggestBoxPopupOrigin + popupOffset,
+                      localText.size()));
+            ++result.popupItems;
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 绘制一个由标准 tooltip primitive 和 QLabel 组成的确定性提示。 */
 class ZzToolTipScreenshotFixture final : public QWidget
 {
@@ -2940,6 +3188,27 @@ QImage zzRenderComboBoxSurface(
     return image;
 }
 
+/** @brief 将搜索建议框窗口和 completer popup 合成到固定物理画布。 */
+QImage zzRenderSuggestBoxSurface(
+    ZzSuggestBoxScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    QWidget *popupWindow = surface->popupWindow();
+    if (popupWindow != nullptr && popupWindow->isVisible()) {
+        popupWindow->render(&painter, zzSuggestBoxPopupOrigin);
+    }
+    painter.end();
+    return image;
+}
+
 /** @brief 把主窗口和三个标准 popup menu 合成到固定物理画布。 */
 QImage zzRenderPopupSurface(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -3585,6 +3854,21 @@ private Q_SLOTS:
             << QStringLiteral("combo-box-controls-high-contrast");
     }
 
+    void rendersSuggestBoxThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("suggest-box-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("suggest-box-light");
+        QTest::newRow("suggest-box-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("suggest-box-dark");
+        QTest::newRow("suggest-box-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("suggest-box-high-contrast");
+    }
+
     void rendersPopupSurfaceThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -3871,6 +4155,104 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 组合框非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersSuggestBoxThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzSuggestBoxScreenshotSurface surface;
+        surface.polish();
+        ZzFluentUI::ZzSuggestBox *openBox = surface.openBox();
+        QWidget *popupWindow = surface.popupWindow();
+        QVERIFY(openBox != nullptr);
+        QVERIFY(openBox->completer() != nullptr);
+        QVERIFY(openBox->completer()->popup() != nullptr);
+        QVERIFY(popupWindow != nullptr);
+        QVERIFY(popupWindow->isVisible());
+        QCOMPARE(openBox->style(), QApplication::style());
+        QCOMPARE(openBox->completer()->popup()->style(),
+                 QApplication::style());
+        QCOMPARE(openBox->completer()->popup()->viewport()->style(),
+                 QApplication::style());
+        QCOMPARE(
+            surface.window.findChildren<ZzFluentUI::ZzSuggestBox *>().size(),
+            9);
+        const QImage actual = zzRenderSuggestBoxSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzSuggestBoxTextMask mask = zzBuildSuggestBoxTextMask(
+            &surface,
+            actualDpr_);
+        QCOMPARE(mask.suggestBoxes, 9);
+        QCOMPARE(mask.inputTexts, 9);
+        QCOMPARE(mask.popupItems, 5);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 搜索建议框非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
