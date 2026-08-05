@@ -52,7 +52,7 @@ for tool in Xvfb awk seq taskset xdpyinfo sha256sum; do
 done
 profile=docs/performance/profiles/local-release-xvfb.json
 profile_digest=$(sha256sum "$profile" | awk '{print $1}')
-[[ "$ZZ_RUNNER_IMAGE_DIGEST" == "$profile_digest" ]] || {
+[[ "$ZZ_RUNNER_IMAGE_DIGEST" == "sha256:${profile_digest}" ]] || {
   echo "ZZ_RUNNER_IMAGE_DIGEST does not identify $profile" >&2
   exit 64
 }
