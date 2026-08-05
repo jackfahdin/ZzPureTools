@@ -305,4 +305,26 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
 ## 11. 交付结果
 
-待实现完成后填写。
+### 11.1 提交
+
+- `3075092`：规划 Fluent 环形进度控件批次。
+- `7554f8e`：实现 `ZzProgressRing` 四文件 PIMPL、确定/不确定绘制、动画生命周期与核心测试。
+- `23b31d7`：接入安装消费、控件画廊、性能和对象稳定性门禁。
+- `03d77ca`：区分三主题下活动状态与禁用状态的圆环颜色。
+- `e8df415`：加入三主题、四档 DPR 的 12 张环形进度视觉基线。
+- `9c57128`：明确动画测试的失败清理路径并消除静态分析歧义。
+
+### 11.2 本机结果
+
+- 环境：Ubuntu 26.04 LTS、Linux 7.0.0-28-generic、Intel Core i7-14700、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8、CMake 4.3.3。
+- GCC Release：标准 shared preset 全量构建通过，82/82 项测试通过；显式启用 examples 后四个示例构建与无人值守启动 4/4 通过。
+- Clang ASan/UBSan：shared Debug 全量构建通过，82/82 项测试通过；未发现内存错误、悬空回调或未定义行为。
+- Clang Tidy：当前 preset 纳入的 120 个一方翻译单元全部通过，`warnings-as-errors` 未产生一方错误；测试失败路径也使用显式非空控制流完成复验。
+- 截图：Light、Dark、HighContrast x DPR 1.0/1.25/1.5/2.0 共 12 张新基线比较通过；DPR 1.0 三主题和 DPR 2.0 Light 已人工检查，圆环及文字居中，无空白、重叠或裁切，禁用状态可辨认。
+- 安装消费：shared 的隔离安装消费者和包重定位在 GCC、Clang sanitizer 两套构建中通过；static Release 的安装消费者、公共头自包含和包重定位 3/3 通过。Fluent GUI 消费者只链接 `Zz::FluentUI` 即可构造确定与不确定环。
+- Release 环形进度渲染：`linux-gcc-reference` 阈值模式下，100 个控件、120 个正式帧的 P50 为 `2.163 ms`、P95 为 `2.204 ms`、max 为 `2.230 ms`，低于 `16.7 ms` 预算。
+- 稳定性：100 个控件拥有 200 个 QObject 后代、100 个持久 animation 对象和 0 个 timer；1000 轮范围/值切换后数量不增长，宿主隐藏后运行中动画为 0。
+- 语义与无障碍：范围、值、格式、信号和 `ProgressBar` 可访问值接口均沿用 `QProgressBar`；非零 minimum、相等范围、反向弧、长文本、减少动效、隐藏、禁用和 deferred delete 路径均有自动测试。
+- 静态审计：新增生产代码未发现链式 namespace、Qt Private API、QWindowKit、ZzWindowKit/ZzPureTools 反向依赖、`QTimer`、`processEvents()`、动态属性裸指针或平台条件分支。
+- 平台边界：Windows MSVC、Windows Qt MinGW 与 macOS 只完成 Qt 公共 API、标准 C++20、依赖方向和平台条件分支检查，尚未完成对应工具链编译及真机验证。
+- 执行边界：本批次未调用 GitHub CLI、未运行远端 CI、未下载 Qt、未推送；全部本机验证使用已有 Qt 6.11.1。
