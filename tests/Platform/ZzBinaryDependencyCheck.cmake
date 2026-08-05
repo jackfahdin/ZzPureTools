@@ -213,7 +213,8 @@ elseif(ZZ_SYSTEM_NAME STREQUAL "Windows" AND ZZ_COMPILER_ID STREQUAL "GNU")
             message(FATAL_ERROR "Expected a MinGW x64 PE binary: ${binary}")
         endif()
         zz_reject_path_leaks("${objdump}" "${binary}")
-        string(REGEX MATCHALL "DLL Name:[ \\t]*[^\\r\\n]+"
+        string(REGEX MATCHALL
+            "DLL Name:[ \\t]*[A-Za-z0-9_.+-]+\\.[dD][lL][lL]"
             dependency_lines "${objdump}")
         foreach(line IN LISTS dependency_lines)
             string(REGEX REPLACE "DLL Name:[ \\t]*" "" dependency "${line}")
@@ -239,13 +240,17 @@ elseif(ZZ_SYSTEM_NAME STREQUAL "Darwin")
             message(FATAL_ERROR
                 "Unexpected architecture in ${binary}: ${archs}")
         endif()
-        zz_run_tool(links "otool for ${binary}" "${ZZ_OTOOL}" -L "${binary}")
+        get_filename_component(binary_directory "${binary}" DIRECTORY)
+        get_filename_component(binary_name "${binary}" NAME)
+        zz_run_tool(links "otool for ${binary}"
+            "${CMAKE_COMMAND}" -E chdir "${binary_directory}"
+            "${ZZ_OTOOL}" -L "${binary_name}")
         zz_reject_path_leaks("${links}" "${binary}")
         string(REPLACE "\r\n" "\n" links "${links}")
         string(REPLACE "\n" ";" link_lines "${links}")
         foreach(line IN LISTS link_lines)
             string(STRIP "${line}" line)
-            if(line STREQUAL "" OR line STREQUAL "${binary}:")
+            if(line STREQUAL "" OR line STREQUAL "${binary_name}:")
                 continue()
             endif()
             string(REGEX REPLACE "[ \\t]+\\(compatibility version.*" "" dependency "${line}")

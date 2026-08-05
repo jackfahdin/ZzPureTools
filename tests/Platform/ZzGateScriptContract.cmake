@@ -45,6 +45,8 @@ set(required_tokens
     "ZzThirdParty/ZzLog/CMakeLists.txt|$<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>"
     "ZzThirdParty/ZzLog/CMakeLists.txt|$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
     "tests/Platform/ZzBinaryDependencyCheck.cmake|-E chdir \"\${binary_directory}\""
+    "tests/Platform/ZzBinaryDependencyCheck.cmake|[A-Za-z0-9_.+-]+"
+    "tests/Platform/ZzBinaryDependencyCheck.cmake|\"\${ZZ_OTOOL}\" -L \"\${binary_name}\""
     "docs/third-party/THIRD_PARTY_NOTICES.md|GCC Runtime Library Exception")
 
 foreach(requirement IN LISTS required_tokens)
