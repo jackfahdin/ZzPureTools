@@ -6,6 +6,7 @@ endif()
 file(REAL_PATH "${ZZ_SOURCE_DIR}" source_root)
 
 set(required_docs
+    README.md
     docs/development/CODING_STANDARD_ZH.md
     docs/development/BUILDING_ZH.md
     docs/development/PLATFORM_SUPPORT_ZH.md
@@ -18,6 +19,21 @@ set(required_docs
     docs/third-party/THIRD_PARTY_NOTICES.md
     docs/third-party/qwindowkit-vendor.json
     docs/third-party/release-evidence.json)
+set(required_readme_links
+    CMakeUserPresets.json.example
+    LICENSE
+    examples/ZzPureToolsDemo/main.cpp
+    docs/development/BUILDING_ZH.md
+    docs/development/CODING_STANDARD_ZH.md
+    docs/development/GITHUB_ACTIONS_ZH.md
+    docs/development/PLATFORM_SUPPORT_ZH.md
+    docs/performance/PERFORMANCE_BASELINE_ZH.md
+    docs/release/MANUAL_WINDOWS_CHECKLIST_ZH.md
+    docs/release/MANUAL_MACOS_CHECKLIST_ZH.md
+    docs/release/MANUAL_LINUX_CHECKLIST_ZH.md
+    docs/third-party/THIRD_PARTY_NOTICES.md
+    docs/third-party/RELEASE_BLOCKERS_ZH.md
+    docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md)
 set(unknown_allowlist
     "docs/third-party/RELEASE_BLOCKERS_ZH.md|qwindowkit.upstream-provenance|qmsetup.windeployqt-5.15.2-derived-work|project.license"
     "docs/third-party/qwindowkit-vendor.json|qwindowkit.upstream-provenance|qmsetup.windeployqt-5.15.2-derived-work")
@@ -41,6 +57,37 @@ foreach(relative_path IN LISTS required_docs)
     file(SIZE "${document_path}" document_size)
     if(document_size EQUAL 0)
         message(FATAL_ERROR "必需文档为空：${relative_path}")
+    endif()
+endforeach()
+
+set(readme_path "${source_root}/README.md")
+file(READ "${readme_path}" readme_content)
+foreach(required_token IN ITEMS
+    "Qt 6.8+"
+    "C++20"
+    "Zz::Core"
+    "Zz::WindowKit"
+    "Zz::FluentFoundation"
+    "Zz::FluentUI"
+    "Zz::AppCore"
+    "Zz::PureTools"
+    "cmake --preset linux-gcc-debug"
+    "ctest --preset linux-gcc-debug"
+    "GitHub 托管 CI 尚待首次真实运行"
+    "MIT License"
+    "Jackfahdin")
+    string(FIND "${readme_content}" "${required_token}" token_position)
+    if(token_position EQUAL -1)
+        message(FATAL_ERROR "README 缺少必需说明：${required_token}")
+    endif()
+endforeach()
+foreach(relative_path IN LISTS required_readme_links)
+    string(FIND "${readme_content}" "](${relative_path})" link_position)
+    if(link_position EQUAL -1)
+        message(FATAL_ERROR "README 缺少入口链接：${relative_path}")
+    endif()
+    if(NOT EXISTS "${source_root}/${relative_path}")
+        message(FATAL_ERROR "README 入口链接目标不存在：${relative_path}")
     endif()
 endforeach()
 
@@ -86,6 +133,7 @@ file(GLOB_RECURSE scanned_docs LIST_DIRECTORIES FALSE
     "${source_root}/docs/release/*"
     "${source_root}/docs/performance/*"
     "${source_root}/docs/third-party/*")
+list(APPEND scanned_docs "${readme_path}")
 foreach(document_path IN LISTS scanned_docs)
     if(IS_DIRECTORY "${document_path}")
         continue()
