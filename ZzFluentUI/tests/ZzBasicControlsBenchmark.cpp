@@ -27,6 +27,7 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
+#include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -38,6 +39,7 @@ constexpr int zzModelRows = 100000;
 constexpr int zzVisibleRows = 40;
 constexpr int zzWarmupFrames = 10;
 constexpr int zzMeasuredFrames = 100;
+constexpr int zzProgressMeasuredFrames = 120;
 constexpr int zzMaximumMultiDataCalls = 120;
 constexpr int zzMaximumIconCacheBytes = 4 * 1024 * 1024;
 constexpr qreal zzReferenceP95Milliseconds = 16.7;
@@ -587,6 +589,154 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机标签页 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresProgressRingRenderingAndStability()
+    {
+        constexpr int ringCount = 100;
+        constexpr int determinateCount = 80;
+        constexpr int indeterminateCount = ringCount - determinateCount;
+        constexpr int columnCount = 10;
+        constexpr int cellExtent = 56;
+        constexpr int stateChangeCount = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<ZzFluentUI::ZzProgressRing *> rings;
+        rings.reserve(ringCount);
+
+        for (int index = 0; index < ringCount; ++index) {
+            auto *ring = new ZzFluentUI::ZzProgressRing(&host);
+            ring->setGeometry(
+                (index % columnCount) * cellExtent,
+                (index / columnCount) * cellExtent,
+                cellExtent,
+                cellExtent);
+            ring->setTextVisible((index % 4) == 0);
+            ring->setRingWidth(3 + (index % 4));
+            if (index < determinateCount) {
+                ring->setValue((index * 17) % 101);
+            } else {
+                ring->setRange(0, 0);
+            }
+            rings.push_back(ring);
+        }
+
+        host.resize(columnCount * cellExtent, columnCount * cellExtent);
+        host.show();
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        QCOMPARE(initialAnimations, ringCount);
+        QCOMPARE(initialTimers, 0);
+        const bool animationsEnabled = style.styleHint(
+            QStyle::SH_Widget_Animate,
+            nullptr,
+            rings.front()) != 0;
+        const auto runningAnimationCount = [&host] {
+            const auto animations =
+                host.findChildren<QAbstractAnimation *>();
+            return std::count_if(
+                animations.cbegin(),
+                animations.cend(),
+                [](const QAbstractAnimation *animation) {
+                    return animation->state()
+                        == QAbstractAnimation::Running;
+                });
+        };
+        QCOMPARE(
+            runningAnimationCount(),
+            animationsEnabled ? indeterminateCount : 0);
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            for (int index = 0; index < determinateCount; ++index) {
+                rings[static_cast<std::size_t>(index)]->setValue(
+                    (sequence + (index * 17)) % 101);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int iteration = 0;
+             iteration < stateChangeCount;
+             ++iteration) {
+            auto *ring = rings[static_cast<std::size_t>(
+                iteration % ringCount)];
+            if ((iteration % 2) == 0) {
+                ring->setRange(0, 0);
+            } else {
+                ring->setRange(20, 120);
+                ring->setValue(20 + (iteration % 101));
+            }
+        }
+        for (int index = 0; index < ringCount; ++index) {
+            auto *ring = rings[static_cast<std::size_t>(index)];
+            if (index < determinateCount) {
+                ring->setRange(0, 100);
+                ring->setValue((index * 17) % 101);
+            } else {
+                ring->setRange(0, 0);
+            }
+        }
+        QCoreApplication::processEvents();
+
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+        QCOMPARE(
+            runningAnimationCount(),
+            animationsEnabled ? indeterminateCount : 0);
+
+        host.hide();
+        QCOMPARE(runningAnimationCount(), 0);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-progress-rings controls=100 indeterminate=20 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机环形进度 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }

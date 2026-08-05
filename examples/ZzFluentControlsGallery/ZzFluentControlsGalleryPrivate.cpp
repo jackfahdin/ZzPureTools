@@ -47,6 +47,7 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -386,6 +387,37 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     progress->setValue(68);
     progress->setFormat(QStringLiteral("68% complete"));
     layout->addWidget(progress);
+
+    auto *ringRow = new QHBoxLayout;
+    ringRow->setContentsMargins(0, 0, 0, 0);
+    ringRow->setSpacing(10);
+    const auto addDeterminateRing = [container, ringRow](
+                                          int value,
+                                          int width = 4) {
+        auto *ring = new ZzFluentUI::ZzProgressRing(container);
+        ring->setAccessibleName(
+            QStringLiteral("Progress %1 percent").arg(value));
+        ring->setValue(value);
+        ring->setRingWidth(width);
+        ringRow->addWidget(ring);
+    };
+    addDeterminateRing(25);
+    addDeterminateRing(72, 6);
+    addDeterminateRing(100);
+    auto *busyRing = new ZzFluentUI::ZzProgressRing(container);
+    busyRing->setAccessibleName(QStringLiteral("Progress in progress"));
+    busyRing->setTextVisible(false);
+    busyRing->setRange(0, 0);
+    ringRow->addWidget(busyRing);
+    auto *disabledBusyRing = new ZzFluentUI::ZzProgressRing(container);
+    disabledBusyRing->setAccessibleName(
+        QStringLiteral("Disabled progress"));
+    disabledBusyRing->setTextVisible(false);
+    disabledBusyRing->setRange(0, 0);
+    disabledBusyRing->setEnabled(false);
+    ringRow->addWidget(disabledBusyRing);
+    ringRow->addStretch(1);
+    layout->addLayout(ringRow);
 
     auto *message = new ZzFluentUI::ZzMessageBar(container);
     message->setText(QStringLiteral("Settings saved successfully"));
