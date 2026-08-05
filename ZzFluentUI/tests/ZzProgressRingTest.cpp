@@ -364,7 +364,10 @@ private Q_SLOTS:
         ring->setRange(0, 0);
         ring->show();
         auto *animation = ring->findChild<QVariantAnimation *>();
-        QVERIFY(animation != nullptr);
+        if (animation == nullptr) {
+            delete ring;
+            QFAIL("未找到环形进度的不确定状态动画");
+        }
         QVERIFY(QTest::qWaitFor([animation] {
             return animation->state() == QAbstractAnimation::Running;
         }));
