@@ -9,6 +9,7 @@
 #include <QtCore/QIODevice>
 #include <QtCore/QList>
 #include <QtCore/QTextStream>
+#include <QtCore/QTimer>
 #include <QtCore/QVariantAnimation>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
@@ -90,20 +91,29 @@ bool zzRunToggle(
     QString *failure)
 {
     timeline->reset();
+    QEventLoop animationLoop;
+    QTimer timeoutTimer;
+    timeoutTimer.setSingleShot(true);
+    timeoutTimer.setTimerType(Qt::PreciseTimer);
+    QObject::connect(
+        animation,
+        &QVariantAnimation::finished,
+        &animationLoop,
+        &QEventLoop::quit);
+    QObject::connect(
+        &timeoutTimer,
+        &QTimer::timeout,
+        &animationLoop,
+        &QEventLoop::quit);
+
     QTest::mouseClick(
         toggle, Qt::LeftButton, Qt::NoModifier, toggle->rect().center());
     if (animation->state() != QAbstractAnimation::Running) {
         *failure = QStringLiteral("toggle did not start its production animation");
         return false;
     }
-
-    QElapsedTimer timeout;
-    timeout.start();
-    while (animation->state() != QAbstractAnimation::Stopped
-           && timeout.elapsed() < zzAnimationTimeoutMilliseconds) {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-        QTest::qWait(1);
-    }
+    timeoutTimer.start(zzAnimationTimeoutMilliseconds);
+    animationLoop.exec();
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     if (animation->state() != QAbstractAnimation::Stopped) {
         *failure = QStringLiteral("toggle animation exceeded 1000 ms timeout");
