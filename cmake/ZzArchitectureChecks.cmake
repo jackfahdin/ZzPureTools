@@ -18,8 +18,9 @@ function(zz_add_public_header_probe)
         add_custom_target(ZzPublicHeadersTest)
     endif()
 
-    string(MAKE_C_IDENTIFIER
-        "${ZZ_HEADER_OWNER}_${ZZ_HEADER_HEADER}" zz_header_id)
+    string(SHA256 zz_header_digest
+        "${ZZ_HEADER_OWNER}|${ZZ_HEADER_HEADER}")
+    string(SUBSTRING "${zz_header_digest}" 0 12 zz_header_id)
     set(zz_probe_target "ZzPublicHeader_${zz_header_id}")
     set(zz_probe_source
         "${CMAKE_CURRENT_BINARY_DIR}/public-headers/${zz_header_id}.cpp")

@@ -121,6 +121,20 @@ foreach(base_contract IN ITEMS
     endif()
 endforeach()
 
+foreach(compile_database_base IN ITEMS
+        windows-mingw-base
+        macos-clang-base)
+    zz_find_configure_preset_index(
+        compile_database_index "${compile_database_base}")
+    string(JSON compile_database_enabled GET "${presets_json}"
+        configurePresets ${compile_database_index} cacheVariables
+        CMAKE_EXPORT_COMPILE_COMMANDS)
+    if(NOT compile_database_enabled)
+        message(FATAL_ERROR
+            "${compile_database_base} must export compile_commands.json")
+    endif()
+endforeach()
+
 zz_find_configure_preset_index(clang_base_index "linux-clang17-base")
 string(JSON c_external_toolchain GET "${presets_json}"
     configurePresets ${clang_base_index} cacheVariables

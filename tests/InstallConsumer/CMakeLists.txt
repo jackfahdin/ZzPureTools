@@ -27,8 +27,9 @@ foreach(zz_header_spec IN LISTS zz_installed_header_specs)
     string(REPLACE "|" ";" zz_header_parts "${zz_header_spec}")
     list(GET zz_header_parts 0 zz_header_owner)
     list(GET zz_header_parts 1 zz_header_include)
-    string(MAKE_C_IDENTIFIER
-        "${zz_header_owner}_${zz_header_include}" zz_header_id)
+    string(SHA256 zz_header_digest
+        "${zz_header_owner}|${zz_header_include}")
+    string(SUBSTRING "${zz_header_digest}" 0 12 zz_header_id)
     set(zz_header_target "ZzInstalledHeader_${zz_header_id}")
     set(zz_header_source
         "${CMAKE_CURRENT_BINARY_DIR}/public-headers/${zz_header_id}.cpp")

@@ -52,7 +52,7 @@ target_compile_definitions(ZzLogBackend PRIVATE
     SPDLOG_DISABLE_GLOBAL_LOGGER
     SPDLOG_NAMESPACE=zzlog_spdlog
 )
-target_include_directories(ZzLogBackend PRIVATE
+target_include_directories(ZzLogBackend SYSTEM PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
 )
@@ -83,7 +83,8 @@ target_include_directories(ZzLog
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-    PRIVATE
+)
+target_include_directories(ZzLog SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
 )
@@ -155,7 +156,7 @@ if(ZZLOG_BUILD_TESTS)
         SPDLOG_DISABLE_GLOBAL_LOGGER
         SPDLOG_NAMESPACE=zzlog_spdlog
     )
-    target_include_directories(zzlog-async-barrier PRIVATE
+    target_include_directories(zzlog-async-barrier SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmt/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/include"
     )

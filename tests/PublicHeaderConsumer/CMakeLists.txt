@@ -65,7 +65,8 @@ foreach(owner IN LISTS zz_header_owners)
         endif()
         list(APPEND owner_manifest "${include_name}")
 
-        string(MAKE_C_IDENTIFIER "${include_name}" header_id)
+        string(SHA256 header_digest "${owner}|${include_name}")
+        string(SUBSTRING "${header_digest}" 0 12 header_id)
         set(source "${CMAKE_CURRENT_BINARY_DIR}/${header_id}.cpp")
         file(GENERATE OUTPUT "${source}"
             CONTENT "#include <${include_name}>\n")

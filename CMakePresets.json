@@ -222,6 +222,7 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "CMAKE_PREFIX_PATH": "$env{QT_MINGW_ROOT}",
         "ZZ_QT_PREFIX": "$env{QT_MINGW_ROOT}",
         "CMAKE_C_COMPILER": "$env{QT_MINGW_TOOLCHAIN_ROOT}/bin/gcc.exe",
@@ -261,6 +262,7 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "CMAKE_C_COMPILER": "$env{APPLE_CLANG}",
         "CMAKE_CXX_COMPILER": "$env{APPLE_CLANGXX}",
         "CMAKE_OBJCXX_COMPILER": "$env{APPLE_CLANGXX}",
