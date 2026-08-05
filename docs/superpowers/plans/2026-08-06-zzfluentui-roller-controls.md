@@ -1,6 +1,6 @@
 # ZzFluentUI 滚轮选择控件实施计划
 
-**状态：** 已完成代码级设计，等待按本文连续实现与本机验证。
+**状态：** 已于 2026-08-06 完成本批次实现与本机质量门禁；Windows MSVC、Windows Qt SDK MinGW 与 macOS 保持待原生环境验证状态。
 
 **目标：** 提供一个无自定义计时器、无惯性状态机、绘制复杂度只与可见行数相关的 `ZzRoller`，以及一个复用固定 popup、支持确定与回滚事务的 `ZzRollerPicker`。两者必须保留 Fluent 外观，同时直接复用 Qt 公开输入、焦点和无障碍语义，消除旧版空集合死循环、负索引越界、零高度除法、全量绘制和 popup 对象抖动。
 
@@ -436,3 +436,73 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 - Picker popup 一次构造并复用，标准确定/取消、Enter/Escape、外部关闭、快照回滚和动态列具有单一事务路径。
 - Light、Dark、HighContrast x 四档 DPR 视觉基线通过；100 个 Roller 离屏绘制 P95 满足 16.7ms，万项对照比和 Picker 事务满足锁定门限。
 - Linux GCC、Clang、ASan/UBSan、clang-tidy、安装消费通过；Windows MSVC、Qt SDK MinGW 与 macOS 待验证状态如实记录。
+
+## 15. 交付结果
+
+本批次已于 2026-08-06 完成交付，结果如下。
+
+### 15.1 生产实现
+
+- 新增最终类 `ZzRoller`、最终类 `ZzRollerPicker` 与公开值类型 `ZzRollerColumn`；两个控件均采用四文件 Pimpl，公开头不暴露 popup、layout、button box、平台实现或 Qt Private 类型。
+- `ZzRoller` 以 `QSpinBox::value/range` 作为唯一索引真值。空集合稳定为 `range/value/currentIndex == -1`，负索引、等于 count 的索引、列表缩短、重复文本、空文本和非法尺寸均在写入边界处理。
+- 绘制只访问 `visibleItemCount` 对应的固定行；全集扫描只发生在 items 或字体变化后的最长文本宽度缓存更新。每个 Roller 不创建 `QTimer`、`QPropertyAnimation`、QSS、逐项 QObject 或 pixmap cache。
+- 键盘、wheel、natural scrolling、点击和离散拖动全部使用 Qt 6 公共事件 API；程序化 setter 不发用户意图信号，用户操作只在索引实际变化时发出一次 `activated`。
+- `ZzRollerPicker` 构造期创建并持续复用唯一 `Qt::Popup`、多列 Roller 和标准 `QDialogButtonBox`。确定提交当前草稿；取消、Escape 和外部关闭恢复打开快照；结构变化先结束当前事务。
+- popup 通过 `QScreen::availableGeometry()`、逻辑像素和 QWidget 全局坐标约束位置；实现不含 Win32、Cocoa、X11、Wayland、QPA、DWM 或 Qt Private API。
+
+### 15.2 功能、安装与示例验证
+
+- 活动本机环境为 Ubuntu 26.04 LTS x86_64、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8、CMake 4.3.3；全部验证复用 `/home/zz/Qt/6.11.1/gcc_64`，未下载新的 Qt SDK。
+- Linux GCC 15 shared Release、GCC 15 static Release、Clang 20 ASan+UBSan shared 三套全量 CTest 均为 `94/94` 通过；sanitizer 未报告内存错误或未定义行为。
+- 三套测试树均通过 `fluent.roller-controls`、`install.consumer`、`architecture.public-headers`、完整架构边界、`platform.package-relocation`、二进制依赖和四个示例 smoke。
+- fresh install consumer 从安装后的 `ZzRoller.h` 与 `ZzRollerPicker.h` 创建控件，覆盖 public MOC、metatype、shared/static 包消费、重定位后消费和私有 QWindowKit 实现不泄漏。
+- 画廊接入真实单列 Roller 与小时、分钟、AM/PM 三列 Picker，只展示 UI 事件和快照，不访问应用业务模型或服务。
+- 功能测试覆盖集合 mutation、索引和信号次数、3/5/7/9 行、24/96 高度边界、循环与非循环、全部键鼠输入、popup 确定/回滚、动态列、屏幕内几何、无障碍和对象稳定性。
+
+### 15.3 静态分析与视觉验证
+
+- shared `linux-clang-tidy-release` 与 static `linux-clang-tidy-static` 的编译数据库各含 331 条记录；两套均选择一方翻译单元 `141/141`，在 `warnings-as-errors` 下完整通过。
+- 首次全量分析发现测试中的 `QVERIFY(editor != nullptr)` 不能向 Clang analyzer 证明后续解引用安全；已改为显式空指针失败分支并以独立提交修复，随后重新通过两套完整分析。
+- 新增 Light、Dark、HighContrast x DPR 1.0、1.25、1.5、2.0 共 12 张滚轮选择控件基线；关闭更新模式后 `fluent.screenshot-100/125/150/200` 全部通过。
+- 已人工检查 DPR 1.0 三主题与 DPR 2.0 Light：空态、首项边界、循环焦点、禁用长文本、九行 RTL、Picker 摘要、三列 popup、hover 和标准确定/取消按钮均清晰，无裁切、错误重叠或高 DPI 缩放异常。
+- preset matrix contract、gate script contract、GitHub Actions contract、公开头、完整架构和 ZzFluentUI 边界审计均通过。
+
+### 15.4 性能结果
+
+`linux-gcc-reference` 使用 GCC 15.2、Release/shared/LTO 与 `QT_QPA_PLATFORM=offscreen`。以下数据是 2026-08-06 当前 HEAD 上预分配 `QImage` 的离屏控件绘制结果，不表述为窗口合成器帧时间：
+
+```text
+100 个 Roller，每个 10000 项
+P50: 4.942 ms
+P95: 5.033 ms
+max: 5.101 ms
+descendants: 400
+animations: 0
+timers: 0
+
+10000 项 / 20 项重复绘制耗时比: 1.077
+20 个三列 Picker，1000 次事务: 35.493 ms
+picker descendants: 420
+```
+
+- Roller P95 低于 `16.7 ms` 门限；万项/20 项绘制比低于 `2.0`，证明 paint 耗时不随完整 item 数量线性增长。
+- Picker 1000 次事务低于 `75 ms` 门限；反复 show/change/accept/cancel 后 descendants 保持 420，animation 和 timer 保持 0。
+- 完整 `benchmark.fluent-basic-controls` reference CTest 为 `16/16` 测试槽通过，滚轮定向 reference 再次单独通过三项硬门限。
+
+### 15.5 跨平台状态
+
+- preset matrix 继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static；Windows preset 启用严格警告、MSVC `/utf-8` 与 `/analyze`，macOS preset 启用 Clang-Tidy 和 LTO。
+- 本批 C++/CMake 差异只使用 Qt 6 Widgets/Core/Gui 公共 API、标准 C++20、固定宽度整数与组件 private header；静态扫描未发现原生平台头、Qt Private API、编译器扩展、平台宏或新增条件分支。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、preset、公开 ABI、依赖方向和条件编译静态审计，尚未完成对应工具链编译、安装消费或真机交互验证。
+- 本批未访问 GitHub CLI、未运行或读取远端 CI、未 push；远端 CI 按用户要求继续暂缓。
+
+### 15.6 提交记录
+
+```text
+fb73f52 文档：规划Fluent滚轮选择控件批次
+9d8cc96 控件：实现Fluent滚轮选择控件
+c4a8e92 测试：接入滚轮选择控件质量与安装消费
+63c04d6 性能：锁定滚轮选择控件性能预算
+eb26e44 测试：补齐滚轮选择控件多主题视觉基线
+c25ab6f 测试：消除滚轮编辑器空指针误判
+```
