@@ -377,6 +377,8 @@ private Q_SLOTS:
     {
         auto &application = zzApplication();
         ZzExternalTranslator externalTranslator;
+        QVERIFY(externalTranslator.load(
+            QStringLiteral(ZZ_TRANSLATION_TEST_QM)));
         QVERIFY(application.installTranslator(&externalTranslator));
         QCOMPARE(
             QCoreApplication::translate(
@@ -408,6 +410,8 @@ private Q_SLOTS:
     {
         auto &application = zzApplication();
         ZzExternalTranslator externalTranslator;
+        QVERIFY(externalTranslator.load(
+            QStringLiteral(ZZ_TRANSLATION_TEST_QM)));
         QVERIFY(application.installTranslator(&externalTranslator));
         bool sawOwnedTranslation = false;
 

@@ -6,6 +6,10 @@
 
 Windows 构建把项目 DLL 与测试/示例可执行文件统一输出到构建树的 `bin` 目录，多配置生成器继续在其下使用 `Release` 子目录，避免 MinGW shared 测试因找不到同批项目 DLL 而退出。公共头独立编译探针使用“所属 target 与 include 名”的 SHA-256 前 12 位作为内部 target 和源文件名，避免 Windows Ninja 生成超长依赖文件路径；摘要只影响内部构建标识，不改变安装头文件名。MinGW 与 macOS Ninja preset 显式生成编译数据库，以支撑生成代码 flags 审计和 clang-tidy；Visual Studio 生成器不提供该数据库，因此 MSVC 不注册这一项测试，仍保留 `/analyze`。ZzLog 对 vendored fmt/spdlog 的私有 include 使用 CMake `SYSTEM` 语义，第三方头告警不进入第一方 `/WX`，ZzLog 自有翻译单元仍执行 `/analyze` 和严格告警。
 
+截图基线由当前 Linux 参考发布机的 Qt 6.11 维护，该 Qt minor 使用 `0.5%` 非文字像素严格上限。托管 Linux CI 固定 Qt 6.8.3，Fusion 在不同 Qt minor 间存在稳定绘制差异，因此它只执行 `2%` 的跨 minor 兼容上限，不能更新或批准参考基线；尺寸、DPR、字体、文字遮罩和单通道容差仍执行相同检查。截图失败时工作流上传 `reports/fluent-screenshots` 下的 actual/diff PNG，必须查看证据后才能修改阈值或基线。
+
+Qt 6.8 的 `QTranslator::installTranslator()` 会拒绝内部为空的 translator，即使测试子类覆写了 `translate()`；翻译边界测试先加载同一真实 `.qm`，再由覆写方法限制外部标记行为。LLVM 18 对 Qt 6.8 `QPointer` 销毁路径产生 `clang-analyzer-cplusplus.NewDelete` 释放后使用误报，项目只关闭这一项 analyzer 检查；其他 clang analyzer、严格编译告警和 ASan/UBSan 门禁保持启用。
+
 macOS 托管 job 使用 macOS 15 runner 构建 deployment target 13.3。Qt 6.8 自身可支持 macOS 12，但 ZzLog 公共 API 使用 `std::format_string`，Apple libc++ 的 C++20 format 运行库要求 deployment target 13.3 或更高；不得通过关闭标准库能力探针伪装 macOS 12 兼容。Xcode 16.4 的 Apple libc++ 尚未提供 `std::stop_source`，因此 ZzCore 使用仅共享原子状态的 `ZzStopSource`/`ZzStopToken` 保持取消语义与跨平台 ABI，不在公共 API 暴露缺失的标准库类型。
 
 该工作流只执行配置、编译、示例构建、静态分析、CTest、安装消费、重定位和二进制依赖检查。Linux 还在 offscreen 平台启动并自动关闭四个示例；Windows 和 macOS 只编译示例，不把托管 runner 上的进程启动视为交互验收。工作流不发布包、不创建 tag、不上传可分发二进制，也不启用 `ZZ_RELEASE_BUILD=ON`。正式发布仍要求仓库外合规证据和人工真机清单。

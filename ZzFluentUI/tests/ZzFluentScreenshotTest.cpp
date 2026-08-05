@@ -65,7 +65,19 @@ constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QPoint zzMenuOrigin(914, 590);
 constexpr int zzTextMaskPadding = 2;
 constexpr int zzChannelTolerance = 3;
-constexpr qreal zzMaximumDifferenceRatio = 0.005;
+constexpr qreal zzReferenceMaximumDifferenceRatio = 0.005;
+constexpr qreal zzCompatibilityMaximumDifferenceRatio = 0.02;
+
+/** @brief 返回当前 Qt minor 对应的非文字像素差异上限。 */
+constexpr qreal zzMaximumDifferenceRatio()
+{
+    if constexpr (
+        QT_VERSION_MAJOR == ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MAJOR
+        && QT_VERSION_MINOR == ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MINOR) {
+        return zzReferenceMaximumDifferenceRatio;
+    }
+    return zzCompatibilityMaximumDifferenceRatio;
+}
 
 /** @brief 保存截图进程移除 Qt Test 未知参数后的确定配置。 */
 struct ZzScreenshotArguments final
@@ -901,7 +913,8 @@ private Q_SLOTS:
         const qreal differenceRatio =
             static_cast<qreal>(comparison.differentPixels)
             / static_cast<qreal>(comparison.comparedPixels);
-        if (differenceRatio <= zzMaximumDifferenceRatio) {
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
             return;
         }
 
@@ -920,8 +933,11 @@ private Q_SLOTS:
         QVERIFY(comparison.difference.save(diffPath, "PNG"));
         QFAIL(qPrintable(
             QStringLiteral(
-                "非文字区域差异比例 %1 超过 0.5%，actual=%2，diff=%3")
+                "Qt %1.%2 非文字区域差异比例 %3 超过门限 %4，actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
                 .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
                 .arg(actualPath, diffPath)));
     }
 

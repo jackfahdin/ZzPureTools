@@ -203,6 +203,8 @@ target_link_libraries(ZzFluentScreenshotTest PRIVATE
 target_compile_definitions(ZzFluentScreenshotTest PRIVATE
     "ZZ_FLUENT_SCREENSHOT_BASELINE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/baselines/linux\""
     "ZZ_FLUENT_SCREENSHOT_REPORT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/reports/fluent-screenshots\""
+    ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MAJOR=6
+    ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MINOR=11
 )
 set_target_properties(ZzFluentScreenshotTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzFluentScreenshotTest)

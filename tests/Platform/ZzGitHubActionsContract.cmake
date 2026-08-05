@@ -48,6 +48,7 @@ set(required_tokens
     "macos-clang-release-x86_64"
     "macos-clang-static-x86_64"
     "lipo -archs"
+    "build/**/reports/fluent-screenshots/**/*.png"
     "if: failure()")
 foreach(required_token IN LISTS required_tokens)
     string(FIND "${workflow}" "${required_token}" token_position)

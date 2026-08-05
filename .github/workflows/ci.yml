@@ -137,6 +137,7 @@ jobs:
           path: |
             build/**/CMakeFiles/CMakeConfigureLog.yaml
             build/**/Testing/Temporary/LastTest.log
+            build/**/reports/fluent-screenshots/**/*.png
           if-no-files-found: ignore
           retention-days: 14
 
