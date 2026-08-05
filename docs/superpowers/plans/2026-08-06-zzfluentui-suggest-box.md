@@ -295,3 +295,72 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 - Light、Dark、HighContrast x 四档 DPR 视觉基线通过；参考机渲染 P95 满足 16.7ms。
 - Linux GCC、Clang、ASan/UBSan、clang-tidy、安装消费通过；Windows/macOS 待验证状态如实记录。
 
+## 13. 交付结果
+
+本批次已于 2026-08-06 完成交付，结果如下。
+
+### 13.1 生产实现
+
+- 新增公开值类型 `ZzSuggestion` 与最终类 `ZzSuggestBox`；公开类继承 `QLineEdit`，四文件 Pimpl 只隔离模型、completer、popup 和 delegate 装配，不进入绘制或输入热路径。
+- 私有 `QAbstractListModel` 独占一份 `QList<ZzSuggestion>` 快照；建议项没有逐项 `QObject`、`QAction` 或 widget 分配。批量替换使用一次 model reset，单项增删使用标准 row notification。
+- 空 key 和重复 key 在写入边界统一规范化为无花括号 UUID；重复展示文本仍按 completion index 返回各自的 key、icon、data 和 enabled 状态，不按文本反查。
+- 支持 starts-with、contains、ends-with 与大小写规则；无效 filter flag 保持原值，最大可见项收敛到 `[1, 100]`。
+- `QCompleter`、`QListView` 与 `ZzFluentItemDelegate` 负责过滤、popup、键鼠选择、disabled item、elide、RTL 和 palette；生产代码没有自定义顶层 popup、QSS、timer、动态属性、事件过滤器或 Zz 创建的 animation。
+- 输入法、光标、选择、validator、undo/redo、clear action、焦点和 EditableText 无障碍语义继续由 `QLineEdit` 维护，没有第二状态源或业务模型访问。
+
+### 13.2 功能与安装验证
+
+- 活动本机环境为 Ubuntu 26.04 LTS x86_64、Intel Core i7-14700、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8、CMake 4.3.3；全部验证复用已有 `/home/zz/Qt/6.11.1/gcc_64`。
+- Linux GCC 15 shared Release：全量 CTest `92/92` 通过。
+- Linux GCC 15 static Release：全量 CTest `92/92` 通过。
+- Linux Clang 20 ASan+UBSan shared：全量 CTest `92/92` 通过，无 sanitizer 报告。
+- 三套测试树均覆盖搜索建议框功能、截图、fresh producer/install/consumer、包重定位、公开头、二进制依赖、完整架构边界、画廊与四个应用示例 smoke。
+- 功能测试覆盖集合 reset/insert/remove、key 规范化、重复文本载荷、三种过滤模式、大小写、键盘与鼠标激活、Escape、clear、validator、IME query、undo/redo、LTR/RTL、disabled、read-only、长文本和 `QAccessible` 原生角色。
+- 安装消费者从安装后的 `<ZzFluentUI/ZzSuggestBox.h>` 创建对象并验证 public MOC、metatype、过滤结果、key 唯一性、调用方载荷和 shared/static ABI。
+
+### 13.3 静态分析与视觉验证
+
+- shared `linux-clang-tidy-release`：从 318 条编译数据库记录中选择一方翻译单元 `133/133`，全部在 `warnings-as-errors` 下通过。
+- static `linux-clang-tidy-static`：从 318 条编译数据库记录中选择一方翻译单元 `133/133`，全部在 `warnings-as-errors` 下通过。
+- reference 编译数据库下对 `ZzBasicControlsBenchmark.cpp` 追加定向 Clang-Tidy，未产生一方代码诊断。
+- 新增 Light、Dark、HighContrast x DPR 1.0、1.25、1.5、2.0 共 12 张搜索建议框基线；关闭更新模式后四档截图测试全部通过。
+- 已人工检查 DPR 1.0 三主题与 DPR 2.0 Light：输入框和 popup 均非空，popup 不遮挡输入框，长文本从起始端显示，无裁切、重叠、双 frame、错误 RTL 或不可读状态。
+- 为消除 Clang Analyzer 无法识别 `QVERIFY` 控制流造成的误报，popup 类型检查改为显式空指针失败分支；运行时断言语义保持不变。
+
+### 13.4 性能结果
+
+活动参考发布环境为登记的 `local-release-xvfb`：`linux-gcc-reference` 使用 GCC 15.2、Release/shared/LTO，Xvfb 固定逻辑 CPU 8，被测进程固定逻辑 CPU 10，显示为 xcb 1920x1080x24。100 个搜索建议框、每框 20 条建议、10 帧预热和 120 帧正式渲染的最终复测结果为：
+
+```text
+P50: 2.575 ms
+P95: 2.728 ms
+max: 2.839 ms
+descendants: 800
+animations: 100
+timers: 0
+100 x 10000 条过滤: 21.749 ms
+matched rows: 19000
+```
+
+- 渲染 P95 低于 `16.7 ms` 参考门限；100 轮一万条建议过滤低于首次正式测量后确定的 `50 ms` 参考门限。
+- 1000 轮 text、case、filter mode、visible count、direction 和临时建议增删后，QObject、animation 与 timer 数量恢复到初始值。
+- 100 个 dormant animation 来自 Qt `QLineEdit` 默认 clear button，每实例数量固定；`ZzSuggestBox` 没有创建动画。过滤路径没有为每个结果创建对象。
+- 损坏的旧 `build/linux-gcc-reference` 缓存已使用 CMake `--fresh` 重建，`CMAKE_EXECUTABLE_FORMAT` 恢复为正确平台值；该操作只影响未跟踪构建产物。
+
+### 13.5 跨平台状态
+
+- preset matrix 继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static。
+- 本批只使用 Qt 6 Widgets/Core/Gui 公共 API、标准 C++20 与组件 private header；未引入 Qt Private、QWindowKit、原生平台头、编译器扩展、链式命名空间或新的平台条件分支。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、预设、公开 ABI、依赖方向和条件编译静态审计，尚未完成对应平台编译、安装消费或真机交互验证。
+- 当前发布参考环境仍为 `local-release-xvfb`；`ubuntu2204-github-ci` 保持 `pending-user-validation`。本批未访问 GitHub CLI、未运行或读取远端 CI、未 push，也未下载 Qt SDK。
+
+### 13.6 提交记录
+
+```text
+a5e00e6 文档：规划Fluent搜索建议框批次
+15eb587 控件：实现Fluent搜索建议框
+83e4878 测试：接入搜索建议框质量与安装消费
+bdd4d8b 测试：补齐搜索建议框多主题视觉基线
+f49e5a2 测试：修正搜索建议框静态分析路径
+757de16 性能：锁定搜索建议过滤预算
+```
