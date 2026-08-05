@@ -30,6 +30,8 @@
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSpinBox.h>
+#include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -876,6 +878,153 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机滚动条 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresSpinBoxRenderingAndStability()
+    {
+        constexpr int integerCount = 50;
+        constexpr int floatingCount = 50;
+        constexpr int controlCount = integerCount + floatingCount;
+        constexpr int columnCount = 10;
+        constexpr int cellWidth = 132;
+        constexpr int cellHeight = 40;
+        constexpr int stateChangeRounds = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        std::vector<ZzFluentUI::ZzSpinBox *> integers;
+        std::vector<ZzFluentUI::ZzDoubleSpinBox *> floating;
+        integers.reserve(integerCount);
+        floating.reserve(floatingCount);
+
+        for (int index = 0; index < controlCount; ++index) {
+            const QRect geometry(
+                (index % columnCount) * cellWidth,
+                (index / columnCount) * cellHeight,
+                cellWidth - 8,
+                32);
+            if (index < integerCount) {
+                auto *spinBox = new ZzFluentUI::ZzSpinBox(&host);
+                spinBox->setGeometry(geometry);
+                spinBox->setRange(-1000, 1000);
+                spinBox->setValue((index * 37) % 1001);
+                spinBox->setSuffix(QStringLiteral(" u"));
+                integers.push_back(spinBox);
+            } else {
+                auto *spinBox = new ZzFluentUI::ZzDoubleSpinBox(&host);
+                spinBox->setGeometry(geometry);
+                spinBox->setRange(-100.0, 100.0);
+                spinBox->setDecimals(2);
+                spinBox->setValue(
+                    static_cast<qreal>(index - integerCount) / 4.0);
+                spinBox->setSuffix(QStringLiteral(" ms"));
+                floating.push_back(spinBox);
+            }
+        }
+
+        host.resize(
+            columnCount * cellWidth,
+            (controlCount / columnCount) * cellHeight);
+        host.show();
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        QCOMPARE(initialAnimations, 0);
+        QCOMPARE(initialTimers, 0);
+
+        QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzProgressMeasuredFrames);
+        for (int frame = -zzWarmupFrames;
+             frame < zzProgressMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            for (int index = 0; index < integerCount; ++index) {
+                integers[static_cast<std::size_t>(index)]->setValue(
+                    ((sequence * 13 + index * 37) % 2001) - 1000);
+            }
+            for (int index = 0; index < floatingCount; ++index) {
+                floating[static_cast<std::size_t>(index)]->setValue(
+                    static_cast<qreal>(
+                        ((sequence * 7 + index * 19) % 2001) - 1000)
+                    / 10.0);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            target.fill(Qt::transparent);
+            QPainter painter(&target);
+            host.render(&painter);
+            painter.end();
+            if (frame >= 0) {
+                samples.push_back(timer.nsecsElapsed());
+            }
+        }
+
+        for (int round = 0; round < stateChangeRounds; ++round) {
+            const QAbstractSpinBox::ButtonSymbols symbols =
+                static_cast<QAbstractSpinBox::ButtonSymbols>(round % 3);
+            const Qt::LayoutDirection direction = round % 2 == 0
+                ? Qt::LeftToRight
+                : Qt::RightToLeft;
+            for (int index = 0; index < integerCount; ++index) {
+                auto *spinBox = integers[static_cast<std::size_t>(index)];
+                const int maximum = 100 + ((round + index) % 1000);
+                spinBox->setRange(-maximum, maximum);
+                spinBox->setValue((round * 7 + index) % maximum);
+                spinBox->setButtonSymbols(symbols);
+                spinBox->setLayoutDirection(direction);
+            }
+            for (int index = 0; index < floatingCount; ++index) {
+                auto *spinBox = floating[static_cast<std::size_t>(index)];
+                const qreal maximum = static_cast<qreal>(
+                    100 + ((round + index) % 1000));
+                spinBox->setRange(-maximum, maximum);
+                spinBox->setValue(
+                    static_cast<qreal>((round * 11 + index) % 1000)
+                    / 10.0);
+                spinBox->setButtonSymbols(symbols);
+                spinBox->setLayoutDirection(direction);
+            }
+        }
+
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-spin-boxes controls=100 frames=120 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms descendants=%4 "
+                   "animations=%5 timers=%6")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机数值输入 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }

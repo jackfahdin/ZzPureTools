@@ -50,6 +50,8 @@
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSpinBox.h>
+#include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
@@ -377,6 +379,33 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->addRow(QStringLiteral("Notes"), notes);
     form->addRow(QStringLiteral("Density"), density);
     form->addRow(QStringLiteral("Due date"), datePicker);
+
+    auto *workers = new ZzFluentUI::ZzSpinBox(container);
+    workers->setRange(1, 64);
+    workers->setValue(8);
+    workers->setSuffix(QStringLiteral(" threads"));
+    auto *threshold = new ZzFluentUI::ZzDoubleSpinBox(container);
+    threshold->setRange(0.0, 10.0);
+    threshold->setDecimals(2);
+    threshold->setSingleStep(0.25);
+    threshold->setValue(1.25);
+    threshold->setSuffix(QStringLiteral(" ms"));
+    auto *rightToLeftInput = new ZzFluentUI::ZzSpinBox(container);
+    rightToLeftInput->setLayoutDirection(Qt::RightToLeft);
+    rightToLeftInput->setRange(-100, 100);
+    rightToLeftInput->setValue(24);
+    auto *readOnlyInput = new ZzFluentUI::ZzDoubleSpinBox(container);
+    readOnlyInput->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    readOnlyInput->setReadOnly(true);
+    readOnlyInput->setValue(3.14);
+    auto *disabledInput = new ZzFluentUI::ZzSpinBox(container);
+    disabledInput->setValue(12);
+    disabledInput->setEnabled(false);
+    form->addRow(QStringLiteral("Workers"), workers);
+    form->addRow(QStringLiteral("Threshold"), threshold);
+    form->addRow(QStringLiteral("RTL value"), rightToLeftInput);
+    form->addRow(QStringLiteral("Read only"), readOnlyInput);
+    form->addRow(QStringLiteral("Disabled"), disabledInput);
     layout->addLayout(form);
 
     auto *slider = new QSlider(Qt::Horizontal, container);

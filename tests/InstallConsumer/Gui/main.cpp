@@ -8,6 +8,8 @@
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSpinBox.h>
+#include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 
@@ -25,6 +27,8 @@ int main(int argc, char *argv[])
     ZzFluentUI::ZzProgressRing progressRing;
     ZzFluentUI::ZzProgressRing busyRing;
     ZzFluentUI::ZzScrollArea scrollArea;
+    ZzFluentUI::ZzSpinBox integerInput;
+    ZzFluentUI::ZzDoubleSpinBox floatingInput;
     ZzFluentUI::ZzTabWidget sourceTabs;
     ZzFluentUI::ZzTabWidget targetTabs;
     QWidget *tabPage = new QWidget;
@@ -48,6 +52,11 @@ int main(int argc, char *argv[])
     verticalScrollBar->setRange(20, 220);
     verticalScrollBar->setPageStep(40);
     verticalScrollBar->setValue(120);
+    integerInput.setRange(-20, 80);
+    integerInput.setValue(24);
+    floatingInput.setRange(-10.0, 10.0);
+    floatingInput.setDecimals(2);
+    floatingInput.setValue(1.25);
 
     if (calendar.selectedDate() != expectedDate
         || picker.date() != expectedDate
@@ -70,6 +79,15 @@ int main(int argc, char *argv[])
         || verticalScrollBar->maximum() != 220
         || verticalScrollBar->pageStep() != 40
         || verticalScrollBar->value() != 120
+        || integerInput.minimum() != -20
+        || integerInput.maximum() != 80
+        || integerInput.value() != 24
+        || integerInput.buttonSymbols() != QAbstractSpinBox::PlusMinus
+        || floatingInput.minimum() != -10.0
+        || floatingInput.maximum() != 10.0
+        || floatingInput.decimals() != 2
+        || floatingInput.value() != 1.25
+        || floatingInput.buttonSymbols() != QAbstractSpinBox::PlusMinus
         || sourceTabs.fluentTabBar() == nullptr
         || !sourceTabs.transferTabTo(&targetTabs, 0)
         || sourceTabs.count() != 0
