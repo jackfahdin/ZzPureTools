@@ -32,6 +32,7 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
+#include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHBoxLayout>
@@ -50,6 +51,7 @@
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
+#include <QtWidgets/QStyleOptionButton>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTextBrowser>
@@ -76,6 +78,8 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzRoller.h>
+#include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
@@ -94,6 +98,7 @@ constexpr QPoint zzMenuOrigin(914, 590);
 constexpr QPoint zzComboBoxPopupOrigin(770, 570);
 constexpr QPoint zzSuggestBoxPopupOrigin(770, 660);
 constexpr QPoint zzMultiSelectPopupOrigin(770, 390);
+constexpr QPoint zzRollerPopupOrigin(700, 230);
 constexpr std::array<QPoint, 3> zzPopupMenuOrigins{
     QPoint(70, 190),
     QPoint(450, 190),
@@ -2651,6 +2656,300 @@ ZzMultiSelectTextMask zzBuildMultiSelectTextMask(
     return result;
 }
 
+/** @brief 保存滚轮截图的行文字、摘要与标准按钮覆盖数量。 */
+struct ZzRollerTextMask final
+{
+    QImage image;
+    int rollers = 0;
+    int rollerTexts = 0;
+    int pickerSummaries = 0;
+    int popupButtons = 0;
+};
+
+/** @brief 构造滚轮边界、方向、禁用和三列 popup 的固定截图面。 */
+class ZzRollerScreenshotSurface final
+{
+public:
+    /** @brief 创建五个独立滚轮、两个选择器和一个打开 popup。 */
+    ZzRollerScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzRollerScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Roller Controls"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        const auto addRoller = [this](
+                                   const QRect &geometry,
+                                   int visibleItems) {
+            auto *roller = new ZzFluentUI::ZzRoller(&window);
+            roller->setVisibleItemCount(visibleItems);
+            roller->setGeometry(geometry);
+            return roller;
+        };
+
+        auto *empty = addRoller(QRect(60, 60, 230, 108), 3);
+        empty->setAccessibleName(QStringLiteral("Empty roller"));
+
+        auto *first = addRoller(QRect(330, 60, 230, 180), 5);
+        first->setItems({
+            QStringLiteral("First"),
+            QStringLiteral("Second"),
+            QStringLiteral("Third")});
+        first->setWrapping(false);
+        first->setCurrentIndex(0);
+
+        auto *looping = addRoller(QRect(60, 260, 230, 180), 5);
+        looping->setItems({
+            QStringLiteral("Zero"), QStringLiteral("One"),
+            QStringLiteral("Two"), QStringLiteral("Three"),
+            QStringLiteral("Four"), QStringLiteral("Five"),
+            QStringLiteral("Six"), QStringLiteral("Seven")});
+        looping->setCurrentIndex(4);
+        looping->setWrapping(true);
+        looping->setFocus(Qt::TabFocusReason);
+
+        auto *disabled = addRoller(QRect(330, 280, 230, 108), 3);
+        disabled->setItems({
+            QStringLiteral("Disabled previous"),
+            QStringLiteral("Disabled current with long text"),
+            QStringLiteral("Disabled next")});
+        disabled->setCurrentIndex(1);
+        disabled->setEnabled(false);
+
+        auto *rightToLeft = addRoller(QRect(60, 460, 500, 324), 9);
+        rightToLeft->setLayoutDirection(Qt::RightToLeft);
+        rightToLeft->setItems({
+            QStringLiteral("RTL 00"), QStringLiteral("RTL 01"),
+            QStringLiteral("RTL 02"), QStringLiteral("RTL 03"),
+            QStringLiteral("RTL 04"), QStringLiteral("RTL 05"),
+            QStringLiteral("RTL selected long value"),
+            QStringLiteral("RTL 07"), QStringLiteral("RTL 08"),
+            QStringLiteral("RTL 09"), QStringLiteral("RTL 10"),
+            QStringLiteral("RTL 11")});
+        rightToLeft->setCurrentIndex(6);
+
+        popupPicker = new ZzFluentUI::ZzRollerPicker(&window);
+        popupPicker->setAccessibleName(QStringLiteral("Appointment time"));
+        popupPicker->setGeometry(700, 70, 420, 48);
+        QStringList hours;
+        for (int hour = 1; hour <= 12; ++hour) {
+            hours.append(QString::number(hour));
+        }
+        popupPicker->setColumns({
+            {QStringLiteral("hour"), hours, 8, true, 112},
+            {QStringLiteral("minute"),
+             {QStringLiteral("00"), QStringLiteral("15"),
+              QStringLiteral("30"), QStringLiteral("45")},
+             2, true, 112},
+            {QStringLiteral("period"),
+             {QStringLiteral("AM"), QStringLiteral("PM")},
+             0, false, 88}});
+
+        auto *disabledPicker =
+            new ZzFluentUI::ZzRollerPicker(&window);
+        disabledPicker->setGeometry(700, 145, 420, 48);
+        disabledPicker->setColumns({
+            {QStringLiteral("disabled"),
+             {QStringLiteral("Disabled picker")},
+             0, false, 180}});
+        disabledPicker->setEnabled(false);
+    }
+
+    /** @brief 展示窗口，打开 popup 并固定焦点和 hover 行。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (popupPicker == nullptr) {
+            return;
+        }
+        popupPicker->showPopup();
+        QCoreApplication::processEvents();
+        QWidget *popup = popupWindow();
+        if (popup == nullptr) {
+            return;
+        }
+        QList<ZzFluentUI::ZzRoller *> popupRollers;
+        const auto rollers = popupPicker->findChildren<
+            ZzFluentUI::ZzRoller *>();
+        for (ZzFluentUI::ZzRoller *roller : rollers) {
+            if (roller->window() == popup) {
+                popupRollers.append(roller);
+            }
+        }
+        if (!popupRollers.isEmpty()) {
+            popupRollers.constFirst()->setFocus(Qt::TabFocusReason);
+        }
+        if (popupRollers.size() >= 2) {
+            ZzFluentUI::ZzRoller *hovered = popupRollers.at(1);
+            hovered->setAttribute(Qt::WA_UnderMouse, true);
+            const QPoint local(
+                hovered->width() / 2,
+                hovered->height() / 2 + hovered->itemHeight());
+            QMouseEvent move(
+                QEvent::MouseMove,
+                QPointF(local),
+                QPointF(hovered->mapToGlobal(local)),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(hovered, &move);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回选择器拥有的唯一 Qt::Popup 顶层窗口。 */
+    [[nodiscard]] QWidget *popupWindow() const noexcept
+    {
+        if (popupPicker == nullptr) {
+            return nullptr;
+        }
+        const auto widgets = popupPicker->findChildren<QWidget *>();
+        for (QWidget *widget : widgets) {
+            if (widget->isWindow()
+                && widget->windowFlags().testFlag(Qt::Popup)) {
+                return widget;
+            }
+        }
+        return nullptr;
+    }
+
+    /** @brief 返回打开 popup 的源选择器。 */
+    [[nodiscard]] ZzFluentUI::ZzRollerPicker *openPicker() const noexcept
+    {
+        return popupPicker;
+    }
+
+    /** @brief 回滚并关闭 popup 后隐藏截图窗口。 */
+    void hide()
+    {
+        if (popupPicker != nullptr) {
+            popupPicker->cancelPopup();
+        }
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    QPointer<ZzFluentUI::ZzRollerPicker> popupPicker;
+};
+
+/** @brief 遮罩滚轮可见行、Picker 摘要和标准按钮文字。 */
+ZzRollerTextMask zzBuildRollerTextMask(
+    ZzRollerScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzRollerTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    QWidget *popupWindow = surface->popupWindow();
+
+    const auto rollers = surface->window.findChildren<
+        ZzFluentUI::ZzRoller *>();
+    for (ZzFluentUI::ZzRoller *roller : rollers) {
+        if (!roller->isVisible()) {
+            continue;
+        }
+        ++result.rollers;
+        const int half = roller->visibleItemCount() / 2;
+        for (int offset = -half; offset <= half; ++offset) {
+            int index = roller->currentIndex() + offset;
+            if (roller->wrapping() && roller->itemCount() > 0) {
+                const int count = roller->itemCount();
+                index = ((index % count) + count) % count;
+            }
+            const QString text = roller->itemText(index);
+            if (text.isEmpty()) {
+                continue;
+            }
+            const int visualRow = offset + half;
+            const QRect rowRect(
+                8,
+                visualRow * roller->itemHeight(),
+                std::max(0, roller->width() - 16),
+                roller->itemHeight());
+            const QRect textRect = zzAlignedTextRect(
+                roller,
+                rowRect,
+                Qt::AlignCenter | Qt::TextSingleLine,
+                text);
+            if (roller->window() == &surface->window) {
+                zzPaintMaskRect(
+                    &painter,
+                    zzMapToSurface(
+                        roller,
+                        textRect,
+                        &surface->window));
+            } else if (popupWindow != nullptr
+                       && roller->window() == popupWindow) {
+                const QPoint popupOffset = roller->mapTo(
+                    popupWindow,
+                    textRect.topLeft());
+                zzPaintMaskRect(
+                    &painter,
+                    QRect(zzRollerPopupOrigin + popupOffset,
+                          textRect.size()));
+            }
+            ++result.rollerTexts;
+        }
+    }
+
+    const auto pickers = surface->window.findChildren<
+        ZzFluentUI::ZzRollerPicker *>();
+    for (ZzFluentUI::ZzRollerPicker *picker : pickers) {
+        if (!picker->isVisible() || picker->text().isEmpty()) {
+            continue;
+        }
+        QStyleOptionButton option;
+        option.initFrom(picker);
+        option.text = picker->text();
+        const QRect contents = picker->style()->subElementRect(
+            QStyle::SE_PushButtonContents,
+            &option,
+            picker);
+        const QRect textRect = zzAlignedTextRect(
+            picker,
+            contents,
+            Qt::AlignCenter | Qt::TextSingleLine,
+            picker->text());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(picker, textRect, &surface->window));
+        ++result.pickerSummaries;
+    }
+
+    if (popupWindow != nullptr) {
+        const auto buttons = popupWindow->findChildren<QPushButton *>();
+        for (QPushButton *button : buttons) {
+            if (!button->isVisible() || button->text().isEmpty()) {
+                continue;
+            }
+            const QRect textRect = zzAlignedTextRect(
+                button,
+                button->rect().adjusted(22, 2, -4, -2),
+                Qt::AlignCenter | Qt::TextSingleLine,
+                button->text());
+            const QPoint popupOffset = button->mapTo(
+                popupWindow,
+                textRect.topLeft());
+            zzPaintMaskRect(
+                &painter,
+                QRect(zzRollerPopupOrigin + popupOffset,
+                      textRect.size()));
+            ++result.popupButtons;
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 绘制一个由标准 tooltip primitive 和 QLabel 组成的确定性提示。 */
 class ZzToolTipScreenshotFixture final : public QWidget
 {
@@ -3495,6 +3794,27 @@ QImage zzRenderMultiSelectSurface(
     return image;
 }
 
+/** @brief 将滚轮主窗口和标准 Picker popup 合成到固定物理画布。 */
+QImage zzRenderRollerSurface(
+    ZzRollerScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    QWidget *popupWindow = surface->popupWindow();
+    if (popupWindow != nullptr && popupWindow->isVisible()) {
+        popupWindow->render(&painter, zzRollerPopupOrigin);
+    }
+    painter.end();
+    return image;
+}
+
 /** @brief 把主窗口和三个标准 popup menu 合成到固定物理画布。 */
 QImage zzRenderPopupSurface(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -4170,6 +4490,21 @@ private Q_SLOTS:
             << QStringLiteral("multi-select-high-contrast");
     }
 
+    void rendersRollerThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("roller-controls-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("roller-controls-light");
+        QTest::newRow("roller-controls-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("roller-controls-dark");
+        QTest::newRow("roller-controls-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("roller-controls-high-contrast");
+    }
+
     void rendersPopupSurfaceThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -4655,6 +4990,110 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 多选组合框非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersRollerThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzRollerScreenshotSurface surface;
+        surface.polish();
+        ZzFluentUI::ZzRollerPicker *openPicker = surface.openPicker();
+        QWidget *popupWindow = surface.popupWindow();
+        if (openPicker == nullptr || popupWindow == nullptr) {
+            QFAIL("滚轮选择器截图面缺少标准popup");
+            return;
+        }
+        QVERIFY(openPicker->isPopupVisible());
+        QVERIFY(popupWindow->isVisible());
+        QCOMPARE(openPicker->style(), QApplication::style());
+        QCOMPARE(popupWindow->style(), QApplication::style());
+        QCOMPARE(
+            surface.window.findChildren<ZzFluentUI::ZzRoller *>().size(),
+            9);
+        QCOMPARE(
+            surface.window.findChildren<
+                ZzFluentUI::ZzRollerPicker *>().size(),
+            2);
+        QCOMPARE(
+            popupWindow->findChildren<QDialogButtonBox *>().size(),
+            1);
+        const QImage actual = zzRenderRollerSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzRollerTextMask mask = zzBuildRollerTextMask(
+            &surface,
+            actualDpr_);
+        QCOMPARE(mask.rollers, 8);
+        QVERIFY(mask.rollerTexts >= 36);
+        QCOMPARE(mask.pickerSummaries, 2);
+        QCOMPARE(mask.popupButtons, 2);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 滚轮选择控件非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
