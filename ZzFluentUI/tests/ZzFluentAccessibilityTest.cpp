@@ -11,11 +11,13 @@
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
+#include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
+#include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPushButton.h>
@@ -252,6 +254,51 @@ private Q_SLOTS:
         }
         QTest::keyClick(focusTarget, Qt::Key_Right);
         QCOMPARE(calendar->selectedDate(), selectedDate.addDays(1));
+    }
+
+    void exposesCardNamesDescriptionsStatesAndKeyboardActivation()
+    {
+        QWidget window;
+        auto *layout = new QVBoxLayout(&window);
+        auto *action = new ZzFluentUI::ZzActionCard(
+            QStringLiteral("Open settings"),
+            QStringLiteral("Manage application preferences"),
+            &window);
+        auto *image = new ZzFluentUI::ZzImageCard(
+            QStringLiteral("Project Aurora"),
+            QStringLiteral("Open project preview"),
+            &window);
+        action->setCheckable(true);
+        action->setChecked(true);
+        image->setEnabled(false);
+        layout->addWidget(action);
+        layout->addWidget(image);
+        window.show();
+        action->setFocus(Qt::TabFocusReason);
+        QCoreApplication::processEvents();
+
+        QAccessibleInterface *actionInterface = zzAccessible(action);
+        QAccessibleInterface *imageInterface = zzAccessible(image);
+        QVERIFY(actionInterface != nullptr);
+        QVERIFY(imageInterface != nullptr);
+        QCOMPARE(actionInterface->role(), QAccessible::CheckBox);
+        QCOMPARE(imageInterface->role(), QAccessible::Button);
+        QCOMPARE(
+            actionInterface->text(QAccessible::Name),
+            QStringLiteral("Open settings"));
+        QCOMPARE(
+            actionInterface->text(QAccessible::Description),
+            QStringLiteral("Manage application preferences"));
+        QCOMPARE(
+            imageInterface->text(QAccessible::Description),
+            QStringLiteral("Open project preview"));
+        QVERIFY(actionInterface->state().checked);
+        QVERIFY(actionInterface->state().focused);
+        QVERIFY(imageInterface->state().disabled);
+
+        QSignalSpy clickSpy(action, &QAbstractButton::clicked);
+        QTest::keyClick(action, Qt::Key_Return);
+        QCOMPARE(clickSpy.count(), 1);
     }
 };
 

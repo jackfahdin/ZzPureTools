@@ -5,6 +5,8 @@
 #include <QtCore/QDate>
 #include <QtCore/QLocale>
 #include <QtGui/QFont>
+#include <QtGui/QPainter>
+#include <QtGui/QPixmap>
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QButtonGroup>
 #include <QtWidgets/QCheckBox>
@@ -33,6 +35,7 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
+#include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
@@ -40,6 +43,7 @@
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzNavigationView.h>
@@ -71,6 +75,24 @@ QVBoxLayout *zzColumnLayout(QWidget *container)
     layout->setContentsMargins(12, 8, 12, 12);
     layout->setSpacing(10);
     return layout;
+}
+
+/** @brief 使用当前 palette 创建无文件依赖的确定性卡片预览图。 */
+QPixmap zzCardPreviewPixmap(const QPalette &palette)
+{
+    QPixmap pixmap(640, 360);
+    pixmap.fill(palette.color(QPalette::AlternateBase));
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(palette.color(QPalette::Highlight));
+    painter.drawRect(QRect(0, 0, 250, 360));
+    painter.setBrush(palette.color(QPalette::Button));
+    painter.drawEllipse(QPoint(455, 180), 105, 105);
+    painter.setBrush(palette.color(QPalette::Base));
+    painter.drawRoundedRect(QRect(285, 78, 310, 62), 6, 6);
+    painter.drawRoundedRect(QRect(285, 166, 235, 40), 6, 6);
+    return pixmap;
 }
 
 } // namespace
@@ -121,7 +143,7 @@ ZzFluentControlsGalleryPrivate::ZzFluentControlsGalleryPrivate(
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
     auto *content = new QWidget(scrollArea);
-    content->setMinimumSize(1120, 650);
+    content->setMinimumSize(1120, 980);
     auto *contentLayout = new QHBoxLayout(content);
     contentLayout->setContentsMargins(12, 8, 12, 12);
     contentLayout->setSpacing(0);
@@ -319,6 +341,46 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     tabs->addTab(QStringLiteral("History"));
     tabs->setCurrentIndex(1);
     layout->addWidget(tabs);
+
+    layout->addWidget(zzSectionTitle(QStringLiteral("Cards"), container));
+    auto *actionCard = new ZzFluentUI::ZzActionCard(
+        QStringLiteral("Workspace settings"),
+        QStringLiteral("Review local appearance and behavior"),
+        container);
+    actionCard->setIcon(
+        actionCard->style()->standardIcon(QStyle::SP_ComputerIcon));
+    actionCard->setCheckable(true);
+    actionCard->setFixedHeight(80);
+    layout->addWidget(actionCard);
+
+    auto *imageCard = new ZzFluentUI::ZzImageCard(
+        QStringLiteral("Project Aurora"),
+        QStringLiteral("Local preview image"),
+        container);
+    imageCard->setPixmap(zzCardPreviewPixmap(imageCard->palette()));
+    imageCard->setCheckable(true);
+    imageCard->setFixedHeight(220);
+    layout->addWidget(imageCard);
+    QObject::connect(
+        actionCard,
+        &QAbstractButton::clicked,
+        message,
+        [message](bool checked) {
+            message->setText(
+                checked
+                    ? QStringLiteral("Workspace card selected")
+                    : QStringLiteral("Workspace card cleared"));
+        });
+    QObject::connect(
+        imageCard,
+        &QAbstractButton::clicked,
+        message,
+        [message](bool checked) {
+            message->setText(
+                checked
+                    ? QStringLiteral("Project preview selected")
+                    : QStringLiteral("Project preview cleared"));
+        });
     layout->addStretch(1);
     return container;
 }

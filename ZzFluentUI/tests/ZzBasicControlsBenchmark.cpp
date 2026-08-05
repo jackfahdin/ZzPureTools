@@ -19,11 +19,13 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -175,6 +177,39 @@ qint64 zzRenderCalendarFrame(
     target->fill(Qt::transparent);
     QPainter painter(target);
     calendar->render(&painter);
+    painter.end();
+    return timer.nsecsElapsed();
+}
+
+/** @brief 更新全部卡片状态并将预构造卡片面渲染到复用图像。 */
+qint64 zzRenderCardFrame(
+    QWidget *host,
+    const std::vector<ZzFluentUI::ZzActionCard *> &actionCards,
+    const std::vector<ZzFluentUI::ZzImageCard *> &imageCards,
+    QImage *target,
+    int sequence)
+{
+    QElapsedTimer timer;
+    timer.start();
+    for (std::size_t index = 0; index < actionCards.size(); ++index) {
+        auto *card = actionCards[index];
+        const int offset = sequence + static_cast<int>(index);
+        card->setChecked((offset % 7) == 0);
+        card->setDown((offset % 11) == 0);
+        card->setEnabled((offset % 13) != 0);
+    }
+    for (std::size_t index = 0; index < imageCards.size(); ++index) {
+        auto *card = imageCards[index];
+        const int offset = sequence + static_cast<int>(index);
+        card->setChecked((offset % 5) == 0);
+        card->setDown((offset % 9) == 0);
+        card->setEnabled((offset % 11) != 0);
+        card->setAspectRatioMode(
+            static_cast<Qt::AspectRatioMode>(offset % 3));
+    }
+    target->fill(Qt::transparent);
+    QPainter painter(target);
+    host->render(&painter);
     painter.end();
     return timer.nsecsElapsed();
 }
@@ -421,6 +456,133 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机日历 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresPreconstructedCardGrid()
+    {
+        constexpr int actionCardCount = 100;
+        constexpr int imageCardCount = 40;
+        constexpr int columnCount = 5;
+        constexpr QSize actionCardSize(180, 64);
+        constexpr QSize imageCardSize(200, 180);
+        constexpr int actionRows = actionCardCount / columnCount;
+        constexpr int imageRows = imageCardCount / columnCount;
+        QWidget host;
+        host.setAutoFillBackground(true);
+        std::vector<ZzFluentUI::ZzActionCard *> actionCards;
+        std::vector<ZzFluentUI::ZzImageCard *> imageCards;
+        actionCards.reserve(actionCardCount);
+        imageCards.reserve(imageCardCount);
+
+        for (int index = 0; index < actionCardCount; ++index) {
+            auto *card = new ZzFluentUI::ZzActionCard(
+                QStringLiteral("Action %1").arg(index),
+                QStringLiteral("Local card description"),
+                &host);
+            card->setCheckable(true);
+            card->setGeometry(
+                (index % columnCount) * actionCardSize.width(),
+                (index / columnCount) * actionCardSize.height(),
+                actionCardSize.width(),
+                actionCardSize.height());
+            actionCards.push_back(card);
+        }
+
+        QPixmap sharedPixmap(320, 180);
+        sharedPixmap.fill(host.palette().color(QPalette::Highlight));
+        const int imageTop = actionRows * actionCardSize.height();
+        for (int index = 0; index < imageCardCount; ++index) {
+            auto *card = new ZzFluentUI::ZzImageCard(
+                QStringLiteral("Image %1").arg(index),
+                QStringLiteral("Shared pixmap"),
+                &host);
+            card->setCheckable(true);
+            card->setPixmap(sharedPixmap);
+            card->setGeometry(
+                (index % columnCount) * imageCardSize.width(),
+                imageTop + (index / columnCount) * imageCardSize.height(),
+                imageCardSize.width(),
+                imageCardSize.height());
+            imageCards.push_back(card);
+        }
+
+        host.resize(
+            columnCount * imageCardSize.width(),
+            imageTop + imageRows * imageCardSize.height());
+        host.show();
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qint64 sharedCacheKey = sharedPixmap.cacheKey();
+        QImage target(
+            host.size(),
+            QImage::Format_ARGB32_Premultiplied);
+        std::vector<qint64> samples;
+        samples.reserve(zzMeasuredFrames);
+
+        for (int frame = -zzWarmupFrames;
+             frame < zzMeasuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            const qint64 elapsed = zzRenderCardFrame(
+                &host,
+                actionCards,
+                imageCards,
+                &target,
+                sequence);
+            if (frame >= 0) {
+                samples.push_back(elapsed);
+            }
+        }
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            const int actionIndex = iteration % actionCardCount;
+            const int imageIndex = iteration % imageCardCount;
+            actionCards[static_cast<std::size_t>(actionIndex)]
+                ->setChecked((iteration % 2) != 0);
+            imageCards[static_cast<std::size_t>(imageIndex)]
+                ->setAspectRatioMode(
+                    static_cast<Qt::AspectRatioMode>(iteration % 3));
+        }
+
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QVERIFY(std::all_of(
+            imageCards.cbegin(),
+            imageCards.cend(),
+            [sharedCacheKey](const ZzFluentUI::ZzImageCard *card) {
+                return card->pixmap().cacheKey() == sharedCacheKey;
+            }));
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-cards action=100 image=40 P50=%1 ms "
+                   "P95=%2 ms max=%3 ms descendants=%4")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(initialDescendants);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机卡片 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }
