@@ -303,4 +303,28 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
 ## 13. 交付结果
 
-待实现完成后填写。
+### 13.1 提交
+
+- `0bcce73`：规划 Fluent 滚动控件批次，完成旧版双滚动条、动态动画、定时器和输入语义审计。
+- `4e3125e`：实现 `ZzScrollBar`、`ZzScrollArea`、Fluent 滚动条几何、绘制与命中测试。
+- `9882dc8`：补齐键盘、无障碍、对象稳定性、安装消费、画廊与性能门禁。
+- `af28c1c`：修复 Qt 鼠标事件未携带 `subControls` 时的滑块拖动命中。
+- `753e043`：区分按下态滑块颜色，并为双轴滚动区域绘制一致的角落背景。
+- `5c256d8`：加入 Light、Dark、HighContrast 与四档 DPR 的 12 张视觉基线。
+- `d58904b`：消除重复分支与测试非空控制流的 Clang-Tidy 诊断。
+
+### 13.2 本机结果
+
+- 环境：Ubuntu 26.04 LTS、Linux 7.0.0-28-generic x86_64、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8；全部验证使用已有 `/home/zz/Qt/6.11.1/gcc_64`，未下载 Qt。
+- GCC Release shared：全量构建通过，87/87 项 CTest 通过，包含公开头、包重定位、fresh 安装消费、四档截图与四个示例 smoke。
+- Clang ASan/UBSan shared：全量构建通过，87/87 项 CTest 通过；未发现内存错误、泄漏、悬空回调或未定义行为。
+- GCC Release static：重新配置与全量构建通过，83/83 项 CTest 通过；`install.consumer`、包重定位、公开头自包含、架构边界、四档截图和发布契约均通过。
+- Clang-Tidy：shared 配置的 137/137 个一方翻译单元和 static 配置的 124/124 个适用翻译单元在 `warnings-as-errors` 下通过。安装消费者不在主构建编译数据库内，其源码由 shared/static fresh 消费构建验证。
+- 安装消费：shared 的 GCC Release 与 Clang sanitizer、static 的 GCC Release 均完成隔离安装、消费者重新配置、编译、链接和运行；消费者只链接 `Zz::FluentUI` 即可使用两个公开控件。
+- 截图：`scroll-controls` 的 Light、Dark、HighContrast x DPR 1.0/1.25/1.5/2.0 共 12 张基线全部通过自动比较；DPR 1.0 三主题与 DPR 2.0 Light 已人工检查，无箭头残留、空白、裁切或重叠，滑块在稳定命中区内居中。
+- Release 性能：100 个滚动条、10 帧预热、120 帧正式渲染的 P50 为 `1.392 ms`、P95 为 `1.411 ms`、max 为 `1.496 ms`，低于 `16.7 ms` 预算。
+- 对象稳定性：100 个控件拥有 200 个 QObject 后代、100 个持久 animation 和 0 个 timer；每个控件执行 1000 轮状态切换后数量不增长，宿主隐藏后运行中 animation 为 0。
+- 原生语义：range、value、step、action、keyboard、wheel、context menu 和无障碍继续由 `QScrollBar/QScrollArea` 提供；水平、垂直、RTL、inverted appearance、零范围与大范围几何均有自动测试。
+- 静态审计：新增生产代码未发现链式 namespace、Qt Private API、QWindowKit、ZzWindowKit/ZzPureTools 反向依赖、平台库、平台条件分支、`QTimer`、轮询、stylesheet、`QScroller` 或滚轮/鼠标语义重写。
+- 平台边界：Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成 Qt 公共 API、标准 C++20、CMake 安装清单、依赖方向和条件编译的源码静态审计；尚未在对应原生工具链完成编译、安装消费或真机交互验证，不得标记为目标平台验证通过。
+- 执行边界：本批次未调用 GitHub CLI、未运行或读取远端 CI、未下载 Qt、未 push；远端矩阵按用户要求继续暂缓。
