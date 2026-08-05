@@ -128,6 +128,9 @@ private Q_SLOTS:
         sendLeave(&bar);
         auto *timeoutTimer = bar.findChild<QTimer *>();
         QVERIFY(timeoutTimer != nullptr);
+        if (timeoutTimer == nullptr) {
+            return;
+        }
         QVERIFY(timeoutTimer->isActive());
 
         QEnterEvent enter(
