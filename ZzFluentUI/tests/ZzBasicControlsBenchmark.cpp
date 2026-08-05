@@ -32,6 +32,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
@@ -63,6 +64,86 @@ constexpr qreal zzSuggestFilterReferenceMilliseconds = 50.0;
 constexpr qreal zzMultiSelectReferenceMilliseconds = 60.0;
 constexpr qreal zzRollerComplexityRatio = 2.0;
 constexpr qreal zzRollerPickerReferenceMilliseconds = 75.0;
+constexpr qreal zzFlowLayoutReferenceMilliseconds = 4.0;
+constexpr qreal zzFlowLayoutComplexityRatio = 15.0;
+
+/** @brief 提供不分配 QObject 的固定尺寸流式布局性能项。 */
+class ZzBenchmarkFlowItem final : public QLayoutItem
+{
+public:
+    /** @brief 创建固定尺寸项并可选记录 sizeHint 访问次数。 */
+    explicit ZzBenchmarkFlowItem(
+        QSize extent,
+        qint64 *visitCounter = nullptr) noexcept
+        : extent_(extent)
+        , visitCounter_(visitCounter)
+    {
+    }
+
+    /** @brief 返回固定首选尺寸并记录一次布局访问。 */
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        if (visitCounter_ != nullptr) {
+            ++(*visitCounter_);
+        }
+        return extent_;
+    }
+
+    /** @brief 返回固定最小尺寸。 */
+    [[nodiscard]] QSize minimumSize() const override
+    {
+        return extent_;
+    }
+
+    /** @brief 返回固定最大尺寸。 */
+    [[nodiscard]] QSize maximumSize() const override
+    {
+        return extent_;
+    }
+
+    /** @brief 性能项不主动扩展。 */
+    [[nodiscard]] Qt::Orientations expandingDirections() const override
+    {
+        return {};
+    }
+
+    /** @brief 保存最终几何，不触发事件或绘制。 */
+    void setGeometry(const QRect &rect) override
+    {
+        geometry_ = rect;
+    }
+
+    /** @brief 返回最近一次应用的几何。 */
+    [[nodiscard]] QRect geometry() const override
+    {
+        return geometry_;
+    }
+
+    /** @brief 固定尺寸项始终参与布局。 */
+    [[nodiscard]] bool isEmpty() const override
+    {
+        return false;
+    }
+
+private:
+    QSize extent_;
+    QRect geometry_;
+    qint64 *visitCounter_ = nullptr;
+};
+
+/** @brief 向布局追加一组宽度有差异的固定性能项。 */
+void zzPopulateFlowLayout(
+    ZzFluentUI::ZzFlowLayout *layout,
+    int itemCount,
+    qint64 *visitCounter = nullptr)
+{
+    Q_ASSERT(layout != nullptr);
+    for (int index = 0; index < itemCount; ++index) {
+        layout->addItem(new ZzBenchmarkFlowItem(
+            QSize(48 + ((index * 17) % 64), 28),
+            visitCounter));
+    }
+}
 
 /** @brief 记录 10 万行即时模型的批量数据访问范围与调用数量。 */
 class ZzBenchmarkRowsModel final : public QAbstractListModel
@@ -2098,6 +2179,142 @@ private Q_SLOTS:
                 qPrintable(QStringLiteral(
                     "参考机1000次Picker事务耗时 %1 ms 超过75 ms预算")
                                .arg(pickerMilliseconds, 0, 'f', 3)));
+        }
+    }
+
+    void measuresFlowLayoutRelayoutAndCache()
+    {
+        constexpr int itemCount = 1000;
+        constexpr int measuredFrames = 200;
+        constexpr int complexityRounds = 1000;
+        constexpr int cachedHeightQueries = 10000;
+        constexpr std::array<int, 4> widths{320, 640, 960, 1280};
+        QWidget host;
+        auto *layout = new ZzFluentUI::ZzFlowLayout(8, 8, &host);
+        layout->setContentsMargins(12, 12, 12, 12);
+        qint64 itemVisits = 0;
+        zzPopulateFlowLayout(layout, itemCount, &itemVisits);
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        QCOMPARE(initialDescendants, 1);
+        QCOMPARE(initialAnimations, 0);
+        QCOMPARE(initialTimers, 0);
+
+        std::vector<qint64> samples;
+        samples.reserve(measuredFrames);
+        qint64 measuredVisits = 0;
+        int maximumFrameVisits = 0;
+        for (int frame = -zzWarmupFrames;
+             frame < measuredFrames;
+             ++frame) {
+            const int sequence = frame + zzWarmupFrames;
+            const int width = widths.at(static_cast<std::size_t>(
+                sequence % static_cast<int>(widths.size())));
+            const qint64 visitsBefore = itemVisits;
+            QElapsedTimer timer;
+            timer.start();
+            layout->setGeometry(QRect(0, 0, width, 12000));
+            const qint64 elapsed = timer.nsecsElapsed();
+            const int frameVisits = static_cast<int>(
+                itemVisits - visitsBefore);
+            QCOMPARE(frameVisits, itemCount);
+            if (frame >= 0) {
+                samples.push_back(elapsed);
+                measuredVisits += frameVisits;
+                maximumFrameVisits = std::max(
+                    maximumFrameVisits,
+                    frameVisits);
+            }
+        }
+        QCOMPARE(measuredVisits, qint64(itemCount * measuredFrames));
+        QCOMPARE(maximumFrameVisits, itemCount);
+
+        const qint64 visitsBeforeHeight = itemVisits;
+        const int cachedHeight = layout->heightForWidth(640);
+        QCOMPARE(itemVisits - visitsBeforeHeight, qint64(itemCount));
+        QElapsedTimer heightCacheTimer;
+        heightCacheTimer.start();
+        qint64 cachedHeightTotal = 0;
+        for (int query = 0; query < cachedHeightQueries; ++query) {
+            cachedHeightTotal += layout->heightForWidth(640);
+        }
+        const qreal heightCacheMilliseconds =
+            static_cast<qreal>(heightCacheTimer.nsecsElapsed())
+            / 1000000.0;
+        QCOMPARE(itemVisits - visitsBeforeHeight, qint64(itemCount));
+        QCOMPARE(
+            cachedHeightTotal,
+            static_cast<qint64>(cachedHeight) * cachedHeightQueries);
+
+        ZzFluentUI::ZzFlowLayout smallLayout(8, 8);
+        ZzFluentUI::ZzFlowLayout largeLayout(8, 8);
+        zzPopulateFlowLayout(&smallLayout, 100);
+        zzPopulateFlowLayout(&largeLayout, 1000);
+        const auto measureComplexity = [](ZzFluentUI::ZzFlowLayout *flow) {
+            for (int warmup = 0; warmup < 20; ++warmup) {
+                const int width = (warmup % 2) == 0 ? 640 : 641;
+                flow->setGeometry(QRect(0, 0, width, 12000));
+            }
+            QElapsedTimer timer;
+            timer.start();
+            for (int round = 0; round < complexityRounds; ++round) {
+                const int width = (round % 2) == 0 ? 640 : 641;
+                flow->setGeometry(QRect(0, 0, width, 12000));
+            }
+            return timer.nsecsElapsed();
+        };
+        const qint64 smallNanoseconds = measureComplexity(&smallLayout);
+        const qint64 largeNanoseconds = measureComplexity(&largeLayout);
+        const qreal complexityRatio =
+            static_cast<qreal>(largeNanoseconds)
+            / static_cast<qreal>(std::max<qint64>(1, smallNanoseconds));
+        QVERIFY2(
+            complexityRatio <= zzFlowLayoutComplexityRatio,
+            qPrintable(QStringLiteral(
+                "1000项与100项流式布局耗时比 %1 超过线性预算15.0")
+                           .arg(complexityRatio, 0, 'f', 3)));
+
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-flow-layout items=1000 frames=200 "
+                   "P50=%1 ms P95=%2 ms max=%3 ms "
+                   "item-visits=%4 max-frame-visits=%5 "
+                   "height-cache-10000=%6 ms ratio-1000-to-100=%7 "
+                   "descendants=%8 animations=%9 timers=%10")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(measuredVisits)
+                   .arg(maximumFrameVisits)
+                   .arg(heightCacheMilliseconds, 0, 'f', 3)
+                   .arg(complexityRatio, 0, 'f', 3)
+                   .arg(initialDescendants)
+                   .arg(initialAnimations)
+                   .arg(initialTimers);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzFlowLayoutReferenceMilliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机千项流式布局 P95 %1 ms 超过4 ms预算")
+                               .arg(p95, 0, 'f', 3)));
         }
     }
 
