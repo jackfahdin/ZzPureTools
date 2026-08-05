@@ -240,6 +240,7 @@ if(ZZ_BUILD_BENCHMARKS)
     )
     set_target_properties(ZzBasicControlsBenchmark PROPERTIES AUTOMOC ON)
     zz_enable_project_warnings(ZzBasicControlsBenchmark)
+    zz_enable_sanitizers(ZzBasicControlsBenchmark)
     add_test(
         NAME benchmark.fluent-basic-controls
         COMMAND ZzBasicControlsBenchmark
@@ -270,6 +271,7 @@ if(ZZ_BUILD_BENCHMARKS)
     set_target_properties(ZzFluentThemeSwitchBenchmark PROPERTIES
         AUTOMOC ON)
     zz_enable_project_warnings(ZzFluentThemeSwitchBenchmark)
+    zz_enable_sanitizers(ZzFluentThemeSwitchBenchmark)
     add_test(
         NAME benchmark.fluent-theme-switch
         COMMAND ZzFluentThemeSwitchBenchmark

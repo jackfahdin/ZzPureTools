@@ -96,6 +96,7 @@ set_target_properties(ZzLog PROPERTIES
 
 if(COMMAND zz_enable_project_warnings)
     zz_enable_project_warnings(ZzLog)
+    zz_enable_sanitizers(ZzLogBackend)
     zz_enable_sanitizers(ZzLog)
 elseif(MSVC)
     target_compile_options(ZzLog PRIVATE /utf-8)
@@ -159,11 +160,25 @@ if(ZZLOG_BUILD_TESTS)
         LABELS "component;zzlog"
         TIMEOUT 30
     )
+
+    if(COMMAND zz_enable_sanitizers)
+        foreach(zzlog_test_target IN ITEMS
+            zzlog-smoke
+            zzlog-format-contract
+            zzlog-overflow
+            zzlog-async-barrier
+        )
+            zz_enable_sanitizers(${zzlog_test_target})
+        endforeach()
+    endif()
 endif()
 
 if(ZZLOG_BUILD_EXAMPLES)
     add_executable(zzlog-basic-example examples/basic.cpp)
     target_link_libraries(zzlog-basic-example PRIVATE ZzLog::ZzLog)
+    if(COMMAND zz_enable_sanitizers)
+        zz_enable_sanitizers(zzlog-basic-example)
+    endif()
 endif()
 
 if(ZZLOG_INSTALL)
