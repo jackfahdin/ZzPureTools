@@ -156,7 +156,7 @@ if(ZZ_SYSTEM_NAME STREQUAL "Linux")
                "^(libZz[A-Za-z0-9_]*\\.so(\\.[0-9]+)*|libQt6(Core|Gui|Widgets|Svg|Concurrent)\\.so(\\.[0-9]+)*|lib(GLX|OpenGL)\\.so(\\.[0-9]+)*|libstdc\\+\\+\\.so(\\.[0-9]+)*|libgcc_s\\.so(\\.[0-9]+)*|libc\\.so(\\.[0-9]+)*|libm\\.so(\\.[0-9]+)*|libpthread\\.so(\\.[0-9]+)*|libdl\\.so(\\.[0-9]+)*|librt\\.so(\\.[0-9]+)*|ld-linux[^/]*\\.so(\\.[0-9]+)*)$")
                 if((ZZ_ENABLE_ASAN OR ZZ_ENABLE_UBSAN)
                    AND dependency MATCHES
-                       "^(lib(asan|ubsan)\\.so(\\.[0-9]+)*|libclang_rt\\.[A-Za-z0-9_.-]+\\.so)$")
+                       "^(lib(asan|ubsan)\\.so(\\.[0-9]+)*|libclang_rt\\.[A-Za-z0-9_.-]+\\.so|libresolv\\.so(\\.[0-9]+)*)$")
                     continue()
                 endif()
                 message(FATAL_ERROR
