@@ -127,6 +127,21 @@ set_tests_properties(fluent.progress-ring PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzScrollControlsTest ZzScrollControlsTest.cpp)
+target_link_libraries(ZzScrollControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzScrollControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzScrollControlsTest)
+zz_enable_sanitizers(ZzScrollControlsTest)
+add_test(NAME fluent.scroll-controls COMMAND ZzScrollControlsTest)
+set_tests_properties(fluent.scroll-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMessageBarTest ZzMessageBarTest.cpp)
 target_link_libraries(ZzMessageBarTest PRIVATE
     Qt6::Test

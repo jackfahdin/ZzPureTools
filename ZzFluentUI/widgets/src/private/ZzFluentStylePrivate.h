@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QtCore/QPointer>
+#include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtCore/Qt>
 #include <QtGui/QColor>
@@ -79,6 +80,19 @@ public:
         const QStyleOptionSlider *option,
         QPainter *painter,
         const QWidget *widget) const;
+    /** @brief 绘制无箭头 Fluent 滚动条轨道和滑块。 */
+    void drawScrollBar(
+        const QStyleOptionSlider *option,
+        QPainter *painter,
+        const QWidget *widget) const;
+    /** @brief 计算滚动条 slider、groove 和 page 稳定矩形。 */
+    [[nodiscard]] QRect scrollBarSubControlRect(
+        const QStyleOptionSlider *option,
+        QStyle::SubControl subControl) const;
+    /** @brief 使用滚动条稳定矩形执行命中测试。 */
+    [[nodiscard]] QStyle::SubControl hitTestScrollBar(
+        const QStyleOptionSlider *option,
+        const QPoint &position) const;
     /** @brief 绘制菜单选中背景并委托平台样式绘制内容。 */
     void drawMenuItem(
         const QStyleOptionMenuItem *option,

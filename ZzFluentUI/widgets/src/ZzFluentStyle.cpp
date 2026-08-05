@@ -71,6 +71,10 @@ int ZzFluentStyle::pixelMetric(
         return 4;
     case PM_ProgressBarChunkWidth:
         return 1;
+    case PM_ScrollBarExtent:
+        return 12;
+    case PM_ScrollBarSliderMin:
+        return 24;
     case PM_TabBarTabHSpace:
         return 24;
     case PM_TabBarTabVSpace:
@@ -269,6 +273,14 @@ void ZzFluentStyle::drawComplexControl(
             return;
         }
     }
+    if (control == CC_ScrollBar) {
+        const auto *scrollBar = qstyleoption_cast<
+            const QStyleOptionSlider *>(option);
+        if (scrollBar != nullptr && painter != nullptr) {
+            d_ptr->drawScrollBar(scrollBar, painter, widget);
+            return;
+        }
+    }
     QProxyStyle::drawComplexControl(control, option, painter, widget);
 }
 
@@ -290,7 +302,35 @@ QRect ZzFluentStyle::subControlRect(
         result.setSize(QSize(length, length));
         result.moveCenter(center);
     }
+    if (control == CC_ScrollBar) {
+        const auto *scrollBar = qstyleoption_cast<
+            const QStyleOptionSlider *>(option);
+        if (scrollBar != nullptr) {
+            return d_ptr->scrollBarSubControlRect(scrollBar, subControl);
+        }
+    }
     return result;
+}
+
+QStyle::SubControl ZzFluentStyle::hitTestComplexControl(
+    ComplexControl control,
+    const QStyleOptionComplex *option,
+    const QPoint &position,
+    const QWidget *widget) const
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_ScrollBar) {
+        const auto *scrollBar = qstyleoption_cast<
+            const QStyleOptionSlider *>(option);
+        if (scrollBar != nullptr) {
+            return d_ptr->hitTestScrollBar(scrollBar, position);
+        }
+    }
+    return QProxyStyle::hitTestComplexControl(
+        control,
+        option,
+        position,
+        widget);
 }
 
 } // namespace ZzFluentUI

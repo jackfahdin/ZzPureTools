@@ -126,7 +126,7 @@ public:
         const QWidget *widget = nullptr) const override;
 
     /**
-     * @brief 绘制滑块和组合框，其他复合控件委托给平台样式。
+     * @brief 绘制滑块、组合框和滚动条，其他复合控件委托给平台样式。
      * @param control Qt complex control 标识。
      * @param option 非拥有绘制状态。
      * @param painter 非拥有绘制目标。
@@ -150,6 +150,20 @@ public:
         ComplexControl control,
         const QStyleOptionComplex *option,
         SubControl subControl,
+        const QWidget *widget = nullptr) const override;
+
+    /**
+     * @brief 使用与滚动条绘制相同的稳定矩形执行命中测试。
+     * @param control Qt complex control 标识。
+     * @param option 非拥有绘制状态。
+     * @param position 控件局部坐标。
+     * @param widget 可选目标控件。
+     * @return 命中的子控件，未命中返回 SC_None。
+     */
+    [[nodiscard]] SubControl hitTestComplexControl(
+        ComplexControl control,
+        const QStyleOptionComplex *option,
+        const QPoint &position,
         const QWidget *widget = nullptr) const override;
 
 private:

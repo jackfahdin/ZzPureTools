@@ -44,6 +44,9 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzToggleSwitchPrivate.cpp
     widgets/src/ZzProgressRing.cpp
     widgets/src/private/ZzProgressRingPrivate.cpp
+    widgets/src/ZzScrollBar.cpp
+    widgets/src/private/ZzScrollBarPrivate.cpp
+    widgets/src/ZzScrollArea.cpp
     widgets/src/ZzMessageBar.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
     widgets/src/ZzCalendar.cpp
@@ -74,6 +77,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzIconButton.h
     widgets/include/ZzFluentUI/ZzToggleSwitch.h
     widgets/include/ZzFluentUI/ZzProgressRing.h
+    widgets/include/ZzFluentUI/ZzScrollBar.h
+    widgets/include/ZzFluentUI/ZzScrollArea.h
     widgets/include/ZzFluentUI/ZzMessageBar.h
     widgets/include/ZzFluentUI/ZzCalendar.h
     widgets/include/ZzFluentUI/ZzCalendarPicker.h

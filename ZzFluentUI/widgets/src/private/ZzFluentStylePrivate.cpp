@@ -21,8 +21,11 @@
 #include <ZzFluentUI/ZzIconCacheKey.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
+
+#include "ZzScrollBarPrivate.h"
 
 namespace ZzFluentUI {
 
@@ -534,6 +537,201 @@ void ZzFluentStylePrivate::drawSlider(
             QRectF(handle).adjusted(-2.0, -2.0, 2.0, 2.0));
     }
     painter->restore();
+}
+
+void ZzFluentStylePrivate::drawScrollBar(
+    const QStyleOptionSlider *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    if (!option->subControls.testFlag(QStyle::SC_ScrollBarSlider)) {
+        return;
+    }
+    const QRect slider = scrollBarSubControlRect(
+        option,
+        QStyle::SC_ScrollBarSlider);
+    if (slider.isEmpty()) {
+        return;
+    }
+
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const bool hovered = option->state.testFlag(QStyle::State_MouseOver);
+    const bool pressed = option->state.testFlag(QStyle::State_Sunken)
+        && option->activeSubControls.testFlag(QStyle::SC_ScrollBarSlider);
+    const bool focused = option->state.testFlag(QStyle::State_HasFocus);
+    qreal expansion = hovered || pressed || focused ? 1.0 : 0.0;
+    const auto *fluentScrollBar = qobject_cast<const ZzScrollBar *>(widget);
+    if (fluentScrollBar != nullptr) {
+        expansion = std::max(
+            expansion,
+            std::clamp(fluentScrollBar->d_ptr->expansion, 0.0, 1.0));
+    }
+    if (!enabled) {
+        expansion = 0.0;
+    }
+
+    const QPalette::ColorGroup group = enabled
+        ? QPalette::Normal
+        : QPalette::Disabled;
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(Qt::NoPen);
+    if (!qFuzzyIsNull(expansion)) {
+        painter->setBrush(snapshot->color(ZzColorToken::ControlFillHover));
+        const QRectF track = QRectF(option->rect).adjusted(
+            0.5,
+            0.5,
+            -0.5,
+            -0.5);
+        const qreal trackRadius = std::min(
+            track.width(),
+            track.height())
+            / 2.0;
+        painter->drawRoundedRect(track, trackRadius, trackRadius);
+    }
+
+    constexpr qreal compactThickness = 3.0;
+    constexpr qreal expandedThickness = 6.0;
+    const qreal thickness = compactThickness
+        + ((expandedThickness - compactThickness) * expansion);
+    QRectF handle(slider);
+    if (option->orientation == Qt::Horizontal) {
+        handle.setHeight(thickness);
+        handle.moveCenter(QRectF(slider).center());
+    } else {
+        handle.setWidth(thickness);
+        handle.moveCenter(QRectF(slider).center());
+    }
+    const QColor handleColor = focused
+        ? option->palette.color(group, QPalette::Highlight)
+        : option->palette.color(group, QPalette::Text);
+    painter->setBrush(handleColor);
+    painter->drawRoundedRect(handle, thickness / 2.0, thickness / 2.0);
+    painter->restore();
+}
+
+QRect ZzFluentStylePrivate::scrollBarSubControlRect(
+    const QStyleOptionSlider *option,
+    QStyle::SubControl subControl) const
+{
+    if (option == nullptr || option->rect.isEmpty()) {
+        return {};
+    }
+    if (subControl == QStyle::SC_ScrollBarGroove) {
+        return option->rect;
+    }
+    if (subControl == QStyle::SC_ScrollBarAddLine
+        || subControl == QStyle::SC_ScrollBarSubLine
+        || subControl == QStyle::SC_ScrollBarFirst
+        || subControl == QStyle::SC_ScrollBarLast) {
+        return {};
+    }
+
+    const bool horizontal = option->orientation == Qt::Horizontal;
+    const int available = horizontal
+        ? option->rect.width()
+        : option->rect.height();
+    if (available <= 0) {
+        return {};
+    }
+    const qint64 range = std::max<qint64>(
+        0,
+        static_cast<qint64>(option->maximum)
+            - static_cast<qint64>(option->minimum));
+    const qint64 pageStep = std::max<qint64>(0, option->pageStep);
+    const int minimumLength = std::min(
+        available,
+        q_ptr->pixelMetric(QStyle::PM_ScrollBarSliderMin, option));
+    int sliderLength = available;
+    if (range > 0) {
+        const qint64 denominator = range + pageStep;
+        const int proportional = pageStep > 0 && denominator > 0
+            ? qRound(
+                  static_cast<qreal>(pageStep)
+                  / static_cast<qreal>(denominator)
+                  * static_cast<qreal>(available))
+            : minimumLength;
+        sliderLength = std::clamp(
+            proportional,
+            minimumLength,
+            available);
+    }
+    const int travel = available - sliderLength;
+    const int boundedPosition = std::clamp(
+        option->sliderPosition,
+        option->minimum,
+        option->maximum);
+    const int sliderOffset = range > 0
+        ? QStyle::sliderPositionFromValue(
+              option->minimum,
+              option->maximum,
+              boundedPosition,
+              travel,
+              option->upsideDown)
+        : 0;
+    const QRect slider = horizontal
+        ? QRect(
+              option->rect.left() + sliderOffset,
+              option->rect.top(),
+              sliderLength,
+              option->rect.height())
+        : QRect(
+              option->rect.left(),
+              option->rect.top() + sliderOffset,
+              option->rect.width(),
+              sliderLength);
+    if (subControl == QStyle::SC_ScrollBarSlider) {
+        return slider;
+    }
+
+    const QRect before = horizontal
+        ? QRect(
+              option->rect.left(),
+              option->rect.top(),
+              slider.left() - option->rect.left(),
+              option->rect.height())
+        : QRect(
+              option->rect.left(),
+              option->rect.top(),
+              option->rect.width(),
+              slider.top() - option->rect.top());
+    const QRect after = horizontal
+        ? QRect(
+              slider.right() + 1,
+              option->rect.top(),
+              option->rect.right() - slider.right(),
+              option->rect.height())
+        : QRect(
+              option->rect.left(),
+              slider.bottom() + 1,
+              option->rect.width(),
+              option->rect.bottom() - slider.bottom());
+    if (subControl == QStyle::SC_ScrollBarSubPage) {
+        return option->upsideDown ? after : before;
+    }
+    if (subControl == QStyle::SC_ScrollBarAddPage) {
+        return option->upsideDown ? before : after;
+    }
+    return {};
+}
+
+QStyle::SubControl ZzFluentStylePrivate::hitTestScrollBar(
+    const QStyleOptionSlider *option,
+    const QPoint &position) const
+{
+    if (option == nullptr || !option->rect.contains(position)) {
+        return QStyle::SC_None;
+    }
+    for (const QStyle::SubControl subControl : {
+             QStyle::SC_ScrollBarSlider,
+             QStyle::SC_ScrollBarSubPage,
+             QStyle::SC_ScrollBarAddPage}) {
+        if (option->subControls.testFlag(subControl)
+            && scrollBarSubControlRect(option, subControl).contains(position)) {
+            return subControl;
+        }
+    }
+    return QStyle::SC_None;
 }
 
 void ZzFluentStylePrivate::drawMenuItem(
