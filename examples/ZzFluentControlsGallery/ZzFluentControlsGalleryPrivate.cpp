@@ -5,6 +5,7 @@
 #include <QtCore/QDate>
 #include <QtCore/QLocale>
 #include <QtGui/QFont>
+#include <QtGui/QCloseEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QPixmap>
 #include <QtGui/QStandardItemModel>
@@ -27,7 +28,6 @@
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSplitter>
-#include <QtWidgets/QTabBar>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QTreeView>
@@ -48,6 +48,7 @@
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -57,6 +58,67 @@
 namespace ZzExamples {
 
 namespace {
+
+/** @brief 由画廊应用拥有、关闭时按策略回填页面的普通顶层宿主。 */
+class ZzDetachedTabWindow final : public QWidget
+{
+public:
+    /** @brief 创建尚未接收页面的演示浮窗。 */
+    ZzDetachedTabWindow(
+        ZzFluentUI::ZzTabWidget *source,
+        QWidget *owner)
+        : QWidget(owner, Qt::Window)
+        , origin(source)
+        , tabs(new ZzFluentUI::ZzTabWidget(this))
+    {
+        setAttribute(Qt::WA_DeleteOnClose);
+        setWindowTitle(QStringLiteral("Detached tab"));
+        auto *layout = new QVBoxLayout(this);
+        layout->setContentsMargins(8, 8, 8, 8);
+        tabs->setTabsClosable(true);
+        layout->addWidget(tabs);
+        resize(560, 360);
+        QObject::connect(
+            tabs,
+            &QTabWidget::currentChanged,
+            this,
+            [this](int index) {
+                if (index < 0 && !returningPages) {
+                    close();
+                }
+            });
+    }
+
+    /** @brief 返回浮窗内的目标标签容器。 */
+    [[nodiscard]] ZzFluentUI::ZzTabWidget *tabHost() const noexcept
+    {
+        return tabs;
+    }
+
+protected:
+    /** @brief 关闭前把仍存在的页面同步转回来源。 */
+    void closeEvent(QCloseEvent *event) override
+    {
+        if (event == nullptr) {
+            return;
+        }
+        returningPages = true;
+        while (!origin.isNull() && tabs->count() > 0) {
+            if (!tabs->transferTabTo(origin, 0)) {
+                returningPages = false;
+                event->ignore();
+                return;
+            }
+        }
+        returningPages = false;
+        QWidget::closeEvent(event);
+    }
+
+private:
+    QPointer<ZzFluentUI::ZzTabWidget> origin;
+    ZzFluentUI::ZzTabWidget *const tabs;
+    bool returningPages = false;
+};
 
 /** @brief 创建用于分隔控件组的紧凑标题。 */
 QLabel *zzSectionTitle(const QString &text, QWidget *parent)
@@ -335,12 +397,37 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
         &QWidget::hide);
     layout->addWidget(message);
 
-    auto *tabs = new QTabBar(container);
-    tabs->addTab(QStringLiteral("Overview"));
-    tabs->addTab(QStringLiteral("Details"));
-    tabs->addTab(QStringLiteral("History"));
-    tabs->setCurrentIndex(1);
-    layout->addWidget(tabs);
+    layout->addWidget(zzSectionTitle(QStringLiteral("Tabs"), container));
+    auto *tabRow = new QHBoxLayout;
+    tabRow->setContentsMargins(0, 0, 0, 0);
+    tabRow->setSpacing(8);
+    auto *primaryTabs = new ZzFluentUI::ZzTabWidget(container);
+    auto *secondaryTabs = new ZzFluentUI::ZzTabWidget(container);
+    primaryTabs->setTabsClosable(true);
+    secondaryTabs->setTabsClosable(true);
+    for (const QString &text : {
+             QStringLiteral("Overview"),
+             QStringLiteral("Details"),
+             QStringLiteral("History")}) {
+        auto *page = new QLabel(text, primaryTabs);
+        page->setAlignment(Qt::AlignCenter);
+        primaryTabs->addTab(page, text);
+    }
+    for (const QString &text : {
+             QStringLiteral("Output"),
+             QStringLiteral("Problems")}) {
+        auto *page = new QLabel(text, secondaryTabs);
+        page->setAlignment(Qt::AlignCenter);
+        secondaryTabs->addTab(page, text);
+    }
+    primaryTabs->setCurrentIndex(1);
+    primaryTabs->setFixedHeight(150);
+    secondaryTabs->setFixedHeight(150);
+    bindTabHost(primaryTabs);
+    bindTabHost(secondaryTabs);
+    tabRow->addWidget(primaryTabs, 1);
+    tabRow->addWidget(secondaryTabs, 1);
+    layout->addLayout(tabRow);
 
     layout->addWidget(zzSectionTitle(QStringLiteral("Cards"), container));
     auto *actionCard = new ZzFluentUI::ZzActionCard(
@@ -492,6 +579,57 @@ void ZzFluentControlsGalleryPrivate::showDialog()
     layout->addWidget(buttons);
     dialog->resize(360, 140);
     dialog->show();
+}
+
+void ZzFluentControlsGalleryPrivate::bindTabHost(
+    ZzFluentUI::ZzTabWidget *tabs)
+{
+    if (tabs == nullptr) {
+        return;
+    }
+    QObject::connect(
+        tabs,
+        &QTabWidget::tabCloseRequested,
+        q_ptr,
+        [tabs](int index) {
+            QWidget *page = tabs->widget(index);
+            if (page == nullptr) {
+                return;
+            }
+            tabs->removeTab(index);
+            page->deleteLater();
+        });
+    QObject::connect(
+        tabs,
+        &ZzFluentUI::ZzTabWidget::tearOffRequested,
+        q_ptr,
+        [this, tabs](
+            int index,
+            QWidget *,
+            const QPoint &globalPosition) {
+            showDetachedTab(tabs, index, globalPosition);
+        });
+}
+
+void ZzFluentControlsGalleryPrivate::showDetachedTab(
+    ZzFluentUI::ZzTabWidget *source,
+    int index,
+    const QPoint &globalPosition)
+{
+    if (source == nullptr || index < 0 || index >= source->count()) {
+        return;
+    }
+    const QString title = source->tabText(index);
+    auto *window = new ZzDetachedTabWindow(source, q_ptr);
+    ZzFluentUI::ZzTabWidget *target = window->tabHost();
+    bindTabHost(target);
+    if (!source->transferTabTo(target, index)) {
+        delete window;
+        return;
+    }
+    window->setWindowTitle(title);
+    window->move(globalPosition - QPoint(window->width() / 2, 20));
+    window->show();
 }
 
 } // namespace ZzExamples

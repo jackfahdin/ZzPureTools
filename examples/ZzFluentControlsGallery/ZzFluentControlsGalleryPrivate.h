@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QPoint>
 #include <QtCore/QPointer>
 
 class QHBoxLayout;
@@ -11,6 +12,7 @@ namespace ZzFluentUI {
 
 class ZzCalendar;
 class ZzCalendarPicker;
+class ZzTabWidget;
 class ZzThemeController;
 
 } // namespace ZzFluentUI
@@ -42,6 +44,15 @@ public:
 
     /** @brief 构造一个不访问业务对象的非模态示例 Dialog。 */
     void showDialog();
+
+    /** @brief 为画廊标签容器绑定关闭意图和应用层拖出宿主。 */
+    void bindTabHost(ZzFluentUI::ZzTabWidget *tabs);
+
+    /** @brief 创建普通顶层示例宿主并同步移入指定页面。 */
+    void showDetachedTab(
+        ZzFluentUI::ZzTabWidget *source,
+        int index,
+        const QPoint &globalPosition);
 
     ZzFluentControlsGallery *const q_ptr;
     QPointer<ZzFluentUI::ZzThemeController> controller;

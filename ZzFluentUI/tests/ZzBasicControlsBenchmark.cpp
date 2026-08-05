@@ -28,6 +28,7 @@
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
 
@@ -456,6 +457,136 @@ private Q_SLOTS:
                 p95 <= zzReferenceP95Milliseconds,
                 qPrintable(QStringLiteral(
                     "参考机日历 P95 %1 ms 超过 16.7 ms 帧预算")
+                               .arg(p95, 0, 'f', 3)));
+        }
+    }
+
+    void measuresTabRenderingAndTransferStability()
+    {
+        constexpr int pageCount = 100;
+        constexpr int transferRoundTrips = 1000;
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        host.setPalette(style.standardPalette());
+        auto *layout = new QVBoxLayout(&host);
+        auto *source = new ZzFluentUI::ZzTabWidget(&host);
+        auto *targetTabs = new ZzFluentUI::ZzTabWidget(&host);
+        source->setTabsClosable(true);
+        targetTabs->setTabsClosable(true);
+        layout->addWidget(source);
+        layout->addWidget(targetTabs);
+
+        QSet<QWidget *> expectedPages;
+        for (int index = 0; index < pageCount; ++index) {
+            auto *page = new QWidget(source);
+            page->setAutoFillBackground(true);
+            source->addTab(
+                page,
+                QStringLiteral("Workspace %1").arg(index + 1));
+            expectedPages.insert(page);
+        }
+        host.resize(1000, 480);
+        host.show();
+        QCoreApplication::processEvents();
+        QImage targetImage(
+            host.size(),
+            QImage::Format_ARGB32_Premultiplied);
+
+        const auto renderFrame = [source, &host, &targetImage](int sequence) {
+            const int from = (sequence * 7) % source->count();
+            const int slot = (from + 5) % (source->count() + 1);
+            if (!source->transferTabTo(source, from, slot)) {
+                return qint64(-1);
+            }
+            source->setCurrentIndex(sequence % source->count());
+            QElapsedTimer timer;
+            timer.start();
+            targetImage.fill(Qt::transparent);
+            QPainter painter(&targetImage);
+            host.render(&painter);
+            painter.end();
+            return timer.nsecsElapsed();
+        };
+
+        for (int warmup = 0; warmup < zzWarmupFrames; ++warmup) {
+            QVERIFY(renderFrame(warmup) >= 0);
+        }
+        QCoreApplication::processEvents();
+        const qsizetype initialDescendants =
+            host.findChildren<QObject *>().size();
+        const qsizetype initialTimers =
+            host.findChildren<QTimer *>().size();
+        const qsizetype initialAnimations =
+            host.findChildren<QAbstractAnimation *>().size();
+
+        std::vector<qint64> samples;
+        samples.reserve(zzMeasuredFrames);
+        for (int frame = 0; frame < zzMeasuredFrames; ++frame) {
+            const qint64 elapsed = renderFrame(frame + zzWarmupFrames);
+            QVERIFY(elapsed >= 0);
+            samples.push_back(elapsed);
+        }
+
+        QElapsedTimer transferTimer;
+        transferTimer.start();
+        for (int iteration = 0;
+             iteration < transferRoundTrips;
+             ++iteration) {
+            QWidget *page = source->widget(iteration % source->count());
+            QVERIFY(page != nullptr);
+            QVERIFY(source->transferTabTo(targetTabs, source->indexOf(page)));
+            QVERIFY(targetTabs->transferTabTo(
+                source,
+                targetTabs->indexOf(page)));
+            QCoreApplication::sendPostedEvents(
+                nullptr,
+                QEvent::DeferredDelete);
+        }
+        const qint64 transferNanoseconds = transferTimer.nsecsElapsed();
+        QCoreApplication::processEvents();
+
+        QSet<QWidget *> actualPages;
+        for (int index = 0; index < source->count(); ++index) {
+            actualPages.insert(source->widget(index));
+        }
+        QCOMPARE(actualPages, expectedPages);
+        QCOMPARE(source->count(), pageCount);
+        QCOMPARE(targetTabs->count(), 0);
+        QCOMPARE(
+            host.findChildren<QObject *>().size(),
+            initialDescendants);
+        QCOMPARE(host.findChildren<QTimer *>().size(), initialTimers);
+        QCOMPARE(
+            host.findChildren<QAbstractAnimation *>().size(),
+            initialAnimations);
+
+        std::sort(samples.begin(), samples.end());
+        const qreal p50 = zzPercentileMilliseconds(samples, 0.50);
+        const qreal p95 = zzPercentileMilliseconds(samples, 0.95);
+        const qreal maximum =
+            static_cast<qreal>(samples.back()) / 1000000.0;
+        const qreal transferAverageMicroseconds =
+            static_cast<qreal>(transferNanoseconds)
+            / static_cast<qreal>(transferRoundTrips)
+            / 1000.0;
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-tabs pages=100 P50=%1 ms P95=%2 ms max=%3 ms "
+                   "roundTrips=1000 average=%4 us descendants=%5")
+                   .arg(p50, 0, 'f', 3)
+                   .arg(p95, 0, 'f', 3)
+                   .arg(maximum, 0, 'f', 3)
+                   .arg(transferAverageMicroseconds, 0, 'f', 3)
+                   .arg(initialDescendants);
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                p95 <= zzReferenceP95Milliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机标签页 P95 %1 ms 超过 16.7 ms 帧预算")
                                .arg(p95, 0, 'f', 3)));
         }
     }

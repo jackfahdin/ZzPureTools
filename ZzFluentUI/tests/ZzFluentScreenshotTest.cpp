@@ -16,6 +16,8 @@
 #include <QtGui/QFontDatabase>
 #include <QtGui/QFontInfo>
 #include <QtGui/QImage>
+#include <QtGui/QEnterEvent>
+#include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QScreen>
 #include <QtGui/QStandardItemModel>
@@ -62,6 +64,8 @@
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -1195,6 +1199,189 @@ private:
     QPointer<ZzFluentUI::ZzActionCard> focusCard;
 };
 
+/** @brief 保存标签页截图中文字遮罩及覆盖数量。 */
+struct ZzTabTextMask final
+{
+    QImage image;
+    int tabBars = 0;
+    int tabTexts = 0;
+};
+
+/** @brief 构造只包含标签页关键视觉状态的独立确定性截图面。 */
+class ZzTabScreenshotSurface final
+{
+public:
+    /** @brief 创建普通、溢出、RTL 和垂直标签页视觉矩阵。 */
+    ZzTabScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzTabScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Tabs"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(28, 28, 28, 28);
+        grid->setHorizontalSpacing(24);
+        grid->setVerticalSpacing(24);
+
+        auto *normal = createTabs(&window);
+        addPage(normal, QStringLiteral("Overview"));
+        addPage(normal, QStringLiteral("Details"));
+        addPage(normal, QStringLiteral("History"));
+        addPage(normal, QStringLiteral("Disabled"));
+        normal->setTabEnabled(3, false);
+        normal->setCurrentIndex(1);
+        focusBar = normal->fluentTabBar();
+        grid->addWidget(normal, 0, 0);
+
+        auto *overflow = createTabs(&window);
+        overflow->setTabsClosable(true);
+        for (int index = 0; index < 12; ++index) {
+            addPage(
+                overflow,
+                QStringLiteral("Long workspace tab %1").arg(index + 1));
+        }
+        overflow->setCurrentIndex(4);
+        hoverBar = overflow->fluentTabBar();
+        grid->addWidget(overflow, 0, 1);
+
+        auto *rtl = createTabs(&window);
+        rtl->setLayoutDirection(Qt::RightToLeft);
+        rtl->setTabsClosable(true);
+        addPage(rtl, QStringLiteral("Primary"));
+        addPage(rtl, QStringLiteral("Secondary"));
+        addPage(rtl, QStringLiteral("Archive"));
+        rtl->setCurrentIndex(0);
+        grid->addWidget(rtl, 1, 0);
+
+        auto *vertical = createTabs(&window);
+        vertical->setTabPosition(QTabWidget::West);
+        addPage(vertical, QStringLiteral("General"));
+        addPage(vertical, QStringLiteral("Appearance"));
+        addPage(vertical, QStringLiteral("Advanced"));
+        addPage(vertical, QStringLiteral("About"));
+        vertical->setCurrentIndex(2);
+        grid->addWidget(vertical, 1, 1);
+    }
+
+    /** @brief 展示画面并确定性设置 hover 与键盘焦点状态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (hoverBar != nullptr && hoverBar->count() > 1) {
+            const QPoint localPosition = hoverBar->tabRect(1).center();
+            const QPoint globalPosition = hoverBar->mapToGlobal(localPosition);
+            QEnterEvent enterEvent{
+                QPointF(localPosition),
+                QPointF(localPosition),
+                QPointF(globalPosition)};
+            QCoreApplication::sendEvent(hoverBar, &enterEvent);
+            QMouseEvent moveEvent(
+                QEvent::MouseMove,
+                QPointF(localPosition),
+                QPointF(globalPosition),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(hoverBar, &moveEvent);
+        }
+        if (focusBar != nullptr) {
+            focusBar->setFocus(Qt::TabFocusReason);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏标签页截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 创建尺寸稳定且不带业务行为的标签容器。 */
+    static ZzFluentUI::ZzTabWidget *createTabs(QWidget *parent)
+    {
+        auto *tabs = new ZzFluentUI::ZzTabWidget(parent);
+        tabs->setMinimumSize(520, 340);
+        return tabs;
+    }
+
+    /** @brief 向指定容器添加无文字内容页，避免重复字体遮罩。 */
+    static void addPage(
+        ZzFluentUI::ZzTabWidget *tabs,
+        const QString &text)
+    {
+        auto *page = new QWidget(tabs);
+        page->setAutoFillBackground(true);
+        QPalette pagePalette = page->palette();
+        pagePalette.setColor(
+            QPalette::Window,
+            tabs->palette().color(QPalette::AlternateBase));
+        page->setPalette(pagePalette);
+        tabs->addTab(page, text);
+    }
+
+    QPointer<ZzFluentUI::ZzTabBar> hoverBar;
+    QPointer<ZzFluentUI::ZzTabBar> focusBar;
+};
+
+/** @brief 为独立标签页画面构造只覆盖标签文字的像素遮罩。 */
+ZzTabTextMask zzBuildTabTextMask(QWidget *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzTabTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto tabBars = surface->findChildren<ZzFluentUI::ZzTabBar *>();
+    for (ZzFluentUI::ZzTabBar *tabBar : tabBars) {
+        if (!tabBar->isVisible()) {
+            continue;
+        }
+        ++result.tabBars;
+        for (int index = 0; index < tabBar->count(); ++index) {
+            const QString text = tabBar->tabText(index);
+            if (text.isEmpty()) {
+                continue;
+            }
+            const QRect textRect = zzAlignedTextRect(
+                tabBar,
+                tabBar->tabRect(index),
+                Qt::AlignCenter,
+                text);
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(tabBar, textRect, surface));
+            ++result.tabTexts;
+        }
+    }
+    painter.end();
+    return result;
+}
+
+/** @brief 将独立标签页窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderTabSurface(ZzTabScreenshotSurface *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 将独立卡片窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderCardSurface(ZzCardScreenshotSurface *surface, qreal dpr)
 {
@@ -1466,6 +1653,102 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 卡片非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersTabThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("tabs-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("tabs-light");
+        QTest::newRow("tabs-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("tabs-dark");
+        QTest::newRow("tabs-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("tabs-high-contrast");
+    }
+
+    void rendersTabThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzTabScreenshotSurface surface;
+        surface.polish();
+        const QImage actual = zzRenderTabSurface(&surface, actualDpr_);
+        QCOMPARE(
+            actual.size(),
+            QSize(
+                qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+                qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        const ZzTabTextMask mask = zzBuildTabTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.tabBars, 4);
+        QVERIFY(mask.tabTexts >= 20);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 标签页非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
