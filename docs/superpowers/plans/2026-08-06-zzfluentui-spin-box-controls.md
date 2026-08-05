@@ -251,4 +251,39 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
 ## 13. 交付结果
 
-待实现完成后填写。
+### 13.1 提交
+
+- `e9fa66b`：规划 Fluent 数值输入控件批次，完成旧版实现、Qt 原生语义、性能风险与跨平台边界审计。
+- `a0da76b`：实现 `ZzSpinBox`、`ZzDoubleSpinBox` 以及应用级 `ZzFluentStyle` 的尺寸、绘制、子控件几何和命中测试。
+- `1c54186`：补齐原生输入语义、无障碍、对象稳定性、性能、安装消费、公开头和画廊接入。
+- `e7c213a`：同步当前 Fluent 滚动条与固定日历夹具对应的既有全控件视觉基线。
+- `fe18033`：新增数值输入独立截图面，以及三主题、四档 DPR 的 12 张视觉基线。
+
+### 13.2 代码级交付
+
+- `ZzSpinBox` 与 `ZzDoubleSpinBox` 分别直接继承 `QSpinBox` 与 `QDoubleSpinBox`；类本身不增加数据成员、PIMPL、QObject 后代、事件过滤器、style、animation 或 timer，每个实例只把默认按钮符号设为 `QAbstractSpinBox::PlusMinus`。
+- value、range、single step、decimals、prefix/suffix、special value、validator、locale、输入法、键盘、滚轮、context menu、信号和无障碍继续由 Qt 原生控件维护，没有第二份状态或重复输入协议。
+- `ZzFluentStyle` 统一处理 Zz 类型和标准 Qt spin box：`CT_SpinBox` 保留基础 style 的文本测量并保证最小尺寸，`CC_SpinBox` 使用同一组 `subControlRect()` 结果完成绘制与 `hitTestComplexControl()` 命中。
+- `PlusMinus`、`UpDownArrows`、`NoButtons`，LTR/RTL、奇偶高度、禁用、只读、焦点、hover、pressed 和 step enabled 状态均由公开 `QStyleOptionSpinBox`/`QAbstractSpinBox` API 表达；绘制层不访问内部编辑器文字或业务数据。
+- 未迁移旧版每实例 proxy style、手动删除 `style()`、动态动画、stylesheet、固定控件尺寸、自定义 context menu 和自定义 `ButtonMode`，避免额外所有权、状态同步和跨平台几何分歧。
+
+### 13.3 本机验证
+
+- 环境：活动 `local-release-xvfb` 本机发布参考环境，Ubuntu 26.04 LTS、Linux 7.0.0-28-generic x86_64、Intel Core i7-14700、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8；全部验证使用已有 `/home/zz/Qt/6.11.1/gcc_64`。
+- GCC Release shared：重新配置与全量构建通过，88/88 项 CTest 通过，包含公开头、架构边界、fresh 安装消费、包重定位、四档截图和四个示例 smoke。
+- Clang ASan/UBSan shared：重新配置与全量构建通过，88/88 项 CTest 通过；未发现内存错误、泄漏、悬空访问或未定义行为。
+- GCC Release static：重新配置与全量构建通过，88/88 项 CTest 通过；静态安装消费、包重定位、公开头和示例 smoke 均通过。
+- Clang-Tidy：shared 与 static 编译数据库各有 307 条记录，仓库过滤规则分别选择 127/127 个一方翻译单元；两套均在 `warnings-as-errors` 下通过，无项目诊断。
+- 安装消费：GCC shared、Clang sanitizer shared 和 GCC static 三套隔离 fresh producer/A/B/consumer 流程均完成重新配置、编译、安装、链接和运行；消费者只链接 `Zz::FluentUI` 即可包含并构造两个公开类型。
+- 截图：新增 `spin-box-controls` 的 Light、Dark、HighContrast x DPR 1.0/1.25/1.5/2.0 共 12 张基线，四档严格像素比较全部通过；DPR 1.0 三主题与 DPR 2.0 Light 已人工检查，无空白、裁切或重叠，LTR/RTL、按钮符号、焦点、按压、只读和禁用态均可辨认。测试还用真实 Qt 鼠标命中确认按压上按钮会执行原生增量。
+- 既有基线：同步 12 张全控件参考图，使其与当前 Fluent 滚动条和固定日期 `2026-08-06` 的日历夹具一致；同步后四档严格比较通过，未通过提高容差掩盖差异。
+- Release 性能：100 个数值输入框、120 个正式渲染帧的 P50 为 `0.621 ms`、P95 为 `0.659 ms`、max 为 `0.685 ms`，低于 `16.7 ms` 帧预算。
+- 对象稳定性：100 个控件拥有 400 个 QObject 后代、0 个 animation 和 0 个 timer；执行 1000 轮 range、value、按钮符号和 LTR/RTL 切换后三项数量均不增长。
+
+### 13.4 平台与执行边界
+
+- CMake preset 矩阵契约通过，继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static 组合；原生门禁脚本契约通过。
+- 本批生产代码未引入平台条件分支、Windows/macOS/Linux 原生系统头、编译器扩展、绝对路径、Qt Private API、QWindowKit、ZzWindowKit/ZzPureTools 反向依赖或依赖平台 ABI 宽度的类型假设。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成 Qt 公共 API、标准 C++20、CMake 源文件/安装清单、依赖方向和条件编译的源码静态审计；未在对应原生工具链完成编译、安装消费或真机交互验证，不得标记为目标平台验证通过。
+- 当前发布参考环境仍是 `local-release-xvfb`；原 `ubuntu2204-github-ci` 参考档案继续保留为 `pending-user-validation`，本批结果没有冒充 Ubuntu 22.04 兼容验证。
+- 本批次未调用 GitHub CLI、未运行或读取远端 CI、未下载 Qt、未 push；远端矩阵按用户要求继续暂缓。
