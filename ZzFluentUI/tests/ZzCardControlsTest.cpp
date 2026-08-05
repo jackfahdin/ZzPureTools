@@ -1,5 +1,4 @@
 #include <QtCore/QAbstractAnimation>
-#include <QtCore/QMetaProperty>
 #include <QtCore/QTimer>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -93,18 +92,17 @@ private Q_SLOTS:
         QCOMPARE(aspectSpy.count(), 1);
         image.setAspectRatioMode(Qt::KeepAspectRatio);
         QCOMPARE(aspectSpy.count(), 1);
-        const int aspectPropertyIndex = image.metaObject()->indexOfProperty(
-            "aspectRatioMode");
-        QVERIFY(aspectPropertyIndex >= 0);
-        const QMetaProperty aspectProperty =
-            image.metaObject()->property(aspectPropertyIndex);
-        QVERIFY(aspectProperty.write(&image, 99));
+        image.setAspectRatioMode(Qt::IgnoreAspectRatio);
+        QCOMPARE(aspectSpy.count(), 2);
         QCOMPARE(
             image.aspectRatioMode(),
-            Qt::KeepAspectRatioByExpanding);
+            Qt::IgnoreAspectRatio);
+        image.setAspectRatioMode(Qt::IgnoreAspectRatio);
         QCOMPARE(aspectSpy.count(), 2);
-        QVERIFY(aspectProperty.write(&image, 99));
-        QCOMPARE(aspectSpy.count(), 2);
+        image.setAspectRatioMode(Qt::KeepAspectRatioByExpanding);
+        QCOMPARE(aspectSpy.count(), 3);
+        image.setAspectRatioMode(Qt::KeepAspectRatioByExpanding);
+        QCOMPARE(aspectSpy.count(), 3);
     }
 
     void preservesNativeKeyboardAndCheckableSemantics()
