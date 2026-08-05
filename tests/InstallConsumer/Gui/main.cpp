@@ -1,6 +1,7 @@
 #include <QtCore/QDate>
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QTimer>
 #include <QtGui/QActionGroup>
 #include <QtGui/QIntValidator>
 #include <QtGui/QKeyEvent>
@@ -21,6 +22,8 @@
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzRoller.h>
+#include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
@@ -108,6 +111,8 @@ int main(int argc, char *argv[])
     ZzFluentUI::ZzDoubleSpinBox floatingInput;
     ZzFluentUI::ZzSuggestBox suggestBox;
     ZzFluentUI::ZzMultiSelectComboBox multiSelect;
+    ZzFluentUI::ZzRoller roller;
+    ZzFluentUI::ZzRollerPicker rollerPicker;
     ZzFluentUI::ZzTabWidget sourceTabs;
     ZzFluentUI::ZzTabWidget targetTabs;
     QWidget *tabPage = new QWidget;
@@ -156,6 +161,30 @@ int main(int argc, char *argv[])
     multiSelect.setSelectedKeys({
         multiSelect.options().at(0).key,
         multiSelect.options().at(2).key});
+    roller.setStyle(&fluentStyle);
+    roller.setItems({
+        QStringLiteral("Low"),
+        QStringLiteral("High"),
+        QStringLiteral("High")});
+    roller.setWrapping(true);
+    roller.setCurrentIndex(2);
+    rollerPicker.setStyle(&fluentStyle);
+    rollerPicker.setColumns({
+        {QStringLiteral("time"),
+         {QStringLiteral("08"), QStringLiteral("09")},
+         1, true, 96},
+        {QStringLiteral("time"),
+         {QStringLiteral("00"), QStringLiteral("30")},
+         0, false, 96},
+        {{}, {QStringLiteral("AM"), QStringLiteral("PM")},
+         1, false, 80}});
+    const QList<int> installedPickerIndexes =
+        rollerPicker.currentIndexes();
+    rollerPicker.showPopup();
+    if (!rollerPicker.setCurrentIndex(0, 0)) {
+        return 1;
+    }
+    rollerPicker.cancelPopup();
     QStyleOptionFrame lineOption;
     lineOption.initFrom(&lineEdit);
     const QSize lineSize = fluentStyle.sizeFromContents(
@@ -274,6 +303,20 @@ int main(int argc, char *argv[])
                multiSelect.model()->index(0, 0),
                ZzFluentUI::ZzMultiSelectComboBox::KeyRole).toString()
             != multiSelect.options().at(0).key
+        || roller.style() != &fluentStyle
+        || roller.itemCount() != 3
+        || roller.currentIndex() != 2
+        || roller.currentText() != QStringLiteral("High")
+        || !roller.wrapping()
+        || roller.findChildren<QTimer *>().size() != 0
+        || rollerPicker.style() != &fluentStyle
+        || rollerPicker.columnCount() != 3
+        || rollerPicker.currentIndexes() != installedPickerIndexes
+        || rollerPicker.currentText() != QStringLiteral("09 / 00 / PM")
+        || rollerPicker.columns().at(0).key
+            == rollerPicker.columns().at(1).key
+        || rollerPicker.columns().at(2).key.isEmpty()
+        || rollerPicker.isPopupVisible()
         || sourceTabs.fluentTabBar() == nullptr
         || !sourceTabs.transferTabTo(&targetTabs, 0)
         || sourceTabs.count() != 0

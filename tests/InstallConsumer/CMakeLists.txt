@@ -24,6 +24,8 @@ set(zz_installed_header_specs
     "Zz::FluentUI|ZzFluentUI/ZzSpinBox.h"
     "Zz::FluentUI|ZzFluentUI/ZzDoubleSpinBox.h"
     "Zz::FluentUI|ZzFluentUI/ZzMultiSelectComboBox.h"
+    "Zz::FluentUI|ZzFluentUI/ZzRoller.h"
+    "Zz::FluentUI|ZzFluentUI/ZzRollerPicker.h"
     "Zz::FluentUI|ZzFluentUI/ZzTabBar.h"
     "Zz::FluentUI|ZzFluentUI/ZzTabWidget.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreVersion.h"

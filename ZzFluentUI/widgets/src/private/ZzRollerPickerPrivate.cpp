@@ -171,12 +171,12 @@ ZzRollerPickerPrivate::~ZzRollerPickerPrivate()
 bool ZzRollerPickerPrivate::setColumns(
     QList<ZzRollerColumn> replacement)
 {
-    if (popupActive) {
-        cancelPopup();
-    }
     replacement = normalizeColumns(std::move(replacement));
     if (columns == replacement) {
         return false;
+    }
+    if (popupActive) {
+        cancelPopup();
     }
 
     const QList<int> oldIndexes = currentIndexes();
@@ -377,7 +377,6 @@ void ZzRollerPickerPrivate::showPopup()
     popup->setAccessibleName(q_ptr->accessibleName());
     preparePopupGeometry();
     popup->show();
-    popup->raise();
     Q_EMIT q_ptr->popupVisibleChanged(true);
 
     const auto firstSelectable = std::find_if(

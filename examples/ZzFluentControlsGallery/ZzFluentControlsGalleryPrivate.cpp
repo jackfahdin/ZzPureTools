@@ -54,6 +54,8 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzRoller.h>
+#include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
@@ -492,6 +494,65 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
                          selected ? QStringLiteral("selected")
                                   : QStringLiteral("cleared")));
         });
+    auto *roller = new ZzFluentUI::ZzRoller(container);
+    roller->setAccessibleName(QStringLiteral("Build priority"));
+    roller->setVisibleItemCount(3);
+    roller->setItems({
+        QStringLiteral("Low"),
+        QStringLiteral("Normal"),
+        QStringLiteral("High"),
+        QStringLiteral("Urgent")});
+    roller->setCurrentIndex(1);
+    roller->setWrapping(false);
+    auto *rollerResult = new QLabel(roller->currentText(), container);
+    QObject::connect(
+        roller,
+        &ZzFluentUI::ZzRoller::activated,
+        rollerResult,
+        [rollerResult](int index, const QString &text) {
+            rollerResult->setText(
+                QStringLiteral("%1 [%2]").arg(text).arg(index));
+        });
+    auto *rollerPicker = new ZzFluentUI::ZzRollerPicker(container);
+    rollerPicker->setAccessibleName(QStringLiteral("Appointment time"));
+    QStringList hours;
+    for (int hour = 1; hour <= 12; ++hour) {
+        hours.append(QString::number(hour));
+    }
+    rollerPicker->setColumns({
+        {QStringLiteral("hour"), hours, 8, true, 96},
+        {QStringLiteral("minute"),
+         {QStringLiteral("00"), QStringLiteral("15"),
+          QStringLiteral("30"), QStringLiteral("45")},
+         2, true, 96},
+        {QStringLiteral("period"),
+         {QStringLiteral("AM"), QStringLiteral("PM")},
+         0, false, 80}});
+    auto *rollerPickerResult = new QLabel(
+        rollerPicker->currentText(),
+        container);
+    QObject::connect(
+        rollerPicker,
+        &ZzFluentUI::ZzRollerPicker::currentSelectionChanged,
+        rollerPickerResult,
+        [rollerPickerResult](
+            const QList<int> &indexes,
+            const QStringList &texts) {
+            rollerPickerResult->setText(
+                texts.join(QStringLiteral(" / ")));
+            rollerPickerResult->setToolTip(
+                QStringLiteral("%1, %2, %3")
+                    .arg(indexes.value(0))
+                    .arg(indexes.value(1))
+                    .arg(indexes.value(2)));
+        });
+    QObject::connect(
+        rollerPicker,
+        &ZzFluentUI::ZzRollerPicker::selectionCanceled,
+        rollerPickerResult,
+        [rollerPicker, rollerPickerResult]() {
+            rollerPickerResult->setText(rollerPicker->currentText());
+        });
     datePicker = new ZzFluentUI::ZzCalendarPicker(container);
     datePicker->setAccessibleName(QStringLiteral("Due date"));
     datePicker->setLocale(QLocale::c());
@@ -515,6 +576,10 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->addRow(QStringLiteral("Selection"), suggestResult);
     form->addRow(QStringLiteral("Deployment scopes"), multiSelect);
     form->addRow(QStringLiteral("Selected scopes"), multiSelectResult);
+    form->addRow(QStringLiteral("Priority"), roller);
+    form->addRow(QStringLiteral("Priority value"), rollerResult);
+    form->addRow(QStringLiteral("Appointment"), rollerPicker);
+    form->addRow(QStringLiteral("Selected time"), rollerPickerResult);
     form->addRow(QStringLiteral("Due date"), datePicker);
 
     auto *workers = new ZzFluentUI::ZzSpinBox(container);

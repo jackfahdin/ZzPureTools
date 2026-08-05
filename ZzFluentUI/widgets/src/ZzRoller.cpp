@@ -49,7 +49,6 @@ ZzRoller::ZzRoller(QWidget *parent)
     setButtonSymbols(QAbstractSpinBox::NoButtons);
     setReadOnly(true);
     setAlignment(Qt::AlignCenter);
-    setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
@@ -58,6 +57,8 @@ ZzRoller::ZzRoller(QWidget *parent)
     editor->setFocusPolicy(Qt::NoFocus);
     editor->setFrame(false);
     editor->hide();
+    setFocusProxy(nullptr);
+    setFocusPolicy(Qt::StrongFocus);
 
     const QSignalBlocker blocker(this);
     QSpinBox::setRange(-1, -1);

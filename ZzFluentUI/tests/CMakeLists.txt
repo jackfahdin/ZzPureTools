@@ -154,6 +154,21 @@ set_tests_properties(fluent.multi-select-combo-box PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzRollerControlsTest ZzRollerControlsTest.cpp)
+target_link_libraries(ZzRollerControlsTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzRollerControlsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzRollerControlsTest)
+zz_enable_sanitizers(ZzRollerControlsTest)
+add_test(NAME fluent.roller-controls COMMAND ZzRollerControlsTest)
+set_tests_properties(fluent.roller-controls PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzButtonControlsTest ZzButtonControlsTest.cpp)
 qt_add_resources(ZzButtonControlsTest "zzfluent-button-icons"
     PREFIX "/zzfluent/buttons"
