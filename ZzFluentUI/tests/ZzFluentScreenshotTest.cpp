@@ -63,6 +63,7 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
@@ -1328,6 +1329,118 @@ private:
     QPointer<ZzFluentUI::ZzTabBar> focusBar;
 };
 
+/** @brief 保存环形进度截图中文字遮罩及覆盖数量。 */
+struct ZzProgressRingTextMask final
+{
+    QImage image;
+    int progressRings = 0;
+    int textRings = 0;
+};
+
+/** @brief 构造只包含环形进度关键视觉状态的独立确定性截图面。 */
+class ZzProgressRingScreenshotSurface final
+{
+public:
+    /** @brief 创建十个确定、不确定、线宽和方向状态的固定矩阵。 */
+    ZzProgressRingScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzProgressRingScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Progress Rings"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(60, 60, 60, 60);
+        grid->setHorizontalSpacing(40);
+        grid->setVerticalSpacing(48);
+
+        const auto addRing = [this, grid](
+                                 int row,
+                                 int column,
+                                 int value,
+                                 int ringWidth = 4) {
+            auto *ring = new ZzFluentUI::ZzProgressRing(&window);
+            ring->setFixedSize(150, 150);
+            ring->setValue(value);
+            ring->setRingWidth(ringWidth);
+            grid->addWidget(ring, row, column, Qt::AlignCenter);
+            return ring;
+        };
+
+        addRing(0, 0, 0);
+        addRing(0, 1, 25);
+        addRing(0, 2, 50);
+        addRing(0, 3, 72);
+        addRing(0, 4, 100);
+        addRing(1, 0, 40, 2);
+        auto *wide = addRing(1, 1, 60, 8);
+        wide->setRange(20, 120);
+        wide->setValue(70);
+        auto *inverted = addRing(1, 2, 25, 5);
+        inverted->setInvertedAppearance(true);
+        auto *busy = addRing(1, 3, 0, 5);
+        busy->setTextVisible(false);
+        busy->setRange(0, 0);
+        auto *disabledBusy = addRing(1, 4, 0, 5);
+        disabledBusy->setTextVisible(false);
+        disabledBusy->setRange(0, 0);
+        disabledBusy->setEnabled(false);
+    }
+
+    /** @brief 展示并完成 palette、字体和 reduced-motion 状态同步。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏环形进度截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+};
+
+/** @brief 为独立环形进度画面构造只覆盖居中文字的像素遮罩。 */
+ZzProgressRingTextMask zzBuildProgressRingTextMask(
+    QWidget *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzProgressRingTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto rings = surface->findChildren<ZzFluentUI::ZzProgressRing *>();
+    for (ZzFluentUI::ZzProgressRing *ring : rings) {
+        if (!ring->isVisible()) {
+            continue;
+        }
+        ++result.progressRings;
+        if (!ring->isTextVisible() || ring->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            ring,
+            ring->rect(),
+            Qt::AlignCenter,
+            ring->text());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(ring, textRect, surface));
+        ++result.textRings;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 为独立标签页画面构造只覆盖标签文字的像素遮罩。 */
 ZzTabTextMask zzBuildTabTextMask(QWidget *surface, qreal dpr)
 {
@@ -1369,6 +1482,23 @@ ZzTabTextMask zzBuildTabTextMask(QWidget *surface, qreal dpr)
 
 /** @brief 将独立标签页窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderTabSurface(ZzTabScreenshotSurface *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将独立环形进度窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderProgressRingSurface(
+    ZzProgressRingScreenshotSurface *surface,
+    qreal dpr)
 {
     const QSize physicalSize(
         qRound(zzLogicalSurfaceSize.width() * dpr),
@@ -1749,6 +1879,104 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 标签页非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersProgressRingThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("progress-rings-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("progress-rings-light");
+        QTest::newRow("progress-rings-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("progress-rings-dark");
+        QTest::newRow("progress-rings-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("progress-rings-high-contrast");
+    }
+
+    void rendersProgressRingThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzProgressRingScreenshotSurface surface;
+        surface.polish();
+        const QImage actual = zzRenderProgressRingSurface(
+            &surface,
+            actualDpr_);
+        QCOMPARE(
+            actual.size(),
+            QSize(
+                qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+                qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        const ZzProgressRingTextMask mask = zzBuildProgressRingTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.progressRings, 10);
+        QCOMPARE(mask.textRings, 8);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 环形进度非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
