@@ -44,6 +44,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
@@ -916,6 +917,34 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
     commandRow->addWidget(dialogButton);
     commandRow->addStretch(1);
     layout->addLayout(commandRow);
+
+    layout->addWidget(zzSectionTitle(
+        QStringLiteral("Workspace actions"),
+        container));
+    auto *flowHost = new QWidget(container);
+    auto *flowLayout = new ZzFluentUI::ZzFlowLayout(8, 8, flowHost);
+    flowLayout->setContentsMargins(0, 0, 0, 0);
+    const std::array<QString, 6> flowActions{
+        QStringLiteral("Configure"),
+        QStringLiteral("Build all"),
+        QStringLiteral("Run tests"),
+        QStringLiteral("Package artifacts"),
+        QStringLiteral("Publish preview"),
+        QStringLiteral("Documentation")};
+    for (std::size_t index = 0; index < flowActions.size(); ++index) {
+        auto *button = new ZzFluentUI::ZzPushButton(
+            flowActions.at(index),
+            flowHost);
+        if (index == 3U) {
+            button->setAppearance(
+                ZzFluentUI::ZzButtonAppearance::Accent);
+        }
+        if (index == 5U) {
+            button->setEnabled(false);
+        }
+        flowLayout->addWidget(button);
+    }
+    layout->addWidget(flowHost);
     return container;
 }
 

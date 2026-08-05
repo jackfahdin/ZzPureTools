@@ -67,6 +67,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconButton.h>
@@ -2950,6 +2951,203 @@ ZzRollerTextMask zzBuildRollerTextMask(
     return result;
 }
 
+/** @brief 保存流式布局截图中文字遮罩和覆盖数量。 */
+struct ZzFlowLayoutTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int buttons = 0;
+};
+
+/** @brief 构造窄、宽和 RTL 三组固定流式布局截图面。 */
+class ZzFlowLayoutScreenshotSurface final
+{
+public:
+    /** @brief 创建三组具有相同逻辑顺序的工作区操作按钮。 */
+    ZzFlowLayoutScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzFlowLayoutScreenshot"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Flow Layout"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        addGroup(
+            0,
+            QStringLiteral("Compact commands"),
+            QRect(60, 110, 300, 180),
+            Qt::LeftToRight);
+        addGroup(
+            1,
+            QStringLiteral("Workspace actions"),
+            QRect(420, 110, 720, 90),
+            Qt::LeftToRight);
+        addGroup(
+            2,
+            QStringLiteral("Priority actions"),
+            QRect(60, 410, 360, 140),
+            Qt::RightToLeft);
+    }
+
+    /** @brief 展示窗口并同步激活全部流式布局。 */
+    void polish()
+    {
+        window.show();
+        for (ZzFluentUI::ZzFlowLayout *layout : layouts_) {
+            Q_ASSERT(layout != nullptr);
+            if (layout != nullptr) {
+                static_cast<void>(layout->activate());
+            }
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    /** @brief 返回指定展示组的宿主。 */
+    [[nodiscard]] QWidget *host(std::size_t index) const
+    {
+        return hosts_.at(index);
+    }
+
+    /** @brief 返回指定展示组的按钮集合。 */
+    [[nodiscard]] const std::vector<ZzFluentUI::ZzPushButton *> &buttons(
+        std::size_t index) const
+    {
+        return buttons_.at(index);
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 创建一组固定尺寸、状态和逻辑顺序的按钮。 */
+    void addGroup(
+        std::size_t index,
+        const QString &title,
+        const QRect &geometry,
+        Qt::LayoutDirection direction)
+    {
+        auto *label = new QLabel(title, &window);
+        label->setGeometry(
+            geometry.x(),
+            geometry.y() - 38,
+            geometry.width(),
+            28);
+        QFont titleFont = label->font();
+        titleFont.setBold(true);
+        label->setFont(titleFont);
+        auto *groupHost = new QWidget(&window);
+        groupHost->setObjectName(
+            QStringLiteral("zzFlowLayoutGroup%1").arg(index));
+        groupHost->setLayoutDirection(direction);
+        groupHost->setGeometry(geometry);
+        auto *layout = new ZzFluentUI::ZzFlowLayout(8, 10, groupHost);
+        layout->setContentsMargins(12, 12, 12, 12);
+        hosts_.at(index) = groupHost;
+        layouts_.at(index) = layout;
+
+        constexpr std::array<int, 5> widths{88, 112, 96, 144, 104};
+        const std::array<QString, 5> texts{
+            QStringLiteral("Open"),
+            QStringLiteral("Build all"),
+            QStringLiteral("Tests"),
+            QStringLiteral("Package artifacts"),
+            QStringLiteral("Publish")};
+        std::vector<ZzFluentUI::ZzPushButton *> &groupButtons =
+            buttons_.at(index);
+        groupButtons.reserve(widths.size());
+        for (std::size_t buttonIndex = 0;
+             buttonIndex < widths.size();
+             ++buttonIndex) {
+            auto *button = new ZzFluentUI::ZzPushButton(
+                texts.at(buttonIndex),
+                groupHost);
+            button->setFixedSize(widths.at(buttonIndex), 36);
+            if (buttonIndex == 1U) {
+                button->setAppearance(
+                    ZzFluentUI::ZzButtonAppearance::Accent);
+            } else if (buttonIndex == 4U) {
+                button->setAppearance(
+                    ZzFluentUI::ZzButtonAppearance::Subtle);
+            }
+            if (buttonIndex == 2U) {
+                button->setCheckable(true);
+                button->setChecked(true);
+            }
+            if (buttonIndex == 3U) {
+                button->setEnabled(false);
+            }
+            layout->addWidget(button);
+            groupButtons.push_back(button);
+        }
+    }
+
+    std::array<QWidget *, 3> hosts_{};
+    std::array<ZzFluentUI::ZzFlowLayout *, 3> layouts_{};
+    std::array<std::vector<ZzFluentUI::ZzPushButton *>, 3> buttons_;
+};
+
+/** @brief 遮罩流式布局标题和按钮文字。 */
+ZzFlowLayoutTextMask zzBuildFlowLayoutTextMask(
+    ZzFlowLayoutScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzFlowLayoutTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    const auto labels = surface->window.findChildren<QLabel *>();
+    for (QLabel *label : labels) {
+        if (!label->isVisible() || label->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            label,
+            label->rect(),
+            static_cast<int>(label->alignment()),
+            label->text());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(label, textRect, &surface->window));
+        ++result.labels;
+    }
+
+    const auto buttons = surface->window.findChildren<
+        ZzFluentUI::ZzPushButton *>();
+    for (ZzFluentUI::ZzPushButton *button : buttons) {
+        if (!button->isVisible() || button->text().isEmpty()) {
+            continue;
+        }
+        QStyleOptionButton option;
+        option.initFrom(button);
+        option.text = button->text();
+        const QRect contents = button->style()->subElementRect(
+            QStyle::SE_PushButtonContents,
+            &option,
+            button);
+        const QRect textRect = zzAlignedTextRect(
+            button,
+            contents,
+            Qt::AlignCenter | Qt::TextSingleLine,
+            button->text());
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(button, textRect, &surface->window));
+        ++result.buttons;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 绘制一个由标准 tooltip primitive 和 QLabel 组成的确定性提示。 */
 class ZzToolTipScreenshotFixture final : public QWidget
 {
@@ -3815,6 +4013,23 @@ QImage zzRenderRollerSurface(
     return image;
 }
 
+/** @brief 将流式布局窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderFlowLayoutSurface(
+    ZzFlowLayoutScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 /** @brief 把主窗口和三个标准 popup menu 合成到固定物理画布。 */
 QImage zzRenderPopupSurface(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -4505,6 +4720,21 @@ private Q_SLOTS:
             << QStringLiteral("roller-controls-high-contrast");
     }
 
+    void rendersFlowLayoutThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("flow-layout-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("flow-layout-light");
+        QTest::newRow("flow-layout-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("flow-layout-dark");
+        QTest::newRow("flow-layout-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("flow-layout-high-contrast");
+    }
+
     void rendersPopupSurfaceThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -5094,6 +5324,123 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 滚轮选择控件非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersFlowLayoutThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzFlowLayoutScreenshotSurface surface;
+        surface.polish();
+        QCOMPARE(
+            surface.window.findChildren<
+                ZzFluentUI::ZzFlowLayout *>().size(),
+            3);
+        QCOMPARE(
+            surface.window.findChildren<
+                ZzFluentUI::ZzPushButton *>().size(),
+            15);
+        const auto &narrowButtons = surface.buttons(0);
+        const auto &wideButtons = surface.buttons(1);
+        const auto &rightToLeftButtons = surface.buttons(2);
+        QCOMPARE(narrowButtons.at(0)->y(), narrowButtons.at(1)->y());
+        QVERIFY(narrowButtons.at(2)->y() > narrowButtons.at(1)->y());
+        QVERIFY(narrowButtons.at(4)->y() > narrowButtons.at(2)->y());
+        for (const ZzFluentUI::ZzPushButton *button : wideButtons) {
+            QCOMPARE(button->y(), wideButtons.front()->y());
+        }
+        QVERIFY(rightToLeftButtons.at(0)->x()
+                > rightToLeftButtons.at(1)->x());
+        QVERIFY(rightToLeftButtons.at(1)->x()
+                > rightToLeftButtons.at(2)->x());
+        for (std::size_t group = 0; group < 3; ++group) {
+            QWidget *const host = surface.host(group);
+            const auto &buttons = surface.buttons(group);
+            for (std::size_t index = 0; index < buttons.size(); ++index) {
+                QVERIFY(host->rect().contains(buttons.at(index)->geometry()));
+                for (std::size_t other = index + 1;
+                     other < buttons.size();
+                     ++other) {
+                    QVERIFY(!buttons.at(index)->geometry().intersects(
+                        buttons.at(other)->geometry()));
+                }
+            }
+        }
+
+        const QImage actual = zzRenderFlowLayoutSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzFlowLayoutTextMask mask = zzBuildFlowLayoutTextMask(
+            &surface,
+            actualDpr_);
+        QCOMPARE(mask.labels, 3);
+        QCOMPARE(mask.buttons, 15);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 流式布局非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
