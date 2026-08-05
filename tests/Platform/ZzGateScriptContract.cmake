@@ -46,6 +46,7 @@ set(required_tokens
     "ZzThirdParty/ZzLog/CMakeLists.txt|$<$<CXX_COMPILER_ID:MSVC>:/utf-8>"
     "tests/Platform/ZzBinaryDependencyCheck.cmake|-E chdir \"\${binary_directory}\""
     "tests/Platform/ZzBinaryDependencyCheck.cmake|[A-Za-z0-9_.+-]+"
+    "tests/Platform/ZzBinaryDependencyCheck.cmake|msvcrt"
     "tests/Platform/ZzBinaryDependencyCheck.cmake|\"\${ZZ_OTOOL}\" -L \"\${binary_name}\""
     "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_ARCHITECTURES:STRING="
     "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_DEPLOYMENT_TARGET:STRING="

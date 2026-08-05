@@ -101,7 +101,7 @@ function(zz_check_windows_dependency dependency mode binary)
         message(FATAL_ERROR "QWindowKit leaked into ${binary}: ${dependency}")
     endif()
     set(system_pattern
-        "^(kernel32|user32|gdi32|shell32|ole32|oleaut32|advapi32|comdlg32|comctl32|dwmapi|uxtheme|shlwapi|imm32|winmm|ws2_32|version|bcrypt|setupapi|userenv|authz|ntdll)\\.dll$")
+        "^(kernel32|user32|gdi32|shell32|ole32|oleaut32|advapi32|comdlg32|comctl32|dwmapi|uxtheme|shlwapi|imm32|winmm|ws2_32|version|bcrypt|setupapi|userenv|authz|ntdll|msvcrt)\\.dll$")
     if(name MATCHES "^zz[a-z0-9_]*\\.dll$"
        OR name MATCHES "^qt6[a-z0-9_]*\\.dll$"
        OR name MATCHES "^api-ms-win-[a-z0-9_.-]+\\.dll$"
@@ -258,7 +258,7 @@ elseif(ZZ_SYSTEM_NAME STREQUAL "Darwin")
                 message(FATAL_ERROR "QWindowKit leaked into ${binary}: ${dependency}")
             endif()
             if(NOT dependency MATCHES
-               "^(@rpath/libZz[A-Za-z0-9_]*\\.dylib|@rpath/Qt[^/]+\\.framework/Versions/[^/]+/Qt[^/]+|@rpath/libQt6[A-Za-z0-9_]*\\.dylib|/System/Library/|/usr/lib/)")
+               "^(@rpath/libZz[A-Za-z0-9_]*(\\.[0-9]+)*\\.dylib|@rpath/Qt[^/]+\\.framework/Versions/[^/]+/Qt[^/]+|@rpath/libQt6[A-Za-z0-9_]*\\.dylib|/System/Library/|/usr/lib/)")
                 message(FATAL_ERROR
                     "Unexpected macOS dependency in ${binary}: ${dependency}")
             endif()
