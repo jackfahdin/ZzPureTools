@@ -52,6 +52,7 @@ set(required_tokens
     "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_ARCHITECTURES:STRING="
     "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_DEPLOYMENT_TARGET:STRING="
     "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_OSX_SYSROOT:PATH="
+    "cmake/ZzExpectConfigureFailure.cmake|-DCMAKE_C_COMPILER:FILEPATH="
     "tests/Release/CMakeLists.txt|-DZZ_OSX_ARCHITECTURES="
     "tests/Release/CMakeLists.txt|-DZZ_OSX_DEPLOYMENT_TARGET="
     "tests/Release/CMakeLists.txt|-DZZ_OSX_SYSROOT="

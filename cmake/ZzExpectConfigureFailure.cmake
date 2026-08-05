@@ -4,7 +4,6 @@ foreach(required IN ITEMS
     ZZ_SOURCE_DIR
     ZZ_WORK_DIR
     ZZ_QT_PREFIX
-    ZZ_C_COMPILER
     ZZ_CXX_COMPILER
     ZZ_EXPECTED_BLOCKERS)
     if(NOT DEFINED ${required} OR "${${required}}" STREQUAL "")
@@ -30,13 +29,16 @@ set(configure_command
         -S "${source_dir}"
         -B "${work_dir}"
         -G Ninja
-        "-DCMAKE_C_COMPILER=${ZZ_C_COMPILER}"
         "-DCMAKE_CXX_COMPILER=${ZZ_CXX_COMPILER}"
         "-DCMAKE_PREFIX_PATH=${ZZ_QT_PREFIX}"
         "-DZZ_QT_PREFIX=${ZZ_QT_PREFIX}"
         -DZZ_RELEASE_BUILD=ON
         "-DZZ_RELEASE_FORCED_BLOCKERS=${ZZ_EXPECTED_BLOCKERS}"
         -DZZ_BUILD_TESTS=OFF)
+if(NOT "${ZZ_C_COMPILER}" STREQUAL "")
+    list(APPEND configure_command
+        "-DCMAKE_C_COMPILER:FILEPATH=${ZZ_C_COMPILER}")
+endif()
 if(NOT "${ZZ_OSX_ARCHITECTURES}" STREQUAL "")
     string(REPLACE ";" "\\;" osx_architectures
         "${ZZ_OSX_ARCHITECTURES}")
