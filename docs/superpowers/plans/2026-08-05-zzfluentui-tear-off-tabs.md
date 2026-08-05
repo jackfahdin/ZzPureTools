@@ -448,4 +448,24 @@ Sanitizer 与 tidy 沿用仓库既有 Clang preset 和 `ZzClangTidy` target，�
 
 ## 13. 交付结果
 
-待实现完成后填写。
+### 13.1 提交
+
+- `0818d23`：规划 Fluent 可撕标签页批次。
+- `3897e3e`：实现 `ZzTabBar`、`ZzTabWidget`、四文件 PIMPL 与核心行为测试。
+- `66b99f2`：补齐拖拽安全、键盘、无障碍、对象稳定性与安装消费门禁。
+- `2035304`：接入应用层拖出宿主、独立截图面、12 张视觉基线与性能门禁。
+
+### 13.2 本机结果
+
+- 环境：Ubuntu 26.04、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8。
+- GCC Release：启用 examples 与 benchmarks 后全量构建通过。未注入性能环境指纹时，95 项普通测试通过，6 项参考性能测试按设计拒绝运行；注入版本化本机发布档案后，这 6 项全部通过，因此本批次 101 项测试均已取得通过结果。
+- Clang ASan/UBSan：启用 examples 与 benchmarks 后全量构建通过，Xvfb 下 101/101 项测试通过，未发现 sanitizer 错误。
+- Clang Tidy：130 个纳入正向路径的一方翻译单元全部通过，`warnings-as-errors` 未产生错误；生成源码与第三方源码未被误纳入检查范围。
+- 截图：标签页 Light、Dark、HighContrast x DPR 1.0/1.25/1.5/2.0 共 12 张新基线比较通过；DPR 1.0 的三种主题已人工检查，未发现空白、重叠或裁切异常。
+- 安装消费：shared/static 隔离安装树中的公共头自包含、包重定位、Fluent GUI 消费者编译链接运行和 examples 均通过。
+- Release 标签页渲染：100 页场景的 P50 `1.058 ms`、P95 `1.094 ms`、max `1.480 ms`，低于 16.7 ms 预算。
+- 转移性能：1000 次跨容器往返的平均耗时约 `2041 us`；页面集合在每次事务后保持一致。
+- 稳定性：处理 Qt `DeferredDelete` 后，后代 QObject、timer 与 animation 数量均回到基线；100 页场景的后代 QObject 数量为 213。
+- 发布档案：性能门禁对应生产代码提交 `203530442b7816f1659d489686a0e8305e0db992`，runner image digest 为 `sha256:242e623f21aa12a9c50199595c9427d7ef6754604883838aa894281d42c05fe1`，图形环境为 `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24`。
+- 静态审计：新增生产代码未发现链式 namespace、Qt Private API、`QTabBarPrivate`、QWK、ZzWindowKit/ZzPureTools 反向依赖、`processEvents()`、动态属性裸指针、轮询 timer、地址序列化或伪造鼠标事件。
+- 平台边界：本批次未调用 GitHub CLI、未运行远端 CI、未推送；Windows MSVC、Windows Qt MinGW 与 macOS 当前只完成公开 Qt API、依赖方向和条件编译的源码静态审计，尚未完成对应工具链的编译及真机验证。
