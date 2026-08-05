@@ -72,6 +72,7 @@
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
+#include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
@@ -92,6 +93,7 @@ constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QPoint zzMenuOrigin(914, 590);
 constexpr QPoint zzComboBoxPopupOrigin(770, 570);
 constexpr QPoint zzSuggestBoxPopupOrigin(770, 660);
+constexpr QPoint zzMultiSelectPopupOrigin(770, 390);
 constexpr std::array<QPoint, 3> zzPopupMenuOrigins{
     QPoint(70, 190),
     QPoint(450, 190),
@@ -2386,6 +2388,269 @@ ZzSuggestBoxTextMask zzBuildSuggestBoxTextMask(
     return result;
 }
 
+/** @brief 保存多选组合框截图的闭合文字、popup 文字与覆盖数量。 */
+struct ZzMultiSelectTextMask final
+{
+    QImage image;
+    int comboBoxes = 0;
+    int closedTexts = 0;
+    int popupItems = 0;
+};
+
+/** @brief 构造多选摘要、方向、禁用和真实复选 popup 的截图面。 */
+class ZzMultiSelectScreenshotSurface final
+{
+public:
+    /** @brief 创建九个闭合状态和一个打开 popup 的固定矩阵。 */
+    ZzMultiSelectScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzMultiSelectScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Multi Select"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *grid = new QGridLayout(&window);
+        grid->setContentsMargins(70, 62, 70, 62);
+        grid->setHorizontalSpacing(58);
+        grid->setVerticalSpacing(76);
+
+        const auto addBox = [this, grid](int row, int column) {
+            auto *box =
+                new ZzFluentUI::ZzMultiSelectComboBox(&window);
+            box->setFixedSize(300, 48);
+            grid->addWidget(box, row, column);
+            return box;
+        };
+
+        auto *placeholder = addBox(0, 0);
+        placeholder->setPlaceholderText(QStringLiteral("Select scopes"));
+        placeholder->setOptions({
+            {QStringLiteral("local"), QStringLiteral("Local"), {}, {},
+             true, false}});
+
+        auto *single = addBox(0, 1);
+        single->setOptions({
+            {QStringLiteral("single"), QStringLiteral("Single selection"),
+             {}, {}, true, true}});
+
+        auto *multiple = addBox(0, 2);
+        multiple->setOptions({
+            {QStringLiteral("alpha"), QStringLiteral("Alpha"), {}, {},
+             true, true},
+            {QStringLiteral("beta"), QStringLiteral("Beta"), {}, {},
+             true, true}});
+
+        auto *duplicates = addBox(1, 0);
+        duplicates->setOptions({
+            {QStringLiteral("first"), QStringLiteral("Same"), {}, {},
+             true, true},
+            {QStringLiteral("second"), QStringLiteral("Same"), {}, {},
+             true, true}});
+
+        auto *comma = addBox(1, 1);
+        comma->setOptions({
+            {QStringLiteral("comma"), QStringLiteral("Logs, metrics"), {},
+             {}, true, true}});
+
+        auto *longSummary = addBox(1, 2);
+        longSummary->setOptions({
+            {QStringLiteral("long-a"),
+             QStringLiteral("A deliberately long selected scope"), {}, {},
+             true, true},
+            {QStringLiteral("long-b"), QStringLiteral("Another scope"), {},
+             {}, true, true}});
+
+        auto *disabled = addBox(2, 0);
+        disabled->setOptions({
+            {QStringLiteral("disabled"), QStringLiteral("Disabled value"),
+             {}, {}, true, true}});
+        disabled->setEnabled(false);
+
+        auto *rightToLeft = addBox(2, 1);
+        rightToLeft->setLayoutDirection(Qt::RightToLeft);
+        rightToLeft->setOptions({
+            {QStringLiteral("rtl-a"), QStringLiteral("RTL primary"), {}, {},
+             true, true},
+            {QStringLiteral("rtl-b"), QStringLiteral("RTL secondary"), {},
+             {}, true, true}});
+
+        popupBox = addBox(2, 2);
+        popupBox->setMaxVisibleItems(5);
+        popupBox->setOptions({
+            {QStringLiteral("icon"), QStringLiteral("Icon selected"),
+             QIcon(QStringLiteral(
+                 ":/zzfluent/screenshots/ZzFluentTestSquare.svg")),
+             1, true, true},
+            {QStringLiteral("unchecked"), QStringLiteral("Keyboard current"),
+             {}, 2, true, false},
+            {QStringLiteral("disabled-row"), QStringLiteral("Disabled row"),
+             {}, 3, false, true},
+            {QStringLiteral("hovered"), QStringLiteral("Hovered checked"),
+             {}, 4, true, true},
+            {QStringLiteral("long"),
+             QStringLiteral("A long popup option that must elide safely"),
+             {}, 5, true, false}});
+    }
+
+    /** @brief 展示窗口并固定 popup 的键盘 current 与 hover 状态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        if (popupBox != nullptr) {
+            popupBox->setFocus(Qt::TabFocusReason);
+            popupBox->showPopup();
+            QCoreApplication::processEvents();
+            QAbstractItemView *popup = popupBox->view();
+            if (popup != nullptr && popup->model() != nullptr
+                && popup->viewport() != nullptr) {
+                popup->setCurrentIndex(popup->model()->index(1, 0));
+                const QModelIndex hovered = popup->model()->index(3, 0);
+                popup->scrollTo(hovered);
+                const QRect hoveredRect = popup->visualRect(hovered);
+                popup->viewport()->setAttribute(Qt::WA_UnderMouse, true);
+                const QPoint center = hoveredRect.center();
+                const QPoint globalCenter =
+                    popup->viewport()->mapToGlobal(center);
+                QMouseEvent move(
+                    QEvent::MouseMove,
+                    QPointF(center),
+                    QPointF(globalCenter),
+                    Qt::NoButton,
+                    Qt::NoButton,
+                    Qt::NoModifier);
+                QCoreApplication::sendEvent(popup->viewport(), &move);
+                popup->setCurrentIndex(popup->model()->index(1, 0));
+            }
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 返回打开 popup 的多选组合框。 */
+    [[nodiscard]] ZzFluentUI::ZzMultiSelectComboBox *openBox() const noexcept
+    {
+        return popupBox;
+    }
+
+    /** @brief 返回标准 popup 的顶层窗口。 */
+    [[nodiscard]] QWidget *popupWindow() const noexcept
+    {
+        if (popupBox == nullptr || popupBox->view() == nullptr) {
+            return nullptr;
+        }
+        return popupBox->view()->window();
+    }
+
+    /** @brief 关闭 popup 并隐藏截图窗口。 */
+    void hide()
+    {
+        if (popupBox != nullptr) {
+            popupBox->hidePopup();
+        }
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    QPointer<ZzFluentUI::ZzMultiSelectComboBox> popupBox;
+};
+
+/** @brief 遮罩多选摘要和 popup item 文字，保留复选视觉像素。 */
+ZzMultiSelectTextMask zzBuildMultiSelectTextMask(
+    ZzMultiSelectScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzMultiSelectTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+
+    const auto boxes = surface->window.findChildren<
+        ZzFluentUI::ZzMultiSelectComboBox *>();
+    for (ZzFluentUI::ZzMultiSelectComboBox *box : boxes) {
+        if (!box->isVisible()) {
+            continue;
+        }
+        ++result.comboBoxes;
+        QLineEdit *editor = box->lineEdit();
+        if (editor == nullptr) {
+            continue;
+        }
+        const QString text = editor->displayText().isEmpty()
+            ? editor->placeholderText()
+            : editor->displayText();
+        if (text.isEmpty()) {
+            continue;
+        }
+        QStyleOptionFrame option;
+        option.initFrom(editor);
+        const QRect contents = editor->style()->subElementRect(
+            QStyle::SE_LineEditContents,
+            &option,
+            editor);
+        const QRect textRect = zzAlignedTextRect(
+            editor,
+            contents.adjusted(2, 0, -2, 0),
+            static_cast<int>(editor->alignment() | Qt::AlignVCenter),
+            text);
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(editor, textRect, &surface->window));
+        ++result.closedTexts;
+    }
+
+    ZzFluentUI::ZzMultiSelectComboBox *openBox = surface->openBox();
+    QWidget *popupWindow = surface->popupWindow();
+    if (openBox != nullptr && popupWindow != nullptr) {
+        QAbstractItemView *popup = openBox->view();
+        QAbstractItemModel *model = popup->model();
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const QModelIndex index = model->index(row, 0);
+            const QString text = index.data(Qt::DisplayRole).toString();
+            const QRect visual = popup->visualRect(index);
+            if (text.isEmpty() || visual.isEmpty()
+                || !visual.intersects(popup->viewport()->rect())) {
+                continue;
+            }
+            QStyleOptionViewItem option;
+            option.initFrom(popup);
+            option.rect = visual;
+            option.text = text;
+            option.displayAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+            option.features = QStyleOptionViewItem::HasDisplay
+                | QStyleOptionViewItem::HasCheckIndicator;
+            option.checkState = static_cast<Qt::CheckState>(
+                index.data(Qt::CheckStateRole).toInt());
+            const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
+            if (!icon.isNull()) {
+                option.features |= QStyleOptionViewItem::HasDecoration;
+                option.icon = icon;
+                option.decorationSize = popup->iconSize();
+                option.decorationPosition = QStyleOptionViewItem::Left;
+            }
+            const QRect localText = popup->style()->subElementRect(
+                QStyle::SE_ItemViewItemText,
+                &option,
+                popup);
+            const QPoint popupOffset = popup->viewport()->mapTo(
+                popupWindow,
+                localText.topLeft());
+            zzPaintMaskRect(
+                &painter,
+                QRect(zzMultiSelectPopupOrigin + popupOffset,
+                      localText.size()));
+            ++result.popupItems;
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 绘制一个由标准 tooltip primitive 和 QLabel 组成的确定性提示。 */
 class ZzToolTipScreenshotFixture final : public QWidget
 {
@@ -3209,6 +3474,27 @@ QImage zzRenderSuggestBoxSurface(
     return image;
 }
 
+/** @brief 将多选组合框窗口和标准 popup 合成到固定物理画布。 */
+QImage zzRenderMultiSelectSurface(
+    ZzMultiSelectScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    QWidget *popupWindow = surface->popupWindow();
+    if (popupWindow != nullptr && popupWindow->isVisible()) {
+        popupWindow->render(&painter, zzMultiSelectPopupOrigin);
+    }
+    painter.end();
+    return image;
+}
+
 /** @brief 把主窗口和三个标准 popup menu 合成到固定物理画布。 */
 QImage zzRenderPopupSurface(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -3869,6 +4155,21 @@ private Q_SLOTS:
             << QStringLiteral("suggest-box-high-contrast");
     }
 
+    void rendersMultiSelectThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("multi-select-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("multi-select-light");
+        QTest::newRow("multi-select-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("multi-select-dark");
+        QTest::newRow("multi-select-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("multi-select-high-contrast");
+    }
+
     void rendersPopupSurfaceThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -4253,6 +4554,107 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 搜索建议框非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersMultiSelectThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzMultiSelectScreenshotSurface surface;
+        surface.polish();
+        ZzFluentUI::ZzMultiSelectComboBox *openBox = surface.openBox();
+        QWidget *popupWindow = surface.popupWindow();
+        if (openBox == nullptr || openBox->view() == nullptr
+            || popupWindow == nullptr) {
+            QFAIL("多选组合框截图面缺少标准popup");
+            return;
+        }
+        QVERIFY(popupWindow->isVisible());
+        QCOMPARE(openBox->style(), QApplication::style());
+        QCOMPARE(openBox->view()->style(), QApplication::style());
+        QCOMPARE(openBox->view()->viewport()->style(),
+                 QApplication::style());
+        QCOMPARE(
+            surface.window.findChildren<
+                ZzFluentUI::ZzMultiSelectComboBox *>().size(),
+            9);
+        QCOMPARE(openBox->selectionCount(), 3);
+        QCOMPARE(openBox->currentIndex(), -1);
+        const QImage actual = zzRenderMultiSelectSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzMultiSelectTextMask mask = zzBuildMultiSelectTextMask(
+            &surface,
+            actualDpr_);
+        QCOMPARE(mask.comboBoxes, 9);
+        QCOMPARE(mask.closedTexts, 9);
+        QCOMPARE(mask.popupItems, 5);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 多选组合框非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)

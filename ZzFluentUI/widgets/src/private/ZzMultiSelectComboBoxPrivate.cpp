@@ -392,6 +392,7 @@ ZzMultiSelectComboBoxPrivate::ZzMultiSelectComboBoxPrivate(
     editor->setFrame(false);
     editor->setFocusPolicy(Qt::NoFocus);
     editor->setCursorPosition(0);
+    editor->hide();
 
     view->setItemDelegate(delegate);
     view->setSelectionMode(QAbstractItemView::NoSelection);

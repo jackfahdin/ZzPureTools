@@ -5,9 +5,12 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QEvent>
 #include <QtGui/QKeyEvent>
+#include <QtGui/QPainter>
+#include <QtGui/QPaintEvent>
 #include <QtGui/QWheelEvent>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QStyleOption>
 
 #include "private/ZzMultiSelectComboBoxPrivate.h"
 
@@ -61,7 +64,7 @@ QString ZzMultiSelectComboBox::addOption(ZzMultiSelectOption option)
 {
     const QList<ZzMultiSelectOption> previousSelection =
         d_ptr->selectedOptions();
-    const QString key = d_ptr->addOption(std::move(option));
+    QString key = d_ptr->addOption(std::move(option));
     if (key.isEmpty()) {
         return {};
     }
@@ -130,12 +133,12 @@ bool ZzMultiSelectComboBox::setOptionSelectedAt(
     return d_ptr->setOptionSelectedAt(index, selected);
 }
 
-void ZzMultiSelectComboBox::setSelectedKeys(QStringList keys)
+void ZzMultiSelectComboBox::setSelectedKeys(const QStringList &keys)
 {
     (void)d_ptr->setSelectedKeys(keys);
 }
 
-void ZzMultiSelectComboBox::setSelectedIndexes(QList<int> indexes)
+void ZzMultiSelectComboBox::setSelectedIndexes(const QList<int> &indexes)
 {
     (void)d_ptr->setSelectedIndexes(indexes);
 }
@@ -212,6 +215,46 @@ bool ZzMultiSelectComboBox::eventFilter(
     return QComboBox::eventFilter(watched, event);
 }
 
+void ZzMultiSelectComboBox::paintEvent(QPaintEvent *event)
+{
+    QComboBox::paintEvent(event);
+    const QString summary = d_ptr->editor->text();
+    const bool placeholder = summary.isEmpty();
+    const QString text = placeholder
+        ? d_ptr->editor->placeholderText()
+        : summary;
+    if (text.isEmpty()) {
+        return;
+    }
+
+    QStyleOptionComboBox option;
+    initStyleOption(&option);
+    QRect contents = style()->subControlRect(
+        QStyle::CC_ComboBox,
+        &option,
+        QStyle::SC_ComboBoxEditField,
+        this);
+    contents.adjust(2, 0, -2, 0);
+    const QString elided = fontMetrics().elidedText(
+        text,
+        Qt::ElideRight,
+        contents.width());
+    const QPalette::ColorGroup group = isEnabled()
+        ? QPalette::Normal
+        : QPalette::Disabled;
+    const QPalette::ColorRole role = placeholder
+        ? QPalette::PlaceholderText
+        : QPalette::Text;
+    QPainter painter(this);
+    painter.setPen(palette().color(group, role));
+    const int horizontalAlignment = layoutDirection() == Qt::RightToLeft
+        ? static_cast<int>(Qt::AlignRight)
+        : static_cast<int>(Qt::AlignLeft);
+    const int alignment = horizontalAlignment
+        | static_cast<int>(Qt::AlignVCenter);
+    painter.drawText(contents, alignment, elided);
+}
+
 void ZzMultiSelectComboBox::keyPressEvent(QKeyEvent *event)
 {
     if (event == nullptr) {
@@ -237,7 +280,7 @@ void ZzMultiSelectComboBox::keyPressEvent(QKeyEvent *event)
         event->accept();
         return;
     }
-    QWidget::keyPressEvent(event);
+    event->ignore();
 }
 
 void ZzMultiSelectComboBox::wheelEvent(QWheelEvent *event)

@@ -16,6 +16,7 @@
 QT_BEGIN_NAMESPACE
 class QEvent;
 class QKeyEvent;
+class QPaintEvent;
 class QWheelEvent;
 QT_END_NAMESPACE
 
@@ -165,13 +166,13 @@ public:
      * @brief 以稳定键集合精确替换当前选择。
      * @param keys 可含重复或未知值；未知值被忽略。
      */
-    void setSelectedKeys(QStringList keys);
+    void setSelectedKeys(const QStringList &keys);
 
     /**
      * @brief 以模型行集合精确替换当前选择。
      * @param indexes 可含重复、负数或越界值；非法值被忽略。
      */
-    void setSelectedIndexes(QList<int> indexes);
+    void setSelectedIndexes(const QList<int> &indexes);
 
     /** @brief 选中全部 enabled 选项，不改变 disabled 选项状态。 */
     void selectAll();
@@ -225,6 +226,9 @@ Q_SIGNALS:
 protected:
     /** @brief 截获 popup 切换事件并保留 Qt 的标准关闭路径。 */
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+    /** @brief 在标准组合框外框内绘制缓存摘要或占位文字。 */
+    void paintEvent(QPaintEvent *event) override;
 
     /** @brief 在关闭状态下用标准按键打开 popup，禁止改变单选 index。 */
     void keyPressEvent(QKeyEvent *event) override;
