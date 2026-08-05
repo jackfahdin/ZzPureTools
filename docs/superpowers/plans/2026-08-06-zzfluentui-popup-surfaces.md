@@ -196,4 +196,67 @@ export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
 
 ## 12. 交付结果
 
-待实现完成后填写。
+本批次已于 2026-08-06 完成交付，结果如下。
+
+### 12.1 生产实现
+
+- 标准 `QMenu`、`QMenuBar` 与 `QToolTip` 已由应用级 `ZzFluentStyle` 直接提供 Fluent 外观，没有新增 `ZzMenu`、`ZzMenuBar`、`ZzToolTip` 空包装类或第二份 action/popup 状态。
+- `CT_MenuItem/CT_MenuBarItem` 保留 base style 的字体、icon、check、shortcut、submenu 与平台测量，普通项和菜单栏项只保证 32px 最小高度，空 separator 保持至少 9px 的紧凑高度。
+- 菜单正文与快捷键列保留 12px 稳定间距；默认粗体项带快捷键时补偿正文宽度。子菜单按“普通内容宽度 + 28px 自绘尾部槽”测量，LTR 与 RTL 均不会因 chevron 空间裁切文字。
+- `PE_PanelMenu`、`CE_MenuEmptyArea`、`PE_PanelMenuBar`、`CE_MenuBarEmptyArea` 与 `PE_PanelTipLabel` 已统一使用主题 token 绘制 surface、stroke 与圆角；`PE_FrameMenu` 不再叠加第二条 frame。
+- menu item 覆盖 hover、pressed、disabled、checked accent、separator 与镜像 submenu chevron；icon、正文、助记键、shortcut、default item 字体与 elide 继续委托 Qt base style。
+- `QAction/QActionGroup`、菜单 keyboard search、submenu popup、menu bar navigation，以及 tooltip 延迟、持续时间、富文本、定位和无障碍仍由 Qt 原生实现维护。
+- 生产路径没有改变 popup window flags、位置、mask 或控件所有权，没有每实例 style、pixmap、animation、timer、event filter、stylesheet、动态属性或 action 扫描热路径。
+
+### 12.2 功能与安装验证
+
+- 活动本机环境为 Ubuntu 26.04 LTS、Linux 7.0.0-28-generic x86_64、Intel Core i7-14700、Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8、CMake 4.3.3；全部验证复用已有 `/home/zz/Qt/6.11.1/gcc_64`。
+- Linux GCC 15 shared Release：重新配置、全量构建和 CTest `91/91` 通过。
+- Linux GCC 15 static Release：重新配置、全量构建和 CTest `91/91` 通过。
+- Linux Clang 20 ASan+UBSan shared：重新配置、全量构建和 CTest `91/91` 通过，无 sanitizer 报告。
+- shared、static 与 sanitizer 三套测试树均通过 fresh producer、install、consumer 流程；安装消费者成功验证 menu bar、menu action、submenu、shortcut、checked 状态、tooltip 与应用级 style。
+- action 属性和信号、exclusive group、键盘、submenu、menu bar、tooltip 与 `QAccessible` 原生角色均通过自动测试；50 个菜单加 50 个菜单栏执行 1000 轮状态切换后对象数量稳定。
+- 开发期间 ASan 曾发现测试在第二次 `QToolTip::showText()` 后继续持有旧 tooltip 裸指针；测试已改为每次通过公开 window type 重新查询当前 tooltip，修复后定向与全量 sanitizer 均通过。
+- 公开头、生成代码、包重定位、二进制依赖、完整架构、Fluent 边界、画廊 smoke 与四个应用示例均包含在全量门禁中通过。
+
+### 12.3 静态分析与视觉验证
+
+- shared `linux-clang-tidy-release`：从 313 条编译数据库记录中选择一方翻译单元 `130/130`，全部在 `warnings-as-errors` 下通过。
+- static `linux-clang-tidy-static`：从 313 条编译数据库记录中选择一方翻译单元 `130/130`，全部在 `warnings-as-errors` 下通过。
+- 新增 Light、Dark、HighContrast x DPR 1.0、1.25、1.5、2.0 共 12 张独立弹出表面基线；关闭更新模式后四档截图测试 `4/4` 通过。
+- 已人工检查 DPR 1.0 三主题与 DPR 2.0 Light：画面非空，无文字裁切、正文/快捷键重叠、双 frame 或错误方向，hover、pressed、disabled、checked、separator、submenu、RTL 和 tooltip 状态清晰可辨。
+- 标准 menu/tooltip 样式变化已同步更新四档 DPR 下 12 张综合控件基线和 12 张组合框基线；所有参考图继续参加严格像素比较，没有通过提高容差掩盖差异。
+
+### 12.4 性能结果
+
+活动参考发布环境为登记的 `local-release-xvfb`，Xvfb 固定 CPU 8，`linux-gcc-reference` 基准固定 CPU 10。50 个菜单加 50 个菜单栏、10 帧预热与 120 帧正式渲染结果为：
+
+```text
+P50: 4.297 ms
+P95: 4.313 ms
+max: 4.327 ms
+descendants: 800
+animations: 0
+timers: 0
+```
+
+P95 低于 `16.7 ms` 参考门限；1000 轮 active action、checked、enabled、default action、direction 与 text 切换后 QObject、animation 和 timer 数量均不增长。基准结束后专用 Xvfb 进程已清理。
+
+### 12.5 跨平台状态
+
+- preset matrix、Linux/Windows/macOS gate script contract、公开头和完整架构边界检查均通过；矩阵继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static。
+- 本批源码未引入 `Q_OS_*`、`_WIN32`、`__APPLE__` 分支、Qt Private 头、Windows/macOS/Linux 原生系统头、编译器扩展、绝对路径、`QWindowKit::` 目标泄漏或链式命名空间。
+- 本批仅使用 Qt Widgets 公共 API、标准 C++20 和组件自己的 private header；Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、预设、依赖方向和条件编译静态审计。
+- Windows 与 macOS 尚未完成对应平台编译、安装消费或真机交互验证，不得把本节结果表述为这些平台已经运行通过。
+- 当前发布参考环境仍为 `local-release-xvfb`；原 `ubuntu2204-github-ci` 参考档案继续保留为 `pending-user-validation`，本批结果没有冒充 Ubuntu 22.04 兼容验证。
+- 本批未访问 GitHub CLI、未运行或读取远端 CI、未 push，也未下载新的 Qt SDK。
+
+### 12.6 提交记录
+
+```text
+7fee5bc 文档：规划Fluent标准弹出表面批次
+fd57939 控件：完善Fluent标准弹出表面
+6cc6a2d 测试：接入弹出表面质量与安装消费
+0b6bec6 控件：修正菜单文本列布局
+b1a8c3a 测试：补齐弹出表面多主题视觉基线
+```
