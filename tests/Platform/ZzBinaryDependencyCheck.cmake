@@ -204,8 +204,11 @@ elseif(ZZ_SYSTEM_NAME STREQUAL "Windows" AND ZZ_COMPILER_ID STREQUAL "GNU")
             "kit=${ZZ_MINGW_OBJDUMP_NORMALIZED}")
     endif()
     foreach(binary IN LISTS scan_files)
+        get_filename_component(binary_directory "${binary}" DIRECTORY)
+        get_filename_component(binary_name "${binary}" NAME)
         zz_run_tool(objdump "objdump for ${binary}"
-            "${ZZ_CMAKE_OBJDUMP}" -f -p "${binary}")
+            "${CMAKE_COMMAND}" -E chdir "${binary_directory}"
+            "${ZZ_CMAKE_OBJDUMP}" -f -p "${binary_name}")
         if(NOT objdump MATCHES "file format pei-x86-64")
             message(FATAL_ERROR "Expected a MinGW x64 PE binary: ${binary}")
         endif()
