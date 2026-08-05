@@ -18,7 +18,10 @@ function(zz_apply_first_party_warnings target_name)
             list(APPEND zz_warning_options /WX)
         endif()
         if(ZZ_ENABLE_MSVC_ANALYZE)
-            list(APPEND zz_warning_options /analyze)
+            list(APPEND zz_warning_options
+                /analyze
+                /analyze:external-
+            )
         endif()
     else()
         set(zz_warning_options

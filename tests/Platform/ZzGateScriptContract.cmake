@@ -41,6 +41,7 @@ set(required_tokens
     "scripts/ci/check-ubuntu2204-runtime.sh|GLIBCXX_"
     "scripts/ci/check-ubuntu2204-runtime.sh|libstdc++.so.6 =>"
     "scripts/ci/check-ubuntu2204-runtime.sh|not found"
+    "cmake/ZzCompilerWarnings.cmake|/analyze:external-"
     "docs/third-party/THIRD_PARTY_NOTICES.md|GCC Runtime Library Exception")
 
 foreach(requirement IN LISTS required_tokens)
