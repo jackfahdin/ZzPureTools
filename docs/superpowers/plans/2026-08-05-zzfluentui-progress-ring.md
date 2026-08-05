@@ -169,7 +169,7 @@ void stopAnimation() noexcept;
 - `minimumSizeHint()` 至少为 24 x 24，并考虑 `2 * ringWidth + 4`；线宽变化后调用 `updateGeometry()`。
 - 在 `contentsRect()` 中取居中的最大正方形，按实际可用半径收敛绘制线宽；非正尺寸直接返回。
 - 使用 `QStyleOptionProgressBar` 获取方向、palette、启用状态、文本和 `invertedAppearance`，不读取全局主题单例。
-- 轨道使用当前颜色组的 `QPalette::Mid`，前景使用 `QPalette::Highlight`，文字使用 `QPalette::Text`；HighContrast 由应用 palette 决定。
+- 轨道使用当前颜色组的 `QPalette::Mid`，前景使用 `QPalette::Highlight`，文字使用 `QPalette::Text`；HighContrast 由应用 palette 决定。禁用状态在 Disabled 颜色基础上与对应 `Window` 色做固定比例混合，保证状态可辨认。
 - pen 使用圆端点与抗锯齿；不构造 `QPainterPath`，不解析 SVG，不读取文件，不创建子 QWidget。
 - 确定状态按 `(value - minimum) / (maximum - minimum)` 计算，先转换为 64 位整数并收敛到 0 至 1。
 - `maximum <= minimum` 的非不确定状态使用离散终态，不执行除法。

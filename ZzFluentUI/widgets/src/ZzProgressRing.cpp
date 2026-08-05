@@ -35,6 +35,25 @@ QPalette::ColorGroup zzProgressColorGroup(
         : QPalette::Inactive;
 }
 
+/** @brief 按固定通道比例把前景收敛到指定背景色。 */
+QColor zzBlendProgressColor(
+    const QColor &foreground,
+    const QColor &background,
+    float foregroundRatio) noexcept
+{
+    const float ratio = std::clamp(foregroundRatio, 0.0F, 1.0F);
+    const float backgroundRatio = 1.0F - ratio;
+    return QColor::fromRgbF(
+        (foreground.redF() * ratio)
+            + (background.redF() * backgroundRatio),
+        (foreground.greenF() * ratio)
+            + (background.greenF() * backgroundRatio),
+        (foreground.blueF() * ratio)
+            + (background.blueF() * backgroundRatio),
+        (foreground.alphaF() * ratio)
+            + (background.alphaF() * backgroundRatio));
+}
+
 /** @brief 返回不执行除法的确定进度比例。 */
 qreal zzProgressRatio(const ZzProgressRing *ring) noexcept
 {
@@ -141,10 +160,20 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
     }
 
     const QPalette::ColorGroup group = zzProgressColorGroup(option);
-    const QColor trackColor = option.palette.color(group, QPalette::Mid);
-    const QColor progressColor = option.palette.color(
+    QColor trackColor = option.palette.color(group, QPalette::Mid);
+    QColor progressColor = option.palette.color(
         group,
         QPalette::Highlight);
+    if (group == QPalette::Disabled) {
+        const QColor background = option.palette.color(
+            QPalette::Disabled,
+            QPalette::Window);
+        trackColor = zzBlendProgressColor(trackColor, background, 0.55F);
+        progressColor = zzBlendProgressColor(
+            progressColor,
+            trackColor,
+            0.60F);
+    }
     QPen pen(trackColor, penWidth, Qt::SolidLine, Qt::RoundCap);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);

@@ -219,6 +219,41 @@ private Q_SLOTS:
         QVERIFY(inverted.first > inverted.second);
     }
 
+    void visuallyDistinguishesDisabledState()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzProgressRing ring;
+        ring.setStyle(&style);
+        ring.setPalette(style.standardPalette());
+        ring.setTextVisible(false);
+        ring.setRange(0, 0);
+        ring.resize(80, 80);
+        const auto render = [&ring] {
+            QImage image(
+                ring.size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            ring.render(&painter);
+            painter.end();
+            return image;
+        };
+
+        const QImage enabled = render();
+        ring.setEnabled(false);
+        const QImage disabled = render();
+        qsizetype differentPixels = 0;
+        for (int y = 0; y < enabled.height(); ++y) {
+            for (int x = 0; x < enabled.width(); ++x) {
+                if (enabled.pixel(x, y) != disabled.pixel(x, y)) {
+                    ++differentPixels;
+                }
+            }
+        }
+        QVERIFY(differentPixels > 100);
+    }
+
     void startsAndStopsOneAnimationFromLifecycle()
     {
         ZzFluentUI::ZzThemeController controller;
