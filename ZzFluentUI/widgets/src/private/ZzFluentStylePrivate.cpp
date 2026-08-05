@@ -1277,7 +1277,9 @@ void ZzFluentStylePrivate::drawMenuItem(
         adjusted.checked = false;
     }
     if (submenu) {
-        const int trailingWidth = qMin(28, adjusted.rect.width());
+        const int trailingWidth = qMin(
+            zzMenuTrailingIndicatorWidth,
+            adjusted.rect.width());
         const QRect logicalContent = adjusted.rect.adjusted(
             0,
             0,

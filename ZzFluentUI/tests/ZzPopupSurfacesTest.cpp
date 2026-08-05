@@ -116,9 +116,44 @@ private Q_SLOTS:
             &item,
             contents,
             &menu);
-        QVERIFY(fluent.width() >= base.width());
+        QVERIFY(fluent.width() >= base.width() + 12);
         QVERIFY(fluent.height() >= base.height());
         QVERIFY(fluent.height() >= 32);
+
+        item.menuItemType = QStyleOptionMenuItem::DefaultItem;
+        const QSize defaultBase = style.baseStyle()->sizeFromContents(
+            QStyle::CT_MenuItem,
+            &item,
+            contents,
+            &menu);
+        const QSize defaultItem = style.sizeFromContents(
+            QStyle::CT_MenuItem,
+            &item,
+            contents,
+            &menu);
+        QVERIFY(defaultItem.width() >= defaultBase.width() + 12);
+
+        item.text = QStringLiteral("Export workspace");
+        item.reservedShortcutWidth = 0;
+        item.menuItemType = QStyleOptionMenuItem::Normal;
+        const QSize normalItem = style.sizeFromContents(
+            QStyle::CT_MenuItem,
+            &item,
+            contents,
+            &menu);
+        item.menuItemType = QStyleOptionMenuItem::SubMenu;
+        const QSize submenuBase = style.baseStyle()->sizeFromContents(
+            QStyle::CT_MenuItem,
+            &item,
+            contents,
+            &menu);
+        const QSize submenuItem = style.sizeFromContents(
+            QStyle::CT_MenuItem,
+            &item,
+            contents,
+            &menu);
+        QVERIFY(submenuItem.width() >= submenuBase.width());
+        QVERIFY(submenuItem.width() >= normalItem.width() + 28);
 
         item.menuItemType = QStyleOptionMenuItem::Separator;
         item.text.clear();

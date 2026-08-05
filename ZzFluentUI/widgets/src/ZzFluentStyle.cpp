@@ -198,10 +198,46 @@ QSize ZzFluentStyle::sizeFromContents(
     if (type == CT_MenuItem) {
         const auto *menuItem = qstyleoption_cast<
             const QStyleOptionMenuItem *>(option);
+        const bool standardMenuItem = menuItem != nullptr
+            && !d_ptr->isComboBoxPopupContext(widget);
         const bool compactSeparator = menuItem != nullptr
             && menuItem->menuItemType
                 == QStyleOptionMenuItem::Separator
             && !d_ptr->isComboBoxPopupContext(widget);
+        if (standardMenuItem
+            && menuItem->text.contains(QLatin1Char('\t'))) {
+            if (menuItem->menuItemType
+                == QStyleOptionMenuItem::DefaultItem) {
+                QStyleOptionMenuItem mainTextOption = *menuItem;
+                mainTextOption.text.truncate(
+                    mainTextOption.text.indexOf(QLatin1Char('\t')));
+                mainTextOption.reservedShortcutWidth = 0;
+                const QSize defaultMainText =
+                    QProxyStyle::sizeFromContents(
+                        CT_MenuItem,
+                        &mainTextOption,
+                        contentsSize,
+                        widget);
+                result.setWidth(qMax(
+                    result.width(),
+                    defaultMainText.width()));
+            }
+            result.rwidth() += zzMenuShortcutSpacing;
+        }
+        if (standardMenuItem
+            && menuItem->menuItemType
+                == QStyleOptionMenuItem::SubMenu) {
+            QStyleOptionMenuItem contentOption = *menuItem;
+            contentOption.menuItemType = QStyleOptionMenuItem::Normal;
+            const QSize contentSize = QProxyStyle::sizeFromContents(
+                CT_MenuItem,
+                &contentOption,
+                contentsSize,
+                widget);
+            result.setWidth(qMax(
+                result.width(),
+                contentSize.width() + zzMenuTrailingIndicatorWidth));
+        }
         result.setHeight(qMax(
             result.height(),
             compactSeparator ? 9 : 32));

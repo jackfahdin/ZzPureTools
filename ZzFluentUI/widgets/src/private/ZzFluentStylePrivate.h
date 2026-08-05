@@ -21,6 +21,12 @@ class ZzFluentStyle;
 class ZzThemeController;
 class ZzThemeSnapshot;
 
+/** @brief 菜单正文与快捷键列之间保留的最小逻辑像素间距。 */
+inline constexpr int zzMenuShortcutSpacing = 12;
+
+/** @brief 子菜单自绘 chevron 独占的尾部逻辑像素宽度。 */
+inline constexpr int zzMenuTrailingIndicatorWidth = 28;
+
 /** @brief 持有主题快照、非拥有控制器引用和 Widgets 私有缓存。 */
 class ZzFluentStylePrivate final
 {
