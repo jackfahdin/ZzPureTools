@@ -1,5 +1,7 @@
 #include <concepts>
+#include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <memory>
 #include <utility>
 
@@ -94,5 +96,17 @@ public:
 
 int main(int argc, char *argv[])
 {
-    return ZzCorePublicHeadersTest::run(argc, argv);
+    try {
+        return ZzCorePublicHeadersTest::run(argc, argv);
+    } catch (const std::exception &exception) {
+        std::fprintf(
+            stderr,
+            "ZzCore public-header smoke test failed: %s\n",
+            exception.what());
+    } catch (...) {
+        std::fprintf(
+            stderr,
+            "ZzCore public-header smoke test failed: unknown exception\n");
+    }
+    return EXIT_FAILURE;
 }

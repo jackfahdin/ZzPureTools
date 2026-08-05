@@ -312,7 +312,9 @@ ZzLogInitResult initialize(ZzLogConfig config)
     }
 }
 
-void shutdown() noexcept
+namespace {
+
+void shutdownRuntime()
 {
     auto &state = runtime();
     std::shared_ptr<ZzBackendLogger> logger;
@@ -353,6 +355,22 @@ void shutdown() noexcept
     logger.reset();
     asyncFileSink.reset();
     synchronousSinks.clear();
+}
+
+} // namespace
+
+void shutdown() noexcept
+{
+    try {
+        shutdownRuntime();
+    } catch (const std::exception &ex) {
+        std::fprintf(
+            stderr,
+            "[ZzLog error] shutdown failed: %s\n",
+            ex.what());
+    } catch (...) {
+        std::fprintf(stderr, "[ZzLog error] shutdown failed\n");
+    }
 }
 
 void flush() noexcept
@@ -428,17 +446,17 @@ std::filesystem::path activeFilePath()
 
 std::uint64_t droppedMessageCount() noexcept
 {
-    std::shared_ptr<backend::sinks::async_sink> sink;
-    {
-        auto &state = runtime();
-        std::lock_guard<std::mutex> lock(state.lifecycleMutex);
-        sink = state.asyncFileSink;
-    }
-
-    if (!sink) {
-        return 0;
-    }
     try {
+        std::shared_ptr<backend::sinks::async_sink> sink;
+        auto &state = runtime();
+        {
+            std::lock_guard<std::mutex> lock(state.lifecycleMutex);
+            sink = state.asyncFileSink;
+        }
+
+        if (!sink) {
+            return 0;
+        }
         return static_cast<std::uint64_t>(sink->get_overrun_counter())
             + static_cast<std::uint64_t>(sink->get_discard_counter());
     } catch (...) {

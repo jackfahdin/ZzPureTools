@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -955,7 +956,13 @@ private:
     std::unique_ptr<ZzFluentUI::ZzThemeController> controller_;
 };
 
-int main(int argc, char *argv[])
+namespace {
+
+/**
+ * @brief 解析固定视觉参数并运行截图测试。
+ * @return 测试退出码。
+ */
+int zzRunFluentScreenshotTest(int argc, char *argv[])
 {
     QString parseError;
     std::optional<ZzScreenshotArguments> arguments = zzParseArguments(
@@ -978,6 +985,25 @@ int main(int argc, char *argv[])
         arguments->expectedDpr,
         arguments->baselineSubdirectory);
     return QTest::qExec(&test, filteredArgc, filteredPointers.data());
+}
+
+} // namespace
+
+int main(int argc, char *argv[])
+{
+    try {
+        return zzRunFluentScreenshotTest(argc, argv);
+    } catch (const std::exception &exception) {
+        std::fprintf(
+            stderr,
+            "ZzFluent screenshot test failed: %s\n",
+            exception.what());
+    } catch (...) {
+        std::fprintf(
+            stderr,
+            "ZzFluent screenshot test failed: unknown exception\n");
+    }
+    return EXIT_FAILURE;
 }
 
 #include "ZzFluentScreenshotTest.moc"
