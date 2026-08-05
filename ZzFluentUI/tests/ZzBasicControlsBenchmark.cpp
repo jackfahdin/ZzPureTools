@@ -58,6 +58,7 @@ constexpr int zzMaximumMultiDataCalls = 120;
 constexpr int zzMaximumIconCacheBytes = 4 * 1024 * 1024;
 constexpr qreal zzReferenceP95Milliseconds = 16.7;
 constexpr qreal zzSuggestFilterReferenceMilliseconds = 50.0;
+constexpr qreal zzMultiSelectReferenceMilliseconds = 60.0;
 
 /** @brief 记录 10 万行即时模型的批量数据访问范围与调用数量。 */
 class ZzBenchmarkRowsModel final : public QAbstractListModel
@@ -1846,6 +1847,12 @@ private Q_SLOTS:
                 qPrintable(QStringLiteral(
                     "参考机多选组合框 P95 %1 ms 超过16.7 ms帧预算")
                                .arg(p95, 0, 'f', 3)));
+            QVERIFY2(
+                selectionMilliseconds
+                    <= zzMultiSelectReferenceMilliseconds,
+                qPrintable(QStringLiteral(
+                    "参考机100x10000条多选操作耗时 %1 ms 超过60 ms预算")
+                               .arg(selectionMilliseconds, 0, 'f', 3)));
         }
     }
 
