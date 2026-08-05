@@ -4,6 +4,7 @@
 #include <memory>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDeadlineTimer>
@@ -12,6 +13,10 @@
 #include <QtCore/QThread>
 
 #include <ZzCore/ZzTaskExecutor.h>
+
+static_assert(noexcept(
+    std::declval<ZzCore::ZzTaskExecutor &>().shutdown(
+        std::declval<QDeadlineTimer>())));
 
 class ZzTaskExecutorTest final : public QObject
 {

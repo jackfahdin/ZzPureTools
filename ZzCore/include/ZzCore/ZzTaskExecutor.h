@@ -46,7 +46,7 @@ public:
      *
      * 必须在 owner 线程调用。未响应 ZzStopToken 的 callable 会延长析构时间。
      */
-    ~ZzTaskExecutor() override;
+    ~ZzTaskExecutor() noexcept override;
 
     ZzTaskExecutor(const ZzTaskExecutor &) = delete;
     ZzTaskExecutor &operator=(const ZzTaskExecutor &) = delete;
@@ -154,12 +154,12 @@ public:
     /**
      * @brief 停止接收任务、请求取消并等待线程池完成。
      * @param deadline 包含等待截止时间的 Qt deadline。
-     * @return 截止时间前全部任务完成时返回 true，超时时返回 false。
+     * @return 截止时间前全部任务完成时返回 true，超时或内部等待失败时返回 false。
      *
      * 必须在 owner 线程调用。本函数幂等；超时不会分离或遗失仍在运行的任务，可使用
      * 新 deadline 再次调用。
      */
-    [[nodiscard]] bool shutdown(QDeadlineTimer deadline);
+    [[nodiscard]] bool shutdown(QDeadlineTimer deadline) noexcept;
 
 private:
     [[nodiscard]] bool enqueue(

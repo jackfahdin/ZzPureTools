@@ -2,7 +2,6 @@
 
 #include <exception>
 #include <utility>
-#include <vector>
 
 #include <QtCore/QThread>
 #include <QtCore/QtGlobal>
@@ -18,7 +17,7 @@ ZzTaskExecutorPrivate::ZzTaskExecutorPrivate(int requestedThreadCount)
     threadPool.setMaxThreadCount(resolvedThreadCount);
 }
 
-ZzTaskExecutorPrivate::~ZzTaskExecutorPrivate()
+ZzTaskExecutorPrivate::~ZzTaskExecutorPrivate() noexcept
 {
     if (isWorkerThread()) {
         Q_ASSERT_X(
@@ -27,7 +26,9 @@ ZzTaskExecutorPrivate::~ZzTaskExecutorPrivate()
             "executor must not be destroyed from its worker thread");
         std::terminate();
     }
-    static_cast<void>(shutdown(QDeadlineTimer(QDeadlineTimer::Forever)));
+    if (!shutdown(QDeadlineTimer(QDeadlineTimer::Forever))) {
+        std::terminate();
+    }
 }
 
 bool ZzTaskExecutorPrivate::enqueue(
@@ -55,24 +56,22 @@ void ZzTaskExecutorPrivate::finishTask(std::uint64_t taskId) noexcept
     tasks.erase(taskId);
 }
 
-bool ZzTaskExecutorPrivate::shutdown(QDeadlineTimer deadline)
+bool ZzTaskExecutorPrivate::shutdown(QDeadlineTimer deadline) noexcept
 {
-    std::vector<std::shared_ptr<Internal::ZzTaskControl>> snapshot;
-    {
-        std::lock_guard<std::mutex> lock(tasksMutex);
-        acceptingTasks = false;
-        snapshot.reserve(tasks.size());
-        for (const auto &[taskId, control] : tasks) {
-            static_cast<void>(taskId);
-            snapshot.push_back(control);
+    try {
+        {
+            std::lock_guard<std::mutex> lock(tasksMutex);
+            acceptingTasks = false;
+            for (const auto &[taskId, control] : tasks) {
+                static_cast<void>(taskId);
+                static_cast<void>(control->requestCancellation());
+            }
         }
-    }
 
-    for (const auto &control : snapshot) {
-        static_cast<void>(control->requestCancellation());
+        return threadPool.waitForDone(deadline);
+    } catch (...) {
+        return false;
     }
-
-    return threadPool.waitForDone(deadline);
 }
 
 int ZzTaskExecutorPrivate::threadCount() const noexcept

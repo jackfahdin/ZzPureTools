@@ -317,41 +317,45 @@ ZzPageHostPrivate::createPage(const ZzPageRegistration &registration)
 
 void ZzPageHostPrivate::deactivateCurrentUnchecked() noexcept
 {
-    stack->hide();
-    if (!activeRoute.isValid()) {
-        showingFrameworkError = false;
-        return;
-    }
-    if (showingFrameworkError) {
+    try {
+        stack->hide();
+        if (!activeRoute.isValid()) {
+            showingFrameworkError = false;
+            return;
+        }
+        if (showingFrameworkError) {
+            activeRoute = {};
+            showingFrameworkError = false;
+            return;
+        }
+
+        const QString routeKey = activeRoute.value();
+        auto pageIterator = pages.find(routeKey);
         activeRoute = {};
-        showingFrameworkError = false;
-        return;
-    }
+        if (pageIterator == pages.end()) {
+            return;
+        }
 
-    const QString routeKey = activeRoute.value();
-    auto pageIterator = pages.find(routeKey);
-    activeRoute = {};
-    if (pageIterator == pages.end()) {
-        return;
-    }
-
-    switch (pageIterator->second.policy) {
-    case ZzPageLifetimePolicy::Persistent:
-        break;
-    case ZzPageLifetimePolicy::WhileActive:
-        pageIterator->second.instance->prepareForDestruction();
-        pages.erase(pageIterator);
-        break;
-    case ZzPageLifetimePolicy::Recreatable:
-        if (recreatableCapacity == 0) {
+        switch (pageIterator->second.policy) {
+        case ZzPageLifetimePolicy::Persistent:
+            break;
+        case ZzPageLifetimePolicy::WhileActive:
             pageIterator->second.instance->prepareForDestruction();
             pages.erase(pageIterator);
-        } else {
-            removeFromRecreatableLru(routeKey);
-            recreatableLru.push_back(routeKey);
-            evictRecreatablePages();
+            break;
+        case ZzPageLifetimePolicy::Recreatable:
+            if (recreatableCapacity == 0) {
+                pageIterator->second.instance->prepareForDestruction();
+                pages.erase(pageIterator);
+            } else {
+                removeFromRecreatableLru(routeKey);
+                recreatableLru.push_back(routeKey);
+                evictRecreatablePages();
+            }
+            break;
         }
-        break;
+    } catch (...) {
+        std::terminate();
     }
 }
 

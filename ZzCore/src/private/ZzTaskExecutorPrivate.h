@@ -18,13 +18,13 @@ class ZzTaskExecutorPrivate final
 {
 public:
     explicit ZzTaskExecutorPrivate(int requestedThreadCount);
-    ~ZzTaskExecutorPrivate();
+    ~ZzTaskExecutorPrivate() noexcept;
 
     [[nodiscard]] bool enqueue(
         const std::shared_ptr<Internal::ZzTaskControl> &control,
         QRunnable *runnable);
     void finishTask(std::uint64_t taskId) noexcept;
-    [[nodiscard]] bool shutdown(QDeadlineTimer deadline);
+    [[nodiscard]] bool shutdown(QDeadlineTimer deadline) noexcept;
     [[nodiscard]] int threadCount() const noexcept;
     [[nodiscard]] bool isAcceptingTasks() const noexcept;
     [[nodiscard]] bool isOwnerThread() const noexcept;

@@ -15,7 +15,7 @@ ZzTaskExecutor::ZzTaskExecutor(int threadCount, QObject *parent)
 {
 }
 
-ZzTaskExecutor::~ZzTaskExecutor()
+ZzTaskExecutor::~ZzTaskExecutor() noexcept
 {
     if (!d_ptr->isOwnerThread() || d_ptr->isWorkerThread()) {
         Q_ASSERT_X(
@@ -24,8 +24,9 @@ ZzTaskExecutor::~ZzTaskExecutor()
             "executor must be destroyed from its owner thread");
         std::terminate();
     }
-    static_cast<void>(
-        d_ptr->shutdown(QDeadlineTimer(QDeadlineTimer::Forever)));
+    if (!d_ptr->shutdown(QDeadlineTimer(QDeadlineTimer::Forever))) {
+        std::terminate();
+    }
 }
 
 int ZzTaskExecutor::threadCount() const noexcept
@@ -38,7 +39,7 @@ bool ZzTaskExecutor::isAcceptingTasks() const noexcept
     return d_ptr->isAcceptingTasks();
 }
 
-bool ZzTaskExecutor::shutdown(QDeadlineTimer deadline)
+bool ZzTaskExecutor::shutdown(QDeadlineTimer deadline) noexcept
 {
     if (!d_ptr->isOwnerThread() || d_ptr->isWorkerThread()) {
         Q_ASSERT_X(
