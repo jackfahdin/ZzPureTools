@@ -222,3 +222,68 @@ void drawStatusBarPanel(
 ```
 
 提交标题使用中文简述，正文使用多个中文段落记录实现、验证、性能和平台影响。每个逻辑批次验证后立即提交；不 push，不调用 GitHub CLI，不处理远端 CI，不下载 Qt。
+
+## 11. 交付结果
+
+**状态：** 已于 2026-08-06 完成本批次实现与本机质量门禁。代码验证基于提交 `ee5158be50adc468cc1cdb607d5d0ec633f44636`，使用本机 Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8 和 CMake 4.3.3；全程复用 `/home/zz/Qt/6.11.1/gcc_64`，没有下载新的 Qt SDK。
+
+### 11.1 生产实现与架构边界
+
+- 标准 `QToolBar`、`QToolButton` 和 `QStatusBar` 直接消费应用级 `ZzFluentStyle`；没有新增 `ZzToolBar`、`ZzToolButton`、`ZzStatusBar` 包装类、公开头或导出 ABI。
+- `ZzFluentStyle` 在 base style 测量结果之上提供稳定的工具栏 metric 和工具按钮最小尺寸，只绘制 button panel、toolbar panel、handle、separator、status panel 与顶部边界。图标、文字、菜单箭头、size grip、命中测试及 action geometry 继续委托 Qt。
+- 工具按钮 normal 保持透明，hover、pressed、checked 与 disabled 使用主题 snapshot token；工具栏 handle 固定为六点，separator 和边界按当前 DPR 对齐一个物理像素。Light、Dark 与 HighContrast 均沿用同一条无分支绘制路径。
+- Qt 继续拥有 action、快捷键、菜单、停靠、浮动、方向、allowed area、overflow、状态消息、普通/永久 widget、timeout、size grip 与无障碍协议；style 不保存业务状态，也不访问模型、命令、路由、日志、文件或网络。
+- 绘制 helper 不创建 QObject、style、animation、timer、pixmap cache、容器或字符串，没有 QSS、动态属性、Qt Private API、平台原生头、链式命名空间或 `QWindowKit::` 依赖泄漏。
+
+### 11.2 行为、无障碍与安装消费
+
+- `fluent.command-status-surfaces` 覆盖七项 toolbar metric、base measurement、horizontal/vertical、LTR/RTL、allowed area、toggle view action、separator、widget action、overflow 与浮动公开状态。
+- 工具按钮测试覆盖 default action、checkable/disabled、四种显示模式、三种 popup mode、menu action、Space/Enter 激活和 focus；status bar 测试覆盖普通/永久控件、临时消息、清除、timeout、messageChanged 与 size grip 切换。
+- 通过 Qt 公共 `QAccessibleInterface` 验证 toolbar、tool button 与 status bar 的 role、name 和原生 action 没有被包装层替换。
+- 1000 次 action、方向、RTL、消息和主题变化后，对象、animation、timer 与 style 数量保持稳定；测试不查找 Qt 私有 child object name，也不包含 Qt private header。
+- fresh install GUI consumer 从安装包创建标准主窗口、工具栏、工具按钮和状态栏，并验证 action 信号与非空离屏渲染；shared/static 的安装消费和 package relocation 均通过。
+
+### 11.3 提交记录
+
+- `a0c1f54`：完成旧版 toolbar/status bar 相关文件的逐行审计，确定标准 Qt 控件与应用级 style 的边界。
+- `48c3a1f`：实现工具按钮状态表面、工具栏 panel/handle/separator、状态栏 panel 和稳定 metric。
+- `facb0f9`：接入行为、无障碍、对象稳定性、安装消费和架构质量门禁。
+- `3d62d79`：接入三十组工具栏与状态栏绘制预算、对象稳定性和 40/4 action 复杂度门禁。
+- `ee5158b`：接入控件画廊、三主题四档 DPR 的十二张新基线，并同步更新受工具按钮样式影响的既有基线。
+
+### 11.4 Linux 自动验证
+
+- `linux-gcc-release` shared Release 最终全量 CTest 通过，共 `97/97`。
+- `linux-static-release` static Release 最终全量 CTest 通过，共 `97/97`。
+- fresh install consumer、package relocation、公开头独立编译、二进制依赖、完整架构审计、FluentUI 边界、文档审计、preset/gate 契约与平台编译探针通过。
+- shared/static 控件画廊 offscreen smoke 通过；DPR 1.0、1.25、1.5、2.0 下的 shared/static 完整截图回归通过。
+- Clang 20 ASan+UBSan 下的命令与状态行为测试、benchmark、DPR 1.0 完整截图和控件画廊 offscreen smoke 定向运行通过，未报告内存错误或未定义行为。
+- 使用成功的 GCC compilation database 对本批修改的 style、专项测试、安装消费者、benchmark、截图和画廊翻译单元执行 clang-tidy 20 定向检查，均以 0 退出。本机未安装 `clang-format-20`，因此没有把该命令记录为通过；格式由 warnings-as-errors 编译、`git diff --check` 和既有源码格式约束验证。
+
+### 11.5 性能结果
+
+活动 Linux reference 发布机使用固定 CPU 亲和、Xvfb 1920x1080x24 和 Mesa llvmpipe。预构造 30 个可见 `QToolBar` 和 30 个 `QStatusBar`，每个工具栏包含 8 个 action、separator、checkable action 与 menu action，预热后采集 120 帧：
+
+```text
+P50: 1.475 ms
+P95: 1.496 ms
+max: 1.505 ms
+40 action 与 4 action 相同可见尺寸复杂度比: 1.031
+```
+
+P95 低于 `12 ms` 硬门限，复杂度比低于 `2.0` 硬门限。1000 次方向、RTL、checked、enabled、status message 和主题变化后，完整夹具的 QObject descendants 保持 `1020`、animation 保持 `0`、timer 保持 `0`、子级 style 保持 `0`。
+
+Clang 20 ASan+UBSan 插桩环境定向结果为 P50 `2.531 ms`、P95 `2.738 ms`、max `2.882 ms`、复杂度比 `0.976`，且对象数量同样稳定。Sanitizer 数据只用于验证插桩路径，不替代上述 reference Release 原始结果。
+
+### 11.6 视觉检查
+
+新增 `command-status-{light,dark,high-contrast}.png`，每个主题覆盖 DPR 1.0、1.25、1.5、2.0，共 12 张。固定 surface 覆盖 horizontal/vertical、icon only、text beside/under icon、checked、hover、pressed、disabled、focus、separator、menu arrow、overflow、RTL、正常状态、临时消息、永久 widget 与 size grip。
+
+工具按钮新表面同时改变了既有总览、tabs 和 suggest-box 中的非文字区域，因此按实际完整回归结果更新 30 张旧基线，没有改动其他 PNG。已人工检查 Light、Dark、HighContrast 的 DPR 1.0 和 Light 的 DPR 2.0；图标、文字、菜单箭头、handle、separator、overflow、status text 与 size grip 均清晰，没有裁切、重叠、文字越界或不连贯缩放。
+
+### 11.7 跨平台状态
+
+- 本批继续保留 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static 的 CMake preset 和安装消费契约。
+- 生产修改只使用 Qt Core/Gui/Widgets 公共 style API 和标准 C++20；没有新增公开 ABI、平台宏、编译器专用扩展、原生窗口调用或平台链接依赖。Windows 与 macOS 可继续使用 Qt 自身的 action、toolbar、menu 和 status bar 平台适配。
+- Windows MSVC、Windows Qt SDK MinGW 与 macOS 当前只完成源码、preset、公开 ABI、依赖方向和条件编译静态审计，尚未在对应平台完成编译、安装消费、像素基线或真机交互验证；不得将本节结果表述为这些平台已经运行通过。
+- 本批未访问 GitHub CLI、未运行或读取远端 CI、未 push；远端 CI 按用户要求继续暂缓。
