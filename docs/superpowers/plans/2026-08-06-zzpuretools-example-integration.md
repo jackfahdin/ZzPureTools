@@ -188,12 +188,13 @@ Linux 物理桌面最终验收以 `ZzPureToolsExample` 为主入口，检查窗�
 
 ### 7.3 本批验证证据
 
-- Linux static GCC 严格警告构建通过。
-- Linux Clang shared 构建通过。
-- ASan+UBSan 下四档综合截图测试 `4/4` 通过。
-- 完整 `ZzClangTidy` 分析 182 个项目源文件通过。
-- Linux static 完整 CTest `115/115` 通过，包括安装消费、包重定位、公开头、
-  架构边界、二进制依赖、组件截图与十五项示例测试。
+- Linux GCC shared 与 static 严格警告构建及完整 CTest 均为 `115/115` 通过，
+  包括安装消费、包重定位、公开头、架构边界、二进制依赖、组件截图与十五项
+  示例测试。
+- Linux Clang shared 构建通过；ASan+UBSan 完整 CTest `115/115` 通过，不只执行
+  定向截图场景。
+- shared 与 static 两份编译数据库的完整 `ZzClangTidy` 均分析 182 个项目源文件
+  并通过。
 - 四档综合截图关闭更新模式后连续运行两轮均通过；人工检查 100% 三主题和
   200% Light，未发现空白、裁切、重叠或主题串色。
 - 视觉检查发现并修复标题栏子按钮调色板传播滞后导致的深色图标低对比问题，
