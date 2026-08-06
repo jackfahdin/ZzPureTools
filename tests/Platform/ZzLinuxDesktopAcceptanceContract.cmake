@@ -31,6 +31,10 @@ set(required_tokens
     "ZzPureToolsExample"
     "sha256sum"
     "QT_QPA_PLATFORM"
+    "require_x11_output"
+    "xrandr --listmonitors"
+    "require_wayland_output"
+    "interface: 'wl_output'"
     "linux-native.log"
     "RESULT_ZH.md")
 foreach(required_token IN LISTS required_tokens)

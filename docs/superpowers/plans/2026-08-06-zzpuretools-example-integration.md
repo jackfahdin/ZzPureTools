@@ -237,5 +237,8 @@ Linux 物理桌面最终验收以 `ZzPureToolsExample` 为主入口，检查窗�
 - Linux X11 KDE、X11 GNOME、Wayland KDE、Wayland GNOME 和强制 Qt fallback
   五种物理桌面会话仍需按 `MANUAL_LINUX_CHECKLIST_ZH.md` 人工签署；offscreen
   截图不能代替窗口拖动、resize、系统菜单、多显示器和辅助技术验收。
+- 2026-08-06 曾从当前自动化终端尝试启动 Wayland KDE 采证，但该 compositor
+  socket 没有发布 `wl_output`，应用只能获得 Qt placeholder screen，因此本次运行
+  已终止且不计入真机结果。采证脚本现会在创建证据前拒绝同类无输出会话。
 - Windows MSVC、Windows Qt MinGW 与 macOS 的原生构建和真机交互结果仍待外部
   环境验证；本机只能保留跨平台源码与 CMake 静态约束。

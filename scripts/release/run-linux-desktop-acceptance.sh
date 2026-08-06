@@ -1,6 +1,40 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+require_x11_output() {
+  command -v xrandr >/dev/null || {
+    echo "xrandr is required to verify a physical X11 output" >&2
+    return 69
+  }
+  local monitor_summary
+  monitor_summary=$(xrandr --listmonitors 2>&1) || {
+    echo "xrandr could not query the active X11 outputs" >&2
+    return 65
+  }
+  local monitor_count
+  monitor_count=$(sed -n 's/^Monitors:[[:space:]]*//p' <<<"$monitor_summary")
+  [[ "$monitor_count" =~ ^[1-9][0-9]*$ ]] || {
+    echo "the X11 session exposes no active physical output" >&2
+    return 65
+  }
+}
+
+require_wayland_output() {
+  command -v wayland-info >/dev/null || {
+    echo "wayland-info is required to verify a physical Wayland output" >&2
+    return 69
+  }
+  local registry
+  registry=$(wayland-info 2>&1) || {
+    echo "wayland-info could not query the active Wayland compositor" >&2
+    return 65
+  }
+  [[ "$registry" == *"interface: 'wl_output'"* ]] || {
+    echo "the Wayland compositor exposes no wl_output" >&2
+    return 65
+  }
+}
+
 usage() {
   cat <<'EOF'
 usage: run-linux-desktop-acceptance.sh --session <id> --build-dir <path>
@@ -141,6 +175,7 @@ case "$session_id" in
       echo "DISPLAY is unavailable" >&2
       exit 65
     }
+    require_x11_output
     export QT_QPA_PLATFORM=xcb
     ;;
   linux-x11-gnome)
@@ -152,6 +187,7 @@ case "$session_id" in
       echo "DISPLAY is unavailable" >&2
       exit 65
     }
+    require_x11_output
     export QT_QPA_PLATFORM=xcb
     ;;
   linux-wayland-kde)
@@ -163,6 +199,7 @@ case "$session_id" in
       echo "Wayland display variables are unavailable" >&2
       exit 65
     }
+    require_wayland_output
     export QT_QPA_PLATFORM=wayland
     ;;
   linux-wayland-gnome)
@@ -174,6 +211,7 @@ case "$session_id" in
       echo "Wayland display variables are unavailable" >&2
       exit 65
     }
+    require_wayland_output
     export QT_QPA_PLATFORM=wayland
     ;;
   linux-qt-fallback)
@@ -183,6 +221,7 @@ case "$session_id" in
           echo "DISPLAY is unavailable" >&2
           exit 65
         }
+        require_x11_output
         export QT_QPA_PLATFORM=xcb
         ;;
       wayland)
@@ -190,6 +229,7 @@ case "$session_id" in
           echo "Wayland display variables are unavailable" >&2
           exit 65
         }
+        require_wayland_output
         export QT_QPA_PLATFORM=wayland
         ;;
       *)
