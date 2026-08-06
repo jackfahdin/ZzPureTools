@@ -25,7 +25,7 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 | 字段 | 固定值 |
 |---|---|
 | CPU | Intel Core i7-14700，1 socket，20 core，28 logical CPU |
-| RAM | 32,708,890,624 bytes |
+| RAM | 32,708,886,528 bytes |
 | 主机 GPU | Intel UHD Graphics 770，i915，当前不参与 Xvfb 绘制 |
 | benchmark renderer | Mesa llvmpipe，LLVM 21.1.8，Mesa 26.0.3 |
 | 显示 | Xvfb 21.1.22，xcb，1920×1080×24，60 Hz，DPR 1.0 |
@@ -45,27 +45,30 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 sha256sum docs/performance/profiles/local-release-xvfb.json
 ```
 
-任何档案字段变化都会改变 digest，并强制重新采集六份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
+任何档案字段变化都会改变 digest，并强制重新采集七份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
 
 ## 当前活动基线
 
-本机活动基线于 2026-08-05 建立，六份报告均逐字来自同一次固定环境采集：
+本机活动基线于 2026-08-06 更新，七份报告均逐字来自同一次固定环境采集：
 
 | 身份字段 | 固定值 |
 |---|---|
-| 被测源码 HEAD | `4050bac1561d4f8fe7317aafebd5416f78035a61` |
-| runner 档案 SHA-256 | `242e623f21aa12a9c50199595c9427d7ef6754604883838aa894281d42c05fe1` |
+| 被测源码 HEAD | `cd9220712f1b3d39df7689af3d5172994e00d08e` |
+| runner 档案 SHA-256 | `f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41` |
 | renderer identity | `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` |
-| reference CTest | 22/22 通过，包含 6 项绝对门禁 |
-| Clang ASan/UBSan | `linux-clang-asan-benchmarks` 全量构建通过；ZzLog 四项测试与 100 次窗口生命周期共 5/5 通过 |
+| reference CTest | 16/16 通过，包含 7 个报告生产者与 9 项绝对门禁 |
+| Clang ASan/UBSan | `linux-clang-asan-benchmarks` 构建通过；窗口生命周期与导航面板压力场景 2/2 通过 |
 
 | 门禁 | 实测结果 | 要求 | 结论 |
 |---|---:|---:|---|
-| 启动 `external-total` | P95 20.165138 ms，max 20.532506 ms | P95/max ≤ 300 ms | 通过 |
-| 500 控件主题切换 | P95 6.513543 ms | P95 ≤ 50 ms | 通过 |
-| Toggle 动画 | P95 16.603062 ms | P95 ≤ 16.7 ms | 通过 |
-| 10 万行模型 | P95 1.592757 ms | P95 ≤ 16.7 ms | 通过 |
-| 窗口生命周期 | 100 次完成，P95 3.719473 ms | 100 次且诊断计数无残留 | 通过 |
+| 启动 `external-total` | P95 20.338865 ms，max 20.513968 ms | P95/max ≤ 300 ms | 通过 |
+| 500 控件主题切换 | P95 6.583058 ms | P95 ≤ 50 ms | 通过 |
+| Toggle 动画 | P95 16.608088 ms | P95 ≤ 16.7 ms | 通过 |
+| 10 万行模型 | P95 1.515987 ms | P95 ≤ 16.7 ms | 通过 |
+| 窗口生命周期 | 100 次完成，P95 3.801176 ms | 100 次且诊断计数无残留 | 通过 |
+| 40 个导航面板整帧 | P95 7.890631 ms | P95 ≤ 12 ms | 通过 |
+| 导航绘制复杂度 | 0.967326 倍 | 严格 ≤ 1.5 倍 | 通过 |
+| 10 万行导航 reset | P95 17.144409 ms | P95 ≤ 80 ms | 通过 |
 | 空闲 CPU | 0% | 严格 < 0.5% | 通过 |
 | 空闲 RSS 增长 | 0% | ≤ 10% | 通过 |
 
@@ -105,6 +108,7 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | 动画 | 10 次 toggle | 100 次 toggle 的全部相邻 Paint 间隔 |
 | 10 万行模型 | 10 帧 | 100 帧 |
 | 窗口生命周期 | 0 | 100 个窗口 |
+| 导航面板 | 10 帧 | 120 帧、1000 次映射激活、20 次 reset |
 | 空闲 | 5 秒 | 30 秒单区间 |
 
 | reporter 输出 | 活动基线路径 |
@@ -114,9 +118,10 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | `build/linux-gcc-reference/reports/benchmark.animation.json` | `docs/performance/reference/linux/animation.json` |
 | `build/linux-gcc-reference/reports/benchmark.large-model.json` | `docs/performance/reference/linux/large-model.json` |
 | `build/linux-gcc-reference/reports/benchmark.window-lifecycle.json` | `docs/performance/reference/linux/window-lifecycle.json` |
+| `build/linux-gcc-reference/reports/benchmark.navigation-pane.json` | `docs/performance/reference/linux/navigation-pane.json` |
 | `build/linux-gcc-reference/reports/benchmark.idle.json` | `docs/performance/reference/linux/idle.json` |
 
-六份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足启动 P95/max 不超过 300 ms、主题 P95 不超过 50 ms、动画与大模型 P95 不超过 16.7 ms、空闲 CPU 严格低于 0.5%、RSS 增长不超过 10%，并完成窗口生命周期计数和 ASan/UBSan 门禁。
+七份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足启动 P95/max 不超过 300 ms、主题 P95 不超过 50 ms、动画与大模型 P95 不超过 16.7 ms、导航整帧 P95 不超过 12 ms、绘制复杂度不超过 1.5 倍、导航 reset P95 不超过 80 ms、空闲 CPU 严格低于 0.5%、RSS 增长不超过 10%，并完成窗口生命周期计数和 ASan/UBSan 门禁。
 
 ## 原 CI 参考档案
 

@@ -87,7 +87,7 @@ cmake --preset linux-gcc-benchmarks
 cmake --build --preset linux-gcc-benchmarks
 taskset -c 10 ctest --preset linux-gcc-benchmarks \
   --output-on-failure -j1
-for scenario in startup theme-switch animation large-model window-lifecycle idle; do
+for scenario in startup theme-switch animation large-model window-lifecycle navigation-pane idle; do
   cmake \
     -DZZ_BASELINE="docs/performance/reference/linux/${scenario}.json" \
     -DZZ_CURRENT="build/linux-gcc-benchmarks/reports/benchmark.${scenario}.json" \
@@ -97,9 +97,9 @@ done
 
 cmake --preset linux-clang-asan-benchmarks
 cmake --build --preset linux-clang-asan-benchmarks \
-  --target ZzWindowLifecycleBenchmark
+  --target ZzWindowLifecycleBenchmark ZzNavigationPaneBenchmark
 ctest --preset linux-clang-asan-benchmarks \
-  -R '^benchmark\.window-lifecycle$' --output-on-failure
+  -R '^benchmark\.(window-lifecycle|navigation-pane)$' --output-on-failure
 cleanup_xvfb
 trap - EXIT
 

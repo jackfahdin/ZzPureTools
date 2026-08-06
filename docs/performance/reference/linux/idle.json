@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "4050bac1561d4f8fe7317aafebd5416f78035a61",
+        "commit": "cd9220712f1b3d39df7689af3d5172994e00d08e",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -12,11 +12,11 @@
         "cpu": "Intel(R) Core(TM) i7-14700",
         "dpr": 1,
         "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24",
-        "memoryBytes": 32708890624,
+        "memoryBytes": 32708886528,
         "os": "Ubuntu 26.04 LTS",
         "qtVersion": "6.11.1",
         "refreshRateHz": 60,
-        "runnerImageDigest": "sha256:242e623f21aa12a9c50199595c9427d7ef6754604883838aa894281d42c05fe1",
+        "runnerImageDigest": "sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41",
         "windowSystem": "xcb"
     },
     "metrics": {
@@ -29,9 +29,9 @@
         },
         "rss-end-bytes": {
             "count": 1,
-            "max": 42434560,
-            "p50": 42434560,
-            "p95": 42434560,
+            "max": 42635264,
+            "p50": 42635264,
+            "p95": 42635264,
             "unit": "bytes"
         },
         "rss-growth-percent": {
@@ -43,9 +43,9 @@
         },
         "rss-start-bytes": {
             "count": 1,
-            "max": 42434560,
-            "p50": 42434560,
-            "p95": 42434560,
+            "max": 42635264,
+            "p50": 42635264,
+            "p95": 42635264,
             "unit": "bytes"
         }
     },
