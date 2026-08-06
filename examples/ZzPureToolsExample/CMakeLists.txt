@@ -7,6 +7,10 @@ set(zz_pure_tools_example_sources
     ZzExampleCardsPage.cpp
     ZzExampleCardsPagePrivate.cpp
     ZzExampleCardsViewModel.cpp
+    ZzExampleDataPage.cpp
+    ZzExampleDataPagePrivate.cpp
+    ZzExampleDataPresenter.cpp
+    ZzExampleDataViewModel.cpp
     ZzExampleGalleryPage.cpp
     ZzExampleGalleryPagePrivate.cpp
     ZzExampleNavigationPresenter.cpp

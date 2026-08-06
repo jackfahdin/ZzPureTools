@@ -20,6 +20,9 @@
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleCardsPage.h"
 #include "ZzExampleCardsViewModel.h"
+#include "ZzExampleDataPage.h"
+#include "ZzExampleDataPresenter.h"
+#include "ZzExampleDataViewModel.h"
 #include "ZzExampleGalleryPage.h"
 #include "ZzExampleNavigationPresenter.h"
 
@@ -36,6 +39,22 @@ zzGalleryPageKind(const ZzPureTools::ZzRouteId &routeId)
     }
     if (routeId.value() == QStringLiteral("controls")) {
         return ZzExampleGalleryPage::ZzPageKind::Controls;
+    }
+    return std::nullopt;
+}
+
+/** @brief 为三个数据路由解析共享的数据页面类型。 */
+[[nodiscard]] std::optional<ZzExampleDataPageKind>
+zzDataPageKind(const ZzPureTools::ZzRouteId &routeId)
+{
+    if (routeId.value() == QStringLiteral("list-view")) {
+        return ZzExampleDataPageKind::List;
+    }
+    if (routeId.value() == QStringLiteral("table-view")) {
+        return ZzExampleDataPageKind::Table;
+    }
+    if (routeId.value() == QStringLiteral("tree-view")) {
+        return ZzExampleDataPageKind::Tree;
     }
     return std::nullopt;
 }
@@ -114,6 +133,26 @@ zzCreateCardsPage(
         std::move(presenter));
 }
 
+/** @brief 创建共享数据 View、独占 ViewModel 与意图 Presenter。 */
+[[nodiscard]] ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
+zzCreateDataPage(
+    ZzExampleDataPageKind kind,
+    const QString &title,
+    QWidget *pageParent)
+{
+    auto viewModel = std::make_unique<ZzExampleDataViewModel>(kind);
+    auto view = std::make_unique<ZzExampleDataPage>(
+        kind, title, viewModel.get(), pageParent);
+    auto presenter = std::make_unique<ZzExampleDataPresenter>(
+        kind, view.get(), viewModel.get());
+    QWidget *const viewObserver = view.release();
+    return ZzPureTools::ZzPageInstance::create(
+        pageParent,
+        viewObserver,
+        std::move(viewModel),
+        std::move(presenter));
+}
+
 } // namespace
 
 ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
@@ -137,6 +176,9 @@ ZzExamplePageFactory::createPage(
     }
     if (routeId.value() == QStringLiteral("cards")) {
         return zzCreateCardsPage(title, pageParent);
+    }
+    if (const auto kind = zzDataPageKind(routeId); kind.has_value()) {
+        return zzCreateDataPage(*kind, title, pageParent);
     }
 
     const QString platform = context->platformName();
