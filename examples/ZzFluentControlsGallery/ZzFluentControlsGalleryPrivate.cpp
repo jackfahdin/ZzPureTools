@@ -38,6 +38,7 @@
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolBar>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
@@ -57,7 +58,9 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
-#include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzNavigationItemRole.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRoller.h>
@@ -286,20 +289,105 @@ QWidget *ZzFluentControlsGalleryPrivate::buildNavigationColumn(
 {
     auto *container = new QWidget(parent);
     auto *layout = zzColumnLayout(container);
-    layout->addWidget(zzSectionTitle(QStringLiteral("Navigation"), container));
+    auto *navigationHeader = new QHBoxLayout;
+    navigationHeader->addWidget(
+        zzSectionTitle(QStringLiteral("Navigation"), container));
+    navigationHeader->addStretch(1);
 
     navigationModel = new QStandardItemModel(container);
-    for (const QString &text : {
-             QStringLiteral("Home"),
-             QStringLiteral("Activity"),
-             QStringLiteral("Projects"),
-             QStringLiteral("Settings")}) {
-        navigationModel->appendRow(new QStandardItem(text));
-    }
-    auto *navigation = new ZzFluentUI::ZzNavigationView(container);
+    auto *home = new QStandardItem(QStringLiteral("Home"));
+    home->setData(
+        QStringLiteral("Workspace"),
+        static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Section));
+    home->setData(
+        QVariant::fromValue(ZzFluentUI::ZzIconDescriptor{
+            QStringLiteral(":/zzfluent/gallery/ZzGalleryRefresh.svg"),
+            true}),
+        static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Icon));
+    navigationModel->appendRow(home);
+
+    auto *activity = new QStandardItem(
+        container->style()->standardIcon(QStyle::SP_BrowserReload),
+        QStringLiteral("Activity"));
+    activity->setData(
+        QStringLiteral("3"),
+        static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Badge));
+    navigationModel->appendRow(activity);
+
+    auto *projects = new QStandardItem(
+        container->style()->standardIcon(QStyle::SP_DirIcon),
+        QStringLiteral("Projects"));
+    projects->setData(
+        QStringLiteral("Library"),
+        static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Section));
+    projects->setEnabled(false);
+    navigationModel->appendRow(projects);
+    navigationModel->appendRow(new QStandardItem(
+        container->style()->standardIcon(QStyle::SP_FileIcon),
+        QStringLiteral("Reports")));
+
+    auto *settings = new QStandardItem(
+        container->style()->standardIcon(QStyle::SP_FileDialogDetailedView),
+        QStringLiteral("Settings"));
+    settings->setData(
+        QVariant::fromValue(ZzFluentUI::ZzNavigationPlacement::Footer),
+        static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Placement));
+    navigationModel->appendRow(settings);
+    auto *about = new QStandardItem(
+        container->style()->standardIcon(QStyle::SP_MessageBoxInformation),
+        QStringLiteral("About"));
+    about->setData(
+        QVariant::fromValue(ZzFluentUI::ZzNavigationPlacement::Footer),
+        static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Placement));
+    navigationModel->appendRow(about);
+
+    auto *navigation = new ZzFluentUI::ZzNavigationPane(container);
+    navigation->setObjectName(QStringLiteral("zzGalleryNavigationPane"));
     navigation->setModel(navigationModel);
-    navigation->setCurrentIndex(navigationModel->index(0, 0));
-    navigation->setMinimumHeight(190);
+    navigation->setCurrentSourceIndex(navigationModel->index(0, 0));
+    navigation->setMinimumHeight(310);
+
+    auto *modeButton = new QToolButton(container);
+    modeButton->setObjectName(QStringLiteral("zzGalleryNavigationMode"));
+    modeButton->setAccessibleName(QStringLiteral("Navigation display mode"));
+    modeButton->setToolTip(QStringLiteral("Navigation display mode"));
+    modeButton->setIcon(
+        container->style()->standardIcon(QStyle::SP_FileDialogListView));
+    modeButton->setFixedSize(32, 32);
+    modeButton->setPopupMode(QToolButton::InstantPopup);
+    auto *modeMenu = new QMenu(modeButton);
+    auto *modeGroup = new QActionGroup(modeMenu);
+    modeGroup->setExclusive(true);
+    const std::array<std::pair<
+        QString, ZzFluentUI::ZzNavigationDisplayMode>, 3> displayModes{{
+        {QStringLiteral("Regular"),
+         ZzFluentUI::ZzNavigationDisplayMode::Regular},
+        {QStringLiteral("Compact"),
+         ZzFluentUI::ZzNavigationDisplayMode::Compact},
+        {QStringLiteral("Adaptive"),
+         ZzFluentUI::ZzNavigationDisplayMode::Adaptive}}};
+    for (const auto &[text, mode] : displayModes) {
+        QAction *action = modeMenu->addAction(text);
+        action->setCheckable(true);
+        action->setData(static_cast<int>(mode));
+        modeGroup->addAction(action);
+        action->setChecked(
+            mode == ZzFluentUI::ZzNavigationDisplayMode::Adaptive);
+    }
+    modeButton->setMenu(modeMenu);
+    QObject::connect(
+        modeGroup,
+        &QActionGroup::triggered,
+        navigation,
+        [navigation](QAction *action) {
+            if (action != nullptr) {
+                navigation->setDisplayMode(
+                    static_cast<ZzFluentUI::ZzNavigationDisplayMode>(
+                        action->data().toInt()));
+            }
+        });
+    navigationHeader->addWidget(modeButton);
+    layout->addLayout(navigationHeader);
     layout->addWidget(navigation);
 
     auto *breadcrumb = new ZzFluentUI::ZzBreadcrumbBar(container);
