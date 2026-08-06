@@ -4,6 +4,7 @@ add_subdirectory(ZzWindowKitDemo)
 add_subdirectory(ZzFluentFoundationDemo)
 add_subdirectory(ZzFluentControlsGallery)
 add_subdirectory(ZzPureToolsDemo)
+add_subdirectory(ZzPureToolsExample)
 
 if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
     function(zz_add_linux_example_smoke test_name target timeout_variable)
@@ -27,4 +28,8 @@ if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
         fluent-controls ZzFluentControlsGallery ZZ_FLUENT_GALLERY_AUTO_CLOSE_MS)
     zz_add_linux_example_smoke(
         puretools ZzPureToolsDemo ZZ_PURETOOLS_DEMO_AUTO_CLOSE_MS)
+    zz_add_linux_example_smoke(
+        puretools-integration
+        ZzPureToolsExample
+        ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS)
 endif()

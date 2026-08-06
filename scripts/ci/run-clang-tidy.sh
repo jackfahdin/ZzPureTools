@@ -12,8 +12,8 @@ runner=$3
 tidy=$4
 source_dir_regex=$(printf '%s\n' "$source_dir" \
     | sed 's/[][\\.^$*+?(){}|]/\\&/g')
-source_regex="^${source_dir_regex}/((ZzCore|ZzWindowKit|ZzFluentUI|ZzPureTools)/.*|(tests|benchmarks)/.*|ZzThirdParty/ZzLog/src/.*)\\.(cc|cpp|cxx|mm)$"
-header_regex="^${source_dir_regex}/((ZzCore|ZzWindowKit|ZzFluentUI|ZzPureTools)/(include|src|foundation|widgets|appcore)|(tests|benchmarks)/.*|ZzThirdParty/ZzLog/(include|src))/.*"
+source_regex="^${source_dir_regex}/((ZzCore|ZzWindowKit|ZzFluentUI|ZzPureTools)/.*|(tests|benchmarks)/.*|examples/ZzPureToolsExample/.*|ZzThirdParty/ZzLog/src/.*)\\.(cc|cpp|cxx|mm)$"
+header_regex="^${source_dir_regex}/((ZzCore|ZzWindowKit|ZzFluentUI|ZzPureTools)/(include|src|foundation|widgets|appcore)|(tests|benchmarks)/.*|examples/ZzPureToolsExample/.*|ZzThirdParty/ZzLog/(include|src))/.*"
 
 exec "$runner" \
     -quiet \

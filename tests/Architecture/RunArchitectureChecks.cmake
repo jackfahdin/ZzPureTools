@@ -87,6 +87,8 @@ file(GLOB_RECURSE zz_first_party_files
     "${ZZ_SOURCE_DIR}/ZzFluentUI/*.cpp"
     "${ZZ_SOURCE_DIR}/ZzPureTools/*.h"
     "${ZZ_SOURCE_DIR}/ZzPureTools/*.cpp"
+    "${ZZ_SOURCE_DIR}/examples/ZzPureToolsExample/*.h"
+    "${ZZ_SOURCE_DIR}/examples/ZzPureToolsExample/*.cpp"
     "${ZZ_SOURCE_DIR}/tests/Architecture/*.h"
     "${ZZ_SOURCE_DIR}/tests/Architecture/*.cpp"
 )

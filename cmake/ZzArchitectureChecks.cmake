@@ -294,7 +294,8 @@ function(zz_run_complete_architecture_audit source_dir target_manifest)
         "${source_root}/ZzFluentUI/foundation"
         "${source_root}/ZzFluentUI/widgets"
         "${source_root}/ZzPureTools/appcore"
-        "${source_root}/ZzPureTools/widgets")
+        "${source_root}/ZzPureTools/widgets"
+        "${source_root}/examples/ZzPureToolsExample")
     set(public_roots
         "${source_root}/ZzCore/include"
         "${source_root}/ZzWindowKit/include"

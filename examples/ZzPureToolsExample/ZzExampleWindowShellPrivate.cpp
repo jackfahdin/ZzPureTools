@@ -1,0 +1,307 @@
+#include "ZzExampleWindowShellPrivate.h"
+
+#include <utility>
+
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDebug>
+#include <QtCore/QTimer>
+#include <QtGui/QAction>
+#include <QtGui/QIcon>
+#include <QtWidgets/QDockWidget>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QStatusBar>
+#include <QtWidgets/QStyle>
+#include <QtWidgets/QTabWidget>
+#include <QtWidgets/QToolBar>
+#include <QtWidgets/QToolButton>
+
+#include <ZzCore/ZzError.h>
+#include <ZzCore/ZzErrorCode.h>
+
+#include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeMode.h>
+
+#include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzNavigationController.h>
+#include <ZzPureTools/ZzPureApplication.h>
+#include <ZzPureTools/ZzRouteId.h>
+
+#include "ZzExampleApplicationContext.h"
+#include "ZzExampleRouteCatalog.h"
+#include "ZzExampleWindowShell.h"
+
+namespace ZzExample {
+
+namespace {
+
+/** @brief 将路由表中的 UTF-8 常量转换为 Qt 字符串。 */
+[[nodiscard]] QString zzFromUtf8(std::string_view text)
+{
+    return QString::fromUtf8(
+        text.data(), static_cast<qsizetype>(text.size()));
+}
+
+/** @brief 创建统一图标、工具提示和可访问名称的工具栏命令。 */
+[[nodiscard]] QAction *zzAddCommand(
+    QToolBar *toolBar,
+    QStyle::StandardPixmap icon,
+    const QString &text)
+{
+    auto *action = toolBar->addAction(
+        toolBar->style()->standardIcon(icon), text);
+    action->setToolTip(text);
+    action->setStatusTip(text);
+    return action;
+}
+
+} // namespace
+
+ZzExampleWindowShellPrivate::ZzExampleWindowShellPrivate(
+    ZzExampleWindowShell *shell,
+    ZzPureTools::ZzApplicationWindow *applicationWindow,
+    std::shared_ptr<ZzExampleApplicationContext> applicationContext,
+    ZzPureTools::ZzPureApplication *pureApplication)
+    : q_ptr(shell)
+    , window(applicationWindow)
+    , context(std::move(applicationContext))
+    , application(pureApplication)
+{
+}
+
+ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
+{
+    if (q_ptr == nullptr || window == nullptr || !context
+        || application == nullptr) {
+        return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("window shell requires window, context and application")));
+    }
+    navigation = window->navigationController();
+    auto *theme = application->themeController();
+    if (navigation == nullptr || theme == nullptr
+        || window->titleBar() == nullptr) {
+        return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("window shell requires initialized navigation and theme")));
+    }
+
+    window->setMinimumSize(860, 560);
+    window->resize(1280, 800);
+
+    auto *commandBar = new QToolBar(
+        QStringLiteral("窗口命令"), window);
+    commandBar->setObjectName(QStringLiteral("zzExampleCommandBar"));
+    commandBar->setMovable(false);
+    commandBar->setFloatable(false);
+    commandBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    window->addToolBar(Qt::TopToolBarArea, commandBar);
+
+    backAction = zzAddCommand(
+        commandBar, QStyle::SP_ArrowBack, QStringLiteral("返回"));
+    forwardAction = zzAddCommand(
+        commandBar, QStyle::SP_ArrowForward, QStringLiteral("前进"));
+    commandBar->addSeparator();
+
+    searchEdit = new QLineEdit(commandBar);
+    searchEdit->setObjectName(QStringLiteral("zzExamplePageSearch"));
+    searchEdit->setAccessibleName(QStringLiteral("页面搜索"));
+    searchEdit->setPlaceholderText(QStringLiteral("搜索页面"));
+    searchEdit->setClearButtonEnabled(true);
+    searchEdit->setMinimumWidth(180);
+    searchEdit->setMaximumWidth(320);
+    commandBar->addWidget(searchEdit);
+    commandBar->addSeparator();
+
+    auto *themeAction = zzAddCommand(
+        commandBar, QStyle::SP_DesktopIcon, QStringLiteral("切换主题"));
+    auto *newWindowAction = zzAddCommand(
+        commandBar, QStyle::SP_FileIcon, QStringLiteral("新建窗口"));
+
+    auto *windowMenuButton = new QToolButton(commandBar);
+    windowMenuButton->setObjectName(
+        QStringLiteral("zzExampleWindowMenuButton"));
+    windowMenuButton->setAccessibleName(QStringLiteral("窗口菜单"));
+    windowMenuButton->setToolTip(QStringLiteral("窗口菜单"));
+    windowMenuButton->setIcon(
+        commandBar->style()->standardIcon(QStyle::SP_TitleBarMenuButton));
+    windowMenuButton->setPopupMode(QToolButton::InstantPopup);
+    auto *windowMenu = new QMenu(windowMenuButton);
+    auto *minimizeAction = windowMenu->addAction(
+        commandBar->style()->standardIcon(QStyle::SP_TitleBarMinButton),
+        QStringLiteral("最小化"));
+    auto *maximizeAction = windowMenu->addAction(
+        commandBar->style()->standardIcon(QStyle::SP_TitleBarMaxButton),
+        QStringLiteral("最大化或还原"));
+    auto *closeAction = windowMenu->addAction(
+        commandBar->style()->standardIcon(QStyle::SP_TitleBarCloseButton),
+        QStringLiteral("关闭"));
+    windowMenuButton->setMenu(windowMenu);
+    commandBar->addWidget(windowMenuButton);
+
+    auto *activityDock = new QDockWidget(
+        QStringLiteral("活动与更新"), window);
+    activityDock->setObjectName(QStringLiteral("zzExampleActivityDock"));
+    activityDock->setAllowedAreas(
+        Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
+    auto *activityTabs = new QTabWidget(activityDock);
+    activityTabs->setObjectName(QStringLiteral("zzExampleActivityTabs"));
+    auto *activityState = new QLabel(
+        QStringLiteral("当前没有活动"), activityTabs);
+    activityState->setAlignment(Qt::AlignCenter);
+    auto *updateState = new QLabel(
+        QStringLiteral("组件状态已就绪"), activityTabs);
+    updateState->setAlignment(Qt::AlignCenter);
+    activityTabs->addTab(activityState, QStringLiteral("活动"));
+    activityTabs->addTab(updateState, QStringLiteral("更新"));
+    activityDock->setWidget(activityTabs);
+    window->addDockWidget(Qt::RightDockWidgetArea, activityDock);
+
+    statusBar = new QStatusBar(window);
+    statusBar->setObjectName(QStringLiteral("zzExampleStatusBar"));
+    routeLabel = new QLabel(statusBar);
+    routeLabel->setObjectName(QStringLiteral("zzExampleRouteStatus"));
+    auto *taskLabel = new QLabel(QStringLiteral("任务：就绪"), statusBar);
+    taskLabel->setObjectName(QStringLiteral("zzExampleTaskStatus"));
+    auto *platformLabel = new QLabel(context->platformName(), statusBar);
+    platformLabel->setObjectName(QStringLiteral("zzExamplePlatformStatus"));
+    statusBar->addWidget(routeLabel, 1);
+    statusBar->addPermanentWidget(taskLabel);
+    statusBar->addPermanentWidget(platformLabel);
+    window->setStatusBar(statusBar);
+
+    QObject::connect(
+        backAction, &QAction::triggered, q_ptr, [this] {
+            auto result = navigation->goBack();
+            if (!result) {
+                reportFailure(result.error());
+            }
+        });
+    QObject::connect(
+        forwardAction, &QAction::triggered, q_ptr, [this] {
+            auto result = navigation->goForward();
+            if (!result) {
+                reportFailure(result.error());
+            }
+        });
+    QObject::connect(
+        navigation,
+        &ZzPureTools::ZzNavigationController::historyStateChanged,
+        q_ptr,
+        [this](bool canGoBack, bool canGoForward) {
+            syncHistoryActions(canGoBack, canGoForward);
+        });
+    QObject::connect(
+        navigation,
+        &ZzPureTools::ZzNavigationController::currentRouteChanged,
+        q_ptr,
+        [this](const ZzPureTools::ZzRouteId &routeId) {
+            routeLabel->setText(
+                QStringLiteral("路由：%1").arg(routeId.value()));
+        });
+    QObject::connect(
+        searchEdit, &QLineEdit::returnPressed, q_ptr,
+        [this] { navigateFromSearch(); });
+    QObject::connect(
+        themeAction, &QAction::triggered, q_ptr,
+        [this] { cycleTheme(); });
+    QObject::connect(
+        newWindowAction, &QAction::triggered, q_ptr, [this] {
+            auto result = application->createWindow();
+            if (!result) {
+                reportFailure(result.error());
+            }
+        });
+    QObject::connect(
+        minimizeAction, &QAction::triggered, window,
+        &QWidget::showMinimized);
+    QObject::connect(
+        maximizeAction, &QAction::triggered, q_ptr, [this] {
+            if (window->isMaximized()) {
+                window->showNormal();
+            } else {
+                window->showMaximized();
+            }
+        });
+    QObject::connect(
+        closeAction, &QAction::triggered, window, &QWidget::close);
+
+    syncHistoryActions(
+        navigation->canGoBack(), navigation->canGoForward());
+    routeLabel->setText(QStringLiteral("路由：准备中"));
+
+    QTimer::singleShot(0, q_ptr, [this] {
+        const QString title = QStringLiteral("ZzPureToolsExample");
+        window->setWindowTitle(title);
+        window->titleBar()->setTitle(title);
+    });
+    return ZzCore::ZzResult<void>::success();
+}
+
+void ZzExampleWindowShellPrivate::navigateFromSearch()
+{
+    const QString query = searchEdit->text().trimmed();
+    if (query.isEmpty()) {
+        return;
+    }
+
+    for (const auto &route : ZzExampleRouteCatalog::routes()) {
+        const QString routeId = zzFromUtf8(route.routeId);
+        const QString title = zzFromUtf8(route.title);
+        if (!routeId.contains(query, Qt::CaseInsensitive)
+            && !title.contains(query, Qt::CaseInsensitive)) {
+            continue;
+        }
+        auto result = navigation->navigate(
+            ZzPureTools::ZzRouteId(routeId));
+        if (!result) {
+            reportFailure(result.error());
+        } else {
+            searchEdit->clear();
+        }
+        return;
+    }
+    statusBar->showMessage(QStringLiteral("未找到匹配页面"), 2500);
+}
+
+void ZzExampleWindowShellPrivate::cycleTheme()
+{
+    auto *theme = application->themeController();
+    switch (theme->mode()) {
+    case ZzFluentUI::ZzThemeMode::System:
+        theme->setMode(ZzFluentUI::ZzThemeMode::Light);
+        break;
+    case ZzFluentUI::ZzThemeMode::Light:
+        theme->setMode(ZzFluentUI::ZzThemeMode::Dark);
+        break;
+    case ZzFluentUI::ZzThemeMode::Dark:
+        theme->setMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        break;
+    case ZzFluentUI::ZzThemeMode::HighContrast:
+        theme->setMode(ZzFluentUI::ZzThemeMode::System);
+        break;
+    }
+    statusBar->showMessage(QStringLiteral("主题已切换"), 1800);
+}
+
+void ZzExampleWindowShellPrivate::reportFailure(
+    const ZzCore::ZzError &error)
+{
+    statusBar->showMessage(QStringLiteral("操作失败"), 3000);
+    qWarning().noquote()
+        << "ZzPureToolsExample operation failed:"
+        << error.technicalMessage()
+        << error.context();
+}
+
+void ZzExampleWindowShellPrivate::syncHistoryActions(
+    bool canGoBack,
+    bool canGoForward) noexcept
+{
+    backAction->setEnabled(canGoBack);
+    forwardAction->setEnabled(canGoForward);
+}
+
+} // namespace ZzExample
