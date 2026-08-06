@@ -74,7 +74,7 @@ cmake --build --preset linux-gcc-debug \
 
 常规 CTest 覆盖单元测试、公共头独立编译、架构边界、安装消费、包重定位、
 二进制依赖和发布合规契约。本机 Linux runner 还覆盖 GCC/Clang、
-shared/static、LTO、clang-tidy、ASan+UBSan、四示例冒烟和六项性能回归；
+shared/static、LTO、clang-tidy、ASan+UBSan、四示例冒烟和七项性能回归；
 Windows 与 macOS runner 会在 shared/static 组合中编译全部示例。
 
 `.github/workflows/ci.yml` 已定义 Ubuntu、Windows MSVC、Windows Qt MinGW、
