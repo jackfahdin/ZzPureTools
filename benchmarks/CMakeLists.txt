@@ -111,6 +111,8 @@ zz_add_benchmark(ZzLargeModelBenchmark
     ZzLargeModelBenchmark.cpp benchmark.large-model)
 zz_add_benchmark(ZzWindowLifecycleBenchmark
     ZzWindowLifecycleBenchmark.cpp benchmark.window-lifecycle)
+zz_add_benchmark(ZzNavigationPaneBenchmark
+    ZzNavigationPaneBenchmark.cpp benchmark.navigation-pane)
 
 target_link_libraries(ZzStartupBenchmark PRIVATE Zz::PureTools)
 target_link_libraries(ZzThemeSwitchBenchmark PRIVATE Zz::FluentUI)
@@ -118,6 +120,7 @@ target_link_libraries(ZzAnimationBenchmark PRIVATE Zz::FluentUI)
 target_link_libraries(ZzLargeModelBenchmark PRIVATE Zz::FluentUI)
 target_link_libraries(ZzWindowLifecycleBenchmark PRIVATE
     Zz::PureTools Zz::WindowKit)
+target_link_libraries(ZzNavigationPaneBenchmark PRIVATE Zz::FluentUI)
 add_dependencies(ZzStartupBenchmark ZzStartupProbe)
 set(zz_startup_probe_generated_dir
     "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>")
@@ -197,6 +200,13 @@ if(ZZ_PERFORMANCE_REFERENCE)
         animation frame-time MAX_P95 16.7)
     zz_add_reference_gate(large-model benchmark.large-model
         large-model frame-time MAX_P95 16.7)
+    zz_add_reference_gate(navigation-pane-frame benchmark.navigation-pane
+        navigation-pane frame-time MAX_P95 12)
+    zz_add_reference_gate(navigation-pane-paint benchmark.navigation-pane
+        navigation-pane paint-complexity-ratio
+        MAX_VALUE 1.5 STRICT_MAX)
+    zz_add_reference_gate(navigation-pane-reset benchmark.navigation-pane
+        navigation-pane reset-time MAX_P95 80)
     if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         zz_add_reference_gate(idle-cpu benchmark.idle-cpu
             idle average-cpu-percent MAX_VALUE 0.5 STRICT_MAX)
