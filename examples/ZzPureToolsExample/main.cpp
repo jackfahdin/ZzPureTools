@@ -5,6 +5,9 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+#include <QtCore/QElapsedTimer>
+#endif
 #include <QtCore/QLocale>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QString>
@@ -27,6 +30,9 @@
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleApplicationModule.h"
 #include "ZzExamplePageFactory.h"
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+#include "ZzExamplePerformanceController.h"
+#endif
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSmokeController.h"
 #include "ZzExampleWindowShell.h"
@@ -53,6 +59,10 @@ void zzReportStartupFailure(
 
 int main(int argc, char *argv[])
 {
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+    QElapsedTimer processTimer;
+    processTimer.start();
+#endif
     const auto bootstrap = ZzWindowKit::ZzWindowKitBootstrap::prepare();
     if (!bootstrap) {
         zzReportStartupFailure("WindowKit bootstrap failed:", bootstrap.error());
@@ -68,11 +78,18 @@ int main(int argc, char *argv[])
     bool timeoutValid = false;
     const int timeout = qEnvironmentVariableIntValue(
         "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS", &timeoutValid);
-    const bool smokeMode = timeoutValid && timeout > 0;
-    if (smokeMode) {
+    const bool autoCloseRequested = timeoutValid && timeout > 0;
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+    const bool performanceMode = !qEnvironmentVariable(
+        "ZZ_PURETOOLS_EXAMPLE_PERFORMANCE_SCENARIO").trimmed().isEmpty();
+#else
+    constexpr bool performanceMode = false;
+#endif
+    const bool smokeMode = autoCloseRequested && !performanceMode;
+    if (smokeMode || performanceMode) {
         QStandardPaths::setTestModeEnabled(true);
     }
-    const bool screenshotMode = qEnvironmentVariable(
+    const bool screenshotMode = smokeMode && qEnvironmentVariable(
         "ZZ_PURETOOLS_EXAMPLE_SMOKE_SCENARIO")
                                     == QStringLiteral("screenshot");
     if (screenshotMode) {
@@ -92,6 +109,11 @@ int main(int argc, char *argv[])
     auto smokeController = std::make_shared<
         ZzExample::ZzExampleSmokeController>(
         smokeMode, application, context);
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+    auto performanceController = std::make_shared<
+        ZzExample::ZzExamplePerformanceController>(
+        application, processTimer);
+#endif
 
     ZzPureTools::ZzApplicationBuilder builder;
     if (QLocale::system().language() == QLocale::English) {
@@ -166,17 +188,29 @@ int main(int argc, char *argv[])
     }
 
     auto setupResult = builder.setWindowSetupCallback(
-        [context, &application, smokeController](
+        [context, &application, smokeController
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+         , performanceController
+#endif
+        ](
             ZzPureTools::ZzApplicationWindow &window) {
+            bool closeGuardEnabled = smokeController->closeGuardEnabled();
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+            closeGuardEnabled = closeGuardEnabled
+                && !performanceController->isEnabled();
+#endif
             auto shellResult = ZzExample::ZzExampleWindowShell::attach(
                 window,
                 context,
                 application,
-                smokeController->closeGuardEnabled());
+                closeGuardEnabled);
             if (!shellResult) {
                 return shellResult;
             }
             smokeController->windowAttached(window);
+#if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
+            performanceController->windowAttached(window);
+#endif
             return ZzCore::ZzResult<void>::success();
         });
     if (!setupResult) {

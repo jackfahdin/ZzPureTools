@@ -86,6 +86,8 @@ foreach(benchmark_pair IN ITEMS
         configurePresets ${benchmark_index} inherits)
     string(JSON benchmark_enabled GET "${presets_json}"
         configurePresets ${benchmark_index} cacheVariables ZZ_BUILD_BENCHMARKS)
+    string(JSON benchmark_examples GET "${presets_json}"
+        configurePresets ${benchmark_index} cacheVariables ZZ_BUILD_EXAMPLES)
     string(JSON benchmark_shared GET "${presets_json}"
         configurePresets ${benchmark_index} cacheVariables BUILD_SHARED_LIBS)
     string(JSON benchmark_lto GET "${presets_json}"
@@ -94,6 +96,7 @@ foreach(benchmark_pair IN ITEMS
         configurePresets ${benchmark_index} cacheVariables ZZ_PERFORMANCE_REFERENCE)
     if(NOT "${benchmark_base}" STREQUAL "linux-gcc13-base"
        OR NOT benchmark_enabled
+       OR NOT benchmark_examples
        OR NOT benchmark_shared
        OR NOT benchmark_lto
        OR NOT "${benchmark_reference}" STREQUAL "${expected_reference}")
@@ -101,6 +104,17 @@ foreach(benchmark_pair IN ITEMS
             "Invalid benchmark configuration in ${benchmark_name}")
     endif()
 endforeach()
+
+zz_find_configure_preset_index(
+    asan_benchmark_index "linux-clang-asan-benchmarks")
+string(JSON asan_benchmark_enabled GET "${presets_json}"
+    configurePresets ${asan_benchmark_index} cacheVariables ZZ_BUILD_BENCHMARKS)
+string(JSON asan_benchmark_examples GET "${presets_json}"
+    configurePresets ${asan_benchmark_index} cacheVariables ZZ_BUILD_EXAMPLES)
+if(NOT asan_benchmark_enabled OR NOT asan_benchmark_examples)
+    message(FATAL_ERROR
+        "linux-clang-asan-benchmarks must build integrated example benchmarks")
+endif()
 
 foreach(base_contract IN ITEMS
         "linux-gcc13-base|\$env{QT_ROOT}"

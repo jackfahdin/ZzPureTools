@@ -141,6 +141,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_EXAMPLES": true,
         "ZZ_BUILD_BENCHMARKS": true,
         "ZZ_ENABLE_LTO": true,
         "ZZ_PERFORMANCE_REFERENCE": false
@@ -152,6 +153,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_EXAMPLES": true,
         "ZZ_BUILD_BENCHMARKS": true,
         "ZZ_ENABLE_LTO": true,
         "ZZ_PERFORMANCE_REFERENCE": true
@@ -163,6 +165,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_SHARED_LIBS": true,
+        "ZZ_BUILD_EXAMPLES": true,
         "ZZ_BUILD_BENCHMARKS": true,
         "ZZ_ENABLE_ASAN": true,
         "ZZ_ENABLE_UBSAN": true
