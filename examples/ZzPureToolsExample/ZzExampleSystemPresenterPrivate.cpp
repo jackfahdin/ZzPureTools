@@ -6,6 +6,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
 #include <QtCore/QSysInfo>
+#include <QtCore/QTime>
 #include <QtCore/QStringList>
 #include <QtCore/QStringView>
 #include <QtGui/QGuiApplication>
@@ -28,6 +29,7 @@
 #include <ZzWindowKit/ZzWindowCapability.h>
 
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleActivityModel.h"
 #include "ZzExampleSystemPage.h"
 #include "ZzExampleSystemPresenter.h"
 #include "ZzExampleSystemViewModel.h"
@@ -332,6 +334,7 @@ void ZzExampleSystemPresenterPrivate::applyThemeMode(int mode)
     theme->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
     if (writeSetting(QStringLiteral("appearance/themeMode"), mode)) {
         view->setStatusText(QStringLiteral("主题设置已保存"));
+        recordActivity(QStringLiteral("主题模式已更新"));
     }
 }
 
@@ -350,6 +353,7 @@ void ZzExampleSystemPresenterPrivate::applyLogLevel(int level)
     currentLogLevel = level;
     if (writeSetting(QStringLiteral("logging/level"), level)) {
         view->setStatusText(QStringLiteral("日志等级已保存"));
+        recordActivity(QStringLiteral("日志等级已更新"));
     }
 }
 
@@ -359,6 +363,7 @@ void ZzExampleSystemPresenterPrivate::applyReducedMotion(bool enabled)
     if (writeSetting(
             QStringLiteral("appearance/reducedMotion"), enabled)) {
         view->setStatusText(QStringLiteral("动效偏好已保存"));
+        recordActivity(QStringLiteral("动效偏好已更新"));
     }
 }
 
@@ -369,6 +374,7 @@ void ZzExampleSystemPresenterPrivate::applyActivityDockVisibility(
     if (writeSetting(
             QStringLiteral("window/activityDockVisible"), visible)) {
         view->setStatusText(QStringLiteral("Dock 设置已保存"));
+        recordActivity(QStringLiteral("活动 Dock 设置已更新"));
     }
 }
 
@@ -405,6 +411,22 @@ QVariant ZzExampleSystemPresenterPrivate::readSetting(
         << result.error().technicalMessage()
         << result.error().context();
     return defaultValue;
+}
+
+void ZzExampleSystemPresenterPrivate::recordActivity(
+    const QString &text)
+{
+    const QString normalized = text.simplified();
+    if (normalized.isEmpty()) {
+        return;
+    }
+    context->activityModel().append(
+        QStringLiteral("%1  %2")
+            .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
+                 normalized));
+    ZzLog::writeText(
+        ZzLog::ZzLogLevel::Info,
+        normalized.toUtf8().toStdString());
 }
 
 } // namespace ZzExample

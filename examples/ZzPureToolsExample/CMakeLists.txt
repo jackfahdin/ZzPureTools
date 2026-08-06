@@ -1,5 +1,6 @@
 set(zz_pure_tools_example_sources
     main.cpp
+    ZzExampleActivityModel.cpp
     ZzExampleApplicationContext.cpp
     ZzExampleApplicationContextPrivate.cpp
     ZzExampleApplicationModule.cpp

@@ -4,6 +4,7 @@
 #include <utility>
 
 #include <QtCore/QString>
+#include <QtCore/QEvent>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
@@ -17,12 +18,16 @@ namespace ZzExample {
 ZzCore::ZzResult<void> ZzExampleWindowShell::attach(
     ZzPureTools::ZzApplicationWindow &window,
     std::shared_ptr<ZzExampleApplicationContext> context,
-    ZzPureTools::ZzPureApplication &application)
+    ZzPureTools::ZzPureApplication &application,
+    bool closeGuardEnabled)
 {
     try {
         auto shell = std::unique_ptr<ZzExampleWindowShell>(
             new ZzExampleWindowShell(
-                window, std::move(context), application));
+                window,
+                std::move(context),
+                application,
+                closeGuardEnabled));
         auto initialized = shell->d_ptr->initialize();
         if (!initialized) {
             return initialized;
@@ -67,14 +72,29 @@ void ZzExampleWindowShell::setActivityDockVisible(bool visible)
 ZzExampleWindowShell::ZzExampleWindowShell(
     ZzPureTools::ZzApplicationWindow &window,
     std::shared_ptr<ZzExampleApplicationContext> context,
-    ZzPureTools::ZzPureApplication &application)
+    ZzPureTools::ZzPureApplication &application,
+    bool closeGuardEnabled)
     : QObject(&window)
     , d_ptr(std::make_unique<ZzExampleWindowShellPrivate>(
-          this, &window, std::move(context), &application))
+          this,
+          &window,
+          std::move(context),
+          &application,
+          closeGuardEnabled))
 {
     setObjectName(QStringLiteral("zzExampleWindowShell"));
 }
 
 ZzExampleWindowShell::~ZzExampleWindowShell() = default;
+
+bool ZzExampleWindowShell::eventFilter(
+    QObject *watched,
+    QEvent *event)
+{
+    if (d_ptr->filterWindowEvent(watched, event)) {
+        return true;
+    }
+    return QObject::eventFilter(watched, event);
+}
 
 } // namespace ZzExample

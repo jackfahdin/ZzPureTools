@@ -14,6 +14,7 @@ class ZzTaskExecutor;
 
 namespace ZzExample {
 
+class ZzExampleActivityModel;
 class ZzExampleApplicationContextPrivate;
 
 /**
@@ -53,6 +54,9 @@ public:
 
     /** @brief 返回共享任务执行器。 */
     [[nodiscard]] ZzCore::ZzTaskExecutor &taskExecutor() noexcept;
+
+    /** @brief 返回跨窗口共享的有界活动展示模型。 */
+    [[nodiscard]] ZzExampleActivityModel &activityModel() noexcept;
 
     /** @brief 返回跨平台应用目录值。 */
     [[nodiscard]] const ZzCore::ZzApplicationPaths &paths() const noexcept;

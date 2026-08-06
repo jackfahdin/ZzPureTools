@@ -74,6 +74,9 @@ public:
         const QString &key,
         const QVariant &defaultValue) const;
 
+    /** @brief 同时追加共享活动模型并写入 ZzLog。 */
+    void recordActivity(const QString &text);
+
     ZzExampleSystemPresenter *q_ptr = nullptr;
     ZzExampleSystemPage *view = nullptr;
     ZzExampleSystemViewModel *viewModel = nullptr;

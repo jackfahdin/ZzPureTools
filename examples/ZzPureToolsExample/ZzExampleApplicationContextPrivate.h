@@ -6,6 +6,8 @@
 #include <ZzCore/ZzQtSettingsStore.h>
 #include <ZzCore/ZzTaskExecutor.h>
 
+#include "ZzExampleActivityModel.h"
+
 namespace ZzExample {
 
 /** @brief 实现共享上下文的具体后端所有权。 */
@@ -19,6 +21,7 @@ public:
     ZzCore::ZzApplicationPaths paths;
     ZzCore::ZzQtSettingsStore settings;
     ZzCore::ZzTaskExecutor tasks;
+    ZzExampleActivityModel activities;
     QString platform;
 };
 

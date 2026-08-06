@@ -11,6 +11,8 @@ class ZzApplicationWindow;
 class ZzPureApplication;
 }
 
+class QEvent;
+
 namespace ZzExample {
 
 class ZzExampleApplicationContext;
@@ -31,12 +33,14 @@ public:
      * @param window 当前窗口。
      * @param context 非空跨窗口共享上下文。
      * @param application 创建新窗口和访问应用主题的宿主。
+     * @param closeGuardEnabled 是否安装交互式关闭守卫。
      * @return 装配成功，或输入及控件创建状态错误。
      */
     [[nodiscard]] static ZzCore::ZzResult<void> attach(
         ZzPureTools::ZzApplicationWindow &window,
         std::shared_ptr<ZzExampleApplicationContext> context,
-        ZzPureTools::ZzPureApplication &application);
+        ZzPureTools::ZzPureApplication &application,
+        bool closeGuardEnabled = true);
 
     /**
      * @brief 返回指定窗口已经完成装配的示例壳层。
@@ -74,11 +78,16 @@ Q_SIGNALS:
     /** @brief 活动 Dock 可见性实际变化后发出。 */
     void activityDockVisibilityChanged(bool visible);
 
+protected:
+    /** @brief 将当前窗口关闭事件交给逐窗口关闭守卫。 */
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     ZzExampleWindowShell(
         ZzPureTools::ZzApplicationWindow &window,
         std::shared_ptr<ZzExampleApplicationContext> context,
-        ZzPureTools::ZzPureApplication &application);
+        ZzPureTools::ZzPureApplication &application,
+        bool closeGuardEnabled);
 
     std::unique_ptr<ZzExampleWindowShellPrivate> d_ptr;
 };

@@ -12,6 +12,7 @@
 #include <ZzCore/ZzTaskExecutor.h>
 
 #include "ZzExampleApplicationContextPrivate.h"
+#include "ZzExampleActivityModel.h"
 
 namespace ZzExample {
 
@@ -65,6 +66,12 @@ ZzCore::ZzTaskExecutor &
 ZzExampleApplicationContext::taskExecutor() noexcept
 {
     return d_ptr->tasks;
+}
+
+ZzExampleActivityModel &
+ZzExampleApplicationContext::activityModel() noexcept
+{
+    return d_ptr->activities;
 }
 
 const ZzCore::ZzApplicationPaths &

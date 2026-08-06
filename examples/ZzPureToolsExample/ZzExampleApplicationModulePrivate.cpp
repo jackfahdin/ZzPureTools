@@ -17,6 +17,7 @@
 #include <ZzLog/ZzLog.h>
 
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleActivityModel.h"
 
 namespace ZzExample {
 
@@ -66,6 +67,7 @@ ZzCore::ZzResult<void> ZzExampleApplicationModulePrivate::start()
     }
 
     ZZ_LOG_INFO("ZzPureToolsExample application module started");
+    context->activityModel().append(QStringLiteral("应用模块已启动"));
     started = true;
     stopRequested = false;
     return ZzCore::ZzResult<void>::success();

@@ -6,8 +6,10 @@
 
 class QAction;
 class QDockWidget;
+class QEvent;
 class QLabel;
 class QLineEdit;
+class QObject;
 class QStatusBar;
 
 namespace ZzCore {
@@ -34,7 +36,8 @@ public:
         ZzExampleWindowShell *shell,
         ZzPureTools::ZzApplicationWindow *applicationWindow,
         std::shared_ptr<ZzExampleApplicationContext> applicationContext,
-        ZzPureTools::ZzPureApplication *pureApplication);
+        ZzPureTools::ZzPureApplication *pureApplication,
+        bool enableCloseGuard);
 
     /** @brief 创建控件并连接窗口级导航、主题和多窗口意图。 */
     [[nodiscard]] ZzCore::ZzResult<void> initialize();
@@ -48,6 +51,9 @@ public:
     /** @brief 在状态栏报告技术失败并写入 Qt 日志。 */
     void reportFailure(const ZzCore::ZzError &error);
 
+    /** @brief 同时追加共享活动模型并写入 ZzLog。 */
+    void recordActivity(const QString &text);
+
     /** @brief 同步返回与前进命令的启用状态。 */
     void syncHistoryActions(bool canGoBack, bool canGoForward) noexcept;
 
@@ -56,6 +62,11 @@ public:
 
     /** @brief 设置活动 Dock 可见性。 */
     void setActivityDockVisible(bool visible);
+
+    /** @brief 处理当前窗口的取消、最小化或确认关闭选择。 */
+    [[nodiscard]] bool filterWindowEvent(
+        QObject *watched,
+        QEvent *event);
 
     ZzExampleWindowShell *q_ptr = nullptr;
     ZzPureTools::ZzApplicationWindow *window = nullptr;
@@ -68,6 +79,8 @@ public:
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;
+    bool closeGuardEnabled = true;
+    bool closeGuardActive = false;
 };
 
 } // namespace ZzExample

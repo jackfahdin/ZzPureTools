@@ -4,13 +4,19 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
+#include <QtCore/QEvent>
+#include <QtCore/QTime>
 #include <QtCore/QTimer>
 #include <QtGui/QAction>
 #include <QtGui/QIcon>
 #include <QtWidgets/QDockWidget>
+#include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTabWidget>
@@ -21,6 +27,7 @@
 #include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 
@@ -29,6 +36,9 @@
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
 
+#include <ZzLog/ZzLog.h>
+
+#include "ZzExampleActivityModel.h"
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleWindowShell.h"
@@ -63,11 +73,13 @@ ZzExampleWindowShellPrivate::ZzExampleWindowShellPrivate(
     ZzExampleWindowShell *shell,
     ZzPureTools::ZzApplicationWindow *applicationWindow,
     std::shared_ptr<ZzExampleApplicationContext> applicationContext,
-    ZzPureTools::ZzPureApplication *pureApplication)
+    ZzPureTools::ZzPureApplication *pureApplication,
+    bool enableCloseGuard)
     : q_ptr(shell)
     , window(applicationWindow)
     , context(std::move(applicationContext))
     , application(pureApplication)
+    , closeGuardEnabled(enableCloseGuard)
 {
 }
 
@@ -90,6 +102,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
 
     window->setMinimumSize(860, 560);
     window->resize(1280, 800);
+    if (closeGuardEnabled) {
+        window->installEventFilter(q_ptr);
+    }
 
     auto *commandBar = new QToolBar(
         QStringLiteral("窗口命令"), window);
@@ -148,9 +163,14 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
     auto *activityTabs = new QTabWidget(activityDock);
     activityTabs->setObjectName(QStringLiteral("zzExampleActivityTabs"));
-    auto *activityState = new QLabel(
-        QStringLiteral("当前没有活动"), activityTabs);
-    activityState->setAlignment(Qt::AlignCenter);
+    auto *activityState = new QListView(activityTabs);
+    activityState->setObjectName(QStringLiteral("zzExampleActivityList"));
+    activityState->setAccessibleName(QStringLiteral("应用活动"));
+    activityState->setModel(&context->activityModel());
+    activityState->setItemDelegate(
+        new ZzFluentUI::ZzFluentItemDelegate(activityState));
+    activityState->setUniformItemSizes(true);
+    activityState->setSelectionMode(QAbstractItemView::SingleSelection);
     auto *updateState = new QLabel(
         QStringLiteral("组件状态已就绪"), activityTabs);
     updateState->setAlignment(Qt::AlignCenter);
@@ -176,6 +196,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     statusBar->addPermanentWidget(taskLabel);
     statusBar->addPermanentWidget(platformLabel);
     window->setStatusBar(statusBar);
+    recordActivity(QStringLiteral("窗口已完成装配"));
 
     QObject::connect(
         backAction, &QAction::triggered, q_ptr, [this] {
@@ -205,6 +226,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         [this](const ZzPureTools::ZzRouteId &routeId) {
             routeLabel->setText(
                 QStringLiteral("路由：%1").arg(routeId.value()));
+            recordActivity(
+                QStringLiteral("已导航到 %1").arg(routeId.value()));
         });
     QObject::connect(
         searchEdit, &QLineEdit::returnPressed, q_ptr,
@@ -301,6 +324,21 @@ void ZzExampleWindowShellPrivate::reportFailure(
         << error.context();
 }
 
+void ZzExampleWindowShellPrivate::recordActivity(const QString &text)
+{
+    const QString normalized = text.simplified();
+    if (normalized.isEmpty()) {
+        return;
+    }
+    const QString display = QStringLiteral("%1  %2")
+        .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
+             normalized);
+    context->activityModel().append(display);
+    ZzLog::writeText(
+        ZzLog::ZzLogLevel::Info,
+        normalized.toUtf8().toStdString());
+}
+
 void ZzExampleWindowShellPrivate::syncHistoryActions(
     bool canGoBack,
     bool canGoForward) noexcept
@@ -319,6 +357,52 @@ void ZzExampleWindowShellPrivate::setActivityDockVisible(bool visible)
     if (activityDock != nullptr) {
         activityDock->setVisible(visible);
     }
+}
+
+bool ZzExampleWindowShellPrivate::filterWindowEvent(
+    QObject *watched,
+    QEvent *event)
+{
+    if (watched != window || event == nullptr
+        || event->type() != QEvent::Close) {
+        return false;
+    }
+    if (closeGuardActive) {
+        event->ignore();
+        return true;
+    }
+
+    closeGuardActive = true;
+    QMessageBox dialog(
+        QMessageBox::Question,
+        QStringLiteral("关闭窗口"),
+        QStringLiteral("请选择当前窗口的关闭方式。"),
+        QMessageBox::NoButton,
+        window);
+    QAbstractButton *cancelButton = dialog.addButton(
+        QStringLiteral("取消"), QMessageBox::RejectRole);
+    QAbstractButton *minimizeButton = dialog.addButton(
+        QStringLiteral("最小化"), QMessageBox::ActionRole);
+    QAbstractButton *closeButton = dialog.addButton(
+        QStringLiteral("关闭"), QMessageBox::AcceptRole);
+    dialog.setDefaultButton(
+        qobject_cast<QPushButton *>(cancelButton));
+    dialog.exec();
+    QAbstractButton *clicked = dialog.clickedButton();
+    closeGuardActive = false;
+
+    if (clicked == closeButton) {
+        recordActivity(QStringLiteral("窗口关闭已确认"));
+        return false;
+    }
+    event->ignore();
+    if (clicked == minimizeButton) {
+        window->showMinimized();
+        recordActivity(QStringLiteral("窗口关闭已转换为最小化"));
+    } else {
+        recordActivity(QStringLiteral("窗口关闭已取消"));
+    }
+    return true;
 }
 
 } // namespace ZzExample

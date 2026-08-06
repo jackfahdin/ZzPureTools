@@ -28,6 +28,7 @@ ZzExampleApplicationContextPrivate::ZzExampleApplicationContextPrivate(
     , settings(QDir(paths.configDirectory()).filePath(
           QStringLiteral("settings.ini")))
     , tasks(0)
+    , activities(200)
     , platform(zzPlatformName())
 {
 }

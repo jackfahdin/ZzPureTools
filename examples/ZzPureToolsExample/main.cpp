@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
         [context, &application, smokeMode](
             ZzPureTools::ZzApplicationWindow &window) {
             auto shellResult = ZzExample::ZzExampleWindowShell::attach(
-                window, context, application);
+                window, context, application, !smokeMode);
             if (!shellResult) {
                 return shellResult;
             }
