@@ -219,8 +219,10 @@ private Q_SLOTS:
 
         auto invalidPlacement =
             zzNode(QStringLiteral("placement"), QStringLiteral("Placement"));
-        invalidPlacement.placement =
-            static_cast<ZzFluentUI::ZzNavigationPlacement>(0xff);
+        using Placement = ZzFluentUI::ZzNavigationPlacement;
+        // 故意模拟反序列化产生的越界枚举，验证公开模型的输入防线。
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+        invalidPlacement.placement = static_cast<Placement>(0xff);
         QVERIFY(rejected({invalidPlacement}));
 
         QList<ZzPureTools::ZzNavigationNode> footerNodes;
