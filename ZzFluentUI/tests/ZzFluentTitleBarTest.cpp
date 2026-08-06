@@ -3,6 +3,9 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtCore/QTranslator>
+#include <QtGui/QColor>
+#include <QtGui/QImage>
+#include <QtGui/QPalette>
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -150,6 +153,44 @@ private Q_SLOTS:
             QStringLiteral("T:关闭"));
 
         QCoreApplication::removeTranslator(&translator);
+    }
+
+    void refreshesIconsFromTitleBarPalette()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *close = qobject_cast<QToolButton *>(titleBar.closeButton());
+        QVERIFY(close != nullptr);
+
+        QPalette staleButtonPalette = close->palette();
+        staleButtonPalette.setColor(QPalette::ButtonText, Qt::black);
+        close->setPalette(staleButtonPalette);
+        QPalette currentTitleBarPalette = titleBar.palette();
+        currentTitleBarPalette.setColor(
+            QPalette::ButtonText,
+            QColor(240, 241, 242));
+        titleBar.setPalette(currentTitleBarPalette);
+        QEvent paletteChange(QEvent::PaletteChange);
+        QCoreApplication::sendEvent(&titleBar, &paletteChange);
+
+        const QImage icon = close->icon()
+                                .pixmap(QSize(16, 16), 1.0)
+                                .toImage()
+                                .convertToFormat(QImage::Format_ARGB32);
+        bool foundGlyph = false;
+        for (int y = 0; y < icon.height(); ++y) {
+            const auto *line = reinterpret_cast<const QRgb *>(
+                icon.constScanLine(y));
+            for (int x = 0; x < icon.width(); ++x) {
+                if (qAlpha(line[x]) == 0) {
+                    continue;
+                }
+                foundGlyph = true;
+                QVERIFY(qRed(line[x]) >= 220);
+                QVERIFY(qGreen(line[x]) >= 220);
+                QVERIFY(qBlue(line[x]) >= 220);
+            }
+        }
+        QVERIFY(foundGlyph);
     }
 };
 

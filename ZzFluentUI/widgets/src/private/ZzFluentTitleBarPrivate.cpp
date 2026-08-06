@@ -143,15 +143,15 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     closeButton->setAccessibleName(closeText);
 
     minimizeButton->setIcon(zzTitleBarIcon(
-        minimizeButton,
+        q_ptr,
         ZzTitleBarGlyph::Minimize));
     maximizeButton->setIcon(zzTitleBarIcon(
-        maximizeButton,
+        q_ptr,
         maximized
             ? ZzTitleBarGlyph::Restore
             : ZzTitleBarGlyph::Maximize));
     closeButton->setIcon(zzTitleBarIcon(
-        closeButton,
+        q_ptr,
         ZzTitleBarGlyph::Close));
     minimizeButton->setVisible(systemButtonsVisible);
     maximizeButton->setVisible(systemButtonsVisible);
