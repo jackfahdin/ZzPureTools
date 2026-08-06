@@ -87,7 +87,21 @@ cmake --preset linux-gcc-benchmarks
 cmake --build --preset linux-gcc-benchmarks
 taskset -c 10 ctest --preset linux-gcc-benchmarks \
   --output-on-failure -j1
-for scenario in startup theme-switch animation large-model window-lifecycle navigation-pane idle; do
+performance_scenarios=(
+  startup
+  theme-switch
+  animation
+  large-model
+  window-lifecycle
+  navigation-pane
+  idle
+  example-startup
+  example-navigation
+  example-theme-switch
+  example-large-model
+  example-idle
+)
+for scenario in "${performance_scenarios[@]}"; do
   cmake \
     -DZZ_BASELINE="docs/performance/reference/linux/${scenario}.json" \
     -DZZ_CURRENT="build/linux-gcc-benchmarks/reports/benchmark.${scenario}.json" \

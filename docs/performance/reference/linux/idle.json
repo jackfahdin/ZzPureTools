@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "cd9220712f1b3d39df7689af3d5172994e00d08e",
+        "commit": "e749273d630936ae7f249947ae827f8ca9312d9a",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -29,9 +29,9 @@
         },
         "rss-end-bytes": {
             "count": 1,
-            "max": 42635264,
-            "p50": 42635264,
-            "p95": 42635264,
+            "max": 44339200,
+            "p50": 44339200,
+            "p95": 44339200,
             "unit": "bytes"
         },
         "rss-growth-percent": {
@@ -43,9 +43,9 @@
         },
         "rss-start-bytes": {
             "count": 1,
-            "max": 42635264,
-            "p50": 42635264,
-            "p95": 42635264,
+            "max": 44339200,
+            "p50": 44339200,
+            "p95": 44339200,
             "unit": "bytes"
         }
     },

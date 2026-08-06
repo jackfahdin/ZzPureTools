@@ -19,6 +19,23 @@ set(required_docs
     docs/third-party/THIRD_PARTY_NOTICES.md
     docs/third-party/qwindowkit-vendor.json
     docs/third-party/release-evidence.json)
+set(performance_scenarios
+    startup
+    theme-switch
+    animation
+    large-model
+    window-lifecycle
+    navigation-pane
+    idle
+    example-startup
+    example-navigation
+    example-theme-switch
+    example-large-model
+    example-idle)
+foreach(scenario IN LISTS performance_scenarios)
+    list(APPEND required_docs
+        "docs/performance/reference/linux/${scenario}.json")
+endforeach()
 set(required_readme_links
     CMakeUserPresets.json.example
     LICENSE
@@ -57,6 +74,101 @@ foreach(relative_path IN LISTS required_docs)
     file(SIZE "${document_path}" document_size)
     if(document_size EQUAL 0)
         message(FATAL_ERROR "必需文档为空：${relative_path}")
+    endif()
+endforeach()
+
+set(performance_document_path
+    "${source_root}/docs/performance/PERFORMANCE_BASELINE_ZH.md")
+set(linux_runner_path "${source_root}/scripts/ci/run-linux-gates.sh")
+file(READ "${performance_document_path}" performance_document)
+file(READ "${linux_runner_path}" linux_runner)
+foreach(required_runner_token IN ITEMS
+    "performance_scenarios=("
+    "performance_scenarios[@]")
+    string(FIND "${linux_runner}" "${required_runner_token}"
+        runner_token_position)
+    if(runner_token_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux 性能 runner 缺少场景数组契约：${required_runner_token}")
+    endif()
+endforeach()
+string(FIND "${performance_document}" "十二份" report_count_position)
+if(report_count_position EQUAL -1)
+    message(FATAL_ERROR "性能基线文档没有声明十二份同源报告")
+endif()
+
+set(reference_commit "")
+set(reference_digest "")
+foreach(scenario IN LISTS performance_scenarios)
+    set(report_relative_path
+        "docs/performance/reference/linux/${scenario}.json")
+    set(report_path "${source_root}/${report_relative_path}")
+    file(READ "${report_path}" report_json)
+    string(JSON schema_version ERROR_VARIABLE schema_error
+        GET "${report_json}" schemaVersion)
+    string(JSON report_scenario ERROR_VARIABLE scenario_error
+        GET "${report_json}" scenario)
+    string(JSON report_commit ERROR_VARIABLE commit_error
+        GET "${report_json}" build commit)
+    string(JSON report_digest ERROR_VARIABLE digest_error
+        GET "${report_json}" environment runnerImageDigest)
+    if(NOT "${schema_error}" STREQUAL "NOTFOUND"
+       OR NOT "${scenario_error}" STREQUAL "NOTFOUND"
+       OR NOT "${commit_error}" STREQUAL "NOTFOUND"
+       OR NOT "${digest_error}" STREQUAL "NOTFOUND")
+        message(FATAL_ERROR "性能参考报告字段不完整：${report_relative_path}")
+    endif()
+    if(NOT schema_version EQUAL 1
+       OR NOT "${report_scenario}" STREQUAL "${scenario}")
+        message(FATAL_ERROR
+            "性能参考报告 schema/scenario 不匹配：${report_relative_path}")
+    endif()
+    string(LENGTH "${report_commit}" commit_length)
+    string(LENGTH "${report_digest}" digest_length)
+    if(NOT commit_length EQUAL 40
+       OR NOT "${report_commit}" MATCHES "^[0-9a-f]+$"
+       OR NOT digest_length EQUAL 71
+       OR NOT "${report_digest}" MATCHES "^sha256:[0-9a-f]+$")
+        message(FATAL_ERROR
+            "性能参考报告缺少可审计 commit/digest：${report_relative_path}")
+    endif()
+    if("${reference_commit}" STREQUAL "")
+        set(reference_commit "${report_commit}")
+        set(reference_digest "${report_digest}")
+    elseif(NOT "${report_commit}" STREQUAL "${reference_commit}"
+           OR NOT "${report_digest}" STREQUAL "${reference_digest}")
+        message(FATAL_ERROR
+            "十二份性能参考报告不是同一 commit 和 runner 档案：${report_relative_path}")
+    endif()
+
+    string(FIND "${linux_runner}" "\n  ${scenario}\n"
+        runner_scenario_position)
+    string(FIND "${performance_document}"
+        "benchmark.${scenario}.json" reporter_mapping_position)
+    string(FIND "${performance_document}"
+        "reference/linux/${scenario}.json" baseline_mapping_position)
+    if(runner_scenario_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux 性能 runner 未比较场景：${scenario}")
+    endif()
+    if(reporter_mapping_position EQUAL -1
+       OR baseline_mapping_position EQUAL -1)
+        message(FATAL_ERROR
+            "性能基线文档缺少报告映射：${scenario}")
+    endif()
+endforeach()
+file(SHA256 "${source_root}/docs/performance/profiles/local-release-xvfb.json"
+    profile_digest)
+if(NOT "${reference_digest}" STREQUAL "sha256:${profile_digest}")
+    message(FATAL_ERROR
+        "性能参考报告 digest 与活动本机 runner 档案不一致")
+endif()
+foreach(reference_identity IN ITEMS "${reference_commit}" "${profile_digest}")
+    string(FIND "${performance_document}" "${reference_identity}"
+        document_identity_position)
+    if(document_identity_position EQUAL -1)
+        message(FATAL_ERROR
+            "性能基线文档缺少报告身份：${reference_identity}")
     endif()
 endforeach()
 

@@ -20,22 +20,15 @@
         "windowSystem": "xcb"
     },
     "metrics": {
-        "lifecycle-time": {
+        "latency": {
             "count": 100,
-            "max": 5.48744,
-            "p50": 3.678784,
-            "p95": 3.820944,
+            "max": 11.654495,
+            "p50": 9.934638,
+            "p95": 11.293115,
             "unit": "ms"
-        },
-        "rss-bytes": {
-            "count": 100,
-            "max": 44343296,
-            "p50": 44318720,
-            "p95": 44343296,
-            "unit": "bytes"
         }
     },
-    "scenario": "window-lifecycle",
+    "scenario": "example-navigation",
     "schemaVersion": 1,
-    "warmupIterations": 0
+    "warmupIterations": 10
 }

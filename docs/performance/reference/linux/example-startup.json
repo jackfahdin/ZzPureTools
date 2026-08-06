@@ -20,22 +20,22 @@
         "windowSystem": "xcb"
     },
     "metrics": {
-        "lifecycle-time": {
-            "count": 100,
-            "max": 5.48744,
-            "p50": 3.678784,
-            "p95": 3.820944,
+        "external-total": {
+            "count": 30,
+            "max": 78.233315,
+            "p50": 76.139826,
+            "p95": 77.00607,
             "unit": "ms"
         },
-        "rss-bytes": {
-            "count": 100,
-            "max": 44343296,
-            "p50": 44318720,
-            "p95": 44343296,
-            "unit": "bytes"
+        "first-paint": {
+            "count": 30,
+            "max": 68.680288,
+            "p50": 67.118289,
+            "p95": 68.009857,
+            "unit": "ms"
         }
     },
-    "scenario": "window-lifecycle",
+    "scenario": "example-startup",
     "schemaVersion": 1,
-    "warmupIterations": 0
+    "warmupIterations": 5
 }

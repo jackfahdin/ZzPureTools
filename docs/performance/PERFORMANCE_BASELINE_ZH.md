@@ -45,32 +45,38 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 sha256sum docs/performance/profiles/local-release-xvfb.json
 ```
 
-任何档案字段变化都会改变 digest，并强制重新采集七份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
+任何档案字段变化都会改变 digest，并强制重新采集十二份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
 
 ## 当前活动基线
 
-本机活动基线于 2026-08-06 更新，七份报告均逐字来自同一次固定环境采集：
+本机活动基线于 2026-08-06 更新，十二份报告均逐字来自同一次固定环境采集。该次运行同时生成七个组件场景与五个完整 `ZzPureToolsExample` 场景，不允许把其他 commit 或其他环境的结果拼入本基线：
 
 | 身份字段 | 固定值 |
 |---|---|
-| 被测源码 HEAD | `cd9220712f1b3d39df7689af3d5172994e00d08e` |
+| 被测源码 HEAD | `e749273d630936ae7f249947ae827f8ca9312d9a` |
 | runner 档案 SHA-256 | `f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41` |
 | renderer identity | `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` |
-| reference CTest | 16/16 通过，包含 7 个报告生产者与 9 项绝对门禁 |
-| Clang ASan/UBSan | `linux-clang-asan-benchmarks` 构建通过；窗口生命周期与导航面板压力场景 2/2 通过 |
+| reference CTest | 37/37 通过，包含 12 个报告生产者与 15 项绝对门禁 |
+| Clang ASan/UBSan | `linux-clang-asan-benchmarks` 构建通过；综合示例导航、主题切换与十万行模型场景 3/3 通过 |
 
 | 门禁 | 实测结果 | 要求 | 结论 |
 |---|---:|---:|---|
-| 启动 `external-total` | P95 20.338865 ms，max 20.513968 ms | P95/max ≤ 300 ms | 通过 |
-| 500 控件主题切换 | P95 6.583058 ms | P95 ≤ 50 ms | 通过 |
-| Toggle 动画 | P95 16.608088 ms | P95 ≤ 16.7 ms | 通过 |
-| 10 万行模型 | P95 1.515987 ms | P95 ≤ 16.7 ms | 通过 |
-| 窗口生命周期 | 100 次完成，P95 3.801176 ms | 100 次且诊断计数无残留 | 通过 |
-| 40 个导航面板整帧 | P95 7.890631 ms | P95 ≤ 12 ms | 通过 |
-| 导航绘制复杂度 | 0.967326 倍 | 严格 ≤ 1.5 倍 | 通过 |
-| 10 万行导航 reset | P95 17.144409 ms | P95 ≤ 80 ms | 通过 |
+| 启动 `external-total` | P95 21.054057 ms，max 21.194140 ms | P95/max ≤ 300 ms | 通过 |
+| 500 控件主题切换 | P95 6.592937 ms | P95 ≤ 50 ms | 通过 |
+| Toggle 动画 | P95 16.563653 ms | P95 ≤ 16.7 ms | 通过 |
+| 10 万行模型 | P95 1.591341 ms | P95 ≤ 16.7 ms | 通过 |
+| 窗口生命周期 | 100 次完成，P95 3.820944 ms | 100 次且诊断计数无残留 | 通过 |
+| 40 个导航面板整帧 | P95 8.199182 ms | P95 ≤ 12 ms | 通过 |
+| 导航绘制复杂度 | 0.9691947033 倍 | 严格 ≤ 1.5 倍 | 通过 |
+| 10 万行导航 reset | P95 17.633367 ms | P95 ≤ 80 ms | 通过 |
 | 空闲 CPU | 0% | 严格 < 0.5% | 通过 |
 | 空闲 RSS 增长 | 0% | ≤ 10% | 通过 |
+| 综合示例启动 `external-total` | P95 77.006070 ms，max 78.233315 ms；首次绘制 P95 68.009857 ms | P95/max ≤ 300 ms | 通过 |
+| 综合示例页面切换 | P50 9.934638 ms，P95 11.293115 ms，max 11.654495 ms | P95 ≤ 50 ms | 通过 |
+| 综合示例主题切换 | P50 3.796639 ms，P95 9.383993 ms，max 10.425376 ms | P95 ≤ 50 ms | 通过 |
+| 综合示例 10 万行模型 | P95 0.458241 ms，22 次 `multiData`、11 个请求行、2 次 viewport paint/帧 | P95 ≤ 16.7 ms | 通过 |
+| 综合示例空闲 CPU | 0% | 严格 < 0.5% | 通过 |
+| 综合示例空闲 RSS | 67,702,784 增至 67,833,856 bytes，增长 0.193599% | ≤ 10% | 通过 |
 
 该结果解除 `local-release-xvfb` 档案的性能参考机发布阻断。后续同档案报告只有在完整环境指纹一致时才能与本基线执行相对回归比较；档案变化、环境不匹配或任一报告缺失都必须失败关闭。
 
@@ -110,6 +116,11 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | 窗口生命周期 | 0 | 100 个窗口 |
 | 导航面板 | 10 帧 | 120 帧、1000 次映射激活、20 次 reset |
 | 空闲 | 5 秒 | 30 秒单区间 |
+| 综合示例启动 | 5 个子进程 | 30 个子进程；父测量器连续拉起真实示例 |
+| 综合示例页面切换 | 10 轮 | 100 轮真实路由切换与绘制完成 |
+| 综合示例主题切换 | 10 轮 | 100 轮真实主题切换与绘制完成 |
+| 综合示例 10 万行模型 | 10 帧 | 100 帧真实滚动与 viewport 绘制 |
+| 综合示例空闲 | 5 秒 | 30 秒单区间 |
 
 | reporter 输出 | 活动基线路径 |
 |---|---|
@@ -120,8 +131,13 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | `build/linux-gcc-reference/reports/benchmark.window-lifecycle.json` | `docs/performance/reference/linux/window-lifecycle.json` |
 | `build/linux-gcc-reference/reports/benchmark.navigation-pane.json` | `docs/performance/reference/linux/navigation-pane.json` |
 | `build/linux-gcc-reference/reports/benchmark.idle.json` | `docs/performance/reference/linux/idle.json` |
+| `build/linux-gcc-reference/reports/benchmark.example-startup.json` | `docs/performance/reference/linux/example-startup.json` |
+| `build/linux-gcc-reference/reports/benchmark.example-navigation.json` | `docs/performance/reference/linux/example-navigation.json` |
+| `build/linux-gcc-reference/reports/benchmark.example-theme-switch.json` | `docs/performance/reference/linux/example-theme-switch.json` |
+| `build/linux-gcc-reference/reports/benchmark.example-large-model.json` | `docs/performance/reference/linux/example-large-model.json` |
+| `build/linux-gcc-reference/reports/benchmark.example-idle.json` | `docs/performance/reference/linux/example-idle.json` |
 
-七份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足启动 P95/max 不超过 300 ms、主题 P95 不超过 50 ms、动画与大模型 P95 不超过 16.7 ms、导航整帧 P95 不超过 12 ms、绘制复杂度不超过 1.5 倍、导航 reset P95 不超过 80 ms、空闲 CPU 严格低于 0.5%、RSS 增长不超过 10%，并完成窗口生命周期计数和 ASan/UBSan 门禁。
+十二份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足组件与综合示例启动 P95/max 不超过 300 ms，组件与综合示例主题切换 P95 不超过 50 ms，综合示例页面切换 P95 不超过 50 ms，动画、组件与综合示例大模型 P95 不超过 16.7 ms，导航整帧 P95 不超过 12 ms，绘制复杂度不超过 1.5 倍，导航 reset P95 不超过 80 ms，两项空闲 CPU 均严格低于 0.5%、RSS 增长均不超过 10%，并完成窗口生命周期计数和对应 ASan/UBSan 门禁。
 
 ## 原 CI 参考档案
 

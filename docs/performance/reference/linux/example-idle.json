@@ -20,22 +20,36 @@
         "windowSystem": "xcb"
     },
     "metrics": {
-        "lifecycle-time": {
-            "count": 100,
-            "max": 5.48744,
-            "p50": 3.678784,
-            "p95": 3.820944,
-            "unit": "ms"
+        "average-cpu-percent": {
+            "count": 1,
+            "max": 0,
+            "p50": 0,
+            "p95": 0,
+            "unit": "percent"
         },
-        "rss-bytes": {
-            "count": 100,
-            "max": 44343296,
-            "p50": 44318720,
-            "p95": 44343296,
+        "rss-end-bytes": {
+            "count": 1,
+            "max": 67833856,
+            "p50": 67833856,
+            "p95": 67833856,
+            "unit": "bytes"
+        },
+        "rss-growth-percent": {
+            "count": 1,
+            "max": 0.19359912880392038,
+            "p50": 0.19359912880392038,
+            "p95": 0.19359912880392038,
+            "unit": "percent"
+        },
+        "rss-start-bytes": {
+            "count": 1,
+            "max": 67702784,
+            "p50": 67702784,
+            "p95": 67702784,
             "unit": "bytes"
         }
     },
-    "scenario": "window-lifecycle",
+    "scenario": "example-idle",
     "schemaVersion": 1,
-    "warmupIterations": 0
+    "warmupIterations": 5
 }
