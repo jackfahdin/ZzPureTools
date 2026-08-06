@@ -111,3 +111,12 @@ add_test(NAME platform.github-actions-contract
         -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzGitHubActionsContract.cmake")
 set_tests_properties(platform.github-actions-contract PROPERTIES
     LABELS "platform;contract")
+
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    add_test(NAME platform.linux-desktop-acceptance-contract
+        COMMAND "${CMAKE_COMMAND}"
+            "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzLinuxDesktopAcceptanceContract.cmake")
+    set_tests_properties(platform.linux-desktop-acceptance-contract PROPERTIES
+        LABELS "platform;contract;documentation")
+endif()

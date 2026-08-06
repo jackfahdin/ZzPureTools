@@ -12,6 +12,50 @@ Qt/工具链:
 
 本清单覆盖 X11 KDE、X11 GNOME、Wayland KDE、Wayland GNOME 和强制 Qt fallback。当前 `local-release-xvfb` 是自动性能参考环境，但主机没有物理显示器，其报告不能代替以下桌面会话交互项。开始前保存 `build/gate-evidence/linux-native.log`，并确保被测 commit、Qt、工具链和产物摘要一致。
 
+## 执行方式
+
+每种真实桌面会话必须从干净工作树和同一 commit 开始。普通四种会话先构建
+shared Release：
+
+```bash
+export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
+export GCC_13=/usr/bin/gcc-15
+export GXX_13=/usr/bin/g++-15
+
+cmake --preset linux-gcc-release -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-gcc-release --parallel 2
+bash scripts/release/run-linux-desktop-acceptance.sh \
+  --session linux-wayland-kde \
+  --build-dir build/linux-gcc-release
+```
+
+将 `--session` 分别替换为 `linux-x11-kde`、`linux-x11-gnome`、
+`linux-wayland-kde` 和 `linux-wayland-gnome`。脚本会校验实际
+`XDG_SESSION_TYPE`、`XDG_CURRENT_DESKTOP` 和显示变量，错误会话不能借用名称通过。
+
+Qt fallback 必须使用独立构建目录，不能覆盖正常 native 构建缓存：
+
+```bash
+cmake --preset linux-gcc-release \
+  -B build/linux-qt-fallback-release \
+  -DZZ_BUILD_EXAMPLES=ON \
+  -DZZ_WINDOWKIT_FORCE_QT_CONTEXT=ON \
+  -DXKB_INCLUDE_DIR="$PWD/build/dependencies/xkbcommon/root/usr/include" \
+  -DXKB_LIBRARY=/usr/lib/x86_64-linux-gnu/libxkbcommon.so.0
+cmake --build build/linux-qt-fallback-release \
+  --target ZzPureToolsExample --parallel 2
+bash scripts/release/run-linux-desktop-acceptance.sh \
+  --session linux-qt-fallback \
+  --build-dir build/linux-qt-fallback-release
+```
+
+脚本在 `build/gate-evidence/linux-desktop/` 下创建不可复用的会话目录，记录源码
+commit、工作树状态、桌面协议、Qt、编译器、显示器、ELF 依赖和二进制 SHA-256，
+同时复核 shared Release 缓存、Qt SDK 路径，并从干净源码增量重建后启动真实
+`ZzPureToolsExample`。测试人员完成交互后，从应用的确认关闭路径退出，把截图放入
+脚本给出的 `screenshots/`，逐项填写同目录 `RESULT_ZH.md`。脚本只采证，不会自动
+把会话判定为通过，也不会修改本清单或平台状态。
+
 | 检查项 | 预期行为 | 实际结果 | 截图/日志路径 | 问题链接 |
 |---|---|---|---|---|
 | [ ] X11 KDE | 应用启动、退出、标题栏与基础导航正常，记录桌面和窗口管理器版本 |  |  |  |
