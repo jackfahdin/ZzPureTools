@@ -92,6 +92,23 @@ cmake --build --preset linux-clang-tidy-static --target ZzClangTidy
 
 ASan/UBSan 运行时使用 preset 已写入的 `ASAN_OPTIONS` 与 `UBSAN_OPTIONS`。不得关闭 leak 检查后把结果登记为同一门禁。
 
+### 综合示例本地预览素材
+
+`ZzPureToolsExample` 可在本机临时加载不进入仓库的首页和卡片预览图。目录必须包含
+`home.png`、`card-performance.png`、`card-windowing.png` 和 `card-data.png`，配置时
+显式传入：
+
+```bash
+cmake --preset linux-gcc-release \
+  -DZZ_EXAMPLE_LOCAL_ASSET_DIR="$PWD/build/local-assets/ZzPureToolsExample"
+cmake --build --preset linux-gcc-release --target ZzPureToolsExample
+```
+
+该目录应放在已忽略的 `build/` 下。提供目录时四个文件缺少任意一个都会配置失败；
+未提供时示例继续使用确定性 palette 预览，不影响其他开发者、CI 或发布构建。临时
+旧版素材不得提交，替换为经过来源审核的正式原创文件后，必须重新生成综合示例视觉
+基线并记录逐文件 SHA-256。
+
 ## Windows MSVC preset
 
 在 Visual Studio 2022 x64 Developer PowerShell 中设置 `QT_MSVC_ROOT`：
@@ -180,7 +197,8 @@ cmake -DZZ_SOURCE_DIR="$PWD" \
   -P tests/Platform/ZzGitHubActionsContract.cmake
 ```
 
-该命令只验证工作流结构和关键门禁是否存在，不会模拟 GitHub runner。首次真实运行前，Windows、macOS 和 GitHub Ubuntu 的平台状态仍保持“未执行”。
+该命令只验证工作流结构和关键门禁是否存在，不会模拟 GitHub runner。在同一提交的
+完整远端矩阵成功前，Windows、macOS 和 GitHub Ubuntu 的平台状态仍保持“未执行”。
 
 ## 安装消费与重定位
 

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <utility>
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
@@ -246,11 +247,27 @@ void ZzExampleCardsPagePrivate::initialize(
 
 void ZzExampleCardsPagePrivate::refreshPalettePreviews()
 {
+#if defined(ZZ_EXAMPLE_LOCAL_PREVIEW_ASSETS)
+    constexpr std::array<const char *, 3> resourcePaths{{
+        ":/ZzPureToolsExample/local-assets/card-performance.png",
+        ":/ZzPureToolsExample/local-assets/card-windowing.png",
+        ":/ZzPureToolsExample/local-assets/card-data.png",
+    }};
+#endif
     for (std::size_t index = 0; index < imageCards.size(); ++index) {
         auto *card = imageCards.at(index);
         if (card != nullptr) {
-            card->setPixmap(zzCardsPreviewPixmap(
-                card->palette(), static_cast<int>(index)));
+            QPixmap preview;
+#if defined(ZZ_EXAMPLE_LOCAL_PREVIEW_ASSETS)
+            if (index < resourcePaths.size()) {
+                preview.load(QString::fromLatin1(resourcePaths[index]));
+            }
+#endif
+            if (preview.isNull()) {
+                preview = zzCardsPreviewPixmap(
+                    card->palette(), static_cast<int>(index));
+            }
+            card->setPixmap(std::move(preview));
         }
     }
 }

@@ -214,10 +214,26 @@ Linux 物理桌面最终验收以 `ZzPureToolsExample` 为主入口，检查窗�
   七份组件报告一同逐字固化到 `docs/performance/reference/linux/`，并接入
   `run-linux-gates.sh` 的同环境 10% 相对回归比较。
 
-### 7.4 尚未完成且不得误报的范围
+### 7.4 本地临时素材预览
 
-- 首页与卡片页的原创轻量位图及逐文件资源 provenance 尚未加入。当前会话没有
-  已授权的原创位图生成来源，因此不得从旧版或网络素材替代。
+- CMake 新增高级缓存变量 `ZZ_EXAMPLE_LOCAL_ASSET_DIR`。变量为空时继续使用
+  确定性 palette 预览，确保仓库、CI 和发布构建不依赖本机文件。
+- 指定目录时，`home.png`、`card-performance.png`、`card-windowing.png` 和
+  `card-data.png` 以固定资源别名编入综合示例；缺少任意文件会在配置阶段失败，
+  图片解码失败则在运行时回退到 palette 预览。
+- 本次仅把旧版图片复制到被 Git 忽略的 `build/local-assets/ZzPureToolsExample/`
+  用于本机效果验证，图片及旧版绝对路径均不进入提交，也不构成正式资源的来源、
+  作者、许可证或 SHA-256 记录。
+- 无素材与本地素材两种全新配置均完成 GCC 15 严格警告构建。无素材配置的真实
+  交互、多窗口和四档截图共 7 项通过；本地素材配置的真实交互、英文和多窗口共
+  3 项通过。另在被忽略目录生成并人工检查 100% DPR 的 Light、Dark、
+  HighContrast 截图，未发现图片解码失败、比例失真、文字重叠或布局越界。
+
+### 7.5 尚未完成且不得误报的范围
+
+- 首页与卡片页的正式原创轻量位图及逐文件资源 provenance 尚未加入。当前复用的
+  旧版图片仅用于不入库的阶段性验证；用户替换正式文件后，仍须记录来源、作者、
+  许可证和 SHA-256，并重新生成及审核仓库截图基线。
 - Linux X11 KDE、X11 GNOME、Wayland KDE、Wayland GNOME 和强制 Qt fallback
   五种物理桌面会话仍需按 `MANUAL_LINUX_CHECKLIST_ZH.md` 人工签署；offscreen
   截图不能代替窗口拖动、resize、系统菜单、多显示器和辅助技术验收。

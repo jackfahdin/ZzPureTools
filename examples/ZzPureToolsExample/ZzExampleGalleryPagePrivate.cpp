@@ -8,6 +8,8 @@
 #include <QtCore/QStringList>
 #include <QtGui/QFont>
 #include <QtGui/QIcon>
+#include <QtGui/QPainter>
+#include <QtGui/QPixmap>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QFormLayout>
@@ -19,6 +21,7 @@
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QSlider>
+#include <QtWidgets/QSizePolicy>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTreeWidget>
 #include <QtWidgets/QVBoxLayout>
@@ -41,6 +44,55 @@
 namespace ZzExample {
 
 namespace {
+
+#if defined(ZZ_EXAMPLE_LOCAL_PREVIEW_ASSETS)
+/** @brief 以保持宽高比的方式绘制本地首页预览图。 */
+class ZzExampleHomePreview final : public QWidget
+{
+public:
+    /** @brief 从编译期资源创建不参与输入的首页视觉区域。 */
+    explicit ZzExampleHomePreview(QWidget *parent)
+        : QWidget(parent)
+        , pixmap(QStringLiteral(
+              ":/ZzPureToolsExample/local-assets/home.png"))
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        setMinimumSize(180, 140);
+        setAccessibleName(QCoreApplication::translate(
+            "ZzPureToolsExample", "Fluent Qt Widgets 预览"));
+    }
+
+    /** @brief 返回品牌横幅右侧视觉区域的建议逻辑尺寸。 */
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        return QSize(360, 180);
+    }
+
+protected:
+    /** @brief 在任意 DPR 下从原始像素图平滑缩放并居中绘制。 */
+    void paintEvent(QPaintEvent *event) override
+    {
+        QWidget::paintEvent(event);
+        if (pixmap.isNull() || rect().isEmpty()) {
+            return;
+        }
+        QSize targetSize = pixmap.size();
+        targetSize.scale(rect().size(), Qt::KeepAspectRatio);
+        const QRect target(
+            QPoint(
+                rect().center().x() - targetSize.width() / 2,
+                rect().center().y() - targetSize.height() / 2),
+            targetSize);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+        painter.drawPixmap(target, pixmap);
+    }
+
+private:
+    QPixmap pixmap;
+};
+#endif
 
 /** @brief 创建具有页面级字号的标题标签。 */
 [[nodiscard]] QLabel *zzPageTitle(
@@ -137,29 +189,42 @@ void ZzExampleGalleryPagePrivate::buildHome(const QString &title)
     brandBand->setObjectName(QStringLiteral("zzExampleHomeBrandBand"));
     brandBand->setAutoFillBackground(true);
     brandBand->setMinimumHeight(210);
-    auto *brandLayout = new QVBoxLayout(brandBand);
-    brandLayout->setContentsMargins(28, 24, 28, 24);
-    brandLayout->setSpacing(10);
+#if defined(ZZ_EXAMPLE_LOCAL_PREVIEW_ASSETS)
+    auto *brandLayout = new QHBoxLayout(brandBand);
+    brandLayout->setContentsMargins(28, 14, 20, 14);
+    brandLayout->setSpacing(20);
+    auto *brandTextHost = new QWidget(brandBand);
+    auto *brandTextLayout = new QVBoxLayout(brandTextHost);
+    brandTextLayout->setContentsMargins(0, 10, 0, 10);
+    brandTextLayout->setSpacing(10);
+    brandLayout->addWidget(brandTextHost, 3);
+    brandLayout->addWidget(new ZzExampleHomePreview(brandBand), 2);
+#else
+    auto *brandTextHost = brandBand;
+    auto *brandTextLayout = new QVBoxLayout(brandBand);
+    brandTextLayout->setContentsMargins(28, 24, 28, 24);
+    brandTextLayout->setSpacing(10);
+#endif
 
     auto *category = new QLabel(
-        QStringLiteral("Fluent UI for Qt Widgets"), brandBand);
+        QStringLiteral("Fluent UI for Qt Widgets"), brandTextHost);
     category->setObjectName(QStringLiteral("zzExampleHomeCategory"));
-    auto *brand = zzPageTitle(QStringLiteral("ZzPureTools"), brandBand);
+    auto *brand = zzPageTitle(QStringLiteral("ZzPureTools"), brandTextHost);
     brand->setObjectName(QStringLiteral("zzExampleHomeTitle"));
     auto *description = new QLabel(
         QCoreApplication::translate("ZzPureToolsExample", "面向 Qt 6.8+ 的高性能跨平台应用框架与 Fluent Widgets 组件库"),
-        brandBand);
+        brandTextHost);
     description->setWordWrap(true);
     description->setMaximumWidth(760);
     auto *technology = new QLabel(
         QStringLiteral("Qt 6 | C++20 | Linux | Windows | macOS"),
-        brandBand);
+        brandTextHost);
     technology->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    brandLayout->addWidget(category);
-    brandLayout->addWidget(brand);
-    brandLayout->addWidget(description);
-    brandLayout->addStretch(1);
-    brandLayout->addWidget(technology);
+    brandTextLayout->addWidget(category);
+    brandTextLayout->addWidget(brand);
+    brandTextLayout->addWidget(description);
+    brandTextLayout->addStretch(1);
+    brandTextLayout->addWidget(technology);
     layout->addWidget(brandBand);
 
     auto *summary = new QWidget(content);

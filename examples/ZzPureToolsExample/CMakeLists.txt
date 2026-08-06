@@ -38,6 +38,40 @@ endif()
 
 add_executable(ZzPureToolsExample ${zz_pure_tools_example_sources})
 
+set(ZZ_EXAMPLE_LOCAL_ASSET_DIR "" CACHE PATH
+    "Optional untracked directory containing ZzPureToolsExample preview images")
+mark_as_advanced(ZZ_EXAMPLE_LOCAL_ASSET_DIR)
+if(NOT "${ZZ_EXAMPLE_LOCAL_ASSET_DIR}" STREQUAL "")
+    if(NOT IS_DIRECTORY "${ZZ_EXAMPLE_LOCAL_ASSET_DIR}")
+        message(FATAL_ERROR
+            "ZZ_EXAMPLE_LOCAL_ASSET_DIR must identify a directory")
+    endif()
+    file(REAL_PATH "${ZZ_EXAMPLE_LOCAL_ASSET_DIR}"
+        zz_example_local_asset_dir)
+    set(zz_example_local_assets)
+    foreach(asset_name IN ITEMS
+        home.png
+        card-performance.png
+        card-windowing.png
+        card-data.png)
+        set(asset_path "${zz_example_local_asset_dir}/${asset_name}")
+        if(NOT EXISTS "${asset_path}" OR IS_DIRECTORY "${asset_path}")
+            message(FATAL_ERROR
+                "Missing local example preview asset: ${asset_name}")
+        endif()
+        list(APPEND zz_example_local_assets "${asset_path}")
+    endforeach()
+    qt_add_resources(ZzPureToolsExample "zz_example_local_assets"
+        PREFIX "/ZzPureToolsExample/local-assets"
+        BASE "${zz_example_local_asset_dir}"
+        FILES ${zz_example_local_assets}
+    )
+    target_compile_definitions(ZzPureToolsExample PRIVATE
+        ZZ_EXAMPLE_LOCAL_PREVIEW_ASSETS=1)
+    message(STATUS
+        "ZzPureToolsExample uses untracked preview assets from ${zz_example_local_asset_dir}")
+endif()
+
 find_package(Qt6 6.8 REQUIRED COMPONENTS LinguistTools)
 qt_add_lrelease(ZzPureToolsExample
     TS_FILES translations/ZzPureToolsExample_en.ts

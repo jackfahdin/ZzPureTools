@@ -14,7 +14,7 @@ namespace ZzExample {
 
 class ZzExampleCardsPage;
 
-/** @brief 实现卡片页面控件树和 palette 派生预览图。 */
+/** @brief 实现卡片页面控件树和可回退的预览图。 */
 class ZzExampleCardsPagePrivate final
 {
 public:
@@ -26,7 +26,7 @@ public:
         const QString &title,
         QAbstractItemModel *carouselModel);
 
-    /** @brief 以当前 palette 重建全部确定性内存预览图。 */
+    /** @brief 刷新本地资源预览，资源不可用时使用 palette 图像。 */
     void refreshPalettePreviews();
 
     ZzExampleCardsPage *q_ptr = nullptr;
