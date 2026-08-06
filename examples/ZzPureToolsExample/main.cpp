@@ -82,11 +82,13 @@ int main(int argc, char *argv[])
 #if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
     const bool performanceMode = !qEnvironmentVariable(
         "ZZ_PURETOOLS_EXAMPLE_PERFORMANCE_SCENARIO").trimmed().isEmpty();
-#else
-    constexpr bool performanceMode = false;
-#endif
     const bool smokeMode = autoCloseRequested && !performanceMode;
-    if (smokeMode || performanceMode) {
+    const bool testMode = smokeMode || performanceMode;
+#else
+    const bool smokeMode = autoCloseRequested;
+    const bool testMode = smokeMode;
+#endif
+    if (testMode) {
         QStandardPaths::setTestModeEnabled(true);
     }
     const bool screenshotMode = smokeMode && qEnvironmentVariable(
