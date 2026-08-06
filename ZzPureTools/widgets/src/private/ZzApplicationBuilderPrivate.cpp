@@ -12,6 +12,8 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 
+#include <ZzFluentUI/ZzNavigationPlacement.h>
+
 #include <ZzPureTools/ZzApplicationRuntime.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzModuleGraphBuilder.h>
@@ -43,6 +45,39 @@ template<typename ZzValue>
         return true;
     }
     return false;
+}
+
+[[nodiscard]] bool zzIsValidNavigationPlacement(
+    ZzFluentUI::ZzNavigationPlacement placement) noexcept
+{
+    switch (placement) {
+    case ZzFluentUI::ZzNavigationPlacement::Primary:
+    case ZzFluentUI::ZzNavigationPlacement::Footer:
+        return true;
+    }
+    return false;
+}
+
+[[nodiscard]] bool zzNavigationBadgeContainsLineBreak(
+    const QString &text) noexcept
+{
+    for (const QChar character : text) {
+        if (character == QLatin1Char('\n')
+            || character == QLatin1Char('\r')
+            || character == QChar::LineSeparator
+            || character == QChar::ParagraphSeparator) {
+            return true;
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] bool zzIsValidNavigationBadge(
+    const QString &badgeText) noexcept
+{
+    return badgeText == badgeText.trimmed()
+        && badgeText.size() <= 8
+        && !zzNavigationBadgeContainsLineBreak(badgeText);
 }
 
 } // namespace
@@ -195,6 +230,7 @@ ZzCore::ZzResult<void> ZzApplicationBuilderPrivate::build(
 
         QSet<ZzRouteId> nodeRoutes;
         nodeRoutes.reserve(nodes_.size());
+        qsizetype footerCount = 0;
         for (qsizetype index = 0; index < nodes_.size(); ++index) {
             const auto &node = nodes_.at(index);
             if (!node.routeId.isValid()
@@ -204,6 +240,52 @@ ZzCore::ZzResult<void> ZzApplicationBuilderPrivate::build(
                     ZzCore::ZzErrorCode::InvalidArgument,
                     QStringLiteral("navigation node is invalid"),
                     QStringLiteral("index=%1").arg(index));
+            }
+            const bool hasSectionContext =
+                !node.sectionTranslationContext.isEmpty();
+            const bool hasSectionSource =
+                !node.sectionSourceText.isEmpty();
+            if (hasSectionContext != hasSectionSource
+                || (hasSectionContext
+                    && (node.sectionTranslationContext.trimmed().isEmpty()
+                        || node.sectionSourceText.trimmed().isEmpty()))) {
+                return zzBuilderFailure<void>(
+                    ZzCore::ZzErrorCode::InvalidArgument,
+                    QStringLiteral("navigation section translation keys must be paired and non-empty"),
+                    QStringLiteral("routeId=%1")
+                        .arg(node.routeId.value()));
+            }
+            if (!zzIsValidNavigationPlacement(node.placement)) {
+                return zzBuilderFailure<void>(
+                    ZzCore::ZzErrorCode::InvalidArgument,
+                    QStringLiteral("navigation placement is invalid"),
+                    QStringLiteral("routeId=%1")
+                        .arg(node.routeId.value()));
+            }
+            if (node.placement
+                    == ZzFluentUI::ZzNavigationPlacement::Footer
+                && hasSectionContext) {
+                return zzBuilderFailure<void>(
+                    ZzCore::ZzErrorCode::InvalidArgument,
+                    QStringLiteral("footer navigation node cannot start a section"),
+                    QStringLiteral("routeId=%1")
+                        .arg(node.routeId.value()));
+            }
+            if (!zzIsValidNavigationBadge(node.badgeText)) {
+                return zzBuilderFailure<void>(
+                    ZzCore::ZzErrorCode::InvalidArgument,
+                    QStringLiteral("navigation badge must be trimmed, single-line, and at most eight UTF-16 code units"),
+                    QStringLiteral("routeId=%1")
+                        .arg(node.routeId.value()));
+            }
+            if (node.placement
+                == ZzFluentUI::ZzNavigationPlacement::Footer) {
+                ++footerCount;
+                if (footerCount > 6) {
+                    return zzBuilderFailure<void>(
+                        ZzCore::ZzErrorCode::InvalidArgument,
+                        QStringLiteral("navigation footer cannot contain more than six nodes"));
+                }
             }
             if (nodeRoutes.contains(node.routeId)) {
                 return zzBuilderFailure<void>(

@@ -37,11 +37,29 @@ QVariant ZzNavigationModel::data(
     if (role == Qt::DisplayRole) {
         return d_ptr->translatedTitles.at(row);
     }
+    if (role == Qt::ToolTipRole) {
+        const QString &title = d_ptr->translatedTitles.at(row);
+        return node.badgeText.isEmpty()
+            ? title
+            : QStringLiteral("%1 (%2)").arg(title, node.badgeText);
+    }
+    if (role == Qt::AccessibleDescriptionRole) {
+        return node.badgeText;
+    }
     if (role == static_cast<int>(ZzNavigationRole::Route)) {
         return QVariant::fromValue(node.routeId);
     }
     if (role == static_cast<int>(ZzNavigationRole::Icon)) {
         return QVariant::fromValue(node.icon);
+    }
+    if (role == static_cast<int>(ZzNavigationRole::Section)) {
+        return d_ptr->translatedSections.at(row);
+    }
+    if (role == static_cast<int>(ZzNavigationRole::Placement)) {
+        return QVariant::fromValue(node.placement);
+    }
+    if (role == static_cast<int>(ZzNavigationRole::Badge)) {
+        return node.badgeText;
     }
     return {};
 }
@@ -53,7 +71,13 @@ QHash<int, QByteArray> ZzNavigationModel::roleNames() const
         {static_cast<int>(ZzNavigationRole::Route),
          QByteArrayLiteral("route")},
         {static_cast<int>(ZzNavigationRole::Icon),
-         QByteArrayLiteral("icon")}};
+         QByteArrayLiteral("icon")},
+        {static_cast<int>(ZzNavigationRole::Section),
+         QByteArrayLiteral("section")},
+        {static_cast<int>(ZzNavigationRole::Placement),
+         QByteArrayLiteral("placement")},
+        {static_cast<int>(ZzNavigationRole::Badge),
+         QByteArrayLiteral("badge")}};
 }
 
 ZzCore::ZzResult<void> ZzNavigationModel::setNodes(
@@ -66,6 +90,19 @@ ZzCore::ZzResult<ZzNavigationNode> ZzNavigationModel::nodeAt(
     qsizetype row) const
 {
     return d_ptr->nodeAt(row);
+}
+
+ZzCore::ZzResult<QModelIndex> ZzNavigationModel::indexForRoute(
+    const ZzRouteId &routeId) const
+{
+    return d_ptr->indexForRoute(routeId);
+}
+
+ZzCore::ZzResult<void> ZzNavigationModel::setBadge(
+    const ZzRouteId &routeId,
+    QString badgeText)
+{
+    return d_ptr->setBadge(routeId, std::move(badgeText));
 }
 
 void ZzNavigationModel::refreshTranslations()

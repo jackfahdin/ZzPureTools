@@ -247,11 +247,15 @@ private:
     if (!builder.addPage(zzPage())) {
         return false;
     }
-    if (!builder.addNavigationNode({
-            ZzPureTools::ZzRouteId(QStringLiteral("home")),
-            QStringLiteral("ZzTranslationLifecycleTest"),
-            QStringLiteral("Owned marker"),
-            {}})) {
+    ZzPureTools::ZzNavigationNode node{
+        ZzPureTools::ZzRouteId(QStringLiteral("home")),
+        QStringLiteral("ZzTranslationLifecycleTest"),
+        QStringLiteral("Owned marker"),
+        {}};
+    node.sectionTranslationContext =
+        QStringLiteral("ZzTranslationLifecycleTest");
+    node.sectionSourceText = QStringLiteral("Owned section");
+    if (!builder.addNavigationNode(std::move(node))) {
         return false;
     }
     const auto initialRouteResult = builder.setInitialRoute(
@@ -322,6 +326,12 @@ private Q_SLOTS:
             first->navigationModel()->data(
                 first->navigationModel()->index(0, 0), Qt::DisplayRole),
             QVariant(QStringLiteral("Owned marker")));
+        QCOMPARE(
+            first->navigationModel()->data(
+                first->navigationModel()->index(0, 0),
+                static_cast<int>(
+                    ZzPureTools::ZzNavigationRole::Section)),
+            QVariant(QStringLiteral("Owned section")));
 
         QTranslator translator;
         QVERIFY(translator.load(QStringLiteral(ZZ_TRANSLATION_TEST_QM)));
@@ -348,6 +358,18 @@ private Q_SLOTS:
             second->navigationModel()->data(
                 second->navigationModel()->index(0, 0), Qt::DisplayRole),
             QVariant(QStringLiteral("Owned translated")));
+        QCOMPARE(
+            first->navigationModel()->data(
+                first->navigationModel()->index(0, 0),
+                static_cast<int>(
+                    ZzPureTools::ZzNavigationRole::Section)),
+            QVariant(QStringLiteral("Section translated")));
+        QCOMPARE(
+            second->navigationModel()->data(
+                second->navigationModel()->index(0, 0),
+                static_cast<int>(
+                    ZzPureTools::ZzNavigationRole::Section)),
+            QVariant(QStringLiteral("Section translated")));
 
         QVERIFY(application.removeTranslator(&translator));
         QVERIFY(QTest::qWaitFor([firstLabel] {
@@ -370,6 +392,18 @@ private Q_SLOTS:
             second->navigationModel()->data(
                 second->navigationModel()->index(0, 0), Qt::DisplayRole),
             QVariant(QStringLiteral("Owned marker")));
+        QCOMPARE(
+            first->navigationModel()->data(
+                first->navigationModel()->index(0, 0),
+                static_cast<int>(
+                    ZzPureTools::ZzNavigationRole::Section)),
+            QVariant(QStringLiteral("Owned section")));
+        QCOMPARE(
+            second->navigationModel()->data(
+                second->navigationModel()->index(0, 0),
+                static_cast<int>(
+                    ZzPureTools::ZzNavigationRole::Section)),
+            QVariant(QStringLiteral("Owned section")));
         application.beginShutdown();
     }
 

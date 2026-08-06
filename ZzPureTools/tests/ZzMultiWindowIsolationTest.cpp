@@ -9,6 +9,8 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 
 #include <ZzWindowKit/ZzWindowAgent.h>
@@ -140,13 +142,13 @@ struct ZzWindowPair final
         : window->findChild<ZzFluentUI::ZzFluentTitleBar *>();
 }
 
-/** @brief 查找窗口内唯一导航视图。 */
-[[nodiscard]] ZzFluentUI::ZzNavigationView *zzNavigationView(
+/** @brief 查找窗口内唯一导航面板。 */
+[[nodiscard]] ZzFluentUI::ZzNavigationPane *zzNavigationPane(
     ZzPureTools::ZzApplicationWindow *window)
 {
     return window == nullptr
         ? nullptr
-        : window->findChild<ZzFluentUI::ZzNavigationView *>();
+        : window->findChild<ZzFluentUI::ZzNavigationPane *>();
 }
 
 } // namespace
@@ -187,6 +189,23 @@ private Q_SLOTS:
         QCOMPARE(windows.second->navigationModel()->parent(), nullptr);
         QCOMPARE(windows.first->navigationController()->parent(), nullptr);
         QCOMPARE(windows.second->navigationController()->parent(), nullptr);
+        auto *firstPane = zzNavigationPane(windows.first);
+        auto *secondPane = zzNavigationPane(windows.second);
+        QVERIFY(firstPane != nullptr);
+        QVERIFY(secondPane != nullptr);
+        QVERIFY(firstPane != secondPane);
+        const auto firstViews =
+            firstPane->findChildren<ZzFluentUI::ZzNavigationView *>();
+        const auto secondViews =
+            secondPane->findChildren<ZzFluentUI::ZzNavigationView *>();
+        QCOMPARE(firstViews.size(), 2);
+        QCOMPARE(secondViews.size(), 2);
+        for (auto *firstView : firstViews) {
+            for (auto *secondView : secondViews) {
+                QVERIFY(firstView->selectionModel()
+                        != secondView->selectionModel());
+            }
+        }
         application.beginShutdown();
     }
 
@@ -224,12 +243,12 @@ private Q_SLOTS:
 
         for (auto *window : {windows.first, windows.second}) {
             auto *titleBar = zzTitleBar(window);
-            auto *navigationView = zzNavigationView(window);
+            auto *navigationPane = zzNavigationPane(window);
             QVERIFY(titleBar != nullptr);
-            QVERIFY(navigationView != nullptr);
+            QVERIFY(navigationPane != nullptr);
             QVERIFY(window->isAncestorOf(titleBar));
-            QVERIFY(window->isAncestorOf(navigationView));
-            QCOMPARE(navigationView->model(), window->navigationModel());
+            QVERIFY(window->isAncestorOf(navigationPane));
+            QCOMPARE(navigationPane->model(), window->navigationModel());
             QCOMPARE(
                 window->windowAgent()->state(),
                 ZzWindowKit::ZzWindowAgentState::Configured);
@@ -281,14 +300,14 @@ private Q_SLOTS:
         auto &application = zzApplication();
         ZzWindowPair windows;
         QVERIFY(zzCreateWindowPair(application, windows));
-        auto *firstView = zzNavigationView(windows.first);
-        QVERIFY(firstView != nullptr);
+        auto *firstPane = zzNavigationPane(windows.first);
+        QVERIFY(firstPane != nullptr);
 
         const QList<ZzPureTools::ZzNavigationNode> reordered{
             zzNode(QStringLiteral("details"), QStringLiteral("Details")),
             zzNode(QStringLiteral("home"), QStringLiteral("Home"))};
         QVERIFY(windows.first->navigationModel()->setNodes(reordered));
-        Q_EMIT firstView->navigationRequested(
+        Q_EMIT firstPane->navigationRequested(
             windows.first->navigationModel()->index(0, 0));
 
         QCOMPARE(
@@ -297,6 +316,71 @@ private Q_SLOTS:
         QCOMPARE(
             windows.second->navigationController()->currentRoute(),
             ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        application.beginShutdown();
+    }
+
+    void navigationSelectionTracksRoutesAndModelResets()
+    {
+        auto &application = zzApplication();
+        ZzWindowPair windows;
+        QVERIFY(zzCreateWindowPair(application, windows));
+        auto *firstPane = zzNavigationPane(windows.first);
+        auto *secondPane = zzNavigationPane(windows.second);
+        QVERIFY(firstPane != nullptr);
+        QVERIFY(secondPane != nullptr);
+
+        QCOMPARE(firstPane->currentSourceIndex().row(), 0);
+        QCOMPARE(secondPane->currentSourceIndex().row(), 0);
+        QVERIFY(windows.first->navigationController()->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("details"))));
+        QCOMPARE(firstPane->currentSourceIndex().row(), 1);
+        QCOMPARE(secondPane->currentSourceIndex().row(), 0);
+
+        QVERIFY(windows.first->navigationController()->goBack());
+        QCOMPARE(firstPane->currentSourceIndex().row(), 0);
+        const QList<ZzPureTools::ZzNavigationNode> reordered{
+            zzNode(QStringLiteral("details"), QStringLiteral("Details")),
+            zzNode(QStringLiteral("home"), QStringLiteral("Home"))};
+        QVERIFY(windows.first->navigationModel()->setNodes(reordered));
+        QCOMPARE(firstPane->currentSourceIndex().row(), 1);
+        QCOMPARE(
+            firstPane->currentSourceIndex()
+                .data(static_cast<int>(
+                    ZzPureTools::ZzNavigationRole::Route))
+                .value<ZzPureTools::ZzRouteId>(),
+            ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        QCOMPARE(secondPane->currentSourceIndex().row(), 0);
+        application.beginShutdown();
+    }
+
+    void footerNavigationAffectsOnlyOwningWindow()
+    {
+        auto &application = zzApplication();
+        ZzWindowPair windows;
+        QVERIFY(zzCreateWindowPair(application, windows));
+        auto *firstPane = zzNavigationPane(windows.first);
+        auto *secondPane = zzNavigationPane(windows.second);
+        QVERIFY(firstPane != nullptr);
+        QVERIFY(secondPane != nullptr);
+
+        auto home = zzNode(
+            QStringLiteral("home"), QStringLiteral("Home"));
+        auto details = zzNode(
+            QStringLiteral("details"), QStringLiteral("Details"));
+        details.placement = ZzFluentUI::ZzNavigationPlacement::Footer;
+        QVERIFY(windows.first->navigationModel()->setNodes(
+            {home, details}));
+        Q_EMIT firstPane->navigationRequested(
+            windows.first->navigationModel()->index(1, 0));
+
+        QCOMPARE(
+            windows.first->navigationController()->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("details")));
+        QCOMPARE(firstPane->currentSourceIndex().row(), 1);
+        QCOMPARE(
+            windows.second->navigationController()->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        QCOMPARE(secondPane->currentSourceIndex().row(), 0);
         application.beginShutdown();
     }
 

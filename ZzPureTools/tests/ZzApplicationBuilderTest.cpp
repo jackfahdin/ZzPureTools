@@ -10,6 +10,7 @@
 #include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
@@ -241,6 +242,78 @@ private Q_SLOTS:
             result.error().code(),
             ZzCore::ZzErrorCode::InvalidArgument);
         QVERIFY(events.isEmpty());
+        application.beginShutdown();
+    }
+
+    void buildRejectsInvalidNavigationPresentationBeforeStartingModules()
+    {
+        auto &application = zzApplication();
+        QStringList events;
+
+        {
+            ZzPureTools::ZzApplicationBuilder builder;
+            QVERIFY(builder.addModule(
+                std::make_unique<ZzBuilderTestModule>(
+                    QStringLiteral("section-module"), &events)));
+            QVERIFY(builder.addPage(zzPage(QStringLiteral("home"))));
+            auto node = zzNode(QStringLiteral("home"));
+            node.sectionTranslationContext =
+                QStringLiteral("ZzApplicationBuilderTest");
+            QVERIFY(builder.addNavigationNode(std::move(node)));
+            QVERIFY(builder.setInitialRoute(
+                ZzPureTools::ZzRouteId(QStringLiteral("home"))));
+            const auto result = builder.build(application);
+            QVERIFY(!result);
+            QCOMPARE(
+                result.error().code(),
+                ZzCore::ZzErrorCode::InvalidArgument);
+            QVERIFY(events.isEmpty());
+        }
+
+        {
+            ZzPureTools::ZzApplicationBuilder builder;
+            QVERIFY(builder.addModule(
+                std::make_unique<ZzBuilderTestModule>(
+                    QStringLiteral("badge-module"), &events)));
+            QVERIFY(builder.addPage(zzPage(QStringLiteral("home"))));
+            auto node = zzNode(QStringLiteral("home"));
+            node.badgeText = QStringLiteral("bad\nline");
+            QVERIFY(builder.addNavigationNode(std::move(node)));
+            QVERIFY(builder.setInitialRoute(
+                ZzPureTools::ZzRouteId(QStringLiteral("home"))));
+            const auto result = builder.build(application);
+            QVERIFY(!result);
+            QCOMPARE(
+                result.error().code(),
+                ZzCore::ZzErrorCode::InvalidArgument);
+            QVERIFY(events.isEmpty());
+        }
+
+        {
+            ZzPureTools::ZzApplicationBuilder builder;
+            QVERIFY(builder.addModule(
+                std::make_unique<ZzBuilderTestModule>(
+                    QStringLiteral("footer-module"), &events)));
+            for (int index = 0; index < 7; ++index) {
+                const QString route =
+                    QStringLiteral("footer-%1").arg(index);
+                QVERIFY(builder.addPage(zzPage(route)));
+                auto node = zzNode(route);
+                node.placement =
+                    ZzFluentUI::ZzNavigationPlacement::Footer;
+                QVERIFY(builder.addNavigationNode(std::move(node)));
+            }
+            QVERIFY(builder.setInitialRoute(
+                ZzPureTools::ZzRouteId(QStringLiteral("footer-0"))));
+            const auto result = builder.build(application);
+            QVERIFY(!result);
+            QCOMPARE(
+                result.error().code(),
+                ZzCore::ZzErrorCode::InvalidArgument);
+            QVERIFY(events.isEmpty());
+        }
+
+        QCOMPARE(application.windowCount(), 0);
         application.beginShutdown();
     }
 

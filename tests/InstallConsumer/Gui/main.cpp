@@ -33,6 +33,10 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
+#include <ZzFluentUI/ZzNavigationItemRole.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
+#include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
@@ -167,6 +171,26 @@ int main(int argc, char *argv[]) {
   QPainter carouselPainter(&carouselImage);
   carouselView.render(&carouselPainter);
   carouselPainter.end();
+  QStandardItemModel navigationModel;
+  auto *navigationHome = new QStandardItem(QStringLiteral("Home"));
+  navigationHome->setData(
+      QStringLiteral("Workspace"),
+      static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Section));
+  navigationHome->setData(
+      QStringLiteral("3"),
+      static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Badge));
+  auto *navigationSettings = new QStandardItem(QStringLiteral("Settings"));
+  navigationSettings->setData(
+      QVariant::fromValue(ZzFluentUI::ZzNavigationPlacement::Footer),
+      static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Placement));
+  navigationModel.appendRow(navigationHome);
+  navigationModel.appendRow(navigationSettings);
+  ZzFluentUI::ZzNavigationPane navigationPane;
+  navigationPane.setStyle(&fluentStyle);
+  navigationPane.setModel(&navigationModel);
+  navigationPane.setDisplayMode(
+      ZzFluentUI::ZzNavigationDisplayMode::Regular);
+  navigationPane.setCurrentSourceIndex(navigationModel.index(1, 0));
   ZzFluentUI::ZzProgressRing progressRing;
   ZzFluentUI::ZzProgressRing busyRing;
   QWidget flowHost;
@@ -349,6 +373,11 @@ int main(int argc, char *argv[]) {
               .toString() != QStringLiteral("Installed model consumer") ||
       carouselView.findChildren<QTimer *>().size() != 0 ||
       carouselImage.pixelColor(carouselImage.rect().center()).alpha() == 0 ||
+      navigationPane.style() != &fluentStyle ||
+      navigationPane.model() != &navigationModel ||
+      navigationPane.currentSourceIndex() != navigationModel.index(1, 0) ||
+      navigationPane.findChildren<ZzFluentUI::ZzNavigationView *>().size()
+          != 2 ||
       progressRing.minimum() != 20 || progressRing.maximum() != 120 ||
       progressRing.value() != 70 || progressRing.ringWidth() != 6 ||
       busyRing.minimum() != 0 || busyRing.maximum() != 0 ||

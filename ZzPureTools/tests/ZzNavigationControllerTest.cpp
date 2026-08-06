@@ -12,6 +12,8 @@
 #include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzNavigationItemRole.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
 
 #include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzNavigationModel.h>
@@ -89,11 +91,16 @@ private Q_SLOTS:
         ZzPureTools::ZzNavigationModel model;
         const ZzFluentUI::ZzIconDescriptor expectedIcon{
             QStringLiteral(":/icons/settings.svg"), true};
-        QVERIFY(model.setNodes({
-            {ZzPureTools::ZzRouteId(QStringLiteral("settings")),
-             QStringLiteral("ZzNavigationControllerTest"),
-             QStringLiteral("Settings"),
-             expectedIcon}}));
+        ZzPureTools::ZzNavigationNode node{
+            ZzPureTools::ZzRouteId(QStringLiteral("settings")),
+            QStringLiteral("ZzNavigationControllerTest"),
+            QStringLiteral("Settings"),
+            expectedIcon};
+        node.sectionTranslationContext =
+            QStringLiteral("ZzNavigationControllerTest");
+        node.sectionSourceText = QStringLiteral("System");
+        node.badgeText = QStringLiteral("7");
+        QVERIFY(model.setNodes({node}));
 
         QCOMPARE(model.rowCount(), 1);
         const QModelIndex index = model.index(0, 0);
@@ -115,18 +122,187 @@ private Q_SLOTS:
         QCOMPARE(icon.resourceId, expectedIcon.resourceId);
         QCOMPARE(icon.mirroredInRightToLeft, true);
         QCOMPARE(
+            model.data(
+                index,
+                static_cast<int>(ZzPureTools::ZzNavigationRole::Section)),
+            QVariant(QStringLiteral("System")));
+        QCOMPARE(
+            model.data(
+                     index,
+                     static_cast<int>(
+                         ZzPureTools::ZzNavigationRole::Placement))
+                .value<ZzFluentUI::ZzNavigationPlacement>(),
+            ZzFluentUI::ZzNavigationPlacement::Primary);
+        QCOMPARE(
+            model.data(
+                index,
+                static_cast<int>(ZzPureTools::ZzNavigationRole::Badge)),
+            QVariant(QStringLiteral("7")));
+        QCOMPARE(
+            model.data(index, Qt::ToolTipRole),
+            QVariant(QStringLiteral("Settings (7)")));
+        QCOMPARE(
+            model.data(index, Qt::AccessibleDescriptionRole),
+            QVariant(QStringLiteral("7")));
+        QCOMPARE(
             model.roleNames().value(Qt::DisplayRole),
             QByteArrayLiteral("display"));
         QCOMPARE(
             model.roleNames().value(static_cast<int>(
                 ZzPureTools::ZzNavigationRole::Route)),
             QByteArrayLiteral("route"));
+        QCOMPARE(
+            model.roleNames().value(static_cast<int>(
+                ZzPureTools::ZzNavigationRole::Icon)),
+            QByteArrayLiteral("icon"));
+        QCOMPARE(
+            model.roleNames().value(static_cast<int>(
+                ZzPureTools::ZzNavigationRole::Section)),
+            QByteArrayLiteral("section"));
+        QCOMPARE(
+            model.roleNames().value(static_cast<int>(
+                ZzPureTools::ZzNavigationRole::Placement)),
+            QByteArrayLiteral("placement"));
+        QCOMPARE(
+            model.roleNames().value(static_cast<int>(
+                ZzPureTools::ZzNavigationRole::Badge)),
+            QByteArrayLiteral("badge"));
+        QCOMPARE(
+            static_cast<int>(ZzPureTools::ZzNavigationRole::Icon),
+            static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Icon));
 
         auto nodeResult = model.nodeAt(0);
         QVERIFY(nodeResult);
         QCOMPARE(
             nodeResult.value().titleSourceText,
             QStringLiteral("Settings"));
+    }
+
+    void modelRejectsInvalidPresentationAtomically()
+    {
+        ZzPureTools::ZzNavigationModel model;
+        const auto stable =
+            zzNode(QStringLiteral("stable"), QStringLiteral("Stable"));
+        QVERIFY(model.setNodes({stable}));
+        QSignalSpy resetSpy(&model, &QAbstractItemModel::modelReset);
+        const auto rejected = [&model](
+                                  QList<ZzPureTools::ZzNavigationNode> nodes) {
+            const auto result = model.setNodes(std::move(nodes));
+            return !result
+                && result.error().code()
+                    == ZzCore::ZzErrorCode::InvalidArgument;
+        };
+
+        auto unpairedSection =
+            zzNode(QStringLiteral("section"), QStringLiteral("Section"));
+        unpairedSection.sectionTranslationContext =
+            QStringLiteral("ZzNavigationControllerTest");
+        QVERIFY(rejected({unpairedSection}));
+
+        auto footerSection =
+            zzNode(QStringLiteral("footer"), QStringLiteral("Footer"));
+        footerSection.sectionTranslationContext =
+            QStringLiteral("ZzNavigationControllerTest");
+        footerSection.sectionSourceText = QStringLiteral("Footer section");
+        footerSection.placement =
+            ZzFluentUI::ZzNavigationPlacement::Footer;
+        QVERIFY(rejected({footerSection}));
+
+        auto invalidBadge =
+            zzNode(QStringLiteral("badge"), QStringLiteral("Badge"));
+        invalidBadge.badgeText = QStringLiteral(" bad");
+        QVERIFY(rejected({invalidBadge}));
+        invalidBadge.badgeText = QStringLiteral("bad\nline");
+        QVERIFY(rejected({invalidBadge}));
+        invalidBadge.badgeText = QStringLiteral("123456789");
+        QVERIFY(rejected({invalidBadge}));
+
+        auto invalidPlacement =
+            zzNode(QStringLiteral("placement"), QStringLiteral("Placement"));
+        invalidPlacement.placement =
+            static_cast<ZzFluentUI::ZzNavigationPlacement>(0xff);
+        QVERIFY(rejected({invalidPlacement}));
+
+        QList<ZzPureTools::ZzNavigationNode> footerNodes;
+        for (int index = 0; index < 7; ++index) {
+            auto footer = zzNode(
+                QStringLiteral("footer-%1").arg(index),
+                QStringLiteral("Footer %1").arg(index));
+            footer.placement = ZzFluentUI::ZzNavigationPlacement::Footer;
+            footerNodes.append(std::move(footer));
+        }
+        QVERIFY(rejected(std::move(footerNodes)));
+
+        QCOMPARE(resetSpy.size(), 0);
+        QCOMPARE(model.rowCount(), 1);
+        QCOMPARE(model.nodeAt(0).value().routeId, stable.routeId);
+    }
+
+    void routeLookupAndBadgeUpdateAreLocal()
+    {
+        ZzPureTools::ZzNavigationModel model;
+        QVERIFY(model.setNodes({
+            zzNode(QStringLiteral("second"), QStringLiteral("Second")),
+            zzNode(QStringLiteral("first"), QStringLiteral("First"))}));
+
+        auto firstIndex = model.indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("first")));
+        QVERIFY(firstIndex);
+        QCOMPARE(firstIndex.value().row(), 1);
+        auto emptyRoute = model.indexForRoute({});
+        QVERIFY(!emptyRoute);
+        QCOMPARE(
+            emptyRoute.error().code(),
+            ZzCore::ZzErrorCode::InvalidArgument);
+        auto missingRoute = model.indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("missing")));
+        QVERIFY(!missingRoute);
+        QCOMPARE(
+            missingRoute.error().code(), ZzCore::ZzErrorCode::NotFound);
+
+        QSignalSpy changedSpy(&model, &QAbstractItemModel::dataChanged);
+        QVERIFY(model.setBadge(
+            ZzPureTools::ZzRouteId(QStringLiteral("first")),
+            QStringLiteral("12")));
+        QCOMPARE(changedSpy.size(), 1);
+        const QList<QVariant> arguments = changedSpy.takeFirst();
+        QCOMPARE(arguments.at(0).value<QModelIndex>(), firstIndex.value());
+        QCOMPARE(arguments.at(1).value<QModelIndex>(), firstIndex.value());
+        const QList<int> roles = arguments.at(2).value<QList<int>>();
+        QCOMPARE(
+            roles,
+            QList<int>({
+                static_cast<int>(ZzPureTools::ZzNavigationRole::Badge),
+                Qt::ToolTipRole,
+                Qt::AccessibleDescriptionRole}));
+        QCOMPARE(
+            model.data(
+                firstIndex.value(),
+                static_cast<int>(ZzPureTools::ZzNavigationRole::Badge)),
+            QVariant(QStringLiteral("12")));
+        QCOMPARE(
+            model.data(firstIndex.value(), Qt::ToolTipRole),
+            QVariant(QStringLiteral("First (12)")));
+
+        QVERIFY(model.setBadge(
+            ZzPureTools::ZzRouteId(QStringLiteral("first")),
+            QStringLiteral("12")));
+        QCOMPARE(changedSpy.size(), 0);
+        QVERIFY(!model.setBadge(
+            ZzPureTools::ZzRouteId(QStringLiteral("first")),
+            QStringLiteral("123456789")));
+        QVERIFY(!model.setBadge(
+            ZzPureTools::ZzRouteId(QStringLiteral("missing")),
+            QStringLiteral("1")));
+        QCOMPARE(changedSpy.size(), 0);
+
+        QVERIFY(model.setNodes({
+            zzNode(QStringLiteral("first"), QStringLiteral("First")),
+            zzNode(QStringLiteral("second"), QStringLiteral("Second"))}));
+        firstIndex = model.indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("first")));
+        QVERIFY(firstIndex);
+        QCOMPARE(firstIndex.value().row(), 0);
     }
 
     void navigatesByRouteIdInsteadOfRow()

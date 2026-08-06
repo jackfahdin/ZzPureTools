@@ -7,6 +7,10 @@
             <source>Owned marker</source>
             <translation>Owned translated</translation>
         </message>
+        <message>
+            <source>Owned section</source>
+            <translation>Section translated</translation>
+        </message>
     </context>
     <context>
         <name>ZzApplicationWindow</name>

@@ -14,7 +14,7 @@
 #include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
-#include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzThemeController.h>
 
 #include <ZzWindowKit/ZzWindowAgent.h>
@@ -104,9 +104,9 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     auto *bodyLayout = new QHBoxLayout(body);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     bodyLayout->setSpacing(0);
-    navigationView = new ZzFluentUI::ZzNavigationView(body);
+    navigationPane = new ZzFluentUI::ZzNavigationPane(body);
     host = new ZzPageHost(body);
-    bodyLayout->addWidget(navigationView);
+    bodyLayout->addWidget(navigationPane);
     bodyLayout->addWidget(host, 1);
     rootLayout->addWidget(titleBar);
     rootLayout->addWidget(body, 1);
@@ -118,7 +118,7 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     if (!modelResult) {
         return modelResult;
     }
-    navigationView->setModel(model.get());
+    navigationPane->setModel(model.get());
 
     controller = std::make_unique<ZzNavigationController>(
         model.get(), host);
@@ -128,8 +128,8 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     }
 
     QObject::connect(
-        navigationView,
-        &ZzFluentUI::ZzNavigationView::navigationRequested,
+        navigationPane,
+        &ZzFluentUI::ZzNavigationPane::navigationRequested,
         q_ptr,
         [this](const QModelIndex &index) {
             auto nodeResult = model->nodeAt(index.row());
@@ -144,6 +144,16 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
                 zzLogNavigationError(navigationResult.error());
             }
         });
+    QObject::connect(
+        controller.get(),
+        &ZzNavigationController::currentRouteChanged,
+        q_ptr,
+        [this](const ZzRouteId &) { syncNavigationSelection(); });
+    QObject::connect(
+        model.get(),
+        &QAbstractItemModel::modelReset,
+        q_ptr,
+        [this] { syncNavigationSelection(); });
 
     agent = std::make_unique<ZzWindowKit::ZzWindowAgent>();
     auto attachResult = agent->attach(q_ptr);
@@ -219,6 +229,16 @@ void ZzApplicationWindowPrivate::syncWindowState()
     if (titleBar != nullptr) {
         titleBar->setMaximized(q_ptr->isMaximized());
     }
+}
+
+void ZzApplicationWindowPrivate::syncNavigationSelection()
+{
+    if (navigationPane == nullptr || !model || !controller) {
+        return;
+    }
+    auto indexResult = model->indexForRoute(controller->currentRoute());
+    navigationPane->setCurrentSourceIndex(
+        indexResult ? indexResult.value() : QModelIndex());
 }
 
 } // namespace ZzPureTools

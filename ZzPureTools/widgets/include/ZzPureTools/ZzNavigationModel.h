@@ -10,6 +10,8 @@
 
 #include <ZzCore/ZzResult.h>
 
+#include <ZzFluentUI/ZzNavigationItemRole.h>
+
 #include <ZzPureTools/ZzNavigationNode.h>
 #include <ZzPureTools/ZzPureToolsExport.h>
 
@@ -23,7 +25,14 @@ enum class ZzNavigationRole : int
     /** @brief 返回 ZzRouteId 值。 */
     Route = Qt::UserRole + 1,
     /** @brief 返回 ZzFluentUI::ZzIconDescriptor 值。 */
-    Icon
+    Icon = static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Icon),
+    /** @brief 返回当前节点前可选的已翻译分区标题。 */
+    Section = static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Section),
+    /** @brief 返回 ZzFluentUI::ZzNavigationPlacement 值。 */
+    Placement = static_cast<int>(
+        ZzFluentUI::ZzNavigationItemRole::Placement),
+    /** @brief 返回可选短徽标文本。 */
+    Badge = static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Badge)
 };
 
 /** @brief 提供只读、可重新翻译且不持有页面实例的导航列表模型。 */
@@ -70,7 +79,7 @@ public:
         const QModelIndex &index,
         int role = Qt::DisplayRole) const override;
 
-    /** @brief 返回 display、route 和 icon 的稳定角色名称。 */
+    /** @brief 返回 display、route 和全部导航展示角色的稳定名称。 */
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
     /**
@@ -88,6 +97,24 @@ public:
      */
     [[nodiscard]] ZzCore::ZzResult<ZzNavigationNode> nodeAt(
         qsizetype row) const;
+
+    /**
+     * @brief 按强类型路由返回当前顶层模型索引。
+     * @param routeId 必须有效且存在于当前节点集合的路由。
+     * @return column 0 顶层索引，或参数无效及路由不存在错误。
+     */
+    [[nodiscard]] ZzCore::ZzResult<QModelIndex> indexForRoute(
+        const ZzRouteId &routeId) const;
+
+    /**
+     * @brief 只更新一个路由的短徽标并发出局部数据变化。
+     * @param routeId 必须有效且存在于当前节点集合的路由。
+     * @param badgeText 已去除首尾空白且不超过八个 UTF-16 code unit 的文本。
+     * @return 更新成功，或参数无效及路由不存在错误。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> setBadge(
+        const ZzRouteId &routeId,
+        QString badgeText);
 
     /** @brief 使用当前安装的 translators 刷新标题缓存并通知视图。 */
     void refreshTranslations();

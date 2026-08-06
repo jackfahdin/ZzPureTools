@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QHash>
 #include <QtCore/QList>
 #include <QtCore/QStringList>
 
@@ -26,12 +27,23 @@ public:
     [[nodiscard]] ZzCore::ZzResult<ZzNavigationNode> nodeAt(
         qsizetype row) const;
 
+    /** @brief 以常数时间按路由查找当前模型索引。 */
+    [[nodiscard]] ZzCore::ZzResult<QModelIndex> indexForRoute(
+        const ZzRouteId &routeId) const;
+
+    /** @brief 校验并局部更新指定路由的徽标文本。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setBadge(
+        const ZzRouteId &routeId,
+        QString badgeText);
+
     /** @brief 重建当前 translator 对应的标题缓存。 */
     void refreshTranslations();
 
     ZzNavigationModel *const q_ptr;
     QList<ZzNavigationNode> nodes;
     QStringList translatedTitles;
+    QStringList translatedSections;
+    QHash<ZzRouteId, int> routeRows;
 };
 
 } // namespace ZzPureTools

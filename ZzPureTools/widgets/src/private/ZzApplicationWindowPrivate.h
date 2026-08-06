@@ -12,7 +12,7 @@
 
 namespace ZzFluentUI {
 class ZzFluentTitleBar;
-class ZzNavigationView;
+class ZzNavigationPane;
 class ZzThemeController;
 }
 
@@ -50,12 +50,15 @@ public:
     /** @brief 同步最大化或还原按钮的视觉状态。 */
     void syncWindowState();
 
+    /** @brief 按控制器当前强类型路由同步导航面板唯一选择。 */
+    void syncNavigationSelection();
+
     ZzApplicationWindow *const q_ptr;
     std::unique_ptr<ZzWindowKit::ZzWindowAgent> agent;
     std::unique_ptr<ZzNavigationModel> model;
     std::unique_ptr<ZzNavigationController> controller;
     ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr;
-    ZzFluentUI::ZzNavigationView *navigationView = nullptr;
+    ZzFluentUI::ZzNavigationPane *navigationPane = nullptr;
     ZzPageHost *host = nullptr;
     QPointer<ZzFluentUI::ZzThemeController> theme;
     bool initialized = false;

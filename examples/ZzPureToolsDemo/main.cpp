@@ -56,6 +56,8 @@ int main(int argc, char *argv[])
         QStringLiteral("ZzPureToolsDemo"),
         QStringLiteral("Home"),
         {}};
+    homeNode.sectionTranslationContext = QStringLiteral("ZzPureToolsDemo");
+    homeNode.sectionSourceText = QStringLiteral("Workspace");
     if (!builder.addNavigationNode(std::move(homeNode))) {
         return EXIT_FAILURE;
     }
@@ -65,6 +67,9 @@ int main(int argc, char *argv[])
         QStringLiteral("ZzPureToolsDemo"),
         QStringLiteral("Details"),
         {}};
+    detailsNode.badgeText = QStringLiteral("2");
+    detailsNode.placement =
+        ZzFluentUI::ZzNavigationPlacement::Footer;
     if (!builder.addNavigationNode(std::move(detailsNode))) {
         return EXIT_FAILURE;
     }

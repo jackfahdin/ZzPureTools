@@ -55,6 +55,7 @@ set(builder_scenarios
     buildFreezesModulesAndPages
     buildRejectsDuplicateRoutesBeforeStartingModules
     buildRejectsNavigationNodeWithoutPage
+    buildRejectsInvalidNavigationPresentationBeforeStartingModules
     buildRequiresRegisteredInitialRoute
     moduleStartFailureDoesNotCreateWindow
     successfulBuildCreatesOneWindowWithoutCreatingUnvisitedPages
@@ -92,6 +93,8 @@ set(multi_window_scenarios
     chromeConfigurationUsesTitleBarChildren
     nativeSystemButtonCapabilityControlsCustomButtons
     navigationIntentUsesTheOwningModelRoute
+    navigationSelectionTracksRoutesAndModelResets
+    footerNavigationAffectsOnlyOwningWindow
     topLevelWindowDisablesDeleteOnClose
     acceptedCloseQueuesExactlyOneApplicationErase
     metaObjectSignalWithoutAcceptedCloseCannotEraseWindow
