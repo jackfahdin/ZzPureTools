@@ -16,6 +16,8 @@ set(zz_pure_tools_example_sources
     ZzExampleNavigationPresenter.cpp
     ZzExamplePageFactory.cpp
     ZzExampleRouteCatalog.cpp
+    ZzExampleShowcasePage.cpp
+    ZzExampleShowcasePagePrivate.cpp
     ZzExampleWindowShell.cpp
     ZzExampleWindowShellPrivate.cpp
 )

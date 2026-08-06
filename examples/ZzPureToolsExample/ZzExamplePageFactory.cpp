@@ -25,6 +25,7 @@
 #include "ZzExampleDataViewModel.h"
 #include "ZzExampleGalleryPage.h"
 #include "ZzExampleNavigationPresenter.h"
+#include "ZzExampleShowcasePage.h"
 
 namespace ZzExample {
 
@@ -55,6 +56,22 @@ zzDataPageKind(const ZzPureTools::ZzRouteId &routeId)
     }
     if (routeId.value() == QStringLiteral("tree-view")) {
         return ZzExampleDataPageKind::Tree;
+    }
+    return std::nullopt;
+}
+
+/** @brief 为导航、反馈和图标路由解析共享展示类型。 */
+[[nodiscard]] std::optional<ZzExampleShowcasePage::ZzPageKind>
+zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
+{
+    if (routeId.value() == QStringLiteral("navigation")) {
+        return ZzExampleShowcasePage::ZzPageKind::Navigation;
+    }
+    if (routeId.value() == QStringLiteral("feedback")) {
+        return ZzExampleShowcasePage::ZzPageKind::Feedback;
+    }
+    if (routeId.value() == QStringLiteral("icons")) {
+        return ZzExampleShowcasePage::ZzPageKind::Icons;
     }
     return std::nullopt;
 }
@@ -153,6 +170,27 @@ zzCreateDataPage(
         std::move(presenter));
 }
 
+/** @brief 创建只包含本地 UI 交互的组件组合页。 */
+[[nodiscard]] ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
+zzCreateShowcasePage(
+    ZzExampleShowcasePage::ZzPageKind kind,
+    const QString &title,
+    QWidget *pageParent)
+{
+    auto viewModel = std::make_unique<QObject>();
+    viewModel->setProperty("title", title);
+    auto presenter = std::make_unique<QObject>();
+    presenter->setProperty("displayOnly", true);
+    auto view = std::make_unique<ZzExampleShowcasePage>(
+        kind, title, pageParent);
+    QWidget *const viewObserver = view.release();
+    return ZzPureTools::ZzPageInstance::create(
+        pageParent,
+        viewObserver,
+        std::move(viewModel),
+        std::move(presenter));
+}
+
 } // namespace
 
 ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
@@ -179,6 +217,9 @@ ZzExamplePageFactory::createPage(
     }
     if (const auto kind = zzDataPageKind(routeId); kind.has_value()) {
         return zzCreateDataPage(*kind, title, pageParent);
+    }
+    if (const auto kind = zzShowcasePageKind(routeId); kind.has_value()) {
+        return zzCreateShowcasePage(*kind, title, pageParent);
     }
 
     const QString platform = context->platformName();
