@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QCoreApplication>
 #include <QtGui/QFont>
 #include <QtGui/QPainter>
 #include <QtGui/QPalette>
@@ -129,25 +130,25 @@ void ZzExampleCardsPagePrivate::initialize(
 
     layout->addWidget(zzCardsPageTitle(title, content));
     auto *description = new QLabel(
-        QStringLiteral("卡片与轮播只消费本地展示值，图片预览随当前主题即时重建"),
+        QCoreApplication::translate("ZzPureToolsExample", "卡片与轮播只消费本地展示值，图片预览随当前主题即时重建"),
         content);
     description->setWordWrap(true);
     layout->addWidget(description);
 
     auto *message = new ZzFluentUI::ZzMessageBar(content);
     message->setObjectName(QStringLiteral("zzExampleCardsMessage"));
-    message->setText(QStringLiteral("选择任一卡片以查看交互状态"));
+    message->setText(QCoreApplication::translate("ZzPureToolsExample", "选择任一卡片以查看交互状态"));
     message->setSeverity(ZzFluentUI::ZzMessageSeverity::Information);
     message->setClosable(false);
 
-    zzAddCardsSection(layout, QStringLiteral("操作卡片"), content);
+    zzAddCardsSection(layout, QCoreApplication::translate("ZzPureToolsExample", "操作卡片"), content);
     auto *actionHost = new QWidget(content);
     auto *actionLayout = new ZzFluentUI::ZzFlowLayout(12, 12, actionHost);
     actionLayout->setContentsMargins(0, 0, 0, 0);
     const std::array<std::array<QString, 2>, 3> actionValues{{
-        {QStringLiteral("性能概览"), QStringLiteral("启动、空闲与绘制门禁")},
-        {QStringLiteral("发布矩阵"), QStringLiteral("共享库与静态库组合")},
-        {QStringLiteral("平台能力"), QStringLiteral("Linux、Windows 与 macOS")},
+        {QCoreApplication::translate("ZzPureToolsExample", "性能概览"), QCoreApplication::translate("ZzPureToolsExample", "启动、空闲与绘制门禁")},
+        {QCoreApplication::translate("ZzPureToolsExample", "发布矩阵"), QCoreApplication::translate("ZzPureToolsExample", "共享库与静态库组合")},
+        {QCoreApplication::translate("ZzPureToolsExample", "平台能力"), QCoreApplication::translate("ZzPureToolsExample", "Linux、Windows 与 macOS")},
     }};
     for (const auto &value : actionValues) {
         auto *card = new ZzFluentUI::ZzActionCard(
@@ -166,22 +167,22 @@ void ZzExampleCardsPagePrivate::initialize(
                         : ZzFluentUI::ZzMessageSeverity::Information);
                 message->setText(
                     checked
-                        ? QStringLiteral("已选择：%1").arg(card->text())
-                        : QStringLiteral("已取消：%1").arg(card->text()));
+                        ? QCoreApplication::translate("ZzPureToolsExample", "已选择：%1").arg(card->text())
+                        : QCoreApplication::translate("ZzPureToolsExample", "已取消：%1").arg(card->text()));
             });
         actionLayout->addWidget(card);
     }
     layout->addWidget(actionHost);
     layout->addWidget(message);
 
-    zzAddCardsSection(layout, QStringLiteral("图片卡片"), content);
+    zzAddCardsSection(layout, QCoreApplication::translate("ZzPureToolsExample", "图片卡片"), content);
     auto *imageHost = new QWidget(content);
     auto *imageLayout = new ZzFluentUI::ZzFlowLayout(12, 12, imageHost);
     imageLayout->setContentsMargins(0, 0, 0, 0);
     const std::array<std::array<QString, 2>, 3> imageValues{{
-        {QStringLiteral("低延迟界面"), QStringLiteral("确定性本地预览")},
-        {QStringLiteral("跨平台窗口"), QStringLiteral("统一 Fluent 展示")},
-        {QStringLiteral("模型视图"), QStringLiteral("有界数据与绘制路径")},
+        {QCoreApplication::translate("ZzPureToolsExample", "低延迟界面"), QCoreApplication::translate("ZzPureToolsExample", "确定性本地预览")},
+        {QCoreApplication::translate("ZzPureToolsExample", "跨平台窗口"), QCoreApplication::translate("ZzPureToolsExample", "统一 Fluent 展示")},
+        {QCoreApplication::translate("ZzPureToolsExample", "模型视图"), QCoreApplication::translate("ZzPureToolsExample", "有界数据与绘制路径")},
     }};
     for (std::size_t index = 0; index < imageCards.size(); ++index) {
         const auto &value = imageValues.at(index);
@@ -195,33 +196,33 @@ void ZzExampleCardsPagePrivate::initialize(
     }
     layout->addWidget(imageHost);
 
-    zzAddCardsSection(layout, QStringLiteral("轮播"), content);
+    zzAddCardsSection(layout, QCoreApplication::translate("ZzPureToolsExample", "轮播"), content);
     auto *carousel = new ZzFluentUI::ZzCarouselView(content);
     carousel->setObjectName(QStringLiteral("zzExampleCardsCarousel"));
-    carousel->setAccessibleName(QStringLiteral("组件能力轮播"));
+    carousel->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "组件能力轮播"));
     carousel->setAnimationDuration(220);
     carousel->setWrapAroundEnabled(true);
     carousel->setMinimumHeight(240);
     carousel->setModel(carouselModel);
-    auto *carouselStatus = new QLabel(QStringLiteral("第 1 项，共 3 项"), content);
+    auto *carouselStatus = new QLabel(QCoreApplication::translate("ZzPureToolsExample", "第 1 项，共 3 项"), content);
     QObject::connect(
         carousel,
         &ZzFluentUI::ZzCarouselView::currentRowChanged,
         carouselStatus,
         [carouselStatus](int row) {
             carouselStatus->setText(
-                QStringLiteral("第 %1 项，共 3 项").arg(row + 1));
+                QCoreApplication::translate("ZzPureToolsExample", "第 %1 项，共 3 项").arg(row + 1));
         });
     layout->addWidget(carousel);
     layout->addWidget(carouselStatus);
 
-    zzAddCardsSection(layout, QStringLiteral("数字显示"), content);
+    zzAddCardsSection(layout, QCoreApplication::translate("ZzPureToolsExample", "数字显示"), content);
     auto *displayRow = new QHBoxLayout;
     displayRow->setSpacing(12);
     const std::array<std::pair<QString, double>, 3> displayValues{{
-        {QStringLiteral("C++ 标准"), 20.0},
-        {QStringLiteral("Qt 主版本"), 6.0},
-        {QStringLiteral("页面数量"), 12.0},
+        {QCoreApplication::translate("ZzPureToolsExample", "C++ 标准"), 20.0},
+        {QCoreApplication::translate("ZzPureToolsExample", "Qt 主版本"), 6.0},
+        {QCoreApplication::translate("ZzPureToolsExample", "页面数量"), 12.0},
     }};
     for (const auto &[labelText, value] : displayValues) {
         auto *displayHost = new QWidget(content);

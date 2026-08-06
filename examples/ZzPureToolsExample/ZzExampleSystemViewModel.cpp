@@ -1,5 +1,6 @@
 #include "ZzExampleSystemViewModel.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtGui/QStandardItem>
 
 namespace ZzExample {
@@ -20,8 +21,8 @@ ZzExampleSystemViewModel::ZzExampleSystemViewModel()
 {
     setColumnCount(2);
     setHorizontalHeaderLabels({
-        QStringLiteral("项目"),
-        QStringLiteral("值")});
+        QCoreApplication::translate("ZzPureToolsExample", "项目"),
+        QCoreApplication::translate("ZzPureToolsExample", "值")});
 }
 
 ZzExampleSystemViewModel::~ZzExampleSystemViewModel() = default;

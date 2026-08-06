@@ -193,57 +193,57 @@ void ZzExampleSystemPresenterPrivate::initialize(
 void ZzExampleSystemPresenterPrivate::populatePlatformRows()
 {
     QList<QPair<QString, QString>> rows{
-        {QStringLiteral("目标平台"), context->platformName()},
-        {QStringLiteral("Qt 平台插件"), QGuiApplication::platformName()},
-        {QStringLiteral("操作系统"), QSysInfo::prettyProductName()},
-        {QStringLiteral("CPU 架构"), QSysInfo::currentCpuArchitecture()},
-        {QStringLiteral("构建 ABI"), QSysInfo::buildAbi()},
-        {QStringLiteral("窗口状态"), zzWindowStateName(*window)},
-        {QStringLiteral("窗口尺寸"),
+        {QCoreApplication::translate("ZzPureToolsExample", "目标平台"), context->platformName()},
+        {QCoreApplication::translate("ZzPureToolsExample", "Qt 平台插件"), QGuiApplication::platformName()},
+        {QCoreApplication::translate("ZzPureToolsExample", "操作系统"), QSysInfo::prettyProductName()},
+        {QCoreApplication::translate("ZzPureToolsExample", "CPU 架构"), QSysInfo::currentCpuArchitecture()},
+        {QCoreApplication::translate("ZzPureToolsExample", "构建 ABI"), QSysInfo::buildAbi()},
+        {QCoreApplication::translate("ZzPureToolsExample", "窗口状态"), zzWindowStateName(*window)},
+        {QCoreApplication::translate("ZzPureToolsExample", "窗口尺寸"),
          QStringLiteral("%1 x %2").arg(window->width()).arg(window->height())},
     };
     if (const QScreen *screen = window->screen(); screen != nullptr) {
         const QRect geometry = screen->availableGeometry();
-        rows.append({QStringLiteral("屏幕"), screen->name()});
+        rows.append({QCoreApplication::translate("ZzPureToolsExample", "屏幕"), screen->name()});
         rows.append({
-            QStringLiteral("可用区域"),
+            QCoreApplication::translate("ZzPureToolsExample", "可用区域"),
             QStringLiteral("%1 x %2").arg(geometry.width()).arg(geometry.height())});
         rows.append({
-            QStringLiteral("逻辑 DPI"),
+            QCoreApplication::translate("ZzPureToolsExample", "逻辑 DPI"),
             QString::number(screen->logicalDotsPerInch(), 'f', 1)});
         rows.append({
-            QStringLiteral("设备像素比"),
+            QCoreApplication::translate("ZzPureToolsExample", "设备像素比"),
             QString::number(screen->devicePixelRatio(), 'f', 2)});
     }
     if (auto *agent = window->windowAgent(); agent != nullptr) {
         rows.append({
-            QStringLiteral("WindowAgent 状态"),
+            QCoreApplication::translate("ZzPureToolsExample", "WindowAgent 状态"),
             zzAgentStateName(agent->state())});
         rows.append({
-            QStringLiteral("WindowKit 能力"),
+            QCoreApplication::translate("ZzPureToolsExample", "WindowKit 能力"),
             zzCapabilityNames(agent->capabilities())});
     }
     viewModel->setRows(rows);
-    view->setStatusText(QStringLiteral("平台能力为当前窗口的只读快照"));
+    view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "平台能力为当前窗口的只读快照"));
 }
 
 void ZzExampleSystemPresenterPrivate::populateAboutRows()
 {
     viewModel->setRows({
-        {QStringLiteral("产品"), QStringLiteral("ZzPureTools")},
-        {QStringLiteral("作者"), QStringLiteral("Jackfahdin")},
-        {QStringLiteral("版本"), QCoreApplication::applicationVersion()},
+        {QCoreApplication::translate("ZzPureToolsExample", "产品"), QStringLiteral("ZzPureTools")},
+        {QCoreApplication::translate("ZzPureToolsExample", "作者"), QStringLiteral("Jackfahdin")},
+        {QCoreApplication::translate("ZzPureToolsExample", "版本"), QCoreApplication::applicationVersion()},
         {QStringLiteral("Qt"), QString::fromLatin1(qVersion())},
-        {QStringLiteral("C++ 标准"), zzCppStandardName()},
-        {QStringLiteral("编译器"), zzCompilerName()},
-        {QStringLiteral("许可证"), QStringLiteral("MIT")},
-        {QStringLiteral("窗口后端"), QStringLiteral("QWindowKit")},
-        {QStringLiteral("日志后端"), QStringLiteral("spdlog + fmt")},
-        {QStringLiteral("支持平台"),
+        {QCoreApplication::translate("ZzPureToolsExample", "C++ 标准"), zzCppStandardName()},
+        {QCoreApplication::translate("ZzPureToolsExample", "编译器"), zzCompilerName()},
+        {QCoreApplication::translate("ZzPureToolsExample", "许可证"), QStringLiteral("MIT")},
+        {QCoreApplication::translate("ZzPureToolsExample", "窗口后端"), QStringLiteral("QWindowKit")},
+        {QCoreApplication::translate("ZzPureToolsExample", "日志后端"), QStringLiteral("spdlog + fmt")},
+        {QCoreApplication::translate("ZzPureToolsExample", "支持平台"),
          QStringLiteral("Linux / Windows / macOS")},
     });
     view->setStatusText(
-        QStringLiteral("第三方组件保留各自许可证与来源记录"));
+        QCoreApplication::translate("ZzPureToolsExample", "第三方组件保留各自许可证与来源记录"));
 }
 
 void ZzExampleSystemPresenterPrivate::initializeSettings()
@@ -275,11 +275,11 @@ void ZzExampleSystemPresenterPrivate::initializeSettings()
     view->setSettingsSnapshot(
         themeMode, currentLogLevel, reducedMotion, dockVisible);
     viewModel->setRows({
-        {QStringLiteral("配置目录"), context->paths().configDirectory()},
-        {QStringLiteral("日志目录"), context->paths().logDirectory()},
-        {QStringLiteral("设置后端"), QStringLiteral("INI")},
+        {QCoreApplication::translate("ZzPureToolsExample", "配置目录"), context->paths().configDirectory()},
+        {QCoreApplication::translate("ZzPureToolsExample", "日志目录"), context->paths().logDirectory()},
+        {QCoreApplication::translate("ZzPureToolsExample", "设置后端"), QStringLiteral("INI")},
     });
-    view->setStatusText(QStringLiteral("设置已加载"));
+    view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "设置已加载"));
 
     QObject::connect(
         view,
@@ -328,32 +328,32 @@ void ZzExampleSystemPresenterPrivate::initializeSettings()
 void ZzExampleSystemPresenterPrivate::applyThemeMode(int mode)
 {
     if (mode < 0 || mode >= zzThemeModeCount) {
-        view->setStatusText(QStringLiteral("主题设置无效"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "主题设置无效"));
         return;
     }
     theme->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
     if (writeSetting(QStringLiteral("appearance/themeMode"), mode)) {
-        view->setStatusText(QStringLiteral("主题设置已保存"));
-        recordActivity(QStringLiteral("主题模式已更新"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "主题设置已保存"));
+        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "主题模式已更新"));
     }
 }
 
 void ZzExampleSystemPresenterPrivate::applyLogLevel(int level)
 {
     if (level < 0 || level >= zzLogLevelCount) {
-        view->setStatusText(QStringLiteral("日志等级无效"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "日志等级无效"));
         return;
     }
     const auto logLevel = static_cast<ZzLog::ZzLogLevel>(level);
     if (!ZzLog::setConsoleLevel(logLevel)
         || !ZzLog::setFileLevel(logLevel)) {
-        view->setStatusText(QStringLiteral("日志等级应用失败"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "日志等级应用失败"));
         return;
     }
     currentLogLevel = level;
     if (writeSetting(QStringLiteral("logging/level"), level)) {
-        view->setStatusText(QStringLiteral("日志等级已保存"));
-        recordActivity(QStringLiteral("日志等级已更新"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "日志等级已保存"));
+        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "日志等级已更新"));
     }
 }
 
@@ -362,8 +362,8 @@ void ZzExampleSystemPresenterPrivate::applyReducedMotion(bool enabled)
     theme->setReducedMotion(enabled);
     if (writeSetting(
             QStringLiteral("appearance/reducedMotion"), enabled)) {
-        view->setStatusText(QStringLiteral("动效偏好已保存"));
-        recordActivity(QStringLiteral("动效偏好已更新"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "动效偏好已保存"));
+        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "动效偏好已更新"));
     }
 }
 
@@ -373,8 +373,8 @@ void ZzExampleSystemPresenterPrivate::applyActivityDockVisibility(
     shell->setActivityDockVisible(visible);
     if (writeSetting(
             QStringLiteral("window/activityDockVisible"), visible)) {
-        view->setStatusText(QStringLiteral("Dock 设置已保存"));
-        recordActivity(QStringLiteral("活动 Dock 设置已更新"));
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "Dock 设置已保存"));
+        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "活动 Dock 设置已更新"));
     }
 }
 
@@ -392,7 +392,7 @@ bool ZzExampleSystemPresenterPrivate::writeSetting(
         << key
         << result.error().technicalMessage()
         << result.error().context();
-    view->setStatusText(QStringLiteral("设置保存失败"));
+    view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "设置保存失败"));
     return false;
 }
 

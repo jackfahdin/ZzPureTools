@@ -1,5 +1,6 @@
 #include "ZzExampleApplicationModulePrivate.h"
 
+#include <QtCore/QCoreApplication>
 #include <chrono>
 #include <utility>
 
@@ -67,7 +68,7 @@ ZzCore::ZzResult<void> ZzExampleApplicationModulePrivate::start()
     }
 
     ZZ_LOG_INFO("ZzPureToolsExample application module started");
-    context->activityModel().append(QStringLiteral("应用模块已启动"));
+    context->activityModel().append(QCoreApplication::translate("ZzPureToolsExample", "应用模块已启动"));
     started = true;
     stopRequested = false;
     return ZzCore::ZzResult<void>::success();

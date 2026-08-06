@@ -1,6 +1,7 @@
 #include "ZzExampleSystemPagePrivate.h"
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QCoreApplication>
 #include <QtCore/QSignalBlocker>
 #include <QtGui/QFont>
 #include <QtWidgets/QComboBox>
@@ -79,7 +80,7 @@ void ZzExampleSystemPagePrivate::initialize(
 
     auto *snapshot = new QTableView(content);
     snapshot->setObjectName(QStringLiteral("zzExampleSystemSnapshot"));
-    snapshot->setAccessibleName(QStringLiteral("系统信息快照"));
+    snapshot->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "系统信息快照"));
     snapshot->setModel(model);
     snapshot->setItemDelegate(
         new ZzFluentUI::ZzFluentItemDelegate(snapshot));
@@ -133,7 +134,7 @@ void ZzExampleSystemPagePrivate::buildSettings(
     QWidget *parent)
 {
     auto *description = new QLabel(
-        QStringLiteral("外观、日志与当前窗口状态通过 Presenter 持久化"),
+        QCoreApplication::translate("ZzPureToolsExample", "外观、日志与当前窗口状态通过 Presenter 持久化"),
         parent);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -143,10 +144,10 @@ void ZzExampleSystemPagePrivate::buildSettings(
     form->setVerticalSpacing(12);
     themeModeBox = new QComboBox(parent);
     themeModeBox->addItems({
-        QStringLiteral("跟随系统"),
-        QStringLiteral("浅色"),
-        QStringLiteral("深色"),
-        QStringLiteral("高对比度")});
+        QCoreApplication::translate("ZzPureToolsExample", "跟随系统"),
+        QCoreApplication::translate("ZzPureToolsExample", "浅色"),
+        QCoreApplication::translate("ZzPureToolsExample", "深色"),
+        QCoreApplication::translate("ZzPureToolsExample", "高对比度")});
     logLevelBox = new QComboBox(parent);
     logLevelBox->addItems({
         QStringLiteral("Trace"),
@@ -158,10 +159,10 @@ void ZzExampleSystemPagePrivate::buildSettings(
         QStringLiteral("Off")});
     reducedMotionSwitch = new ZzFluentUI::ZzToggleSwitch(parent);
     activityDockSwitch = new ZzFluentUI::ZzToggleSwitch(parent);
-    form->addRow(QStringLiteral("主题模式"), themeModeBox);
-    form->addRow(QStringLiteral("日志等级"), logLevelBox);
-    form->addRow(QStringLiteral("减少动效"), reducedMotionSwitch);
-    form->addRow(QStringLiteral("活动 Dock"), activityDockSwitch);
+    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "主题模式"), themeModeBox);
+    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "日志等级"), logLevelBox);
+    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "减少动效"), reducedMotionSwitch);
+    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "活动 Dock"), activityDockSwitch);
     layout->addLayout(form);
     QObject::connect(
         themeModeBox,

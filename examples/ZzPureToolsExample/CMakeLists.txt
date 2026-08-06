@@ -30,6 +30,27 @@ set(zz_pure_tools_example_sources
 
 add_executable(ZzPureToolsExample ${zz_pure_tools_example_sources})
 
+find_package(Qt6 6.8 REQUIRED COMPONENTS LinguistTools)
+qt_add_lrelease(ZzPureToolsExample
+    TS_FILES translations/ZzPureToolsExample_en.ts
+    OPTIONS -nounfinished
+    QM_FILES_OUTPUT_VARIABLE zz_pure_tools_example_qm_files
+)
+list(LENGTH zz_pure_tools_example_qm_files
+    zz_pure_tools_example_qm_count)
+if(NOT zz_pure_tools_example_qm_count EQUAL 1)
+    message(FATAL_ERROR "Expected exactly one example translation QM file")
+endif()
+list(GET zz_pure_tools_example_qm_files 0
+    zz_pure_tools_example_english_qm)
+set_source_files_properties(
+    "${zz_pure_tools_example_english_qm}"
+    PROPERTIES QT_RESOURCE_ALIAS "ZzPureToolsExample_en.qm")
+qt_add_resources(ZzPureToolsExample "zz_example_translations"
+    PREFIX "/translations"
+    FILES "${zz_pure_tools_example_english_qm}"
+)
+
 target_link_libraries(ZzPureToolsExample PRIVATE
     Zz::FluentUI
     Zz::PureTools

@@ -1,6 +1,8 @@
 #include "ZzExampleShowcasePagePrivate.h"
 
 #include <array>
+
+#include <QtCore/QCoreApplication>
 #include <utility>
 
 #include <QtGui/QAction>
@@ -126,20 +128,20 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
     QWidget *parent)
 {
     auto *description = new QLabel(
-        QStringLiteral("面包屑、标签容器和窗口级双向历史共同组成导航体验"),
+        QCoreApplication::translate("ZzPureToolsExample", "面包屑、标签容器和窗口级双向历史共同组成导航体验"),
         parent);
     description->setWordWrap(true);
     layout->addWidget(description);
 
-    zzAddShowcaseSection(layout, QStringLiteral("面包屑"), parent);
+    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "面包屑"), parent);
     auto *breadcrumb = new ZzFluentUI::ZzBreadcrumbBar(parent);
     breadcrumb->setItems({
-        QStringLiteral("工作区"),
-        QStringLiteral("交互"),
-        QStringLiteral("导航与历史")});
+        QCoreApplication::translate("ZzPureToolsExample", "工作区"),
+        QCoreApplication::translate("ZzPureToolsExample", "交互"),
+        QCoreApplication::translate("ZzPureToolsExample", "导航与历史")});
     breadcrumb->setCurrentIndex(2);
     auto *breadcrumbStatus = new QLabel(
-        QStringLiteral("当前位置：导航与历史"), parent);
+        QCoreApplication::translate("ZzPureToolsExample", "当前位置：导航与历史"), parent);
     QObject::connect(
         breadcrumb,
         &ZzFluentUI::ZzBreadcrumbBar::indexRequested,
@@ -149,13 +151,13 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
             const QStringList items = breadcrumb->items();
             if (index >= 0 && index < items.size()) {
                 breadcrumbStatus->setText(
-                    QStringLiteral("当前位置：%1").arg(items.at(index)));
+                    QCoreApplication::translate("ZzPureToolsExample", "当前位置：%1").arg(items.at(index)));
             }
         });
     layout->addWidget(breadcrumb);
     layout->addWidget(breadcrumbStatus);
 
-    zzAddShowcaseSection(layout, QStringLiteral("标签转移"), parent);
+    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "标签转移"), parent);
     auto *primaryTabs = new ZzFluentUI::ZzTabWidget(parent);
     auto *secondaryTabs = new ZzFluentUI::ZzTabWidget(parent);
     primaryTabs->setObjectName(QStringLiteral("zzExamplePrimaryTabs"));
@@ -163,23 +165,23 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
     primaryTabs->setMovable(true);
     secondaryTabs->setMovable(true);
     for (const QString &text : {
-             QStringLiteral("概览"),
-             QStringLiteral("性能"),
-             QStringLiteral("发布")}) {
+             QCoreApplication::translate("ZzPureToolsExample", "概览"),
+             QCoreApplication::translate("ZzPureToolsExample", "性能"),
+             QCoreApplication::translate("ZzPureToolsExample", "发布")}) {
         primaryTabs->addTab(zzTabPage(text, primaryTabs), text);
     }
     secondaryTabs->addTab(
-        zzTabPage(QStringLiteral("活动"), secondaryTabs),
-        QStringLiteral("活动"));
+        zzTabPage(QCoreApplication::translate("ZzPureToolsExample", "活动"), secondaryTabs),
+        QCoreApplication::translate("ZzPureToolsExample", "活动"));
     primaryTabs->setMinimumHeight(170);
     secondaryTabs->setMinimumHeight(170);
     auto *transferRow = new QHBoxLayout;
     auto *moveDown = new ZzFluentUI::ZzPushButton(
-        QStringLiteral("移到下方"), parent);
+        QCoreApplication::translate("ZzPureToolsExample", "移到下方"), parent);
     moveDown->setIcon(
         moveDown->style()->standardIcon(QStyle::SP_ArrowDown));
     auto *moveUp = new ZzFluentUI::ZzPushButton(
-        QStringLiteral("移到上方"), parent);
+        QCoreApplication::translate("ZzPureToolsExample", "移到上方"), parent);
     moveUp->setIcon(moveUp->style()->standardIcon(QStyle::SP_ArrowUp));
     transferRow->addWidget(moveDown);
     transferRow->addWidget(moveUp);
@@ -214,35 +216,35 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
     QWidget *parent)
 {
     auto *description = new QLabel(
-        QStringLiteral("反馈表面保持 Qt 原生输入、焦点、弹出层和窗口所有权语义"),
+        QCoreApplication::translate("ZzPureToolsExample", "反馈表面保持 Qt 原生输入、焦点、弹出层和窗口所有权语义"),
         parent);
     description->setWordWrap(true);
     layout->addWidget(description);
 
     auto *message = new ZzFluentUI::ZzMessageBar(parent);
     message->setObjectName(QStringLiteral("zzExampleFeedbackMessage"));
-    message->setText(QStringLiteral("信息反馈已准备"));
+    message->setText(QCoreApplication::translate("ZzPureToolsExample", "信息反馈已准备"));
     message->setSeverity(ZzFluentUI::ZzMessageSeverity::Information);
     message->setClosable(false);
     layout->addWidget(message);
 
-    zzAddShowcaseSection(layout, QStringLiteral("命令与弹出层"), parent);
+    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "命令与弹出层"), parent);
     auto *commandHost = new QWidget(parent);
     auto *commandLayout = new ZzFluentUI::ZzFlowLayout(10, 10, commandHost);
     commandLayout->setContentsMargins(0, 0, 0, 0);
     auto *menuButton = new ZzFluentUI::ZzPushButton(
-        QStringLiteral("构建菜单"), commandHost);
+        QCoreApplication::translate("ZzPureToolsExample", "构建菜单"), commandHost);
     menuButton->setIcon(
         menuButton->style()->standardIcon(QStyle::SP_FileDialogListView));
     auto *menu = new QMenu(menuButton);
     menu->addAction(QStringLiteral("Debug"));
     menu->addAction(QStringLiteral("Release"));
     menu->addSeparator();
-    QAction *staticAction = menu->addAction(QStringLiteral("静态链接"));
+    QAction *staticAction = menu->addAction(QCoreApplication::translate("ZzPureToolsExample", "静态链接"));
     staticAction->setCheckable(true);
     menuButton->setMenu(menu);
     auto *dialogButton = new ZzFluentUI::ZzPushButton(
-        QStringLiteral("打开对话框"), commandHost);
+        QCoreApplication::translate("ZzPureToolsExample", "打开对话框"), commandHost);
     dialogButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
     dialogButton->setIcon(
         dialogButton->style()->standardIcon(QStyle::SP_DialogHelpButton));
@@ -255,7 +257,7 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
                 message->setSeverity(
                     ZzFluentUI::ZzMessageSeverity::Information);
                 message->setText(
-                    QStringLiteral("已选择：%1").arg(action->text()));
+                    QCoreApplication::translate("ZzPureToolsExample", "已选择：%1").arg(action->text()));
             }
         });
     QObject::connect(
@@ -266,7 +268,7 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
             auto *dialog = new QMessageBox(
                 QMessageBox::Information,
                 QStringLiteral("ZzPureTools"),
-                QStringLiteral("当前窗口已完成 Fluent 组件装配。"),
+                QCoreApplication::translate("ZzPureToolsExample", "当前窗口已完成 Fluent 组件装配。"),
                 QMessageBox::Ok,
                 parent);
             dialog->setAttribute(Qt::WA_DeleteOnClose, true);
@@ -277,16 +279,16 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
     commandLayout->addWidget(dialogButton);
     layout->addWidget(commandHost);
 
-    zzAddShowcaseSection(layout, QStringLiteral("消息严重性"), parent);
+    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "消息严重性"), parent);
     auto *severityHost = new QWidget(parent);
     auto *severityLayout = new ZzFluentUI::ZzFlowLayout(10, 10, severityHost);
     severityLayout->setContentsMargins(0, 0, 0, 0);
     const std::array<std::pair<QString, ZzFluentUI::ZzMessageSeverity>, 4>
         severities{{
-            {QStringLiteral("信息"), ZzFluentUI::ZzMessageSeverity::Information},
-            {QStringLiteral("成功"), ZzFluentUI::ZzMessageSeverity::Success},
-            {QStringLiteral("警告"), ZzFluentUI::ZzMessageSeverity::Warning},
-            {QStringLiteral("错误"), ZzFluentUI::ZzMessageSeverity::Error},
+            {QCoreApplication::translate("ZzPureToolsExample", "信息"), ZzFluentUI::ZzMessageSeverity::Information},
+            {QCoreApplication::translate("ZzPureToolsExample", "成功"), ZzFluentUI::ZzMessageSeverity::Success},
+            {QCoreApplication::translate("ZzPureToolsExample", "警告"), ZzFluentUI::ZzMessageSeverity::Warning},
+            {QCoreApplication::translate("ZzPureToolsExample", "错误"), ZzFluentUI::ZzMessageSeverity::Error},
         }};
     for (const auto &[text, severity] : severities) {
         auto *button = new ZzFluentUI::ZzPushButton(text, severityHost);
@@ -296,16 +298,16 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
             message,
             [message, text, severity] {
                 message->setSeverity(severity);
-                message->setText(QStringLiteral("%1反馈示例").arg(text));
+                message->setText(QCoreApplication::translate("ZzPureToolsExample", "%1反馈示例").arg(text));
             });
         severityLayout->addWidget(button);
     }
     layout->addWidget(severityHost);
 
-    zzAddShowcaseSection(layout, QStringLiteral("搜索建议"), parent);
+    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "搜索建议"), parent);
     auto *suggest = new ZzFluentUI::ZzSuggestBox(parent);
-    suggest->setAccessibleName(QStringLiteral("组件搜索建议"));
-    suggest->setPlaceholderText(QStringLiteral("搜索组件"));
+    suggest->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "组件搜索建议"));
+    suggest->setPlaceholderText(QCoreApplication::translate("ZzPureToolsExample", "搜索组件"));
     suggest->setSuggestions({
         {QStringLiteral("window"), QStringLiteral("ZzWindowKit"), {}, {}, true},
         {QStringLiteral("fluent"), QStringLiteral("ZzFluentUI"), {}, {}, true},
@@ -318,7 +320,7 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         [message](const ZzFluentUI::ZzSuggestion &suggestion) {
             message->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
             message->setText(
-                QStringLiteral("已选择组件：%1").arg(suggestion.text));
+                QCoreApplication::translate("ZzPureToolsExample", "已选择组件：%1").arg(suggestion.text));
         });
     layout->addWidget(suggest);
 }
@@ -328,11 +330,11 @@ void ZzExampleShowcasePagePrivate::buildIcons(
     QWidget *parent)
 {
     auto *description = new QLabel(
-        QStringLiteral("跨平台 Qt 标准图标随当前样式、主题与设备像素比解析"),
+        QCoreApplication::translate("ZzPureToolsExample", "跨平台 Qt 标准图标随当前样式、主题与设备像素比解析"),
         parent);
     description->setWordWrap(true);
     layout->addWidget(description);
-    zzAddShowcaseSection(layout, QStringLiteral("标准图标"), parent);
+    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "标准图标"), parent);
 
     struct ZzIconEntry final
     {

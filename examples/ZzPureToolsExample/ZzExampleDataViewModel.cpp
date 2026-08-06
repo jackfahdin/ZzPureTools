@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QStringList>
 #include <QtGui/QStandardItem>
 #include <QtGui/QStandardItemModel>
@@ -52,24 +53,24 @@ void ZzExampleDataViewModel::appendSample()
     switch (kind_) {
     case ZzExampleDataPageKind::List:
         source_->appendRow(zzDataItem(
-            QStringLiteral("增量任务 %1 | 等待调度")
+            QCoreApplication::translate("ZzPureToolsExample", "增量任务 %1 | 等待调度")
                 .arg(serial, 3, 10, QLatin1Char('0'))));
         break;
     case ZzExampleDataPageKind::Table: {
         QList<QStandardItem *> row;
         row.reserve(4);
-        row.append(zzDataItem(QStringLiteral("模块-%1").arg(serial)));
+        row.append(zzDataItem(QCoreApplication::translate("ZzPureToolsExample", "模块-%1").arg(serial)));
         row.append(zzDataItem(QStringLiteral("Linux")));
-        row.append(zzDataItem(QStringLiteral("新增")));
+        row.append(zzDataItem(QCoreApplication::translate("ZzPureToolsExample", "新增")));
         row.append(zzDataItem(QStringLiteral("%1 ms").arg(4 + serial % 17)));
         source_->appendRow(row);
         break;
     }
     case ZzExampleDataPageKind::Tree: {
-        auto *root = zzDataItem(QStringLiteral("新增分组 %1").arg(serial));
+        auto *root = zzDataItem(QCoreApplication::translate("ZzPureToolsExample", "新增分组 %1").arg(serial));
         for (int child = 0; child < 3; ++child) {
             root->appendRow(zzDataItem(
-                QStringLiteral("任务 %1.%2").arg(serial).arg(child + 1)));
+                QCoreApplication::translate("ZzPureToolsExample", "任务 %1.%2").arg(serial).arg(child + 1)));
         }
         source_->appendRow(root);
         break;
@@ -101,15 +102,15 @@ int ZzExampleDataViewModel::visibleRowCount() const
 
 void ZzExampleDataViewModel::populateList()
 {
-    source_->setHorizontalHeaderLabels({QStringLiteral("任务")});
+    source_->setHorizontalHeaderLabels({QCoreApplication::translate("ZzPureToolsExample", "任务")});
     const std::array<QString, 4> states{
-        QStringLiteral("等待"),
-        QStringLiteral("运行"),
-        QStringLiteral("完成"),
-        QStringLiteral("已缓存")};
+        QCoreApplication::translate("ZzPureToolsExample", "等待"),
+        QCoreApplication::translate("ZzPureToolsExample", "运行"),
+        QCoreApplication::translate("ZzPureToolsExample", "完成"),
+        QCoreApplication::translate("ZzPureToolsExample", "已缓存")};
     for (int row = 0; row < zzInitialListRows; ++row) {
         source_->appendRow(zzDataItem(
-            QStringLiteral("构建任务 %1 | %2")
+            QCoreApplication::translate("ZzPureToolsExample", "构建任务 %1 | %2")
                 .arg(row + 1, 3, 10, QLatin1Char('0'))
                 .arg(states.at(static_cast<std::size_t>(row) % states.size()))));
     }
@@ -119,10 +120,10 @@ void ZzExampleDataViewModel::populateList()
 void ZzExampleDataViewModel::populateTable()
 {
     source_->setHorizontalHeaderLabels({
-        QStringLiteral("组件"),
-        QStringLiteral("平台"),
-        QStringLiteral("状态"),
-        QStringLiteral("耗时")});
+        QCoreApplication::translate("ZzPureToolsExample", "组件"),
+        QCoreApplication::translate("ZzPureToolsExample", "平台"),
+        QCoreApplication::translate("ZzPureToolsExample", "状态"),
+        QCoreApplication::translate("ZzPureToolsExample", "耗时")});
     const std::array<QString, 4> components{
         QStringLiteral("ZzCore"),
         QStringLiteral("ZzWindowKit"),
@@ -141,8 +142,8 @@ void ZzExampleDataViewModel::populateTable()
             static_cast<std::size_t>(rowIndex) % platforms.size())));
         row.append(zzDataItem(
             rowIndex % 5 == 0
-                ? QStringLiteral("检查中")
-                : QStringLiteral("通过")));
+                ? QCoreApplication::translate("ZzPureToolsExample", "检查中")
+                : QCoreApplication::translate("ZzPureToolsExample", "通过")));
         row.append(zzDataItem(QStringLiteral("%1 ms").arg(3 + rowIndex % 29)));
         source_->appendRow(row);
     }
@@ -151,22 +152,22 @@ void ZzExampleDataViewModel::populateTable()
 
 void ZzExampleDataViewModel::populateTree()
 {
-    source_->setHorizontalHeaderLabels({QStringLiteral("构建工作区")});
+    source_->setHorizontalHeaderLabels({QCoreApplication::translate("ZzPureToolsExample", "构建工作区")});
     for (int rootIndex = 0; rootIndex < zzInitialTreeRoots; ++rootIndex) {
         auto *root = zzDataItem(
-            QStringLiteral("工作区 %1").arg(rootIndex + 1));
+            QCoreApplication::translate("ZzPureToolsExample", "工作区 %1").arg(rootIndex + 1));
         for (int groupIndex = 0;
              groupIndex < zzTreeGroupsPerRoot;
              ++groupIndex) {
             auto *group = zzDataItem(
-                QStringLiteral("组件组 %1.%2")
+                QCoreApplication::translate("ZzPureToolsExample", "组件组 %1.%2")
                     .arg(rootIndex + 1)
                     .arg(groupIndex + 1));
             for (int leafIndex = 0;
                  leafIndex < zzTreeLeavesPerGroup;
                  ++leafIndex) {
                 group->appendRow(zzDataItem(
-                    QStringLiteral("目标 %1.%2.%3")
+                    QCoreApplication::translate("ZzPureToolsExample", "目标 %1.%2.%3")
                         .arg(rootIndex + 1)
                         .arg(groupIndex + 1)
                         .arg(leafIndex + 1)));

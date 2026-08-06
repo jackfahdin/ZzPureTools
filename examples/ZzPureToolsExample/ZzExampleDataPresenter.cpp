@@ -1,5 +1,6 @@
 #include "ZzExampleDataPresenter.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QAbstractItemModel>
 
 #include "ZzExampleDataPage.h"
@@ -16,11 +17,11 @@ namespace {
 {
     switch (kind) {
     case ZzExampleDataPageKind::List:
-        return QStringLiteral("当前显示 %1 条列表记录").arg(visibleRows);
+        return QCoreApplication::translate("ZzPureToolsExample", "当前显示 %1 条列表记录").arg(visibleRows);
     case ZzExampleDataPageKind::Table:
-        return QStringLiteral("当前显示 %1 行表格记录").arg(visibleRows);
+        return QCoreApplication::translate("ZzPureToolsExample", "当前显示 %1 行表格记录").arg(visibleRows);
     case ZzExampleDataPageKind::Tree:
-        return QStringLiteral("当前显示 %1 个顶层节点").arg(visibleRows);
+        return QCoreApplication::translate("ZzPureToolsExample", "当前显示 %1 个顶层节点").arg(visibleRows);
     }
     return {};
 }

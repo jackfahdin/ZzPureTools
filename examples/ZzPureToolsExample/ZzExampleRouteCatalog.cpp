@@ -2,6 +2,8 @@
 
 #include <array>
 
+#include <QtCore/QCoreApplication>
+
 namespace ZzExample {
 
 namespace {
@@ -10,29 +12,48 @@ using ZzLifetime = ZzPureTools::ZzPageLifetimePolicy;
 using ZzPlacement = ZzFluentUI::ZzNavigationPlacement;
 
 constexpr std::array<ZzExampleRouteDescriptor, 12> zzRoutes{{
-    {"home", "首页", "工作区", ZzLifetime::Persistent,
+    {"home", QT_TRANSLATE_NOOP("ZzPureToolsExample", "首页"),
+     QT_TRANSLATE_NOOP("ZzPureToolsExample", "工作区"),
+     ZzLifetime::Persistent,
      ZzPlacement::Primary},
-    {"controls", "基础控件", "控件", ZzLifetime::Recreatable,
+    {"controls", QT_TRANSLATE_NOOP("ZzPureToolsExample", "基础控件"),
+     QT_TRANSLATE_NOOP("ZzPureToolsExample", "控件"),
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"cards", "卡片与媒体", "", ZzLifetime::Recreatable,
+    {"cards", QT_TRANSLATE_NOOP("ZzPureToolsExample", "卡片与媒体"), "",
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"list-view", "列表视图", "数据视图", ZzLifetime::Recreatable,
+    {"list-view", QT_TRANSLATE_NOOP("ZzPureToolsExample", "列表视图"),
+     QT_TRANSLATE_NOOP("ZzPureToolsExample", "数据视图"),
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"table-view", "表格视图", "", ZzLifetime::Recreatable,
+    {"table-view", QT_TRANSLATE_NOOP("ZzPureToolsExample", "表格视图"), "",
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"tree-view", "树形视图", "", ZzLifetime::Recreatable,
+    {"tree-view", QT_TRANSLATE_NOOP("ZzPureToolsExample", "树形视图"), "",
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"navigation", "导航与历史", "交互", ZzLifetime::Recreatable,
+    {"navigation", QT_TRANSLATE_NOOP("ZzPureToolsExample", "导航与历史"),
+     QT_TRANSLATE_NOOP("ZzPureToolsExample", "交互"),
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"feedback", "反馈与弹出层", "", ZzLifetime::Recreatable,
+    {"feedback", QT_TRANSLATE_NOOP(
+                     "ZzPureToolsExample", "反馈与弹出层"),
+     "", ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"icons", "图标", "资源", ZzLifetime::Recreatable,
+    {"icons", QT_TRANSLATE_NOOP("ZzPureToolsExample", "图标"),
+     QT_TRANSLATE_NOOP("ZzPureToolsExample", "资源"),
+     ZzLifetime::Recreatable,
      ZzPlacement::Primary},
-    {"platform", "窗口与平台", "系统", ZzLifetime::Persistent,
+    {"platform", QT_TRANSLATE_NOOP("ZzPureToolsExample", "窗口与平台"),
+     QT_TRANSLATE_NOOP("ZzPureToolsExample", "系统"),
+     ZzLifetime::Persistent,
      ZzPlacement::Primary},
-    {"settings", "设置", "", ZzLifetime::Persistent,
+    {"settings", QT_TRANSLATE_NOOP("ZzPureToolsExample", "设置"), "",
+     ZzLifetime::Persistent,
      ZzPlacement::Footer},
-    {"about", "关于", "", ZzLifetime::Persistent,
+    {"about", QT_TRANSLATE_NOOP("ZzPureToolsExample", "关于"), "",
+     ZzLifetime::Persistent,
      ZzPlacement::Footer},
 }};
 

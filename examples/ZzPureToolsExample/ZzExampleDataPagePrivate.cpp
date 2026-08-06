@@ -1,5 +1,6 @@
 #include "ZzExampleDataPagePrivate.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QAbstractItemModel>
 #include <QtGui/QFont>
 #include <QtWidgets/QAbstractItemView>
@@ -70,7 +71,7 @@ void ZzExampleDataPagePrivate::initialize(
 
     layout->addWidget(zzDataPageTitle(title, content));
     auto *description = new QLabel(
-        QStringLiteral("有界模型、代理筛选和局部 delegate 绘制共同保持稳定响应"),
+        QCoreApplication::translate("ZzPureToolsExample", "有界模型、代理筛选和局部 delegate 绘制共同保持稳定响应"),
         content);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -79,15 +80,15 @@ void ZzExampleDataPagePrivate::initialize(
     commands->setSpacing(10);
     auto *filter = new QLineEdit(content);
     filter->setObjectName(QStringLiteral("zzExampleDataFilter"));
-    filter->setAccessibleName(QStringLiteral("筛选数据"));
-    filter->setPlaceholderText(QStringLiteral("筛选当前数据"));
+    filter->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "筛选数据"));
+    filter->setPlaceholderText(QCoreApplication::translate("ZzPureToolsExample", "筛选当前数据"));
     filter->setClearButtonEnabled(true);
     auto *append = new ZzFluentUI::ZzPushButton(
-        QStringLiteral("追加记录"), content);
+        QCoreApplication::translate("ZzPureToolsExample", "追加记录"), content);
     append->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
     append->setIcon(append->style()->standardIcon(QStyle::SP_FileDialogNewFolder));
     auto *reset = new ZzFluentUI::ZzPushButton(
-        QStringLiteral("恢复数据"), content);
+        QCoreApplication::translate("ZzPureToolsExample", "恢复数据"), content);
     reset->setIcon(reset->style()->standardIcon(QStyle::SP_BrowserReload));
     commands->addWidget(filter, 1);
     commands->addWidget(append);
@@ -145,7 +146,7 @@ void ZzExampleDataPagePrivate::buildList(
 {
     auto *view = new QListView(parent);
     view->setObjectName(QStringLiteral("zzExampleListView"));
-    view->setAccessibleName(QStringLiteral("构建任务列表"));
+    view->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "构建任务列表"));
     view->setAlternatingRowColors(true);
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setUniformItemSizes(true);
@@ -162,7 +163,7 @@ void ZzExampleDataPagePrivate::buildTable(
 {
     auto *view = new QTableView(parent);
     view->setObjectName(QStringLiteral("zzExampleTableView"));
-    view->setAccessibleName(QStringLiteral("跨平台构建表格"));
+    view->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "跨平台构建表格"));
     view->setAlternatingRowColors(true);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -184,7 +185,7 @@ void ZzExampleDataPagePrivate::buildTree(
 {
     auto *view = new QTreeView(parent);
     view->setObjectName(QStringLiteral("zzExampleTreeView"));
-    view->setAccessibleName(QStringLiteral("构建工作区树"));
+    view->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "构建工作区树"));
     view->setAlternatingRowColors(true);
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setUniformRowHeights(true);

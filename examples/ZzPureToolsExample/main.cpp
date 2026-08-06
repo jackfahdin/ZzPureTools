@@ -5,6 +5,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
+#include <QtCore/QLocale>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
@@ -101,6 +102,17 @@ int main(int argc, char *argv[])
     auto context = std::move(contextResult).value();
 
     ZzPureTools::ZzApplicationBuilder builder;
+    if (QLocale::system().language() == QLocale::English) {
+        auto translatorResult = builder.addTranslatorResource(
+            QStringLiteral(
+                ":/translations/ZzPureToolsExample_en.qm"));
+        if (!translatorResult) {
+            zzReportStartupFailure(
+                "translator registration failed:",
+                translatorResult.error());
+            return EXIT_FAILURE;
+        }
+    }
     auto moduleResult = builder.addModule(
         std::make_unique<ZzExample::ZzExampleApplicationModule>(context));
     if (!moduleResult) {
@@ -119,7 +131,13 @@ int main(int argc, char *argv[])
         registration.factory =
             [context, routeId, title, &application](QWidget *pageParent) {
                 return ZzExample::ZzExamplePageFactory::createPage(
-                    routeId, title, context, application, pageParent);
+                    routeId,
+                    QCoreApplication::translate(
+                        "ZzPureToolsExample",
+                        title.toUtf8().constData()),
+                    context,
+                    application,
+                    pageParent);
             };
         auto pageResult = builder.addPage(std::move(registration));
         if (!pageResult) {
@@ -177,6 +195,16 @@ int main(int argc, char *argv[])
     auto buildResult = builder.build(application);
     if (!buildResult) {
         zzReportStartupFailure("application build failed:", buildResult.error());
+        return EXIT_FAILURE;
+    }
+
+    if (qEnvironmentVariableIsSet(
+            "ZZ_PURETOOLS_EXAMPLE_EXPECT_ENGLISH")
+        && QCoreApplication::translate(
+               "ZzPureToolsExample", "首页")
+            != QStringLiteral("Home")) {
+        qCritical().noquote()
+            << "English example translation was not loaded";
         return EXIT_FAILURE;
     }
 
