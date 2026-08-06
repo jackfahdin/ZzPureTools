@@ -1,5 +1,7 @@
 # ZzFluentUI 高性能导航展示增强实施计划
 
+**状态：** 已于 2026-08-06 完成生产实现、本机质量门禁与阶段 10 旧组件覆盖闭环。Windows MSVC、Windows Qt SDK MinGW 与 macOS 仍等待对应原生工具链和真机验证。
+
 **目标：** 补齐应用框架导航图标、静态分区、固定 footer、badge、自适应 regular/compact 和路由选择同步能力，同时保持强类型路由、多窗口隔离、Qt Model/View、无障碍与固定热路径复杂度。
 
 **架构：** Fluent Foundation 定义不依赖 Widgets 的展示 role 与枚举；`ZzNavigationView` 继续是只消费单个列表模型的基础 view；新增 `ZzNavigationPane` 以两个固定 view 和两个固定投影模型组合主导航与 footer。`ZzNavigationModel` 仍只保存拥有值的展示节点，`ZzNavigationController` 仍独占路由与历史，`ZzApplicationWindow` 只在 composition root 连接索引意图、强类型路由和当前选择。
@@ -544,3 +546,84 @@ ctest --preset linux-gcc-debug --output-on-failure \
 - 无每项 QObject、无动画、无 timer、无全局单例、无 Qt Private 或平台分支。
 - shared/static 全量验证、安装消费、性能、视觉、sanitizer 和静态分析通过。
 - 在交付结果写入实际提交、测试数量、参考机数据和剩余人工平台验证范围后，阶段 10 旧组件迁移闭环关闭。
+
+## 17. 实际交付结果
+
+代码级验证基于提交 `2e2ec46c6b3fb4c4ebbc92e3b37edc8c50e40b34`。本机使用 Qt 6.11.1、GCC 15.2.0、Clang/clang-tidy 20.1.8 和 CMake 4.3.3；全部构建复用 `/home/zz/Qt/6.11.1/gcc_64`，没有下载新的 Qt SDK。
+
+### 17.1 生产实现与职责边界
+
+- `ZzNavigationPane` 已按公开类、公开实现、private 类和 private 实现拆分，并组合两个固定 `ZzNavigationView` 与两个 private `ZzNavigationProjectionModel`。控件只观察外部 `QAbstractItemModel`，不拥有 model、不创建页面、不执行路由。
+- `ZzNavigationItemRole`、`ZzNavigationPlacement` 和 `ZzNavigationDisplayMode` 位于 Fluent Foundation，只依赖 Qt Core。FluentUI 不读取 `ZzRouteId`，也不 include `ZzPureTools`。
+- Primary 投影可插入不可选择的 synthetic section，Footer 投影固定置底且最多六个目标。投影缓存 source/proxy 双向映射，索引转换与激活为 O(1)，只有结构变化、section 或 placement 变化进入 O(N) 重建冷路径。
+- 导航 delegate 支持 `ZzIconDescriptor`、`QIcon` 回退、短 badge、regular/compact、LTR/RTL、disabled、selected、hover、focus 与 HighContrast；无扩展 role 的普通列表仍复用原 `ZzFluentItemDelegate`。
+- `ZzNavigationModel` 已增加可翻译 section、badge、placement、tooltip 和无障碍描述，使用 `QHash<ZzRouteId, int>` 提供 O(1) 路由查找；`setBadge()` 只发目标行的局部 `dataChanged`。
+- Builder 在启动模块前校验 section 配对、footer section、badge 格式、placement 和六项 footer 上限。应用窗口只在 composition root 把 pane 索引意图连接到强类型 controller，并在首次导航、点击、程序化导航、回退和 model reset 后同步选择。
+- 每个窗口独立拥有 pane、两个投影、两个 selection model、导航 model、controller、page host 和 WindowAgent；没有引入全局导航状态、逐项 QWidget、逐项 QObject、内部动画或 timer。
+
+### 17.2 提交记录
+
+- `ad628bd`：冻结导航展示角色、组合面板、投影复杂度、应用装配和验证矩阵。
+- `848a9ac`：实现 Foundation 契约、四文件 `ZzNavigationPane`、双投影和导航 delegate，并接入组件测试。
+- `ffe4186`：扩展 PureTools 导航节点/model、Builder fail-fast、应用窗口选择同步、多窗口和安装消费。
+- `2077762`：把控件画廊升级为包含分区、图标、badge、footer 和三种显示模式的完整导航工作区。
+- `3b04330`：增加四十面板、十万行 model、映射、绘制复杂度、reset 和对象稳定性性能门禁。
+- `4eb1a26`：增加三主题四档 DPR 的视觉基线，并修复 hover 跟踪、compact 分隔线和 hover 反馈。
+- `cd92207`：同步主机重启后的物理内存身份，重新锁定参考机档案摘要。
+- `bb7467d`：更新七份同源性能报告，并把导航相对回归与 ASan/UBSan 压力场景接入本机发布脚本。
+- `2e2ec46`：为有意构造的越界 placement 测试添加精确静态分析标注，保留公开 model 的防御覆盖。
+
+### 17.3 Linux 自动验证
+
+- `linux-gcc-release` shared Release 完整构建与 CTest 通过，共 `101/101`。
+- `linux-static-release` static Release 完整构建与 CTest 通过，共 `101/101`。
+- 两套完整 CTest 都覆盖导航组件、PureTools 装配、多窗口、翻译、四档截图、fresh install consumer、package relocation、公开头、二进制依赖、四个示例 smoke 和发布契约。
+- 修正最终测试夹具后，14 项架构审计再次以 `14/14` 通过；preset matrix contract 和 Linux/Windows/macOS 原生门禁脚本契约通过。
+- `linux-clang-tidy-release` 与 `linux-clang-tidy-static` 均使用 Clang 20 对 `152/152` 个首方翻译单元完成分析，`--warnings-as-errors=*` 下无未抑制诊断。
+- `linux-clang-asan-benchmarks` 构建通过；窗口生命周期与导航面板压力场景在 Xvfb 下以 `2/2` 通过，未报告 ASan/UBSan/LeakSanitizer 诊断。
+- 重启后 preset 环境变量未自动恢复，Clang fresh 配置通过命令作用域显式使用 Qt 6.11.1、Clang 20、GCC 15 external toolchain，以及文档已登记的本机 xkbcommon 头和运行库；这些机器路径没有写入共享 preset。
+
+### 17.4 性能结果
+
+活动参考报告来自源码提交 `cd9220712f1b3d39df7689af3d5172994e00d08e`。后续提交只更新报告、发布脚本、测试标注和本文档，没有修改导航生产热路径。固定环境为 Intel Core i7-14700、32 GiB RAM、Ubuntu 26.04、Qt 6.11.1、GCC 15.2.0、Xvfb 1920x1080x24 和 Mesa llvmpipe；档案摘要为 `sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41`。
+
+四十个可见 pane 共用十万行只读 model，预热后采集 120 帧：
+
+```text
+整帧 P50:              7.777867 ms
+整帧 P95:              7.890631 ms
+整帧 max:              8.035851 ms
+绘制 P95:              7.817203 ms
+状态更新 P95:          0.074130 ms
+映射/激活 P95:         2.214 us
+40/100000 行绘制比:    0.967326
+100000 行 reset P95:  17.144409 ms
+每 pane view/projection: 2 / 2
+```
+
+整帧 P95 低于 `12 ms`、绘制复杂度低于 `1.5`、reset P95 低于 `80 ms`。1000 次 mode、RTL、model reset、badge 和 selection 混合操作后，QObject descendants 不增长，animation 与 timer 保持为零。完整参考组为 `16/16`，包含七个报告生产者与九项绝对门禁；七份 JSON 与 reporter 输出逐字一致，并通过相对性能比较。
+
+### 17.5 视觉与交互检查
+
+- 新增 `navigation-pane-{light,dark,high-contrast}.png`，每个主题覆盖 DPR 1.0、1.25、1.5、2.0，共 12 张。
+- 固定 surface 同图展示 Regular、Compact 和 RTL Regular，覆盖两个 section、descriptor/QIcon、普通/选中/hover/disabled、badge、focus、主区和固定 footer。
+- shared/static 的四档完整截图测试均通过。已人工检查 Light、Dark、HighContrast 的 DPR 1.0 和 Light 的 DPR 2.0：标题、图标、badge、focus、hover、compact 分隔线与 footer 没有裁切或重叠，RTL 的 leading/trailing 布局正确，HighContrast 不只依赖透明度区分状态。
+- 控件画廊和 PureTools 示例使用本地静态数据展示生产组件；示例不创建页面路由、网络请求、自动播放 timer 或业务服务。
+
+### 17.6 安装、ABI 与架构结果
+
+- 安装消费者实例化 `ZzNavigationPane`、Foundation 枚举和扩展后的 `ZzNavigationNode`；shared/static fresh install consumer 与移动安装前缀后的 package relocation 均通过。
+- 新增公开头已进入安装清单并逐文件独立编译。公开 `ZzNavigationPane` 只暴露 `std::unique_ptr<ZzNavigationPanePrivate>`，private 投影与对象布局不进入 ABI。
+- Fluent Foundation 公开导航头不依赖 Widgets；FluentUI 没有 `ZzPureTools`、`ZzWindowKit`、QWindowKit 或业务层依赖；PureTools 只依赖公开的 Fluent Foundation/FluentUI 契约。
+- 本批新增生产差异没有链式 namespace、Qt Private 头、平台原生头、QSS、动态属性、编译器扩展、绝对机器路径或平台条件分支。
+
+### 17.7 跨平台状态与人工边界
+
+- CMake preset 矩阵继续登记 Windows MSVC shared/static、Windows Qt SDK MinGW shared/static，以及 macOS arm64/x86_64 shared/static；Windows 保持 `/utf-8`、严格警告、MSVC analyze 或 Qt SDK MinGW 工具链约束，macOS 保持 deployment target 13.3、Clang-Tidy 和 LTO 约束。
+- 源码静态审计确认导航生产实现只使用标准 C++20 与 Qt Core/Gui/Widgets 公共 API，不含 `Q_OS_*`、`_WIN32`、`__APPLE__` 分支、Windows/Cocoa/X11 原生头或编译器专用 ABI。
+- Windows MSVC、Windows Qt SDK MinGW、macOS arm64/x86_64 当前没有对应原生编译、安装消费、像素基线或真机交互证据，因此不得表述为这些平台已经通过。Linux 物理显示、多桌面环境、Wayland、触摸和真实高刷新率交互也仍需人工验证。
+- 本批未 push、未调用 GitHub CLI、未读取或处理远端 CI；远端 CI 按用户要求继续暂缓。
+
+### 17.8 阶段结论
+
+导航图标、静态 section、固定 footer、短 badge、Regular/Compact/Adaptive 与强类型路由选择同步均已落到生产组件，并通过与其他阶段 10 组件同级的功能、性能、视觉、安装、sanitizer 和静态分析门禁。旧版 51 个公开组件至此全部获得已交付替代或明确删除结论；后续功能只能由真实产品需求驱动，不再依据旧仓库文件清单继续迁移。

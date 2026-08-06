@@ -4,7 +4,7 @@
 
 **审计基线：** 旧版源码位于新仓库同级的 `../ZzFluentUI`，仅用于行为和视觉意图审计。新版不复制旧实现，不承诺源码或二进制兼容。
 
-**结论：** 旧版 51 个公开组件均已获得明确处置。现有批次已经覆盖 50 个组件的通用职责；`ZzNavigationBar` 已被拆分为模型、控制器、页面宿主和展示视图，但图标、分区、固定 footer、badge 与自适应模式仍需一个独立的导航展示批次。搜索、动态树和页面新窗口不属于该批次。
+**结论：** 旧版 51 个公开组件均已获得明确处置和交付闭环。`ZzNavigationBar` 已拆分为展示面板、值模型、强类型控制器、页面宿主和窗口 composition root；图标、静态分区、固定 footer、短 badge 与自适应模式也已完成。搜索、动态树和页面新窗口被明确保留在应用层或未来真实产品需求中，不构成旧组件迁移缺口。
 
 ## 1. 判定规则
 
@@ -41,7 +41,7 @@
 | `ZzMessageBar` | 保留为新版 `ZzMessageBar` | 只展示消息并发出关闭意图；timer 有界且不自行删除控件。 |
 | `ZzMessageButton` | `ZzPushButton` + `ZzMessageBar` | 旧类在按钮内部创建消息，是应用连接职责；不保留该耦合类型。 |
 | `ZzMultiSelectComboBox` | 保留为新版 `ZzMultiSelectComboBox` | 使用值模型和事务式 popup，不接触远程数据、历史或持久化。 |
-| `ZzNavigationBar` | 拆分，尚需导航展示增强批次 | 路由、页面、历史和展示已拆分；通用展示元数据缺口见第 4 节。 |
+| `ZzNavigationBar` | 拆分并完成导航展示增强 | `ZzNavigationPane`、`ZzNavigationModel`、`ZzNavigationController`、`ZzPageHost` 和窗口 composition root 分担展示、值数据、路由、页面与装配；不恢复旧大而全类型。 |
 | `ZzPivot` | `ZzTabBar` 或标准 `QTabBar` | 水平标签选择已覆盖；旧独立 model、`QScroller` 和重复 current 状态删除。 |
 | `ZzPlainTextEdit` | `QPlainTextEdit` + `ZzFluentStyle` | 保留标准 document、undo、selection、clipboard 和输入法协议。 |
 | `ZzPopularCard` | 合并为 `ZzActionCard` | 营销命名和固定布局删除，保留通用信息卡片与激活意图。 |
@@ -165,15 +165,15 @@
 | `ZzScrollPageArea.h/.cpp` | 固定 75 像素高度并只画圆角背景，无法表达内容尺寸、layout 或语义；普通 widget/palette 足够。 |
 | `private/ZzScrollPageAreaPrivate.h/.cpp` | QObject private 只保存 radius 和全局 theme，属于不必要对象与间接访问。 |
 
-## 6. 导航展示增强批次边界
+## 6. 导航展示增强交付边界
 
-### 6.1 必须补齐
+### 6.1 已补齐
 
-- **图标：** 当前 `ZzNavigationModel` 提供 `ZzIconDescriptor`，但通用 `ZzFluentItemDelegate` 不读取该 role，应用框架导航图标实际不会绘制。
-- **分区：** 提供静态 section/group 展示元数据，但不能把 section 伪装成可路由页面。
-- **固定 footer：** 支持少量固定在导航底部的路由项；仍由同一窗口拥有的强类型节点值驱动。
-- **badge：** 只支持有界短文本或非负计数展示，不执行通知查询或业务计算。
-- **自适应模式：** regular/compact 可显式设置；adaptive 只根据可用几何选择二者，不访问平台私有 API。
+- **图标：** `ZzNavigationModel` 通过通用 role 提供 `ZzIconDescriptor`，导航 delegate 已读取 descriptor 并保留 `QIcon` 回退，应用框架导航图标真实绘制。
+- **分区：** 静态 section/group 元数据投影为不可选择的 synthetic header，不会被伪装成可路由页面。
+- **固定 footer：** 少量路由项由同一值模型按 placement 投影到固定底部，仍由所属窗口的强类型节点驱动。
+- **badge：** 有界短文本由 model 局部更新并进入 tooltip/无障碍描述，控件不执行通知查询或业务计算。
+- **自适应模式：** regular/compact 可显式设置；adaptive 只根据顶层 QWidget 逻辑宽度选择二者，不访问平台私有 API。
 
 ### 6.2 第一批明确不做
 
@@ -183,23 +183,23 @@
 - 为每个节点创建 QWidget、animation、timer、menu 或 proxy model。
 - 复制旧字符串 key、裸节点指针、全局主题或全局路由对象。
 
-### 6.3 设计前必须证明
+### 6.3 已证明
 
-- FluentUI 展示角色不能依赖 `ZzPureTools`，依赖方向必须保持 `ZzPureTools -> ZzFluentUI`。
-- section/footer/badge 需要可被任意 `QAbstractItemModel` 表达，`ZzNavigationModel` 只是框架提供的一个值模型实现。
-- 平面大模型仍使用 batch layout；滚动和 paint 不得扫描总 row count。
-- footer 数量必须设置小上限，避免第二个 view 形成无界布局或对象数量。
-- compact 模式仍需 tooltip/accessibility name 展示文字；隐藏可见文本不能删除模型语义。
-- Windows MSVC/MinGW 和 macOS 只使用 Qt 公共 API，平台静态审计不得出现条件分支泄漏。
+- FluentUI 展示角色位于 Foundation，生产实现不依赖 `ZzPureTools`；依赖方向保持 `ZzPureTools -> ZzFluentUI`。
+- section/footer/badge 可由任意 `QAbstractItemModel` 的通用 role 表达；`ZzNavigationModel` 只是框架提供的值模型实现。
+- 平面十万行 model 继续使用 batch layout；绘制、滚动、激活与 source/proxy 映射不扫描总 row count，结构 reset 才进入 O(N) 冷路径。
+- footer 上限固定为六项，每个 pane 始终只有两个 view 和两个 projection，不按节点增长 QObject。
+- compact 只改变绘制，Display、ToolTip 与 Accessible role 保持完整；隐藏可见文字不会删除模型语义。
+- Windows MSVC/MinGW 和 macOS 源码静态审计确认只使用 Qt 公共 API，没有导航批次平台条件分支；原生编译和真机验证仍明确待办。
 
 ## 7. 阶段 10 闭环状态
 
 | 状态 | 组件范围 |
 |---|---|
-| 已完成生产、测试、性能、视觉与交付记录 | 除导航展示增强外的所有通用组件能力 |
+| 已完成生产、测试、性能、视觉与交付记录 | 旧版 51 个公开组件中的全部可复用通用能力，包括导航展示增强 |
 | 已由标准 Qt 覆盖，不新增公开类型 | checkbox/radio/slider/progress、输入、菜单、item view、toolbar/status/tooltip、LCD |
 | 已由应用组合覆盖，不新增公开类型 | message button、scroll page、text、toggle button、scroll page area |
-| 下一独立批次 | 导航图标、section、footer、badge、自适应 regular/compact |
+| 已拆分并交付 | 导航图标、section、footer、badge、自适应 regular/compact、强类型路由与页面宿主 |
 | 明确非目标 | 旧版业务命名兼容、内置路由/页面/搜索/新窗口、动态树和全局单例 |
 
-完成导航展示增强批次并通过同级质量门禁后，阶段 10 的旧组件迁移审计即可关闭；后续新增控件必须由真实产品需求驱动，不再以旧仓库文件清单为输入。
+导航展示增强已通过同级功能、性能、视觉、安装、sanitizer、静态分析和架构质量门禁，阶段 10 的旧组件迁移审计于 2026-08-06 关闭。详细提交、测试数量、参考机数据和人工平台验证边界见 `2026-08-06-zzfluentui-navigation-pane.md` 第 17 节。后续新增控件必须由真实产品需求驱动，不再以旧仓库文件清单为输入。
