@@ -11,11 +11,14 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureToolsExport.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWindowSetupCallback.h>
 
 class QCloseEvent;
 class QEvent;
 
 namespace ZzFluentUI {
+class ZzFluentTitleBar;
+class ZzNavigationPane;
 class ZzThemeController;
 }
 
@@ -57,6 +60,14 @@ public:
     /** @brief 返回当前窗口 Qt 子树拥有的页面宿主观察指针。 */
     [[nodiscard]] ZzPageHost *pageHost() const noexcept;
 
+    /** @brief 返回当前窗口 Qt 子树拥有的 Fluent 标题栏观察指针。 */
+    [[nodiscard]] ZzFluentUI::ZzFluentTitleBar *titleBar()
+        const noexcept;
+
+    /** @brief 返回当前窗口 Qt 子树拥有的 Fluent 导航面板观察指针。 */
+    [[nodiscard]] ZzFluentUI::ZzNavigationPane *navigationPane()
+        const noexcept;
+
     /** @brief 返回当前窗口独占 WindowKit 代理的非拥有观察指针。 */
     [[nodiscard]] ZzWindowKit::ZzWindowAgent *windowAgent()
         const noexcept;
@@ -91,14 +102,16 @@ private:
         const QList<ZzPageRegistration> &registrations,
         const QList<ZzNavigationNode> &nodes,
         const ZzRouteId &initialRoute,
-        ZzFluentUI::ZzThemeController *themeController);
+        ZzFluentUI::ZzThemeController *themeController,
+        const ZzWindowSetupCallback &windowSetupCallback);
 
     /** @brief 按固定顺序装配当前不可见窗口。 */
     [[nodiscard]] ZzCore::ZzResult<void> initialize(
         const QList<ZzPageRegistration> &registrations,
         const QList<ZzNavigationNode> &nodes,
         const ZzRouteId &initialRoute,
-        ZzFluentUI::ZzThemeController *themeController);
+        ZzFluentUI::ZzThemeController *themeController,
+        const ZzWindowSetupCallback &windowSetupCallback);
 
     /** @brief 原子式消费一次由真实 accepted closeEvent 设置的令牌。 */
     [[nodiscard]] bool consumeAcceptedClose() noexcept;

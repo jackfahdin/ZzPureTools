@@ -9,6 +9,7 @@
 #include <ZzPureTools/ZzNavigationNode.h>
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWindowSetupCallback.h>
 
 namespace ZzFluentUI {
 class ZzFluentTitleBar;
@@ -42,7 +43,8 @@ public:
         const QList<ZzPageRegistration> &registrations,
         const QList<ZzNavigationNode> &nodes,
         const ZzRouteId &initialRoute,
-        ZzFluentUI::ZzThemeController *themeController);
+        ZzFluentUI::ZzThemeController *themeController,
+        const ZzWindowSetupCallback &windowSetupCallback);
 
     /** @brief 刷新窗口级可翻译静态文本和导航标题缓存。 */
     void refreshTranslations();

@@ -139,7 +139,7 @@ struct ZzWindowPair final
 {
     return window == nullptr
         ? nullptr
-        : window->findChild<ZzFluentUI::ZzFluentTitleBar *>();
+        : window->titleBar();
 }
 
 /** @brief 查找窗口内唯一导航面板。 */
@@ -148,7 +148,7 @@ struct ZzWindowPair final
 {
     return window == nullptr
         ? nullptr
-        : window->findChild<ZzFluentUI::ZzNavigationPane *>();
+        : window->navigationPane();
 }
 
 } // namespace
@@ -246,6 +246,7 @@ private Q_SLOTS:
             auto *navigationPane = zzNavigationPane(window);
             QVERIFY(titleBar != nullptr);
             QVERIFY(navigationPane != nullptr);
+            QCOMPARE(window->menuWidget(), titleBar);
             QVERIFY(window->isAncestorOf(titleBar));
             QVERIFY(window->isAncestorOf(navigationPane));
             QCOMPARE(navigationPane->model(), window->navigationModel());

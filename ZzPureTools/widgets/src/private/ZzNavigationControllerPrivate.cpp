@@ -155,26 +155,31 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
     if (!oldWasFrameworkError && oldRoute == routeId) {
         return ZzCore::ZzResult<void>::success();
     }
+    const bool oldCanGoBack = !backHistory.isEmpty();
+    const bool oldCanGoForward = !forwardHistory.isEmpty();
 
     transition->stop();
     auto activation = host->activate(registrationIterator->second);
     if (activation) {
         if (!oldWasFrameworkError && oldRoute.isValid()
             && oldRoute != routeId) {
-            appendHistory(oldRoute);
-        } else if (oldWasFrameworkError && !history.isEmpty()
-                   && history.constLast() == routeId) {
-            history.removeLast();
+            appendHistory(backHistory, oldRoute);
+            forwardHistory.clear();
+        } else if (oldWasFrameworkError && !backHistory.isEmpty()
+                   && backHistory.constLast() == routeId) {
+            backHistory.removeLast();
         }
         showingFrameworkError = false;
         restartTransition();
         Q_EMIT q_ptr->currentRouteChanged(routeId);
+        notifyHistoryState(oldCanGoBack, oldCanGoForward);
         return ZzCore::ZzResult<void>::success();
     }
 
     const ZzCore::ZzError &error = activation.error();
     if (!oldWasFrameworkError && oldRoute.isValid()) {
-        appendHistory(oldRoute);
+        appendHistory(backHistory, oldRoute);
+        forwardHistory.clear();
     }
     auto frameworkResult = host->showFrameworkError(routeId);
     if (frameworkResult) {
@@ -187,6 +192,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
             << frameworkResult.error().context();
     }
     reportNavigationFailure(error);
+    notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::failure(error);
 }
 
@@ -196,13 +202,13 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
     if (!valid) {
         return valid;
     }
-    if (history.isEmpty()) {
+    if (backHistory.isEmpty()) {
         return zzNavigationFailure<void>(
             ZzCore::ZzErrorCode::NotFound,
             QStringLiteral("navigation history is empty"));
     }
 
-    const ZzRouteId targetRoute = history.constLast();
+    const ZzRouteId targetRoute = backHistory.constLast();
     const auto registrationIterator = registrations.find(targetRoute.value());
     if (registrationIterator == registrations.end()) {
         return zzNavigationFailure<void>(
@@ -211,6 +217,10 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
             QStringLiteral("routeId=%1").arg(targetRoute.value()));
     }
 
+    const bool oldCanGoBack = !backHistory.isEmpty();
+    const bool oldCanGoForward = !forwardHistory.isEmpty();
+    const ZzRouteId oldRoute = host->currentRoute();
+    const bool oldWasFrameworkError = showingFrameworkError;
     transition->stop();
     auto activation = host->activate(registrationIterator->second);
     if (!activation) {
@@ -218,10 +228,14 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
         return activation;
     }
 
-    history.removeLast();
+    backHistory.removeLast();
+    if (!oldWasFrameworkError && oldRoute.isValid()) {
+        appendHistory(forwardHistory, oldRoute);
+    }
     showingFrameworkError = false;
     restartTransition();
     Q_EMIT q_ptr->currentRouteChanged(targetRoute);
+    notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -232,7 +246,60 @@ bool ZzNavigationControllerPrivate::canGoBack() const noexcept
         && !model.isNull() && !host.isNull()
         && model->thread() == q_ptr->thread()
         && host->thread() == q_ptr->thread()
-        && !history.isEmpty();
+        && !backHistory.isEmpty();
+}
+
+ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goForward()
+{
+    auto valid = validateOperation();
+    if (!valid) {
+        return valid;
+    }
+    if (forwardHistory.isEmpty()) {
+        return zzNavigationFailure<void>(
+            ZzCore::ZzErrorCode::NotFound,
+            QStringLiteral("navigation forward history is empty"));
+    }
+
+    const ZzRouteId targetRoute = forwardHistory.constLast();
+    const auto registrationIterator = registrations.find(targetRoute.value());
+    if (registrationIterator == registrations.end()) {
+        return zzNavigationFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("navigation forward route is not registered"),
+            QStringLiteral("routeId=%1").arg(targetRoute.value()));
+    }
+
+    const bool oldCanGoBack = !backHistory.isEmpty();
+    const bool oldCanGoForward = !forwardHistory.isEmpty();
+    const ZzRouteId oldRoute = host->currentRoute();
+    const bool oldWasFrameworkError = showingFrameworkError;
+    transition->stop();
+    auto activation = host->activate(registrationIterator->second);
+    if (!activation) {
+        reportNavigationFailure(activation.error());
+        return activation;
+    }
+
+    forwardHistory.removeLast();
+    if (!oldWasFrameworkError && oldRoute.isValid()) {
+        appendHistory(backHistory, oldRoute);
+    }
+    showingFrameworkError = false;
+    restartTransition();
+    Q_EMIT q_ptr->currentRouteChanged(targetRoute);
+    notifyHistoryState(oldCanGoBack, oldCanGoForward);
+    return ZzCore::ZzResult<void>::success();
+}
+
+bool ZzNavigationControllerPrivate::canGoForward() const noexcept
+{
+    Q_ASSERT(QThread::currentThread() == q_ptr->thread());
+    return QThread::currentThread() == q_ptr->thread()
+        && !model.isNull() && !host.isNull()
+        && model->thread() == q_ptr->thread()
+        && host->thread() == q_ptr->thread()
+        && !forwardHistory.isEmpty();
 }
 
 ZzRouteId ZzNavigationControllerPrivate::currentRoute() const
@@ -258,10 +325,15 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::setHistoryCapacity(
     }
 
     historyCapacity = capacity;
-    const qsizetype excess = history.size() - historyCapacity;
-    if (excess > 0) {
-        history.remove(0, excess);
+    const bool oldCanGoBack = !backHistory.isEmpty();
+    const bool oldCanGoForward = !forwardHistory.isEmpty();
+    for (auto *history : {&backHistory, &forwardHistory}) {
+        const qsizetype excess = history->size() - historyCapacity;
+        if (excess > 0) {
+            history->remove(0, excess);
+        }
     }
+    notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -288,6 +360,7 @@ ZzNavigationControllerPrivate::validateOperation() const
 }
 
 void ZzNavigationControllerPrivate::appendHistory(
+    QList<ZzRouteId> &history,
     const ZzRouteId &routeId)
 {
     if (historyCapacity == 0 || !routeId.isValid()) {
@@ -297,6 +370,19 @@ void ZzNavigationControllerPrivate::appendHistory(
     const qsizetype excess = history.size() - historyCapacity;
     if (excess > 0) {
         history.remove(0, excess);
+    }
+}
+
+void ZzNavigationControllerPrivate::notifyHistoryState(
+    bool oldCanGoBack,
+    bool oldCanGoForward)
+{
+    const bool newCanGoBack = !backHistory.isEmpty();
+    const bool newCanGoForward = !forwardHistory.isEmpty();
+    if (oldCanGoBack != newCanGoBack
+        || oldCanGoForward != newCanGoForward) {
+        Q_EMIT q_ptr->historyStateChanged(
+            newCanGoBack, newCanGoForward);
     }
 }
 

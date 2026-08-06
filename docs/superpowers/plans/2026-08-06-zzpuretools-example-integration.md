@@ -68,7 +68,7 @@ using ZzWindowSetupCallback = std::function<ZzCore::ZzResult<void>(
 - `canGoForward()`
 - `historyStateChanged(bool canGoBack, bool canGoForward)`
 
-直接成功导航时，旧当前路由进入 back 栈并清空 forward 栈；成功后退时当前路由进入 forward 栈；成功前进时当前路由进入 back 栈。页面创建或切换失败时两个栈和当前路由均不得变化。历史容量同时约束两个方向，每个方向都裁剪最旧项，零值禁用历史。
+直接成功导航时，旧当前路由进入 back 栈并清空 forward 栈；成功后退时当前路由进入 forward 栈；成功前进时当前路由进入 back 栈。前进或后退期间页面创建失败时，两个栈和当前路由均不得变化；直接导航失败继续显示既有框架错误页。历史容量同时约束两个方向，每个方向都裁剪最旧项，零值禁用历史。
 
 ## 3. 应用结构
 

@@ -24,7 +24,8 @@ ZzApplicationWindow::create(
     const QList<ZzPageRegistration> &registrations,
     const QList<ZzNavigationNode> &nodes,
     const ZzRouteId &initialRoute,
-    ZzFluentUI::ZzThemeController *themeController)
+    ZzFluentUI::ZzThemeController *themeController,
+    const ZzWindowSetupCallback &windowSetupCallback)
 {
     auto window = std::unique_ptr<ZzApplicationWindow>(
         new ZzApplicationWindow());
@@ -32,7 +33,8 @@ ZzApplicationWindow::create(
         registrations,
         nodes,
         initialRoute,
-        themeController);
+        themeController,
+        windowSetupCallback);
     if (!initialized) {
         return ZzCore::ZzResult<std::unique_ptr<
             ZzApplicationWindow>>::failure(initialized.error());
@@ -45,13 +47,15 @@ ZzCore::ZzResult<void> ZzApplicationWindow::initialize(
     const QList<ZzPageRegistration> &registrations,
     const QList<ZzNavigationNode> &nodes,
     const ZzRouteId &initialRoute,
-    ZzFluentUI::ZzThemeController *themeController)
+    ZzFluentUI::ZzThemeController *themeController,
+    const ZzWindowSetupCallback &windowSetupCallback)
 {
     return d_ptr->initialize(
         registrations,
         nodes,
         initialRoute,
-        themeController);
+        themeController,
+        windowSetupCallback);
 }
 
 ZzNavigationController *ZzApplicationWindow::navigationController()
@@ -74,6 +78,22 @@ ZzPageHost *ZzApplicationWindow::pageHost() const noexcept
     Q_ASSERT(QThread::currentThread() == thread());
     return QThread::currentThread() == thread()
         ? d_ptr->host : nullptr;
+}
+
+ZzFluentUI::ZzFluentTitleBar *ZzApplicationWindow::titleBar()
+    const noexcept
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    return QThread::currentThread() == thread()
+        ? d_ptr->titleBar : nullptr;
+}
+
+ZzFluentUI::ZzNavigationPane *ZzApplicationWindow::navigationPane()
+    const noexcept
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    return QThread::currentThread() == thread()
+        ? d_ptr->navigationPane : nullptr;
 }
 
 ZzWindowKit::ZzWindowAgent *ZzApplicationWindow::windowAgent()

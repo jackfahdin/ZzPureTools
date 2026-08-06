@@ -59,6 +59,9 @@ set(builder_scenarios
     buildRequiresRegisteredInitialRoute
     moduleStartFailureDoesNotCreateWindow
     successfulBuildCreatesOneWindowWithoutCreatingUnvisitedPages
+    windowSetupCallbackValidatesAndRunsBeforeDisplay
+    windowSetupFailureRollsBackInitialWindow
+    subsequentWindowsReuseWindowSetupCallback
     windowFailureLeavesApplicationUnbuilt
     failedBuildCanRetryWithFreshBuilder
     successfulApplicationRejectsSecondBuilder

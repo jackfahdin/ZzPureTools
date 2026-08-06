@@ -74,6 +74,14 @@ ZzCore::ZzResult<void> ZzApplicationBuilder::addTranslatorResource(
         : zzMovedBuilderFailure<void>();
 }
 
+ZzCore::ZzResult<void> ZzApplicationBuilder::setWindowSetupCallback(
+    ZzWindowSetupCallback callback)
+{
+    return d_ptr
+        ? d_ptr->setWindowSetupCallback(std::move(callback))
+        : zzMovedBuilderFailure<void>();
+}
+
 ZzCore::ZzResult<void> ZzApplicationBuilder::build(
     ZzPureApplication &application)
 {

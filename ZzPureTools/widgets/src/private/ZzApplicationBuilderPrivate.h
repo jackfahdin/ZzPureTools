@@ -12,6 +12,7 @@
 #include <ZzPureTools/ZzNavigationNode.h>
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWindowSetupCallback.h>
 
 namespace ZzPureTools {
 
@@ -41,6 +42,10 @@ public:
     [[nodiscard]] ZzCore::ZzResult<void> addTranslatorResource(
         QString resourcePath);
 
+    /** @brief 设置唯一窗口装配回调。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setWindowSetupCallback(
+        ZzWindowSetupCallback callback);
+
     /** @brief 冻结并以 staging/commit 构建应用。 */
     [[nodiscard]] ZzCore::ZzResult<void> build(
         ZzPureApplication &application);
@@ -53,8 +58,10 @@ private:
     QList<ZzPageRegistration> pages_;
     QList<ZzNavigationNode> nodes_;
     QStringList translatorResources_;
+    ZzWindowSetupCallback windowSetupCallback_;
     ZzRouteId initialRoute_;
     bool initialRouteSet_ = false;
+    bool windowSetupCallbackSet_ = false;
     bool frozen_ = false;
 };
 

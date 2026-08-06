@@ -364,6 +364,87 @@ private Q_SLOTS:
         QVERIFY(second.canGoBack());
     }
 
+    void backAndForwardMaintainIndependentBoundedStacks()
+    {
+        ZzPureTools::ZzNavigationModel model;
+        ZzPureTools::ZzPageHost host;
+        ZzPureTools::ZzNavigationController controller(&model, &host);
+        QVERIFY(controller.setRegistrations({
+            zzRegistration(QStringLiteral("A")),
+            zzRegistration(QStringLiteral("B")),
+            zzRegistration(QStringLiteral("C"))}));
+        QSignalSpy historySpy(
+            &controller,
+            &ZzPureTools::ZzNavigationController::historyStateChanged);
+
+        QVERIFY(controller.navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("A"))));
+        QVERIFY(controller.navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("B"))));
+        QVERIFY(controller.navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("C"))));
+        QVERIFY(controller.canGoBack());
+        QVERIFY(!controller.canGoForward());
+
+        QVERIFY(controller.goBack());
+        QCOMPARE(
+            controller.currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("B")));
+        QVERIFY(controller.canGoBack());
+        QVERIFY(controller.canGoForward());
+        QVERIFY(controller.goBack());
+        QCOMPARE(
+            controller.currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("A")));
+        QVERIFY(!controller.canGoBack());
+        QVERIFY(controller.canGoForward());
+
+        QVERIFY(controller.goForward());
+        QCOMPARE(
+            controller.currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("B")));
+        QVERIFY(controller.canGoBack());
+        QVERIFY(controller.canGoForward());
+
+        QVERIFY(controller.navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("C"))));
+        QVERIFY(controller.canGoBack());
+        QVERIFY(!controller.canGoForward());
+        QVERIFY(historySpy.size() >= 4);
+    }
+
+    void failedForwardKeepsCurrentRouteAndHistory()
+    {
+        ZzPageFactoryState firstState;
+        ZzPageFactoryState secondState;
+        ZzPureTools::ZzNavigationModel model;
+        ZzPureTools::ZzPageHost host;
+        ZzPureTools::ZzNavigationController controller(&model, &host);
+        QVERIFY(controller.setRegistrations({
+            zzRegistration(QStringLiteral("A"), &firstState),
+            zzRegistration(QStringLiteral("B"), &secondState)}));
+        QVERIFY(controller.navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("A"))));
+        QVERIFY(controller.navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("B"))));
+        QVERIFY(controller.goBack());
+        secondState.fail = true;
+
+        auto failedForward = controller.goForward();
+
+        QVERIFY(!failedForward);
+        QCOMPARE(
+            controller.currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("A")));
+        QVERIFY(controller.canGoForward());
+        secondState.fail = false;
+        QVERIFY(controller.goForward());
+        QCOMPARE(
+            controller.currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("B")));
+        QVERIFY(!controller.canGoForward());
+    }
+
     void historyIsCappedAtOneHundredEntries()
     {
         constexpr int routeCount = 105;
@@ -563,9 +644,14 @@ private Q_SLOTS:
             ZzPureTools::ZzRouteId(QStringLiteral("B"))));
 
         QVERIFY(!controller.canGoBack());
+        QVERIFY(!controller.canGoForward());
         auto result = controller.goBack();
         QVERIFY(!result);
         QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::NotFound);
+        auto forwardResult = controller.goForward();
+        QVERIFY(!forwardResult);
+        QCOMPARE(
+            forwardResult.error().code(), ZzCore::ZzErrorCode::NotFound);
     }
 };
 

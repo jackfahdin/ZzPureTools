@@ -70,6 +70,15 @@ public:
     /** @brief 查询当前窗口是否存在可回退历史。 */
     [[nodiscard]] bool canGoBack() const noexcept;
 
+    /**
+     * @brief 激活最近一次被回退的页面，成功后才更新双向历史。
+     * @return 前进成功，或无前进历史、注册状态及页面创建错误。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> goForward();
+
+    /** @brief 查询当前窗口是否存在可前进历史。 */
+    [[nodiscard]] bool canGoForward() const noexcept;
+
     /** @brief 返回页面宿主当前正常页或框架错误页路由。 */
     [[nodiscard]] ZzRouteId currentRoute() const;
 
@@ -87,6 +96,13 @@ Q_SIGNALS:
 
     /** @brief 页面导航失败并携带不面向最终用户的技术错误。 */
     void navigationFailed(const ZzCore::ZzError &error);
+
+    /**
+     * @brief back 或 forward 的可用状态实际变化后发出。
+     * @param canGoBack 当前是否允许回退。
+     * @param canGoForward 当前是否允许前进。
+     */
+    void historyStateChanged(bool canGoBack, bool canGoForward);
 
 private:
     friend class ZzNavigationControllerPrivate;

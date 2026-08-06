@@ -12,6 +12,7 @@
 #include <ZzPureTools/ZzNavigationNode.h>
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWindowSetupCallback.h>
 
 class QTranslator;
 
@@ -51,6 +52,7 @@ public:
         QList<ZzPageRegistration> stagedRegistrations,
         QList<ZzNavigationNode> stagedNodes,
         ZzRouteId stagedInitialRoute,
+        ZzWindowSetupCallback stagedWindowSetupCallback,
         std::vector<std::unique_ptr<QTranslator>> stagedTranslators,
         std::vector<std::unique_ptr<ZzApplicationWindow>> stagedWindows)
         noexcept;
@@ -67,6 +69,7 @@ public:
     QList<ZzPageRegistration> registrations;
     QList<ZzNavigationNode> navigationNodes;
     ZzRouteId initialRoute;
+    ZzWindowSetupCallback windowSetupCallback;
     std::vector<std::unique_ptr<QTranslator>> translators;
     std::vector<std::unique_ptr<ZzApplicationWindow>> windows;
     QMetaObject::Connection aboutToQuitConnection;

@@ -40,6 +40,16 @@ bool ZzNavigationController::canGoBack() const noexcept
     return d_ptr->canGoBack();
 }
 
+ZzCore::ZzResult<void> ZzNavigationController::goForward()
+{
+    return d_ptr->goForward();
+}
+
+bool ZzNavigationController::canGoForward() const noexcept
+{
+    return d_ptr->canGoForward();
+}
+
 ZzRouteId ZzNavigationController::currentRoute() const
 {
     return d_ptr->currentRoute();

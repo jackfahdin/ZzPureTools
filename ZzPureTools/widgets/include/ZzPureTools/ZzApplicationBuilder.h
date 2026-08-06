@@ -11,6 +11,7 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureToolsExport.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWindowSetupCallback.h>
 
 namespace ZzPureTools {
 
@@ -64,6 +65,14 @@ public:
     /** @brief 增加一个构建期加载、应用关闭时卸载的 translator 资源。 */
     [[nodiscard]] ZzCore::ZzResult<void> addTranslatorResource(
         QString resourcePath);
+
+    /**
+     * @brief 设置对首窗和后续窗口统一生效的唯一应用壳层装配回调。
+     * @param callback 非空、可复制的 GUI 线程回调。
+     * @return 设置成功，或回调为空、重复设置及 Builder 状态错误。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> setWindowSetupCallback(
+        ZzWindowSetupCallback callback);
 
     /**
      * @brief 以两阶段 staging/commit 构建模块、翻译和首窗。

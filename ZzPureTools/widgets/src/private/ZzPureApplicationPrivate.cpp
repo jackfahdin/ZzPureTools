@@ -73,7 +73,11 @@ ZzPureApplicationPrivate::createWindow()
     }
 
     auto windowResult = ZzApplicationWindow::create(
-        registrations, navigationNodes, initialRoute, theme.get());
+        registrations,
+        navigationNodes,
+        initialRoute,
+        theme.get(),
+        windowSetupCallback);
     if (!windowResult) {
         return ZzCore::ZzResult<ZzApplicationWindow *>::failure(
             windowResult.error());
@@ -152,6 +156,7 @@ void ZzPureApplicationPrivate::commitBuild(
     QList<ZzPageRegistration> stagedRegistrations,
     QList<ZzNavigationNode> stagedNodes,
     ZzRouteId stagedInitialRoute,
+    ZzWindowSetupCallback stagedWindowSetupCallback,
     std::vector<std::unique_ptr<QTranslator>> stagedTranslators,
     std::vector<std::unique_ptr<ZzApplicationWindow>> stagedWindows)
     noexcept
@@ -160,6 +165,7 @@ void ZzPureApplicationPrivate::commitBuild(
     registrations.swap(stagedRegistrations);
     navigationNodes.swap(stagedNodes);
     initialRoute = std::move(stagedInitialRoute);
+    windowSetupCallback = std::move(stagedWindowSetupCallback);
     translators.swap(stagedTranslators);
     windows.swap(stagedWindows);
     built = true;
@@ -197,6 +203,7 @@ void ZzPureApplicationPrivate::beginShutdown() noexcept
     registrations.clear();
     navigationNodes.clear();
     initialRoute = {};
+    windowSetupCallback = {};
     built = false;
 }
 

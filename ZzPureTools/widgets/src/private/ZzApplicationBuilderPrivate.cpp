@@ -153,6 +153,30 @@ ZzApplicationBuilderPrivate::addTranslatorResource(QString resourcePath)
     return ZzCore::ZzResult<void>::success();
 }
 
+ZzCore::ZzResult<void>
+ZzApplicationBuilderPrivate::setWindowSetupCallback(
+    ZzWindowSetupCallback callback)
+{
+    if (frozen_) {
+        return zzBuilderFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("application builder is frozen"));
+    }
+    if (windowSetupCallbackSet_) {
+        return zzBuilderFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("window setup callback can only be set once"));
+    }
+    if (!callback) {
+        return zzBuilderFailure<void>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("window setup callback must not be empty"));
+    }
+    windowSetupCallback_ = std::move(callback);
+    windowSetupCallbackSet_ = true;
+    return ZzCore::ZzResult<void>::success();
+}
+
 ZzCore::ZzResult<void> ZzApplicationBuilderPrivate::build(
     ZzPureApplication &application)
 {
@@ -367,7 +391,11 @@ ZzCore::ZzResult<void> ZzApplicationBuilderPrivate::build(
         runtimeStarted = true;
 
         auto windowResult = ZzApplicationWindow::create(
-            pages_, nodes_, initialRoute_, application.d_ptr->theme.get());
+            pages_,
+            nodes_,
+            initialRoute_,
+            application.d_ptr->theme.get(),
+            windowSetupCallback_);
         if (!windowResult) {
             rollback();
             return ZzCore::ZzResult<void>::failure(windowResult.error());
@@ -392,6 +420,7 @@ ZzCore::ZzResult<void> ZzApplicationBuilderPrivate::build(
             std::move(pages_),
             std::move(nodes_),
             std::move(initialRoute_),
+            std::move(windowSetupCallback_),
             std::move(stagedTranslators),
             std::move(stagedWindows));
         runtimeStarted = false;

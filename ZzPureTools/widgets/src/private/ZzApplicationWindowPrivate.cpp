@@ -1,5 +1,6 @@
 #include "ZzApplicationWindowPrivate.h"
 
+#include <exception>
 #include <utility>
 
 #include <QtCore/QCoreApplication>
@@ -7,7 +8,6 @@
 #include <QtCore/QModelIndex>
 #include <QtCore/QThread>
 #include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
@@ -69,7 +69,8 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     const QList<ZzPageRegistration> &registrations,
     const QList<ZzNavigationNode> &nodes,
     const ZzRouteId &initialRoute,
-    ZzFluentUI::ZzThemeController *themeController)
+    ZzFluentUI::ZzThemeController *themeController,
+    const ZzWindowSetupCallback &windowSetupCallback)
 {
     if (initialized) {
         return zzWindowFailure(
@@ -94,13 +95,9 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     }
 
     theme = themeController;
-    auto *central = new QWidget(q_ptr);
-    auto *rootLayout = new QVBoxLayout(central);
-    rootLayout->setContentsMargins(0, 0, 0, 0);
-    rootLayout->setSpacing(0);
-
-    titleBar = new ZzFluentUI::ZzFluentTitleBar(central);
-    auto *body = new QWidget(central);
+    titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
+    q_ptr->setMenuWidget(titleBar);
+    auto *body = new QWidget(q_ptr);
     auto *bodyLayout = new QHBoxLayout(body);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     bodyLayout->setSpacing(0);
@@ -108,9 +105,7 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     host = new ZzPageHost(body);
     bodyLayout->addWidget(navigationPane);
     bodyLayout->addWidget(host, 1);
-    rootLayout->addWidget(titleBar);
-    rootLayout->addWidget(body, 1);
-    q_ptr->setCentralWidget(central);
+    q_ptr->setCentralWidget(body);
     q_ptr->resize(1100, 720);
 
     model = std::make_unique<ZzNavigationModel>();
@@ -154,6 +149,24 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
         &QAbstractItemModel::modelReset,
         q_ptr,
         [this] { syncNavigationSelection(); });
+
+    if (windowSetupCallback) {
+        try {
+            auto setupResult = windowSetupCallback(*q_ptr);
+            if (!setupResult) {
+                return setupResult;
+            }
+        } catch (const std::exception &exception) {
+            return zzWindowFailure(
+                ZzCore::ZzErrorCode::Unknown,
+                QStringLiteral("window setup callback threw an exception: %1")
+                    .arg(QString::fromLocal8Bit(exception.what())));
+        } catch (...) {
+            return zzWindowFailure(
+                ZzCore::ZzErrorCode::Unknown,
+                QStringLiteral("window setup callback threw an unknown exception"));
+        }
+    }
 
     agent = std::make_unique<ZzWindowKit::ZzWindowAgent>();
     auto attachResult = agent->attach(q_ptr);

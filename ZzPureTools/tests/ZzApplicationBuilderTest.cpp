@@ -4,21 +4,26 @@
 #include <QtCore/QMetaObject>
 #include <QtCore/QStringList>
 #include <QtTest/QTest>
+#include <QtWidgets/QToolBar>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
 #include <ZzPureTools/ZzApplicationBuilder.h>
+#include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzApplicationModule.h>
 #include <ZzPureTools/ZzModuleDescriptor.h>
 #include <ZzPureTools/ZzModuleId.h>
 #include <ZzPureTools/ZzNavigationNode.h>
+#include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzPageInstance.h>
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureApplication.h>
@@ -167,6 +172,24 @@ void zzConfigureSinglePage(
     QVERIFY(builder.addNavigationNode(zzNode(QStringLiteral("home"))));
     QVERIFY(builder.setInitialRoute(
         ZzPureTools::ZzRouteId(QStringLiteral("home"))));
+}
+
+/** @brief 返回应用当前唯一的 ZzApplicationWindow，数量不唯一时返回空。 */
+[[nodiscard]] ZzPureTools::ZzApplicationWindow *zzOnlyWindow(
+    ZzPureTools::ZzPureApplication &application)
+{
+    ZzPureTools::ZzApplicationWindow *result = nullptr;
+    for (QWidget *widget : application.topLevelWidgets()) {
+        auto *window = qobject_cast<ZzPureTools::ZzApplicationWindow *>(widget);
+        if (window == nullptr) {
+            continue;
+        }
+        if (result != nullptr) {
+            return nullptr;
+        }
+        result = window;
+    }
+    return result;
 }
 
 } // namespace
@@ -373,6 +396,112 @@ private Q_SLOTS:
         QCOMPARE(application.windowCount(), 1);
         QCOMPARE(homeCalls, 1);
         QCOMPARE(detailsCalls, 0);
+        application.beginShutdown();
+    }
+
+    void windowSetupCallbackValidatesAndRunsBeforeDisplay()
+    {
+        auto &application = zzApplication();
+        ZzPureTools::ZzApplicationBuilder builder;
+        zzConfigureSinglePage(builder);
+        QVERIFY(!builder.setWindowSetupCallback({}));
+
+        int setupCalls = 0;
+        QVERIFY(builder.setWindowSetupCallback(
+            [&setupCalls](ZzPureTools::ZzApplicationWindow &window) {
+                ++setupCalls;
+                if (window.isVisible()
+                    || window.titleBar() == nullptr
+                    || window.navigationPane() == nullptr
+                    || window.navigationController() == nullptr
+                    || window.navigationController()->currentRoute().isValid()
+                    || window.windowAgent() != nullptr) {
+                    return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+                        ZzCore::ZzErrorCode::InvalidState,
+                        QStringLiteral("window setup order is invalid")));
+                }
+                auto *toolbar = new QToolBar(&window);
+                toolbar->setObjectName(QStringLiteral("zzSetupToolbar"));
+                window.addToolBar(toolbar);
+                return ZzCore::ZzResult<void>::success();
+            }));
+        QVERIFY(!builder.setWindowSetupCallback(
+            [](ZzPureTools::ZzApplicationWindow &) {
+                return ZzCore::ZzResult<void>::success();
+            }));
+
+        QVERIFY(builder.build(application));
+        QCOMPARE(setupCalls, 1);
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        QVERIFY(window->isVisible());
+        QCOMPARE(window->menuWidget(), window->titleBar());
+        QVERIFY(window->findChild<QToolBar *>(
+                    QStringLiteral("zzSetupToolbar"))
+                != nullptr);
+        QVERIFY(!builder.setWindowSetupCallback(
+            [](ZzPureTools::ZzApplicationWindow &) {
+                return ZzCore::ZzResult<void>::success();
+            }));
+        application.beginShutdown();
+    }
+
+    void windowSetupFailureRollsBackInitialWindow()
+    {
+        auto &application = zzApplication();
+        QStringList events;
+        int factoryCalls = 0;
+        ZzPureTools::ZzApplicationBuilder builder;
+        QVERIFY(builder.addModule(std::make_unique<ZzBuilderTestModule>(
+            QStringLiteral("module"), &events)));
+        zzConfigureSinglePage(builder, &factoryCalls);
+        QVERIFY(builder.setWindowSetupCallback(
+            [](ZzPureTools::ZzApplicationWindow &) {
+                return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+                    ZzCore::ZzErrorCode::Backend,
+                    QStringLiteral("test window setup failed")));
+            }));
+
+        auto result = builder.build(application);
+
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::Backend);
+        QCOMPARE(factoryCalls, 0);
+        QCOMPARE(application.windowCount(), 0);
+        QCOMPARE(
+            events,
+            QStringList({
+                QStringLiteral("start"),
+                QStringLiteral("request"),
+                QStringLiteral("stop")}));
+        application.beginShutdown();
+    }
+
+    void subsequentWindowsReuseWindowSetupCallback()
+    {
+        auto &application = zzApplication();
+        int setupCalls = 0;
+        ZzPureTools::ZzApplicationBuilder builder;
+        zzConfigureSinglePage(builder);
+        QVERIFY(builder.setWindowSetupCallback(
+            [&setupCalls](ZzPureTools::ZzApplicationWindow &window) {
+                if (window.isVisible()) {
+                    return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+                        ZzCore::ZzErrorCode::InvalidState,
+                        QStringLiteral("window was visible during setup")));
+                }
+                ++setupCalls;
+                return ZzCore::ZzResult<void>::success();
+            }));
+        QVERIFY(builder.build(application));
+        QCOMPARE(setupCalls, 1);
+
+        auto secondWindow = application.createWindow();
+
+        QVERIFY(secondWindow);
+        QCOMPARE(setupCalls, 2);
+        QCOMPARE(application.windowCount(), 2);
+        QVERIFY(secondWindow.value()->isVisible());
         application.beginShutdown();
     }
 

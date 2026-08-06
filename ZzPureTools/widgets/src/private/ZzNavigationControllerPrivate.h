@@ -47,6 +47,12 @@ public:
     /** @brief 查询当前窗口是否可以回退。 */
     [[nodiscard]] bool canGoBack() const noexcept;
 
+    /** @brief 成功激活前进目标后更新双向历史。 */
+    [[nodiscard]] ZzCore::ZzResult<void> goForward();
+
+    /** @brief 查询当前窗口是否可以前进。 */
+    [[nodiscard]] bool canGoForward() const noexcept;
+
     /** @brief 返回页面宿主当前路由。 */
     [[nodiscard]] ZzRouteId currentRoute() const;
 
@@ -58,8 +64,11 @@ private:
     /** @brief 验证对象、观察值和调用线程仍有效。 */
     [[nodiscard]] ZzCore::ZzResult<void> validateOperation() const;
 
-    /** @brief 向历史尾部追加路由并裁剪最旧项。 */
-    void appendHistory(const ZzRouteId &routeId);
+    /** @brief 向指定历史尾部追加路由并裁剪最旧项。 */
+    void appendHistory(QList<ZzRouteId> &history, const ZzRouteId &routeId);
+
+    /** @brief 仅在 back/forward 可用状态变化时通知观察者。 */
+    void notifyHistoryState(bool oldCanGoBack, bool oldCanGoForward);
 
     /** @brief 停止并复用唯一页面过渡动画组。 */
     void restartTransition();
@@ -71,7 +80,8 @@ private:
     QPointer<ZzNavigationModel> model;
     QPointer<ZzPageHost> host;
     std::map<QString, ZzPageRegistration> registrations;
-    QList<ZzRouteId> history;
+    QList<ZzRouteId> backHistory;
+    QList<ZzRouteId> forwardHistory;
     qsizetype historyCapacity = 100;
     QParallelAnimationGroup *transition;
     QVariantAnimation *transitionProgress;
