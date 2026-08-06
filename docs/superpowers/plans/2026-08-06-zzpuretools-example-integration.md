@@ -152,3 +152,61 @@ using ZzWindowSetupCallback = std::function<ZzCore::ZzResult<void>(
 - 启动、空闲、页面切换、主题切换和大模型滚动继续满足现有性能门禁。
 
 Linux 物理桌面最终验收以 `ZzPureToolsExample` 为主入口，检查窗口拖动、系统按钮、主题、搜索、双向导航、Dock、多窗口、DPI、平台能力与关闭流程。
+
+## 7. 2026-08-06 实施记录
+
+### 7.1 已完成代码范围
+
+- `ZzPureToolsExample` 已作为独立 CMake 目标接入，十二条正式路由均由页面
+  factory 构造，Persistent 与 Recreatable 生命周期按第 4 节执行。
+- Composition root、共享 `ZzExampleApplicationContext`、应用模块、窗口壳层、
+  View/ViewModel/Presenter 边界和英文翻译已经落地；英文资源共 241 条 finished
+  词条，运行时只在英文系统 locale 装载。
+- 每窗口独占导航控制器、WindowAgent、Shell、Dock 和关闭守卫；活动模型、主题、
+  设置及任务服务按应用上下文共享。
+- 自动 smoke 已覆盖十二路由、英文装载、双窗口隔离，以及关闭取消、转换为最小化、
+  确认关闭三条真实模态路径。活动模型另有容量、角色、信号和幂等清理单元测试。
+
+### 7.2 视觉基线契约
+
+综合示例新增 `screenshot` smoke 场景，CTest 以独立进程固定以下条件：
+
+- Qt offscreen、LTR、C locale、DejaVu Sans 10pt、1280x800 逻辑窗口。
+- Light、Dark、HighContrast 三种显式主题，主题切换时禁用动画。
+- `QT_SCALE_FACTOR` 分别为 1.0、1.25、1.5、2.0，并验证主屏实际 DPR。
+- 每档生成三张 PNG，共十二张，保存于
+  `examples/ZzPureToolsExample/tests/baselines/linux/dpr-*`。
+
+比较器对可见 QLabel、按钮、编辑器、组合框、item view、tab、进度条、group box
+和文本编辑器建立文字像素遮罩。遮罩必须非空且不得覆盖一半以上画布；尺寸、非空
+画面、主题颜色、布局、边框和图标仍参加逐通道比较。Qt 6.11 参考环境允许最多
+0.5% 非文字像素差异，其他 Qt minor 只允许 2% 兼容差异。失败证据写入现有
+`reports/fluent-screenshots/example-puretools` 工件树。
+
+更新参考图必须显式设置 `ZZ_UPDATE_EXAMPLE_SCREENSHOTS=1`，并且只能在已审 Linux
+参考发布机、Qt 6.11、上述字体和四档 DPR 环境执行。普通构建不得修改基线。
+
+### 7.3 本批验证证据
+
+- Linux static GCC 严格警告构建通过。
+- Linux Clang shared 构建通过。
+- ASan+UBSan 下四档综合截图测试 `4/4` 通过。
+- 完整 `ZzClangTidy` 分析 182 个项目源文件通过。
+- Linux static 完整 CTest `115/115` 通过，包括安装消费、包重定位、公开头、
+  架构边界、二进制依赖、组件截图与十五项示例测试。
+- 四档综合截图关闭更新模式后连续运行两轮均通过；人工检查 100% 三主题和
+  200% Light，未发现空白、裁切、重叠或主题串色。
+- 视觉检查发现并修复标题栏子按钮调色板传播滞后导致的深色图标低对比问题，
+  回归测试保证系统图标从标题栏当前调色板取色。
+
+### 7.4 尚未完成且不得误报的范围
+
+- 首页与卡片页的原创轻量位图及逐文件资源 provenance 尚未加入。当前会话没有
+  已授权的原创位图生成来源，因此不得从旧版或网络素材替代。
+- Linux X11 KDE、X11 GNOME、Wayland KDE、Wayland GNOME 和强制 Qt fallback
+  五种物理桌面会话仍需按 `MANUAL_LINUX_CHECKLIST_ZH.md` 人工签署；offscreen
+  截图不能代替窗口拖动、resize、系统菜单、多显示器和辅助技术验收。
+- Windows MSVC、Windows Qt MinGW 与 macOS 的原生构建和真机交互结果仍待外部
+  环境验证；本机只能保留跨平台源码与 CMake 静态约束。
+- 综合示例的启动、空闲、页面切换、主题切换和大模型场景尚需与既有性能 reporter
+  对齐后补充独立测量；现有组件性能基线不能直接冒充综合应用结果。

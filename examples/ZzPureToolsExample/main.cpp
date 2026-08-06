@@ -9,6 +9,8 @@
 #include <QtCore/QStandardPaths>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
+#include <QtGui/QFont>
+#include <QtWidgets/QApplication>
 
 #include <ZzCore/ZzError.h>
 
@@ -69,6 +71,14 @@ int main(int argc, char *argv[])
     const bool smokeMode = timeoutValid && timeout > 0;
     if (smokeMode) {
         QStandardPaths::setTestModeEnabled(true);
+    }
+    const bool screenshotMode = qEnvironmentVariable(
+        "ZZ_PURETOOLS_EXAMPLE_SMOKE_SCENARIO")
+                                    == QStringLiteral("screenshot");
+    if (screenshotMode) {
+        QLocale::setDefault(QLocale::c());
+        QApplication::setLayoutDirection(Qt::LeftToRight);
+        QApplication::setFont(QFont(QStringLiteral("DejaVu Sans"), 10));
     }
 
     auto contextResult =

@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <QtCore/QString>
+
 class QAbstractButton;
 class QMessageBox;
 
@@ -24,6 +26,7 @@ enum class ZzExampleSmokeScenario
     CloseCancel,
     CloseMinimize,
     CloseConfirm,
+    Screenshot,
     Invalid
 };
 
@@ -58,11 +61,15 @@ private:
     void scheduleCloseGuardSmoke(
         ZzPureTools::ZzApplicationWindow &window);
 
+    /** @brief 固定字体、窗口和主题后生成或比较综合示例截图。 */
+    void scheduleScreenshotSmoke(
+        ZzPureTools::ZzApplicationWindow &window);
+
     /** @brief 在活动模态对话框中点击当前场景对应角色按钮。 */
     void chooseCloseDialogButton();
 
-    /** @brief 输出稳定技术原因并以失败状态结束应用事件循环。 */
-    void fail(const char *reason) const;
+    /** @brief 输出稳定技术原因与可选上下文并以失败状态结束事件循环。 */
+    void fail(const char *reason, const QString &details = {}) const;
 
     ZzPureTools::ZzPureApplication *application = nullptr;
     std::shared_ptr<ZzExampleApplicationContext> context;

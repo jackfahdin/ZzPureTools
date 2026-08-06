@@ -52,7 +52,8 @@ cmake --install build/linux-gcc-debug --prefix install/linux-gcc-debug
 ```bash
 cmake --preset linux-gcc-debug -DZZ_BUILD_EXAMPLES=ON
 cmake --build --preset linux-gcc-debug \
-  --target ZzWindowKitDemo ZzFluentControlsGallery ZzPureToolsDemo
+  --target ZzWindowKitDemo ZzFluentControlsGallery \
+  ZzPureToolsDemo ZzPureToolsExample
 ```
 
 完整 Linux、Windows、MinGW 和 macOS 命令、环境变量及发布配置见
@@ -66,15 +67,19 @@ cmake --build --preset linux-gcc-debug \
 - `ZzFluentFoundationDemo`：主题快照与基础令牌。
 - `ZzFluentControlsGallery`：浅色、深色、高对比度和基础控件交互。
 - `ZzPureToolsDemo`：模块、页面注册、导航和多窗口应用流程。
+- `ZzPureToolsExample`：十二个集成页面、窗口壳层、双向导航、主题、Dock、
+  多窗口和关闭守卫的完整桌面应用入口。
 
-示例只演示组件契约，不承载业务逻辑。应用装配代码可从
-[`examples/ZzPureToolsDemo/main.cpp`](examples/ZzPureToolsDemo/main.cpp)开始阅读。
+示例只演示组件契约，不承载业务逻辑。基础装配可从
+[`examples/ZzPureToolsDemo/main.cpp`](examples/ZzPureToolsDemo/main.cpp)开始阅读；
+完整集成入口位于
+[`examples/ZzPureToolsExample/main.cpp`](examples/ZzPureToolsExample/main.cpp)。
 
 ## 质量与平台状态
 
 常规 CTest 覆盖单元测试、公共头独立编译、架构边界、安装消费、包重定位、
 二进制依赖和发布合规契约。本机 Linux runner 还覆盖 GCC/Clang、
-shared/static、LTO、clang-tidy、ASan+UBSan、四示例冒烟和七项性能回归；
+shared/static、LTO、clang-tidy、ASan+UBSan、五示例冒烟和七项性能回归；
 Windows 与 macOS runner 会在 shared/static 组合中编译全部示例。
 
 `.github/workflows/ci.yml` 已定义 Ubuntu、Windows MSVC、Windows Qt MinGW、
