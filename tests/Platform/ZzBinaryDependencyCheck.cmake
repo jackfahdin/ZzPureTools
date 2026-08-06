@@ -71,7 +71,10 @@ endif()
 
 function(zz_run_tool output label)
     execute_process(
-        COMMAND ${ARGN}
+        COMMAND "${CMAKE_COMMAND}" -E env
+            "LC_ALL=C"
+            "LANG=C"
+            ${ARGN}
         RESULT_VARIABLE result
         OUTPUT_VARIABLE stdout
         ERROR_VARIABLE stderr)
