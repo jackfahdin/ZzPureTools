@@ -198,7 +198,7 @@ foreach(required_token IN ITEMS
     "Zz::PureTools"
     "cmake --preset linux-gcc-debug"
     "ctest --preset linux-gcc-debug"
-    "GitHub 托管 CI 尚待首次真实运行"
+    "尚无同一提交完整成功的矩阵"
     "MIT License"
     "Jackfahdin")
     string(FIND "${readme_content}" "${required_token}" token_position)

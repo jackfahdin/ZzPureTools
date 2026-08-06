@@ -5,8 +5,9 @@ ZzPureToolsPro 是面向 Qt 6.8+ 与 C++20 的高性能跨平台 Qt Widgets
 基础能力完成后的开发阶段。
 
 目标平台为 Linux、Windows 和 macOS。Linux 是当前主要实现与自动验证平台；
-GitHub 托管 CI 尚待首次真实运行，Windows、macOS 以及 Linux 桌面会话的真机
-交互状态以[平台支持与验收状态](docs/development/PLATFORM_SUPPORT_ZH.md)为准。
+GitHub 托管 CI 已产生三个平台的真实诊断结果，但尚无同一提交完整成功的矩阵。
+Windows、macOS 以及 Linux 桌面会话的真机交互状态以
+[平台支持与验收状态](docs/development/PLATFORM_SUPPORT_ZH.md)为准。
 
 ## 组件
 
