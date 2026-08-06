@@ -16,6 +16,7 @@
 
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzNavigationController.h>
+#include <ZzPureTools/ZzPureApplication.h>
 
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleCardsPage.h"
@@ -26,6 +27,10 @@
 #include "ZzExampleGalleryPage.h"
 #include "ZzExampleNavigationPresenter.h"
 #include "ZzExampleShowcasePage.h"
+#include "ZzExampleSystemPage.h"
+#include "ZzExampleSystemPresenter.h"
+#include "ZzExampleSystemViewModel.h"
+#include "ZzExampleWindowShell.h"
 
 namespace ZzExample {
 
@@ -72,6 +77,22 @@ zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
     }
     if (routeId.value() == QStringLiteral("icons")) {
         return ZzExampleShowcasePage::ZzPageKind::Icons;
+    }
+    return std::nullopt;
+}
+
+/** @brief 为平台、设置和关于路由解析系统页面类型。 */
+[[nodiscard]] std::optional<ZzExampleSystemPageKind>
+zzSystemPageKind(const ZzPureTools::ZzRouteId &routeId)
+{
+    if (routeId.value() == QStringLiteral("platform")) {
+        return ZzExampleSystemPageKind::Platform;
+    }
+    if (routeId.value() == QStringLiteral("settings")) {
+        return ZzExampleSystemPageKind::Settings;
+    }
+    if (routeId.value() == QStringLiteral("about")) {
+        return ZzExampleSystemPageKind::About;
     }
     return std::nullopt;
 }
@@ -191,6 +212,47 @@ zzCreateShowcasePage(
         std::move(presenter));
 }
 
+/** @brief 创建系统 View、快照 ViewModel 和服务协调 Presenter。 */
+[[nodiscard]] ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
+zzCreateSystemPage(
+    ZzExampleSystemPageKind kind,
+    const QString &title,
+    const std::shared_ptr<ZzExampleApplicationContext> &context,
+    ZzPureTools::ZzPureApplication &application,
+    QWidget *pageParent)
+{
+    auto *window = qobject_cast<ZzPureTools::ZzApplicationWindow *>(
+        pageParent->window());
+    auto *shell = window == nullptr
+        ? nullptr
+        : ZzExampleWindowShell::attachedTo(*window);
+    if (window == nullptr || shell == nullptr
+        || application.themeController() == nullptr) {
+        return ZzCore::ZzResult<std::unique_ptr<
+            ZzPureTools::ZzPageInstance>>::failure(ZzCore::ZzError(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral(
+                "system page requires application window, shell and theme")));
+    }
+    auto viewModel = std::make_unique<ZzExampleSystemViewModel>();
+    auto view = std::make_unique<ZzExampleSystemPage>(
+        kind, title, viewModel.get(), pageParent);
+    auto presenter = std::make_unique<ZzExampleSystemPresenter>(
+        kind,
+        view.get(),
+        viewModel.get(),
+        context,
+        &application,
+        window,
+        shell);
+    QWidget *const viewObserver = view.release();
+    return ZzPureTools::ZzPageInstance::create(
+        pageParent,
+        viewObserver,
+        std::move(viewModel),
+        std::move(presenter));
+}
+
 } // namespace
 
 ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
@@ -198,6 +260,7 @@ ZzExamplePageFactory::createPage(
     const ZzPureTools::ZzRouteId &routeId,
     QString title,
     const std::shared_ptr<ZzExampleApplicationContext> &context,
+    ZzPureTools::ZzPureApplication &application,
     QWidget *pageParent)
 {
     if (!routeId.isValid() || title.trimmed().isEmpty()
@@ -220,6 +283,10 @@ ZzExamplePageFactory::createPage(
     }
     if (const auto kind = zzShowcasePageKind(routeId); kind.has_value()) {
         return zzCreateShowcasePage(*kind, title, pageParent);
+    }
+    if (const auto kind = zzSystemPageKind(routeId); kind.has_value()) {
+        return zzCreateSystemPage(
+            *kind, title, context, application, pageParent);
     }
 
     const QString platform = context->platformName();

@@ -46,6 +46,24 @@ ZzCore::ZzResult<void> ZzExampleWindowShell::attach(
     }
 }
 
+ZzExampleWindowShell *ZzExampleWindowShell::attachedTo(
+    ZzPureTools::ZzApplicationWindow &window) noexcept
+{
+    return window.findChild<ZzExampleWindowShell *>(
+        QStringLiteral("zzExampleWindowShell"),
+        Qt::FindDirectChildrenOnly);
+}
+
+bool ZzExampleWindowShell::isActivityDockVisible() const noexcept
+{
+    return d_ptr->isActivityDockVisible();
+}
+
+void ZzExampleWindowShell::setActivityDockVisible(bool visible)
+{
+    d_ptr->setActivityDockVisible(visible);
+}
+
 ZzExampleWindowShell::ZzExampleWindowShell(
     ZzPureTools::ZzApplicationWindow &window,
     std::shared_ptr<ZzExampleApplicationContext> context,

@@ -23,6 +23,8 @@ class ZzExampleWindowShellPrivate;
  */
 class ZzExampleWindowShell final : public QObject
 {
+    Q_OBJECT
+
 public:
     /**
      * @brief 为尚未显示且已具备导航控制器的窗口装配独立壳层。
@@ -35,6 +37,23 @@ public:
         ZzPureTools::ZzApplicationWindow &window,
         std::shared_ptr<ZzExampleApplicationContext> context,
         ZzPureTools::ZzPureApplication &application);
+
+    /**
+     * @brief 返回指定窗口已经完成装配的示例壳层。
+     * @param window 应用窗口。
+     * @return 窗口直接拥有的壳层，尚未装配时返回 nullptr。
+     */
+    [[nodiscard]] static ZzExampleWindowShell *attachedTo(
+        ZzPureTools::ZzApplicationWindow &window) noexcept;
+
+    /** @brief 返回当前窗口活动 Dock 是否可见。 */
+    [[nodiscard]] bool isActivityDockVisible() const noexcept;
+
+    /**
+     * @brief 设置当前窗口活动 Dock 可见性。
+     * @param visible 是否显示。
+     */
+    void setActivityDockVisible(bool visible);
 
     /** @brief 释放私有观察状态，Qt 子控件由窗口父子树销毁。 */
     ~ZzExampleWindowShell() override;
@@ -50,6 +69,10 @@ public:
 
     /** @brief 禁止移动赋值已连接窗口信号的壳层。 */
     ZzExampleWindowShell &operator=(ZzExampleWindowShell &&) = delete;
+
+Q_SIGNALS:
+    /** @brief 活动 Dock 可见性实际变化后发出。 */
+    void activityDockVisibilityChanged(bool visible);
 
 private:
     ZzExampleWindowShell(

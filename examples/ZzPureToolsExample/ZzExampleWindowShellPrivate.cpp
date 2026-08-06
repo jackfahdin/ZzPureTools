@@ -141,7 +141,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     windowMenuButton->setMenu(windowMenu);
     commandBar->addWidget(windowMenuButton);
 
-    auto *activityDock = new QDockWidget(
+    activityDock = new QDockWidget(
         QStringLiteral("活动与更新"), window);
     activityDock->setObjectName(QStringLiteral("zzExampleActivityDock"));
     activityDock->setAllowedAreas(
@@ -158,6 +158,11 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     activityTabs->addTab(updateState, QStringLiteral("更新"));
     activityDock->setWidget(activityTabs);
     window->addDockWidget(Qt::RightDockWidgetArea, activityDock);
+    QObject::connect(
+        activityDock,
+        &QDockWidget::visibilityChanged,
+        q_ptr,
+        &ZzExampleWindowShell::activityDockVisibilityChanged);
 
     statusBar = new QStatusBar(window);
     statusBar->setObjectName(QStringLiteral("zzExampleStatusBar"));
@@ -302,6 +307,18 @@ void ZzExampleWindowShellPrivate::syncHistoryActions(
 {
     backAction->setEnabled(canGoBack);
     forwardAction->setEnabled(canGoForward);
+}
+
+bool ZzExampleWindowShellPrivate::isActivityDockVisible() const noexcept
+{
+    return activityDock != nullptr && !activityDock->isHidden();
+}
+
+void ZzExampleWindowShellPrivate::setActivityDockVisible(bool visible)
+{
+    if (activityDock != nullptr) {
+        activityDock->setVisible(visible);
+    }
 }
 
 } // namespace ZzExample

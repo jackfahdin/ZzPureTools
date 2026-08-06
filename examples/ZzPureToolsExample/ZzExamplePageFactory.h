@@ -11,6 +11,10 @@
 
 class QWidget;
 
+namespace ZzPureTools {
+class ZzPureApplication;
+}
+
 namespace ZzExample {
 
 class ZzExampleApplicationContext;
@@ -27,6 +31,7 @@ public:
      * @param routeId 页面稳定路由。
      * @param title 已解析的默认页面标题。
      * @param context 非空应用上下文，仅用于生成 ViewModel 初始快照。
+     * @param application 非空应用级主题与窗口宿主。
      * @param pageParent View 必须使用的非空 Qt 父对象。
      * @return 完整页面实例，或输入与所有权错误。
     */
@@ -35,6 +40,7 @@ public:
         const ZzPureTools::ZzRouteId &routeId,
         QString title,
         const std::shared_ptr<ZzExampleApplicationContext> &context,
+        ZzPureTools::ZzPureApplication &application,
         QWidget *pageParent);
 };
 

@@ -5,6 +5,7 @@
 #include <ZzCore/ZzResult.h>
 
 class QAction;
+class QDockWidget;
 class QLabel;
 class QLineEdit;
 class QStatusBar;
@@ -50,6 +51,12 @@ public:
     /** @brief 同步返回与前进命令的启用状态。 */
     void syncHistoryActions(bool canGoBack, bool canGoForward) noexcept;
 
+    /** @brief 返回活动 Dock 当前可见性。 */
+    [[nodiscard]] bool isActivityDockVisible() const noexcept;
+
+    /** @brief 设置活动 Dock 可见性。 */
+    void setActivityDockVisible(bool visible);
+
     ZzExampleWindowShell *q_ptr = nullptr;
     ZzPureTools::ZzApplicationWindow *window = nullptr;
     std::shared_ptr<ZzExampleApplicationContext> context;
@@ -57,6 +64,7 @@ public:
     ZzPureTools::ZzNavigationController *navigation = nullptr;
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
+    QDockWidget *activityDock = nullptr;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;

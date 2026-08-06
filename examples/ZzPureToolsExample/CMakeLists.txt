@@ -18,6 +18,11 @@ set(zz_pure_tools_example_sources
     ZzExampleRouteCatalog.cpp
     ZzExampleShowcasePage.cpp
     ZzExampleShowcasePagePrivate.cpp
+    ZzExampleSystemPage.cpp
+    ZzExampleSystemPagePrivate.cpp
+    ZzExampleSystemPresenter.cpp
+    ZzExampleSystemPresenterPrivate.cpp
+    ZzExampleSystemViewModel.cpp
     ZzExampleWindowShell.cpp
     ZzExampleWindowShellPrivate.cpp
 )
