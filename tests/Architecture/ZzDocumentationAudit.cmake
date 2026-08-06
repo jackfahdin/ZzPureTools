@@ -171,6 +171,19 @@ foreach(reference_identity IN ITEMS "${reference_commit}" "${profile_digest}")
             "性能基线文档缺少报告身份：${reference_identity}")
     endif()
 endforeach()
+set(linux_checklist_path
+    "${source_root}/docs/release/MANUAL_LINUX_CHECKLIST_ZH.md")
+file(READ "${linux_checklist_path}" linux_checklist)
+foreach(required_performance_count IN ITEMS
+    "12 个报告生产者"
+    "15 项绝对门禁")
+    string(FIND "${linux_checklist}" "${required_performance_count}"
+        checklist_count_position)
+    if(checklist_count_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux 人工清单性能数量过期：${required_performance_count}")
+    endif()
+endforeach()
 
 set(readme_path "${source_root}/README.md")
 file(READ "${readme_path}" readme_content)
