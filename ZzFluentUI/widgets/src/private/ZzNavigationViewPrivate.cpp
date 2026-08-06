@@ -24,6 +24,7 @@ constexpr int zzRegularItemHeight = 40;
 constexpr int zzCompactItemHeight = 32;
 constexpr int zzRegularIconExtent = 18;
 constexpr int zzCompactIconExtent = 20;
+constexpr int zzHoverAccentAlpha = 32;
 
 } // namespace
 
@@ -77,7 +78,7 @@ public:
         initStyleOption(&adjusted, index);
         painter->save();
         if (sectionHeader) {
-            drawSection(painter, adjusted);
+            drawSection(painter, adjusted, compact_);
         } else {
             drawDestination(
                 painter, adjusted, descriptor, hasDescriptor, badge);
@@ -97,11 +98,23 @@ public:
     }
 
 private:
-    /** @brief 绘制不可操作的分区标题行。 */
+    /** @brief 绘制常规分区标题或紧凑模式的无文字分隔线。 */
     static void drawSection(
         QPainter *painter,
-        const QStyleOptionViewItem &option)
+        const QStyleOptionViewItem &option,
+        bool compact)
     {
+        if (compact) {
+            constexpr int separatorWidth = 20;
+            const int centerX = option.rect.center().x();
+            painter->setPen(option.palette.color(QPalette::Mid));
+            painter->drawLine(
+                centerX - separatorWidth / 2,
+                option.rect.center().y(),
+                centerX + separatorWidth / 2,
+                option.rect.center().y());
+            return;
+        }
         const QRect content = option.rect.adjusted(10, 4, -10, -4);
         QFont font = option.font;
         font.setWeight(QFont::DemiBold);
@@ -134,6 +147,9 @@ private:
             painter->fillRect(
                 option.rect,
                 option.palette.color(QPalette::AlternateBase));
+            QColor accentTint = option.palette.color(QPalette::Highlight);
+            accentTint.setAlpha(zzHoverAccentAlpha);
+            painter->fillRect(option.rect, accentTint);
         }
 
         const QPalette::ColorGroup colorGroup = enabled

@@ -20,6 +20,8 @@
 #include <QtGui/QFontInfo>
 #include <QtGui/QImage>
 #include <QtGui/QEnterEvent>
+#include <QtGui/QFontMetrics>
+#include <QtGui/QIcon>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QScreen>
@@ -83,6 +85,10 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
+#include <ZzFluentUI/ZzNavigationDisplayMode.h>
+#include <ZzFluentUI/ZzNavigationItemRole.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
@@ -4526,6 +4532,379 @@ private:
     int pressedInitialValue = 0;
 };
 
+/** @brief 保存导航面板截图中文字遮罩及其覆盖数量。 */
+struct ZzNavigationPaneTextMask final
+{
+    QImage image;
+    int panes = 0;
+    int sections = 0;
+    int titles = 0;
+    int badges = 0;
+};
+
+/** @brief 构造常规、紧凑和 RTL 导航面板的确定性截图面。 */
+class ZzNavigationPaneScreenshotSurface final
+{
+public:
+    /** @brief 创建共享本地模型且不访问路由或业务对象的三列画面。 */
+    ZzNavigationPaneScreenshotSurface()
+        : model_(&window)
+    {
+        window.setObjectName(
+            QStringLiteral("zzNavigationPaneScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("Navigation pane states"));
+        window.setAutoFillBackground(true);
+        window.setFixedSize(zzLogicalSurfaceSize);
+        buildModel();
+
+        auto *layout = new QHBoxLayout(&window);
+        layout->setContentsMargins(80, 80, 80, 80);
+        layout->setSpacing(56);
+        layout->addStretch(1);
+        regularPane_ = addPane(
+            layout,
+            ZzFluentUI::ZzNavigationDisplayMode::Regular,
+            Qt::LeftToRight,
+            0);
+        compactPane_ = addPane(
+            layout,
+            ZzFluentUI::ZzNavigationDisplayMode::Compact,
+            Qt::LeftToRight,
+            5);
+        rtlPane_ = addPane(
+            layout,
+            ZzFluentUI::ZzNavigationDisplayMode::Regular,
+            Qt::RightToLeft,
+            3);
+        layout->addStretch(1);
+    }
+
+    /** @brief 展示画面并通过真实事件固定 hover 与键盘焦点。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        hoverView_ = primaryView(regularPane_);
+        focusView_ = primaryView(rtlPane_);
+        if (hoverView_ != nullptr && hoverView_->model() != nullptr) {
+            const QModelIndex hovered = hoverView_->model()->index(6, 0);
+            const QPoint center = hoverView_->visualRect(hovered).center();
+            QWidget *viewport = hoverView_->viewport();
+            viewport->setAttribute(Qt::WA_UnderMouse, true);
+            const QPoint globalCenter = viewport->mapToGlobal(center);
+            QEnterEvent enter{
+                QPointF(center),
+                QPointF(center),
+                QPointF(globalCenter)};
+            QCoreApplication::sendEvent(viewport, &enter);
+            QMouseEvent move(
+                QEvent::MouseMove,
+                QPointF(center),
+                QPointF(globalCenter),
+                Qt::NoButton,
+                Qt::NoButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(viewport, &move);
+        }
+        if (focusView_ != nullptr) {
+            focusView_->setFocus(Qt::TabFocusReason);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏固定截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    /** @brief 返回常规 LTR 导航面板。 */
+    [[nodiscard]] ZzFluentUI::ZzNavigationPane *regularPane() const noexcept
+    {
+        return regularPane_;
+    }
+
+    /** @brief 返回紧凑 LTR 导航面板。 */
+    [[nodiscard]] ZzFluentUI::ZzNavigationPane *compactPane() const noexcept
+    {
+        return compactPane_;
+    }
+
+    /** @brief 返回常规 RTL 导航面板。 */
+    [[nodiscard]] ZzFluentUI::ZzNavigationPane *rtlPane() const noexcept
+    {
+        return rtlPane_;
+    }
+
+    /** @brief 返回固定 hover 行所属主视图。 */
+    [[nodiscard]] ZzFluentUI::ZzNavigationView *hoverView() const noexcept
+    {
+        return hoverView_;
+    }
+
+    /** @brief 返回固定键盘焦点所属 RTL 主视图。 */
+    [[nodiscard]] ZzFluentUI::ZzNavigationView *focusView() const noexcept
+    {
+        return focusView_;
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 填充分区、两类图标、徽标、禁用项和页脚数据。 */
+    void buildModel()
+    {
+        auto *home = new QStandardItem(QStringLiteral("Home"));
+        home->setData(
+            QStringLiteral("Workspace"),
+            static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Section));
+        home->setData(
+            QVariant::fromValue(ZzFluentUI::ZzIconDescriptor{
+                QStringLiteral(
+                    ":/zzfluent/screenshots/ZzFluentTestSquare.svg"),
+                true}),
+            static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Icon));
+        home->setData(
+            QStringLiteral("3"),
+            static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Badge));
+        model_.appendRow(home);
+
+        model_.appendRow(new QStandardItem(
+            window.style()->standardIcon(QStyle::SP_BrowserReload),
+            QStringLiteral("Activity")));
+        auto *reports = new QStandardItem(
+            window.style()->standardIcon(QStyle::SP_FileIcon),
+            QStringLiteral("Reports"));
+        reports->setEnabled(false);
+        model_.appendRow(reports);
+
+        auto *projects = new QStandardItem(
+            window.style()->standardIcon(QStyle::SP_DirIcon),
+            QStringLiteral("Projects"));
+        projects->setData(
+            QStringLiteral("Library"),
+            static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Section));
+        model_.appendRow(projects);
+        auto *archive = new QStandardItem(
+            window.style()->standardIcon(QStyle::SP_DialogSaveButton),
+            QStringLiteral("Archive"));
+        archive->setData(
+            QStringLiteral("NEW"),
+            static_cast<int>(ZzFluentUI::ZzNavigationItemRole::Badge));
+        model_.appendRow(archive);
+
+        auto *settings = new QStandardItem(
+            window.style()->standardIcon(
+                QStyle::SP_FileDialogDetailedView),
+            QStringLiteral("Settings"));
+        settings->setData(
+            QVariant::fromValue(
+                ZzFluentUI::ZzNavigationPlacement::Footer),
+            static_cast<int>(
+                ZzFluentUI::ZzNavigationItemRole::Placement));
+        model_.appendRow(settings);
+        auto *about = new QStandardItem(
+            window.style()->standardIcon(
+                QStyle::SP_MessageBoxInformation),
+            QStringLiteral("About"));
+        about->setData(
+            QVariant::fromValue(
+                ZzFluentUI::ZzNavigationPlacement::Footer),
+            static_cast<int>(
+                ZzFluentUI::ZzNavigationItemRole::Placement));
+        model_.appendRow(about);
+    }
+
+    /** @brief 创建固定高度、方向和选择状态的一列导航面板。 */
+    ZzFluentUI::ZzNavigationPane *addPane(
+        QHBoxLayout *layout,
+        ZzFluentUI::ZzNavigationDisplayMode mode,
+        Qt::LayoutDirection direction,
+        int selectedSourceRow)
+    {
+        auto *pane = new ZzFluentUI::ZzNavigationPane(&window);
+        pane->setModel(&model_);
+        pane->setDisplayMode(mode);
+        pane->setLayoutDirection(direction);
+        pane->setCurrentSourceIndex(model_.index(selectedSourceRow, 0));
+        pane->setFixedHeight(640);
+        layout->addWidget(pane);
+        return pane;
+    }
+
+    /** @brief 返回拥有较多投影行的主导航视图。 */
+    static ZzFluentUI::ZzNavigationView *primaryView(
+        ZzFluentUI::ZzNavigationPane *pane)
+    {
+        if (pane == nullptr) {
+            return nullptr;
+        }
+        ZzFluentUI::ZzNavigationView *result = nullptr;
+        int maximumRows = -1;
+        const auto views =
+            pane->findChildren<ZzFluentUI::ZzNavigationView *>();
+        for (auto *view : views) {
+            const int rows = view->model() != nullptr
+                ? view->model()->rowCount() : 0;
+            if (rows > maximumRows) {
+                maximumRows = rows;
+                result = view;
+            }
+        }
+        return result;
+    }
+
+    QStandardItemModel model_;
+    QPointer<ZzFluentUI::ZzNavigationPane> regularPane_;
+    QPointer<ZzFluentUI::ZzNavigationPane> compactPane_;
+    QPointer<ZzFluentUI::ZzNavigationPane> rtlPane_;
+    QPointer<ZzFluentUI::ZzNavigationView> hoverView_;
+    QPointer<ZzFluentUI::ZzNavigationView> focusView_;
+};
+
+/** @brief 为导航面板精确遮罩分区、常规标题和常规徽标文字。 */
+ZzNavigationPaneTextMask zzBuildNavigationPaneTextMask(
+    QWidget *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzNavigationPaneTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0,
+        0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto panes =
+        surface->findChildren<ZzFluentUI::ZzNavigationPane *>();
+    for (auto *pane : panes) {
+        if (!pane->isVisible()) {
+            continue;
+        }
+        ++result.panes;
+        const auto views =
+            pane->findChildren<ZzFluentUI::ZzNavigationView *>();
+        for (auto *view : views) {
+            if (!view->isVisible() || view->model() == nullptr) {
+                continue;
+            }
+            for (int row = 0; row < view->model()->rowCount(); ++row) {
+                const QModelIndex index = view->model()->index(row, 0);
+                const QRect itemRect = view->visualRect(index);
+                if (!itemRect.intersects(view->viewport()->rect())) {
+                    continue;
+                }
+                const QString text = index.data(Qt::DisplayRole).toString();
+                if (index.flags() == Qt::NoItemFlags) {
+                    if (pane->isCompact()) {
+                        continue;
+                    }
+                    const QRect content = itemRect.adjusted(10, 4, -10, -4);
+                    QFont sectionFont = view->font();
+                    sectionFont.setWeight(QFont::DemiBold);
+                    const QFontMetrics sectionMetrics(sectionFont);
+                    const QString visibleText = view->fontMetrics().elidedText(
+                        text,
+                        Qt::ElideRight,
+                        content.width());
+                    const QRect textRect = sectionMetrics.boundingRect(
+                        content,
+                        Qt::AlignLeading | Qt::AlignVCenter,
+                        visibleText);
+                    zzPaintMaskRect(
+                        &painter,
+                        zzMapToSurface(
+                            view->viewport(), textRect, surface));
+                    ++result.sections;
+                    continue;
+                }
+                if (pane->isCompact()) {
+                    continue;
+                }
+
+                constexpr int iconExtent = 18;
+                constexpr int spacing = 8;
+                const QRect content = itemRect.adjusted(8, 3, -8, -3);
+                int leading = content.left();
+                int trailing = content.right();
+                const QVariant descriptorValue = index.data(static_cast<int>(
+                    ZzFluentUI::ZzNavigationItemRole::Icon));
+                const auto descriptor = descriptorValue
+                    .value<ZzFluentUI::ZzIconDescriptor>();
+                const QIcon standardIcon = qvariant_cast<QIcon>(
+                    index.data(Qt::DecorationRole));
+                const bool hasIcon =
+                    (descriptorValue.canConvert<
+                         ZzFluentUI::ZzIconDescriptor>()
+                     && !descriptor.resourceId.trimmed().isEmpty())
+                    || !standardIcon.isNull();
+                if (hasIcon) {
+                    leading += iconExtent + spacing;
+                }
+
+                const QString badge = index.data(static_cast<int>(
+                    ZzFluentUI::ZzNavigationItemRole::Badge)).toString();
+                if (!badge.isEmpty()) {
+                    const int measured =
+                        view->fontMetrics().horizontalAdvance(badge);
+                    const int badgeWidth =
+                        std::clamp(measured + 12, 22, 72);
+                    const QRect logicalBadge(
+                        trailing - badgeWidth + 1,
+                        content.center().y() - 10,
+                        badgeWidth,
+                        20);
+                    const QRect badgeRect = QStyle::visualRect(
+                        view->layoutDirection(),
+                        itemRect,
+                        logicalBadge);
+                    const QRect badgeTextRect = zzAlignedTextRect(
+                        view->viewport(),
+                        badgeRect.adjusted(4, 0, -4, 0),
+                        Qt::AlignCenter,
+                        badge);
+                    zzPaintMaskRect(
+                        &painter,
+                        zzMapToSurface(
+                            view->viewport(), badgeTextRect, surface));
+                    trailing -= badgeWidth + spacing;
+                    ++result.badges;
+                }
+
+                const QRect logicalText(
+                    leading,
+                    content.top(),
+                    std::max(0, trailing - leading + 1),
+                    content.height());
+                const QRect titleBounds = QStyle::visualRect(
+                    view->layoutDirection(),
+                    itemRect,
+                    logicalText);
+                const QString visibleText = view->fontMetrics().elidedText(
+                    text,
+                    Qt::ElideRight,
+                    titleBounds.width());
+                const QRect titleRect = zzAlignedTextRect(
+                    view->viewport(),
+                    titleBounds,
+                    Qt::AlignLeading | Qt::AlignVCenter,
+                    visibleText);
+                zzPaintMaskRect(
+                    &painter,
+                    zzMapToSurface(
+                        view->viewport(), titleRect, surface));
+                ++result.titles;
+            }
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 为独立数值输入画面精确遮罩内部编辑器文字。 */
 ZzSpinBoxTextMask zzBuildSpinBoxTextMask(QWidget *surface, qreal dpr)
 {
@@ -4857,6 +5236,23 @@ QImage zzRenderPopupSurface(
 /** @brief 将独立数值输入窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderSpinBoxSurface(
     ZzSpinBoxScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将独立导航面板窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderNavigationPaneSurface(
+    ZzNavigationPaneScreenshotSurface *surface,
     qreal dpr)
 {
     const QSize physicalSize(
@@ -6726,6 +7122,161 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 弹出表面非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersNavigationPaneThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("navigation-pane-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("navigation-pane-light");
+        QTest::newRow("navigation-pane-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("navigation-pane-dark");
+        QTest::newRow("navigation-pane-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("navigation-pane-high-contrast");
+    }
+
+    void rendersNavigationPaneThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzNavigationPaneScreenshotSurface surface;
+        surface.polish();
+        QCOMPARE(
+            surface.window
+                .findChildren<ZzFluentUI::ZzNavigationPane *>()
+                .size(),
+            3);
+        QVERIFY(surface.regularPane() != nullptr);
+        QVERIFY(surface.compactPane() != nullptr);
+        QVERIFY(surface.rtlPane() != nullptr);
+        QVERIFY(!surface.regularPane()->isCompact());
+        QVERIFY(surface.compactPane()->isCompact());
+        QVERIFY(!surface.rtlPane()->isCompact());
+        QCOMPARE(
+            surface.rtlPane()->layoutDirection(),
+            Qt::RightToLeft);
+        QCOMPARE(surface.regularPane()->currentSourceIndex().row(), 0);
+        QCOMPARE(surface.compactPane()->currentSourceIndex().row(), 5);
+        QCOMPARE(surface.rtlPane()->currentSourceIndex().row(), 3);
+        QVERIFY(!surface.regularPane()->model()
+                     ->index(2, 0)
+                     .flags()
+                     .testFlag(Qt::ItemIsEnabled));
+        QCOMPARE(
+            surface.regularPane()->model()
+                ->index(5, 0)
+                .data(static_cast<int>(
+                    ZzFluentUI::ZzNavigationItemRole::Placement))
+                .value<ZzFluentUI::ZzNavigationPlacement>(),
+            ZzFluentUI::ZzNavigationPlacement::Footer);
+        QVERIFY(surface.hoverView() != nullptr);
+        QVERIFY(surface.hoverView()->viewport()->underMouse());
+        QVERIFY(surface.focusView() != nullptr);
+        QVERIFY(surface.focusView()->hasFocus());
+
+        const QImage actual = zzRenderNavigationPaneSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const QModelIndex hoveredIndex =
+            surface.hoverView()->model()->index(6, 0);
+        const QRect hoveredRect =
+            surface.hoverView()->visualRect(hoveredIndex);
+        const QPoint hoverLogical = surface.hoverView()->viewport()->mapTo(
+            &surface.window,
+            hoveredRect.center());
+        const QPoint blankLogical = surface.hoverView()->viewport()->mapTo(
+            &surface.window,
+            QPoint(
+                hoveredRect.center().x(),
+                hoveredRect.bottom() + 80));
+        const auto physicalPoint = [this](const QPoint &logical) {
+            return QPoint(
+                qRound(logical.x() * actualDpr_),
+                qRound(logical.y() * actualDpr_));
+        };
+        QVERIFY(actual.rect().contains(physicalPoint(hoverLogical)));
+        QVERIFY(actual.rect().contains(physicalPoint(blankLogical)));
+        QVERIFY(
+            actual.pixelColor(physicalPoint(hoverLogical))
+            != actual.pixelColor(physicalPoint(blankLogical)));
+        const ZzNavigationPaneTextMask mask =
+            zzBuildNavigationPaneTextMask(
+                &surface.window,
+                actualDpr_);
+        QCOMPARE(mask.panes, 3);
+        QCOMPARE(mask.sections, 4);
+        QCOMPARE(mask.titles, 14);
+        QCOMPARE(mask.badges, 4);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 导航面板非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)

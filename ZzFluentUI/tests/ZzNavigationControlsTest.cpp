@@ -53,6 +53,9 @@ private Q_SLOTS:
         QCOMPARE(view.layoutMode(), QListView::Batched);
         QVERIFY(view.batchSize() <= 128);
         QCOMPARE(view.batchSize(), 64);
+        QVERIFY(view.hasMouseTracking());
+        QVERIFY(view.viewport()->hasMouseTracking());
+        QVERIFY(view.viewport()->testAttribute(Qt::WA_Hover));
         QCOMPARE(view.findChildren<QStackedWidget *>().size(), 0);
     }
 

@@ -18,6 +18,9 @@ ZzNavigationView::ZzNavigationView(QWidget *parent)
     setFixedWidth(240);
     setSelectionMode(QAbstractItemView::SingleSelection);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    setMouseTracking(true);
+    viewport()->setMouseTracking(true);
+    viewport()->setAttribute(Qt::WA_Hover, true);
     connect(
         this,
         &QListView::activated,
