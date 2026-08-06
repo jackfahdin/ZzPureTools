@@ -4,6 +4,9 @@ set(zz_pure_tools_example_sources
     ZzExampleApplicationContextPrivate.cpp
     ZzExampleApplicationModule.cpp
     ZzExampleApplicationModulePrivate.cpp
+    ZzExampleCardsPage.cpp
+    ZzExampleCardsPagePrivate.cpp
+    ZzExampleCardsViewModel.cpp
     ZzExampleGalleryPage.cpp
     ZzExampleGalleryPagePrivate.cpp
     ZzExampleNavigationPresenter.cpp

@@ -15,7 +15,7 @@ namespace ZzExample {
 
 class ZzExampleApplicationContext;
 
-/** @brief 创建可逐批替换且不直接访问业务服务的初始页面 View。 */
+/** @brief 按路由创建不直接访问业务服务的示例页面 View。 */
 class ZzExamplePageFactory final
 {
 public:
@@ -23,15 +23,15 @@ public:
     ZzExamplePageFactory() = delete;
 
     /**
-     * @brief 创建携带只读展示快照的轻量占位页面。
+     * @brief 创建真实页面或携带只读展示快照的轻量占位页面。
      * @param routeId 页面稳定路由。
      * @param title 已解析的默认页面标题。
      * @param context 非空应用上下文，仅用于生成 ViewModel 初始快照。
      * @param pageParent View 必须使用的非空 Qt 父对象。
      * @return 完整页面实例，或输入与所有权错误。
-     */
+    */
     [[nodiscard]] static ZzCore::ZzResult<std::unique_ptr<
-        ZzPureTools::ZzPageInstance>> createPlaceholder(
+        ZzPureTools::ZzPageInstance>> createPage(
         const ZzPureTools::ZzRouteId &routeId,
         QString title,
         const std::shared_ptr<ZzExampleApplicationContext> &context,

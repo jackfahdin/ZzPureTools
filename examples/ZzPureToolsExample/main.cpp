@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
         registration.lifetime = route.lifetime;
         registration.factory =
             [context, routeId, title](QWidget *pageParent) {
-                return ZzExample::ZzExamplePageFactory::createPlaceholder(
+                return ZzExample::ZzExamplePageFactory::createPage(
                     routeId, title, context, pageParent);
             };
         auto pageResult = builder.addPage(std::move(registration));

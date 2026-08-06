@@ -18,6 +18,8 @@
 #include <ZzPureTools/ZzNavigationController.h>
 
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleCardsPage.h"
+#include "ZzExampleCardsViewModel.h"
 #include "ZzExampleGalleryPage.h"
 #include "ZzExampleNavigationPresenter.h"
 
@@ -92,10 +94,30 @@ zzCreateGalleryPage(
         std::move(presenter));
 }
 
+/** @brief 创建无窗口命令的卡片 View 和空展示协调对象。 */
+[[nodiscard]] ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
+zzCreateCardsPage(
+    const QString &title,
+    QWidget *pageParent)
+{
+    auto viewModel = std::make_unique<ZzExampleCardsViewModel>();
+    viewModel->setProperty("title", title);
+    auto presenter = std::make_unique<QObject>();
+    presenter->setProperty("displayOnly", true);
+    auto view = std::make_unique<ZzExampleCardsPage>(
+        title, viewModel.get(), pageParent);
+    QWidget *const viewObserver = view.release();
+    return ZzPureTools::ZzPageInstance::create(
+        pageParent,
+        viewObserver,
+        std::move(viewModel),
+        std::move(presenter));
+}
+
 } // namespace
 
 ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>>
-ZzExamplePageFactory::createPlaceholder(
+ZzExamplePageFactory::createPage(
     const ZzPureTools::ZzRouteId &routeId,
     QString title,
     const std::shared_ptr<ZzExampleApplicationContext> &context,
@@ -112,6 +134,9 @@ ZzExamplePageFactory::createPlaceholder(
     title = title.trimmed();
     if (const auto kind = zzGalleryPageKind(routeId); kind.has_value()) {
         return zzCreateGalleryPage(*kind, title, pageParent);
+    }
+    if (routeId.value() == QStringLiteral("cards")) {
+        return zzCreateCardsPage(title, pageParent);
     }
 
     const QString platform = context->platformName();
