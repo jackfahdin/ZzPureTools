@@ -1,10 +1,10 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 
+#include <QtGui/QHelpEvent>
 #include <QtGui/QKeyEvent>
+#include <QtWidgets/QToolTip>
 
 #include "private/ZzNavigationViewPrivate.h"
-
-#include <ZzFluentUI/ZzFluentItemDelegate.h>
 
 namespace ZzFluentUI {
 
@@ -41,13 +41,7 @@ void ZzNavigationView::setCompact(bool compact)
     }
     d_ptr->compact = compact;
     setFixedWidth(compact ? 48 : 240);
-    if (auto *delegate = qobject_cast<ZzFluentItemDelegate *>(
-            itemDelegate())) {
-        delegate->setDensity(
-            compact
-                ? ZzItemDensity::Compact
-                : ZzItemDensity::Standard);
-    }
+    d_ptr->setCompactPresentation(compact);
     viewport()->update();
     updateGeometry();
     Q_EMIT compactChanged(compact);
@@ -63,6 +57,29 @@ void ZzNavigationView::keyPressEvent(QKeyEvent *event)
         return;
     }
     QListView::keyPressEvent(event);
+}
+
+bool ZzNavigationView::viewportEvent(QEvent *event)
+{
+    if (d_ptr->compact && event != nullptr
+        && event->type() == QEvent::ToolTip) {
+        auto *helpEvent = static_cast<QHelpEvent *>(event);
+        const QModelIndex index = indexAt(helpEvent->pos());
+        QString tooltip = index.data(Qt::ToolTipRole).toString();
+        if (tooltip.isEmpty()) {
+            tooltip = index.data(Qt::DisplayRole).toString();
+        }
+        if (index.isValid() && !tooltip.isEmpty()) {
+            QToolTip::showText(
+                helpEvent->globalPos(),
+                tooltip,
+                viewport(),
+                visualRect(index));
+            event->accept();
+            return true;
+        }
+    }
+    return QListView::viewportEvent(event);
 }
 
 } // namespace ZzFluentUI

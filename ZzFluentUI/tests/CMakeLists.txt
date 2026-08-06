@@ -361,11 +361,33 @@ set_tests_properties(fluent.tab-controls PROPERTIES
 )
 
 add_executable(ZzNavigationControlsTest ZzNavigationControlsTest.cpp)
+qt_add_resources(ZzNavigationControlsTest "zzfluent-navigation-icons"
+    PREFIX "/zzfluent/navigation"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES
+        resources/ZzFluentTestSquare.svg
+)
 target_link_libraries(ZzNavigationControlsTest PRIVATE
     Qt6::Gui
     Qt6::Test
     Qt6::Widgets
     Zz::FluentUI
+)
+
+add_executable(ZzNavigationPaneTest ZzNavigationPaneTest.cpp)
+target_link_libraries(ZzNavigationPaneTest PRIVATE
+    Qt6::Gui
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzNavigationPaneTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzNavigationPaneTest)
+zz_enable_sanitizers(ZzNavigationPaneTest)
+add_test(NAME fluent.navigation-pane COMMAND ZzNavigationPaneTest)
+set_tests_properties(fluent.navigation-pane PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 set_target_properties(ZzNavigationControlsTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzNavigationControlsTest)

@@ -7,6 +7,7 @@
 #include <ZzFluentUI/ZzFluentUIExport.h>
 
 class QKeyEvent;
+class QEvent;
 
 namespace ZzFluentUI {
 
@@ -59,6 +60,9 @@ Q_SIGNALS:
 protected:
     /** @brief 把 Enter/Return 转换为导航意图，其他键保留 QListView 行为。 */
     void keyPressEvent(QKeyEvent *event) override;
+
+    /** @brief 在紧凑模式下用完整 DisplayRole 补全缺失的 tooltip。 */
+    bool viewportEvent(QEvent *event) override;
 
 private:
     std::unique_ptr<ZzNavigationViewPrivate> d_ptr;

@@ -77,6 +77,9 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzTabWidgetPrivate.cpp
     widgets/src/ZzNavigationView.cpp
     widgets/src/private/ZzNavigationViewPrivate.cpp
+    widgets/src/ZzNavigationPane.cpp
+    widgets/src/private/ZzNavigationPanePrivate.cpp
+    widgets/src/private/ZzNavigationProjectionModel.cpp
     widgets/src/ZzBreadcrumbBar.cpp
     widgets/src/private/ZzBreadcrumbBarPrivate.cpp
     widgets/src/ZzFluentItemDelegate.cpp
@@ -109,6 +112,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzTabBar.h
     widgets/include/ZzFluentUI/ZzTabWidget.h
     widgets/include/ZzFluentUI/ZzNavigationView.h
+    widgets/include/ZzFluentUI/ZzNavigationPane.h
     widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
     widgets/include/ZzFluentUI/ZzFluentItemDelegate.h
     widgets/include/ZzFluentUI/ZzFluentTitleBar.h
