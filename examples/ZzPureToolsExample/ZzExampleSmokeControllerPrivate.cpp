@@ -17,6 +17,7 @@
 #include <QtCore/QRect>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
+#include <QtGui/QAction>
 #include <QtGui/QFontInfo>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -515,8 +516,23 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
 {
     QTimer::singleShot(0, &window, [this, &window] {
         auto *controller = window.navigationController();
-        if (controller == nullptr) {
-            fail("route smoke has no navigation controller");
+        auto *searchEdit = window.findChild<QLineEdit *>(
+            QStringLiteral("zzExamplePageSearch"));
+        auto *backAction = window.findChild<QAction *>(
+            QStringLiteral("zzExampleBackAction"));
+        auto *forwardAction = window.findChild<QAction *>(
+            QStringLiteral("zzExampleForwardAction"));
+        auto *themeAction = window.findChild<QAction *>(
+            QStringLiteral("zzExampleThemeAction"));
+        auto *theme = application->themeController();
+        if (controller == nullptr || searchEdit == nullptr
+            || backAction == nullptr || forwardAction == nullptr
+            || themeAction == nullptr || theme == nullptr) {
+            fail("route smoke has incomplete window shell controls");
+            return;
+        }
+        if (controller->currentRoute().value() != QStringLiteral("home")) {
+            fail("route smoke did not start on the home route");
             return;
         }
         for (const auto &route : ZzExampleRouteCatalog::routes()) {
@@ -527,6 +543,56 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 return;
             }
         }
+
+        const QString routeBeforeSearch = controller->currentRoute().value();
+        searchEdit->setText(QStringLiteral("settings"));
+        if (!QMetaObject::invokeMethod(
+                searchEdit, "returnPressed", Qt::DirectConnection)
+            || controller->currentRoute().value()
+                != QStringLiteral("settings")
+            || !searchEdit->text().isEmpty()
+            || !backAction->isEnabled()) {
+            fail("route smoke search integration failed");
+            return;
+        }
+        backAction->trigger();
+        if (controller->currentRoute().value() != routeBeforeSearch
+            || !forwardAction->isEnabled()) {
+            fail("route smoke back action integration failed");
+            return;
+        }
+        forwardAction->trigger();
+        if (controller->currentRoute().value()
+            != QStringLiteral("settings")) {
+            fail("route smoke forward action integration failed");
+            return;
+        }
+
+        const auto themeBeforeAction = theme->mode();
+        themeAction->trigger();
+        if (theme->mode() == themeBeforeAction) {
+            fail("route smoke theme action integration failed");
+            return;
+        }
+
+        auto homeResult = controller->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        auto *controlsCard = window.findChild<QAbstractButton *>(
+            QStringLiteral("zzExampleRouteCard_controls"));
+        if (!homeResult || controlsCard == nullptr
+            || !controlsCard->isVisibleTo(&window)) {
+            fail("route smoke could not reach the home quick actions");
+            return;
+        }
+        controlsCard->click();
+        if (controller->currentRoute().value()
+            != QStringLiteral("controls")) {
+            fail("route smoke home quick action integration failed");
+            return;
+        }
+
+        application->beginShutdown();
+        QCoreApplication::exit(EXIT_SUCCESS);
     });
 }
 

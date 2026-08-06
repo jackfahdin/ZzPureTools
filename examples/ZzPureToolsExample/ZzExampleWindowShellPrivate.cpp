@@ -116,8 +116,10 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
 
     backAction = zzAddCommand(
         commandBar, QStyle::SP_ArrowBack, QCoreApplication::translate("ZzPureToolsExample", "返回"));
+    backAction->setObjectName(QStringLiteral("zzExampleBackAction"));
     forwardAction = zzAddCommand(
         commandBar, QStyle::SP_ArrowForward, QCoreApplication::translate("ZzPureToolsExample", "前进"));
+    forwardAction->setObjectName(QStringLiteral("zzExampleForwardAction"));
     commandBar->addSeparator();
 
     searchEdit = new QLineEdit(commandBar);
@@ -132,8 +134,10 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
 
     auto *themeAction = zzAddCommand(
         commandBar, QStyle::SP_DesktopIcon, QCoreApplication::translate("ZzPureToolsExample", "切换主题"));
+    themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
     auto *newWindowAction = zzAddCommand(
         commandBar, QStyle::SP_FileIcon, QCoreApplication::translate("ZzPureToolsExample", "新建窗口"));
+    newWindowAction->setObjectName(QStringLiteral("zzExampleNewWindowAction"));
 
     auto *windowMenuButton = new QToolButton(commandBar);
     windowMenuButton->setObjectName(
