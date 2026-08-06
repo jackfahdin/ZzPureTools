@@ -45,4 +45,29 @@ if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
             LABELS "example;smoke;translation"
             TIMEOUT 10
     )
+
+    foreach(zz_close_scenario IN ITEMS cancel minimize confirm)
+        add_test(
+            NAME "example.puretools-close-${zz_close_scenario}"
+            COMMAND "$<TARGET_FILE:ZzPureToolsExample>"
+        )
+        set_tests_properties(
+            "example.puretools-close-${zz_close_scenario}"
+            PROPERTIES
+                ENVIRONMENT
+                    "QT_QPA_PLATFORM=offscreen;ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1000;ZZ_PURETOOLS_EXAMPLE_SMOKE_SCENARIO=close-${zz_close_scenario}"
+                LABELS "example;smoke;close-guard"
+                TIMEOUT 10
+        )
+    endforeach()
+
+    add_test(
+        NAME example.puretools-multi-window
+        COMMAND "$<TARGET_FILE:ZzPureToolsExample>"
+    )
+    set_tests_properties(example.puretools-multi-window PROPERTIES
+        ENVIRONMENT
+            "QT_QPA_PLATFORM=offscreen;ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1000;ZZ_PURETOOLS_EXAMPLE_SMOKE_SCENARIO=multi-window"
+        LABELS "example;smoke;multi-window"
+        TIMEOUT 10)
 endif()

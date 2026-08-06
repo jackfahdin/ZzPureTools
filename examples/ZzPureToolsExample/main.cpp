@@ -26,6 +26,7 @@
 #include "ZzExampleApplicationModule.h"
 #include "ZzExamplePageFactory.h"
 #include "ZzExampleRouteCatalog.h"
+#include "ZzExampleSmokeController.h"
 #include "ZzExampleWindowShell.h"
 
 namespace {
@@ -44,28 +45,6 @@ void zzReportStartupFailure(
 {
     qCritical().noquote()
         << stage << error.technicalMessage() << error.context();
-}
-
-/** @brief 在 smoke 模式下依次创建全部十二条路由对应页面。 */
-void zzScheduleRouteSmoke(ZzPureTools::ZzApplicationWindow &window)
-{
-    QTimer::singleShot(0, &window, [&window] {
-        auto *controller = window.navigationController();
-        if (controller == nullptr) {
-            QCoreApplication::exit(EXIT_FAILURE);
-            return;
-        }
-        for (const auto &route : ZzExample::ZzExampleRouteCatalog::routes()) {
-            auto result = controller->navigate(
-                ZzPureTools::ZzRouteId(zzFromUtf8(route.routeId)));
-            if (!result) {
-                zzReportStartupFailure(
-                    "route smoke failed:", result.error());
-                QCoreApplication::exit(EXIT_FAILURE);
-                return;
-            }
-        }
-    });
 }
 
 } // namespace
@@ -100,6 +79,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     auto context = std::move(contextResult).value();
+    auto smokeController = std::make_shared<
+        ZzExample::ZzExampleSmokeController>(
+        smokeMode, application, context);
 
     ZzPureTools::ZzApplicationBuilder builder;
     if (QLocale::system().language() == QLocale::English) {
@@ -174,16 +156,17 @@ int main(int argc, char *argv[])
     }
 
     auto setupResult = builder.setWindowSetupCallback(
-        [context, &application, smokeMode](
+        [context, &application, smokeController](
             ZzPureTools::ZzApplicationWindow &window) {
             auto shellResult = ZzExample::ZzExampleWindowShell::attach(
-                window, context, application, !smokeMode);
+                window,
+                context,
+                application,
+                smokeController->closeGuardEnabled());
             if (!shellResult) {
                 return shellResult;
             }
-            if (smokeMode) {
-                zzScheduleRouteSmoke(window);
-            }
+            smokeController->windowAttached(window);
             return ZzCore::ZzResult<void>::success();
         });
     if (!setupResult) {

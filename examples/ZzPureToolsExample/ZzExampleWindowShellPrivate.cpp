@@ -373,30 +373,33 @@ bool ZzExampleWindowShellPrivate::filterWindowEvent(
     }
 
     closeGuardActive = true;
-    QMessageBox dialog(
+    auto *dialog = new QMessageBox(
         QMessageBox::Question,
         QCoreApplication::translate("ZzPureToolsExample", "关闭窗口"),
         QCoreApplication::translate("ZzPureToolsExample", "请选择当前窗口的关闭方式。"),
         QMessageBox::NoButton,
         window);
-    QAbstractButton *cancelButton = dialog.addButton(
+    QAbstractButton *cancelButton = dialog->addButton(
         QCoreApplication::translate("ZzPureToolsExample", "取消"), QMessageBox::RejectRole);
-    QAbstractButton *minimizeButton = dialog.addButton(
+    QAbstractButton *minimizeButton = dialog->addButton(
         QCoreApplication::translate("ZzPureToolsExample", "最小化"), QMessageBox::ActionRole);
-    QAbstractButton *closeButton = dialog.addButton(
+    QAbstractButton *closeButton = dialog->addButton(
         QCoreApplication::translate("ZzPureToolsExample", "关闭"), QMessageBox::AcceptRole);
-    dialog.setDefaultButton(
+    dialog->setDefaultButton(
         qobject_cast<QPushButton *>(cancelButton));
-    dialog.exec();
-    QAbstractButton *clicked = dialog.clickedButton();
+    dialog->exec();
+    QAbstractButton *clicked = dialog->clickedButton();
+    const bool closeRequested = clicked == closeButton;
+    const bool minimizeRequested = clicked == minimizeButton;
+    delete dialog;
     closeGuardActive = false;
 
-    if (clicked == closeButton) {
+    if (closeRequested) {
         recordActivity(QCoreApplication::translate("ZzPureToolsExample", "窗口关闭已确认"));
         return false;
     }
     event->ignore();
-    if (clicked == minimizeButton) {
+    if (minimizeRequested) {
         window->showMinimized();
         recordActivity(QCoreApplication::translate("ZzPureToolsExample", "窗口关闭已转换为最小化"));
     } else {
