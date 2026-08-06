@@ -241,6 +241,37 @@ private Q_SLOTS:
                 QStringLiteral("view-model")}));
     }
 
+    void preservesExternalDestroyedObservers()
+    {
+        QWidget pageParent;
+        auto *view = new ZzPageProbeWidget(&pageParent);
+        auto viewModel = std::make_unique<ZzPageProbeObject>(
+            nullptr, QString{});
+        auto presenter = std::make_unique<ZzPageProbeObject>(
+            nullptr, QString{});
+        QPointer<QObject> presenterPointer = presenter.get();
+        int destroyedSignals = 0;
+        QObject observer;
+        QObject::connect(
+            presenter.get(),
+            &QObject::destroyed,
+            &observer,
+            [&destroyedSignals] { ++destroyedSignals; });
+
+        auto result = ZzPureTools::ZzPageInstance::create(
+            &pageParent,
+            view,
+            std::move(viewModel),
+            std::move(presenter));
+        QVERIFY(result);
+        auto instance = std::move(result).value();
+
+        instance.reset();
+
+        QCOMPARE(destroyedSignals, 1);
+        QVERIFY(presenterPointer.isNull());
+    }
+
     void cancelsTasksBeforeDestroyingPresentationObjects()
     {
         QStringList events;

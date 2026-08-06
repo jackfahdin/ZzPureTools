@@ -1,11 +1,37 @@
 #include "ZzPageInstancePrivate.h"
 
+#include <array>
 #include <exception>
 #include <utility>
 
 #include <QtCore/QDebug>
 
 namespace ZzPureTools {
+
+namespace {
+
+/** @brief 仅断开页面展示对象之间的连接，保留外部 destroyed 观察者。 */
+void zzDisconnectPresentationObjects(
+    QWidget *view,
+    QObject *viewModel,
+    QObject *presenter) noexcept
+{
+    const std::array<QObject *, 3> objects{
+        view, viewModel, presenter};
+    for (QObject *sender : objects) {
+        if (sender == nullptr) {
+            continue;
+        }
+        for (QObject *receiver : objects) {
+            if (receiver != nullptr) {
+                static_cast<void>(QObject::disconnect(
+                    sender, nullptr, receiver, nullptr));
+            }
+        }
+    }
+}
+
+} // namespace
 
 ZzPageInstancePrivate::ZzPageInstancePrivate(
     QWidget *pageView,
@@ -46,18 +72,8 @@ void ZzPageInstancePrivate::prepareForDestruction() noexcept
     }
     cancellations_.clear();
 
-    if (view) {
-        static_cast<void>(QObject::disconnect(
-            view.data(), nullptr, nullptr, nullptr));
-    }
-    if (presenter_) {
-        static_cast<void>(QObject::disconnect(
-            presenter_.get(), nullptr, nullptr, nullptr));
-    }
-    if (viewModel_) {
-        static_cast<void>(QObject::disconnect(
-            viewModel_.get(), nullptr, nullptr, nullptr));
-    }
+    zzDisconnectPresentationObjects(
+        view.data(), viewModel_.get(), presenter_.get());
 
     delete view.data();
     view.clear();
