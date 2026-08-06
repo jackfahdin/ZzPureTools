@@ -169,6 +169,9 @@ Linux 物理桌面最终验收以 `ZzPureToolsExample` 为主入口，检查窗�
 - 十二路由 smoke 不只直调导航控制器：它还通过首页快捷卡片、搜索框
   `returnPressed`、工具栏返回/前进 action 和主题 action 完成真实 UI 串联，并校验
   当前路由、历史 action 状态、搜索清空和主题状态确实同步。
+- 多窗口 smoke 通过工具栏“新建窗口” action 创建第二个窗口，装配回调同步捕获
+  新实例后再检查 WindowAgent、导航控制器、Shell、Dock 和关闭状态隔离；测试不再
+  绕过用户命令直接调用 `ZzPureApplication::createWindow()`。
 
 ### 7.2 视觉基线契约
 

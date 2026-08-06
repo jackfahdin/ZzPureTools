@@ -453,6 +453,10 @@ bool ZzExampleSmokeControllerPrivate::closeGuardEnabled() const noexcept
 void ZzExampleSmokeControllerPrivate::windowAttached(
     ZzPureTools::ZzApplicationWindow &window)
 {
+    if (scenario == ZzExampleSmokeScenario::MultiWindow
+        && awaitingActionCreatedWindow) {
+        actionCreatedWindow = &window;
+    }
     if (scheduled || scenario == ZzExampleSmokeScenario::Disabled) {
         return;
     }
@@ -604,17 +608,26 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
             fail("multi-window smoke did not start with one window");
             return;
         }
-        auto secondResult = application->createWindow();
-        if (!secondResult) {
-            fail("multi-window smoke could not create a second window");
+        auto *newWindowAction = firstWindow.findChild<QAction *>(
+            QStringLiteral("zzExampleNewWindowAction"));
+        if (newWindowAction == nullptr || !newWindowAction->isEnabled()) {
+            fail("multi-window smoke has no enabled new-window action");
             return;
         }
-        auto *secondWindow = secondResult.value();
+        actionCreatedWindow = nullptr;
+        awaitingActionCreatedWindow = true;
+        newWindowAction->trigger();
+        awaitingActionCreatedWindow = false;
+        auto *secondWindow = actionCreatedWindow;
+        actionCreatedWindow = nullptr;
         auto *firstNavigation = firstWindow.navigationController();
-        auto *secondNavigation = secondWindow->navigationController();
+        auto *secondNavigation = secondWindow == nullptr
+            ? nullptr : secondWindow->navigationController();
         auto *firstShell = ZzExampleWindowShell::attachedTo(firstWindow);
-        auto *secondShell = ZzExampleWindowShell::attachedTo(*secondWindow);
+        auto *secondShell = secondWindow == nullptr
+            ? nullptr : ZzExampleWindowShell::attachedTo(*secondWindow);
         if (application->windowCount() != 2
+            || secondWindow == nullptr
             || firstNavigation == nullptr || secondNavigation == nullptr
             || firstNavigation == secondNavigation
             || firstWindow.windowAgent() == nullptr

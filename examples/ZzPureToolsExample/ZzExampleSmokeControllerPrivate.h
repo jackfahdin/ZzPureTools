@@ -74,6 +74,8 @@ private:
     ZzPureTools::ZzPureApplication *application = nullptr;
     std::shared_ptr<ZzExampleApplicationContext> context;
     ZzExampleSmokeScenario scenario = ZzExampleSmokeScenario::Disabled;
+    ZzPureTools::ZzApplicationWindow *actionCreatedWindow = nullptr;
+    bool awaitingActionCreatedWindow = false;
     bool scheduled = false;
 };
 
