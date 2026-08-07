@@ -32,6 +32,7 @@
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QProgressBar>
+#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTextEdit>
 
@@ -590,8 +591,63 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             return;
         }
 
-        application->beginShutdown();
-        QCoreApplication::exit(EXIT_SUCCESS);
+        verifyActivityTailFollowing(window);
+    });
+}
+
+void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
+    ZzPureTools::ZzApplicationWindow &window)
+{
+    auto *activity = window.findChild<QListView *>(
+        QStringLiteral("zzExampleActivityList"));
+    if (activity == nullptr) {
+        fail("route smoke has no activity list");
+        return;
+    }
+
+    constexpr int overflowRows = 48;
+    for (int row = 0; row < overflowRows; ++row) {
+        context->activityModel().append(
+            QStringLiteral("tail-follow-%1").arg(row));
+    }
+    QTimer::singleShot(0, &window, [this, &window, activity] {
+        QScrollBar *const scrollBar = activity->verticalScrollBar();
+        if (scrollBar->maximum() <= scrollBar->minimum()
+            || scrollBar->value() != scrollBar->maximum()) {
+            fail("activity list did not follow appended rows at the tail");
+            return;
+        }
+
+        scrollBar->setValue(scrollBar->minimum());
+        const int pausedValue = scrollBar->value();
+        context->activityModel().append(
+            QStringLiteral("tail-follow-paused"));
+        QTimer::singleShot(
+            0,
+            &window,
+            [this, &window, activity, pausedValue] {
+                QScrollBar *const pausedScrollBar =
+                    activity->verticalScrollBar();
+                if (pausedScrollBar->value() != pausedValue) {
+                    fail("activity list interrupted manual history browsing");
+                    return;
+                }
+
+                pausedScrollBar->setValue(pausedScrollBar->maximum());
+                context->activityModel().append(
+                    QStringLiteral("tail-follow-resumed"));
+                QTimer::singleShot(0, &window, [this, activity] {
+                    QScrollBar *const resumedScrollBar =
+                        activity->verticalScrollBar();
+                    if (resumedScrollBar->value()
+                        != resumedScrollBar->maximum()) {
+                        fail("activity list did not resume tail following");
+                        return;
+                    }
+                    application->beginShutdown();
+                    QCoreApplication::exit(EXIT_SUCCESS);
+                });
+            });
     });
 }
 

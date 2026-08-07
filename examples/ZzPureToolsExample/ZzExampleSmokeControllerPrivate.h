@@ -53,6 +53,10 @@ private:
     /** @brief 依次导航全部正式路由并在失败时终止 smoke。 */
     void scheduleRouteSmoke(ZzPureTools::ZzApplicationWindow &window);
 
+    /** @brief 验证活动列表在底部尾随、上翻暂停和回到底部恢复。 */
+    void verifyActivityTailFollowing(
+        ZzPureTools::ZzApplicationWindow &window);
+
     /** @brief 验证两窗口导航、代理、Dock、活动模型与关闭隔离。 */
     void scheduleMultiWindowSmoke(
         ZzPureTools::ZzApplicationWindow &window);

@@ -17,6 +17,7 @@
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTabWidget>
@@ -167,7 +168,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
     auto *activityTabs = new QTabWidget(activityDock);
     activityTabs->setObjectName(QStringLiteral("zzExampleActivityTabs"));
-    auto *activityState = new QListView(activityTabs);
+    activityState = new QListView(activityTabs);
     activityState->setObjectName(QStringLiteral("zzExampleActivityList"));
     activityState->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "应用活动"));
     activityState->setModel(&context->activityModel());
@@ -175,6 +176,34 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         new ZzFluentUI::ZzFluentItemDelegate(activityState));
     activityState->setUniformItemSizes(true);
     activityState->setSelectionMode(QAbstractItemView::SingleSelection);
+    QScrollBar *const activityScrollBar =
+        activityState->verticalScrollBar();
+    QObject::connect(
+        activityScrollBar,
+        &QScrollBar::valueChanged,
+        q_ptr,
+        [this, activityScrollBar](int value) {
+            if (!activityTailScrollPending) {
+                activityFollowsTail = value >= activityScrollBar->maximum();
+            }
+        });
+    QObject::connect(
+        &context->activityModel(),
+        &QAbstractItemModel::rowsInserted,
+        q_ptr,
+        [this](const QModelIndex &parent, int, int) {
+            if (parent.isValid() || !activityFollowsTail
+                || activityTailScrollPending) {
+                return;
+            }
+            activityTailScrollPending = true;
+            QTimer::singleShot(0, q_ptr, [this] {
+                if (activityState != nullptr && activityFollowsTail) {
+                    activityState->scrollToBottom();
+                }
+                activityTailScrollPending = false;
+            });
+        });
     auto *updateState = new QLabel(
         QCoreApplication::translate("ZzPureToolsExample", "组件状态已就绪"), activityTabs);
     updateState->setAlignment(Qt::AlignCenter);

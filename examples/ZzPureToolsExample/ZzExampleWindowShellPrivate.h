@@ -9,6 +9,7 @@ class QDockWidget;
 class QEvent;
 class QLabel;
 class QLineEdit;
+class QListView;
 class QObject;
 class QStatusBar;
 
@@ -76,9 +77,12 @@ public:
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
     QDockWidget *activityDock = nullptr;
+    QListView *activityState = nullptr;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;
+    bool activityFollowsTail = true;
+    bool activityTailScrollPending = false;
     bool closeGuardEnabled = true;
     bool closeGuardActive = false;
 };
