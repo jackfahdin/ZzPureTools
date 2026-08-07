@@ -8,11 +8,14 @@
 #include <QtCore/QEvent>
 #include <QtCore/QThread>
 #include <QtGui/QImage>
+#include <QtGui/QFocusEvent>
+#include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
 #include <QtGui/QPen>
 #include <QtSvg/QSvgRenderer>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QAbstractSpinBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QFrame>
@@ -31,6 +34,46 @@
 #include "ZzScrollBarPrivate.h"
 
 namespace ZzFluentUI {
+
+namespace {
+
+/** @brief 请求焦点控件及关联视口刷新焦点视觉。 */
+void zzUpdateFocusVisual(QWidget *widget)
+{
+    if (widget == nullptr) {
+        return;
+    }
+    widget->update();
+    if (auto *view = qobject_cast<QAbstractItemView *>(widget);
+        view != nullptr) {
+        view->viewport()->update();
+    }
+    if (auto *view = qobject_cast<QAbstractItemView *>(
+            widget->parentWidget());
+        view != nullptr && view->viewport() == widget) {
+        view->update();
+    }
+}
+
+/** @brief 判断按键是否代表实际键盘操作而非单独修饰键。 */
+bool zzIsKeyboardInput(const QKeyEvent *event)
+{
+    if (event == nullptr) {
+        return false;
+    }
+    switch (event->key()) {
+    case Qt::Key_Shift:
+    case Qt::Key_Control:
+    case Qt::Key_Meta:
+    case Qt::Key_Alt:
+    case Qt::Key_AltGr:
+        return false;
+    default:
+        return true;
+    }
+}
+
+} // namespace
 
 ZzFluentStylePrivate::ZzFluentStylePrivate(
     ZzFluentStyle *q,
@@ -62,6 +105,97 @@ ZzFluentStylePrivate::ZzFluentStylePrivate(
         [this](quint64, ZzThemeChangeKinds changes) {
             applySnapshot(changes);
         });
+}
+
+void ZzFluentStylePrivate::handleInputEvent(
+    QObject *watched,
+    QEvent *event)
+{
+    if (event == nullptr) {
+        return;
+    }
+
+    switch (event->type()) {
+    case QEvent::KeyPress:
+    case QEvent::MouseButtonPress:
+    case QEvent::TouchBegin:
+    case QEvent::TabletPress:
+    case QEvent::FocusIn:
+    case QEvent::FocusOut:
+        break;
+    default:
+        return;
+    }
+
+    auto *widget = qobject_cast<QWidget *>(watched);
+    const auto setKeyboardFocusVisuals = [this, widget](bool visible) {
+        QWidget *const previous = focusVisualWidget.data();
+        QWidget *const current = QApplication::focusWidget();
+        keyboardFocusVisuals = visible;
+        focusVisualWidget = current != nullptr ? current : widget;
+        zzUpdateFocusVisual(previous);
+        if (current != previous) {
+            zzUpdateFocusVisual(current);
+        }
+        if (widget != previous && widget != current) {
+            zzUpdateFocusVisual(widget);
+        }
+    };
+
+    switch (event->type()) {
+    case QEvent::KeyPress:
+        if (zzIsKeyboardInput(static_cast<QKeyEvent *>(event))) {
+            setKeyboardFocusVisuals(true);
+        }
+        break;
+    case QEvent::MouseButtonPress:
+    case QEvent::TouchBegin:
+    case QEvent::TabletPress:
+        setKeyboardFocusVisuals(false);
+        break;
+    case QEvent::FocusIn: {
+        const auto *focusEvent = static_cast<QFocusEvent *>(event);
+        focusVisualWidget = widget;
+        switch (focusEvent->reason()) {
+        case Qt::TabFocusReason:
+        case Qt::BacktabFocusReason:
+        case Qt::ShortcutFocusReason:
+        case Qt::MenuBarFocusReason:
+            setKeyboardFocusVisuals(true);
+            break;
+        case Qt::MouseFocusReason:
+            setKeyboardFocusVisuals(false);
+            break;
+        default:
+            zzUpdateFocusVisual(widget);
+            break;
+        }
+        break;
+    }
+    case QEvent::FocusOut:
+        zzUpdateFocusVisual(widget);
+        if (focusVisualWidget == widget) {
+            focusVisualWidget.clear();
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+bool ZzFluentStylePrivate::isFocusVisualVisible(
+    const QWidget *widget) const noexcept
+{
+    if (!keyboardFocusVisuals || widget == nullptr) {
+        return false;
+    }
+    const QWidget *const focusWidget = focusVisualWidget.data();
+    if (focusWidget == nullptr) {
+        return false;
+    }
+    return widget == focusWidget
+        || widget->isAncestorOf(focusWidget)
+        || focusWidget->isAncestorOf(widget);
 }
 
 QPixmap ZzFluentStylePrivate::iconPixmap(
@@ -272,7 +406,8 @@ void ZzFluentStylePrivate::drawPushButton(
         painter,
         widget);
 
-    if (option->state.testFlag(QStyle::State_HasFocus)) {
+    if (option->state.testFlag(QStyle::State_HasFocus)
+        && q_ptr->isFocusVisualVisible(widget)) {
         QStyleOptionFocusRect focus;
         focus.rect = option->rect.adjusted(2, 2, -2, -2);
         focus.state = option->state;
@@ -1211,7 +1346,8 @@ void ZzFluentStylePrivate::drawSlider(
     painter->setBrush(option->palette.color(QPalette::Highlight));
     painter->drawRoundedRect(active, 2.0, 2.0);
     painter->drawEllipse(QRectF(handle));
-    if (option->state.testFlag(QStyle::State_HasFocus)) {
+    if (option->state.testFlag(QStyle::State_HasFocus)
+        && q_ptr->isFocusVisualVisible(widget)) {
         painter->setBrush(Qt::NoBrush);
         painter->setPen(QPen(
             option->palette.color(QPalette::Highlight),
@@ -1241,7 +1377,8 @@ void ZzFluentStylePrivate::drawScrollBar(
     const bool hovered = option->state.testFlag(QStyle::State_MouseOver);
     const bool pressed = option->state.testFlag(QStyle::State_Sunken)
         && option->activeSubControls.testFlag(QStyle::SC_ScrollBarSlider);
-    const bool focused = option->state.testFlag(QStyle::State_HasFocus);
+    const bool focused = option->state.testFlag(QStyle::State_HasFocus)
+        && q_ptr->isFocusVisualVisible(widget);
     qreal expansion = hovered || pressed || focused ? 1.0 : 0.0;
     const auto *fluentScrollBar = qobject_cast<const ZzScrollBar *>(widget);
     if (fluentScrollBar != nullptr) {

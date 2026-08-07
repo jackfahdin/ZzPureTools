@@ -22,6 +22,7 @@
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzCarouselView.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 
 namespace ZzFluentUI {
 
@@ -840,7 +841,12 @@ ZzCarouselViewPrivate::itemOption(const QModelIndex &index,
   } else {
     option.state &= ~QStyle::State_Selected;
   }
-  if (index == q_ptr->currentIndex() && q_ptr->hasFocus()) {
+  const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(q_ptr->style());
+  const bool showFocusVisual = fluentStyle != nullptr
+                                   ? fluentStyle->isFocusVisualVisible(q_ptr)
+                                   : q_ptr->hasFocus();
+  if (index == q_ptr->currentIndex() && q_ptr->hasFocus() &&
+      showFocusVisual) {
     option.state |= QStyle::State_HasFocus;
   } else {
     option.state &= ~QStyle::State_HasFocus;

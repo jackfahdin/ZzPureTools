@@ -6,6 +6,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
@@ -40,6 +41,40 @@ bool zzHasVisiblePixel(const QImage &image)
     for (int y = 0; y < image.height(); ++y) {
         for (int x = 0; x < image.width(); ++x) {
             if (image.pixelColor(x, y).alpha() > 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** @brief 使用实际控件上下文渲染焦点 primitive。 */
+QImage zzRenderFocusVisual(
+    ZzFluentUI::ZzFluentStyle *style,
+    QWidget *target)
+{
+    QImage image(QSize(80, 32), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    QStyleOptionFocusRect option;
+    option.rect = image.rect().adjusted(1, 1, -1, -1);
+    option.state = QStyle::State_Enabled | QStyle::State_HasFocus;
+    option.palette = target->palette();
+    style->drawPrimitive(
+        QStyle::PE_FrameFocusRect,
+        &option,
+        &painter,
+        target);
+    painter.end();
+    return image;
+}
+
+/** @brief 判断图像中是否包含指定的不透明主题颜色。 */
+bool zzContainsColor(const QImage &image, const QColor &color)
+{
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y) == color) {
                 return true;
             }
         }
@@ -145,31 +180,77 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzThemeController controller;
         ZzFluentUI::ZzFluentStyle style(&controller);
-        ZzFluentUI::ZzPushButton push;
-        ZzFluentUI::ZzIconButton icon;
-        ZzFluentUI::ZzToggleSwitch toggle;
-        const QList<QWidget *> targets{&push, &icon, &toggle};
+        QWidget window;
+        QVBoxLayout layout(&window);
+        auto *push = new ZzFluentUI::ZzPushButton(&window);
+        auto *icon = new ZzFluentUI::ZzIconButton(&window);
+        auto *toggle = new ZzFluentUI::ZzToggleSwitch(&window);
+        const QList<QWidget *> targets{push, icon, toggle};
+        for (QWidget *target : targets) {
+            target->setStyle(&style);
+            target->setMinimumSize(80, 32);
+            layout.addWidget(target);
+        }
+        window.show();
+        QCoreApplication::processEvents();
 
         for (QWidget *target : targets) {
-            QImage image(
-                QSize(80, 32),
-                QImage::Format_ARGB32_Premultiplied);
-            image.fill(Qt::transparent);
-            QPainter painter(&image);
-            QStyleOptionFocusRect option;
-            option.rect = image.rect();
-            option.state = QStyle::State_Enabled | QStyle::State_HasFocus;
-            option.palette = target->palette();
-            style.drawPrimitive(
-                QStyle::PE_FrameFocusRect,
-                &option,
-                &painter,
-                target);
-            painter.end();
+            target->clearFocus();
+            QCoreApplication::processEvents();
+            target->setFocus(Qt::TabFocusReason);
+            QCoreApplication::processEvents();
+            QCOMPARE(QApplication::focusWidget(), target);
+            QVERIFY(style.isFocusVisualVisible(target));
             QVERIFY2(
-                zzHasVisiblePixel(image),
+                zzHasVisiblePixel(zzRenderFocusVisual(&style, target)),
+                target->metaObject()->className());
+
+            QTest::mouseClick(target, Qt::LeftButton);
+            QCOMPARE(QApplication::focusWidget(), target);
+            QVERIFY(!style.isFocusVisualVisible(target));
+            QVERIFY2(
+                !zzHasVisiblePixel(zzRenderFocusVisual(&style, target)),
+                target->metaObject()->className());
+
+            QTest::keyClick(target, Qt::Key_Space);
+            QVERIFY(style.isFocusVisualVisible(target));
+            QVERIFY2(
+                zzHasVisiblePixel(zzRenderFocusVisual(&style, target)),
                 target->metaObject()->className());
         }
+    }
+
+    void preservesPointerFocusedTextInputStroke()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QLineEdit editor;
+        editor.setStyle(&style);
+        editor.resize(160, 32);
+        QPalette palette = editor.palette();
+        const QColor focusColor(255, 0, 255);
+        palette.setColor(QPalette::Highlight, focusColor);
+        editor.setPalette(palette);
+        editor.show();
+        QCoreApplication::processEvents();
+
+        QTest::mouseClick(&editor, Qt::LeftButton);
+        QVERIFY(editor.hasFocus());
+        QVERIFY(!style.isFocusVisualVisible(&editor));
+
+        QStyleOptionFrame option;
+        option.initFrom(&editor);
+        option.rect = editor.rect();
+        QImage image(editor.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawPrimitive(
+            QStyle::PE_PanelLineEdit,
+            &option,
+            &painter,
+            &editor);
+        painter.end();
+        QVERIFY(zzContainsColor(image, focusColor));
     }
 
     void keyboardCommandsEmitExactlyOneIntent()

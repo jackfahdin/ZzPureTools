@@ -12,6 +12,9 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 
 class QStyleOptionComplex;
+class QEvent;
+class QObject;
+class QWidget;
 
 namespace ZzFluentUI {
 
@@ -49,6 +52,15 @@ public:
      * @return 不超过内部预算的物理像素字节数。
      */
     [[nodiscard]] int iconCacheBytes() const noexcept;
+
+    /**
+     * @brief 判断指定控件当前是否应显示键盘焦点视觉。
+     * @param widget 待查询控件；可为持有焦点控件的复合控件或视口。
+     * @return 键盘输入模式且控件位于当前焦点层级时返回 true。
+     * @note 鼠标、触摸和数位板输入不会移除逻辑焦点，只隐藏额外焦点环。
+     */
+    [[nodiscard]] bool isFocusVisualVisible(
+        const QWidget *widget) const noexcept;
 
     /**
      * @brief 从 Qt 资源渲染、着色并缓存指定 DPR 的图标。
@@ -179,6 +191,15 @@ public:
         const QStyleOptionComplex *option,
         const QPoint &position,
         const QWidget *widget = nullptr) const override;
+
+protected:
+    /**
+     * @brief 跟踪应用输入模式并刷新受影响控件的焦点视觉。
+     * @param watched 接收事件的应用对象。
+     * @param event 待观察的输入或焦点事件。
+     * @return 始终返回基础样式的事件过滤结果。
+     */
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     std::unique_ptr<ZzFluentStylePrivate> d_ptr;

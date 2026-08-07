@@ -9,6 +9,7 @@
 #include <QtWidgets/QStyle>
 
 #include <ZzFluentUI/ZzCalendar.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 
 namespace ZzFluentUI {
 
@@ -84,7 +85,12 @@ void ZzCalendarPrivate::paintCell(
     const QWidget *focusWidget = QApplication::focusWidget();
     const bool hasFocusWithin = q_ptr->hasFocus()
         || (focusWidget != nullptr && q_ptr->isAncestorOf(focusWidget));
-    if (selected && hasFocusWithin) {
+    const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(
+        q_ptr->style());
+    const bool showFocusVisual = fluentStyle != nullptr
+        ? fluentStyle->isFocusVisualVisible(q_ptr)
+        : hasFocusWithin;
+    if (selected && hasFocusWithin && showFocusVisual) {
         painter->setBrush(Qt::NoBrush);
         painter->setPen(QPen(
             q_ptr->palette().color(activeGroup, QPalette::HighlightedText),

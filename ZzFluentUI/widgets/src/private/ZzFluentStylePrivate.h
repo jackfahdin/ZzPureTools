@@ -47,6 +47,13 @@ public:
     /** @brief 同步新快照并按变更分类刷新绘制或几何。 */
     void applySnapshot(ZzThemeChangeKinds changes);
 
+    /** @brief 根据应用输入事件更新键盘焦点视觉状态。 */
+    void handleInputEvent(QObject *watched, QEvent *event);
+
+    /** @brief 判断控件是否位于当前键盘焦点视觉层级。 */
+    [[nodiscard]] bool isFocusVisualVisible(
+        const QWidget *widget) const noexcept;
+
     /** @brief 绘制复选框或单选框指示器。 */
     void drawCheckIndicator(
         const QStyleOption *option,
@@ -187,6 +194,8 @@ public:
     ZzFluentStyle *const q_ptr;
     QPointer<ZzThemeController> controller;
     std::shared_ptr<const ZzThemeSnapshot> snapshot;
+    QPointer<QWidget> focusVisualWidget;
+    bool keyboardFocusVisuals = false;
     quint64 iconRevision = 0;
     ZzStyleCache cache{4 * 1024 * 1024};
 };

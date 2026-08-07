@@ -4,6 +4,7 @@
 
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
@@ -24,9 +25,15 @@ ZzFluentStyle::ZzFluentStyle(
     : QProxyStyle(baseStyle)
     , d_ptr(std::make_unique<ZzFluentStylePrivate>(this, controller))
 {
+    QApplication::instance()->installEventFilter(this);
 }
 
-ZzFluentStyle::~ZzFluentStyle() = default;
+ZzFluentStyle::~ZzFluentStyle()
+{
+    if (QApplication::instance() != nullptr) {
+        QApplication::instance()->removeEventFilter(this);
+    }
+}
 
 quint64 ZzFluentStyle::themeRevision() const noexcept
 {
@@ -38,6 +45,13 @@ int ZzFluentStyle::iconCacheBytes() const noexcept
 {
     Q_ASSERT(QThread::currentThread() == thread());
     return d_ptr->cache.iconBytes();
+}
+
+bool ZzFluentStyle::isFocusVisualVisible(
+    const QWidget *widget) const noexcept
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    return d_ptr->isFocusVisualVisible(widget);
 }
 
 QPixmap ZzFluentStyle::iconPixmap(
@@ -348,6 +362,9 @@ void ZzFluentStyle::drawPrimitive(
     }
     if (element == PE_FrameFocusRect
         && option != nullptr && painter != nullptr) {
+        if (widget != nullptr && !isFocusVisualVisible(widget)) {
+            return;
+        }
         const qreal dpr = widget != nullptr
             ? widget->devicePixelRatioF()
             : 1.0;
@@ -359,6 +376,12 @@ void ZzFluentStyle::drawPrimitive(
         return;
     }
     QProxyStyle::drawPrimitive(element, option, painter, widget);
+}
+
+bool ZzFluentStyle::eventFilter(QObject *watched, QEvent *event)
+{
+    d_ptr->handleInputEvent(watched, event);
+    return QProxyStyle::eventFilter(watched, event);
 }
 
 void ZzFluentStyle::drawControl(
