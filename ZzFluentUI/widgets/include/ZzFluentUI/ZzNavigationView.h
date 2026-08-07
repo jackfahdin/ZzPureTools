@@ -58,7 +58,7 @@ Q_SIGNALS:
     void navigationRequested(const QModelIndex &index);
 
 protected:
-    /** @brief 把 Enter/Return 转换为导航意图，其他键保留 QListView 行为。 */
+    /** @brief 把 Enter、Return 和 Space 转换为导航意图，其他键保留列表行为。 */
     void keyPressEvent(QKeyEvent *event) override;
 
     /** @brief 在紧凑模式下用完整 DisplayRole 补全缺失的 tooltip。 */

@@ -80,6 +80,9 @@ private Q_SLOTS:
         ZzFluentUI::ZzNavigationPane pane;
         pane.setDisplayMode(ZzFluentUI::ZzNavigationDisplayMode::Regular);
         pane.setModel(&model);
+        pane.resize(240, 320);
+        pane.show();
+        QCoreApplication::processEvents();
 
         QCOMPARE(pane.model(), &model);
         const ZzNavigationViews views = zzNavigationViews(&pane);
@@ -100,21 +103,42 @@ private Q_SLOTS:
 
         QSignalSpy navigationSpy(
             &pane, &ZzFluentUI::ZzNavigationPane::navigationRequested);
-        Q_EMIT views.primary->activated(
-            views.primary->model()->index(0, 0));
+        const QModelIndex sectionIndex =
+            views.primary->model()->index(0, 0);
+        const QModelIndex primaryIndex =
+            views.primary->model()->index(1, 0);
+        const QModelIndex footerIndex =
+            views.footer->model()->index(0, 0);
+
+        QTest::mouseClick(
+            views.primary->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            views.primary->visualRect(sectionIndex).center());
         QCOMPARE(navigationSpy.count(), 0);
-        Q_EMIT views.primary->activated(
-            views.primary->model()->index(1, 0));
+        QTest::mouseClick(
+            views.primary->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            views.primary->visualRect(primaryIndex).center());
         QCOMPARE(navigationSpy.count(), 1);
         QCOMPARE(
             navigationSpy.takeFirst().at(0).value<QModelIndex>(),
             model.index(0, 0));
-        Q_EMIT views.footer->activated(
-            views.footer->model()->index(0, 0));
+        QTest::mouseClick(
+            views.footer->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            views.footer->visualRect(footerIndex).center());
         QCOMPARE(navigationSpy.count(), 1);
         QCOMPARE(
             navigationSpy.takeFirst().at(0).value<QModelIndex>(),
             model.index(2, 0));
+
+        views.primary->setCurrentIndex(primaryIndex);
+        QTest::keyClick(views.primary, Qt::Key_Return);
+        QTest::keyClick(views.primary, Qt::Key_Space);
+        QCOMPARE(navigationSpy.count(), 2);
     }
 
     void mapsProgrammaticSelectionAcrossBothViews()

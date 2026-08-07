@@ -17,13 +17,14 @@ ZzNavigationView::ZzNavigationView(QWidget *parent)
     setBatchSize(64);
     setFixedWidth(240);
     setSelectionMode(QAbstractItemView::SingleSelection);
+    setEditTriggers(QAbstractItemView::NoEditTriggers);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setMouseTracking(true);
     viewport()->setMouseTracking(true);
     viewport()->setAttribute(Qt::WA_Hover, true);
     connect(
         this,
-        &QListView::activated,
+        &QListView::clicked,
         this,
         [this](const QModelIndex &index) {
             d_ptr->activateIndex(index);
@@ -54,7 +55,8 @@ void ZzNavigationView::keyPressEvent(QKeyEvent *event)
 {
     if (event != nullptr
         && (event->key() == Qt::Key_Enter
-            || event->key() == Qt::Key_Return)) {
+            || event->key() == Qt::Key_Return
+            || event->key() == Qt::Key_Space)) {
         d_ptr->activateIndex(currentIndex());
         event->accept();
         return;
