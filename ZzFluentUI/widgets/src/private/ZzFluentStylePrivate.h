@@ -44,6 +44,12 @@ public:
         QColor color,
         Qt::LayoutDirection direction);
 
+    /** @brief 解析一次 SVG 或字体字形并生成与颜色无关的物理像素轮廓。 */
+    [[nodiscard]] QImage renderIconShape(
+        const ZzIconDescriptor &descriptor,
+        QSize physicalSize,
+        bool mirrored);
+
     /** @brief 同步新快照并按变更分类刷新绘制或几何。 */
     void applySnapshot(ZzThemeChangeKinds changes);
 

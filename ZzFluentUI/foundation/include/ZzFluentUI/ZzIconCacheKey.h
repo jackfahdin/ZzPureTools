@@ -22,6 +22,9 @@ public:
      * @param dprBucket 百分之一单位的 DPR 桶。
      * @param rgba 图标着色 RGBA 值。
      * @param themeRevision 主题快照 revision。
+     * @param sourceKind 图标来源的稳定整数表示。
+     * @param glyph 字体图标 Unicode 码点；SVG 使用零。
+     * @param originalColor 是否保留 SVG 原始颜色。
      */
     ZzIconCacheKey(
         QString resourceId,
@@ -29,7 +32,10 @@ public:
         QSize logicalSize,
         quint16 dprBucket,
         quint32 rgba,
-        quint64 themeRevision);
+        quint64 themeRevision,
+        quint8 sourceKind = 0,
+        quint32 glyph = 0,
+        bool originalColor = false);
 
     /** @brief 返回稳定资源标识。 */
     [[nodiscard]] const QString &resourceId() const noexcept;
@@ -49,6 +55,15 @@ public:
     /** @brief 返回主题快照 revision。 */
     [[nodiscard]] quint64 themeRevision() const noexcept;
 
+    /** @brief 返回图标来源的稳定整数表示。 */
+    [[nodiscard]] quint8 sourceKind() const noexcept;
+
+    /** @brief 返回字体字形码点；SVG 返回零。 */
+    [[nodiscard]] quint32 glyph() const noexcept;
+
+    /** @brief 返回是否保留 SVG 原始颜色。 */
+    [[nodiscard]] bool originalColor() const noexcept;
+
     /** @brief 比较全部渲染输入是否相同。 */
     friend bool operator==(
         const ZzIconCacheKey &,
@@ -61,6 +76,9 @@ private:
     quint16 dprBucket_;
     quint32 rgba_;
     quint64 themeRevision_;
+    quint8 sourceKind_;
+    quint32 glyph_;
+    bool originalColor_;
 };
 
 /**

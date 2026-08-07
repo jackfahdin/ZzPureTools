@@ -6,6 +6,7 @@
 #include <QtCore/QCache>
 #include <QtCore/QSize>
 #include <QtGui/QBrush>
+#include <QtGui/QImage>
 #include <QtGui/QPixmap>
 
 #include <ZzFluentUI/ZzIconCacheKey.h>
@@ -39,14 +40,27 @@ public:
     [[nodiscard]] const QPixmap *icon(
         const ZzIconCacheKey &key) const noexcept;
 
+    /** @brief 返回非拥有轮廓图像；后续轮廓写入可能使其失效。 */
+    [[nodiscard]] const QImage *iconShape(
+        const ZzIconCacheKey &key) const noexcept;
+
     /** @brief 按物理像素字节成本插入图标，超预算时忽略。 */
     void insertIcon(const ZzIconCacheKey &key, QPixmap pixmap);
+
+    /** @brief 按物理像素字节成本插入与颜色无关的轮廓。 */
+    void insertIconShape(const ZzIconCacheKey &key, QImage image);
 
     /** @brief 返回物理尺寸是否可纳入当前字节预算。 */
     [[nodiscard]] bool canCacheIcon(QSize physicalSize) const noexcept;
 
+    /** @brief 返回物理尺寸是否可纳入轮廓缓存预算。 */
+    [[nodiscard]] bool canCacheIconShape(QSize physicalSize) const noexcept;
+
     /** @brief 清空全部图标，不修改固定视觉槽。 */
     void clearIcons() noexcept;
+
+    /** @brief 只清空带颜色的最终位图，保留可跨主题复用的轮廓。 */
+    void clearRenderedIcons() noexcept;
 
     /** @brief 返回当前图标缓存总字节成本。 */
     [[nodiscard]] int iconBytes() const noexcept;
@@ -55,6 +69,7 @@ private:
     [[nodiscard]] int iconCost(QSize physicalSize) const noexcept;
 
     std::array<ZzStyleVisual, 4> visuals_;
+    QCache<ZzIconCacheKey, QImage> iconShapes_;
     QCache<ZzIconCacheKey, QPixmap> icons_;
 };
 

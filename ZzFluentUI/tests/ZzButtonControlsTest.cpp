@@ -110,6 +110,36 @@ private Q_SLOTS:
         button.setEnabled(false);
         QVERIFY(!button.icon().isNull());
     }
+
+    void iconButtonSupportsExplicitSvgColor()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzIconButton button;
+        button.setStyle(&style);
+        button.resize(40, 40);
+        button.setIconDescriptor(
+            ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+                QStringLiteral(
+                    ":/zzfluent/buttons/ZzFluentTestSquare.svg")));
+        button.setIconColor(QColor(Qt::red));
+        button.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(button.iconColor(), QColor(Qt::red));
+        const QImage redImage = button.icon()
+            .pixmap(button.iconSize())
+            .toImage();
+        QCOMPARE(
+            redImage.pixelColor(
+                redImage.width() / 2,
+                redImage.height() / 2),
+            QColor(Qt::red));
+
+        button.resetIconColor();
+        QVERIFY(!button.iconColor().isValid());
+        QVERIFY(!button.icon().isNull());
+    }
 };
 
 QTEST_MAIN(ZzButtonControlsTest)

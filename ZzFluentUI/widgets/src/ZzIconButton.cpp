@@ -26,6 +26,25 @@ void ZzIconButton::setIconDescriptor(
     d_ptr->refreshIcon();
 }
 
+QColor ZzIconButton::iconColor() const noexcept
+{
+    return d_ptr->iconColor;
+}
+
+void ZzIconButton::setIconColor(QColor color)
+{
+    if (d_ptr->iconColor == color) {
+        return;
+    }
+    d_ptr->iconColor = color;
+    d_ptr->refreshIcon();
+}
+
+void ZzIconButton::resetIconColor()
+{
+    setIconColor({});
+}
+
 void ZzIconButton::changeEvent(QEvent *event)
 {
     QToolButton::changeEvent(event);

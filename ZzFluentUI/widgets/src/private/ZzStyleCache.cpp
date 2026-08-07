@@ -10,7 +10,9 @@
 namespace ZzFluentUI {
 
 ZzStyleCache::ZzStyleCache(int maximumIconBytes)
-    : icons_(qMax(0, maximumIconBytes))
+    : iconShapes_(qMax(0, maximumIconBytes) / 4)
+    , icons_(qMax(0, maximumIconBytes)
+             - qMax(0, maximumIconBytes) / 4)
 {
 }
 
@@ -47,6 +49,12 @@ const QPixmap *ZzStyleCache::icon(
     return icons_.object(key);
 }
 
+const QImage *ZzStyleCache::iconShape(
+    const ZzIconCacheKey &key) const noexcept
+{
+    return iconShapes_.object(key);
+}
+
 void ZzStyleCache::insertIcon(
     const ZzIconCacheKey &key,
     QPixmap pixmap)
@@ -61,26 +69,55 @@ void ZzStyleCache::insertIcon(
         bytes);
 }
 
+void ZzStyleCache::insertIconShape(
+    const ZzIconCacheKey &key,
+    QImage image)
+{
+    const int bytes = iconCost(image.size());
+    if (bytes <= 0) {
+        return;
+    }
+    iconShapes_.insert(
+        key,
+        new QImage(std::move(image)),
+        bytes);
+}
+
 bool ZzStyleCache::canCacheIcon(QSize physicalSize) const noexcept
 {
-    return iconCost(physicalSize) > 0;
+    const int bytes = iconCost(physicalSize);
+    return bytes > 0 && bytes <= icons_.maxCost();
+}
+
+bool ZzStyleCache::canCacheIconShape(QSize physicalSize) const noexcept
+{
+    const int bytes = iconCost(physicalSize);
+    return bytes > 0 && bytes <= iconShapes_.maxCost();
 }
 
 void ZzStyleCache::clearIcons() noexcept
+{
+    iconShapes_.clear();
+    icons_.clear();
+}
+
+void ZzStyleCache::clearRenderedIcons() noexcept
 {
     icons_.clear();
 }
 
 int ZzStyleCache::iconBytes() const noexcept
 {
-    return static_cast<int>(icons_.totalCost());
+    return static_cast<int>(
+        icons_.totalCost() + iconShapes_.totalCost());
 }
 
 int ZzStyleCache::iconCost(QSize physicalSize) const noexcept
 {
     const int width = physicalSize.width();
     const int height = physicalSize.height();
-    const int maximum = static_cast<int>(icons_.maxCost());
+    const int maximum = static_cast<int>(
+        icons_.maxCost() + iconShapes_.maxCost());
     if (width <= 0 || height <= 0 || maximum <= 0) {
         return 0;
     }

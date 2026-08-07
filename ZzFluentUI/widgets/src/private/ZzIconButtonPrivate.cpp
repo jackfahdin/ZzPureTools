@@ -39,14 +39,19 @@ void ZzIconButtonPrivate::refreshIcon()
     const QPalette::ColorGroup group = q_ptr->isEnabled()
         ? QPalette::Normal
         : QPalette::Disabled;
-    const QColor color = q_ptr->palette().color(
+    const QColor paletteColor = q_ptr->palette().color(
         group,
         QPalette::ButtonText);
+    ZzIconDescriptor effectiveDescriptor = descriptor;
+    if (iconColor.isValid()) {
+        effectiveDescriptor.colorMode = ZzIconColorMode::Custom;
+        effectiveDescriptor.customColor = iconColor;
+    }
     const QPixmap pixmap = fluentStyle->iconPixmap(
-        descriptor,
+        effectiveDescriptor,
         logicalSize,
         q_ptr->devicePixelRatioF(),
-        color,
+        paletteColor,
         q_ptr->layoutDirection());
     q_ptr->setIcon(pixmap.isNull() ? QIcon() : QIcon(pixmap));
     q_ptr->setIconSize(logicalSize);

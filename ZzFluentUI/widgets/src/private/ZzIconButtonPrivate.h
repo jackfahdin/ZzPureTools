@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtGui/QColor>
+
 #include <ZzFluentUI/ZzIconDescriptor.h>
 
 namespace ZzFluentUI {
@@ -19,6 +21,7 @@ public:
 
     ZzIconButton *q_ptr = nullptr;
     ZzIconDescriptor descriptor;
+    QColor iconColor;
     bool hasDescriptor = false;
 };
 

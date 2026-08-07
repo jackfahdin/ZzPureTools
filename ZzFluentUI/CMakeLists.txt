@@ -6,6 +6,8 @@ set(zz_fluent_foundation_sources
     foundation/src/private/ZzFluentVersion.cpp
     foundation/src/ZzAnimationPolicy.cpp
     foundation/src/ZzDpiScale.cpp
+    foundation/src/ZzIconAssets.cpp
+    foundation/src/ZzIconDescriptor.cpp
     foundation/src/ZzIconFont.cpp
     foundation/src/ZzIconCacheKey.cpp
     foundation/src/ZzThemeController.cpp

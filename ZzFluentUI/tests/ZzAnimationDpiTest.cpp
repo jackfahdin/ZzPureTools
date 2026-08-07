@@ -80,15 +80,48 @@ private Q_SLOTS:
             125,
             0xff0067c0U,
             4);
+        const ZzFluentUI::ZzIconCacheKey differentSource(
+            QStringLiteral(":/icons/first.svg"),
+            false,
+            QSize(16, 16),
+            125,
+            0xff0067c0U,
+            4,
+            1);
+        const ZzFluentUI::ZzIconCacheKey differentGlyph(
+            QStringLiteral(":/icons/first.svg"),
+            false,
+            QSize(16, 16),
+            125,
+            0xff0067c0U,
+            4,
+            0,
+            0xe900U);
+        const ZzFluentUI::ZzIconCacheKey originalColor(
+            QStringLiteral(":/icons/first.svg"),
+            false,
+            QSize(16, 16),
+            125,
+            0xff0067c0U,
+            4,
+            0,
+            0,
+            true);
         QVERIFY(first != differentDpr);
         QVERIFY(first != differentResource);
         QVERIFY(first != mirrored);
+        QVERIFY(first != differentSource);
+        QVERIFY(first != differentGlyph);
+        QVERIFY(first != originalColor);
         QSet<ZzFluentUI::ZzIconCacheKey> keys;
         keys.insert(first);
         keys.insert(differentDpr);
         keys.insert(differentResource);
         keys.insert(mirrored);
-        QCOMPARE(keys.size(), 4);
+        keys.insert(differentSource);
+        keys.insert(differentGlyph);
+        keys.insert(originalColor);
+        QCOMPARE(keys.size(), 7);
     }
 };
 

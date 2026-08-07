@@ -69,6 +69,8 @@ constexpr int zzProgressMeasuredFrames = 120;
 constexpr int zzMaximumMultiDataCalls = 120;
 constexpr int zzMaximumIconCacheBytes = 4 * 1024 * 1024;
 constexpr qreal zzReferenceP95Milliseconds = 16.7;
+constexpr qreal zzIconCacheHitReferenceMilliseconds = 1.0;
+constexpr qreal zzIconColorMissReferenceMilliseconds = 2.0;
 constexpr qreal zzSuggestFilterReferenceMilliseconds = 50.0;
 constexpr qreal zzMultiSelectReferenceMilliseconds = 60.0;
 constexpr qreal zzRollerComplexityRatio = 2.0;
@@ -612,6 +614,93 @@ private Q_SLOTS:
                    .arg(initialAnimations)
                    .arg(initialTimers)
                    .arg(initialCacheBytes);
+    }
+
+    void measuresSvgColorCachePerformance()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const auto descriptor =
+            ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+                QStringLiteral(
+                    ":/zzfluent/benchmarks/ZzFluentTestSquare.svg"));
+        constexpr std::array<QColor, 4> warmColors{
+            QColor(0x10, 0x78, 0xD4),
+            QColor(0xD1, 0x34, 0x38),
+            QColor(0x10, 0x7C, 0x10),
+            QColor(0x88, 0x17, 0x98),
+        };
+        for (const QColor &color : warmColors) {
+            QVERIFY(!style.iconPixmap(
+                              descriptor,
+                              QSize(32, 32),
+                              1.0,
+                              color)
+                          .isNull());
+        }
+        const int warmCacheBytes = style.iconCacheBytes();
+
+        std::vector<qint64> hitSamples;
+        hitSamples.reserve(1000);
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            QElapsedTimer timer;
+            timer.start();
+            const QPixmap pixmap = style.iconPixmap(
+                descriptor,
+                QSize(32, 32),
+                1.0,
+                warmColors[static_cast<std::size_t>(iteration) %
+                           warmColors.size()]);
+            hitSamples.push_back(timer.nsecsElapsed());
+            QVERIFY(!pixmap.isNull());
+        }
+        QCOMPARE(style.iconCacheBytes(), warmCacheBytes);
+
+        std::vector<qint64> missSamples;
+        missSamples.reserve(100);
+        for (int iteration = 0; iteration < 100; ++iteration) {
+            const QColor color = QColor::fromHsv(
+                (iteration * 359) / 100,
+                180 + iteration % 76,
+                200 + iteration % 56);
+            QElapsedTimer timer;
+            timer.start();
+            const QPixmap pixmap = style.iconPixmap(
+                descriptor,
+                QSize(32, 32),
+                1.0,
+                color);
+            missSamples.push_back(timer.nsecsElapsed());
+            QVERIFY(!pixmap.isNull());
+        }
+        QVERIFY(style.iconCacheBytes() <= zzMaximumIconCacheBytes);
+
+        std::sort(hitSamples.begin(), hitSamples.end());
+        std::sort(missSamples.begin(), missSamples.end());
+        const qreal hitP95 = zzPercentileMilliseconds(
+            hitSamples, 0.95);
+        const qreal missP95 = zzPercentileMilliseconds(
+            missSamples, 0.95);
+        qInfo().noquote()
+            << QStringLiteral(
+                   "fluent-icon-cache hitP95=%1 ms colorMissP95=%2 ms "
+                   "cacheBytes=%3")
+                   .arg(hitP95, 0, 'f', 3)
+                   .arg(missP95, 0, 'f', 3)
+                   .arg(style.iconCacheBytes());
+
+        if (qEnvironmentVariableIntValue("ZZ_PERFORMANCE_REFERENCE") == 1) {
+            QVERIFY2(
+                hitP95 <= zzIconCacheHitReferenceMilliseconds,
+                qPrintable(QStringLiteral(
+                    "图标缓存命中 P95 %1 ms 超过 1 ms")
+                               .arg(hitP95, 0, 'f', 3)));
+            QVERIFY2(
+                missP95 <= zzIconColorMissReferenceMilliseconds,
+                qPrintable(QStringLiteral(
+                    "图标首次着色 P95 %1 ms 超过 2 ms")
+                               .arg(missP95, 0, 'f', 3)));
+        }
     }
 
     void measuresCalendarMonthRendering()

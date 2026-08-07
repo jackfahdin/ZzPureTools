@@ -24,8 +24,10 @@
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzDpiScale.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzIconAssets.h>
 #include <ZzFluentUI/ZzIconCacheKey.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzIconFont.h>
 #include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -94,6 +96,9 @@ ZzFluentStylePrivate::ZzFluentStylePrivate(
         || application == nullptr) {
         std::terminate();
     }
+    const bool iconAssetsAvailable = ZzIconAssets::ensureInitialized();
+    Q_ASSERT(iconAssetsAvailable);
+    Q_UNUSED(iconAssetsAvailable);
 
     snapshot = themeController->snapshot();
     iconRevision = snapshot->revision();
@@ -206,9 +211,24 @@ QPixmap ZzFluentStylePrivate::iconPixmap(
     Qt::LayoutDirection direction)
 {
     Q_ASSERT(QThread::currentThread() == q_ptr->thread());
-    if (!descriptor.resourceId.startsWith(QStringLiteral(":/"))
-        || logicalSize.isEmpty()
-        || !color.isValid()) {
+    const bool svgSource = descriptor.source
+        == ZzIconSource::SvgResource;
+    if (logicalSize.isEmpty()
+        || (svgSource
+            && !descriptor.resourceId.startsWith(
+                QStringLiteral(":/")))
+        || (!svgSource
+            && descriptor.fontIcon == ZzFontIcon::None)) {
+        return {};
+    }
+
+    const bool originalColor = svgSource
+        && descriptor.colorMode == ZzIconColorMode::Original;
+    QColor effectiveColor = color;
+    if (descriptor.colorMode == ZzIconColorMode::Custom) {
+        effectiveColor = descriptor.customColor;
+    }
+    if (!originalColor && !effectiveColor.isValid()) {
         return {};
     }
 
@@ -216,13 +236,18 @@ QPixmap ZzFluentStylePrivate::iconPixmap(
     const qreal effectiveDpr = static_cast<qreal>(dprBucket) / 100.0;
     const bool mirrored = descriptor.mirroredInRightToLeft
         && direction == Qt::RightToLeft;
+    const quint8 sourceKind = static_cast<quint8>(descriptor.source);
+    const quint32 glyph = static_cast<quint32>(descriptor.fontIcon);
     const ZzIconCacheKey key(
         descriptor.resourceId,
         mirrored,
         logicalSize,
         dprBucket,
-        color.rgba(),
-        iconRevision);
+        originalColor ? 0U : effectiveColor.rgba(),
+        iconRevision,
+        sourceKind,
+        glyph,
+        originalColor);
     if (const QPixmap *cached = cache.icon(key); cached != nullptr) {
         return *cached;
     }
@@ -232,41 +257,43 @@ QPixmap ZzFluentStylePrivate::iconPixmap(
             logicalSize.width(), effectiveDpr),
         ZzDpiScale::physicalPixels(
             logicalSize.height(), effectiveDpr));
-    if (!cache.canCacheIcon(physicalSize)) {
+    if (!cache.canCacheIcon(physicalSize)
+        || !cache.canCacheIconShape(physicalSize)) {
         return {};
     }
 
-    QSvgRenderer renderer(descriptor.resourceId);
-    if (!renderer.isValid()) {
-        return {};
+    const ZzIconCacheKey shapeKey(
+        descriptor.resourceId,
+        mirrored,
+        logicalSize,
+        dprBucket,
+        0,
+        0,
+        sourceKind,
+        glyph,
+        false);
+    const QImage *shape = cache.iconShape(shapeKey);
+    if (shape == nullptr) {
+        QImage renderedShape = renderIconShape(
+            descriptor, physicalSize, mirrored);
+        if (renderedShape.isNull()) {
+            return {};
+        }
+        cache.insertIconShape(shapeKey, std::move(renderedShape));
+        shape = cache.iconShape(shapeKey);
+        if (shape == nullptr) {
+            return {};
+        }
     }
 
-    QImage image(
-        physicalSize,
-        QImage::Format_ARGB32_Premultiplied);
-    if (image.isNull()) {
-        return {};
+    QImage image = *shape;
+    if (!originalColor) {
+        QPainter tintPainter(&image);
+        tintPainter.setCompositionMode(
+            QPainter::CompositionMode_SourceIn);
+        tintPainter.fillRect(image.rect(), effectiveColor);
+        tintPainter.end();
     }
-    image.fill(Qt::transparent);
-    QPainter painter(&image);
-    if (mirrored) {
-        painter.translate(physicalSize.width(), 0);
-        painter.scale(-1.0, 1.0);
-    }
-    renderer.render(
-        &painter,
-        QRectF(
-            0.0,
-            0.0,
-            physicalSize.width(),
-            physicalSize.height()));
-    painter.end();
-
-    QPainter tintPainter(&image);
-    tintPainter.setCompositionMode(
-        QPainter::CompositionMode_SourceIn);
-    tintPainter.fillRect(image.rect(), color);
-    tintPainter.end();
 
     QPixmap rendered = QPixmap::fromImage(std::move(image));
     if (rendered.isNull()) {
@@ -275,6 +302,57 @@ QPixmap ZzFluentStylePrivate::iconPixmap(
     rendered.setDevicePixelRatio(effectiveDpr);
     cache.insertIcon(key, rendered);
     return rendered;
+}
+
+QImage ZzFluentStylePrivate::renderIconShape(
+    const ZzIconDescriptor &descriptor,
+    QSize physicalSize,
+    bool mirrored)
+{
+    QImage image(
+        physicalSize,
+        QImage::Format_ARGB32_Premultiplied);
+    if (image.isNull()) {
+        return {};
+    }
+    image.fill(Qt::transparent);
+
+    QPainter painter(&image);
+    if (mirrored) {
+        painter.translate(physicalSize.width(), 0);
+        painter.scale(-1.0, 1.0);
+    }
+
+    if (descriptor.source == ZzIconSource::SvgResource) {
+        QSvgRenderer renderer(descriptor.resourceId);
+        if (!renderer.isValid()) {
+            return {};
+        }
+        renderer.render(
+            &painter,
+            QRectF(
+                0.0,
+                0.0,
+                physicalSize.width(),
+                physicalSize.height()));
+    } else {
+        if (!ZzIconFont::ensureRegistered()) {
+            return {};
+        }
+        const int fontPixels = std::max(
+            1, std::min(physicalSize.width(), physicalSize.height()));
+        painter.setRenderHints(
+            QPainter::Antialiasing
+            | QPainter::TextAntialiasing);
+        painter.setPen(Qt::white);
+        painter.setFont(ZzIconFont::font(fontPixels));
+        painter.drawText(
+            image.rect(),
+            Qt::AlignCenter,
+            zzFontIconText(descriptor.fontIcon));
+    }
+    painter.end();
+    return image;
 }
 
 void ZzFluentStylePrivate::drawCheckIndicator(
@@ -1731,7 +1809,7 @@ void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)
 
     if (colorsChanged) {
         cache.rebuildVisuals(*snapshot);
-        cache.clearIcons();
+        cache.clearRenderedIcons();
         iconRevision = snapshot->revision();
         QApplication::setPalette(q_ptr->standardPalette());
     }

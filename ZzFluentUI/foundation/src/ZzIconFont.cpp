@@ -1,15 +1,10 @@
 #include <ZzFluentUI/ZzIconFont.h>
 
 #include <QtCore/QThread>
-#include <QtCore/QtResource>
 #include <QtGui/QFontDatabase>
 #include <QtGui/QGuiApplication>
 
-/** @brief 显式拉入静态库中的图标资源对象。 */
-void zzInitializeIconAssets()
-{
-    Q_INIT_RESOURCE(zzfluent_icon_assets);
-}
+#include <ZzFluentUI/ZzIconAssets.h>
 
 namespace ZzFluentUI {
 
@@ -25,7 +20,9 @@ bool ZzIconFont::ensureRegistered()
     }
 
     static const bool registered = [] {
-        zzInitializeIconAssets();
+        if (!ZzIconAssets::ensureInitialized()) {
+            return false;
+        }
         const int fontId = QFontDatabase::addApplicationFont(
             QStringLiteral(":/zzfluent/fonts/ZzAwesome.ttf"));
         if (fontId < 0) {

@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtGui/QColor>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
@@ -19,6 +20,11 @@ class ZzIconButtonPrivate;
 class ZZ_FLUENT_UI_EXPORT ZzIconButton final : public QToolButton
 {
     Q_OBJECT
+    Q_PROPERTY(
+        QColor iconColor
+        READ iconColor
+        WRITE setIconColor
+        RESET resetIconColor)
     Q_DISABLE_COPY_MOVE(ZzIconButton)
 
 public:
@@ -36,6 +42,21 @@ public:
      * @param descriptor 按值复制、不转移所有权的图标描述。
      */
     void setIconDescriptor(const ZzIconDescriptor &descriptor);
+
+    /**
+     * @brief 返回按钮级图标颜色覆盖。
+     * @return 有效颜色表示覆盖 descriptor；无效颜色表示使用 descriptor 策略。
+     */
+    [[nodiscard]] QColor iconColor() const noexcept;
+
+    /**
+     * @brief 设置按钮级图标颜色并立即刷新缓存图像。
+     * @param color 有效颜色覆盖主题、原色和 descriptor 自定义色；无效值等同重置。
+     */
+    void setIconColor(QColor color);
+
+    /** @brief 清除按钮级颜色覆盖并恢复 descriptor 的颜色策略。 */
+    void resetIconColor();
 
 protected:
     /** @brief 在影响图标颜色或比例的 Qt 状态变化后刷新图标。 */

@@ -10,6 +10,7 @@
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentPainter.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -165,6 +166,17 @@ private Q_SLOTS:
         QCOMPARE(second.cacheKey(), first.cacheKey());
         QCOMPARE(style.iconCacheBytes(), firstCost);
 
+        const QPixmap secondColor = style.iconPixmap(
+            descriptor,
+            QSize(16, 16),
+            1.25,
+            QColor(Qt::red),
+            Qt::LeftToRight);
+        QVERIFY(!secondColor.isNull());
+        const int secondColorCost = style.iconCacheBytes();
+        QVERIFY(secondColorCost > firstCost);
+        QVERIFY(secondColorCost < firstCost * 2);
+
         const QPixmap mirrored = style.iconPixmap(
             descriptor,
             QSize(16, 16),
@@ -174,7 +186,7 @@ private Q_SLOTS:
         QVERIFY(!mirrored.isNull());
         QVERIFY(first.toImage() != mirrored.toImage());
         const int mirroredCost = style.iconCacheBytes();
-        QVERIFY(mirroredCost > firstCost);
+        QVERIFY(mirroredCost > secondColorCost);
 
         controller.setReducedMotion(true);
         QCOMPARE(
@@ -200,7 +212,94 @@ private Q_SLOTS:
         QCOMPARE(style.iconCacheBytes(), mirroredCost);
 
         controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
-        QCOMPARE(style.iconCacheBytes(), 0);
+        QVERIFY(style.iconCacheBytes() > 0);
+        QVERIFY(style.iconCacheBytes() < mirroredCost);
+    }
+
+    void rendersOriginalSvgAndCustomDescriptorColors()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const auto originalDescriptor =
+            ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+                QStringLiteral(
+                    ":/zzfluent/tests/ZzFluentTestSquare.svg"),
+                false,
+                ZzFluentUI::ZzIconColorMode::Original);
+        const QPixmap original = style.iconPixmap(
+            originalDescriptor,
+            QSize(16, 16),
+            1.0,
+            {},
+            Qt::LeftToRight);
+        QVERIFY(!original.isNull());
+        QCOMPARE(
+            original.toImage().pixelColor(8, 8),
+            QColor(Qt::black));
+
+        const auto customDescriptor =
+            ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+                QStringLiteral(
+                    ":/zzfluent/tests/ZzFluentTestSquare.svg"),
+                false,
+                ZzFluentUI::ZzIconColorMode::Custom,
+                QColor(Qt::magenta));
+        const QPixmap custom = style.iconPixmap(
+            customDescriptor,
+            QSize(16, 16),
+            1.0,
+            QColor(Qt::green),
+            Qt::LeftToRight);
+        QVERIFY(!custom.isNull());
+        QCOMPARE(
+            custom.toImage().pixelColor(8, 8),
+            QColor(Qt::magenta));
+    }
+
+    void rendersBundledSvgAndFontGlyphs()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const auto bundled =
+            ZzFluentUI::ZzIconDescriptor::fromBundledSvg(
+                ZzFluentUI::ZzBundledSvgIcon::Sun);
+        const QPixmap svg = style.iconPixmap(
+            bundled,
+            QSize(24, 24),
+            1.5,
+            QColor(Qt::yellow),
+            Qt::LeftToRight);
+        QVERIFY(!svg.isNull());
+
+        const auto font =
+            ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+                ZzFluentUI::ZzFontIcon::House,
+                false,
+                ZzFluentUI::ZzIconColorMode::Custom,
+                QColor(Qt::cyan));
+        const QPixmap glyph = style.iconPixmap(
+            font,
+            QSize(24, 24),
+            1.5,
+            QColor(Qt::red),
+            Qt::LeftToRight);
+        QVERIFY(!glyph.isNull());
+
+        const QImage glyphImage = glyph.toImage();
+        bool foundCyanPixel = false;
+        for (int y = 0; y < glyphImage.height() && !foundCyanPixel; ++y) {
+            for (int x = 0; x < glyphImage.width(); ++x) {
+                const QColor pixel = glyphImage.pixelColor(x, y);
+                if (pixel.alpha() > 200
+                    && pixel.red() == 0
+                    && pixel.green() == 255
+                    && pixel.blue() == 255) {
+                    foundCyanPixel = true;
+                    break;
+                }
+            }
+        }
+        QVERIFY(foundCyanPixel);
     }
 
     void sendsGeometryChangesOnlyForGeometryUpdates()
