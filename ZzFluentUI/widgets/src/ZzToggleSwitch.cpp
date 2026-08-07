@@ -59,6 +59,11 @@ QSize ZzToggleSwitch::sizeHint() const
         contentHeight + margins.top() + margins.bottom());
 }
 
+bool ZzToggleSwitch::hitButton(const QPoint &position) const
+{
+    return rect().contains(position);
+}
+
 void ZzToggleSwitch::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)

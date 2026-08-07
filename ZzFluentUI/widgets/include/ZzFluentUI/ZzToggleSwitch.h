@@ -50,6 +50,13 @@ public:
     [[nodiscard]] QSize sizeHint() const override;
 
 protected:
+    /**
+     * @brief 判断控件完整视觉区域是否命中，而非使用平台复选框小区域。
+     * @param position 控件局部坐标中的指针位置。
+     * @return 位置位于控件矩形内时返回 true。
+     */
+    [[nodiscard]] bool hitButton(const QPoint &position) const override;
+
     /** @brief 绘制轨道、旋钮、文本和统一焦点环。 */
     void paintEvent(QPaintEvent *event) override;
 

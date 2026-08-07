@@ -54,6 +54,30 @@ private Q_SLOTS:
         QCOMPARE(spy.count(), 1);
     }
 
+    void entireTrackAndLabelAreClickable()
+    {
+        ZzFluentUI::ZzToggleSwitch toggle(QStringLiteral("Wi-Fi"));
+        toggle.resize(toggle.sizeHint());
+        toggle.show();
+        QCoreApplication::processEvents();
+        QSignalSpy spy(&toggle, &QCheckBox::toggled);
+
+        QTest::mouseClick(
+            &toggle,
+            Qt::LeftButton,
+            Qt::NoModifier,
+            QPoint(38, toggle.rect().center().y()));
+        QVERIFY(toggle.isChecked());
+
+        QTest::mouseClick(
+            &toggle,
+            Qt::LeftButton,
+            Qt::NoModifier,
+            QPoint(toggle.width() - 2, toggle.rect().center().y()));
+        QVERIFY(!toggle.isChecked());
+        QCOMPARE(spy.count(), 2);
+    }
+
     void exposesCheckBoxAccessibility()
     {
         ZzFluentUI::ZzToggleSwitch toggle;
