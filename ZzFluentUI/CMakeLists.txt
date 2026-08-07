@@ -1,12 +1,18 @@
+qt_add_resources(zz_fluent_icon_resources
+    resources/zzfluent_icon_assets.qrc
+)
+
 set(zz_fluent_foundation_sources
     foundation/src/private/ZzFluentVersion.cpp
     foundation/src/ZzAnimationPolicy.cpp
     foundation/src/ZzDpiScale.cpp
+    foundation/src/ZzIconFont.cpp
     foundation/src/ZzIconCacheKey.cpp
     foundation/src/ZzThemeController.cpp
     foundation/src/private/ZzThemeControllerPrivate.cpp
     foundation/src/ZzThemePalette.cpp
     foundation/src/ZzThemeSnapshot.cpp
+    ${zz_fluent_icon_resources}
 )
 set(zz_fluent_foundation_moc_headers
     foundation/include/ZzFluentUI/ZzThemeController.h

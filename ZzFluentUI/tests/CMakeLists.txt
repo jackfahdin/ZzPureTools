@@ -26,6 +26,19 @@ add_test(NAME fluent.animation-dpi COMMAND ZzAnimationDpiTest)
 set_tests_properties(fluent.animation-dpi PROPERTIES
     LABELS "unit;fluent;foundation")
 
+add_executable(ZzIconFontTest ZzIconFontTest.cpp)
+target_link_libraries(ZzIconFontTest PRIVATE
+    Qt6::Test
+    Zz::FluentFoundation
+)
+set_target_properties(ZzIconFontTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzIconFontTest)
+zz_enable_sanitizers(ZzIconFontTest)
+add_test(NAME fluent.icon-font COMMAND ZzIconFontTest)
+set_tests_properties(fluent.icon-font PROPERTIES
+    LABELS "unit;fluent;foundation"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzThemeControllerTest ZzThemeControllerTest.cpp)
 target_link_libraries(ZzThemeControllerTest PRIVATE
     Qt6::Test

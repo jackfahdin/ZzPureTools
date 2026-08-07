@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/zzfluent">
+        <file alias="fonts/ZzAwesome.ttf">fonts/ZzAwesome.ttf</file>
+        <file alias="icons/Close.svg">icons/Close.svg</file>
+        <file alias="icons/ComputerSystem.svg">icons/ComputerSystem.svg</file>
+        <file alias="icons/FullScreen.svg">icons/FullScreen.svg</file>
+        <file alias="icons/Maximize.svg">icons/Maximize.svg</file>
+        <file alias="icons/Minimize.svg">icons/Minimize.svg</file>
+        <file alias="icons/Moon.svg">icons/Moon.svg</file>
+        <file alias="icons/MoreLine.svg">icons/MoreLine.svg</file>
+        <file alias="icons/Pin.svg">icons/Pin.svg</file>
+        <file alias="icons/PinFill.svg">icons/PinFill.svg</file>
+        <file alias="icons/Restore.svg">icons/Restore.svg</file>
+        <file alias="icons/Sun.svg">icons/Sun.svg</file>
+    </qresource>
+</RCC>
