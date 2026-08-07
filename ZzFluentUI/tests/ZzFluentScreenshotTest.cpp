@@ -119,18 +119,16 @@ constexpr std::array<QPoint, 3> zzPopupMenuOrigins{
     QPoint(830, 190)};
 constexpr int zzTextMaskPadding = 2;
 constexpr int zzChannelTolerance = 3;
-constexpr qreal zzReferenceMaximumDifferenceRatio = 0.005;
-constexpr qreal zzCompatibilityMaximumDifferenceRatio = 0.02;
 
 /** @brief 返回当前 Qt minor 对应的非文字像素差异上限。 */
 constexpr qreal zzMaximumDifferenceRatio()
 {
-    if constexpr (
-        QT_VERSION_MAJOR == ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MAJOR
-        && QT_VERSION_MINOR == ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MINOR) {
-        return zzReferenceMaximumDifferenceRatio;
-    }
-    return zzCompatibilityMaximumDifferenceRatio;
+#if QT_VERSION_MAJOR == ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MAJOR \
+    && QT_VERSION_MINOR == ZZ_FLUENT_SCREENSHOT_REFERENCE_QT_MINOR
+    return 0.005;
+#else
+    return 0.02;
+#endif
 }
 
 /** @brief 保存截图进程移除 Qt Test 未知参数后的确定配置。 */

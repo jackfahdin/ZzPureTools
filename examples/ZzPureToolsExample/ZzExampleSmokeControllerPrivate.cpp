@@ -55,10 +55,6 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
-constexpr qreal zzScreenshotReferenceDifferenceRatio = 0.005;
-constexpr qreal zzScreenshotCompatibilityDifferenceRatio = 0.02;
-constexpr int zzScreenshotReferenceQtMajor = 6;
-constexpr int zzScreenshotReferenceQtMinor = 11;
 
 /** @brief 保存一次综合示例截图比较的统计和差异图。 */
 struct ZzExampleScreenshotComparison final
@@ -94,12 +90,11 @@ struct ZzExampleScreenshotComparison final
 /** @brief 返回当前 Qt minor 对应的综合示例非文字差异上限。 */
 [[nodiscard]] constexpr qreal zzScreenshotMaximumDifferenceRatio()
 {
-    if constexpr (
-        QT_VERSION_MAJOR == zzScreenshotReferenceQtMajor
-        && QT_VERSION_MINOR == zzScreenshotReferenceQtMinor) {
-        return zzScreenshotReferenceDifferenceRatio;
-    }
-    return zzScreenshotCompatibilityDifferenceRatio;
+#if QT_VERSION_MAJOR == 6 && QT_VERSION_MINOR == 11
+    return 0.005;
+#else
+    return 0.02;
+#endif
 }
 
 /** @brief 把子控件逻辑矩形映射到综合示例窗口。 */
