@@ -8,6 +8,11 @@
 >
 > 旧版参考：仓库父目录中的 `ZzPureToolsExample`
 
+> **2026-08-07 更新：** 项目所有者 Jackfahdin 已确认 `ZzAwesome.ttf` 与旧版
+> 11 个 SVG 的完整使用和分发授权。本文关于“不迁移字体图标和无授权素材”的
+> 原始假设对这些固定资源不再适用，当前结论见
+> `docs/development/ICON_ASSETS_ZH.md`。
+
 ## 1. 目标与边界
 
 新增正式的 `ZzPureToolsExample`，以旧版示例的可见功能、页面结构和操作路径为参考，完成 ZzCore、ZzWindowKit、ZzFluentUI、ZzPureTools 与 ZzLog 的端到端装配。

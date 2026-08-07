@@ -819,8 +819,18 @@
     </message>
     <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="333"/>
-        <source>跨平台 Qt 标准图标随当前样式、主题与设备像素比解析</source>
-        <translation>Cross-platform Qt standard icons adapt to the current style, theme, and device pixel ratio</translation>
+        <source>内嵌 SVG、字体字形与 Qt 标准图标共享主题和高 DPI 渲染</source>
+        <translation>Bundled SVGs, font glyphs, and Qt standard icons share theme-aware high-DPI rendering</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="371"/>
+        <source>内嵌 SVG</source>
+        <translation>Bundled SVGs</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="433"/>
+        <source>字体图标</source>
+        <translation>Font icons</translation>
     </message>
     <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="337"/>

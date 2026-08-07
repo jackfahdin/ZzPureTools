@@ -28,7 +28,7 @@ public:
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);
 
-    /** @brief 创建 Qt 跨平台标准图标集合。 */
+    /** @brief 创建内嵌 SVG、字体字形和 Qt 标准图标集合。 */
     void buildIcons(QVBoxLayout *layout, QWidget *parent);
 
     ZzExampleShowcasePage *q_ptr = nullptr;

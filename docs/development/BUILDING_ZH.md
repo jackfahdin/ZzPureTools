@@ -106,8 +106,10 @@ cmake --build --preset linux-gcc-release --target ZzPureToolsExample
 
 该目录应放在已忽略的 `build/` 下。提供目录时四个文件缺少任意一个都会配置失败；
 未提供时示例继续使用确定性 palette 预览，不影响其他开发者、CI 或发布构建。临时
-旧版素材不得提交，替换为经过来源审核的正式原创文件后，必须重新生成综合示例视觉
-基线并记录逐文件 SHA-256。
+上述临时首页与卡片 PNG 不得提交，替换为经过来源审核的正式原创文件后，必须重新
+生成综合示例视觉基线并记录逐文件 SHA-256。已经批准进入生产资源包的字体和 SVG
+不受该临时 PNG 限制，其所有权、固定摘要和变更规则见
+[`ICON_ASSETS_ZH.md`](ICON_ASSETS_ZH.md)。
 
 ## Windows MSVC preset
 

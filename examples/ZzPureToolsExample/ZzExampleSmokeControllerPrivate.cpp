@@ -38,6 +38,7 @@
 
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzIconButton.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzPureApplication.h>
@@ -56,6 +57,33 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
+
+/** @brief 验证图标路由已通过公开 API 生成完整 SVG 与字体图标集合。 */
+[[nodiscard]] bool zzIconPageReady(
+    const ZzPureTools::ZzApplicationWindow &window)
+{
+    int svgCount = 0;
+    int fontCount = 0;
+    const auto buttons =
+        window.findChildren<ZzFluentUI::ZzIconButton *>();
+    for (const ZzFluentUI::ZzIconButton *button : buttons) {
+        const QString &name = button->objectName();
+        if (name.startsWith(QStringLiteral("zzExampleSvgIcon_"))) {
+            ++svgCount;
+            if (button->icon().isNull()
+                || !button->iconColor().isValid()) {
+                return false;
+            }
+        } else if (name.startsWith(
+                       QStringLiteral("zzExampleFontIcon_"))) {
+            ++fontCount;
+            if (button->icon().isNull()) {
+                return false;
+            }
+        }
+    }
+    return svgCount == 11 && fontCount == 12;
+}
 
 /** @brief 保存一次综合示例截图比较的统计和差异图。 */
 struct ZzExampleScreenshotComparison final
@@ -536,10 +564,16 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             return;
         }
         for (const auto &route : ZzExampleRouteCatalog::routes()) {
+            const QString routeId = zzFromUtf8(route.routeId);
             auto result = controller->navigate(
-                ZzPureTools::ZzRouteId(zzFromUtf8(route.routeId)));
+                ZzPureTools::ZzRouteId(routeId));
             if (!result) {
                 fail("route smoke navigation failed");
+                return;
+            }
+            if (routeId == QStringLiteral("icons")
+                && !zzIconPageReady(window)) {
+                fail("route smoke icon integration failed");
                 return;
             }
         }

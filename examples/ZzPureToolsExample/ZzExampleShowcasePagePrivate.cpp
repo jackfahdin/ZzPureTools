@@ -21,6 +21,8 @@
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
+#include <ZzFluentUI/ZzIconButton.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzPushButton.h>
@@ -76,6 +78,35 @@ void zzAddShowcaseSection(
     label->setAlignment(Qt::AlignCenter);
     layout->addWidget(label);
     return page;
+}
+
+/** @brief 创建带稳定尺寸、文字标签和无障碍名称的图标展示项。 */
+[[nodiscard]] QWidget *zzIconTile(
+    const ZzFluentUI::ZzIconDescriptor &descriptor,
+    const QColor &buttonColor,
+    const QString &name,
+    const QString &objectName,
+    QWidget *parent)
+{
+    auto *tile = new QWidget(parent);
+    tile->setFixedSize(104, 82);
+    auto *layout = new QVBoxLayout(tile);
+    layout->setContentsMargins(4, 2, 4, 2);
+    layout->setSpacing(2);
+    auto *button = new ZzFluentUI::ZzIconButton(tile);
+    button->setObjectName(objectName);
+    button->setAccessibleName(name);
+    button->setToolTip(name);
+    button->setFixedSize(48, 48);
+    button->setIconDescriptor(descriptor);
+    if (buttonColor.isValid()) {
+        button->setIconColor(buttonColor);
+    }
+    auto *label = new QLabel(name, tile);
+    label->setAlignment(Qt::AlignCenter);
+    layout->addWidget(button, 0, Qt::AlignHCenter);
+    layout->addWidget(label);
+    return tile;
 }
 
 } // namespace
@@ -330,11 +361,125 @@ void ZzExampleShowcasePagePrivate::buildIcons(
     QWidget *parent)
 {
     auto *description = new QLabel(
-        QCoreApplication::translate("ZzPureToolsExample", "跨平台 Qt 标准图标随当前样式、主题与设备像素比解析"),
+        QCoreApplication::translate("ZzPureToolsExample", "内嵌 SVG、字体字形与 Qt 标准图标共享主题和高 DPI 渲染"),
         parent);
     description->setWordWrap(true);
     layout->addWidget(description);
-    zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "标准图标"), parent);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate("ZzPureToolsExample", "内嵌 SVG"),
+        parent);
+    struct ZzSvgEntry final
+    {
+        ZzFluentUI::ZzBundledSvgIcon icon;
+        const char *name;
+        const char *objectName;
+    };
+    constexpr std::array<ZzSvgEntry, 11> svgEntries{{
+        {ZzFluentUI::ZzBundledSvgIcon::Close,
+         "Close", "zzExampleSvgIcon_Close"},
+        {ZzFluentUI::ZzBundledSvgIcon::ComputerSystem,
+         "Computer", "zzExampleSvgIcon_ComputerSystem"},
+        {ZzFluentUI::ZzBundledSvgIcon::FullScreen,
+         "Full screen", "zzExampleSvgIcon_FullScreen"},
+        {ZzFluentUI::ZzBundledSvgIcon::Maximize,
+         "Maximize", "zzExampleSvgIcon_Maximize"},
+        {ZzFluentUI::ZzBundledSvgIcon::Minimize,
+         "Minimize", "zzExampleSvgIcon_Minimize"},
+        {ZzFluentUI::ZzBundledSvgIcon::Moon,
+         "Moon", "zzExampleSvgIcon_Moon"},
+        {ZzFluentUI::ZzBundledSvgIcon::MoreLine,
+         "More", "zzExampleSvgIcon_MoreLine"},
+        {ZzFluentUI::ZzBundledSvgIcon::Pin,
+         "Pin", "zzExampleSvgIcon_Pin"},
+        {ZzFluentUI::ZzBundledSvgIcon::PinFill,
+         "Pinned", "zzExampleSvgIcon_PinFill"},
+        {ZzFluentUI::ZzBundledSvgIcon::Restore,
+         "Restore", "zzExampleSvgIcon_Restore"},
+        {ZzFluentUI::ZzBundledSvgIcon::Sun,
+         "Sun", "zzExampleSvgIcon_Sun"},
+    }};
+    const std::array<QColor, 6> iconColors{{
+        QColor(0x00, 0x67, 0xC0),
+        QColor(0x10, 0x7C, 0x10),
+        QColor(0xC4, 0x2B, 0x1C),
+        QColor(0x87, 0x64, 0xB8),
+        QColor(0xCA, 0x50, 0x10),
+        QColor(0x00, 0x82, 0x72),
+    }};
+    auto *svgHost = new QWidget(parent);
+    auto *svgLayout = new ZzFluentUI::ZzFlowLayout(8, 8, svgHost);
+    svgLayout->setContentsMargins(0, 0, 0, 0);
+    for (std::size_t index = 0; index < svgEntries.size(); ++index) {
+        const auto &entry = svgEntries[index];
+        svgLayout->addWidget(zzIconTile(
+            ZzFluentUI::ZzIconDescriptor::fromBundledSvg(entry.icon),
+            iconColors[index % iconColors.size()],
+            QString::fromLatin1(entry.name),
+            QString::fromLatin1(entry.objectName),
+            svgHost));
+    }
+    layout->addWidget(svgHost);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate("ZzPureToolsExample", "字体图标"),
+        parent);
+    struct ZzFontEntry final
+    {
+        ZzFluentUI::ZzFontIcon icon;
+        const char *name;
+        const char *objectName;
+    };
+    constexpr std::array<ZzFontEntry, 12> fontEntries{{
+        {ZzFluentUI::ZzFontIcon::House,
+         "House", "zzExampleFontIcon_House"},
+        {ZzFluentUI::ZzFontIcon::FolderOpen,
+         "Folder", "zzExampleFontIcon_FolderOpen"},
+        {ZzFluentUI::ZzFontIcon::File,
+         "File", "zzExampleFontIcon_File"},
+        {ZzFluentUI::ZzFontIcon::GearComplex,
+         "Settings", "zzExampleFontIcon_GearComplex"},
+        {ZzFluentUI::ZzFontIcon::MagnifyingGlass,
+         "Search", "zzExampleFontIcon_MagnifyingGlass"},
+        {ZzFluentUI::ZzFontIcon::ArrowRotateRight,
+         "Refresh", "zzExampleFontIcon_ArrowRotateRight"},
+        {ZzFluentUI::ZzFontIcon::Check,
+         "Check", "zzExampleFontIcon_Check"},
+        {ZzFluentUI::ZzFontIcon::Xmark,
+         "Dismiss", "zzExampleFontIcon_Xmark"},
+        {ZzFluentUI::ZzFontIcon::Bell,
+         "Bell", "zzExampleFontIcon_Bell"},
+        {ZzFluentUI::ZzFontIcon::User,
+         "User", "zzExampleFontIcon_User"},
+        {ZzFluentUI::ZzFontIcon::Star,
+         "Star", "zzExampleFontIcon_Star"},
+        {ZzFluentUI::ZzFontIcon::Heart,
+         "Heart", "zzExampleFontIcon_Heart"},
+    }};
+    auto *fontHost = new QWidget(parent);
+    auto *fontLayout = new ZzFluentUI::ZzFlowLayout(8, 8, fontHost);
+    fontLayout->setContentsMargins(0, 0, 0, 0);
+    for (std::size_t index = 0; index < fontEntries.size(); ++index) {
+        const auto &entry = fontEntries[index];
+        fontLayout->addWidget(zzIconTile(
+            ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+                entry.icon,
+                false,
+                ZzFluentUI::ZzIconColorMode::Custom,
+                iconColors[index % iconColors.size()]),
+            {},
+            QString::fromLatin1(entry.name),
+            QString::fromLatin1(entry.objectName),
+            fontHost));
+    }
+    layout->addWidget(fontHost);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate("ZzPureToolsExample", "标准图标"),
+        parent);
 
     struct ZzIconEntry final
     {

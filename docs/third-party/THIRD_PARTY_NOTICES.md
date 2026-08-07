@@ -10,6 +10,7 @@
 - 源码证据：仓库根 `LICENSE`，其 SHA-256 由 `release-evidence.json` 锁定。
 - 发布包许可证位置：`share/ZzPureToolsPro/licenses/PROJECT-LICENSE`。
 - 审核状态：项目所有者 Jackfahdin 已批准 MIT，记录安装到 `share/ZzPureToolsPro/reviews/project-license-approval.json`。
+- 项目字体与 SVG：`ZzAwesome.ttf` 和 11 个内嵌 SVG 是 Jackfahdin 批准使用与分发的项目资源，不构成第三方依赖；固定摘要和维护边界见 `docs/development/ICON_ASSETS_ZH.md`。
 
 ## QWindowKit
 

@@ -51,6 +51,38 @@ private slots:
                     ZzFluentUI::ZzFontIcon::None)
                     .isEmpty());
     }
+
+    void coversPublishedCodePointRange()
+    {
+        const QRawFont rawFont = QRawFont::fromFont(
+            ZzFluentUI::ZzIconFont::font(24));
+        QVERIFY(rawFont.isValid());
+
+        constexpr quint32 firstCodePoint = 0xe800U;
+        constexpr quint32 lastCodePoint = 0xf4cfU;
+        QString characters;
+        characters.reserve(
+            static_cast<qsizetype>(lastCodePoint - firstCodePoint + 1U));
+        for (quint32 codePoint = firstCodePoint;
+             codePoint <= lastCodePoint;
+             ++codePoint) {
+            characters.append(QChar(static_cast<char16_t>(codePoint)));
+        }
+
+        const auto glyphs = rawFont.glyphIndexesForString(characters);
+        QCOMPARE(glyphs.size(), characters.size());
+        for (qsizetype index = 0; index < glyphs.size(); ++index) {
+            QVERIFY2(
+                glyphs.at(index) != 0U,
+                qPrintable(QStringLiteral("缺少字体码点 U+%1")
+                               .arg(
+                                   firstCodePoint
+                                       + static_cast<quint32>(index),
+                                   4,
+                                   16,
+                                   QLatin1Char('0'))));
+        }
+    }
 };
 
 QTEST_MAIN(ZzIconFontTest)
