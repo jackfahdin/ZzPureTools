@@ -2,6 +2,7 @@
 
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QItemSelectionModel>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -158,16 +159,28 @@ private Q_SLOTS:
         if (views.primary == nullptr || views.footer == nullptr) {
             return;
         }
+        QSignalSpy primarySelectionSpy(
+            views.primary->selectionModel(),
+            &QItemSelectionModel::selectionChanged);
+        QSignalSpy footerSelectionSpy(
+            views.footer->selectionModel(),
+            &QItemSelectionModel::selectionChanged);
 
         pane.setCurrentSourceIndex(model.index(1, 0));
         QCOMPARE(pane.currentSourceIndex(), model.index(1, 0));
         QCOMPARE(views.primary->currentIndex().row(), 2);
         QVERIFY(!views.footer->currentIndex().isValid());
+        QVERIFY(primarySelectionSpy.count() > 0);
+        QCOMPARE(footerSelectionSpy.count(), 0);
+        primarySelectionSpy.clear();
+        footerSelectionSpy.clear();
 
         pane.setCurrentSourceIndex(model.index(2, 0));
         QCOMPARE(pane.currentSourceIndex(), model.index(2, 0));
         QVERIFY(!views.primary->currentIndex().isValid());
         QCOMPARE(views.footer->currentIndex().row(), 0);
+        QVERIFY(primarySelectionSpy.count() > 0);
+        QVERIFY(footerSelectionSpy.count() > 0);
 
         pane.setCurrentSourceIndex({});
         QVERIFY(!pane.currentSourceIndex().isValid());

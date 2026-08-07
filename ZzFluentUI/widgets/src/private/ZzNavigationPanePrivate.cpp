@@ -4,7 +4,6 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QItemSelectionModel>
-#include <QtCore/QSignalBlocker>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -154,7 +153,6 @@ void ZzNavigationPanePrivate::setCurrentSourceIndex(
         ? footerProjection->mapFromSource(sourceIndex) : QModelIndex();
 
     if (primaryView->selectionModel() != nullptr) {
-        QSignalBlocker blocker(primaryView->selectionModel());
         primaryView->selectionModel()->clear();
         primaryView->setCurrentIndex(primaryIndex);
         if (primaryIndex.isValid()) {
@@ -165,7 +163,6 @@ void ZzNavigationPanePrivate::setCurrentSourceIndex(
         }
     }
     if (footerView->selectionModel() != nullptr) {
-        QSignalBlocker blocker(footerView->selectionModel());
         footerView->selectionModel()->clear();
         footerView->setCurrentIndex(footerIndex);
         if (footerIndex.isValid()) {
