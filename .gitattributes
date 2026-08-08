@@ -1,0 +1,37 @@
+# 换行符归一化：发布证据与性能档案的 SHA-256 校验以字节为单位，
+# 必须保证任何平台 clone 出来的文件字节一致，否则 Windows 上的
+# CRLF 转换会让证据校验假阻断。
+
+* text=auto
+
+# 文本产物统一 LF
+*.sh          text eol=lf
+*.bash        text eol=lf
+*.cmake       text eol=lf
+CMakeLists.txt text eol=lf
+*.json        text eol=lf
+*.md          text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.svg         text eol=lf
+*.cpp         text eol=lf
+*.h           text eol=lf
+*.hpp         text eol=lf
+*.in          text eol=lf
+*.txt         text eol=lf
+LICENSE       text eol=lf
+.gitignore    text eol=lf
+.clang-tidy   text eol=lf
+
+# Windows 脚本保留 CRLF
+*.ps1         text eol=crlf
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+
+# 二进制资源
+*.png         binary
+*.ttf         binary
+*.ico         binary
+*.icns        binary
+*.woff        binary
+*.woff2       binary

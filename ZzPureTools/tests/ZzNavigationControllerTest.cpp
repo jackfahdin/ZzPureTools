@@ -2,7 +2,7 @@
 #include <utility>
 #include <vector>
 
-#include <QtCore/QParallelAnimationGroup>
+#include <QtCore/QAbstractAnimation>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLabel>
@@ -568,7 +568,7 @@ private Q_SLOTS:
             ZzPureTools::ZzRouteId(QStringLiteral("good")));
     }
 
-    void secondNavigationCancelsFirstTransition()
+    void navigationDoesNotCreateTransitionAnimations()
     {
         ZzPureTools::ZzNavigationModel model;
         ZzPureTools::ZzPageHost host;
@@ -576,25 +576,16 @@ private Q_SLOTS:
         QVERIFY(controller.setRegistrations({
             zzRegistration(QStringLiteral("A")),
             zzRegistration(QStringLiteral("B"))}));
-        const auto groups =
-            controller.findChildren<QParallelAnimationGroup *>();
-        QCOMPARE(groups.size(), 1);
-        auto *const transition = groups.constFirst();
 
         QVERIFY(controller.navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("A"))));
-        QCOMPARE(transition->state(), QAbstractAnimation::Running);
         QVERIFY(controller.navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("B"))));
 
+        // 过渡动画因无任何视觉消费者而被移除；此处守卫其不被重新引入。
         QCOMPARE(
-            controller.findChildren<QParallelAnimationGroup *>().size(),
-            1);
-        QCOMPARE(
-            controller.findChildren<QParallelAnimationGroup *>()
-                .constFirst(),
-            transition);
-        QCOMPARE(transition->state(), QAbstractAnimation::Running);
+            controller.findChildren<QAbstractAnimation *>().size(),
+            0);
     }
 
     void failedNavigationKeepsHistoryConsistent()

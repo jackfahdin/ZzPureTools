@@ -42,7 +42,7 @@ public:
         ZzPageHost *pageHost,
         QObject *parent = nullptr);
 
-    /** @brief 停止过渡动画并销毁窗口级导航状态。 */
+    /** @brief 销毁窗口级导航状态。 */
     ~ZzNavigationController() override;
 
     /**

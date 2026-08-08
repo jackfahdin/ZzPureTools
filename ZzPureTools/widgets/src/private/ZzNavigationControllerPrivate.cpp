@@ -3,9 +3,7 @@
 #include <utility>
 
 #include <QtCore/QDebug>
-#include <QtCore/QParallelAnimationGroup>
 #include <QtCore/QThread>
-#include <QtCore/QVariantAnimation>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
@@ -49,8 +47,6 @@ ZzNavigationControllerPrivate::ZzNavigationControllerPrivate(
     : q_ptr(controller)
     , model(navigationModel)
     , host(pageHost)
-    , transition(new QParallelAnimationGroup(controller))
-    , transitionProgress(new QVariantAnimation(transition))
 {
     Q_ASSERT(q_ptr != nullptr);
     if (q_ptr == nullptr) {
@@ -61,15 +57,9 @@ ZzNavigationControllerPrivate::ZzNavigationControllerPrivate(
              || navigationModel->thread() == q_ptr->thread());
     Q_ASSERT(pageHost == nullptr
              || pageHost->thread() == q_ptr->thread());
-    transitionProgress->setDuration(120);
-    transitionProgress->setEasingCurve(QEasingCurve::OutCubic);
-    transition->addAnimation(transitionProgress);
 }
 
-ZzNavigationControllerPrivate::~ZzNavigationControllerPrivate()
-{
-    transition->stop();
-}
+ZzNavigationControllerPrivate::~ZzNavigationControllerPrivate() = default;
 
 ZzCore::ZzResult<void> ZzNavigationControllerPrivate::setRegistrations(
     QList<ZzPageRegistration> newRegistrations)
@@ -158,7 +148,6 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
     const bool oldCanGoBack = !backHistory.isEmpty();
     const bool oldCanGoForward = !forwardHistory.isEmpty();
 
-    transition->stop();
     auto activation = host->activate(registrationIterator->second);
     if (activation) {
         if (!oldWasFrameworkError && oldRoute.isValid()
@@ -170,7 +159,6 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
             backHistory.removeLast();
         }
         showingFrameworkError = false;
-        restartTransition();
         Q_EMIT q_ptr->currentRouteChanged(routeId);
         notifyHistoryState(oldCanGoBack, oldCanGoForward);
         return ZzCore::ZzResult<void>::success();
@@ -221,7 +209,6 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
     const bool oldCanGoForward = !forwardHistory.isEmpty();
     const ZzRouteId oldRoute = host->currentRoute();
     const bool oldWasFrameworkError = showingFrameworkError;
-    transition->stop();
     auto activation = host->activate(registrationIterator->second);
     if (!activation) {
         reportNavigationFailure(activation.error());
@@ -233,7 +220,6 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
         appendHistory(forwardHistory, oldRoute);
     }
     showingFrameworkError = false;
-    restartTransition();
     Q_EMIT q_ptr->currentRouteChanged(targetRoute);
     notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::success();
@@ -274,7 +260,6 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goForward()
     const bool oldCanGoForward = !forwardHistory.isEmpty();
     const ZzRouteId oldRoute = host->currentRoute();
     const bool oldWasFrameworkError = showingFrameworkError;
-    transition->stop();
     auto activation = host->activate(registrationIterator->second);
     if (!activation) {
         reportNavigationFailure(activation.error());
@@ -286,7 +271,6 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goForward()
         appendHistory(backHistory, oldRoute);
     }
     showingFrameworkError = false;
-    restartTransition();
     Q_EMIT q_ptr->currentRouteChanged(targetRoute);
     notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::success();
@@ -384,15 +368,6 @@ void ZzNavigationControllerPrivate::notifyHistoryState(
         Q_EMIT q_ptr->historyStateChanged(
             newCanGoBack, newCanGoForward);
     }
-}
-
-void ZzNavigationControllerPrivate::restartTransition()
-{
-    transition->stop();
-    transitionProgress->setStartValue(0.0);
-    transitionProgress->setEndValue(1.0);
-    transition->setCurrentTime(0);
-    transition->start();
 }
 
 void ZzNavigationControllerPrivate::reportNavigationFailure(

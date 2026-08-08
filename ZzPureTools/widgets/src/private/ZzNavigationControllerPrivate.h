@@ -11,16 +11,13 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzRouteId.h>
 
-class QParallelAnimationGroup;
-class QVariantAnimation;
-
 namespace ZzPureTools {
 
 class ZzNavigationController;
 class ZzNavigationModel;
 class ZzPageHost;
 
-/** @brief 实现路由注册、页面失败处理、动画复用和窗口级有界历史。 */
+/** @brief 实现路由注册、页面失败处理和窗口级有界历史。 */
 class ZzNavigationControllerPrivate final
 {
 public:
@@ -30,7 +27,7 @@ public:
         ZzNavigationModel *navigationModel,
         ZzPageHost *pageHost);
 
-    /** @brief 停止仍在运行的页面过渡。 */
+    /** @brief 销毁窗口级导航状态。 */
     ~ZzNavigationControllerPrivate();
 
     /** @brief 一次性校验并保存页面注册表。 */
@@ -70,9 +67,6 @@ private:
     /** @brief 仅在 back/forward 可用状态变化时通知观察者。 */
     void notifyHistoryState(bool oldCanGoBack, bool oldCanGoForward);
 
-    /** @brief 停止并复用唯一页面过渡动画组。 */
-    void restartTransition();
-
     /** @brief 记录技术错误并发出导航失败信号。 */
     void reportNavigationFailure(const ZzCore::ZzError &error);
 
@@ -83,8 +77,6 @@ private:
     QList<ZzRouteId> backHistory;
     QList<ZzRouteId> forwardHistory;
     qsizetype historyCapacity = 100;
-    QParallelAnimationGroup *transition;
-    QVariantAnimation *transitionProgress;
     bool registrationsSet = false;
     bool showingFrameworkError = false;
 };

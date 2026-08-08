@@ -22,6 +22,19 @@ ZZ_BENCHMARK_COMMIT=$(git rev-parse --verify HEAD)
 cmake -DZZ_PRESETS_FILE="$source_dir/CMakePresets.json" \
   -P tests/Platform/PresetMatrixContract.cmake
 
+# 编译器最低版本门禁的负向契约：需要一个必然被拒的旧编译器。
+# 未安装 g++-12 的机器跳过（跳过不是通过），安装了就必须验证拒绝行为。
+if command -v g++-12 >/dev/null 2>&1; then
+  cmake \
+    -DZZ_SOURCE_DIR="$source_dir" \
+    -DZZ_QT_PREFIX="$QT_ROOT" \
+    -DZZ_REJECTED_CXX="$(command -v g++-12)" \
+    -DZZ_WORK_DIR="${ZZ_COMPILER_CONTRACT_WORK_DIR:-/tmp/zzpuretoolspro-gcc12-contract}" \
+    -P tests/Platform/CompilerCapabilitiesContract.cmake
+else
+  echo "note: g++-12 unavailable; compiler capabilities contract not executed" >&2
+fi
+
 run_preset() {
   local preset=$1
   cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON

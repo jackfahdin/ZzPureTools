@@ -166,8 +166,10 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::attach(QWidget *window)
         if (zzIsWindows11OrGreater()) {
             capabilities_ |= ZzWindowCapability::Acrylic;
             capabilities_ |= ZzWindowCapability::Mica;
-            capabilities_ |= ZzWindowCapability::MicaAlt;
             capabilities_ |= ZzWindowCapability::SnapLayout;
+            if (zzIsWindows1122H2OrGreater()) {
+                capabilities_ |= ZzWindowCapability::MicaAlt;
+            }
         }
     }
 #elif defined(Q_OS_MACOS)
