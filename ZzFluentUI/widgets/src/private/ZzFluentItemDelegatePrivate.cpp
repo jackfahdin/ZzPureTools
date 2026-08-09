@@ -6,8 +6,14 @@
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QWidget>
 
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
+
+#include "ZzFluentStylePrivate.h"
 
 namespace ZzFluentUI {
 
@@ -42,7 +48,44 @@ void ZzFluentItemDelegatePrivate::paint(
         : QApplication::style();
     QStyleOptionViewItem content = adjusted;
     painter->save();
-    if (adjusted.state.testFlag(QStyle::State_Selected)) {
+    const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
+    const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
+    const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(style);
+    if (fluentStyle != nullptr
+        && fluentStyle->d_ptr->snapshot != nullptr
+        && (selected || hovered)) {
+        // 与 ComboBox 弹出项一致：圆角背板 + accent 指示条，文字不反白。
+        const auto &snapshot = fluentStyle->d_ptr->snapshot;
+        const QRectF surface = QRectF(adjusted.rect).adjusted(
+            2.0,
+            2.0,
+            -2.0,
+            -2.0);
+        const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(snapshot->color(
+            selected
+                ? ZzColorToken::ControlFillPressed
+                : ZzColorToken::ControlFillHover));
+        painter->drawRoundedRect(surface, radius, radius);
+        if (selected) {
+            const QRect logicalIndicator(
+                adjusted.rect.left() + 4,
+                adjusted.rect.center().y() - 8,
+                3,
+                16);
+            const QRect indicator = QStyle::visualRect(
+                adjusted.direction,
+                adjusted.rect,
+                logicalIndicator);
+            painter->setBrush(snapshot->color(ZzColorToken::Accent));
+            painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
+        }
+        content.state.setFlag(QStyle::State_Selected, false);
+        content.state.setFlag(QStyle::State_MouseOver, false);
+    } else if (selected) {
+        // 非 Fluent 样式回退：保留平台整行高亮。
         painter->fillRect(
             adjusted.rect,
             adjusted.palette.color(QPalette::Highlight));
@@ -50,7 +93,7 @@ void ZzFluentItemDelegatePrivate::paint(
             QPalette::Text,
             adjusted.palette.color(QPalette::HighlightedText));
         content.state.setFlag(QStyle::State_Selected, false);
-    } else if (adjusted.state.testFlag(QStyle::State_MouseOver)) {
+    } else if (hovered) {
         painter->fillRect(
             adjusted.rect,
             adjusted.palette.color(QPalette::AlternateBase));

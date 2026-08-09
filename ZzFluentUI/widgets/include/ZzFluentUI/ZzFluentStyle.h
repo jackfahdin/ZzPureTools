@@ -202,6 +202,9 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    // 允许同模块的 item delegate 读取主题快照以绘制选中背板。
+    friend class ZzFluentItemDelegatePrivate;
+
     std::unique_ptr<ZzFluentStylePrivate> d_ptr;
 };
 
