@@ -57,8 +57,13 @@ void ZzFluentItemDelegatePrivate::paint(
         && (selected || hovered)) {
         // 与 ComboBox 弹出项一致：圆角背板 + accent 指示条，文字不反白。
         const auto &snapshot = fluentStyle->d_ptr->snapshot;
+        // QTreeView 会对交替行全高度填充 AlternateBase；背板有内缩，
+        // 先按普通行底色覆盖整个 item 区，避免背板上下露出斑马纹。
+        painter->fillRect(
+            adjusted.rect,
+            adjusted.palette.brush(QPalette::Base));
         // 树形视图的分支区由 ZzFluentStyle::drawItemViewRow 续画：
-        // 此处只保留外侧（右）圆角，指示条也由样式在分支区绘制。
+        // 此处只保留外侧（右）圆角。
         const auto *treeView = qobject_cast<
             const QTreeView *>(adjusted.widget);
         const bool splitWithBranch = treeView != nullptr
@@ -82,7 +87,8 @@ void ZzFluentItemDelegatePrivate::paint(
                 ? ZzColorToken::ControlFillPressed
                 : ZzColorToken::ControlFillHover));
         painter->drawRoundedRect(extended, radius, radius);
-        if (selected && !splitWithBranch) {
+        // 指示条绘制在标题内容左缘。
+        if (selected) {
             const QRect logicalIndicator(
                 adjusted.rect.left() + 4,
                 adjusted.rect.center().y() - 8,

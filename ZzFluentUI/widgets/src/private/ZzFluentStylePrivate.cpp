@@ -1007,7 +1007,8 @@ void ZzFluentStylePrivate::drawItemViewRow(
 
     // QTreeView 经此原语绘制行分支区（visualRect 之外的部分）。
     // 与 delegate 的背板拼接：外侧圆角、内侧直角并向 item 区延伸，
-    // 突出部分由随后执行的 delegate 绘制覆盖。
+    // 突出部分由随后执行的 delegate 绘制覆盖；指示条由 delegate
+    // 绘制在标题内容左缘。
     const bool rtl = adjusted.direction == Qt::RightToLeft;
     const QRectF surface = rtl
         ? QRectF(adjusted.rect).adjusted(0.0, 2.0, -2.0, -2.0)
@@ -1024,19 +1025,6 @@ void ZzFluentStylePrivate::drawItemViewRow(
             ? ZzColorToken::ControlFillPressed
             : ZzColorToken::ControlFillHover));
     painter->drawRoundedRect(extended, radius, radius);
-    if (selected) {
-        const QRect logicalIndicator(
-            adjusted.rect.left() + 4,
-            adjusted.rect.center().y() - 8,
-            3,
-            16);
-        const QRect indicator = QStyle::visualRect(
-            adjusted.direction,
-            adjusted.rect,
-            logicalIndicator);
-        painter->setBrush(snapshot->color(ZzColorToken::Accent));
-        painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
-    }
     painter->restore();
 }
 
