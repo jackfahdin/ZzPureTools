@@ -196,6 +196,10 @@ public:
         const QStyleOptionMenuItem *option,
         QPainter *painter,
         const QWidget *widget) const;
+    /** @brief 绘制树形行分支区的背板与指示条并保留交替行背景。 */
+    void drawItemViewRow(
+        const QStyleOptionViewItem *option,
+        QPainter *painter) const;
 
     ZzFluentStyle *const q_ptr;
     QPointer<ZzThemeController> controller;

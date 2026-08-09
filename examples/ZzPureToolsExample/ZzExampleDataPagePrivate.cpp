@@ -2,6 +2,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QItemSelectionModel>
 #include <QtGui/QFont>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QHeaderView>
@@ -192,6 +193,13 @@ void ZzExampleDataPagePrivate::buildTree(
     view->setAnimated(true);
     view->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(view));
     view->setModel(model);
+    // QTreeView::visualRect 不包含分支缩进区，Qt 的选择变更只重绘
+    // visualRect，取消选中后分支区的旧选中填充会残留；整视口刷新规避。
+    QObject::connect(
+        view->selectionModel(),
+        &QItemSelectionModel::selectionChanged,
+        view,
+        [view] { view->viewport()->update(); });
     view->header()->setStretchLastSection(true);
     view->expandToDepth(1);
     view->setMinimumHeight(440);

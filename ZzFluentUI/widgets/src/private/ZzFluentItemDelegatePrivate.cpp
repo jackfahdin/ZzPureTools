@@ -4,6 +4,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOptionViewItem>
+#include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -56,20 +57,32 @@ void ZzFluentItemDelegatePrivate::paint(
         && (selected || hovered)) {
         // 与 ComboBox 弹出项一致：圆角背板 + accent 指示条，文字不反白。
         const auto &snapshot = fluentStyle->d_ptr->snapshot;
-        const QRectF surface = QRectF(adjusted.rect).adjusted(
-            2.0,
-            2.0,
-            -2.0,
-            -2.0);
+        // 树形视图的分支区由 ZzFluentStyle::drawItemViewRow 续画：
+        // 此处只保留外侧（右）圆角，指示条也由样式在分支区绘制。
+        const auto *treeView = qobject_cast<
+            const QTreeView *>(adjusted.widget);
+        const bool splitWithBranch = treeView != nullptr
+            && treeView->indentation() > 0;
+        const bool rtl = adjusted.direction == Qt::RightToLeft;
+        const QRectF surface = splitWithBranch
+            ? (rtl
+               ? QRectF(adjusted.rect).adjusted(-2.0, 2.0, 0.0, -2.0)
+               : QRectF(adjusted.rect).adjusted(0.0, 2.0, -2.0, -2.0))
+            : QRectF(adjusted.rect).adjusted(2.0, 2.0, -2.0, -2.0);
         const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
+        const QRectF extended = splitWithBranch
+            ? (rtl
+               ? surface.adjusted(0.0, 0.0, radius, 0.0)
+               : surface.adjusted(-radius, 0.0, 0.0, 0.0))
+            : surface;
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
         painter->setBrush(snapshot->color(
             selected
                 ? ZzColorToken::ControlFillPressed
                 : ZzColorToken::ControlFillHover));
-        painter->drawRoundedRect(surface, radius, radius);
-        if (selected) {
+        painter->drawRoundedRect(extended, radius, radius);
+        if (selected && !splitWithBranch) {
             const QRect logicalIndicator(
                 adjusted.rect.left() + 4,
                 adjusted.rect.center().y() - 8,

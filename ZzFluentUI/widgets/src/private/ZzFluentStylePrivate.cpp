@@ -986,6 +986,60 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
         widget);
 }
 
+void ZzFluentStylePrivate::drawItemViewRow(
+    const QStyleOptionViewItem *option,
+    QPainter *painter) const
+{
+    QStyleOptionViewItem adjusted = *option;
+    const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
+    const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
+    if (!adjusted.features.testFlag(
+            QStyleOptionViewItem::IsDecorationForRootColumn)
+        || (!selected && !hovered)) {
+        // 保留 QCommonStyle 的交替行背景；其余情形不再填充整色高亮。
+        if (adjusted.features.testFlag(QStyleOptionViewItem::Alternate)) {
+            painter->fillRect(
+                adjusted.rect,
+                adjusted.palette.brush(QPalette::AlternateBase));
+        }
+        return;
+    }
+
+    // QTreeView 经此原语绘制行分支区（visualRect 之外的部分）。
+    // 与 delegate 的背板拼接：外侧圆角、内侧直角并向 item 区延伸，
+    // 突出部分由随后执行的 delegate 绘制覆盖。
+    const bool rtl = adjusted.direction == Qt::RightToLeft;
+    const QRectF surface = rtl
+        ? QRectF(adjusted.rect).adjusted(0.0, 2.0, -2.0, -2.0)
+        : QRectF(adjusted.rect).adjusted(2.0, 2.0, 0.0, -2.0);
+    const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
+    const QRectF extended = rtl
+        ? surface.adjusted(-radius, 0.0, 0.0, 0.0)
+        : surface.adjusted(0.0, 0.0, radius, 0.0);
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(snapshot->color(
+        selected
+            ? ZzColorToken::ControlFillPressed
+            : ZzColorToken::ControlFillHover));
+    painter->drawRoundedRect(extended, radius, radius);
+    if (selected) {
+        const QRect logicalIndicator(
+            adjusted.rect.left() + 4,
+            adjusted.rect.center().y() - 8,
+            3,
+            16);
+        const QRect indicator = QStyle::visualRect(
+            adjusted.direction,
+            adjusted.rect,
+            logicalIndicator);
+        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
+    }
+    painter->restore();
+}
+
 void ZzFluentStylePrivate::drawSpinBox(
     const QStyleOptionSpinBox *option,
     QPainter *painter,

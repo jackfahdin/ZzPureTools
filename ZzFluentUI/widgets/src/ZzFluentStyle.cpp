@@ -360,6 +360,15 @@ void ZzFluentStyle::drawPrimitive(
             option->palette.color(QPalette::Window));
         return;
     }
+    if (element == PE_PanelItemViewRow
+        && option != nullptr && painter != nullptr) {
+        const auto *item = qstyleoption_cast<
+            const QStyleOptionViewItem *>(option);
+        if (item != nullptr) {
+            d_ptr->drawItemViewRow(item, painter);
+            return;
+        }
+    }
     if (element == PE_FrameFocusRect
         && option != nullptr && painter != nullptr) {
         if (widget != nullptr && !isFocusVisualVisible(widget)) {
