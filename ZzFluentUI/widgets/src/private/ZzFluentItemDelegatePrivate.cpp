@@ -48,6 +48,17 @@ void ZzFluentItemDelegatePrivate::paint(
         ? adjusted.widget->style()
         : QApplication::style();
     QStyleOptionViewItem content = adjusted;
+    // 树形视图的分支区由 ZzFluentStyle::drawItemViewRow 续画；
+    // item 内容统一内移，为选中指示条与文字之间预留间距。
+    // 所有状态使用相同偏移，选中切换时文字不跳动。
+    const auto *treeView = qobject_cast<const QTreeView *>(
+        adjusted.widget);
+    const bool splitWithBranch = treeView != nullptr
+        && treeView->indentation() > 0;
+    const bool rtl = adjusted.direction == Qt::RightToLeft;
+    if (splitWithBranch) {
+        content.rect.adjust(rtl ? 0 : 10, 0, rtl ? -10 : 0, 0);
+    }
     painter->save();
     const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
     const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
@@ -62,13 +73,7 @@ void ZzFluentItemDelegatePrivate::paint(
         painter->fillRect(
             adjusted.rect,
             adjusted.palette.brush(QPalette::Base));
-        // 树形视图的分支区由 ZzFluentStyle::drawItemViewRow 续画：
-        // 此处只保留外侧（右）圆角。
-        const auto *treeView = qobject_cast<
-            const QTreeView *>(adjusted.widget);
-        const bool splitWithBranch = treeView != nullptr
-            && treeView->indentation() > 0;
-        const bool rtl = adjusted.direction == Qt::RightToLeft;
+        // 树形视图此处只保留外侧（右）圆角。
         const QRectF surface = splitWithBranch
             ? (rtl
                ? QRectF(adjusted.rect).adjusted(-2.0, 2.0, 0.0, -2.0)
