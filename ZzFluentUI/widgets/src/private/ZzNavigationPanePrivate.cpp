@@ -4,6 +4,7 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QItemSelectionModel>
+#include <QtCore/QSignalBlocker>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -21,6 +22,36 @@ constexpr int zzCompactNavigationWidth = 48;
 constexpr int zzRegularItemHeight = 40;
 constexpr int zzCompactItemHeight = 32;
 constexpr int zzMaximumVisibleFooterRows = 6;
+
+/** @brief 以一次选择模型事务同步当前项和单选状态。 */
+void zzSyncViewSelection(
+    ZzNavigationView *view,
+    const QModelIndex &index)
+{
+    Q_ASSERT(view != nullptr);
+    QItemSelectionModel *const selectionModel = view != nullptr
+        ? view->selectionModel() : nullptr;
+    if (selectionModel == nullptr) {
+        return;
+    }
+    const bool alreadySynchronized = selectionModel->currentIndex() == index
+        && (index.isValid()
+            ? selectionModel->isSelected(index)
+            : !selectionModel->hasSelection());
+    if (alreadySynchronized) {
+        return;
+    }
+    {
+        const QSignalBlocker blocker(selectionModel);
+        selectionModel->setCurrentIndex(
+            index,
+            index.isValid()
+                ? QItemSelectionModel::ClearAndSelect
+                    | QItemSelectionModel::Rows
+                : QItemSelectionModel::Clear);
+    }
+    view->viewport()->update();
+}
 
 } // namespace
 
@@ -152,26 +183,8 @@ void ZzNavigationPanePrivate::setCurrentSourceIndex(
     const QModelIndex footerIndex = accepted
         ? footerProjection->mapFromSource(sourceIndex) : QModelIndex();
 
-    if (primaryView->selectionModel() != nullptr) {
-        primaryView->selectionModel()->clear();
-        primaryView->setCurrentIndex(primaryIndex);
-        if (primaryIndex.isValid()) {
-            primaryView->selectionModel()->select(
-                primaryIndex,
-                QItemSelectionModel::ClearAndSelect
-                    | QItemSelectionModel::Rows);
-        }
-    }
-    if (footerView->selectionModel() != nullptr) {
-        footerView->selectionModel()->clear();
-        footerView->setCurrentIndex(footerIndex);
-        if (footerIndex.isValid()) {
-            footerView->selectionModel()->select(
-                footerIndex,
-                QItemSelectionModel::ClearAndSelect
-                    | QItemSelectionModel::Rows);
-        }
-    }
+    zzSyncViewSelection(primaryView, primaryIndex);
+    zzSyncViewSelection(footerView, footerIndex);
     currentSourceIndex = primaryIndex.isValid() || footerIndex.isValid()
         ? QPersistentModelIndex(sourceIndex) : QPersistentModelIndex();
 }

@@ -45,6 +45,29 @@ struct ZzNavigationViews final
     ZzFluentUI::ZzNavigationView *footer = nullptr;
 };
 
+/** @brief 统计目标 viewport 收到的实际绘制事件。 */
+class ZzPaintEventCounter final : public QObject
+{
+public:
+    /** @brief 清零已观察到的绘制事件数量。 */
+    void reset() noexcept
+    {
+        paintCount = 0;
+    }
+
+    int paintCount = 0;
+
+protected:
+    /** @brief 记录绘制事件且不阻止目标继续处理。 */
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event != nullptr && event->type() == QEvent::Paint) {
+            ++paintCount;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+
 /** @brief 从固定双视图中识别主区和页脚区。 */
 ZzNavigationViews zzNavigationViews(ZzFluentUI::ZzNavigationPane *pane)
 {
@@ -153,36 +176,49 @@ private Q_SLOTS:
             ZzFluentUI::ZzNavigationPlacement::Footer));
         ZzFluentUI::ZzNavigationPane pane;
         pane.setModel(&model);
+        pane.resize(240, 320);
+        pane.show();
+        QCoreApplication::processEvents();
         const ZzNavigationViews views = zzNavigationViews(&pane);
         QVERIFY(views.primary != nullptr);
         QVERIFY(views.footer != nullptr);
         if (views.primary == nullptr || views.footer == nullptr) {
             return;
         }
-        QSignalSpy primarySelectionSpy(
-            views.primary->selectionModel(),
-            &QItemSelectionModel::selectionChanged);
-        QSignalSpy footerSelectionSpy(
-            views.footer->selectionModel(),
-            &QItemSelectionModel::selectionChanged);
+        ZzPaintEventCounter primaryPaints;
+        ZzPaintEventCounter footerPaints;
+        views.primary->viewport()->installEventFilter(&primaryPaints);
+        views.footer->viewport()->installEventFilter(&footerPaints);
 
         pane.setCurrentSourceIndex(model.index(1, 0));
+        QCoreApplication::processEvents();
         QCOMPARE(pane.currentSourceIndex(), model.index(1, 0));
         QCOMPARE(views.primary->currentIndex().row(), 2);
+        QVERIFY(views.primary->selectionModel()->isSelected(
+            views.primary->currentIndex()));
         QVERIFY(!views.footer->currentIndex().isValid());
-        QVERIFY(primarySelectionSpy.count() > 0);
-        QCOMPARE(footerSelectionSpy.count(), 0);
-        primarySelectionSpy.clear();
-        footerSelectionSpy.clear();
+        QVERIFY(primaryPaints.paintCount > 0);
+        QCOMPARE(footerPaints.paintCount, 0);
+        primaryPaints.reset();
+        footerPaints.reset();
+
+        pane.setCurrentSourceIndex(model.index(1, 0));
+        QCoreApplication::processEvents();
+        QCOMPARE(primaryPaints.paintCount, 0);
+        QCOMPARE(footerPaints.paintCount, 0);
 
         pane.setCurrentSourceIndex(model.index(2, 0));
+        QCoreApplication::processEvents();
         QCOMPARE(pane.currentSourceIndex(), model.index(2, 0));
         QVERIFY(!views.primary->currentIndex().isValid());
         QCOMPARE(views.footer->currentIndex().row(), 0);
-        QVERIFY(primarySelectionSpy.count() > 0);
-        QVERIFY(footerSelectionSpy.count() > 0);
+        QVERIFY(views.footer->selectionModel()->isSelected(
+            views.footer->currentIndex()));
+        QVERIFY(primaryPaints.paintCount > 0);
+        QVERIFY(footerPaints.paintCount > 0);
 
         pane.setCurrentSourceIndex({});
+        QCoreApplication::processEvents();
         QVERIFY(!pane.currentSourceIndex().isValid());
         QVERIFY(!views.primary->currentIndex().isValid());
         QVERIFY(!views.footer->currentIndex().isValid());
