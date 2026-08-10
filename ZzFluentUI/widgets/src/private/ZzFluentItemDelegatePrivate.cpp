@@ -1,5 +1,6 @@
 #include "ZzFluentItemDelegatePrivate.h"
 
+#include <QtCore/QItemSelectionModel>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyle>
@@ -48,15 +49,18 @@ void ZzFluentItemDelegatePrivate::paint(
         ? adjusted.widget->style()
         : QApplication::style();
     QStyleOptionViewItem content = adjusted;
-    // 树形视图的分支区由 ZzFluentStyle::drawItemViewRow 续画；
-    // item 内容统一内移，为选中指示条与文字之间预留间距。
-    // 所有状态使用相同偏移，选中切换时文字不跳动。
-    const auto *treeView = qobject_cast<const QTreeView *>(
-        adjusted.widget);
-    const bool splitWithBranch = treeView != nullptr
-        && treeView->indentation() > 0;
+    // 树形整行背板由 ZzFluentStyle::drawItemViewRow 绘制；只有实际树列
+    // 需要给分支和指示条预留间距，其他数据列保持原始内容几何。
+    auto *treeView = qobject_cast<QTreeView *>(
+        const_cast<QWidget *>(adjusted.widget));
+    const bool isTreeView = treeView != nullptr;
+    const bool isTreeColumn = isTreeView
+        && index.column() == treeView->treePosition();
+    if (isTreeView) {
+        observeTreeSelection(treeView);
+    }
     const bool rtl = adjusted.direction == Qt::RightToLeft;
-    if (splitWithBranch) {
+    if (isTreeColumn && treeView->indentation() > 0) {
         content.rect.adjust(rtl ? 0 : 10, 0, rtl ? -10 : 0, 0);
     }
     painter->save();
@@ -68,32 +72,28 @@ void ZzFluentItemDelegatePrivate::paint(
         && (selected || hovered)) {
         // 与 ComboBox 弹出项一致：圆角背板 + accent 指示条，文字不反白。
         const auto &snapshot = fluentStyle->d_ptr->snapshot;
-        // QTreeView 会对交替行全高度填充 AlternateBase；背板有内缩，
-        // 先按普通行底色覆盖整个 item 区，避免背板上下露出斑马纹。
-        painter->fillRect(
-            adjusted.rect,
-            adjusted.palette.brush(QPalette::Base));
-        // 树形视图此处只保留外侧（右）圆角。
-        const QRectF surface = splitWithBranch
-            ? (rtl
-               ? QRectF(adjusted.rect).adjusted(-2.0, 2.0, 0.0, -2.0)
-               : QRectF(adjusted.rect).adjusted(0.0, 2.0, -2.0, -2.0))
-            : QRectF(adjusted.rect).adjusted(2.0, 2.0, -2.0, -2.0);
-        const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
-        const QRectF extended = splitWithBranch
-            ? (rtl
-               ? surface.adjusted(0.0, 0.0, radius, 0.0)
-               : surface.adjusted(-radius, 0.0, 0.0, 0.0))
-            : surface;
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(snapshot->color(
-            selected
-                ? ZzColorToken::ControlFillPressed
-                : ZzColorToken::ControlFillHover));
-        painter->drawRoundedRect(extended, radius, radius);
-        // 指示条绘制在标题内容左缘。
-        if (selected) {
+        if (!isTreeView) {
+            // 普通列表和表格没有整行 primitive，由 delegate 绘制表面。
+            painter->fillRect(
+                adjusted.rect,
+                adjusted.palette.brush(QPalette::Base));
+            const QRectF surface = QRectF(adjusted.rect).adjusted(
+                2.0,
+                2.0,
+                -2.0,
+                -2.0);
+            const qreal radius = snapshot->metric(
+                ZzMetricToken::CornerRadiusSmall);
+            painter->setBrush(snapshot->color(
+                selected
+                    ? ZzColorToken::ControlFillPressed
+                    : ZzColorToken::ControlFillHover));
+            painter->drawRoundedRect(surface, radius, radius);
+        }
+        // 树形视图仅在树列绘制一次；普通视图保留原有逐项指示条。
+        if (selected && (!isTreeView || isTreeColumn)) {
             const QRect logicalIndicator(
                 adjusted.rect.left() + 4,
                 adjusted.rect.center().y() - 8,
@@ -144,6 +144,36 @@ void ZzFluentItemDelegatePrivate::paint(
             adjusted.widget);
     }
     painter->restore();
+}
+
+void ZzFluentItemDelegatePrivate::observeTreeSelection(
+    QTreeView *treeView) const
+{
+    Q_ASSERT(treeView != nullptr);
+    QItemSelectionModel *selectionModel = treeView->selectionModel();
+    if (observedTreeView == treeView
+        && observedSelectionModel == selectionModel) {
+        return;
+    }
+
+    QObject::disconnect(selectionChangedConnection);
+    observedTreeView = treeView;
+    observedSelectionModel = selectionModel;
+    selectionChangedConnection = {};
+    if (selectionModel == nullptr) {
+        return;
+    }
+
+    const QPointer<QTreeView> guardedView(treeView);
+    selectionChangedConnection = QObject::connect(
+        selectionModel,
+        &QItemSelectionModel::selectionChanged,
+        q_ptr,
+        [guardedView] {
+            if (guardedView != nullptr && guardedView->viewport() != nullptr) {
+                guardedView->viewport()->update();
+            }
+        });
 }
 
 } // namespace ZzFluentUI

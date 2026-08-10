@@ -1,10 +1,15 @@
 #pragma once
 
+#include <QtCore/QMetaObject>
+#include <QtCore/QPointer>
+
 #include <ZzFluentUI/ZzItemDensity.h>
 
+class QItemSelectionModel;
 class QModelIndex;
 class QPainter;
 class QStyleOptionViewItem;
+class QTreeView;
 
 namespace ZzFluentUI {
 
@@ -24,8 +29,17 @@ public:
         const QStyleOptionViewItem &option,
         const QModelIndex &index) const;
 
+    /**
+     * @brief 监听当前树形选择模型，并在选择变化后刷新完整视口。
+     * @param treeView 非空的当前绘制树形视图。
+     */
+    void observeTreeSelection(QTreeView *treeView) const;
+
     ZzFluentItemDelegate *const q_ptr;
     ZzItemDensity density = ZzItemDensity::Standard;
+    mutable QPointer<QTreeView> observedTreeView;
+    mutable QPointer<QItemSelectionModel> observedSelectionModel;
+    mutable QMetaObject::Connection selectionChangedConnection;
 };
 
 } // namespace ZzFluentUI

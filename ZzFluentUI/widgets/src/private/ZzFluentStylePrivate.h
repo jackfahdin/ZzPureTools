@@ -196,7 +196,7 @@ public:
         const QStyleOptionMenuItem *option,
         QPainter *painter,
         const QWidget *widget) const;
-    /** @brief 绘制树形行分支区的背板与指示条并保留交替行背景。 */
+    /** @brief 绘制树形整行背板并保留未交互行的交替背景。 */
     void drawItemViewRow(
         const QStyleOptionViewItem *option,
         QPainter *painter) const;

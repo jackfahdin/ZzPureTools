@@ -1,12 +1,106 @@
 #include <QtCore/QAbstractListModel>
+#include <QtCore/QEvent>
+#include <QtCore/QItemSelectionModel>
+#include <QtCore/QPointer>
 #include <QtCore/QSet>
 #include <QtGui/QImage>
+#include <QtGui/QPaintEvent>
 #include <QtGui/QPainter>
+#include <QtGui/QStandardItemModel>
 #include <QtTest/QTest>
+#include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QStyleOptionViewItem>
+#include <QtWidgets/QTreeView>
 
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzItemDensity.h>
+#include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
+
+/** @brief 记录基础样式收到的 item 内容矩形。 */
+class ZzItemRectRecordingStyle final : public QProxyStyle
+{
+public:
+    /** @brief 清空此前记录的 item 内容矩形。 */
+    void clearItemRects() const
+    {
+        itemRects_.clear();
+    }
+
+    /** @brief 返回按绘制顺序记录的 item 内容矩形。 */
+    [[nodiscard]] const QList<QRect> &itemRects() const noexcept
+    {
+        return itemRects_;
+    }
+
+    /** @brief 记录 item 内容矩形后委托平台基础样式绘制。 */
+    void drawControl(
+        ControlElement element,
+        const QStyleOption *option,
+        QPainter *painter,
+        const QWidget *widget = nullptr) const override
+    {
+        if (element == CE_ItemViewItem) {
+            const auto *item = qstyleoption_cast<
+                const QStyleOptionViewItem *>(option);
+            if (item != nullptr) {
+                itemRects_.append(item->rect);
+            }
+        }
+        QProxyStyle::drawControl(element, option, painter, widget);
+    }
+
+private:
+    mutable QList<QRect> itemRects_;
+};
+
+/** @brief 统计树形选择变化后覆盖完整 viewport 的重绘事件。 */
+class ZzViewportPaintProbe final : public QObject
+{
+public:
+    /** @brief 绑定待观察的非空 viewport。 */
+    explicit ZzViewportPaintProbe(QWidget *viewport)
+        : QObject(viewport)
+        , viewport_(viewport)
+    {
+        Q_ASSERT(viewport_ != nullptr);
+        viewport_->installEventFilter(this);
+    }
+
+    /** @brief 清空完整 viewport 重绘次数。 */
+    void reset() noexcept
+    {
+        fullPaintCount_ = 0;
+    }
+
+    /** @brief 返回覆盖完整 viewport 的重绘次数。 */
+    [[nodiscard]] int fullPaintCount() const noexcept
+    {
+        return fullPaintCount_;
+    }
+
+protected:
+    /** @brief 统计完整绘制区域并保留 viewport 默认事件处理。 */
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (viewport_ != nullptr
+            && watched == viewport_
+            && event != nullptr
+            && event->type() == QEvent::Paint) {
+            const auto *paintEvent = static_cast<const QPaintEvent *>(event);
+            if (paintEvent->region().contains(viewport_->rect())) {
+                ++fullPaintCount_;
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    QPointer<QWidget> viewport_;
+    int fullPaintCount_ = 0;
+};
 
 /** @brief 记录可见 index 数据请求且不为十万行预分配 item。 */
 class ZzVisibleRowsModel final : public QAbstractListModel
@@ -134,6 +228,132 @@ private Q_SLOTS:
             delegate.density(),
             ZzFluentUI::ZzItemDensity::Compact);
         QCOMPARE(delegate.sizeHint(option, model.index(0, 0)).height(), 32);
+    }
+
+    void offsetsAndMarksOnlyTheTreeColumn_data()
+    {
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+        QTest::addColumn<int>("treeColumn");
+
+        QTest::newRow("ltr-first-column") << Qt::LeftToRight << 0;
+        QTest::newRow("ltr-second-column") << Qt::LeftToRight << 1;
+        QTest::newRow("rtl-first-column") << Qt::RightToLeft << 0;
+        QTest::newRow("rtl-second-column") << Qt::RightToLeft << 1;
+    }
+
+    void offsetsAndMarksOnlyTheTreeColumn()
+    {
+        QFETCH(Qt::LayoutDirection, direction);
+        QFETCH(int, treeColumn);
+
+        ZzFluentUI::ZzThemeController controller;
+        auto *recordingStyle = new ZzItemRectRecordingStyle;
+        ZzFluentUI::ZzFluentStyle style(&controller, recordingStyle);
+        QTreeView tree;
+        tree.setStyle(&style);
+        tree.setLayoutDirection(direction);
+        tree.setTreePosition(treeColumn);
+        QStandardItemModel model(1, 2);
+        model.setData(model.index(0, 0), QStringLiteral("Root"));
+        model.setData(model.index(0, 1), QStringLiteral("Details"));
+        tree.setModel(&model);
+        ZzFluentUI::ZzFluentItemDelegate delegate;
+
+        QImage image(
+            QSize(240, 40),
+            QImage::Format_ARGB32_Premultiplied);
+        image.fill(style.standardPalette().color(QPalette::Base));
+        QPainter painter(&image);
+        QStyleOptionViewItem option;
+        option.state = QStyle::State_Enabled | QStyle::State_Selected;
+        option.direction = direction;
+        option.widget = &tree;
+
+        for (int column = 0; column < 2; ++column) {
+            option.rect = QRect(column * 120, 0, 120, 40);
+            delegate.paint(&painter, option, model.index(0, column));
+        }
+        painter.end();
+
+        QCOMPARE(recordingStyle->itemRects().size(), 2);
+        for (int column = 0; column < 2; ++column) {
+            QRect expected(column * 120, 0, 120, 40);
+            if (column == treeColumn) {
+                expected.adjust(
+                    direction == Qt::RightToLeft ? 0 : 10,
+                    0,
+                    direction == Qt::RightToLeft ? -10 : 0,
+                    0);
+            }
+            QCOMPARE(recordingStyle->itemRects().at(column), expected);
+        }
+
+        const QColor accent = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent);
+        for (int column = 0; column < 2; ++column) {
+            const QRect cell(column * 120, 0, 120, 40);
+            int accentPixels = 0;
+            for (int y = cell.top(); y <= cell.bottom(); ++y) {
+                for (int x = cell.left(); x <= cell.right(); ++x) {
+                    if (image.pixelColor(x, y) == accent) {
+                        ++accentPixels;
+                    }
+                }
+            }
+            if (column == treeColumn) {
+                QVERIFY(accentPixels > 0);
+            } else {
+                QCOMPARE(accentPixels, 0);
+            }
+        }
+    }
+
+    void repaintsCompleteTreeViewportWhenSelectionChanges()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QTreeView tree;
+        tree.setStyle(&style);
+        tree.resize(320, 180);
+        tree.setSelectionBehavior(QAbstractItemView::SelectRows);
+        QStandardItemModel model(3, 2);
+        for (int row = 0; row < model.rowCount(); ++row) {
+            model.setData(
+                model.index(row, 0),
+                QStringLiteral("Node %1").arg(row));
+            model.setData(
+                model.index(row, 1),
+                QStringLiteral("Value %1").arg(row));
+        }
+        tree.setModel(&model);
+        auto *delegate = new ZzFluentUI::ZzFluentItemDelegate(&tree);
+        tree.setItemDelegate(delegate);
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+
+        ZzViewportPaintProbe probe(tree.viewport());
+        QCoreApplication::processEvents();
+        probe.reset();
+        tree.selectionModel()->select(
+            model.index(0, 0),
+            QItemSelectionModel::ClearAndSelect
+                | QItemSelectionModel::Rows);
+
+        QTRY_VERIFY_WITH_TIMEOUT(probe.fullPaintCount() > 0, 1000);
+
+        // setModel/setSelectionModel 可在控件生命周期内替换选择模型；
+        // 下一次绘制必须自动迁移连接，不能继续监听已经过期的模型。
+        QItemSelectionModel replacementSelection(&model, &tree);
+        tree.setSelectionModel(&replacementSelection);
+        tree.viewport()->update();
+        QCoreApplication::processEvents();
+        probe.reset();
+        replacementSelection.select(
+            model.index(1, 0),
+            QItemSelectionModel::ClearAndSelect
+                | QItemSelectionModel::Rows);
+
+        QTRY_VERIFY_WITH_TIMEOUT(probe.fullPaintCount() > 0, 1000);
     }
 };
 

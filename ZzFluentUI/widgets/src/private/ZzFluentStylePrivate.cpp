@@ -1005,18 +1005,14 @@ void ZzFluentStylePrivate::drawItemViewRow(
         return;
     }
 
-    // QTreeView 经此原语绘制行分支区（visualRect 之外的部分）。
-    // 与 delegate 的背板拼接：外侧圆角、内侧直角并向 item 区延伸，
-    // 突出部分由随后执行的 delegate 绘制覆盖；指示条由 delegate
-    // 绘制在标题内容左缘。
-    const bool rtl = adjusted.direction == Qt::RightToLeft;
-    const QRectF surface = rtl
-        ? QRectF(adjusted.rect).adjusted(0.0, 2.0, -2.0, -2.0)
-        : QRectF(adjusted.rect).adjusted(2.0, 2.0, 0.0, -2.0);
+    // QTreeView 的行 primitive 覆盖分支区和所有可见列。背板在这里
+    // 一次绘制，避免多列 delegate 分别生成圆角表面和重复强调条。
+    const QRectF surface = QRectF(adjusted.rect).adjusted(
+        2.0,
+        2.0,
+        -2.0,
+        -2.0);
     const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
-    const QRectF extended = rtl
-        ? surface.adjusted(-radius, 0.0, 0.0, 0.0)
-        : surface.adjusted(0.0, 0.0, radius, 0.0);
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(Qt::NoPen);
@@ -1024,7 +1020,7 @@ void ZzFluentStylePrivate::drawItemViewRow(
         selected
             ? ZzColorToken::ControlFillPressed
             : ZzColorToken::ControlFillHover));
-    painter->drawRoundedRect(extended, radius, radius);
+    painter->drawRoundedRect(surface, radius, radius);
     painter->restore();
 }
 
