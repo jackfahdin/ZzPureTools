@@ -91,6 +91,46 @@ private Q_SLOTS:
         }
     }
 
+    void appliesPaletteOnConstruction()
+    {
+        // 模拟 Windows 深色模式下残留的深色应用 palette：构造样式后
+        // 必须立即被令牌 palette 覆盖，不能等首次主题切换。
+        QPalette foreignPalette;
+        foreignPalette.setColor(QPalette::ButtonText, QColor("#ffffff"));
+        foreignPalette.setColor(QPalette::Text, QColor("#ffffff"));
+        foreignPalette.setColor(QPalette::WindowText, QColor("#ffffff"));
+        QApplication::setPalette(foreignPalette);
+
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(ZzFluentUI::ZzThemeMode::Light);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+
+        const auto snapshot = controller.snapshot();
+        const QColor primary = snapshot->color(
+            ZzFluentUI::ZzColorToken::TextPrimary);
+        QCOMPARE(QApplication::palette().color(QPalette::ButtonText), primary);
+        QCOMPARE(QApplication::palette().color(QPalette::Text), primary);
+        QCOMPARE(QApplication::palette().color(QPalette::WindowText), primary);
+
+        // 主题切换后继续跟随令牌 palette。
+        controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(
+            QApplication::palette().color(QPalette::ButtonText),
+            controller.snapshot()->color(ZzFluentUI::ZzColorToken::TextPrimary));
+    }
+
+    void defaultsToFusionBaseStyle()
+    {
+        // 平台基样式（WindowsVista）会按系统主题为按钮文字取色，
+        // 深色系统下与本样式的浅色令牌表面冲突；空基样式必须落到 Fusion。
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QVERIFY(style.baseStyle() != nullptr);
+        QCOMPARE(
+            QString::fromLatin1(style.baseStyle()->metaObject()->className()),
+            QStringLiteral("QFusionStyle"));
+    }
+
     void invalidatesColorCacheWithoutChangingMetric()
     {
         ZzFluentUI::ZzThemeController controller;

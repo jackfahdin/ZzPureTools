@@ -30,8 +30,13 @@ class ZZ_FLUENT_UI_EXPORT ZzFluentStyle final : public QProxyStyle
 public:
     /**
      * @brief 构造应用级样式。
+     *
+     * 构造时立即把令牌 palette 应用到 QApplication，避免依赖首次
+     * 主题切换；此后每次颜色类主题变更也会重新应用。
      * @param controller 非空、非拥有，必须同属 GUI 线程并比样式长寿。
-     * @param baseStyle 可为空；非空时所有权交给 QProxyStyle。
+     * @param baseStyle 可为空；非空时所有权交给 QProxyStyle；
+     * 为空时使用 Fusion 作为基样式（平台基样式会按系统主题为文字
+     * 取色，与本样式的令牌表面冲突）。
      * @pre 已构造 QApplication，且调用发生在 GUI 线程。
      */
     explicit ZzFluentStyle(

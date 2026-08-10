@@ -9,6 +9,7 @@
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTextEdit>
 
@@ -22,10 +23,20 @@ namespace ZzFluentUI {
 ZzFluentStyle::ZzFluentStyle(
     ZzThemeController *controller,
     QStyle *baseStyle)
-    : QProxyStyle(baseStyle)
+    // 默认基样式固定为 Fusion：若回落到平台样式（如 WindowsVista），
+    // 其按钮/下拉框文字会按系统主题取色，深色系统下把文字画成白色，
+    // 与本样式的浅色令牌表面冲突（文字不可见）。
+    : QProxyStyle(
+          baseStyle != nullptr
+              ? baseStyle
+              : QStyleFactory::create(QStringLiteral("Fusion")))
     , d_ptr(std::make_unique<ZzFluentStylePrivate>(this, controller))
 {
     QApplication::instance()->installEventFilter(this);
+    // 构造即应用令牌 palette：不能等首次主题切换，否则在深色系统
+    // （如 Windows 深色模式）下残留的深色 palette 会把按钮/下拉框
+    // 文字画成浅色，叠在 Fluent 浅色表面上不可见。
+    QApplication::setPalette(standardPalette());
 }
 
 ZzFluentStyle::~ZzFluentStyle()
