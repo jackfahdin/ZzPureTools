@@ -89,13 +89,13 @@ private Q_SLOTS:
         auto *disabled = new QStandardItem(QStringLiteral("Disabled"));
         disabled->setEnabled(false);
         model.appendRow(disabled);
-        Q_EMIT view.activated(model.index(3, 0));
+        Q_EMIT view.clicked(model.index(3, 0));
         QCOMPARE(navigationSpy.count(), 0);
         auto *nonSelectable = new QStandardItem(
             QStringLiteral("Section-like row"));
         nonSelectable->setFlags(Qt::ItemIsEnabled);
         model.appendRow(nonSelectable);
-        Q_EMIT view.activated(model.index(4, 0));
+        Q_EMIT view.clicked(model.index(4, 0));
         QCOMPARE(navigationSpy.count(), 0);
         view.setCurrentIndex(QModelIndex());
         QTest::keyClick(&view, Qt::Key_Enter);

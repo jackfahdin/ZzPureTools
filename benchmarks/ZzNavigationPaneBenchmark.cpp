@@ -291,13 +291,13 @@ int main(int argc, char *argv[])
             return zzFail(QStringLiteral(
                 "source selection did not map to the primary view"));
         }
-        Q_EMIT primaryView->activated(projectedIndex);
+        Q_EMIT primaryView->clicked(projectedIndex);
         const qint64 elapsed = timer.nsecsElapsed();
         if (pane->currentSourceIndex() != sourceIndex
             || lastRequestedIndex != sourceIndex
             || activationCount != operation + 1) {
             return zzFail(QStringLiteral(
-                "constant-time selection or activation mapped the wrong row"));
+                "constant-time selection or click mapped the wrong row"));
         }
         reporter.addSample({
             QStringLiteral("mapping-time"),
