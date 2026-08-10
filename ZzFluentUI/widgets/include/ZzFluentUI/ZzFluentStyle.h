@@ -19,6 +19,7 @@ class QWidget;
 namespace ZzFluentUI {
 
 class ZzFluentStylePrivate;
+class ZzItemViewVisual;
 class ZzThemeController;
 
 /** @brief 在保留平台基础行为的同时应用 Fluent 主题令牌。 */
@@ -207,8 +208,8 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    // 允许同模块的 item delegate 读取主题快照以绘制选中背板。
-    friend class ZzFluentItemDelegatePrivate;
+    // 允许统一 item 视觉接口读取不可变主题快照。
+    friend class ZzItemViewVisual;
 
     std::unique_ptr<ZzFluentStylePrivate> d_ptr;
 };

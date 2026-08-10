@@ -8,14 +8,11 @@
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
-#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
-#include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzNavigationView.h>
-#include <ZzFluentUI/ZzThemeSnapshot.h>
 
-#include "ZzFluentStylePrivate.h"
+#include "ZzItemViewVisual.h"
 
 namespace ZzFluentUI {
 
@@ -49,65 +46,31 @@ void ZzFluentItemDelegatePrivate::paint(
         ? adjusted.widget->style()
         : QApplication::style();
     QStyleOptionViewItem content = adjusted;
-    // 树形整行背板由 ZzFluentStyle::drawItemViewRow 绘制；只有实际树列
-    // 需要给分支和指示条预留间距，其他数据列保持原始内容几何。
     auto *treeView = qobject_cast<QTreeView *>(
         const_cast<QWidget *>(adjusted.widget));
     const bool isTreeView = treeView != nullptr;
-    const bool isTreeColumn = isTreeView
-        && index.column() == treeView->treePosition();
     if (isTreeView) {
         observeTreeSelection(treeView);
-    }
-    const bool rtl = adjusted.direction == Qt::RightToLeft;
-    if (isTreeColumn && treeView->indentation() > 0) {
-        content.rect.adjust(rtl ? 0 : 10, 0, rtl ? -10 : 0, 0);
     }
     painter->save();
     const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
     const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
     const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(style);
-    if (fluentStyle != nullptr
-        && fluentStyle->d_ptr->snapshot != nullptr
-        && (selected || hovered)) {
-        // 与 ComboBox 弹出项一致：圆角背板 + accent 指示条，文字不反白。
-        const auto &snapshot = fluentStyle->d_ptr->snapshot;
-        painter->setRenderHint(QPainter::Antialiasing, true);
-        painter->setPen(Qt::NoPen);
-        if (!isTreeView) {
-            // 普通列表和表格没有整行 primitive，由 delegate 绘制表面。
-            painter->fillRect(
-                adjusted.rect,
-                adjusted.palette.brush(QPalette::Base));
-            const QRectF surface = QRectF(adjusted.rect).adjusted(
-                2.0,
-                2.0,
-                -2.0,
-                -2.0);
-            const qreal radius = snapshot->metric(
-                ZzMetricToken::CornerRadiusSmall);
-            painter->setBrush(snapshot->color(
-                selected
-                    ? ZzColorToken::ControlFillPressed
-                    : ZzColorToken::ControlFillHover));
-            painter->drawRoundedRect(surface, radius, radius);
+    if (fluentStyle != nullptr) {
+        const bool ownsIndicator = ZzItemViewVisual::ownsIndicator(
+            adjusted.widget,
+            index);
+        const ZzItemViewVisualLayout layout = ZzItemViewVisual::draw(
+            *fluentStyle,
+            adjusted,
+            painter,
+            {.drawSurface = !isTreeView,
+             .ownsIndicator = ownsIndicator});
+        content.rect = layout.contentRect;
+        if (selected || hovered) {
+            content.state.setFlag(QStyle::State_Selected, false);
+            content.state.setFlag(QStyle::State_MouseOver, false);
         }
-        // 树形视图仅在树列绘制一次；普通视图保留原有逐项指示条。
-        if (selected && (!isTreeView || isTreeColumn)) {
-            const QRect logicalIndicator(
-                adjusted.rect.left() + 4,
-                adjusted.rect.center().y() - 8,
-                3,
-                16);
-            const QRect indicator = QStyle::visualRect(
-                adjusted.direction,
-                adjusted.rect,
-                logicalIndicator);
-            painter->setBrush(snapshot->color(ZzColorToken::Accent));
-            painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
-        }
-        content.state.setFlag(QStyle::State_Selected, false);
-        content.state.setFlag(QStyle::State_MouseOver, false);
     } else if (selected) {
         // 非 Fluent 样式回退：保留平台整行高亮。
         painter->fillRect(

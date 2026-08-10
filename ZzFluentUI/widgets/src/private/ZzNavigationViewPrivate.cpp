@@ -15,6 +15,7 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 
 #include "ZzNavigationPrivateRoles.h"
+#include "ZzItemViewVisual.h"
 
 namespace ZzFluentUI {
 
@@ -139,28 +140,43 @@ private:
         const bool selected = option.state.testFlag(QStyle::State_Selected);
         const bool hovered = option.state.testFlag(QStyle::State_MouseOver);
         const bool enabled = option.state.testFlag(QStyle::State_Enabled);
-        if (selected) {
-            painter->fillRect(
-                option.rect,
-                option.palette.color(QPalette::Highlight));
-        } else if (hovered) {
-            painter->fillRect(
-                option.rect,
-                option.palette.color(QPalette::AlternateBase));
-            QColor accentTint = option.palette.color(QPalette::Highlight);
-            accentTint.setAlpha(zzHoverAccentAlpha);
-            painter->fillRect(option.rect, accentTint);
-        }
-
         const QPalette::ColorGroup colorGroup = enabled
             ? QPalette::Normal : QPalette::Disabled;
-        const QColor foreground = selected
-            ? option.palette.color(colorGroup, QPalette::HighlightedText)
-            : option.palette.color(colorGroup, QPalette::Text);
-        const QRect content = option.rect.adjusted(
-            compact_ ? 6 : 8,
+        QColor foreground = option.palette.color(colorGroup, QPalette::Text);
+        QRect content;
+        const auto *fluentStyle = option.widget != nullptr
+            ? qobject_cast<const ZzFluentStyle *>(option.widget->style())
+            : nullptr;
+        if (fluentStyle != nullptr) {
+            const ZzItemViewVisualLayout layout = ZzItemViewVisual::draw(
+                *fluentStyle,
+                option,
+                painter);
+            content = layout.contentRect;
+        } else {
+            if (selected) {
+                painter->fillRect(
+                    option.rect,
+                    option.palette.color(QPalette::Highlight));
+                foreground = option.palette.color(
+                    colorGroup,
+                    QPalette::HighlightedText);
+            } else if (hovered) {
+                painter->fillRect(
+                    option.rect,
+                    option.palette.color(QPalette::AlternateBase));
+                QColor accentTint = option.palette.color(QPalette::Highlight);
+                accentTint.setAlpha(zzHoverAccentAlpha);
+                painter->fillRect(option.rect, accentTint);
+            }
+            content = option.rect;
+        }
+        content.adjust(
+            option.direction == Qt::RightToLeft
+                ? (compact_ ? 6 : 8) : 0,
             3,
-            compact_ ? -6 : -8,
+            option.direction == Qt::RightToLeft
+                ? 0 : (compact_ ? -6 : -8),
             -3);
 
         if (compact_) {

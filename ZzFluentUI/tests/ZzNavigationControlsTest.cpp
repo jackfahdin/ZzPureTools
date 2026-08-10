@@ -1,4 +1,5 @@
 #include <QtCore/QCoreApplication>
+#include <QtCore/QItemSelectionModel>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
@@ -8,11 +9,13 @@
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzNavigationItemRole.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 namespace {
 
@@ -29,6 +32,24 @@ QToolButton *zzBreadcrumbButton(
         }
     }
     return nullptr;
+}
+
+/** @brief 返回指定区域内与目标颜色完全匹配像素的最小边界。 */
+QRect zzColorBounds(
+    const QImage &image,
+    const QRect &area,
+    const QColor &color)
+{
+    QRect result;
+    const QRect bounded = area.intersected(image.rect());
+    for (int y = bounded.top(); y <= bounded.bottom(); ++y) {
+        for (int x = bounded.left(); x <= bounded.right(); ++x) {
+            if (image.pixelColor(x, y) == color) {
+                result = result.united(QRect(x, y, 1, 1));
+            }
+        }
+    }
+    return result;
 }
 
 } // namespace
@@ -146,14 +167,19 @@ private Q_SLOTS:
         view.setStyle(&style);
         view.setModel(&model);
         view.setCurrentIndex(model.index(0, 0));
+        view.selectionModel()->select(
+            model.index(0, 0),
+            QItemSelectionModel::ClearAndSelect);
         view.resize(240, 48);
         view.show();
         QCoreApplication::processEvents();
 
-        QImage regular(view.size(), QImage::Format_ARGB32_Premultiplied);
+        QImage regular(
+            view.viewport()->size(),
+            QImage::Format_ARGB32_Premultiplied);
         regular.fill(Qt::transparent);
         QPainter regularPainter(&regular);
-        view.render(&regularPainter);
+        view.viewport()->render(&regularPainter);
         regularPainter.end();
         QVERIFY(style.iconCacheBytes() > 0);
         QCOMPARE(model.index(0, 0).data().toString(), QStringLiteral("Workspace"));
@@ -164,11 +190,31 @@ private Q_SLOTS:
                 .toString(),
             QStringLiteral("9"));
 
+        const QRect itemRect = view.visualRect(model.index(0, 0));
+        const QRect accentBounds = zzColorBounds(
+            regular,
+            itemRect,
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::Accent));
+        const QRect foregroundBounds = zzColorBounds(
+            regular,
+            itemRect,
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::TextPrimary));
+        QVERIFY(!accentBounds.isEmpty());
+        QVERIFY(accentBounds.width() <= 3);
+        QVERIFY(accentBounds.height() <= 16);
+        QVERIFY(!foregroundBounds.isEmpty());
+        QVERIFY(accentBounds.right() < foregroundBounds.left());
+
         view.setCompact(true);
-        QImage compact(view.size(), QImage::Format_ARGB32_Premultiplied);
+        QCoreApplication::processEvents();
+        QImage compact(
+            view.viewport()->size(),
+            QImage::Format_ARGB32_Premultiplied);
         compact.fill(Qt::transparent);
         QPainter compactPainter(&compact);
-        view.render(&compactPainter);
+        view.viewport()->render(&compactPainter);
         compactPainter.end();
         QCOMPARE(model.index(0, 0).data().toString(), QStringLiteral("Workspace"));
         QVERIFY(regular != compact);

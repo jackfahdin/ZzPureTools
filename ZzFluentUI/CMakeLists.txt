@@ -92,6 +92,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzBreadcrumbBarPrivate.cpp
     widgets/src/ZzFluentItemDelegate.cpp
     widgets/src/private/ZzFluentItemDelegatePrivate.cpp
+    widgets/src/private/ZzItemViewVisual.cpp
     widgets/src/ZzFluentTitleBar.cpp
     widgets/src/private/ZzFluentTitleBarPrivate.cpp
     widgets/src/private/ZzStyleCache.cpp

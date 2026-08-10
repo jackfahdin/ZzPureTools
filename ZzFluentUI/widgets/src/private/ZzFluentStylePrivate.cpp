@@ -1,5 +1,7 @@
 #include "ZzFluentStylePrivate.h"
 
+#include "ZzItemViewVisual.h"
+
 #include <algorithm>
 #include <exception>
 #include <utility>
@@ -1118,23 +1120,16 @@ void ZzFluentStylePrivate::drawItemViewRow(
         return;
     }
 
-    // Qt 为此 primitive 只提供分支区矩形；横向扩展到 viewport 后一次
-    // 绘制完整背板，避免多列 delegate 生成断裂表面和重复圆角。
-    const QRectF surface = QRectF(rowRect).adjusted(
-        2.0,
-        2.0,
-        -2.0,
-        -2.0);
-    const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
-    painter->save();
-    painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setPen(Qt::NoPen);
-    painter->setBrush(snapshot->color(
-        selected
-            ? ZzColorToken::ControlFillPressed
-            : ZzColorToken::ControlFillHover));
-    painter->drawRoundedRect(surface, radius, radius);
-    painter->restore();
+    // Qt 为此 primitive 只提供分支区矩形；恢复完整行后仍复用所有
+    // item 共用的背板几何与颜色契约，强调条继续由唯一树列绘制。
+    adjusted.rect = rowRect;
+    adjusted.state.setFlag(QStyle::State_Selected, selected);
+    adjusted.state.setFlag(QStyle::State_MouseOver, hovered);
+    (void)ZzItemViewVisual::draw(
+        *q_ptr,
+        adjusted,
+        painter,
+        {.drawSurface = true, .ownsIndicator = false});
 }
 
 void ZzFluentStylePrivate::drawSpinBox(

@@ -9,8 +9,10 @@
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QTest>
 #include <QtWidgets/QHeaderView>
+#include <QtWidgets/QListView>
 #include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QStyleOptionViewItem>
+#include <QtWidgets/QTableView>
 #include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -229,6 +231,80 @@ private Q_SLOTS:
             delegate.density(),
             ZzFluentUI::ZzItemDensity::Compact);
         QCOMPARE(delegate.sizeHint(option, model.index(0, 0)).height(), 32);
+    }
+
+    void sharesIndicatorGeometryAcrossListAndTable()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        auto *recordingStyle = new ZzItemRectRecordingStyle;
+        ZzFluentUI::ZzFluentStyle style(&controller, recordingStyle);
+        ZzFluentUI::ZzFluentItemDelegate delegate;
+        QStandardItemModel model(1, 2);
+        model.setData(model.index(0, 0), QStringLiteral("Primary title"));
+        model.setData(model.index(0, 1), QStringLiteral("Details"));
+        QImage image(
+            QSize(320, 40),
+            QImage::Format_ARGB32_Premultiplied);
+        QStyleOptionViewItem option;
+        option.state = QStyle::State_Enabled | QStyle::State_Selected;
+        option.direction = Qt::LeftToRight;
+        option.palette = style.standardPalette();
+
+        QListView listView;
+        listView.setStyle(&style);
+        listView.setModel(&model);
+        option.widget = &listView;
+        option.rect = QRect(0, 0, 160, 40);
+        image.fill(option.palette.color(QPalette::Base));
+        QPainter painter(&image);
+        delegate.paint(&painter, option, model.index(0, 0));
+        painter.end();
+
+        QCOMPARE(recordingStyle->itemRects().size(), 1);
+        QCOMPARE(
+            recordingStyle->itemRects().constFirst(),
+            option.rect.adjusted(10, 0, 0, 0));
+
+        QTableView tableView;
+        tableView.setStyle(&style);
+        tableView.setSelectionBehavior(QAbstractItemView::SelectRows);
+        tableView.setModel(&model);
+        recordingStyle->clearItemRects();
+        image.fill(option.palette.color(QPalette::Base));
+        painter.begin(&image);
+        option.widget = &tableView;
+        for (int column = 0; column < model.columnCount(); ++column) {
+            option.rect = QRect(column * 160, 0, 160, 40);
+            delegate.paint(&painter, option, model.index(0, column));
+        }
+        painter.end();
+
+        QCOMPARE(recordingStyle->itemRects().size(), 2);
+        QCOMPARE(
+            recordingStyle->itemRects().at(0),
+            QRect(0, 0, 160, 40).adjusted(10, 0, 0, 0));
+        QCOMPARE(
+            recordingStyle->itemRects().at(1),
+            QRect(160, 0, 160, 40));
+
+        const QColor accent = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent);
+        int firstCellAccentPixels = 0;
+        int secondCellAccentPixels = 0;
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                if (image.pixelColor(x, y) != accent) {
+                    continue;
+                }
+                if (x < 160) {
+                    ++firstCellAccentPixels;
+                } else {
+                    ++secondCellAccentPixels;
+                }
+            }
+        }
+        QVERIFY(firstCellAccentPixels > 0);
+        QCOMPARE(secondCellAccentPixels, 0);
     }
 
     void offsetsAndMarksOnlyTheTreeColumn_data()
