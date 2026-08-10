@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "e749273d630936ae7f249947ae827f8ca9312d9a",
+        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -22,16 +22,16 @@
     "metrics": {
         "lifecycle-time": {
             "count": 100,
-            "max": 5.48744,
-            "p50": 3.678784,
-            "p95": 3.820944,
+            "max": 5.269452,
+            "p50": 3.655092,
+            "p95": 3.886237,
             "unit": "ms"
         },
         "rss-bytes": {
             "count": 100,
-            "max": 44343296,
-            "p50": 44318720,
-            "p95": 44343296,
+            "max": 42737664,
+            "p50": 42708992,
+            "p95": 42737664,
             "unit": "bytes"
         }
     },

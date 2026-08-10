@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "e749273d630936ae7f249947ae827f8ca9312d9a",
+        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -22,16 +22,16 @@
     "metrics": {
         "external-total": {
             "count": 30,
-            "max": 78.233315,
-            "p50": 76.139826,
-            "p95": 77.00607,
+            "max": 73.02699,
+            "p50": 72.245767,
+            "p95": 72.994552,
             "unit": "ms"
         },
         "first-paint": {
             "count": 30,
-            "max": 68.680288,
-            "p50": 67.118289,
-            "p95": 68.009857,
+            "max": 64.35475,
+            "p50": 63.608417,
+            "p95": 64.331592,
             "unit": "ms"
         }
     },

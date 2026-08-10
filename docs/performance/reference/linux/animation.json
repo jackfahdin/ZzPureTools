@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "e749273d630936ae7f249947ae827f8ca9312d9a",
+        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -22,9 +22,9 @@
     "metrics": {
         "frame-time": {
             "count": 1200,
-            "max": 18.232766,
-            "p50": 16.204767,
-            "p95": 16.563653,
+            "max": 16.697546,
+            "p50": 16.283717,
+            "p95": 16.604626,
             "unit": "ms"
         }
     },

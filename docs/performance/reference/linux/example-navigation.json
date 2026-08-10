@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "e749273d630936ae7f249947ae827f8ca9312d9a",
+        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -22,9 +22,9 @@
     "metrics": {
         "latency": {
             "count": 100,
-            "max": 11.654495,
-            "p50": 9.934638,
-            "p95": 11.293115,
+            "max": 18.545556,
+            "p50": 10.137042,
+            "p95": 11.352345,
             "unit": "ms"
         }
     },

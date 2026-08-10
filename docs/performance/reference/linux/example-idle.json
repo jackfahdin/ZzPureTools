@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "e749273d630936ae7f249947ae827f8ca9312d9a",
+        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -22,30 +22,30 @@
     "metrics": {
         "average-cpu-percent": {
             "count": 1,
-            "max": 0,
-            "p50": 0,
-            "p95": 0,
+            "max": 0.0333269808208632,
+            "p50": 0.0333269808208632,
+            "p95": 0.0333269808208632,
             "unit": "percent"
         },
         "rss-end-bytes": {
             "count": 1,
-            "max": 67833856,
-            "p50": 67833856,
-            "p95": 67833856,
+            "max": 64475136,
+            "p50": 64475136,
+            "p95": 64475136,
             "unit": "bytes"
         },
         "rss-growth-percent": {
             "count": 1,
-            "max": 0.19359912880392038,
-            "p50": 0.19359912880392038,
-            "p95": 0.19359912880392038,
+            "max": 0.20370488255140365,
+            "p50": 0.20370488255140365,
+            "p95": 0.20370488255140365,
             "unit": "percent"
         },
         "rss-start-bytes": {
             "count": 1,
-            "max": 67702784,
-            "p50": 67702784,
-            "p95": 67702784,
+            "max": 64344064,
+            "p50": 64344064,
+            "p95": 64344064,
             "unit": "bytes"
         }
     },
