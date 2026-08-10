@@ -20,7 +20,7 @@ see example [CMakeLists.txt](https://github.com/gabime/spdlog/blob/v2.x/example/
 ## Platforms
 * Linux, FreeBSD, OpenBSD, Solaris, AIX
 * Windows (msvc, cygwin)
-* macOS 
+* macOS
 * Android
 
 ## Package managers:
@@ -89,23 +89,23 @@ See [CHANGELOG.md](CHANGELOG.md) for migration examples.
 ```c++
 #include "spdlog/spdlog.h"
 
-int main() 
+int main()
 {
     spdlog::info("Welcome to spdlog!");
     spdlog::error("Some error message with arg: {}", 1);
-    
+
     spdlog::warn("Easy padding in numbers like {:08d}", 12);
     spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);
     spdlog::info("Support for floats {:03.2f}", 1.23456);
     spdlog::info("Positional args are {1} {0}..", "too", "supported");
     spdlog::info("{:<30}", "left aligned");
-    
+
     spdlog::set_level(spdlog::level::debug); // Set global log level to debug
-    spdlog::debug("This message should be displayed..");    
-    
+    spdlog::debug("This message should be displayed..");
+
     // change log pattern
     spdlog::set_pattern("[%H:%M:%S %z] [%n] [%^---%L---%$] [thread %t] %v");
-    
+
     // Compile time log levels
     // define SPDLOG_ACTIVE_LEVEL to desired level
     SPDLOG_TRACE("Some trace message with param {}", 42);
@@ -182,9 +182,9 @@ spdlog::flush_on(spdlog::level::warn);
 #include "spdlog/stopwatch.h"
 void stopwatch_example()
 {
-    spdlog::stopwatch sw;    
+    spdlog::stopwatch sw;
     spdlog::debug("Elapsed {}", sw);
-    spdlog::debug("Elapsed {:.3}", sw);       
+    spdlog::debug("Elapsed {:.3}", sw);
 }
 
 ```
@@ -292,7 +292,7 @@ void user_defined_example()
 
 ---
 #### User-defined flags in the log pattern
-```c++ 
+```c++
 // Log patterns can contain custom flags.
 // the following example will add new flag '%*' - which will be bound to a <my_formatter_flag> instance.
 #include "spdlog/pattern_formatter.h"
@@ -312,7 +312,7 @@ public:
 };
 
 void custom_flags_example()
-{    
+{
     auto formatter = std::make_unique<spdlog::pattern_formatter>();
     formatter->add_flag<my_formatter_flag>('*').set_pattern("[%n] [%*] [%^%l%$] %v");
     spdlog::set_formatter(std::move(formatter));
@@ -434,16 +434,16 @@ Below are some [benchmarks](https://github.com/gabime/spdlog/blob/v2.x/bench/ben
 [info] Messages     : 1,000,000
 [info] Threads      : 10
 [info] Queue        : 8,192 slots
-[info] Queue memory : 8,192 x 272 = 2,176 KB 
+[info] Queue memory : 8,192 x 272 = 2,176 KB
 [info] -------------------------------------------------
-[info] 
+[info]
 [info] *********************************
 [info] Queue Overflow Policy: block
 [info] *********************************
 [info] Elapsed: 1.70784 secs     585,535/sec
 [info] Elapsed: 1.69805 secs     588,910/sec
 [info] Elapsed: 1.7026 secs      587,337/sec
-[info] 
+[info]
 [info] *********************************
 [info] Queue Overflow Policy: overrun
 [info] *********************************
