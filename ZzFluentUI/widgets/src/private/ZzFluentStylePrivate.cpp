@@ -6,6 +6,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
+#include <QtCore/QItemSelectionModel>
 #include <QtCore/QThread>
 #include <QtGui/QImage>
 #include <QtGui/QFocusEvent>
@@ -19,6 +20,8 @@
 #include <QtWidgets/QAbstractSpinBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QFrame>
+#include <QtWidgets/QHeaderView>
+#include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -73,6 +76,92 @@ bool zzIsKeyboardInput(const QKeyEvent *event)
     default:
         return true;
     }
+}
+
+/** @brief 从样式目标或其 viewport 解析所属树形视图。 */
+[[nodiscard]] const QTreeView *zzTreeViewForWidget(
+    const QWidget *widget)
+{
+    if (const auto *view = qobject_cast<const QTreeView *>(widget)) {
+        return view;
+    }
+    if (widget == nullptr) {
+        return nullptr;
+    }
+    const auto *view = qobject_cast<const QTreeView *>(
+        widget->parentWidget());
+    return view != nullptr && view->viewport() == widget ? view : nullptr;
+}
+
+/** @brief 从行原语几何解析用于查询选择状态的树列索引。 */
+[[nodiscard]] QModelIndex zzTreeRowIndex(
+    const QTreeView *treeView,
+    const QStyleOptionViewItem &option)
+{
+    if (treeView == nullptr) {
+        return {};
+    }
+
+    QModelIndex index = option.index;
+    const int treeColumn = treeView->treePosition();
+    if (!index.isValid()) {
+        const QWidget *viewport = treeView->viewport();
+        if (viewport == nullptr) {
+            return {};
+        }
+        const QRect visibleRow = option.rect.intersected(viewport->rect());
+        if (visibleRow.isEmpty()) {
+            return {};
+        }
+
+        const int y = visibleRow.center().y();
+        const QHeaderView *header = treeView->header();
+        if (header != nullptr
+            && treeColumn >= 0
+            && !header->isSectionHidden(treeColumn)) {
+            const int sectionLeft = header->sectionViewportPosition(
+                treeColumn);
+            const int sectionWidth = header->sectionSize(treeColumn);
+            const QRect visibleSection = QRect(
+                sectionLeft,
+                visibleRow.top(),
+                sectionWidth,
+                visibleRow.height()).intersected(visibleRow);
+            if (!visibleSection.isEmpty()) {
+                index = treeView->indexAt(QPoint(
+                    visibleSection.center().x(),
+                    y));
+            }
+        }
+        if (!index.isValid()) {
+            index = treeView->indexAt(QPoint(
+                visibleRow.center().x(),
+                y));
+        }
+    }
+
+    if (index.isValid()
+        && treeColumn >= 0
+        && index.column() != treeColumn) {
+        index = index.sibling(index.row(), treeColumn);
+    }
+    return index;
+}
+
+/** @brief 将 Qt 提供的树分支区矩形扩展为完整可见行矩形。 */
+[[nodiscard]] QRect zzTreeRowRect(
+    const QTreeView *treeView,
+    const QRect &primitiveRect)
+{
+    if (treeView == nullptr || treeView->viewport() == nullptr) {
+        return primitiveRect;
+    }
+    const QRect viewportRect = treeView->viewport()->rect();
+    return QRect(
+        viewportRect.left(),
+        primitiveRect.top(),
+        viewportRect.width(),
+        primitiveRect.height());
 }
 
 } // namespace
@@ -988,26 +1077,50 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
 
 void ZzFluentStylePrivate::drawItemViewRow(
     const QStyleOptionViewItem *option,
-    QPainter *painter) const
+    QPainter *painter,
+    const QWidget *widget) const
 {
     QStyleOptionViewItem adjusted = *option;
-    const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
+    bool selected = adjusted.state.testFlag(QStyle::State_Selected);
     const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
+    const QTreeView *treeView = zzTreeViewForWidget(widget);
+    if (treeView == nullptr) {
+        treeView = zzTreeViewForWidget(adjusted.widget);
+    }
+    const QRect rowRect = zzTreeRowRect(treeView, adjusted.rect);
+    const QItemSelectionModel *selectionModel = treeView != nullptr
+        ? treeView->selectionModel()
+        : nullptr;
+    if (!selected
+        && selectionModel != nullptr
+        && selectionModel->hasSelection()) {
+        const QModelIndex rowIndex = zzTreeRowIndex(treeView, adjusted);
+        if (rowIndex.isValid()) {
+            selected = selectionModel->isSelected(rowIndex);
+            if (!selected
+                && treeView->selectionBehavior()
+                    == QAbstractItemView::SelectRows) {
+                selected = selectionModel->isRowSelected(
+                    rowIndex.row(),
+                    rowIndex.parent());
+            }
+        }
+    }
     if (!adjusted.features.testFlag(
             QStyleOptionViewItem::IsDecorationForRootColumn)
         || (!selected && !hovered)) {
         // 保留 QCommonStyle 的交替行背景；其余情形不再填充整色高亮。
         if (adjusted.features.testFlag(QStyleOptionViewItem::Alternate)) {
             painter->fillRect(
-                adjusted.rect,
+                rowRect,
                 adjusted.palette.brush(QPalette::AlternateBase));
         }
         return;
     }
 
-    // QTreeView 的行 primitive 覆盖分支区和所有可见列。背板在这里
-    // 一次绘制，避免多列 delegate 分别生成圆角表面和重复强调条。
-    const QRectF surface = QRectF(adjusted.rect).adjusted(
+    // Qt 为此 primitive 只提供分支区矩形；横向扩展到 viewport 后一次
+    // 绘制完整背板，避免多列 delegate 生成断裂表面和重复圆角。
+    const QRectF surface = QRectF(rowRect).adjusted(
         2.0,
         2.0,
         -2.0,

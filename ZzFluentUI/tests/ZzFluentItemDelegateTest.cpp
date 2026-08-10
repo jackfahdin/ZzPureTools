@@ -8,6 +8,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QTest>
+#include <QtWidgets/QHeaderView>
 #include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QTreeView>
@@ -354,6 +355,70 @@ private Q_SLOTS:
                 | QItemSelectionModel::Rows);
 
         QTRY_VERIFY_WITH_TIMEOUT(probe.fullPaintCount() > 0, 1000);
+    }
+
+    void drawsTreeRowFromGeometryWhenPrimitiveOmitsIndexAndSelection_data()
+    {
+        QTest::addColumn<bool>("useViewportWidget");
+
+        QTest::newRow("tree-widget") << false;
+        QTest::newRow("viewport-widget") << true;
+    }
+
+    void drawsTreeRowFromGeometryWhenPrimitiveOmitsIndexAndSelection()
+    {
+        QFETCH(bool, useViewportWidget);
+
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QTreeView tree;
+        tree.setStyle(&style);
+        tree.resize(240, 100);
+        tree.header()->hide();
+        QStandardItemModel model(1, 1);
+        model.setData(model.index(0, 0), QStringLiteral("Workspace"));
+        tree.setModel(&model);
+        tree.setCurrentIndex(model.index(0, 0));
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+
+        const QRect itemRect = tree.visualRect(model.index(0, 0));
+        QVERIFY(itemRect.isValid());
+        const QRect rowRect(
+            tree.viewport()->rect().left(),
+            itemRect.top(),
+            tree.viewport()->rect().width(),
+            itemRect.height());
+
+        QImage image(
+            tree.viewport()->size(),
+            QImage::Format_ARGB32_Premultiplied);
+        const QColor base = style.standardPalette().color(QPalette::Base);
+        image.fill(base);
+        QPainter painter(&image);
+        QStyleOptionViewItem option;
+        option.rect = QRect(
+            rowRect.left(),
+            rowRect.top(),
+            tree.indentation(),
+            rowRect.height());
+        option.state = QStyle::State_Enabled;
+        option.features = QStyleOptionViewItem::IsDecorationForRootColumn;
+        option.palette = style.standardPalette();
+        option.widget = useViewportWidget ? tree.viewport() : &tree;
+        QVERIFY(!option.index.isValid());
+
+        style.drawPrimitive(
+            QStyle::PE_PanelItemViewRow,
+            &option,
+            &painter,
+            option.widget);
+        painter.end();
+
+        QCOMPARE(
+            image.pixelColor(rowRect.center()),
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::ControlFillPressed));
     }
 };
 

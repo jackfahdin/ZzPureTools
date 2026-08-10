@@ -196,10 +196,11 @@ public:
         const QStyleOptionMenuItem *option,
         QPainter *painter,
         const QWidget *widget) const;
-    /** @brief 绘制树形整行背板并保留未交互行的交替背景。 */
+    /** @brief 从分支区原语恢复树形完整可见行并绘制交互背板。 */
     void drawItemViewRow(
         const QStyleOptionViewItem *option,
-        QPainter *painter) const;
+        QPainter *painter,
+        const QWidget *widget) const;
 
     ZzFluentStyle *const q_ptr;
     QPointer<ZzThemeController> controller;

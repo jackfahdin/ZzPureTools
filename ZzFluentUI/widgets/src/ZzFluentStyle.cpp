@@ -376,7 +376,7 @@ void ZzFluentStyle::drawPrimitive(
         const auto *item = qstyleoption_cast<
             const QStyleOptionViewItem *>(option);
         if (item != nullptr) {
-            d_ptr->drawItemViewRow(item, painter);
+            d_ptr->drawItemViewRow(item, painter, widget);
             return;
         }
     }
