@@ -62,7 +62,9 @@ private slots:
         constexpr quint32 lastCodePoint = 0xf4cfU;
         QString characters;
         characters.reserve(
-            static_cast<qsizetype>(lastCodePoint - firstCodePoint + 1U));
+            static_cast<qsizetype>(lastCodePoint)
+                - static_cast<qsizetype>(firstCodePoint)
+                + qsizetype{1});
         for (quint32 codePoint = firstCodePoint;
              codePoint <= lastCodePoint;
              ++codePoint) {
