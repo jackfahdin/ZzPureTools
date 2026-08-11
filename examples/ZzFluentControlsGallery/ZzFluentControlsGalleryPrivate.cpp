@@ -55,6 +55,7 @@
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
+#include <ZzFluentUI/ZzInfoBadge.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -874,6 +875,30 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
         message,
         &QWidget::hide);
     layout->addWidget(message);
+
+    auto *badgeRow = new QHBoxLayout;
+    badgeRow->setContentsMargins(0, 0, 0, 0);
+    badgeRow->setSpacing(12);
+    auto *statusDot = new ZzFluentUI::ZzInfoBadge(container);
+    statusDot->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
+    auto *notificationCount = new ZzFluentUI::ZzInfoBadge(container);
+    notificationCount->setKind(ZzFluentUI::ZzInfoBadgeKind::Number);
+    notificationCount->setValue(8);
+    auto *overflowCount = new ZzFluentUI::ZzInfoBadge(container);
+    overflowCount->setKind(ZzFluentUI::ZzInfoBadgeKind::Number);
+    overflowCount->setSeverity(ZzFluentUI::ZzMessageSeverity::Warning);
+    overflowCount->setValue(120);
+    auto *statusIcon = new ZzFluentUI::ZzInfoBadge(container);
+    statusIcon->setKind(ZzFluentUI::ZzInfoBadgeKind::Icon);
+    statusIcon->setSeverity(ZzFluentUI::ZzMessageSeverity::Error);
+    statusIcon->setIcon(statusIcon->style()->standardIcon(
+        QStyle::SP_MessageBoxCritical));
+    badgeRow->addWidget(statusDot);
+    badgeRow->addWidget(notificationCount);
+    badgeRow->addWidget(overflowCount);
+    badgeRow->addWidget(statusIcon);
+    badgeRow->addStretch(1);
+    layout->addLayout(badgeRow);
 
     layout->addWidget(zzSectionTitle(QStringLiteral("Tabs"), container));
     auto *tabRow = new QHBoxLayout;

@@ -69,6 +69,9 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzRollerPickerPrivate.cpp
     widgets/src/ZzMessageBar.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
+    widgets/src/ZzInfoBadge.cpp
+    widgets/src/private/ZzInfoBadgePrivate.cpp
+    widgets/src/private/ZzWidgetTheme.cpp
     widgets/src/ZzCalendar.cpp
     widgets/src/private/ZzCalendarPrivate.cpp
     widgets/src/ZzCalendarPicker.cpp
@@ -113,6 +116,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzRoller.h
     widgets/include/ZzFluentUI/ZzRollerPicker.h
     widgets/include/ZzFluentUI/ZzMessageBar.h
+    widgets/include/ZzFluentUI/ZzInfoBadge.h
     widgets/include/ZzFluentUI/ZzCalendar.h
     widgets/include/ZzFluentUI/ZzCalendarPicker.h
     widgets/include/ZzFluentUI/ZzActionCard.h

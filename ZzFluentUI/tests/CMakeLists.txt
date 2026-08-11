@@ -313,6 +313,21 @@ set_tests_properties(fluent.message-bar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzInfoBadgeTest ZzInfoBadgeTest.cpp)
+target_link_libraries(ZzInfoBadgeTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzInfoBadgeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzInfoBadgeTest)
+zz_enable_sanitizers(ZzInfoBadgeTest)
+add_test(NAME fluent.info-badge COMMAND ZzInfoBadgeTest)
+set_tests_properties(fluent.info-badge PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzCalendarControlsTest ZzCalendarControlsTest.cpp)
 target_link_libraries(ZzCalendarControlsTest PRIVATE
     Qt6::Test

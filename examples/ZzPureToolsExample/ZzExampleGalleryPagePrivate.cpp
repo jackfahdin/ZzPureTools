@@ -32,6 +32,7 @@
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzMessageBar.h>
+#include <ZzFluentUI/ZzInfoBadge.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
@@ -382,7 +383,17 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
         &ZzFluentUI::ZzMessageBar::closeRequested,
         message,
         &QWidget::hide);
-    layout->addWidget(message);
+    auto *feedbackRow = new QHBoxLayout;
+    feedbackRow->setSpacing(10);
+    feedbackRow->addWidget(message, 1);
+    auto *successBadge = new ZzFluentUI::ZzInfoBadge(content);
+    successBadge->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
+    auto *countBadge = new ZzFluentUI::ZzInfoBadge(content);
+    countBadge->setKind(ZzFluentUI::ZzInfoBadgeKind::Number);
+    countBadge->setValue(12);
+    feedbackRow->addWidget(successBadge);
+    feedbackRow->addWidget(countBadge);
+    layout->addLayout(feedbackRow);
 
     zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "文本与选择"), content);
     auto *form = new QFormLayout;

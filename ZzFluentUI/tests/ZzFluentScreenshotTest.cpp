@@ -82,6 +82,7 @@
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
+#include <ZzFluentUI/ZzInfoBadge.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -768,6 +769,22 @@ private:
         message->setText(QStringLiteral("Settings saved successfully"));
         message->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
         layout->addWidget(message);
+
+        auto *badgeRow = new QHBoxLayout;
+        auto *dotBadge = new ZzFluentUI::ZzInfoBadge(container);
+        dotBadge->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
+        auto *countBadge = new ZzFluentUI::ZzInfoBadge(container);
+        countBadge->setKind(ZzFluentUI::ZzInfoBadgeKind::Number);
+        countBadge->setValue(8);
+        auto *overflowBadge = new ZzFluentUI::ZzInfoBadge(container);
+        overflowBadge->setKind(ZzFluentUI::ZzInfoBadgeKind::Number);
+        overflowBadge->setSeverity(ZzFluentUI::ZzMessageSeverity::Warning);
+        overflowBadge->setValue(120);
+        badgeRow->addWidget(dotBadge);
+        badgeRow->addWidget(countBadge);
+        badgeRow->addWidget(overflowBadge);
+        badgeRow->addStretch(1);
+        layout->addLayout(badgeRow);
 
         auto *tabs = new QTabBar(container);
         tabs->addTab(QStringLiteral("Overview"));
