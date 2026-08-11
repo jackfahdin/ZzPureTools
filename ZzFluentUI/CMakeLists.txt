@@ -59,6 +59,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzFlowLayoutPrivate.cpp
     widgets/src/ZzSpinBox.cpp
     widgets/src/ZzDoubleSpinBox.cpp
+    widgets/src/ZzPasswordBox.cpp
+    widgets/src/private/ZzPasswordBoxPrivate.cpp
     widgets/src/ZzSuggestBox.cpp
     widgets/src/private/ZzSuggestBoxPrivate.cpp
     widgets/src/ZzMultiSelectComboBox.cpp
@@ -122,6 +124,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzFlowLayout.h
     widgets/include/ZzFluentUI/ZzSpinBox.h
     widgets/include/ZzFluentUI/ZzDoubleSpinBox.h
+    widgets/include/ZzFluentUI/ZzPasswordBox.h
     widgets/include/ZzFluentUI/ZzSuggestBox.h
     widgets/include/ZzFluentUI/ZzMultiSelectComboBox.h
     widgets/include/ZzFluentUI/ZzRoller.h

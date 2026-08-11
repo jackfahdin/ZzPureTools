@@ -41,6 +41,8 @@
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPivot.h>
+#include <ZzFluentUI/ZzPasswordBox.h>
+#include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
@@ -216,6 +218,7 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzRollerPicker rollerPicker;
   ZzFluentUI::ZzExpander expander;
   ZzFluentUI::ZzPivot pivot;
+  ZzFluentUI::ZzPasswordBox passwordBox;
   QWidget drawerHost;
   ZzFluentUI::ZzDrawer drawer(&drawerHost);
   ZzFluentUI::ZzTabWidget sourceTabs;
@@ -303,6 +306,10 @@ int main(int argc, char *argv[]) {
   pivot.addItem(QStringLiteral("Overview"));
   pivot.addItem(QStringLiteral("Details"));
   pivot.setCurrentIndex(1);
+  passwordBox.setStyle(&fluentStyle);
+  passwordBox.setText(QStringLiteral("Installed secret"));
+  passwordBox.setRevealMode(
+      ZzFluentUI::ZzPasswordRevealMode::Visible);
   drawerHost.resize(640, 480);
   drawer.setStyle(&fluentStyle);
   drawer.setEdge(ZzFluentUI::ZzDrawerEdge::Right);
@@ -464,6 +471,12 @@ int main(int argc, char *argv[]) {
       pivot.style() != &fluentStyle || pivot.count() != 2 ||
       pivot.itemText(1) != QStringLiteral("Details") ||
       pivot.currentIndex() != 1 ||
+      passwordBox.style() != &fluentStyle ||
+      passwordBox.text() != QStringLiteral("Installed secret") ||
+      passwordBox.revealMode() !=
+          ZzFluentUI::ZzPasswordRevealMode::Visible ||
+      !passwordBox.isPasswordVisible() ||
+      passwordBox.echoMode() != QLineEdit::Normal ||
       drawer.style() != &fluentStyle || drawer.isOpen() ||
       drawer.edge() != ZzFluentUI::ZzDrawerEdge::Right ||
       drawer.isModal() || drawer.widthHint() != 240 ||

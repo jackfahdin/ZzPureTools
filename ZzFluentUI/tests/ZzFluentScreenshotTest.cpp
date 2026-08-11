@@ -95,6 +95,8 @@
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPivot.h>
+#include <ZzFluentUI/ZzPasswordBox.h>
+#include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRoller.h>
@@ -4996,6 +4998,150 @@ private:
     QPointer<ZzFluentUI::ZzDrawer> nonModalDrawer_;
 };
 
+/** @brief 保存输入扩展截图的文字遮罩和组件数量。 */
+struct ZzInputExpansionTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int passwordBoxes = 0;
+};
+
+/** @brief 构造第三批输入组件的独立确定性截图面。 */
+class ZzInputExpansionScreenshotSurface final
+{
+public:
+    /** @brief 创建 PasswordBox 四种稳定视觉状态。 */
+    ZzInputExpansionScreenshotSurface()
+    {
+        window.setObjectName(
+            QStringLiteral("zzInputExpansionScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("Input expansion states"));
+        window.setAutoFillBackground(true);
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *layout = new QVBoxLayout(&window);
+        layout->setContentsMargins(72, 56, 72, 56);
+        layout->setSpacing(16);
+
+        auto *title = new QLabel(
+            QStringLiteral("Password input states"),
+            &window);
+        layout->addWidget(title);
+        auto *form = new QFormLayout;
+        form->setContentsMargins(0, 0, 0, 0);
+        form->setVerticalSpacing(14);
+        form->setHorizontalSpacing(24);
+
+        peekBox_ = addPasswordBox(
+            form,
+            QStringLiteral("Peek"),
+            ZzFluentUI::ZzPasswordRevealMode::Peek,
+            true);
+        addPasswordBox(
+            form,
+            QStringLiteral("Hidden"),
+            ZzFluentUI::ZzPasswordRevealMode::Hidden,
+            true);
+        addPasswordBox(
+            form,
+            QStringLiteral("Visible"),
+            ZzFluentUI::ZzPasswordRevealMode::Visible,
+            true);
+        addPasswordBox(
+            form,
+            QStringLiteral("Disabled"),
+            ZzFluentUI::ZzPasswordRevealMode::Peek,
+            false);
+        layout->addLayout(form);
+        layout->addStretch(1);
+    }
+
+    /** @brief 展示窗口并把键盘焦点放到 Peek 输入框。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        peekBox_->setFocus(Qt::OtherFocusReason);
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏固定截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 增加一个带固定模式和值的 PasswordBox。 */
+    ZzFluentUI::ZzPasswordBox *addPasswordBox(
+        QFormLayout *form,
+        const QString &label,
+        ZzFluentUI::ZzPasswordRevealMode mode,
+        bool enabled)
+    {
+        auto *box = new ZzFluentUI::ZzPasswordBox(&window);
+        box->setAccessibleName(label);
+        box->setText(QStringLiteral("Fluent-2026"));
+        box->setRevealMode(mode);
+        box->setEnabled(enabled);
+        form->addRow(label, box);
+        return box;
+    }
+
+    QPointer<ZzFluentUI::ZzPasswordBox> peekBox_;
+};
+
+/** @brief 为输入扩展画面的标签与输入文本构造字体差异遮罩。 */
+ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
+    QWidget *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzInputExpansionTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto widgets = surface->findChildren<QWidget *>();
+    for (QWidget *widget : widgets) {
+        if (!widget->isVisible()) {
+            continue;
+        }
+        if (auto *label = qobject_cast<QLabel *>(widget);
+            label != nullptr && !label->text().isEmpty()) {
+            const QRect textRect = zzAlignedTextRect(
+                label,
+                label->contentsRect(),
+                static_cast<int>(label->alignment()),
+                label->text());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(label, textRect, surface));
+            ++result.labels;
+            continue;
+        }
+        auto *box = qobject_cast<ZzFluentUI::ZzPasswordBox *>(widget);
+        if (box == nullptr) {
+            continue;
+        }
+        const QMargins margins = box->textMargins();
+        const QRect textRect = box->contentsRect().adjusted(
+            margins.left(),
+            0,
+            -margins.right(),
+            0);
+        zzPaintMaskRect(
+            &painter,
+            zzMapToSurface(box, textRect, surface));
+        ++result.passwordBoxes;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 为 Drawer 独立画面的可见标签和按钮构造字体差异遮罩。 */
 ZzDrawerTextMask zzBuildDrawerTextMask(QWidget *surface, qreal dpr)
 {
@@ -5799,6 +5945,23 @@ QImage zzRenderSpinBoxSurface(
 /** @brief 将独立 Drawer 宿主窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderDrawerSurface(
     ZzDrawerScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将第三批输入组件窗口渲染到指定 DPR 的物理画布。 */
+QImage zzRenderInputExpansionSurface(
+    ZzInputExpansionScreenshotSurface *surface,
     qreal dpr)
 {
     const QSize physicalSize(
@@ -7901,6 +8064,122 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 教学提示非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersInputExpansionThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("input-expansion-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("input-expansion-light");
+        QTest::newRow("input-expansion-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("input-expansion-dark");
+        QTest::newRow("input-expansion-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("input-expansion-high-contrast");
+    }
+
+    void rendersInputExpansionThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzInputExpansionScreenshotSurface surface;
+        surface.polish();
+        const auto boxes = surface.window.findChildren<
+            ZzFluentUI::ZzPasswordBox *>();
+        QCOMPARE(boxes.size(), 4);
+        QCOMPARE(
+            boxes.at(0)->revealMode(),
+            ZzFluentUI::ZzPasswordRevealMode::Peek);
+        QCOMPARE(
+            boxes.at(1)->revealMode(),
+            ZzFluentUI::ZzPasswordRevealMode::Hidden);
+        QCOMPARE(
+            boxes.at(2)->revealMode(),
+            ZzFluentUI::ZzPasswordRevealMode::Visible);
+        QVERIFY(!boxes.at(3)->isEnabled());
+        QCOMPARE(
+            surface.window.findChildren<ZzFluentUI::ZzIconButton *>()
+                .size(),
+            4);
+
+        const QImage actual = zzRenderInputExpansionSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzInputExpansionTextMask mask =
+            zzBuildInputExpansionTextMask(
+                &surface.window,
+                actualDpr_);
+        QVERIFY(mask.labels >= 5);
+        QCOMPARE(mask.passwordBoxes, 4);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 输入扩展非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)

@@ -169,6 +169,21 @@ set_tests_properties(fluent.suggest-box PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzPasswordBoxTest ZzPasswordBoxTest.cpp)
+target_link_libraries(ZzPasswordBoxTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzPasswordBoxTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPasswordBoxTest)
+zz_enable_sanitizers(ZzPasswordBoxTest)
+add_test(NAME fluent.password-box COMMAND ZzPasswordBoxTest)
+set_tests_properties(fluent.password-box PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
 target_link_libraries(ZzMultiSelectComboBoxTest PRIVATE
     Qt6::Test

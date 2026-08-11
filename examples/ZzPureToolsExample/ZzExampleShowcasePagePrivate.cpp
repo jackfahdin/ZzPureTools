@@ -28,6 +28,7 @@
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzPivot.h>
+#include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
@@ -502,6 +503,37 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
                 QCoreApplication::translate("ZzPureToolsExample", "已选择组件：%1").arg(suggestion.text));
         });
     layout->addWidget(suggest);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "密码输入"),
+        parent);
+    auto *passwordBox = new ZzFluentUI::ZzPasswordBox(parent);
+    passwordBox->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample",
+        "示例密码"));
+    passwordBox->setPlaceholderText(QCoreApplication::translate(
+        "ZzPureToolsExample",
+        "输入密码"));
+    passwordBox->setText(QStringLiteral("Fluent-2026"));
+    auto *passwordState = new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "密码已隐藏"),
+        parent);
+    QObject::connect(
+        passwordBox,
+        &ZzFluentUI::ZzPasswordBox::passwordVisibilityChanged,
+        passwordState,
+        [passwordState](bool visible) {
+            passwordState->setText(QCoreApplication::translate(
+                "ZzPureToolsExample",
+                visible ? "正在临时显示密码" : "密码已隐藏"));
+        });
+    layout->addWidget(passwordBox);
+    layout->addWidget(passwordState);
 }
 
 void ZzExampleShowcasePagePrivate::buildIcons(

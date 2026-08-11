@@ -869,6 +869,32 @@
         <translation>Selected component: %1</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="511"/>
+        <source>密码输入</source>
+        <translation>Password input</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="516"/>
+        <source>示例密码</source>
+        <translation>Example password</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="519"/>
+        <source>输入密码</source>
+        <translation>Enter password</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="524"/>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="533"/>
+        <source>密码已隐藏</source>
+        <translation>Password is hidden</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="533"/>
+        <source>正在临时显示密码</source>
+        <translation>Password is temporarily visible</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="333"/>
         <source>内嵌 SVG、字体字形与 Qt 标准图标共享主题和高 DPI 渲染</source>
         <translation>Bundled SVGs, font glyphs, and Qt standard icons share theme-aware high-DPI rendering</translation>

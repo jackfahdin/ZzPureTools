@@ -61,6 +61,7 @@
 #include <ZzFluentUI/ZzNavigationItemRole.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
+#include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRoller.h>
@@ -467,9 +468,9 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     auto *name = new QLineEdit(container);
     name->setPlaceholderText(QStringLiteral("Workspace name"));
     name->setClearButtonEnabled(true);
-    auto *password = new QLineEdit(container);
+    auto *password = new ZzFluentUI::ZzPasswordBox(container);
+    password->setAccessibleName(QStringLiteral("Workspace password"));
     password->setText(QStringLiteral("Fluent-2026"));
-    password->setEchoMode(QLineEdit::Password);
     auto *notes = new QTextEdit(container);
     notes->setHtml(QStringLiteral(
         "<b>Fluent controls</b><br>Cross-platform UI"));
