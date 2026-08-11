@@ -25,6 +25,7 @@ private Q_SLOTS:
             false);
 
         QCOMPARE(snapshot.revision(), quint64{7});
+        QCOMPARE(snapshot.mode(), ZzFluentUI::ZzThemeMode::Light);
         QCOMPARE(
             snapshot.color(ZzFluentUI::ZzColorToken::Accent),
             QColor(QStringLiteral("#0067c0")));
@@ -46,6 +47,10 @@ private Q_SLOTS:
         QCOMPARE(
             snapshot.metric(ZzFluentUI::ZzMetricToken::DrawerDefaultWidth),
             320.0);
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::SplitButtonMenuExtent),
+            32.0);
         QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::OverlayScrim).alpha()
                 > 0);
         QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::Information).isValid());
@@ -69,6 +74,7 @@ private Q_SLOTS:
         QCOMPARE(
             snapshot.color(ZzFluentUI::ZzColorToken::Surface),
             QColor(Qt::black));
+        QCOMPARE(snapshot.mode(), ZzFluentUI::ZzThemeMode::HighContrast);
         QCOMPARE(
             snapshot.color(ZzFluentUI::ZzColorToken::TextPrimary),
             QColor(Qt::white));

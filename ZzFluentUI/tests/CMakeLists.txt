@@ -184,6 +184,21 @@ set_tests_properties(fluent.password-box PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzSplitButtonTest ZzSplitButtonTest.cpp)
+target_link_libraries(ZzSplitButtonTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzSplitButtonTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSplitButtonTest)
+zz_enable_sanitizers(ZzSplitButtonTest)
+add_test(NAME fluent.split-button COMMAND ZzSplitButtonTest)
+set_tests_properties(fluent.split-button PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
 target_link_libraries(ZzMultiSelectComboBoxTest PRIVATE
     Qt6::Test

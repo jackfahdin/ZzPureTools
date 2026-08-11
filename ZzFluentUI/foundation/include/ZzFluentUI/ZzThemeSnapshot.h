@@ -63,6 +63,12 @@ public:
     [[nodiscard]] int duration(ZzMotionToken token) const noexcept;
 
     /**
+     * @brief 返回构造快照时已解析的主题模式。
+     * @return Light、Dark 或 HighContrast，不返回 System。
+     */
+    [[nodiscard]] ZzThemeMode mode() const noexcept;
+
+    /**
      * @brief 返回快照的单调版本号。
      * @return 主题 revision。
      */
@@ -76,6 +82,7 @@ public:
 
 private:
     ZzThemeSnapshot(
+        ZzThemeMode mode,
         const ZzThemePalette &palette,
         const std::array<
             qreal,
@@ -89,6 +96,7 @@ private:
         quint64 revision,
         bool reducedMotion);
 
+    ZzThemeMode mode_;
     ZzThemePalette palette_;
     std::array<
         qreal,

@@ -804,6 +804,11 @@
         <translation>Build menu</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="412"/>
+        <source>已执行默认构建</source>
+        <translation>Default build executed</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="243"/>
         <source>静态链接</source>
         <translation>Static linking</translation>

@@ -31,6 +31,7 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollArea.h>
+#include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTeachingTip.h>
@@ -380,11 +381,11 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
     auto *commandHost = new QWidget(parent);
     auto *commandLayout = new ZzFluentUI::ZzFlowLayout(10, 10, commandHost);
     commandLayout->setContentsMargins(0, 0, 0, 0);
-    auto *menuButton = new ZzFluentUI::ZzPushButton(
+    auto *menuButton = new ZzFluentUI::ZzSplitButton(
         QCoreApplication::translate("ZzPureToolsExample", "构建菜单"), commandHost);
     menuButton->setIcon(
         menuButton->style()->standardIcon(QStyle::SP_FileDialogListView));
-    auto *menu = new QMenu(menuButton);
+    auto *menu = new QMenu(commandHost);
     menu->addAction(QStringLiteral("Debug"));
     menu->addAction(QStringLiteral("Release"));
     menu->addSeparator();
@@ -399,6 +400,17 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
     auto *teachingTipButton = new ZzFluentUI::ZzPushButton(
         QCoreApplication::translate("ZzPureToolsExample", "显示教学提示"),
         commandHost);
+    QObject::connect(
+        menuButton,
+        &QAbstractButton::clicked,
+        message,
+        [message] {
+            message->setSeverity(
+                ZzFluentUI::ZzMessageSeverity::Success);
+            message->setText(QCoreApplication::translate(
+                "ZzPureToolsExample",
+                "已执行默认构建"));
+        });
     QObject::connect(
         menu,
         &QMenu::triggered,

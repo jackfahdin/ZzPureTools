@@ -68,6 +68,7 @@
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
@@ -447,6 +448,18 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     buttonRow->addWidget(subtle);
     buttonRow->addWidget(icon);
     layout->addLayout(buttonRow);
+
+    auto *splitRow = new QHBoxLayout;
+    auto *splitButton = new ZzFluentUI::ZzSplitButton(
+        QStringLiteral("Build"), container);
+    splitButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+    auto *splitMenu = new QMenu(container);
+    splitMenu->addAction(QStringLiteral("Debug build"));
+    splitMenu->addAction(QStringLiteral("Release build"));
+    splitButton->setMenu(splitMenu);
+    splitRow->addWidget(splitButton);
+    splitRow->addStretch(1);
+    layout->addLayout(splitRow);
 
     auto *choiceRow = new QHBoxLayout;
     auto *toggle = new ZzFluentUI::ZzToggleSwitch(

@@ -42,6 +42,7 @@ QFont zzScaledFont(
 } // namespace
 
 ZzThemeSnapshot::ZzThemeSnapshot(
+    ZzThemeMode mode,
     const ZzThemePalette &palette,
     const std::array<
         qreal,
@@ -54,7 +55,8 @@ ZzThemeSnapshot::ZzThemeSnapshot(
         static_cast<std::size_t>(ZzMotionToken::Count)> &durations,
     quint64 revision,
     bool reducedMotion)
-    : palette_(palette)
+    : mode_(mode)
+    , palette_(palette)
     , metrics_(metrics)
     , fonts_(std::move(fonts))
     , durations_(durations)
@@ -96,7 +98,8 @@ ZzThemeSnapshot ZzThemeSnapshot::create(
         320.0,
         3.0,
         16.0,
-        320.0};
+        320.0,
+        32.0};
     QFont base = QGuiApplication::font();
     if (base.family().isEmpty()) {
         base.setFamily(QStringLiteral("Sans Serif"));
@@ -118,6 +121,7 @@ ZzThemeSnapshot ZzThemeSnapshot::create(
         durations.fill(0);
     }
     return ZzThemeSnapshot(
+        mode,
         ZzThemePalette::create(mode, accent),
         metrics,
         fonts,
@@ -144,6 +148,11 @@ QFont ZzThemeSnapshot::font(ZzTypographyToken token) const
 int ZzThemeSnapshot::duration(ZzMotionToken token) const noexcept
 {
     return durations_[zzCheckedIndex(durations_, token)];
+}
+
+ZzThemeMode ZzThemeSnapshot::mode() const noexcept
+{
+    return mode_;
 }
 
 quint64 ZzThemeSnapshot::revision() const noexcept

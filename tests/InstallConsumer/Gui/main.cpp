@@ -26,6 +26,7 @@
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzActionCard.h>
+#include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
@@ -48,6 +49,7 @@
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
@@ -219,6 +221,8 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzExpander expander;
   ZzFluentUI::ZzPivot pivot;
   ZzFluentUI::ZzPasswordBox passwordBox;
+  ZzFluentUI::ZzSplitButton splitButton(QStringLiteral("Installed build"));
+  QMenu splitMenu;
   QWidget drawerHost;
   ZzFluentUI::ZzDrawer drawer(&drawerHost);
   ZzFluentUI::ZzTabWidget sourceTabs;
@@ -310,6 +314,10 @@ int main(int argc, char *argv[]) {
   passwordBox.setText(QStringLiteral("Installed secret"));
   passwordBox.setRevealMode(
       ZzFluentUI::ZzPasswordRevealMode::Visible);
+  splitMenu.addAction(QStringLiteral("Installed option"));
+  splitButton.setStyle(&fluentStyle);
+  splitButton.setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+  splitButton.setMenu(&splitMenu);
   drawerHost.resize(640, 480);
   drawer.setStyle(&fluentStyle);
   drawer.setEdge(ZzFluentUI::ZzDrawerEdge::Right);
@@ -477,6 +485,13 @@ int main(int argc, char *argv[]) {
           ZzFluentUI::ZzPasswordRevealMode::Visible ||
       !passwordBox.isPasswordVisible() ||
       passwordBox.echoMode() != QLineEdit::Normal ||
+      splitButton.style() != &fluentStyle ||
+      splitButton.appearance() !=
+          ZzFluentUI::ZzButtonAppearance::Accent ||
+      splitButton.menu() != &splitMenu ||
+      splitMenu.parent() != nullptr || splitMenu.actions().size() != 1 ||
+      splitButton.sizeHint().width() <=
+          QPushButton(QStringLiteral("Installed build")).sizeHint().width() ||
       drawer.style() != &fluentStyle || drawer.isOpen() ||
       drawer.edge() != ZzFluentUI::ZzDrawerEdge::Right ||
       drawer.isModal() || drawer.widthHint() != 240 ||

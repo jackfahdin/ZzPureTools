@@ -88,6 +88,7 @@
 #include <ZzFluentUI/ZzInfoBadge.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
+#include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzNavigationDisplayMode.h>
 #include <ZzFluentUI/ZzNavigationItemRole.h>
@@ -103,6 +104,7 @@
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
@@ -111,6 +113,7 @@
 #include <ZzFluentUI/ZzTeachingTip.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
 
 namespace {
@@ -5004,13 +5007,14 @@ struct ZzInputExpansionTextMask final
     QImage image;
     int labels = 0;
     int passwordBoxes = 0;
+    int splitButtons = 0;
 };
 
 /** @brief 构造第三批输入组件的独立确定性截图面。 */
 class ZzInputExpansionScreenshotSurface final
 {
 public:
-    /** @brief 创建 PasswordBox 四种稳定视觉状态。 */
+    /** @brief 创建 PasswordBox 和 SplitButton 的稳定视觉状态。 */
     ZzInputExpansionScreenshotSurface()
     {
         window.setObjectName(
@@ -5052,6 +5056,37 @@ public:
             ZzFluentUI::ZzPasswordRevealMode::Peek,
             false);
         layout->addLayout(form);
+
+        auto *splitTitle = new QLabel(
+            QStringLiteral("Split command states"),
+            &window);
+        layout->addWidget(splitTitle);
+        auto *splitLayout = new QHBoxLayout;
+        splitLayout->setContentsMargins(0, 0, 0, 0);
+        splitLayout->setSpacing(16);
+        splitMenu_ = new QMenu(&window);
+        splitMenu_->addAction(QStringLiteral("Secondary command"));
+        hoveredSplit_ = addSplitButton(
+            splitLayout,
+            QStringLiteral("Standard"),
+            ZzFluentUI::ZzButtonAppearance::Standard,
+            true);
+        addSplitButton(
+            splitLayout,
+            QStringLiteral("Accent"),
+            ZzFluentUI::ZzButtonAppearance::Accent,
+            true);
+        addSplitButton(
+            splitLayout,
+            QStringLiteral("Subtle"),
+            ZzFluentUI::ZzButtonAppearance::Subtle,
+            true);
+        addSplitButton(
+            splitLayout,
+            QStringLiteral("Disabled"),
+            ZzFluentUI::ZzButtonAppearance::Standard,
+            false);
+        layout->addLayout(splitLayout);
         layout->addStretch(1);
     }
 
@@ -5061,6 +5096,11 @@ public:
         window.show();
         QCoreApplication::processEvents();
         peekBox_->setFocus(Qt::OtherFocusReason);
+        QTest::mouseMove(
+            hoveredSplit_,
+            QPoint(
+                hoveredSplit_->width() - 12,
+                hoveredSplit_->height() / 2));
         QCoreApplication::processEvents();
     }
 
@@ -5089,7 +5129,26 @@ private:
         return box;
     }
 
+    /** @brief 增加固定外观且借用同一菜单的 SplitButton。 */
+    ZzFluentUI::ZzSplitButton *addSplitButton(
+        QHBoxLayout *layout,
+        const QString &text,
+        ZzFluentUI::ZzButtonAppearance appearance,
+        bool enabled)
+    {
+        auto *button = new ZzFluentUI::ZzSplitButton(text, &window);
+        button->setAccessibleName(text);
+        button->setAppearance(appearance);
+        button->setMenu(splitMenu_);
+        button->setEnabled(enabled);
+        button->setFixedWidth(176);
+        layout->addWidget(button);
+        return button;
+    }
+
     QPointer<ZzFluentUI::ZzPasswordBox> peekBox_;
+    QPointer<ZzFluentUI::ZzSplitButton> hoveredSplit_;
+    QPointer<QMenu> splitMenu_;
 };
 
 /** @brief 为输入扩展画面的标签与输入文本构造字体差异遮罩。 */
@@ -5101,7 +5160,7 @@ ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
         qRound(zzLogicalSurfaceSize.width() * dpr),
         qRound(zzLogicalSurfaceSize.height() * dpr));
     ZzInputExpansionTextMask result{
-        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0};
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0};
     result.image.setDevicePixelRatio(dpr);
     result.image.fill(0);
     QPainter painter(&result.image);
@@ -5121,6 +5180,29 @@ ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
                 &painter,
                 zzMapToSurface(label, textRect, surface));
             ++result.labels;
+            continue;
+        }
+        if (auto *button =
+                qobject_cast<ZzFluentUI::ZzSplitButton *>(widget);
+            button != nullptr && !button->text().isEmpty()) {
+            QRect textBounds = button->contentsRect();
+            int menuExtent = 32;
+            if (const auto *fluentStyle =
+                    qobject_cast<const ZzFluentUI::ZzFluentStyle *>(
+                        button->style())) {
+                menuExtent = qCeil(fluentStyle->themeSnapshot()->metric(
+                    ZzFluentUI::ZzMetricToken::SplitButtonMenuExtent));
+            }
+            textBounds.adjust(0, 0, -menuExtent, 0);
+            const QRect textRect = zzAlignedTextRect(
+                button,
+                textBounds,
+                Qt::AlignCenter,
+                button->text());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(button, textRect, surface));
+            ++result.splitButtons;
             continue;
         }
         auto *box = qobject_cast<ZzFluentUI::ZzPasswordBox *>(widget);
@@ -8112,6 +8194,16 @@ private Q_SLOTS:
             surface.window.findChildren<ZzFluentUI::ZzIconButton *>()
                 .size(),
             4);
+        const auto splitButtons = surface.window.findChildren<
+            ZzFluentUI::ZzSplitButton *>();
+        QCOMPARE(splitButtons.size(), 4);
+        QCOMPARE(
+            splitButtons.at(1)->appearance(),
+            ZzFluentUI::ZzButtonAppearance::Accent);
+        QCOMPARE(
+            splitButtons.at(2)->appearance(),
+            ZzFluentUI::ZzButtonAppearance::Subtle);
+        QVERIFY(!splitButtons.at(3)->isEnabled());
 
         const QImage actual = zzRenderInputExpansionSurface(
             &surface,
@@ -8126,6 +8218,7 @@ private Q_SLOTS:
                 actualDpr_);
         QVERIFY(mask.labels >= 5);
         QCOMPARE(mask.passwordBoxes, 4);
+        QCOMPARE(mask.splitButtons, 4);
         surface.hide();
 
         const QString baselineDirectory = QDir(

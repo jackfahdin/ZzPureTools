@@ -25,6 +25,7 @@ enum class ZzMetricToken : std::uint16_t
     SelectionIndicatorThickness,
     SelectionIndicatorExtent,
     DrawerDefaultWidth,
+    SplitButtonMenuExtent,
     Count
 };
 
