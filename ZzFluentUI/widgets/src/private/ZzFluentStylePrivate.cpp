@@ -1952,6 +1952,8 @@ void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)
         ZzThemeChangeKind::Colors);
     const bool geometryChanged = changes.testFlag(
         ZzThemeChangeKind::Geometry);
+    const bool motionChanged = changes.testFlag(
+        ZzThemeChangeKind::Motion);
 
     if (colorsChanged) {
         cache.rebuildVisuals(*snapshot);
@@ -1959,7 +1961,7 @@ void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)
         iconRevision = snapshot->revision();
         QApplication::setPalette(q_ptr->standardPalette());
     }
-    if (!geometryChanged) {
+    if (!geometryChanged && !motionChanged) {
         return;
     }
 
@@ -1967,7 +1969,9 @@ void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)
     for (QWidget *widget : widgets) {
         QEvent event(QEvent::StyleChange);
         QCoreApplication::sendEvent(widget, &event);
-        widget->updateGeometry();
+        if (geometryChanged) {
+            widget->updateGeometry();
+        }
         widget->update();
     }
 }

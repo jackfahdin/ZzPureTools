@@ -358,6 +358,21 @@ set_tests_properties(fluent.teaching-tip PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzExpanderTest ZzExpanderTest.cpp)
+target_link_libraries(ZzExpanderTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzExpanderTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzExpanderTest)
+zz_enable_sanitizers(ZzExpanderTest)
+add_test(NAME fluent.expander COMMAND ZzExpanderTest)
+set_tests_properties(fluent.expander PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzCalendarControlsTest ZzCalendarControlsTest.cpp)
 target_link_libraries(ZzCalendarControlsTest PRIVATE
     Qt6::Test

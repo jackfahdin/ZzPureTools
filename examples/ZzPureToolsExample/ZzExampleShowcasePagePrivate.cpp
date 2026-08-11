@@ -20,6 +20,7 @@
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzContentDialog.h>
+#include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
@@ -188,6 +189,27 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
         });
     layout->addWidget(breadcrumb);
     layout->addWidget(breadcrumbStatus);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "折叠展开容器"),
+        parent);
+    auto *expander = new ZzFluentUI::ZzExpander(parent);
+    expander->setObjectName(QStringLiteral("zzExampleNavigationExpander"));
+    expander->setHeaderText(QCoreApplication::translate(
+        "ZzPureToolsExample", "高级导航选项"));
+    auto *expanderContent = new QWidget;
+    auto *expanderLayout = new QVBoxLayout(expanderContent);
+    expanderLayout->setContentsMargins(0, 0, 0, 0);
+    expanderLayout->addWidget(new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "内容由调用方创建，容器只管理本地展开状态。"),
+        expanderContent));
+    expander->setContentWidget(expanderContent);
+    expander->setExpanded(true);
+    layout->addWidget(expander);
 
     zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "标签转移"), parent);
     auto *primaryTabs = new ZzFluentUI::ZzTabWidget(parent);

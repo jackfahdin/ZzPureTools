@@ -383,7 +383,7 @@ private Q_SLOTS:
         QVERIFY(foundCyanPixel);
     }
 
-    void sendsGeometryChangesOnlyForGeometryUpdates()
+    void sendsStyleChangesForGeometryAndMotionUpdates()
     {
         ZzFluentUI::ZzThemeController controller;
         ZzFluentUI::ZzFluentStyle style(&controller);
@@ -393,6 +393,13 @@ private Q_SLOTS:
         controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
         QCOMPARE(topLevel.styleChangeCount(), 0);
         QCOMPARE(child.styleChangeCount(), 0);
+
+        controller.setReducedMotion(true);
+        QCOMPARE(topLevel.styleChangeCount(), 1);
+        QCOMPARE(child.styleChangeCount(), 1);
+        controller.setReducedMotion(true);
+        QCOMPARE(topLevel.styleChangeCount(), 1);
+        QCOMPARE(child.styleChangeCount(), 1);
 
         const QFont original = QGuiApplication::font();
         QFont changed = original;
@@ -404,11 +411,11 @@ private Q_SLOTS:
         QGuiApplication::setFont(changed);
 
         QVERIFY(QTest::qWaitFor([&topLevel, &child] {
-            return topLevel.styleChangeCount() == 1 &&
-                   child.styleChangeCount() == 1;
+            return topLevel.styleChangeCount() == 2 &&
+                   child.styleChangeCount() == 2;
         }));
-        QCOMPARE(topLevel.styleChangeCount(), 1);
-        QCOMPARE(child.styleChangeCount(), 1);
+        QCOMPARE(topLevel.styleChangeCount(), 2);
+        QCOMPARE(child.styleChangeCount(), 2);
         QGuiApplication::setFont(original);
     }
 };

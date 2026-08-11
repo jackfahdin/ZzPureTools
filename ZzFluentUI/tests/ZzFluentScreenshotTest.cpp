@@ -76,6 +76,7 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzContentDialog.h>
+#include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -787,6 +788,19 @@ private:
         badgeRow->addWidget(overflowBadge);
         badgeRow->addStretch(1);
         layout->addLayout(badgeRow);
+
+        auto *collapsedExpander = new ZzFluentUI::ZzExpander(container);
+        collapsedExpander->setHeaderText(QStringLiteral("Advanced settings"));
+        collapsedExpander->setContentWidget(new QLabel(
+            QStringLiteral("Collapsed content")));
+        layout->addWidget(collapsedExpander);
+
+        auto *expandedExpander = new ZzFluentUI::ZzExpander(container);
+        expandedExpander->setHeaderText(QStringLiteral("Build details"));
+        expandedExpander->setContentWidget(new QLabel(
+            QStringLiteral("Preset: linux-gcc-reference")));
+        expandedExpander->setExpanded(true);
+        layout->addWidget(expandedExpander);
 
         auto *tabs = new QTabBar(container);
         tabs->addTab(QStringLiteral("Overview"));

@@ -76,6 +76,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzContentDialogPrivate.cpp
     widgets/src/ZzTeachingTip.cpp
     widgets/src/private/ZzTeachingTipPrivate.cpp
+    widgets/src/ZzExpander.cpp
+    widgets/src/private/ZzExpanderPrivate.cpp
     widgets/src/ZzCalendar.cpp
     widgets/src/private/ZzCalendarPrivate.cpp
     widgets/src/ZzCalendarPicker.cpp
@@ -124,6 +126,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzInfoBadge.h
     widgets/include/ZzFluentUI/ZzContentDialog.h
     widgets/include/ZzFluentUI/ZzTeachingTip.h
+    widgets/include/ZzFluentUI/ZzExpander.h
     widgets/include/ZzFluentUI/ZzCalendar.h
     widgets/include/ZzFluentUI/ZzCalendarPicker.h
     widgets/include/ZzFluentUI/ZzActionCard.h

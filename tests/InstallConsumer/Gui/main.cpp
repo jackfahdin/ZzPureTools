@@ -11,6 +11,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMainWindow>
@@ -29,6 +30,7 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzImageCard.h>
@@ -210,6 +212,7 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzMultiSelectComboBox multiSelect;
   ZzFluentUI::ZzRoller roller;
   ZzFluentUI::ZzRollerPicker rollerPicker;
+  ZzFluentUI::ZzExpander expander;
   ZzFluentUI::ZzTabWidget sourceTabs;
   ZzFluentUI::ZzTabWidget targetTabs;
   QWidget *tabPage = new QWidget;
@@ -285,6 +288,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   rollerPicker.cancelPopup();
+  expander.setStyle(&fluentStyle);
+  expander.setHeaderText(QStringLiteral("Installed expander"));
+  expander.setContentWidget(new QLabel(QStringLiteral("Installed content")));
+  expander.setExpanded(true);
+  QWidget *const takenExpanderContent = expander.takeContentWidget();
+  expander.setContentWidget(takenExpanderContent);
   QStyleOptionFrame lineOption;
   lineOption.initFrom(&lineEdit);
   const QSize lineSize = fluentStyle.sizeFromContents(
@@ -427,7 +436,14 @@ int main(int argc, char *argv[]) {
       rollerPicker.currentText() != QStringLiteral("09 / 00 / PM") ||
       rollerPicker.columns().at(0).key == rollerPicker.columns().at(1).key ||
       rollerPicker.columns().at(2).key.isEmpty() ||
-      rollerPicker.isPopupVisible() || sourceTabs.fluentTabBar() == nullptr ||
+      rollerPicker.isPopupVisible() ||
+      expander.style() != &fluentStyle ||
+      expander.headerText() != QStringLiteral("Installed expander") ||
+      !expander.isExpanded() ||
+      expander.contentWidget() != takenExpanderContent ||
+      takenExpanderContent == nullptr ||
+      takenExpanderContent->parentWidget() == nullptr ||
+      sourceTabs.fluentTabBar() == nullptr ||
       !sourceTabs.transferTabTo(&targetTabs, 0) || sourceTabs.count() != 0 ||
       targetTabs.widget(0) != tabPage) {
     return 1;

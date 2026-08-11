@@ -686,6 +686,21 @@
         <translation>Breadcrumbs</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="196"/>
+        <source>折叠展开容器</source>
+        <translation>Expandable container</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="201"/>
+        <source>高级导航选项</source>
+        <translation>Advanced navigation options</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="208"/>
+        <source>内容由调用方创建，容器只管理本地展开状态。</source>
+        <translation>Content is supplied by the caller; the container only manages local expansion state.</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="144"/>
         <source>当前位置：导航与历史</source>
         <translation>Current location: Navigation and history</translation>
