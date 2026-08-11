@@ -1,6 +1,6 @@
 # ZzFluentUI 广度扩张总实施计划（第 0 批还债 + 四个控件批次）
 
-**目标：** 在保持现有质量深度（五纪律、六阶段门禁）不变的前提下，把 ZzFluentUI 从 26 个控件扩展到约 40 个，并先修复评审发现的三个短板：截图基线欠债、性能阈值无噪声依据、Typography/Motion/AnimationPolicy 死 API。
+**目标：** 在保持现有质量深度（五纪律、六阶段门禁）不变的前提下，把 ZzFluentUI 从 26 个控件扩展到约 40 个，并继续修复评审发现的两个短板：性能阈值无噪声依据以及 Typography/Motion/AnimationPolicy 尚无生产消费者。截图基线欠债和 Item View 选中视觉统一已经由 `568ba21` 完成。
 
 **执行环境：** 全部验证步骤必须在 Linux 参考机执行（截图与性能基线只在该机有效）。固定环境：i7-14700 / Xvfb 1920×1080 DPR 1.0 / Mesa llvmpipe / Ubuntu 26.04 / Qt 6.11.1 / GCC 15.2.0 / preset `linux-gcc-reference`，详见 `docs/performance/PERFORMANCE_BASELINE_ZH.md`。
 
@@ -57,7 +57,9 @@
 
 ## 1. 第 0 批：还债与加固（先于一切新控件，独立提交）
 
-### 1.1 截图基线重采
+第 0、1 批的决策完整规格见 `2026-08-11-zzfluentui-foundation-feedback-batch.md`。本总计划只保留路线状态和批次依赖，实施时以后者为准。
+
+### 1.1 截图基线重采（已完成）
 
 **背景：** 2026-08-09 在 Windows 本机完成 4 次视觉变更，Linux 截图基线未同步，当前 `fluent.screenshot-*` 在参考机必然失败：
 
@@ -66,7 +68,7 @@
 - `ce5ce1a` 指示条移至标题内容左缘 + 背板底色填充消接缝
 - `2348ecc` 树形 item 内容统一内移 10px（`ZzFluentItemDelegatePrivate.cpp:60` 附近）
 
-**任务：**
+**完成状态：** `568ba21` 已统一 Navigation/List/Table/Tree 的背板、指示条和内容安全区域，重采四档 Fluent 与综合示例截图基线并更新 SHA-256。以下步骤作为历史验收记录保留，不得在第 0 批重复重采：
 1. 参考机构建后在**重采前先跑一次现状**，确认失败场景集中在 delegate/tree 相关截图（`ZzFluentScreenshotTest.cpp` 中含 item view/tree 场景），若出现无关场景失败先排查环境问题。
 2. `ZZ_UPDATE_SCREENSHOTS=1 ctest -R 'fluent.screenshot-' --output-on-failure` 重采 4 个 DPR 档全部基线。
 3. 逐张人工确认（重点 dpr-100）：选中指示条为 3px 圆角竖条、位于标题内容左缘（不随树层级内移）；背板圆角连续无接缝、无前后高度差；斑马纹在 Alternate 行保留且不被背板露边；指示条与文字间距叶子行约 17px、组行约 6px。
@@ -80,9 +82,9 @@
 
 **任务：**
 1. 在参考机用 `linux-gcc-benchmarks` preset 连续跑 3 轮全量 benchmark（每轮 `taskset -c 10 ctest --preset linux-gcc-benchmarks -j1`），保留每轮 12 份报告。
-2. 写一个小工具（Python 或 CMake 脚本，放 `benchmarks/common/` 或 `scripts/ci/`）统计每场景每 metric 的跨轮变异系数，输出噪声带表。
-3. 决策阈值：每场景 `ZZ_MAX_REGRESSION_PERCENT = max(10, ceil(P95 噪声比))`；把逐场景阈值写进 `run-linux-gates.sh:103-123` 的循环（场景→阈值映射表），不再全局一刀切。
-4. 噪声带长期 >20% 的场景标记"仅供参考不做门禁"，在该循环中跳过并打印说明。
+2. 新增 CMake 分析脚本，按场景、指标和 `p95`/`max` 分别统计三轮最大正向相对波动，输出候选 JSON 与 Markdown，不修改 reporter schema。
+3. 正式门限使用版本化 JSON；波动不超过 10% 时取 10%，10% 至 20% 时向上取整，超过 20% 的单项改为 `observe`。比较器读取逐项策略，不再接受全局一刀切作为发布门禁。
+4. `observe` 项仍必须打印基线、当前值与波动比例，只是不阻断；禁止跳过整个场景或靠重跑碰运气。
 5. 方法与实测噪声数据写入 `docs/performance/PERFORMANCE_BASELINE_ZH.md` 新章节，作为阈值依据存档。
 
 ### 1.3 死 API 处置
@@ -109,7 +111,7 @@
 
 ### 1.5 第 0 批提交边界
 
-4 个独立 commit：①截图基线重采（含 example 基线）②性能噪声治理（工具 + run-linux-gates.sh + 文档）③架构扫描规则 + 白名单 ④`CODING_STANDARD_ZH.md` 立规。不含任何新控件；死 API 激活随批次 1/2 各自提交。
+截图基线与立规已完成。剩余三个独立 commit：①性能噪声治理（工具、比较器、门禁、测试与文档）②架构扫描规则与固定白名单 ③反馈组件绘制原语与主题令牌。不含新控件；死 API 激活随批次 1/2 各自提交。
 
 ---
 
@@ -117,15 +119,12 @@
 
 ### 2.1 绘制原语沉淀到 ZzFluentPainter
 
-**现状：** `ZzFluentPainter.h`（52 行静态工具类）只有 2 个 API：`drawControlBackground(...)`、`drawFocusRing(...)`。而"圆角背板 + accent 指示条"目前在 `ZzFluentStylePrivate::drawItemViewRow`（widgets/src/private/ZzFluentStylePrivate.cpp，约 1871 行文件内）和 `ZzFluentItemDelegatePrivate` 中各手写了一份——这正是要消除的重复。
+**现状：** `ZzFluentPainter.h` 只有 `drawControlBackground(...)`、`drawFocusRing(...)`。Item View 的圆角背板、强调条和安全内容区已经收敛到私有 `ZzItemViewVisual`，继续保持私有；本批只补充反馈/浮层组件真正共用且参数稳定的公开表面原语。
 
 **任务（纯内聚重构，不改任何视觉输出，先跑截图测试确认零差异）：**
-1. 新增原语（签名形式，实现者自定细节）：
-   - `static void drawRoundedBackdrop(QPainter*, const QRectF&, const ZzThemeSnapshot&, ZzColorToken fill, qreal radius)` —— 圆角背板
-   - `static void drawAccentIndicator(QPainter*, const QRectF& barRect, const ZzThemeSnapshot&)` —— accent 指示条（3px 圆角竖条，调用方算好 rect）
-   - `static void drawPopupSurface(QPainter*, const QRectF&, const ZzThemeSnapshot&)` —— 弹出表面（SurfaceSecondary + ControlStroke + CornerRadiusMedium，从 drawMenuPanel 提取）
-2. `drawItemViewRow` 与 `ZzFluentItemDelegatePrivate::paint` 改为调用原语，删除重复画法；保留"突出 radius 由对方覆盖"的拼接技巧与 RTL visualRect 处理，注释里说明。
-3. 新控件只允许调用原语，不重复手写。
+1. 新增 `drawRoundedSurface`、`drawOverlayScrim`、`drawPopupSurface`、`drawBadgeSurface` 四个稳定原语，参数和 painter 状态契约见批次详细计划。
+2. 不改 `ZzItemViewVisual`，以截图零差异证明基础设施提交没有意外改变既有控件。
+3. 新反馈组件只允许通过令牌和这些原语绘制表面，不重复手写主题颜色。
 
 ### 2.2 令牌分层与新令牌流程
 
