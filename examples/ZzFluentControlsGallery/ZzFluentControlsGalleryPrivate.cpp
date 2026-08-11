@@ -14,8 +14,6 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
-#include <QtWidgets/QDialog>
-#include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
@@ -49,6 +47,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
+#include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
@@ -1285,20 +1284,24 @@ QWidget *ZzFluentControlsGalleryPrivate::buildCommandStatusHost(
 
 void ZzFluentControlsGalleryPrivate::showDialog()
 {
-    auto *dialog = new QDialog(q_ptr);
+    auto *dialog = new ZzFluentUI::ZzContentDialog(q_ptr);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setWindowTitle(QStringLiteral("ZzFluentUI Dialog"));
-    auto *layout = new QVBoxLayout(dialog);
-    layout->addWidget(new QLabel(QStringLiteral("Workspace settings"), dialog));
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
-    QObject::connect(
-        buttons,
-        &QDialogButtonBox::rejected,
-        dialog,
-        &QDialog::reject);
-    layout->addWidget(buttons);
-    dialog->resize(360, 140);
-    dialog->show();
+    dialog->setTitle(QStringLiteral("Workspace settings"));
+    dialog->setText(QStringLiteral(
+        "Apply the selected synchronization policy to this workspace."));
+    auto *automatic = new QCheckBox(
+        QStringLiteral("Enable automatic synchronization"));
+    automatic->setChecked(true);
+    dialog->setContentWidget(automatic);
+    dialog->setPrimaryButtonText(QStringLiteral("Apply"));
+    dialog->setPrimaryButtonVisible(true);
+    dialog->setSecondaryButtonText(QStringLiteral("Later"));
+    dialog->setSecondaryButtonVisible(true);
+    dialog->setCloseButtonText(QStringLiteral("Cancel"));
+    dialog->setDefaultButton(
+        ZzFluentUI::ZzContentDialogButton::Primary);
+    dialog->setWindowModality(Qt::WindowModal);
+    dialog->open();
 }
 
 void ZzFluentControlsGalleryPrivate::bindTabHost(

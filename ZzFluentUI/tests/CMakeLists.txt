@@ -328,6 +328,21 @@ set_tests_properties(fluent.info-badge PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzContentDialogTest ZzContentDialogTest.cpp)
+target_link_libraries(ZzContentDialogTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzContentDialogTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzContentDialogTest)
+zz_enable_sanitizers(ZzContentDialogTest)
+add_test(NAME fluent.content-dialog COMMAND ZzContentDialogTest)
+set_tests_properties(fluent.content-dialog PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzCalendarControlsTest ZzCalendarControlsTest.cpp)
 target_link_libraries(ZzCalendarControlsTest PRIVATE
     Qt6::Test

@@ -12,7 +12,6 @@
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
-#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QToolButton>
@@ -20,6 +19,7 @@
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
@@ -296,15 +296,21 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         &QAbstractButton::clicked,
         q_ptr,
         [parent] {
-            auto *dialog = new QMessageBox(
-                QMessageBox::Information,
-                QStringLiteral("ZzPureTools"),
-                QCoreApplication::translate("ZzPureToolsExample", "当前窗口已完成 Fluent 组件装配。"),
-                QMessageBox::Ok,
-                parent);
+            auto *dialog = new ZzFluentUI::ZzContentDialog(parent);
             dialog->setAttribute(Qt::WA_DeleteOnClose, true);
-            dialog->setModal(false);
-            dialog->show();
+            dialog->setTitle(QStringLiteral("ZzPureTools"));
+            dialog->setText(QCoreApplication::translate(
+                "ZzPureToolsExample",
+                "当前窗口已完成 Fluent 组件装配。"));
+            dialog->setPrimaryButtonText(QCoreApplication::translate(
+                "ZzPureToolsExample", "确认"));
+            dialog->setPrimaryButtonVisible(true);
+            dialog->setCloseButtonText(QCoreApplication::translate(
+                "ZzPureToolsExample", "关闭"));
+            dialog->setDefaultButton(
+                ZzFluentUI::ZzContentDialogButton::Primary);
+            dialog->setWindowModality(Qt::WindowModal);
+            dialog->open();
         });
     commandLayout->addWidget(menuButton);
     commandLayout->addWidget(dialogButton);

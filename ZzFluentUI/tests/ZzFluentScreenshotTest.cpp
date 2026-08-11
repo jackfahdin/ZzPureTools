@@ -75,6 +75,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
+#include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -4268,6 +4269,159 @@ private:
     QPointer<ZzPressedMenuItemScreenshotFixture> pressedPreview;
 };
 
+/** @brief 保存内容对话框场景的文字遮罩和覆盖数量。 */
+struct ZzContentDialogTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int buttons = 0;
+};
+
+/** @brief 构造宿主遮罩、三按钮和自定义内容的固定内容对话框场景。 */
+class ZzContentDialogScreenshotSurface final
+{
+public:
+    /** @brief 创建带背景信息的固定宿主和窗口模态内容对话框。 */
+    ZzContentDialogScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzContentDialogScreenshot"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Content Dialog"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *layout = new QVBoxLayout(&window);
+        layout->setContentsMargins(80, 72, 80, 72);
+        layout->setSpacing(24);
+        auto *heading = new QLabel(
+            QStringLiteral("Release workspace"), &window);
+        QFont headingFont = heading->font();
+        headingFont.setPointSize(18);
+        headingFont.setWeight(QFont::DemiBold);
+        heading->setFont(headingFont);
+        layout->addWidget(heading);
+        layout->addWidget(new QLabel(
+            QStringLiteral("Artifact: ZzPureTools 0.1.0"), &window));
+        layout->addWidget(new QLabel(
+            QStringLiteral("Target: Linux x86_64 | Release"), &window));
+        auto *hostAction = new ZzFluentUI::ZzPushButton(
+            QStringLiteral("Publish package"), &window);
+        hostAction->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+        layout->addWidget(hostAction, 0, Qt::AlignLeft);
+        layout->addStretch(1);
+
+        dialog_ = new ZzFluentUI::ZzContentDialog(&window);
+        dialog_->setTitle(QStringLiteral("Publish release?"));
+        dialog_->setText(QStringLiteral(
+            "The package will be published to the selected channel."));
+        dialog_->setContentWidget(new QLabel(
+            QStringLiteral("Channel: Preview")));
+        dialog_->setPrimaryButtonText(QStringLiteral("Publish"));
+        dialog_->setPrimaryButtonVisible(true);
+        dialog_->setSecondaryButtonText(QStringLiteral("Review"));
+        dialog_->setSecondaryButtonVisible(true);
+        dialog_->setSecondaryButtonEnabled(false);
+        dialog_->setCloseButtonText(QStringLiteral("Cancel"));
+        dialog_->setDefaultButton(
+            ZzFluentUI::ZzContentDialogButton::Primary);
+        dialog_->setWindowModality(Qt::WindowModal);
+    }
+
+    /** @brief 显示宿主和对话框，并固定对话框在逻辑画布中心。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        dialog_->show();
+        QCoreApplication::processEvents();
+        dialog_->adjustSize();
+        dialogOrigin_ = QPoint(
+            (window.width() - dialog_->width()) / 2,
+            (window.height() - dialog_->height()) / 2);
+        dialog_->move(window.mapToGlobal(dialogOrigin_));
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏对话框和宿主以清理实例遮罩。 */
+    void hide()
+    {
+        dialog_->hide();
+        window.hide();
+    }
+
+    /** @brief 返回当前内容对话框。 */
+    [[nodiscard]] ZzFluentUI::ZzContentDialog *dialog() const noexcept
+    {
+        return dialog_;
+    }
+
+    /** @brief 返回对话框在宿主画布中的合成原点。 */
+    [[nodiscard]] QPoint dialogOrigin() const noexcept
+    {
+        return dialogOrigin_;
+    }
+
+    QWidget window;
+
+private:
+    QPointer<ZzFluentUI::ZzContentDialog> dialog_;
+    QPoint dialogOrigin_;
+};
+
+/** @brief 构造宿主与顶层内容对话框中文字的物理像素遮罩。 */
+ZzContentDialogTextMask zzBuildContentDialogTextMask(
+    ZzContentDialogScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzContentDialogTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    ZzFluentUI::ZzContentDialog *dialog = surface->dialog();
+
+    const auto mapRect = [surface, dialog](
+                             QWidget *widget,
+                             const QRect &rect) {
+        if (widget->window() == dialog) {
+            return QRect(
+                widget->mapTo(dialog, rect.topLeft())
+                    + surface->dialogOrigin(),
+                rect.size());
+        }
+        return zzMapToSurface(widget, rect, &surface->window);
+    };
+    for (QLabel *label : surface->window.findChildren<QLabel *>()) {
+        if (!label->isVisible() || label->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            label,
+            label->contentsRect(),
+            static_cast<int>(label->alignment()),
+            label->text());
+        zzPaintMaskRect(&painter, mapRect(label, textRect));
+        ++result.labels;
+    }
+    for (QPushButton *button :
+         surface->window.findChildren<QPushButton *>()) {
+        if (!button->isVisible() || button->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            button,
+            button->contentsRect(),
+            Qt::AlignCenter,
+            button->text());
+        zzPaintMaskRect(&painter, mapRect(button, textRect));
+        ++result.buttons;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 为菜单栏、菜单、shortcut、tooltip 与补充状态构造文字遮罩。 */
 ZzPopupSurfaceTextMask zzBuildPopupSurfaceTextMask(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -5244,6 +5398,24 @@ QImage zzRenderPopupSurface(
             menus[index]->render(&painter, zzPopupMenuOrigins[index]);
         }
     }
+    painter.end();
+    return image;
+}
+
+/** @brief 把父窗口遮罩和独立内容对话框合成到固定物理画布。 */
+QImage zzRenderContentDialogSurface(
+    ZzContentDialogScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    surface->dialog()->render(&painter, surface->dialogOrigin());
     painter.end();
     return image;
 }
@@ -6258,6 +6430,21 @@ private Q_SLOTS:
             << QStringLiteral("popup-surfaces-high-contrast");
     }
 
+    void rendersContentDialogThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("content-dialog-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("content-dialog-light");
+        QTest::newRow("content-dialog-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("content-dialog-dark");
+        QTest::newRow("content-dialog-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("content-dialog-high-contrast");
+    }
+
     void rendersTextInputThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -7137,6 +7324,99 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 弹出表面非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersContentDialogThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzContentDialogScreenshotSurface surface;
+        surface.polish();
+        QVERIFY(surface.dialog() != nullptr);
+        QVERIFY(surface.dialog()->isVisible());
+        QVERIFY(surface.dialog()->isModal());
+        QCOMPARE(
+            surface.window.findChildren<ZzFluentUI::ZzContentDialog *>()
+                .size(),
+            1);
+        QWidget *overlay = surface.window.findChild<QWidget *>(
+            QStringLiteral("zzContentDialogOverlay"),
+            Qt::FindDirectChildrenOnly);
+        QVERIFY(overlay != nullptr);
+        QCOMPARE(overlay->geometry(), surface.window.rect());
+
+        const QImage actual = zzRenderContentDialogSurface(
+            &surface, actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzContentDialogTextMask mask =
+            zzBuildContentDialogTextMask(&surface, actualDpr_);
+        QVERIFY(mask.labels >= 5);
+        QCOMPARE(mask.buttons, 4);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 内容对话框非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)
