@@ -514,10 +514,10 @@ Sanitizer 必须覆盖动画运行中销毁 Expander/Drawer、替换 content、T
 
 ## 10. 实施结果（完成后填写）
 
-- 提交：待实施。
-- Linux 测试：待实施。
-- 截图：待实施。
-- Clang-Tidy：待实施。
-- ASan/UBSan：待实施。
-- 性能：待实施。
-- Windows/macOS：待实施。
+- **提交：** `f96f044` 固化本详细计划；`4c128dc` 完成 Navigation/Tree 指示条过渡；`7734291`、`e7d929f`、`47309c9` 分别完成 Expander、Pivot、Drawer；`633b44a` 在 Gallery 通过 corner widget 组合标签新建意图。本次文档提交同步编码规范与总路线状态。
+- **Linux 功能门禁：** `scripts/ci/run-linux-gates.sh` 退出码为 0。`linux-gcc-debug`、`linux-clang-tidy-release`、`linux-clang-tidy-static`、`linux-clang-asan`、`linux-gcc-release`、`linux-static-release`、`linux-gcc-release-lto`、`linux-static-release-lto` 均为 125/125；功能、架构、安装消费与 shared/static 组合均通过。
+- **截图：** 通用 controls 场景更新 12 张 Light/Dark/HighContrast x DPR 100/125/150/200 基线，覆盖 Expander 展开/折叠和 Pivot；Drawer 新增同一主题/DPR 矩阵的 12 张独立基线。共 24 张基线进入关闭更新模式后的自动比较，Navigation/Tree 仍以动画终态采集。
+- **Clang-Tidy：** shared/static 各扫描 207 个一方翻译单元，无有效诊断；本批没有扩大视觉令牌架构白名单。
+- **ASan/UBSan：** `linux-clang-asan` 125/125，并在性能压力阶段额外通过 2/2 个 Sanitizer 用例；覆盖动画运行中销毁、内容替换和模型/selection model 生命周期路径。
+- **性能：** `linux-gcc-benchmarks` 147/147，12 个性能场景的逐指标相对比较全部通过，未调整阈值、参考基线或 `gate`/`observe` 策略。另行执行 `linux-gcc-reference -L benchmark` 时首轮 37/38，唯一失败是 startup 首次窗口未在时限内 exposed；同环境单独复跑 `benchmark.startup` 通过，正式 benchmark 门禁中的 startup 也一次通过，因此记录为一次窗口时序波动而不修改代码或阈值。
+- **平台状态：** Windows MSVC、Windows Qt SDK MinGW、macOS arm64/x86_64 本批未实际构建；静态审计确认新增生产源码没有平台条件分支、原生平台头或 Qt Private API。Ubuntu 22.04 可选参考档案仍为 `pending-user-validation`，不得作为本批已验证发布环境。

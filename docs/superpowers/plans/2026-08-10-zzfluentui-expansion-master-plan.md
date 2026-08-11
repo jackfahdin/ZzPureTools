@@ -6,7 +6,7 @@
 
 **技术栈：** Qt 6.8+ Widgets、C++20、CMake Presets、Qt Test、Clang-Tidy、ASan/UBSan。
 
-**路线状态（2026-08-11）：** 第 0 批和第 1 批已经完成，公开组件数由 26 增至 29。逐指标性能策略、视觉令牌扫描、反馈表面原语及三项反馈组件均已进入生产代码；Typography、Motion 与 AnimationPolicy 已有真实控件消费者。下一项是先编写第 2 批详细计划，再实施导航动画、Expander、Pivot、Drawer 和 TabView 评估。
+**路线状态（2026-08-11）：** 第 0、1、2 批已经完成，公开组件数由 26 增至 32。逐指标性能策略、视觉令牌扫描、反馈表面原语、三项反馈组件、导航与 Tree 指示条动画，以及 Expander、Pivot、Drawer 均已进入生产代码；Typography、Motion 与 AnimationPolicy 已有真实控件消费者。TabView 评估决定不新增同义控件，现有 `ZzTabBar`/`ZzTabWidget` 继续承载文档标签能力，并通过 corner widget 组合新建意图入口。下一步是编写第 3 批输入组件详细计划。
 
 **执行方式（重要）：** 本文档是总计划（路线图粒度）。每个批次动工前，先把该批次展开为一份独立的详细实施计划，放在本目录（`docs/superpowers/plans/2026-08-XX-zzfluentui-<batch>.md`），粒度对齐既有 28 份计划（逐文件、逐绘制函数、旧代码审计、红绿命令、Expected），确认后再写代码。本文档中标注"实施时定/选简单者"的决策点，必须在批次详细计划里给出定论和理由，不允许带着未定决策动工。
 
@@ -188,37 +188,37 @@
 
 ---
 
-## 4. 批次 2：导航补全 + 指示条动画（Motion 消费扩展批）
+## 4. 批次 2：导航补全 + 指示条动画（已完成）
+
+**完成状态：** `4c128dc` 交付 Navigation 与 Tree 指示条固定动画状态机，`7734291`、`e7d929f`、`47309c9` 分别交付 Expander、Pivot 和 Drawer，`633b44a` 以既有 corner widget 能力组合标签新建意图入口。公开组件数由 29 增至 32；详细接口、对象预算、截图和门禁结果见第 2 批详细计划。
 
 ### 4.1 导航指示条两段式动画（本批重点）
 
-- **参考实现：** `temp/ElaWidgetTools/ElaWidgetTools/DeveloperComponents/ElaNavigationStyle.cpp:22-63`——选中切换时旧指示条缩没、新指示条长出，`QPropertyAnimation` 300ms `InOutSine`。
-- **落地位置：** `ZzNavigationView`/`ZzNavigationPane` 的选中指示条与 item delegate 树形指示条（视觉已与 2026-08-09 定稿一致：3px 圆角竖条、标题左缘；动画只改几何不改样式）。
-- **Motion 消费扩展：** 时长 `snapshot->duration(ZzMotionToken::Normal)`（若 300ms 与 Normal 档不符，按 §2.2 流程调整档位值并更新 MotionToken 测试）；降级 `ZzAnimationPolicy::adjustedDuration(ms, snapshot->reducedMotion(), false)`——reducedMotion 时缩到 ≤50ms 或直接跳变（测试断言终态正确即可）。
-- **实现约束：** 动画对象由控件/private 持有（成员 `QVariantAnimation` 或 `QPropertyAnimation`），`DeleteWhenStopped` 不能替代生命周期管理；旧条/新条两段可用一个动画驱动两个高度值；主题切换/快速连续选中时动画可中断并从当前值反向，测试覆盖中断路径。
-- **测试清单：** policy 禁用时 `findChildren<QAbstractAnimation*>().size()==0` 且直接终态（呼应 NavigationPaneTest 既有"无动画约束"模式，该测试需改为"policy 关闭时无动画"）；动画开启时 valueChanged 单调、finished 后指示条 rect 与静态绘制一致；快速切换 10 次后对象数有界。
-- **截图：** 仍在动画终态采集，基线不变。
+- **实现：** `ZzSelectionIndicatorTransition` 由每个 Navigation view 或 Tree delegate 固定持有一个 `QVariantAnimation`，以 `Normal` motion token 和 `ZzAnimationPolicy` 驱动旧条缩短、新条长出的两段式过渡。
+- **连续性：** 快速切换从当前 outgoing/incoming scale 重定向同一动画；模型重置、selection model 替换和 reduced motion 都同步收敛到确定终态。
+- **绘制边界：** 动画只缩放主题令牌定义的强调条，不改变 Navigation/List/Table/Tree 的文字、图标、badge 或安全区域；每帧只刷新相关索引矩形。
+- **测试：** 覆盖正常过渡、快速 A -> B -> A、reduced motion、模型与 selection model 更换、RTL、fallback delegate，以及 1000 次切换后动画地址和对象数量不变。
 
 ### 4.2 ZzExpander
 
-- **API 草图：** Q_PROPERTY：`headerText`、`expanded(bool)`、`contentWidget`(QWidget*)；信号 `expandedChanged(bool)`；展开/收起走高度动画（QVariantAnimation 驱动 maximumHeight 或直接几何，禁止重建子控件），时长 `duration(ZzMotionToken::Normal)` + policy 降级。
-- **测试清单：** 展开态 sizeHint 变化、contentWidget 所有权不转移、动画关闭时瞬时终态、LanguageChange。
+- **实现：** `ZzExpander` 提供 `headerText`、`expanded`、`contentWidget` 属性和 `takeContentWidget()`；set 接管内容所有权，take 明确交回。固定动画只驱动 content host 高度。
+- **边界与测试：** 纯 UI 展开状态不加载业务数据；覆盖鼠标与键盘、焦点恢复、内容替换/外部销毁、快速反向、reduced motion、国际化、RTL 和 1000 次切换对象预算。
 
 ### 4.3 ZzPivot
 
-- **API 草图：** 顶部标签导航；Q_PROPERTY：`currentIndex`、`count`；`addItem(text)`/`itemText()`；信号 `currentChanged(int)`；选中下划线用与指示条同一原语（横条变体），移动动画复用 4.1 的机制。
-- **与 ZzTabBar/ZzTabWidget 的边界：** Pivot 是页面级导航（无 close/detach），TabView 是文档级；实施前写一段对比注释进头文件。
+- **实现：** `ZzPivot final : QTabBar` 复用 Qt 的索引、键盘、滚动和可访问性语义，只新增页面级 item 命名接口及 Fluent 表面、焦点和选中横条绘制。
+- **边界与测试：** Pivot 不拥有页面且不提供 close/detach；固定动画从当前横条矩形连续重定向。测试覆盖增删改、鼠标与键盘、助记键、RTL、超宽滚动、可访问性、reduced motion 和对象预算。
 
 ### 4.4 ZzDrawer
 
-- **API 草图：** 边缘滑入模态面板；Q_PROPERTY：`edge`（Left/Right）、`modal`、`widthHint`；`open()`/`close()`；遮罩复用批次 1 ContentDialog 的遮罩令牌与机制；滑入动画 `duration(ZzMotionToken::Normal)` + policy。
-- **边界：** 与 `ZzNavigationPane` 折叠态职责区分（Drawer 是临时覆盖层，Pane 是常驻导航），注释写明。
+- **实现：** `ZzDrawer` 是宿主内覆盖层，提供 Left/Right、modal、widthHint、contentWidget 和 `openDrawer()`/`closeDrawer()`；固定动画以进度驱动面板几何，modal 遮罩复用 Fluent overlay token 与 painter。
+- **边界与测试：** Drawer 表达临时覆盖，NavigationPane 表达常驻导航；非模态 mask 只拦截面板区域。测试覆盖所有权、左右几何、宿主 resize、模态/非模态输入、Escape、焦点恢复、快速反向、reduced motion 和对象预算。
 
 ### 4.5 TabView 评估（先做决策再动手）
 
-现有 `ZzTabWidget`/`ZzTabBar` 已有 tear-off 能力（见 `2026-08-05-zzfluentui-tear-off-tabs.md`）。任务：评估 WinUI TabView 相对现有实现的新增价值（拖动重排/新建按钮/关闭中键等），输出决策（增强现有 or 新控件）写入批次总结；若增强，走既有文件；若新建，按 §2.3 清单。
+**结论：不新增 `ZzTabView`。** 现有 `ZzTabWidget`/`ZzTabBar` 已覆盖页面拥有、关闭意图、同容器重排、跨容器转移、tear-off 意图、元数据恢复、键盘和可访问性。新建按钮通过 `QTabWidget::setCornerWidget()` 组合 `ZzIconButton`，Gallery 点击后只展示 intent，不在 UI 内创建业务页面。
 
-**批次 2 提交边界：** 指示条动画单独 commit（含 policy/令牌激活）；每控件各一个 commit。
+**批次 2 提交边界：** 已按指示条动画、三个公开控件、示例组合意图和文档收尾拆分提交。
 
 ---
 
