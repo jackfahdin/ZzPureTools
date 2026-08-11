@@ -112,6 +112,142 @@ function(zz_architecture_strip_tokens input output)
     set(${output} "${code}" PARENT_SCOPE)
 endfunction()
 
+function(zz_architecture_begin_visual_scan allowlist_file)
+    if(NOT EXISTS "${allowlist_file}")
+        message(FATAL_ERROR "Visual token allowlist is absent: ${allowlist_file}")
+    endif()
+    file(STRINGS "${allowlist_file}" allowlist_entries)
+    set(approved_debt_paths
+        ZzFluentUI/widgets/src/ZzCarouselView.cpp
+        ZzFluentUI/widgets/src/ZzFluentTitleBar.cpp
+        ZzFluentUI/widgets/src/ZzNavigationView.cpp
+        ZzFluentUI/widgets/src/ZzRoller.cpp
+        ZzFluentUI/widgets/src/private/ZzBreadcrumbBarPrivate.cpp
+        ZzFluentUI/widgets/src/private/ZzFluentStylePrivate.cpp
+        ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp
+        ZzFluentUI/widgets/src/private/ZzItemViewVisual.cpp
+        ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp
+        ZzFluentUI/widgets/src/private/ZzNavigationViewPrivate.cpp)
+    foreach(entry IN LISTS allowlist_entries)
+        if(entry STREQUAL "" OR entry MATCHES "^[ \t]*#")
+            continue()
+        endif()
+        if(NOT entry MATCHES
+           "^(FLUENT_RAW_COLOR|FLUENT_DIMENSION_MAGIC)\\|([^|]+)\\|[1-9][0-9]*\\|[A-Za-z0-9_]+$")
+            message(FATAL_ERROR "Invalid visual token allowlist entry: ${entry}")
+        endif()
+        set(debt_path "${CMAKE_MATCH_2}")
+        list(FIND approved_debt_paths "${debt_path}" debt_path_index)
+        if(debt_path_index LESS 0)
+            message(FATAL_ERROR
+                "Visual token allowlist cannot admit a new debt file: ${debt_path}")
+        endif()
+        list(APPEND validated_entries "${entry}")
+    endforeach()
+    set_property(GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST
+        "${validated_entries}")
+    set_property(GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST_USED "")
+endfunction()
+
+function(zz_architecture_visual_finding relative_path line_number rule summary)
+    set(key "${rule}|${relative_path}|${line_number}|${summary}")
+    get_property(allowlist GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST)
+    list(FIND allowlist "${key}" allowlist_index)
+    if(allowlist_index GREATER_EQUAL 0)
+        get_property(used GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST_USED)
+        list(APPEND used "${key}")
+        list(REMOVE_DUPLICATES used)
+        set_property(GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST_USED "${used}")
+        return()
+    endif()
+    zz_architecture_record("${rule}" "${relative_path}" "${line_number}"
+        "${summary} 必须使用主题令牌或具名尺寸")
+endfunction()
+
+function(zz_architecture_scan_visual_source source_root source_file)
+    file(RELATIVE_PATH relative_path "${source_root}" "${source_file}")
+    file(TO_CMAKE_PATH "${relative_path}" relative_path)
+    if(NOT relative_path MATCHES "^ZzFluentUI/widgets/src/")
+        return()
+    endif()
+
+    file(READ "${source_file}" source_content)
+    string(REPLACE ";" "__ZZ_CMAKE_SEMICOLON__" source_content
+        "${source_content}")
+    string(REPLACE "\r\n" "\n" source_content "${source_content}")
+    string(REPLACE "\n" ";" code_lines "${source_content}")
+    set(line_number 0)
+    set(in_block_comment FALSE)
+    foreach(code_line IN LISTS code_lines)
+        math(EXPR line_number "${line_number} + 1")
+        string(REPLACE "__ZZ_CMAKE_SEMICOLON__" ";" code_line "${code_line}")
+        if(in_block_comment)
+            string(FIND "${code_line}" "*/" block_comment_end)
+            if(block_comment_end LESS 0)
+                continue()
+            endif()
+            math(EXPR after_block_comment "${block_comment_end} + 2")
+            string(SUBSTRING "${code_line}" ${after_block_comment} -1 code_line)
+            set(in_block_comment FALSE)
+        endif()
+        string(FIND "${code_line}" "/*" block_comment_start)
+        if(block_comment_start GREATER_EQUAL 0)
+            string(FIND "${code_line}" "*/" block_comment_end)
+            if(block_comment_end LESS block_comment_start)
+                string(SUBSTRING "${code_line}" 0 ${block_comment_start} code_line)
+                set(in_block_comment TRUE)
+            endif()
+        endif()
+        zz_architecture_strip_tokens("${code_line}" code_line)
+        foreach(color_token IN ITEMS setStyleSheet QColor QRgb)
+            if(code_line MATCHES "${color_token}[ \t]*\\("
+               OR code_line MATCHES
+                  "${color_token}[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*\\([^;]*\\)[ \t]*;")
+                zz_architecture_visual_finding("${relative_path}"
+                    "${line_number}" FLUENT_RAW_COLOR "${color_token}")
+            endif()
+        endforeach()
+        if(code_line MATCHES
+           "0x[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]")
+            zz_architecture_visual_finding("${relative_path}"
+                "${line_number}" FLUENT_RAW_COLOR "hexColor")
+        endif()
+
+        set(dimension_methods
+            setFixedWidth setFixedHeight setFixedSize
+            setMinimumWidth setMinimumHeight setMinimumSize
+            setMaximumWidth setMaximumHeight setMaximumSize
+            setContentsMargins setSpacing)
+        foreach(method IN LISTS dimension_methods)
+            if(code_line MATCHES
+               "${method}[ \t]*\\([^)]*([1-9][0-9]*|[0-9]+\\.[0-9]+)")
+                zz_architecture_visual_finding("${relative_path}"
+                    "${line_number}" FLUENT_DIMENSION_MAGIC "${method}")
+            endif()
+        endforeach()
+        if(code_line MATCHES
+           "drawRoundedRect[ \t]*\\([^\n]*,[ \t]*-?([1-9][0-9]*|[0-9]+\\.[0-9]+)[fF]?[ \t]*,[ \t]*-?([1-9][0-9]*|[0-9]+\\.[0-9]+)[fF]?[ \t]*\\)[ \t]*;")
+            zz_architecture_visual_finding("${relative_path}"
+                "${line_number}" FLUENT_DIMENSION_MAGIC "drawRoundedRect")
+        endif()
+    endforeach()
+endfunction()
+
+function(zz_architecture_finalize_visual_scan)
+    get_property(allowlist GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST)
+    get_property(used GLOBAL PROPERTY ZZ_VISUAL_TOKEN_ALLOWLIST_USED)
+    foreach(entry IN LISTS allowlist)
+        list(FIND used "${entry}" used_index)
+        if(used_index LESS 0)
+            if(entry MATCHES "^[^|]+\\|([^|]+)\\|([0-9]+)\\|(.+)$")
+                zz_architecture_record(FLUENT_VISUAL_ALLOWLIST_STALE
+                    "${CMAKE_MATCH_1}" "${CMAKE_MATCH_2}"
+                    "白名单项不再对应源码：${CMAKE_MATCH_3}")
+            endif()
+        endif()
+    endforeach()
+endfunction()
+
 function(zz_architecture_scan_source source_root source_file public_header)
     file(READ "${source_file}" raw_content)
     zz_architecture_strip_tokens("${raw_content}" source_content)
@@ -286,6 +422,8 @@ function(zz_run_complete_architecture_audit source_dir target_manifest)
         message(FATAL_ERROR "Architecture source root is absent: ${source_root}")
     endif()
     set_property(GLOBAL PROPERTY ZZ_ARCHITECTURE_FINDINGS "")
+    zz_architecture_begin_visual_scan(
+        "${source_root}/tests/Architecture/fixtures/ZzFluentVisualTokenAllowlist.txt")
     set(scan_roots
         "${source_root}/ZzCore/include"
         "${source_root}/ZzCore/src"
@@ -331,7 +469,9 @@ function(zz_run_complete_architecture_audit source_dir target_manifest)
         endforeach()
         zz_architecture_scan_source(
             "${source_root}" "${source_file}" "${is_public}")
+        zz_architecture_scan_visual_source("${source_root}" "${source_file}")
     endforeach()
+    zz_architecture_finalize_visual_scan()
     zz_architecture_scan_target_manifest(
         "${source_root}" "${target_manifest}")
 

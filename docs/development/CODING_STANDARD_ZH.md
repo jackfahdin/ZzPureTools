@@ -104,6 +104,7 @@ UI 可以读取展示模型、更新焦点和视觉状态、驱动纯展示动�
 - 主题使用不可变 snapshot。控件读取颜色和尺寸应为 O(1)，主题切换先构造完整新状态再一次交换。
 - 图标缓存 key 至少包含资源 ID、逻辑尺寸、DPR、RGBA 和主题 revision。缓存必须有条目或字节上限，并有清理测试。
 - `paintEvent()` 中禁止文件 IO、SVG 解析、大容器构造和临时 pixmap 创建。DPR、高对比度、禁用态、焦点态和布局方向必须进入绘制契约。
+- Fluent Widgets 新增实现禁止 `setStyleSheet`、裸 `QColor`/`QRgb` 构造和十六进制主题色；布局关键 API 与直接圆角值必须来自主题令牌或具名尺寸。`tests/Architecture/fixtures/ZzFluentVisualTokenAllowlist.txt` 只记录引入规则前的固定历史债务，条目只能删除，禁止为新文件或新代码增加例外。
 - 动画对象按需创建并复用，不在每次 hover 时重新分配。隐藏、禁用或 reduced-motion 状态停止非必要动画。
 - 快速反向操作从当前进度平滑反向。页面切换动画可取消，回调使用 `QPointer`。
 - 优化必须由 benchmark、采样器或对象计数证明；不得以删除所有抽象作为性能方案。
