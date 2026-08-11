@@ -1,6 +1,7 @@
 #include "ZzContentDialogPrivate.h"
 
 #include <algorithm>
+#include <array>
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
@@ -343,8 +344,13 @@ void ZzContentDialogPrivate::refreshButtons()
         primaryButtonVisible || secondaryButtonVisible || closeButtonVisible);
 
     ZzPushButton *active = activeDefaultButton();
-    for (ZzPushButton *button : {
-             primaryButton, secondaryButton, closeButton}) {
+    const std::array buttons{
+        primaryButton, secondaryButton, closeButton};
+    for (ZzPushButton *const button : buttons) {
+        Q_ASSERT(button != nullptr);
+        if (button == nullptr) {
+            continue;
+        }
         button->setDefault(button == active);
     }
 }

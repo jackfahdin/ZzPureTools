@@ -132,18 +132,19 @@ private Q_SLOTS:
                 &tip, &ZzFluentUI::ZzTeachingTip::contentWidgetChanged);
             auto *first = new QLabel(QStringLiteral("First"));
             QPointer<QWidget> firstGuard(first);
-            auto *second = new QLabel(QStringLiteral("Second"));
             tip.setContentWidget(first);
             tip.setContentWidget(first);
             QCOMPARE(contentSpy.count(), 1);
-            tip.setContentWidget(second);
+            auto secondOwner = std::make_unique<QLabel>(
+                QStringLiteral("Second"));
+            QLabel *const second = secondOwner.get();
+            tip.setContentWidget(secondOwner.release());
             QVERIFY(firstGuard.isNull());
             QCOMPARE(contentSpy.count(), 2);
-            QWidget *taken = tip.takeContentWidget();
-            QCOMPARE(taken, second);
+            std::unique_ptr<QWidget> taken(tip.takeContentWidget());
+            QCOMPARE(taken.get(), second);
             QCOMPARE(taken->parentWidget(), nullptr);
             QCOMPARE(contentSpy.count(), 3);
-            delete taken;
 
             auto *owned = new QLabel(QStringLiteral("Owned"));
             ownedGuard = owned;

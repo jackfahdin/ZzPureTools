@@ -126,7 +126,6 @@ private Q_SLOTS:
             &ZzFluentUI::ZzContentDialog::contentWidgetChanged);
         auto *first = new QLabel(QStringLiteral("First"));
         QPointer<QWidget> firstGuard(first);
-        auto *second = new QLineEdit;
 
         dialog.setContentWidget(first);
         dialog.setContentWidget(first);
@@ -134,18 +133,19 @@ private Q_SLOTS:
         QCOMPARE(dialog.contentWidget(), first);
         QVERIFY(first->parentWidget() != nullptr);
 
-        dialog.setContentWidget(second);
+        auto secondOwner = std::make_unique<QLineEdit>();
+        QLineEdit *const second = secondOwner.get();
+        dialog.setContentWidget(secondOwner.release());
         QVERIFY(firstGuard.isNull());
         QCOMPARE(contentSpy.count(), 2);
         QCOMPARE(dialog.contentWidget(), second);
 
-        QWidget *taken = dialog.takeContentWidget();
-        QCOMPARE(taken, second);
+        std::unique_ptr<QWidget> taken(dialog.takeContentWidget());
+        QCOMPARE(taken.get(), second);
         QCOMPARE(taken->parentWidget(), nullptr);
         QCOMPARE(dialog.contentWidget(), nullptr);
         QCOMPARE(contentSpy.count(), 3);
         QCOMPARE(dialog.takeContentWidget(), nullptr);
-        delete taken;
     }
 
     void destroysOwnedContentWithoutLateCallbacks()
@@ -245,6 +245,9 @@ private Q_SLOTS:
             QStringLiteral("zzContentDialogOverlay"),
             Qt::FindDirectChildrenOnly);
         QVERIFY(overlay != nullptr);
+        if (overlay == nullptr) {
+            return;
+        }
         QVERIFY(overlay->isVisible());
         QCOMPARE(overlay->geometry(), firstWindow.rect());
         QCOMPARE(
