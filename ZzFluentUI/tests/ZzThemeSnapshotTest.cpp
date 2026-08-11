@@ -31,6 +31,15 @@ private Q_SLOTS:
         QVERIFY(snapshot.metric(
                     ZzFluentUI::ZzMetricToken::CornerRadiusMedium)
                 > 0.0);
+        QVERIFY(snapshot.metric(
+                    ZzFluentUI::ZzMetricToken::DialogMinWidth)
+                < snapshot.metric(
+                    ZzFluentUI::ZzMetricToken::DialogMaxWidth));
+        QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::OverlayScrim).alpha()
+                > 0);
+        QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::Information).isValid());
+        QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::Success).isValid());
+        QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::Warning).isValid());
         QVERIFY(snapshot.duration(ZzFluentUI::ZzMotionToken::Fast) > 0);
         QVERIFY(!snapshot.font(
                     ZzFluentUI::ZzTypographyToken::Body)
@@ -61,6 +70,9 @@ private Q_SLOTS:
         QCOMPARE(
             snapshot.color(ZzFluentUI::ZzColorToken::FocusStroke),
             QColor(Qt::yellow));
+        QCOMPARE(
+            snapshot.color(ZzFluentUI::ZzColorToken::Information),
+            QColor(Qt::cyan));
         QCOMPARE(snapshot.duration(ZzFluentUI::ZzMotionToken::Fast), 0);
         QVERIFY(snapshot.reducedMotion());
     }

@@ -16,6 +16,12 @@ enum class ZzMetricToken : std::uint16_t
     VerticalPadding,
     IconSmall,
     IconMedium,
+    OverlayPadding,
+    DialogMinWidth,
+    DialogMaxWidth,
+    BadgeMinDiameter,
+    TeachingTipTargetGap,
+    TeachingTipMaxWidth,
     Count
 };
 

@@ -20,6 +20,10 @@ enum class ZzColorToken : std::uint16_t
     Surface,
     SurfaceSecondary,
     Error,
+    OverlayScrim,
+    Information,
+    Success,
+    Warning,
     Count
 };
 

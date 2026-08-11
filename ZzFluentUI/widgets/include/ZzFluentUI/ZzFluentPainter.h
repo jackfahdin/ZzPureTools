@@ -3,6 +3,7 @@
 #include <QtCore/QRectF>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
+#include <ZzFluentUI/ZzColorToken.h>
 
 class QPainter;
 
@@ -47,6 +48,60 @@ public:
         const QRectF &rect,
         const ZzThemeSnapshot &snapshot,
         qreal devicePixelRatio);
+
+    /**
+     * @brief 绘制按物理像素对齐描边的通用圆角表面。
+     * @param painter 非空且已激活的目标 painter。
+     * @param rect 表面的逻辑像素外边界。
+     * @param snapshot 当前不可变主题快照。
+     * @param fill 填充颜色令牌。
+     * @param stroke 描边颜色令牌。
+     * @param radius 非负逻辑像素圆角。
+     * @param strokeWidth 非负逻辑像素描边，0 表示不绘制描边。
+     */
+    static void drawRoundedSurface(
+        QPainter *painter,
+        const QRectF &rect,
+        const ZzThemeSnapshot &snapshot,
+        ZzColorToken fill,
+        ZzColorToken stroke,
+        qreal radius,
+        qreal strokeWidth);
+
+    /**
+     * @brief 使用主题遮罩色覆盖指定逻辑区域。
+     * @param painter 非空且已激活的目标 painter。
+     * @param rect 遮罩区域。
+     * @param snapshot 当前不可变主题快照。
+     */
+    static void drawOverlayScrim(
+        QPainter *painter,
+        const QRectF &rect,
+        const ZzThemeSnapshot &snapshot);
+
+    /**
+     * @brief 绘制标准 Fluent 浮层表面。
+     * @param painter 非空且已激活的目标 painter。
+     * @param rect 浮层逻辑像素边界。
+     * @param snapshot 当前不可变主题快照。
+     */
+    static void drawPopupSurface(
+        QPainter *painter,
+        const QRectF &rect,
+        const ZzThemeSnapshot &snapshot);
+
+    /**
+     * @brief 绘制圆形或胶囊形徽章背板。
+     * @param painter 非空且已激活的目标 painter。
+     * @param rect 徽章逻辑像素边界。
+     * @param snapshot 当前不可变主题快照。
+     * @param fill 徽章填充颜色令牌。
+     */
+    static void drawBadgeSurface(
+        QPainter *painter,
+        const QRectF &rect,
+        const ZzThemeSnapshot &snapshot,
+        ZzColorToken fill);
 };
 
 } // namespace ZzFluentUI

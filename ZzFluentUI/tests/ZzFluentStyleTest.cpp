@@ -178,6 +178,47 @@ private Q_SLOTS:
         QVERIFY(image.pixelColor(2, 16) != QColor(Qt::black));
     }
 
+    void drawsSharedSurfacesWithoutLeakingPainterState()
+    {
+        QImage image(QSize(80, 48), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        painter.setPen(QPen(Qt::green, 3.0));
+        painter.setBrush(Qt::yellow);
+        painter.setRenderHint(QPainter::Antialiasing, false);
+        const QPen originalPen = painter.pen();
+        const QBrush originalBrush = painter.brush();
+        const auto snapshot = ZzFluentUI::ZzThemeSnapshot::create(
+            ZzFluentUI::ZzThemeMode::Light,
+            QColor(QStringLiteral("#0067c0")),
+            1,
+            false);
+
+        ZzFluentUI::ZzFluentPainter::drawPopupSurface(
+            &painter,
+            QRectF(4, 4, 36, 28),
+            snapshot);
+        ZzFluentUI::ZzFluentPainter::drawBadgeSurface(
+            &painter,
+            QRectF(48, 8, 20, 20),
+            snapshot,
+            ZzFluentUI::ZzColorToken::Success);
+        ZzFluentUI::ZzFluentPainter::drawOverlayScrim(
+            &painter,
+            QRectF(0, 36, 80, 12),
+            snapshot);
+
+        QCOMPARE(painter.pen(), originalPen);
+        QCOMPARE(painter.brush(), originalBrush);
+        QVERIFY(!painter.testRenderHint(QPainter::Antialiasing));
+        painter.end();
+        QCOMPARE(image.pixelColor(20, 16),
+                 snapshot.color(ZzFluentUI::ZzColorToken::SurfaceSecondary));
+        QCOMPARE(image.pixelColor(58, 18),
+                 snapshot.color(ZzFluentUI::ZzColorToken::Success));
+        QVERIFY(image.pixelColor(40, 42).alpha() > 0);
+    }
+
     void cachesTintedResourceIcons()
     {
         ZzFluentUI::ZzThemeController controller;

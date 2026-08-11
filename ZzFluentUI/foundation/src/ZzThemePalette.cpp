@@ -40,7 +40,11 @@ ZzColors zzLightColors(const QColor &accent)
         QColor("#000000"),
         QColor("#f9f9f9"),
         QColor("#ffffff"),
-        QColor("#c42b1c")};
+        QColor("#c42b1c"),
+        QColor(0, 0, 0, 115),
+        QColor("#005fb8"),
+        QColor("#0f7b0f"),
+        QColor("#9d5d00")};
 }
 
 ZzColors zzDarkColors(const QColor &accent)
@@ -58,7 +62,11 @@ ZzColors zzDarkColors(const QColor &accent)
         QColor("#ffffff"),
         QColor("#202020"),
         QColor("#2b2b2b"),
-        QColor("#ff99a4")};
+        QColor("#ff99a4"),
+        QColor(0, 0, 0, 140),
+        QColor("#60cdff"),
+        QColor("#6ccb5f"),
+        QColor("#fce100")};
 }
 
 ZzColors zzHighContrastColors()
@@ -76,7 +84,11 @@ ZzColors zzHighContrastColors()
         QColor(Qt::yellow),
         QColor(Qt::black),
         QColor(Qt::black),
-        QColor(Qt::red)};
+        QColor(Qt::red),
+        QColor(0, 0, 0, 191),
+        QColor(Qt::cyan),
+        QColor(Qt::green),
+        QColor(Qt::yellow)};
 }
 
 } // namespace

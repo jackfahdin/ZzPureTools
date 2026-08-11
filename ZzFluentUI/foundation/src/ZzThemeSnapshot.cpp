@@ -76,7 +76,9 @@ ZzThemeSnapshot ZzThemeSnapshot::create(
         mode = ZzThemeMode::Light;
     }
 
-    const std::array<qreal, 9> metrics{
+    const std::array<
+        qreal,
+        static_cast<std::size_t>(ZzMetricToken::Count)> metrics{
         2.0,
         4.0,
         1.0,
@@ -85,7 +87,13 @@ ZzThemeSnapshot ZzThemeSnapshot::create(
         12.0,
         6.0,
         16.0,
-        20.0};
+        20.0,
+        24.0,
+        320.0,
+        548.0,
+        16.0,
+        8.0,
+        320.0};
     QFont base = QGuiApplication::font();
     if (base.family().isEmpty()) {
         base.setFamily(QStringLiteral("Sans Serif"));

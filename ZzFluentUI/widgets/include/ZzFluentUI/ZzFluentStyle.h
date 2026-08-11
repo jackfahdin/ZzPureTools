@@ -21,6 +21,7 @@ namespace ZzFluentUI {
 class ZzFluentStylePrivate;
 class ZzItemViewVisual;
 class ZzThemeController;
+class ZzThemeSnapshot;
 
 /** @brief 在保留平台基础行为的同时应用 Fluent 主题令牌。 */
 class ZZ_FLUENT_UI_EXPORT ZzFluentStyle final : public QProxyStyle
@@ -52,6 +53,13 @@ public:
      * @return 与控制器最近一次信号同步的版本。
      */
     [[nodiscard]] quint64 themeRevision() const noexcept;
+
+    /**
+     * @brief 返回当前不可变主题快照的共享只读句柄。
+     * @return 非空快照；后续主题切换不修改已返回对象。
+     * @pre 调用发生在样式所属 GUI 线程。
+     */
+    [[nodiscard]] std::shared_ptr<const ZzThemeSnapshot> themeSnapshot() const;
 
     /**
      * @brief 返回当前图标缓存字节成本。

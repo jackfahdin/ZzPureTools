@@ -10,6 +10,25 @@
 
 namespace ZzFluentUI {
 
+namespace {
+
+qreal zzAlignedStrokeWidth(QPainter *painter, qreal logicalWidth)
+{
+    if (logicalWidth <= 0.0) {
+        return 0.0;
+    }
+    const qreal devicePixelRatio = painter->device() != nullptr
+        ? painter->device()->devicePixelRatioF()
+        : 1.0;
+    const qreal ratio = static_cast<qreal>(
+        ZzDpiScale::bucket(devicePixelRatio)) / 100.0;
+    return static_cast<qreal>(ZzDpiScale::physicalPixels(
+        logicalWidth,
+        devicePixelRatio)) / ratio;
+}
+
+} // namespace
+
 void ZzFluentPainter::drawControlBackground(
     QPainter *painter,
     const QRectF &rect,
@@ -71,6 +90,80 @@ void ZzFluentPainter::drawFocusRing(
         radius,
         radius);
     painter->restore();
+}
+
+void ZzFluentPainter::drawRoundedSurface(
+    QPainter *painter,
+    const QRectF &rect,
+    const ZzThemeSnapshot &snapshot,
+    ZzColorToken fill,
+    ZzColorToken stroke,
+    qreal radius,
+    qreal strokeWidth)
+{
+    Q_ASSERT(painter != nullptr && painter->isActive());
+    const qreal alignedStroke = zzAlignedStrokeWidth(painter, strokeWidth);
+    const QRectF paintRect = alignedStroke > 0.0
+        ? rect.adjusted(
+              alignedStroke / 2.0,
+              alignedStroke / 2.0,
+              -alignedStroke / 2.0,
+              -alignedStroke / 2.0)
+        : rect;
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(alignedStroke > 0.0
+        ? QPen(snapshot.color(stroke), alignedStroke)
+        : QPen(Qt::NoPen));
+    painter->setBrush(snapshot.color(fill));
+    const qreal validRadius = qMax<qreal>(0.0, radius);
+    painter->drawRoundedRect(paintRect, validRadius, validRadius);
+    painter->restore();
+}
+
+void ZzFluentPainter::drawOverlayScrim(
+    QPainter *painter,
+    const QRectF &rect,
+    const ZzThemeSnapshot &snapshot)
+{
+    Q_ASSERT(painter != nullptr && painter->isActive());
+    painter->save();
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(snapshot.color(ZzColorToken::OverlayScrim));
+    painter->drawRect(rect);
+    painter->restore();
+}
+
+void ZzFluentPainter::drawPopupSurface(
+    QPainter *painter,
+    const QRectF &rect,
+    const ZzThemeSnapshot &snapshot)
+{
+    drawRoundedSurface(
+        painter,
+        rect,
+        snapshot,
+        ZzColorToken::SurfaceSecondary,
+        ZzColorToken::ControlStroke,
+        snapshot.metric(ZzMetricToken::CornerRadiusMedium),
+        snapshot.metric(ZzMetricToken::StrokeThin));
+}
+
+void ZzFluentPainter::drawBadgeSurface(
+    QPainter *painter,
+    const QRectF &rect,
+    const ZzThemeSnapshot &snapshot,
+    ZzColorToken fill)
+{
+    drawRoundedSurface(
+        painter,
+        rect,
+        snapshot,
+        fill,
+        fill,
+        qMax<qreal>(0.0, rect.height() / 2.0),
+        0.0);
 }
 
 } // namespace ZzFluentUI

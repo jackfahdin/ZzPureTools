@@ -52,6 +52,12 @@ quint64 ZzFluentStyle::themeRevision() const noexcept
     return d_ptr->snapshot->revision();
 }
 
+std::shared_ptr<const ZzThemeSnapshot> ZzFluentStyle::themeSnapshot() const
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    return d_ptr->snapshot;
+}
+
 int ZzFluentStyle::iconCacheBytes() const noexcept
 {
     Q_ASSERT(QThread::currentThread() == thread());
