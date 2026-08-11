@@ -1,0 +1,2 @@
+# Fontconfig retains process-wide configuration caches after Qt font registration.
+leak:libfontconfig.so.1

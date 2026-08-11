@@ -410,6 +410,7 @@
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}",
         "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/cmake/ZzLeakSanitizer.supp:symbolize=0:print_suppressions=0",
         "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
       }
     },
@@ -520,6 +521,7 @@
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}",
         "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/cmake/ZzLeakSanitizer.supp:symbolize=0:print_suppressions=0",
         "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
       }
     },

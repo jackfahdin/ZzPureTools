@@ -90,7 +90,12 @@ cmake --build --preset linux-clang-tidy-release --target ZzClangTidy
 cmake --build --preset linux-clang-tidy-static --target ZzClangTidy
 ```
 
-ASan/UBSan 运行时使用 preset 已写入的 `ASAN_OPTIONS` 与 `UBSAN_OPTIONS`。不得关闭 leak 检查后把结果登记为同一门禁。
+ASan/UBSan 运行时使用 preset 已写入的 `ASAN_OPTIONS`、`LSAN_OPTIONS` 与
+`UBSAN_OPTIONS`。LeakSanitizer 保持 `detect_leaks=1`，仅通过
+`cmake/ZzLeakSanitizer.supp` 排除 Qt 注册应用字体时由系统 Fontconfig 保留的
+进程级配置缓存。LSan 单独使用 `symbolize=0`，避免 LLVM 20 在匹配该系统库堆栈时
+阻塞；ASan/UBSan 的符号化保持启用。不得扩展为项目命名空间或关闭 leak 检查后把
+结果登记为同一门禁。
 
 ### 综合示例本地预览素材
 

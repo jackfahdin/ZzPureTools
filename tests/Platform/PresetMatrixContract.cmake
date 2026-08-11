@@ -250,6 +250,22 @@ foreach(index RANGE 0 ${last_test_preset})
                 "test preset ${name} must pass through ${environment_name}")
         endif()
     endforeach()
+    if("${name}" MATCHES "^linux-clang-asan")
+        string(JSON asan_options GET "${presets_json}"
+            testPresets ${index} environment ASAN_OPTIONS)
+        string(JSON lsan_options GET "${presets_json}"
+            testPresets ${index} environment LSAN_OPTIONS)
+        string(JSON ubsan_options GET "${presets_json}"
+            testPresets ${index} environment UBSAN_OPTIONS)
+        if(NOT "${asan_options}" MATCHES "(^|:)detect_leaks=1(:|$)"
+           OR NOT "${asan_options}" MATCHES "(^|:)halt_on_error=1(:|$)"
+           OR NOT "${lsan_options}" STREQUAL
+              "suppressions=\${sourceDir}/cmake/ZzLeakSanitizer.supp:symbolize=0:print_suppressions=0"
+           OR NOT "${ubsan_options}" MATCHES "(^|:)halt_on_error=1(:|$)")
+            message(FATAL_ERROR
+                "test preset ${name} has an incomplete sanitizer contract")
+        endif()
+    endif()
     if("${name}" MATCHES "^windows-msvc")
         string(JSON test_configuration GET "${presets_json}"
             testPresets ${index} configuration)
@@ -259,6 +275,11 @@ foreach(index RANGE 0 ${last_test_preset})
         endif()
     endif()
 endforeach()
+
+get_filename_component(preset_source_dir "${ZZ_PRESETS_FILE}" DIRECTORY)
+if(NOT EXISTS "${preset_source_dir}/cmake/ZzLeakSanitizer.supp")
+    message(FATAL_ERROR "Missing LeakSanitizer suppression file")
+endif()
 foreach(required_name IN LISTS required_names)
     if(NOT "${required_name}" IN_LIST build_names)
         message(FATAL_ERROR "Missing build preset: ${required_name}")
