@@ -18,6 +18,18 @@ Windows、macOS 以及 Linux 桌面会话的真机交互状态以
 | `ZzFluentUI` | `Zz::FluentFoundation`、`Zz::FluentUI` | Fluent 主题令牌、样式、绘制原语和 Widgets 基础控件 |
 | `ZzPureTools` | `Zz::AppCore`、`Zz::PureTools` | 模块生命周期、路由、页面、导航、多窗口和应用装配 |
 
+`ZzFluentUI` 当前公开 29 个可组合组件：
+
+- 基础与布局：`ZzPushButton`、`ZzIconButton`、`ZzToggleSwitch`、
+  `ZzProgressRing`、`ZzSpinBox`、`ZzDoubleSpinBox`、`ZzScrollBar`、
+  `ZzScrollArea`、`ZzFlowLayout`。
+- 输入与选择：`ZzSuggestBox`、`ZzMultiSelectComboBox`、`ZzRoller`、
+  `ZzRollerPicker`、`ZzCalendar`、`ZzCalendarPicker`。
+- 导航与内容：`ZzBreadcrumbBar`、`ZzNavigationView`、`ZzNavigationPane`、
+  `ZzTabBar`、`ZzTabWidget`、`ZzCarouselView`、`ZzFluentItemDelegate`。
+- 反馈与表面：`ZzMessageBar`、`ZzInfoBadge`、`ZzContentDialog`、
+  `ZzTeachingTip`、`ZzActionCard`、`ZzImageCard`、`ZzFluentTitleBar`。
+
 QWindowKit 类型不会暴露到 Zz 公共 API；UI 组件不直接访问领域模型、数据库、
 网络客户端或业务服务。完整依赖规则见
 [架构设计](docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md)。

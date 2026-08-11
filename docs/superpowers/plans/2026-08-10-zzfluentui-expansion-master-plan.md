@@ -1,10 +1,12 @@
 # ZzFluentUI 广度扩张总实施计划（第 0 批还债 + 四个控件批次）
 
-**目标：** 在保持现有质量深度（五纪律、六阶段门禁）不变的前提下，把 ZzFluentUI 从 26 个控件扩展到约 40 个，并继续修复评审发现的两个短板：性能阈值无噪声依据以及 Typography/Motion/AnimationPolicy 尚无生产消费者。截图基线欠债和 Item View 选中视觉统一已经由 `568ba21` 完成。
+**目标：** 在保持现有质量深度（五纪律、六阶段门禁）不变的前提下，把 ZzFluentUI 从 26 个控件扩展到约 40 个，并修复评审发现的两个短板：性能阈值无噪声依据以及 Typography/Motion/AnimationPolicy 无生产消费者。截图基线欠债和 Item View 选中视觉统一已经由 `568ba21` 完成。
 
 **执行环境：** 全部验证步骤必须在 Linux 参考机执行（截图与性能基线只在该机有效）。固定环境：i7-14700 / Xvfb 1920×1080 DPR 1.0 / Mesa llvmpipe / Ubuntu 26.04 / Qt 6.11.1 / GCC 15.2.0 / preset `linux-gcc-reference`，详见 `docs/performance/PERFORMANCE_BASELINE_ZH.md`。
 
 **技术栈：** Qt 6.8+ Widgets、C++20、CMake Presets、Qt Test、Clang-Tidy、ASan/UBSan。
+
+**路线状态（2026-08-11）：** 第 0 批和第 1 批已经完成，公开组件数由 26 增至 29。逐指标性能策略、视觉令牌扫描、反馈表面原语及三项反馈组件均已进入生产代码；Typography、Motion 与 AnimationPolicy 已有真实控件消费者。下一项是先编写第 2 批详细计划，再实施导航动画、Expander、Pivot、Drawer 和 TabView 评估。
 
 **执行方式（重要）：** 本文档是总计划（路线图粒度）。每个批次动工前，先把该批次展开为一份独立的详细实施计划，放在本目录（`docs/superpowers/plans/2026-08-XX-zzfluentui-<batch>.md`），粒度对齐既有 28 份计划（逐文件、逐绘制函数、旧代码审计、红绿命令、Expected），确认后再写代码。本文档中标注"实施时定/选简单者"的决策点，必须在批次详细计划里给出定论和理由，不允许带着未定决策动工。
 
@@ -29,9 +31,9 @@
 | 性能门禁 | `scripts/ci/run-linux-gates.sh`（内含 Xvfb + taskset + 12 场景相对回归比较） | 回归超阈值必须解释或修复 |
 | 文档同步 | README 控件清单、`docs/` 对应章节 | 未验证的能力不得写进文档 |
 
-**性能门禁机制现状（执行者必读，第 0 批要改的就是它）：**
+**性能门禁机制现状（执行者必读，第 0 批已完成治理）：**
 - 每个 benchmark 输出 `build/<preset>/reports/benchmark.<scenario>.json`（`benchmarks/common/ZzPerformanceReporter.cpp` 聚合样本，含 warmup/p95/max 与环境指纹）。
-- 两层校验：①绝对阈值门 `benchmark.reference-gate.*`（仅 `ZZ_PERFORMANCE_REFERENCE=ON` 的 `linux-gcc-reference` preset 注册，阈值硬编码在 `benchmarks/CMakeLists.txt:195-215`，如 startup p95≤300ms、frame-time p95≤16.7ms、idle cpu≤0.5%）；②相对回归门 `cmake/ZzComparePerformanceReport.cmake`，逐 metric 比 p95 和 max，先校验 14 项环境/构建指纹一致，回归上限由 `-DZZ_MAX_REGRESSION_PERCENT=10` 传入（默认 10，**不是硬编码**）。
+- 两层校验：①绝对阈值门 `benchmark.reference-gate.*`（仅 `ZZ_PERFORMANCE_REFERENCE=ON` 的 `linux-gcc-reference` preset 注册，如 startup p95≤300ms、frame-time p95≤16.7ms、idle cpu≤0.5%）；②相对回归门 `cmake/ZzComparePerformanceReport.cmake`，先校验环境/构建指纹，再按 `docs/performance/reference/linux/regression-thresholds.json` 的场景、metric、p95/max 分别执行 `gate` 或 `observe` 策略，不再接受全局阈值替代正式配置。
 - CI 序列在 `scripts/ci/run-linux-gates.sh:60-130`：`linux-gcc-benchmarks` preset 构建 → `taskset -c 10 ctest --preset linux-gcc-benchmarks -j1` → 对 12 个场景循环调 `ZzComparePerformanceReport.cmake` → 追加 `linux-clang-asan-benchmarks` 下 2 个 ASAN 用例。
 - 基线重采：`linux-gcc-reference` preset 跑完后把 `build/linux-gcc-reference/reports/benchmark.<s>.json` 逐字复制到 `docs/performance/reference/linux/<s>.json`（映射表见 `PERFORMANCE_BASELINE_ZH.md:127-138`）。
 
@@ -76,7 +78,9 @@
 5. 提交基线 PNG，commit message 记录覆盖的源码 commit 范围（`d20fad9..2348ecc`）。
 6. 立规写入 `docs/development/CODING_STANDARD_ZH.md`：视觉变更提交必须同批包含基线重采，否则视为未完成。
 
-### 1.2 性能阈值噪声治理
+### 1.2 性能阈值噪声治理（已完成）
+
+**完成状态：** `6c568df` 已交付分析器、逐指标策略文件、比较器失败关闭逻辑、合同测试和 CI 接线；正式门禁不再使用全局 10% 参数。
 
 **背景：** 相对回归门统一传 10%，但 llvmpipe 软渲染下部分场景（尤其 frame-time 类）跨轮噪声可能逼近或超过 10%，阈值无实测依据，存在误报/漏报双重风险。注意 reporter 已在单轮内聚合样本给 p95/max，本任务治理的是**跨轮**方差。
 
@@ -87,9 +91,9 @@
 4. `observe` 项仍必须打印基线、当前值与波动比例，只是不阻断；禁止跳过整个场景或靠重跑碰运气。
 5. 方法与实测噪声数据写入 `docs/performance/PERFORMANCE_BASELINE_ZH.md` 新章节，作为阈值依据存档。
 
-### 1.3 死 API 处置
+### 1.3 公开令牌生产消费（已完成首轮激活）
 
-**现状（grep 证实）：** `ZzAnimationPolicy`、`ZzMotionToken`、`ZzTypographyToken` 只被 foundation 自身与 tests 引用，无生产消费。
+**初始审计：** `ZzAnimationPolicy`、`ZzMotionToken`、`ZzTypographyToken` 当时只被 foundation 自身与 tests 引用，无生产消费。
 
 **接口现状（激活时直接用，不要改签名）：**
 - `ZzThemeSnapshot::font(ZzTypographyToken) → QFont`（5 档：Caption/Body/BodyStrong/Subtitle/Title）
@@ -97,11 +101,13 @@
 - `ZzAnimationPolicy::adjustedDuration(int ms, bool reducedMotion, bool essential) → int`（reducedMotion 时非必要动画 ≤50ms；snapshot 自带 `reducedMotion()`）
 
 **激活方案：**
-- 批次 2 导航指示条动画与 Expander 展开动画：`duration(ZzMotionToken::Normal/Fast)` 取时长，`ZzAnimationPolicy::adjustedDuration(..., snapshot->reducedMotion(), /*essential=*/false)` 做降级。
-- 批次 1 的 ContentDialog 标题/正文、InfoBadge 数字、TeachingTip 标题：`font(ZzTypographyToken::Title/Body/Caption)`。
+- 第 1 批已完成首轮激活：InfoBadge 使用 Caption；ContentDialog 使用 Title/Body；TeachingTip 使用 Subtitle/Body，并以 Fast 时长和 `ZzAnimationPolicy` 实现 reduced-motion 降级。
+- 批次 2 继续把 Normal/Fast 与 `ZzAnimationPolicy` 用于导航指示条和 Expander 展开动画，这是生产消费扩展，不再是首次激活。
 - 执行者若发现某令牌确实无合理消费场景，走 deprecated 流程（文档 + `QT_DEPRECATED` 标记）并在批次总结记录决策；不允许继续空转。
 
-### 1.4 架构扫描新增规则
+### 1.4 架构扫描新增规则（已完成）
+
+**完成状态：** `c4531b5` 已增加裸颜色和关键尺寸扫描、固定白名单、负向 fixture 与总入口接线；第 1 批新增源码未扩展白名单。
 
 **任务：** 扩展 `tests/Architecture/ZzArchitectureAudit.cmake`：
 1. 新增检查：`ZzFluentUI/widgets/src/` 下禁止裸色值字面量（`QColor(`、`QRgb(`、`0xFF[0-9A-Fa-f]{6}`、`setStyleSheet` 任意出现）与裸圆角/尺寸魔数（匹配模式在 cmake 注释中说明）；必须走 token/metric。
@@ -111,11 +117,13 @@
 
 ### 1.5 第 0 批提交边界
 
-截图基线与立规已完成。剩余三个独立 commit：①性能噪声治理（工具、比较器、门禁、测试与文档）②架构扫描规则与固定白名单 ③反馈组件绘制原语与主题令牌。不含新控件；死 API 激活随批次 1/2 各自提交。
+第 0 批已经关闭：截图与视图视觉为 `568ba21`，性能噪声治理为 `6c568df`，架构扫描为 `c4531b5`，反馈绘制原语和主题令牌为 `f96015b`。新控件保持在后续独立提交中。
 
 ---
 
-## 2. 前置投资（随第 0 批末或批次 1 开头完成）
+## 2. 前置投资（已完成）
+
+`f96015b` 已交付四个表面绘制原语及反馈组件所需颜色、尺寸令牌；第 1 批三个控件均复用这些入口，没有新增独立 style 或裸主题色路径。
 
 ### 2.1 绘制原语沉淀到 ZzFluentPainter
 
@@ -147,9 +155,11 @@
 
 ---
 
-## 3. 批次 1：反馈与对话层（ContentDialog / InfoBadge / TeachingTip）
+## 3. 批次 1：反馈与对话层（已完成）
 
 **设计参照：** WinUI-Gallery 对应页面的规范（尺寸、状态、行为）；ElaWidgetTools 只看视觉。三者均为组合型控件：视觉尽量走令牌 + `ZzFluentPainter` 原语 + palette，不为它们扩展 `ZzFluentStyle` 分派（确有必要时按 §2.3 第 4 步走）。
+
+**完成状态：** `1afa250`、`2152066`、`cd5df32` 分别交付 InfoBadge、ContentDialog 和 TeachingTip；`a6e7459` 完成反馈组件静态分析收尾。详细接口差异、截图和验收结果见第 0、1 批详细计划。
 
 ### 3.1 ZzContentDialog
 
@@ -178,13 +188,13 @@
 
 ---
 
-## 4. 批次 2：导航补全 + 指示条动画（死 API 主激活批）
+## 4. 批次 2：导航补全 + 指示条动画（Motion 消费扩展批）
 
 ### 4.1 导航指示条两段式动画（本批重点）
 
 - **参考实现：** `temp/ElaWidgetTools/ElaWidgetTools/DeveloperComponents/ElaNavigationStyle.cpp:22-63`——选中切换时旧指示条缩没、新指示条长出，`QPropertyAnimation` 300ms `InOutSine`。
 - **落地位置：** `ZzNavigationView`/`ZzNavigationPane` 的选中指示条与 item delegate 树形指示条（视觉已与 2026-08-09 定稿一致：3px 圆角竖条、标题左缘；动画只改几何不改样式）。
-- **死 API 激活：** 时长 `snapshot->duration(ZzMotionToken::Normal)`（若 300ms 与 Normal 档不符，按 §2.2 流程调整档位值并更新 MotionToken 测试）；降级 `ZzAnimationPolicy::adjustedDuration(ms, snapshot->reducedMotion(), false)`——reducedMotion 时缩到 ≤50ms 或直接跳变（测试断言终态正确即可）。
+- **Motion 消费扩展：** 时长 `snapshot->duration(ZzMotionToken::Normal)`（若 300ms 与 Normal 档不符，按 §2.2 流程调整档位值并更新 MotionToken 测试）；降级 `ZzAnimationPolicy::adjustedDuration(ms, snapshot->reducedMotion(), false)`——reducedMotion 时缩到 ≤50ms 或直接跳变（测试断言终态正确即可）。
 - **实现约束：** 动画对象由控件/private 持有（成员 `QVariantAnimation` 或 `QPropertyAnimation`），`DeleteWhenStopped` 不能替代生命周期管理；旧条/新条两段可用一个动画驱动两个高度值；主题切换/快速连续选中时动画可中断并从当前值反向，测试覆盖中断路径。
 - **测试清单：** policy 禁用时 `findChildren<QAbstractAnimation*>().size()==0` 且直接终态（呼应 NavigationPaneTest 既有"无动画约束"模式，该测试需改为"policy 关闭时无动画"）；动画开启时 valueChanged 单调、finished 后指示条 rect 与静态绘制一致；快速切换 10 次后对象数有界。
 - **截图：** 仍在动画终态采集，基线不变。
@@ -263,7 +273,7 @@
 第 0 批（截图基线 / 性能噪声治理 / 架构扫描规则 / 立规）
    └─ 前置投资（ZzFluentPainter 原语、令牌流程、§2.3 清单）
         ├─ 批次 1（反馈对话层；Typography 激活；遮罩机制产出）
-        ├─ 批次 2（导航补全 + 指示条动画；Motion/AnimationPolicy 激活）
+        ├─ 批次 2（导航补全 + 指示条动画；Motion/AnimationPolicy 消费扩展）
         ├─ 批次 3（输入补全）
         └─ 批次 4（软件 Mica；依赖批次 1 遮罩机制与第 0 批性能门禁）
 ```
