@@ -691,6 +691,11 @@
         <translation>Expandable container</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="196"/>
+        <source>页面枢轴</source>
+        <translation>Page pivot</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="201"/>
         <source>高级导航选项</source>
         <translation>Advanced navigation options</translation>

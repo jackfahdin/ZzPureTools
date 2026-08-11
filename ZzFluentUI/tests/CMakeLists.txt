@@ -373,6 +373,21 @@ set_tests_properties(fluent.expander PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzPivotTest ZzPivotTest.cpp)
+target_link_libraries(ZzPivotTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzPivotTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPivotTest)
+zz_enable_sanitizers(ZzPivotTest)
+add_test(NAME fluent.pivot COMMAND ZzPivotTest)
+set_tests_properties(fluent.pivot PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzCalendarControlsTest ZzCalendarControlsTest.cpp)
 target_link_libraries(ZzCalendarControlsTest PRIVATE
     Qt6::Test

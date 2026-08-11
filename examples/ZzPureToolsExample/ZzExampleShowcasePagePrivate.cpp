@@ -26,6 +26,7 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
+#include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
@@ -189,6 +190,22 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
         });
     layout->addWidget(breadcrumb);
     layout->addWidget(breadcrumbStatus);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "页面枢轴"),
+        parent);
+    auto *pivot = new ZzFluentUI::ZzPivot(parent);
+    pivot->setObjectName(QStringLiteral("zzExampleNavigationPivot"));
+    pivot->addItem(QCoreApplication::translate(
+        "ZzPureToolsExample", "概览"));
+    pivot->addItem(QCoreApplication::translate(
+        "ZzPureToolsExample", "性能"));
+    pivot->addItem(QCoreApplication::translate(
+        "ZzPureToolsExample", "发布"));
+    pivot->setCurrentIndex(0);
+    layout->addWidget(pivot);
 
     zzAddShowcaseSection(
         layout,

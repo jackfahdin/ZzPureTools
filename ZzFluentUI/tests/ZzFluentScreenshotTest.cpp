@@ -93,6 +93,7 @@
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRoller.h>
@@ -802,12 +803,12 @@ private:
         expandedExpander->setExpanded(true);
         layout->addWidget(expandedExpander);
 
-        auto *tabs = new QTabBar(container);
-        tabs->addTab(QStringLiteral("Overview"));
-        tabs->addTab(QStringLiteral("Details"));
-        tabs->addTab(QStringLiteral("History"));
-        tabs->setCurrentIndex(1);
-        layout->addWidget(tabs);
+        auto *pivot = new ZzFluentUI::ZzPivot(container);
+        pivot->addItem(QStringLiteral("Overview"));
+        pivot->addItem(QStringLiteral("Details"));
+        pivot->addItem(QStringLiteral("History"));
+        pivot->setCurrentIndex(1);
+        layout->addWidget(pivot);
         layout->addStretch(1);
         columns->addWidget(container);
     }

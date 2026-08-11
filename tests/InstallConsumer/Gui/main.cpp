@@ -39,6 +39,7 @@
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
@@ -213,6 +214,7 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzRoller roller;
   ZzFluentUI::ZzRollerPicker rollerPicker;
   ZzFluentUI::ZzExpander expander;
+  ZzFluentUI::ZzPivot pivot;
   ZzFluentUI::ZzTabWidget sourceTabs;
   ZzFluentUI::ZzTabWidget targetTabs;
   QWidget *tabPage = new QWidget;
@@ -294,6 +296,10 @@ int main(int argc, char *argv[]) {
   expander.setExpanded(true);
   QWidget *const takenExpanderContent = expander.takeContentWidget();
   expander.setContentWidget(takenExpanderContent);
+  pivot.setStyle(&fluentStyle);
+  pivot.addItem(QStringLiteral("Overview"));
+  pivot.addItem(QStringLiteral("Details"));
+  pivot.setCurrentIndex(1);
   QStyleOptionFrame lineOption;
   lineOption.initFrom(&lineEdit);
   const QSize lineSize = fluentStyle.sizeFromContents(
@@ -443,6 +449,9 @@ int main(int argc, char *argv[]) {
       expander.contentWidget() != takenExpanderContent ||
       takenExpanderContent == nullptr ||
       takenExpanderContent->parentWidget() == nullptr ||
+      pivot.style() != &fluentStyle || pivot.count() != 2 ||
+      pivot.itemText(1) != QStringLiteral("Details") ||
+      pivot.currentIndex() != 1 ||
       sourceTabs.fluentTabBar() == nullptr ||
       !sourceTabs.transferTabTo(&targetTabs, 0) || sourceTabs.count() != 0 ||
       targetTabs.widget(0) != tabPage) {
