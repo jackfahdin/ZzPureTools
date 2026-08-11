@@ -76,6 +76,7 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzContentDialog.h>
+#include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
@@ -4869,6 +4870,178 @@ private:
     int pressedInitialValue = 0;
 };
 
+/** @brief 保存 Drawer 截图文字遮罩和实际覆盖数量。 */
+struct ZzDrawerTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int buttons = 0;
+};
+
+/** @brief 构造左侧模态与右侧非模态 Drawer 的并列确定性截图面。 */
+class ZzDrawerScreenshotSurface final
+{
+public:
+    /** @brief 创建两个独立宿主及其调用方提供的本地内容。 */
+    ZzDrawerScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzDrawerScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("Drawer states"));
+        window.setAutoFillBackground(true);
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *layout = new QHBoxLayout(&window);
+        layout->setContentsMargins(56, 56, 56, 56);
+        layout->setSpacing(40);
+        modalDrawer_ = addHost(
+            layout,
+            QStringLiteral("Modal host"),
+            QStringLiteral("Workspace content"),
+            QStringLiteral("Release options"),
+            QStringLiteral("Confirm the selected package"),
+            true,
+            ZzFluentUI::ZzDrawerEdge::Left);
+        nonModalDrawer_ = addHost(
+            layout,
+            QStringLiteral("Non-modal host"),
+            QStringLiteral("Live task list"),
+            QStringLiteral("Background task"),
+            QStringLiteral("Build artifacts are ready"),
+            false,
+            ZzFluentUI::ZzDrawerEdge::Right);
+    }
+
+    /** @brief 展示宿主并同步打开两个 reduced-motion 终态。 */
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+        modalDrawer_->openDrawer();
+        nonModalDrawer_->openDrawer();
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏固定截图窗口。 */
+    void hide()
+    {
+        window.hide();
+    }
+
+    /** @brief 返回左侧模态 Drawer。 */
+    [[nodiscard]] ZzFluentUI::ZzDrawer *modalDrawer() const noexcept
+    {
+        return modalDrawer_;
+    }
+
+    /** @brief 返回右侧非模态 Drawer。 */
+    [[nodiscard]] ZzFluentUI::ZzDrawer *nonModalDrawer() const noexcept
+    {
+        return nonModalDrawer_;
+    }
+
+    QWidget window;
+
+private:
+    /** @brief 增加一个带底层内容和 Drawer 内容的固定宿主。 */
+    ZzFluentUI::ZzDrawer *addHost(
+        QHBoxLayout *layout,
+        const QString &hostTitle,
+        const QString &hostText,
+        const QString &drawerTitle,
+        const QString &drawerText,
+        bool modal,
+        ZzFluentUI::ZzDrawerEdge edge)
+    {
+        auto *host = new QWidget(&window);
+        host->setObjectName(hostTitle);
+        host->setAutoFillBackground(true);
+        auto *hostLayout = new QVBoxLayout(host);
+        hostLayout->setContentsMargins(28, 28, 28, 28);
+        hostLayout->setSpacing(12);
+        const Qt::Alignment hostAlignment =
+            edge == ZzFluentUI::ZzDrawerEdge::Left
+            ? Qt::AlignRight : Qt::AlignLeft;
+        auto *titleLabel = new QLabel(hostTitle, host);
+        titleLabel->setAlignment(hostAlignment);
+        auto *textLabel = new QLabel(hostText, host);
+        textLabel->setAlignment(hostAlignment);
+        auto *hostAction = new ZzFluentUI::ZzPushButton(
+            QStringLiteral("Host action"), host);
+        hostAction->setFixedWidth(180);
+        hostLayout->addWidget(titleLabel);
+        hostLayout->addWidget(textLabel);
+        hostLayout->addWidget(hostAction, 0, hostAlignment);
+        hostLayout->addStretch(1);
+        layout->addWidget(host, 1);
+
+        auto *drawer = new ZzFluentUI::ZzDrawer(host);
+        drawer->setModal(modal);
+        drawer->setEdge(edge);
+        drawer->setWidthHint(280);
+        auto *content = new QWidget;
+        auto *contentLayout = new QVBoxLayout(content);
+        contentLayout->setContentsMargins(0, 0, 0, 0);
+        contentLayout->setSpacing(12);
+        contentLayout->addWidget(new QLabel(drawerTitle, content));
+        auto *body = new QLabel(drawerText, content);
+        body->setWordWrap(true);
+        contentLayout->addWidget(body);
+        contentLayout->addStretch(1);
+        contentLayout->addWidget(new ZzFluentUI::ZzPushButton(
+            QStringLiteral("Close drawer"), content));
+        drawer->setContentWidget(content);
+        return drawer;
+    }
+
+    QPointer<ZzFluentUI::ZzDrawer> modalDrawer_;
+    QPointer<ZzFluentUI::ZzDrawer> nonModalDrawer_;
+};
+
+/** @brief 为 Drawer 独立画面的可见标签和按钮构造字体差异遮罩。 */
+ZzDrawerTextMask zzBuildDrawerTextMask(QWidget *surface, qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzDrawerTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    const auto widgets = surface->findChildren<QWidget *>();
+    for (QWidget *widget : widgets) {
+        if (!widget->isVisible()) {
+            continue;
+        }
+        if (auto *label = qobject_cast<QLabel *>(widget);
+            label != nullptr && !label->text().isEmpty()) {
+            const QRect textRect = zzAlignedTextRect(
+                label,
+                label->contentsRect(),
+                static_cast<int>(label->alignment()),
+                label->text());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(label, textRect, surface));
+            ++result.labels;
+            continue;
+        }
+        if (auto *button = qobject_cast<QAbstractButton *>(widget);
+            button != nullptr && !button->text().isEmpty()) {
+            const QRect textRect = zzAlignedTextRect(
+                button,
+                button->contentsRect(),
+                Qt::AlignCenter,
+                button->text());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(button, textRect, surface));
+            ++result.buttons;
+        }
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 保存导航面板截图中文字遮罩及其覆盖数量。 */
 struct ZzNavigationPaneTextMask final
 {
@@ -5609,6 +5782,23 @@ QImage zzRenderTeachingTipSurface(
 /** @brief 将独立数值输入窗口渲染到指定 DPR 的固定物理画布。 */
 QImage zzRenderSpinBoxSurface(
     ZzSpinBoxScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
+/** @brief 将独立 Drawer 宿主窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderDrawerSurface(
+    ZzDrawerScreenshotSurface *surface,
     qreal dpr)
 {
     const QSize physicalSize(
@@ -7711,6 +7901,124 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 教学提示非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersDrawerThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("drawer-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("drawer-light");
+        QTest::newRow("drawer-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("drawer-dark");
+        QTest::newRow("drawer-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("drawer-high-contrast");
+    }
+
+    void rendersDrawerThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzDrawerScreenshotSurface surface;
+        surface.polish();
+        ZzFluentUI::ZzDrawer *const modal = surface.modalDrawer();
+        ZzFluentUI::ZzDrawer *const nonModal = surface.nonModalDrawer();
+        QVERIFY(modal != nullptr);
+        QVERIFY(nonModal != nullptr);
+        QVERIFY(modal->isOpen());
+        QVERIFY(nonModal->isOpen());
+        QVERIFY(modal->isModal());
+        QVERIFY(!nonModal->isModal());
+        QCOMPARE(modal->edge(), ZzFluentUI::ZzDrawerEdge::Left);
+        QCOMPARE(nonModal->edge(), ZzFluentUI::ZzDrawerEdge::Right);
+        auto *modalPanel = modal->findChild<QWidget *>(
+            QStringLiteral("zzDrawerPanelHost"));
+        auto *nonModalPanel = nonModal->findChild<QWidget *>(
+            QStringLiteral("zzDrawerPanelHost"));
+        QVERIFY(modalPanel != nullptr);
+        QVERIFY(nonModalPanel != nullptr);
+        QCOMPARE(modalPanel->geometry(), QRect(0, 0, 280, modal->height()));
+        QCOMPARE(
+            nonModalPanel->geometry(),
+            QRect(nonModal->width() - 280, 0, 280, nonModal->height()));
+        QVERIFY(nonModal->mask().contains(nonModalPanel->geometry().center()));
+        QVERIFY(!nonModal->mask().contains(QPoint(0, nonModal->height() / 2)));
+
+        const QImage actual = zzRenderDrawerSurface(&surface, actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzDrawerTextMask mask = zzBuildDrawerTextMask(
+            &surface.window,
+            actualDpr_);
+        QCOMPARE(mask.labels, 8);
+        QCOMPARE(mask.buttons, 4);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 Drawer 非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)

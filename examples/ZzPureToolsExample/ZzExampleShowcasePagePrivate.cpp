@@ -20,6 +20,7 @@
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzContentDialog.h>
+#include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzIconButton.h>
@@ -227,6 +228,81 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
     expander->setContentWidget(expanderContent);
     expander->setExpanded(true);
     layout->addWidget(expander);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "边缘抽屉"),
+        parent);
+    auto *leftDrawer = new ZzFluentUI::ZzDrawer(q_ptr);
+    leftDrawer->setObjectName(QStringLiteral("zzExampleModalDrawer"));
+    leftDrawer->setWidthHint(360);
+    auto *leftContent = new QWidget;
+    auto *leftContentLayout = new QVBoxLayout(leftContent);
+    leftContentLayout->addWidget(new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "确认发布选项"),
+        leftContent));
+    leftContentLayout->addStretch(1);
+    auto *leftClose = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "关闭抽屉"),
+        leftContent);
+    leftContentLayout->addWidget(leftClose);
+    leftDrawer->setContentWidget(leftContent);
+
+    auto *rightDrawer = new ZzFluentUI::ZzDrawer(q_ptr);
+    rightDrawer->setObjectName(QStringLiteral("zzExampleNonModalDrawer"));
+    rightDrawer->setEdge(ZzFluentUI::ZzDrawerEdge::Right);
+    rightDrawer->setModal(false);
+    rightDrawer->setWidthHint(360);
+    auto *rightContent = new QWidget;
+    auto *rightContentLayout = new QVBoxLayout(rightContent);
+    rightContentLayout->addWidget(new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "后台任务详情"),
+        rightContent));
+    rightContentLayout->addStretch(1);
+    auto *rightClose = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "关闭抽屉"),
+        rightContent);
+    rightContentLayout->addWidget(rightClose);
+    rightDrawer->setContentWidget(rightContent);
+
+    auto *drawerRow = new QHBoxLayout;
+    auto *openLeft = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "打开左侧模态抽屉"),
+        parent);
+    auto *openRight = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "打开右侧非模态抽屉"),
+        parent);
+    drawerRow->addWidget(openLeft);
+    drawerRow->addWidget(openRight);
+    drawerRow->addStretch(1);
+    QObject::connect(
+        openLeft,
+        &QAbstractButton::clicked,
+        leftDrawer,
+        &ZzFluentUI::ZzDrawer::openDrawer);
+    QObject::connect(
+        openRight,
+        &QAbstractButton::clicked,
+        rightDrawer,
+        &ZzFluentUI::ZzDrawer::openDrawer);
+    QObject::connect(
+        leftClose,
+        &QAbstractButton::clicked,
+        leftDrawer,
+        &ZzFluentUI::ZzDrawer::closeDrawer);
+    QObject::connect(
+        rightClose,
+        &QAbstractButton::clicked,
+        rightDrawer,
+        &ZzFluentUI::ZzDrawer::closeDrawer);
+    layout->addLayout(drawerRow);
 
     zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "标签转移"), parent);
     auto *primaryTabs = new ZzFluentUI::ZzTabWidget(parent);

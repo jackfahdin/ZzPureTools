@@ -18,7 +18,7 @@ Windows、macOS 以及 Linux 桌面会话的真机交互状态以
 | `ZzFluentUI` | `Zz::FluentFoundation`、`Zz::FluentUI` | Fluent 主题令牌、样式、绘制原语和 Widgets 基础控件 |
 | `ZzPureTools` | `Zz::AppCore`、`Zz::PureTools` | 模块生命周期、路由、页面、导航、多窗口和应用装配 |
 
-`ZzFluentUI` 当前公开 31 个可组合组件：
+`ZzFluentUI` 当前公开 32 个可组合组件：
 
 - 基础与布局：`ZzPushButton`、`ZzIconButton`、`ZzToggleSwitch`、
   `ZzProgressRing`、`ZzSpinBox`、`ZzDoubleSpinBox`、`ZzScrollBar`、
@@ -27,7 +27,7 @@ Windows、macOS 以及 Linux 桌面会话的真机交互状态以
   `ZzRollerPicker`、`ZzCalendar`、`ZzCalendarPicker`。
 - 导航与内容：`ZzBreadcrumbBar`、`ZzNavigationView`、`ZzNavigationPane`、
   `ZzTabBar`、`ZzTabWidget`、`ZzPivot`、`ZzCarouselView`、`ZzExpander`、
-  `ZzFluentItemDelegate`。
+  `ZzDrawer`、`ZzFluentItemDelegate`。
 - 反馈与表面：`ZzMessageBar`、`ZzInfoBadge`、`ZzContentDialog`、
   `ZzTeachingTip`、`ZzActionCard`、`ZzImageCard`、`ZzFluentTitleBar`。
 

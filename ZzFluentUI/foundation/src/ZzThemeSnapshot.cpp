@@ -95,7 +95,8 @@ ZzThemeSnapshot ZzThemeSnapshot::create(
         8.0,
         320.0,
         3.0,
-        16.0};
+        16.0,
+        320.0};
     QFont base = QGuiApplication::font();
     if (base.family().isEmpty()) {
         base.setFamily(QStringLiteral("Sans Serif"));

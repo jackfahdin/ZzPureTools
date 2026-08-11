@@ -24,6 +24,7 @@ enum class ZzMetricToken : std::uint16_t
     TeachingTipMaxWidth,
     SelectionIndicatorThickness,
     SelectionIndicatorExtent,
+    DrawerDefaultWidth,
     Count
 };
 

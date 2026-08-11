@@ -30,6 +30,7 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -215,6 +216,8 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzRollerPicker rollerPicker;
   ZzFluentUI::ZzExpander expander;
   ZzFluentUI::ZzPivot pivot;
+  QWidget drawerHost;
+  ZzFluentUI::ZzDrawer drawer(&drawerHost);
   ZzFluentUI::ZzTabWidget sourceTabs;
   ZzFluentUI::ZzTabWidget targetTabs;
   QWidget *tabPage = new QWidget;
@@ -300,6 +303,15 @@ int main(int argc, char *argv[]) {
   pivot.addItem(QStringLiteral("Overview"));
   pivot.addItem(QStringLiteral("Details"));
   pivot.setCurrentIndex(1);
+  drawerHost.resize(640, 480);
+  drawer.setStyle(&fluentStyle);
+  drawer.setEdge(ZzFluentUI::ZzDrawerEdge::Right);
+  drawer.setModal(false);
+  drawer.setWidthHint(240);
+  drawer.setContentWidget(new QLabel(QStringLiteral("Installed drawer")));
+  QWidget *const installedDrawerContent = drawer.contentWidget();
+  drawer.openDrawer();
+  drawer.closeDrawer();
   QStyleOptionFrame lineOption;
   lineOption.initFrom(&lineEdit);
   const QSize lineSize = fluentStyle.sizeFromContents(
@@ -452,6 +464,11 @@ int main(int argc, char *argv[]) {
       pivot.style() != &fluentStyle || pivot.count() != 2 ||
       pivot.itemText(1) != QStringLiteral("Details") ||
       pivot.currentIndex() != 1 ||
+      drawer.style() != &fluentStyle || drawer.isOpen() ||
+      drawer.edge() != ZzFluentUI::ZzDrawerEdge::Right ||
+      drawer.isModal() || drawer.widthHint() != 240 ||
+      drawer.contentWidget() != installedDrawerContent ||
+      installedDrawerContent == nullptr ||
       sourceTabs.fluentTabBar() == nullptr ||
       !sourceTabs.transferTabTo(&targetTabs, 0) || sourceTabs.count() != 0 ||
       targetTabs.widget(0) != tabPage) {

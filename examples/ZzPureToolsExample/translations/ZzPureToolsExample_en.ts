@@ -696,6 +696,37 @@
         <translation>Page pivot</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="219"/>
+        <source>边缘抽屉</source>
+        <translation>Edge drawers</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="226"/>
+        <source>确认发布选项</source>
+        <translation>Review release options</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="234"/>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="253"/>
+        <source>关闭抽屉</source>
+        <translation>Close drawer</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="245"/>
+        <source>后台任务详情</source>
+        <translation>Background task details</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="263"/>
+        <source>打开左侧模态抽屉</source>
+        <translation>Open left modal drawer</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="267"/>
+        <source>打开右侧非模态抽屉</source>
+        <translation>Open right non-modal drawer</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="201"/>
         <source>高级导航选项</source>
         <translation>Advanced navigation options</translation>

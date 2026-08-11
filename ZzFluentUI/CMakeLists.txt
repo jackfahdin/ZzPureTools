@@ -80,6 +80,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzExpanderPrivate.cpp
     widgets/src/ZzPivot.cpp
     widgets/src/private/ZzPivotPrivate.cpp
+    widgets/src/ZzDrawer.cpp
+    widgets/src/private/ZzDrawerPrivate.cpp
     widgets/src/ZzCalendar.cpp
     widgets/src/private/ZzCalendarPrivate.cpp
     widgets/src/ZzCalendarPicker.cpp
@@ -130,6 +132,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzTeachingTip.h
     widgets/include/ZzFluentUI/ZzExpander.h
     widgets/include/ZzFluentUI/ZzPivot.h
+    widgets/include/ZzFluentUI/ZzDrawer.h
     widgets/include/ZzFluentUI/ZzCalendar.h
     widgets/include/ZzFluentUI/ZzCalendarPicker.h
     widgets/include/ZzFluentUI/ZzActionCard.h
