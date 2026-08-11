@@ -287,7 +287,8 @@ private Q_SLOTS:
             ZzFluentUI::ZzNavigationDisplayMode::Adaptive);
         QVERIFY(!pane->isCompact());
         QCOMPARE(pane->width(), 240);
-        QCOMPARE(pane->findChildren<QAbstractAnimation *>().size(), 0);
+        // primary/footer 各持有一个选中指示条动画；宽度切换本身不创建动画。
+        QCOMPARE(pane->findChildren<QAbstractAnimation *>().size(), 2);
 
         window.resize(800, 600);
         QCoreApplication::processEvents();
@@ -300,7 +301,7 @@ private Q_SLOTS:
         pane->setDisplayMode(ZzFluentUI::ZzNavigationDisplayMode::Compact);
         QVERIFY(pane->isCompact());
         QCOMPARE(pane->width(), 48);
-        QCOMPARE(pane->findChildren<QAbstractAnimation *>().size(), 0);
+        QCOMPARE(pane->findChildren<QAbstractAnimation *>().size(), 2);
     }
 
     void clearsProjectionsWhenSourceModelIsDestroyed()
@@ -360,7 +361,7 @@ private Q_SLOTS:
             pane.setCurrentSourceIndex(model.index(iteration % 99999, 0));
         }
         QCOMPARE(pane.findChildren<QObject *>().size(), initialDescendants);
-        QCOMPARE(pane.findChildren<QAbstractAnimation *>().size(), 0);
+        QCOMPARE(pane.findChildren<QAbstractAnimation *>().size(), 2);
     }
 };
 

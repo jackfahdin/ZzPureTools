@@ -1,5 +1,7 @@
+#include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QItemSelectionModel>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
@@ -78,6 +80,111 @@ private Q_SLOTS:
         QVERIFY(view.viewport()->hasMouseTracking());
         QVERIFY(view.viewport()->testAttribute(Qt::WA_Hover));
         QCOMPARE(view.findChildren<QStackedWidget *>().size(), 0);
+        QCOMPARE(view.findChildren<QVariantAnimation *>().size(), 1);
+    }
+
+    void keepsTwoPhaseTransitionContinuousAndBounded()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzNavigationView view;
+        QStandardItemModel model(3, 1);
+        for (int row = 0; row < model.rowCount(); ++row) {
+            model.setData(
+                model.index(row, 0),
+                QStringLiteral("Item %1").arg(row));
+        }
+        view.setStyle(&style);
+        view.setModel(&model);
+        view.resize(240, 140);
+        view.show();
+        QCoreApplication::processEvents();
+        view.selectionModel()->select(
+            model.index(0, 0),
+            QItemSelectionModel::ClearAndSelect);
+        view.selectionModel()->select(
+            model.index(1, 0),
+            QItemSelectionModel::ClearAndSelect);
+
+        const auto animations = view.findChildren<QVariantAnimation *>();
+        QCOMPARE(animations.size(), 1);
+        QVariantAnimation *const animation = animations.constFirst();
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        const int duration = animation->duration();
+        QVERIFY(duration > 0);
+        const QColor accent = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent);
+        const auto renderViewport = [&view] {
+            QImage image(
+                view.viewport()->size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            view.viewport()->render(&painter);
+            return image;
+        };
+
+        animation->setCurrentTime(duration / 4);
+        const QImage firstPhase = renderViewport();
+        QVERIFY(!zzColorBounds(
+            firstPhase, view.visualRect(model.index(0, 0)), accent).isEmpty());
+        QVERIFY(zzColorBounds(
+            firstPhase, view.visualRect(model.index(1, 0)), accent).isEmpty());
+
+        animation->setCurrentTime((duration * 3) / 4);
+        const QImage secondPhase = renderViewport();
+        QVERIFY(zzColorBounds(
+            secondPhase, view.visualRect(model.index(0, 0)), accent).isEmpty());
+        const QRect incomingBeforeReverse = zzColorBounds(
+            secondPhase, view.visualRect(model.index(1, 0)), accent);
+        QVERIFY(!incomingBeforeReverse.isEmpty());
+
+        view.selectionModel()->select(
+            model.index(0, 0),
+            QItemSelectionModel::ClearAndSelect);
+        const QImage reversed = renderViewport();
+        QCOMPARE(
+            zzColorBounds(
+                reversed, view.visualRect(model.index(1, 0)), accent).height(),
+            incomingBeforeReverse.height());
+        QCOMPARE(view.findChildren<QVariantAnimation *>().size(), 1);
+
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            view.selectionModel()->select(
+                model.index(iteration % model.rowCount(), 0),
+                QItemSelectionModel::ClearAndSelect);
+            animation->setCurrentTime((duration * 7) / 10);
+        }
+        QCOMPARE(view.findChildren<QVariantAnimation *>().size(), 1);
+    }
+
+    void honorsReducedMotionWithoutRemovingFixedAnimation()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzNavigationView view;
+        QStandardItemModel model(2, 1);
+        model.setData(model.index(0, 0), QStringLiteral("First"));
+        model.setData(model.index(1, 0), QStringLiteral("Second"));
+        view.setStyle(&style);
+        view.setModel(&model);
+        controller.setReducedMotion(true);
+
+        view.selectionModel()->select(
+            model.index(0, 0),
+            QItemSelectionModel::ClearAndSelect);
+        view.selectionModel()->select(
+            model.index(1, 0),
+            QItemSelectionModel::ClearAndSelect);
+
+        const auto animations = view.findChildren<QVariantAnimation *>();
+        QCOMPARE(animations.size(), 1);
+        QCOMPARE(animations.constFirst()->state(), QAbstractAnimation::Stopped);
+
+        view.selectionModel()->select(
+            model.index(0, 0),
+            QItemSelectionModel::ClearAndSelect);
+        QCOMPARE(animations.constFirst()->state(), QAbstractAnimation::Stopped);
     }
 
     void preservesKeyboardSelectionAndEmitsIntent()

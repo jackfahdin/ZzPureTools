@@ -180,13 +180,13 @@ qint64 zzMedian(QList<qint64> values)
     return values.at((values.size() - 1) / 2);
 }
 
-/** @brief 验证 pane 固定拥有两个 view、两个 projection 且无动画或 timer。 */
+/** @brief 验证 pane 固定拥有两个 view、两个 projection、两个动画且无 timer。 */
 bool zzHasFixedObjectShape(
     const ZzFluentUI::ZzNavigationPane *pane)
 {
     return pane->findChildren<ZzFluentUI::ZzNavigationView *>().size() == 2
         && pane->findChildren<QAbstractProxyModel *>().size() == 2
-        && pane->findChildren<QAbstractAnimation *>().isEmpty()
+        && pane->findChildren<QAbstractAnimation *>().size() == 2
         && pane->findChildren<QTimer *>().isEmpty();
 }
 

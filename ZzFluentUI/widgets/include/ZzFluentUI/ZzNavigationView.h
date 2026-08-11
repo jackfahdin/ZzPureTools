@@ -8,10 +8,14 @@
 
 class QKeyEvent;
 class QEvent;
+class QAbstractItemModel;
+class QItemSelectionModel;
 
 namespace ZzFluentUI {
 
 class ZzNavigationViewPrivate;
+class ZzNavigationItemDelegate;
+class ZzFluentItemDelegatePrivate;
 
 /**
  * @brief 只消费 QAbstractItemModel 展示数据并转发导航意图的列表视图。
@@ -38,6 +42,18 @@ public:
     /** @brief 销毁私有状态，model 继续遵循 Qt Model/View 所有权。 */
     ~ZzNavigationView() override;
 
+    /**
+     * @brief 设置非拥有展示模型并迁移选中指示条观察。
+     * @param model 可为空，所有权规则与 QListView 一致。
+     */
+    void setModel(QAbstractItemModel *model) override;
+
+    /**
+     * @brief 设置非拥有选择模型并迁移选中指示条观察。
+     * @param selectionModel 必须与当前 model 匹配。
+     */
+    void setSelectionModel(QItemSelectionModel *selectionModel) override;
+
     /** @brief 返回是否只展示图标的紧凑模式。 */
     [[nodiscard]] bool isCompact() const noexcept;
 
@@ -58,6 +74,9 @@ Q_SIGNALS:
     void navigationRequested(const QModelIndex &index);
 
 protected:
+    /** @brief 在主题或样式变化时结束可能使用旧动效策略的过渡。 */
+    void changeEvent(QEvent *event) override;
+
     /** @brief 把 Enter、Return 和 Space 转换为导航意图，其他键保留列表行为。 */
     void keyPressEvent(QKeyEvent *event) override;
 
@@ -65,6 +84,9 @@ protected:
     bool viewportEvent(QEvent *event) override;
 
 private:
+    friend class ZzNavigationViewPrivate;
+    friend class ZzNavigationItemDelegate;
+    friend class ZzFluentItemDelegatePrivate;
     std::unique_ptr<ZzNavigationViewPrivate> d_ptr;
 };
 

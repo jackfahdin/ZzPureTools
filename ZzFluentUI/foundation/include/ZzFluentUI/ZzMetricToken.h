@@ -22,6 +22,8 @@ enum class ZzMetricToken : std::uint16_t
     BadgeMinDiameter,
     TeachingTipTargetGap,
     TeachingTipMaxWidth,
+    SelectionIndicatorThickness,
+    SelectionIndicatorExtent,
     Count
 };
 

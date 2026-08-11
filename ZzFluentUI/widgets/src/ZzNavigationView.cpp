@@ -1,5 +1,7 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 
+#include <QtCore/QAbstractItemModel>
+#include <QtCore/QItemSelectionModel>
 #include <QtGui/QHelpEvent>
 #include <QtGui/QKeyEvent>
 #include <QtWidgets/QToolTip>
@@ -8,6 +10,13 @@
 
 namespace ZzFluentUI {
 
+namespace {
+
+constexpr int zzRegularNavigationWidth = 240;
+constexpr int zzCompactNavigationWidth = 48;
+
+} // namespace
+
 ZzNavigationView::ZzNavigationView(QWidget *parent)
     : QListView(parent)
     , d_ptr(std::make_unique<ZzNavigationViewPrivate>(this))
@@ -15,7 +24,7 @@ ZzNavigationView::ZzNavigationView(QWidget *parent)
     setUniformItemSizes(true);
     setLayoutMode(QListView::Batched);
     setBatchSize(64);
-    setFixedWidth(240);
+    setFixedWidth(zzRegularNavigationWidth);
     setSelectionMode(QAbstractItemView::SingleSelection);
     setEditTriggers(QAbstractItemView::NoEditTriggers);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -29,9 +38,23 @@ ZzNavigationView::ZzNavigationView(QWidget *parent)
         [this](const QModelIndex &index) {
             d_ptr->activateIndex(index);
         });
+    d_ptr->bindSelectionModel();
 }
 
 ZzNavigationView::~ZzNavigationView() = default;
+
+void ZzNavigationView::setModel(QAbstractItemModel *model)
+{
+    QListView::setModel(model);
+    d_ptr->bindSelectionModel();
+}
+
+void ZzNavigationView::setSelectionModel(
+    QItemSelectionModel *selectionModel)
+{
+    QListView::setSelectionModel(selectionModel);
+    d_ptr->bindSelectionModel();
+}
 
 bool ZzNavigationView::isCompact() const noexcept
 {
@@ -44,11 +67,23 @@ void ZzNavigationView::setCompact(bool compact)
         return;
     }
     d_ptr->compact = compact;
-    setFixedWidth(compact ? 48 : 240);
+    setFixedWidth(
+        compact ? zzCompactNavigationWidth : zzRegularNavigationWidth);
     d_ptr->setCompactPresentation(compact);
     viewport()->update();
     updateGeometry();
     Q_EMIT compactChanged(compact);
+}
+
+void ZzNavigationView::changeEvent(QEvent *event)
+{
+    QListView::changeEvent(event);
+    if (event != nullptr
+        && (event->type() == QEvent::StyleChange
+            || event->type() == QEvent::PaletteChange
+            || event->type() == QEvent::ApplicationPaletteChange)) {
+        d_ptr->finishTransition();
+    }
 }
 
 void ZzNavigationView::keyPressEvent(QKeyEvent *event)

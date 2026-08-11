@@ -1,10 +1,8 @@
+#include <QtCore/QAbstractAnimation>
 #include <QtCore/QAbstractListModel>
-#include <QtCore/QEvent>
 #include <QtCore/QItemSelectionModel>
-#include <QtCore/QPointer>
 #include <QtCore/QSet>
 #include <QtGui/QImage>
-#include <QtGui/QPaintEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QTest>
@@ -57,52 +55,6 @@ public:
 
 private:
     mutable QList<QRect> itemRects_;
-};
-
-/** @brief 统计树形选择变化后覆盖完整 viewport 的重绘事件。 */
-class ZzViewportPaintProbe final : public QObject
-{
-public:
-    /** @brief 绑定待观察的非空 viewport。 */
-    explicit ZzViewportPaintProbe(QWidget *viewport)
-        : QObject(viewport)
-        , viewport_(viewport)
-    {
-        Q_ASSERT(viewport_ != nullptr);
-        viewport_->installEventFilter(this);
-    }
-
-    /** @brief 清空完整 viewport 重绘次数。 */
-    void reset() noexcept
-    {
-        fullPaintCount_ = 0;
-    }
-
-    /** @brief 返回覆盖完整 viewport 的重绘次数。 */
-    [[nodiscard]] int fullPaintCount() const noexcept
-    {
-        return fullPaintCount_;
-    }
-
-protected:
-    /** @brief 统计完整绘制区域并保留 viewport 默认事件处理。 */
-    bool eventFilter(QObject *watched, QEvent *event) override
-    {
-        if (viewport_ != nullptr
-            && watched == viewport_
-            && event != nullptr
-            && event->type() == QEvent::Paint) {
-            const auto *paintEvent = static_cast<const QPaintEvent *>(event);
-            if (paintEvent->region().contains(viewport_->rect())) {
-                ++fullPaintCount_;
-            }
-        }
-        return QObject::eventFilter(watched, event);
-    }
-
-private:
-    QPointer<QWidget> viewport_;
-    int fullPaintCount_ = 0;
 };
 
 /** @brief 记录可见 index 数据请求且不为十万行预分配 item。 */
@@ -385,7 +337,7 @@ private Q_SLOTS:
         }
     }
 
-    void repaintsCompleteTreeViewportWhenSelectionChanges()
+    void migratesTreeSelectionAndKeepsAnimationBudget()
     {
         ZzFluentUI::ZzThemeController controller;
         ZzFluentUI::ZzFluentStyle style(&controller);
@@ -408,15 +360,19 @@ private Q_SLOTS:
         tree.show();
         QVERIFY(QTest::qWaitForWindowExposed(&tree));
 
-        ZzViewportPaintProbe probe(tree.viewport());
         QCoreApplication::processEvents();
-        probe.reset();
         tree.selectionModel()->select(
             model.index(0, 0),
             QItemSelectionModel::ClearAndSelect
                 | QItemSelectionModel::Rows);
+        tree.selectionModel()->select(
+            model.index(1, 0),
+            QItemSelectionModel::ClearAndSelect
+                | QItemSelectionModel::Rows);
 
-        QTRY_VERIFY_WITH_TIMEOUT(probe.fullPaintCount() > 0, 1000);
+        const auto animations = delegate->findChildren<QAbstractAnimation *>();
+        QCOMPARE(animations.size(), 1);
+        QCOMPARE(animations.constFirst()->state(), QAbstractAnimation::Running);
 
         // setModel/setSelectionModel 可在控件生命周期内替换选择模型；
         // 下一次绘制必须自动迁移连接，不能继续监听已经过期的模型。
@@ -424,13 +380,21 @@ private Q_SLOTS:
         tree.setSelectionModel(&replacementSelection);
         tree.viewport()->update();
         QCoreApplication::processEvents();
-        probe.reset();
         replacementSelection.select(
             model.index(1, 0),
             QItemSelectionModel::ClearAndSelect
                 | QItemSelectionModel::Rows);
+        replacementSelection.select(
+            model.index(2, 0),
+            QItemSelectionModel::ClearAndSelect
+                | QItemSelectionModel::Rows);
 
-        QTRY_VERIFY_WITH_TIMEOUT(probe.fullPaintCount() > 0, 1000);
+        QCOMPARE(delegate->findChildren<QAbstractAnimation *>().size(), 1);
+        QCOMPARE(
+            delegate->findChildren<QAbstractAnimation *>()
+                .constFirst()
+                ->state(),
+            QAbstractAnimation::Running);
     }
 
     void drawsTreeRowFromGeometryWhenPrimitiveOmitsIndexAndSelection_data()

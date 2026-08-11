@@ -1,7 +1,5 @@
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzCarouselView.cpp|25|setMinimumSize
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzFluentTitleBar.cpp|17|setFixedHeight
-FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzNavigationView.cpp|18|setFixedWidth
-FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzNavigationView.cpp|47|setFixedWidth
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzRoller.cpp|357|drawRoundedRect
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzBreadcrumbBarPrivate.cpp|26|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzFluentStylePrivate.cpp|477|drawRoundedRect
@@ -16,8 +14,6 @@ FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cp
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp|81|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp|83|setFixedSize
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp|98|setFixedSize
-FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzItemViewVisual.cpp|141|drawRoundedRect
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|29|setContentsMargins
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|30|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|31|setFixedSize
-FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzNavigationViewPrivate.cpp|244|drawRoundedRect

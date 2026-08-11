@@ -35,6 +35,14 @@ private Q_SLOTS:
                     ZzFluentUI::ZzMetricToken::DialogMinWidth)
                 < snapshot.metric(
                     ZzFluentUI::ZzMetricToken::DialogMaxWidth));
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::SelectionIndicatorThickness),
+            3.0);
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::SelectionIndicatorExtent),
+            16.0);
         QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::OverlayScrim).alpha()
                 > 0);
         QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::Information).isValid());

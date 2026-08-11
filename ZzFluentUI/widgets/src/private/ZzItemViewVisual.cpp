@@ -25,8 +25,6 @@ namespace {
 
 constexpr int zzItemSurfaceInset = 2;
 constexpr int zzItemIndicatorLeading = 4;
-constexpr int zzItemIndicatorWidth = 3;
-constexpr int zzItemIndicatorHeight = 16;
 constexpr int zzItemContentLeading = 10;
 constexpr int zzItemHoverAccentAlpha = 32;
 
@@ -87,11 +85,20 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
     ZzItemViewVisualOptions options)
 {
     Q_ASSERT(painter != nullptr);
+    const auto &snapshot = style.d_ptr->snapshot;
+    const int indicatorWidth = snapshot == nullptr
+        ? 0
+        : qRound(snapshot->metric(
+              ZzMetricToken::SelectionIndicatorThickness));
+    const int indicatorHeight = snapshot == nullptr
+        ? 0
+        : qRound(snapshot->metric(
+              ZzMetricToken::SelectionIndicatorExtent));
     const QRect logicalIndicator(
         option.rect.left() + zzItemIndicatorLeading,
-        option.rect.center().y() - zzItemIndicatorHeight / 2,
-        zzItemIndicatorWidth,
-        zzItemIndicatorHeight);
+        option.rect.center().y() - indicatorHeight / 2,
+        indicatorWidth,
+        indicatorHeight);
     ZzItemViewVisualLayout result{
         QRectF(option.rect).adjusted(
             zzItemSurfaceInset,
@@ -104,21 +111,26 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
             logicalIndicator),
         zzContentRect(option, options.ownsIndicator)};
 
-    if (painter == nullptr || style.d_ptr->snapshot == nullptr) {
+    if (painter == nullptr || snapshot == nullptr) {
         return result;
     }
     const bool selected = option.state.testFlag(QStyle::State_Selected);
     const bool hovered = option.state.testFlag(QStyle::State_MouseOver);
-    if ((!selected && !hovered)
-        || (!options.drawSurface && (!selected || !options.ownsIndicator))) {
+    const qreal indicatorScale = std::clamp(
+        options.indicatorScale,
+        0.0,
+        1.0);
+    const bool drawsIndicator = options.ownsIndicator
+        && indicatorScale > 0.0
+        && (selected || options.forceIndicator);
+    if (!selected && !hovered && !drawsIndicator) {
         return result;
     }
 
-    const auto &snapshot = style.d_ptr->snapshot;
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(Qt::NoPen);
-    if (options.drawSurface) {
+    if (options.drawSurface && (selected || hovered)) {
         painter->fillRect(option.rect, option.palette.brush(QPalette::Base));
         QColor surfaceColor = snapshot->color(
             selected
@@ -136,9 +148,16 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
             ZzMetricToken::CornerRadiusSmall);
         painter->drawRoundedRect(result.surfaceRect, radius, radius);
     }
-    if (selected && options.ownsIndicator) {
+    if (drawsIndicator) {
+        QRectF indicatorRect(result.indicatorRect);
+        const qreal scaledHeight = indicatorRect.height() * indicatorScale;
+        indicatorRect.setTop(
+            indicatorRect.center().y() - (scaledHeight / 2.0));
+        indicatorRect.setHeight(scaledHeight);
         painter->setBrush(snapshot->color(ZzColorToken::Accent));
-        painter->drawRoundedRect(QRectF(result.indicatorRect), 1.5, 1.5);
+        const qreal radius = qMin(
+            indicatorRect.width(), indicatorRect.height()) / 2.0;
+        painter->drawRoundedRect(indicatorRect, radius, radius);
     }
     painter->restore();
     return result;

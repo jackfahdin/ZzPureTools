@@ -2,17 +2,24 @@
 
 #include <algorithm>
 
+#include <QtCore/QAbstractAnimation>
+#include <QtCore/QAbstractItemModel>
+#include <QtCore/QItemSelectionModel>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QIcon>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOptionViewItem>
 
+#include <ZzFluentUI/ZzAnimationPolicy.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzNavigationItemRole.h>
 #include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzMotionToken.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzNavigationPrivateRoles.h"
 #include "ZzItemViewVisual.h"
@@ -26,6 +33,7 @@ constexpr int zzCompactItemHeight = 32;
 constexpr int zzRegularIconExtent = 18;
 constexpr int zzCompactIconExtent = 20;
 constexpr int zzHoverAccentAlpha = 32;
+constexpr int zzNavigationBadgeRadius = 10;
 
 } // namespace
 
@@ -148,10 +156,21 @@ private:
             ? qobject_cast<const ZzFluentStyle *>(option.widget->style())
             : nullptr;
         if (fluentStyle != nullptr) {
+            ZzItemViewVisualOptions visualOptions;
+            if (const auto *navigationView = qobject_cast<
+                    const ZzNavigationView *>(option.widget)) {
+                visualOptions.forceIndicator =
+                    navigationView->d_ptr->forcesIndicator(option.index);
+                visualOptions.indicatorScale =
+                    navigationView->d_ptr->indicatorScale(
+                        option.index,
+                        selected);
+            }
             const ZzItemViewVisualLayout layout = ZzItemViewVisual::draw(
                 *fluentStyle,
                 option,
-                painter);
+                painter,
+                visualOptions);
             content = layout.contentRect;
         } else {
             if (selected) {
@@ -241,7 +260,10 @@ private:
                 : option.palette.color(QPalette::HighlightedText);
             painter->setPen(badgeForeground);
             painter->setBrush(badgeBackground);
-            painter->drawRoundedRect(badgeRect, 10, 10);
+            painter->drawRoundedRect(
+                badgeRect,
+                zzNavigationBadgeRadius,
+                zzNavigationBadgeRadius);
             painter->drawText(
                 badgeRect.adjusted(4, 0, -4, 0),
                 Qt::AlignCenter,
@@ -365,10 +387,25 @@ private:
 ZzNavigationViewPrivate::ZzNavigationViewPrivate(
     ZzNavigationView *publicObject) noexcept
     : q_ptr(publicObject)
+    , transition(publicObject)
 {
     Q_ASSERT(q_ptr != nullptr);
     delegate = new ZzNavigationItemDelegate(q_ptr);
     q_ptr->setItemDelegate(delegate);
+    QObject::connect(
+        transition.animation(),
+        &QVariantAnimation::valueChanged,
+        q_ptr,
+        [this] {
+            repaintTransitionIndexes();
+        });
+    QObject::connect(
+        transition.animation(),
+        &QVariantAnimation::finished,
+        q_ptr,
+        [this] {
+            repaintTransitionIndexes();
+        });
 }
 
 void ZzNavigationViewPrivate::activateIndex(
@@ -387,6 +424,124 @@ void ZzNavigationViewPrivate::setCompactPresentation(bool useCompact)
     if (delegate != nullptr) {
         delegate->setCompact(useCompact);
     }
+}
+
+void ZzNavigationViewPrivate::bindSelectionModel()
+{
+    QItemSelectionModel *const selectionModel = q_ptr->selectionModel();
+    if (observedSelectionModel == selectionModel) {
+        return;
+    }
+
+    QObject::disconnect(selectionChangedConnection);
+    QObject::disconnect(modelResetConnection);
+    observedSelectionModel = selectionModel;
+    selectionChangedConnection = {};
+    modelResetConnection = {};
+    if (selectionModel == nullptr) {
+        transition.transitionTo({}, 0);
+        return;
+    }
+
+    selectionChangedConnection = QObject::connect(
+        selectionModel,
+        &QItemSelectionModel::selectionChanged,
+        q_ptr,
+        [this] {
+            transitionToSelection();
+        });
+    if (selectionModel->model() != nullptr) {
+        modelResetConnection = QObject::connect(
+            selectionModel->model(),
+            &QAbstractItemModel::modelReset,
+            q_ptr,
+            [this] {
+                transition.transitionTo(selectedIndex(), 0);
+                repaintTransitionIndexes();
+            });
+    }
+    transition.transitionTo(selectedIndex(), 0);
+    repaintTransitionIndexes();
+}
+
+qreal ZzNavigationViewPrivate::indicatorScale(
+    const QModelIndex &index,
+    bool staticallySelected) const noexcept
+{
+    return transition.scaleFor(index, staticallySelected);
+}
+
+bool ZzNavigationViewPrivate::forcesIndicator(
+    const QModelIndex &index) const noexcept
+{
+    return transition.forcesIndicator(index);
+}
+
+void ZzNavigationViewPrivate::finishTransition()
+{
+    repaintTransitionIndexes();
+    transition.finish();
+    repaintTransitionIndexes();
+}
+
+QModelIndex ZzNavigationViewPrivate::selectedIndex() const
+{
+    if (observedSelectionModel == nullptr) {
+        return {};
+    }
+    const QModelIndexList selected = observedSelectionModel->selectedIndexes();
+    for (const QModelIndex &index : selected) {
+        if (index.isValid() && index.column() == 0
+            && index.flags().testFlag(Qt::ItemIsEnabled)
+            && index.flags().testFlag(Qt::ItemIsSelectable)
+            && !index.data(zzNavigationSectionHeaderRole).toBool()) {
+            return index;
+        }
+    }
+    return {};
+}
+
+void ZzNavigationViewPrivate::transitionToSelection()
+{
+    repaintTransitionIndexes();
+    transition.transitionTo(selectedIndex(), transitionDuration());
+    repaintTransitionIndexes();
+}
+
+void ZzNavigationViewPrivate::repaintTransitionIndexes() const
+{
+    QWidget *const viewport = q_ptr->viewport();
+    if (viewport == nullptr) {
+        return;
+    }
+    const auto updateIndex = [this, viewport](const QModelIndex &index) {
+        if (!index.isValid()) {
+            return;
+        }
+        const QRect itemRect = q_ptr->visualRect(index);
+        if (!itemRect.isEmpty()) {
+            viewport->update(itemRect);
+        }
+    };
+    updateIndex(transition.outgoingIndex());
+    updateIndex(transition.incomingIndex());
+}
+
+int ZzNavigationViewPrivate::transitionDuration() const
+{
+    const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(
+        q_ptr->style());
+    if (fluentStyle == nullptr) {
+        return 0;
+    }
+    const auto snapshot = fluentStyle->themeSnapshot();
+    if (snapshot == nullptr) {
+        return 0;
+    }
+    return ZzAnimationPolicy::adjustedDuration(
+        snapshot->duration(ZzMotionToken::Normal),
+        snapshot->reducedMotion(),
+        false);
 }
 
 } // namespace ZzFluentUI

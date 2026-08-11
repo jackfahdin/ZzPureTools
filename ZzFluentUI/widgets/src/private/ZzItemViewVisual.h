@@ -19,6 +19,10 @@ struct ZzItemViewVisualOptions final
     bool drawSurface = true;
     /** @brief 当前 item 是否拥有唯一强调条及其固定内容槽位。 */
     bool ownsIndicator = true;
+    /** @brief 未选中的旧 item 是否仍需绘制收缩中的强调条。 */
+    bool forceIndicator = false;
+    /** @brief 强调条沿长轴绘制的比例，自动收敛到 0 至 1。 */
+    qreal indicatorScale = 1.0;
 };
 
 /** @brief 保存由同一几何契约计算的背板、强调条和内容区域。 */
