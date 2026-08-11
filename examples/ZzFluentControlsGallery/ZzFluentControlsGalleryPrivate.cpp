@@ -926,6 +926,23 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     primaryTabs->setCurrentIndex(1);
     primaryTabs->setFixedHeight(150);
     secondaryTabs->setFixedHeight(150);
+    auto *newTabButton = new ZzFluentUI::ZzIconButton(primaryTabs);
+    newTabButton->setObjectName(QStringLiteral("zzGalleryNewTabIntent"));
+    newTabButton->setAccessibleName(QStringLiteral("Create new tab"));
+    newTabButton->setToolTip(QStringLiteral("Create new tab"));
+    newTabButton->setIconDescriptor(
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::Plus));
+    newTabButton->setFixedSize(32, 32);
+    primaryTabs->setCornerWidget(newTabButton, Qt::TopRightCorner);
+    QObject::connect(
+        newTabButton,
+        &QAbstractButton::clicked,
+        message,
+        [message] {
+            message->setText(QStringLiteral("New tab requested"));
+            message->show();
+        });
     bindTabHost(primaryTabs);
     bindTabHost(secondaryTabs);
     tabRow->addWidget(primaryTabs, 1);
