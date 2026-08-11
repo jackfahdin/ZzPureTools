@@ -45,8 +45,11 @@ public:
     /** @brief 构造只更新本地展示状态的标准命令与状态宿主。 */
     [[nodiscard]] QWidget *buildCommandStatusHost(QWidget *parent);
 
-    /** @brief 构造一个不访问业务对象的非模态示例 Dialog。 */
+    /** @brief 构造一个不访问业务对象的窗口模态内容对话框。 */
     void showDialog();
+
+    /** @brief 在指定非拥有目标附近展示教学提示。 */
+    void showTeachingTip(QWidget *target);
 
     /** @brief 为画廊标签容器绑定关闭意图和应用层拖出宿主。 */
     void bindTabHost(ZzFluentUI::ZzTabWidget *tabs);

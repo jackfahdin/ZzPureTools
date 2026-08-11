@@ -103,6 +103,7 @@
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzTeachingTip.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -4422,6 +4423,158 @@ ZzContentDialogTextMask zzBuildContentDialogTextMask(
     return result;
 }
 
+/** @brief 保存教学提示场景的文字遮罩和覆盖数量。 */
+struct ZzTeachingTipTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int buttons = 0;
+};
+
+/** @brief 构造固定目标、箭头、自定义内容和 Action 的教学提示场景。 */
+class ZzTeachingTipScreenshotSurface final
+{
+public:
+    /** @brief 创建固定宿主和以 Bottom 方向定位的教学提示。 */
+    ZzTeachingTipScreenshotSurface()
+    {
+        window.setObjectName(QStringLiteral("zzTeachingTipScreenshot"));
+        window.setWindowTitle(QStringLiteral("ZzFluentUI Teaching Tip"));
+        window.setAutoFillBackground(true);
+        window.setPalette(QApplication::palette());
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *heading = new QLabel(
+            QStringLiteral("Build workspace"), &window);
+        heading->setGeometry(80, 72, 420, 42);
+        QFont headingFont = heading->font();
+        headingFont.setPointSize(18);
+        headingFont.setWeight(QFont::DemiBold);
+        heading->setFont(headingFont);
+        auto *description = new QLabel(
+            QStringLiteral("Use the highlighted command to run validation."),
+            &window);
+        description->setGeometry(80, 126, 520, 32);
+        target_ = new ZzFluentUI::ZzPushButton(
+            QStringLiteral("Run validation"), &window);
+        target_->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+        target_->setGeometry(510, 310, 180, 38);
+
+        tip_ = new ZzFluentUI::ZzTeachingTip(&window);
+        tip_->setTitle(QStringLiteral("Validate before publishing"));
+        tip_->setText(QStringLiteral(
+            "Run the full reference checks before creating a package."));
+        tip_->setContentWidget(new QLabel(
+            QStringLiteral("Preset: linux-gcc-reference")));
+        tip_->setActionText(QStringLiteral("View checks"));
+        tip_->setActionVisible(true);
+        tip_->setLightDismissEnabled(false);
+        tip_->setPreferredPlacement(
+            ZzFluentUI::ZzTeachingTipPlacement::Bottom);
+        tip_->setTargetWidget(target_);
+    }
+
+    /** @brief 显示宿主与提示并记录顶层窗口合成原点。 */
+    void polish()
+    {
+        const QRect available = window.screen()->availableGeometry();
+        const QPoint targetGlobalTopLeft(
+            available.center().x() - target_->width() / 2,
+            available.top() + 48);
+        window.move(targetGlobalTopLeft - target_->pos());
+        window.show();
+        QCoreApplication::processEvents();
+        tip_->showForTarget();
+        QCoreApplication::processEvents();
+        tipOrigin_ = window.mapFromGlobal(tip_->pos());
+    }
+
+    /** @brief 隐藏提示和宿主。 */
+    void hide()
+    {
+        tip_->hide();
+        window.hide();
+    }
+
+    /** @brief 返回截图教学提示。 */
+    [[nodiscard]] ZzFluentUI::ZzTeachingTip *tip() const noexcept
+    {
+        return tip_;
+    }
+
+    /** @brief 返回截图目标按钮。 */
+    [[nodiscard]] ZzFluentUI::ZzPushButton *target() const noexcept
+    {
+        return target_;
+    }
+
+    /** @brief 返回提示在宿主画布中的合成原点。 */
+    [[nodiscard]] QPoint tipOrigin() const noexcept
+    {
+        return tipOrigin_;
+    }
+
+    QWidget window;
+
+private:
+    QPointer<ZzFluentUI::ZzTeachingTip> tip_;
+    QPointer<ZzFluentUI::ZzPushButton> target_;
+    QPoint tipOrigin_;
+};
+
+/** @brief 构造宿主与顶层教学提示中文字的物理像素遮罩。 */
+ZzTeachingTipTextMask zzBuildTeachingTipTextMask(
+    ZzTeachingTipScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    ZzTeachingTipTextMask result{
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    ZzFluentUI::ZzTeachingTip *tip = surface->tip();
+
+    const auto mapRect = [surface, tip](
+                             QWidget *widget,
+                             const QRect &rect) {
+        if (widget->window() == tip) {
+            return QRect(
+                widget->mapTo(tip, rect.topLeft()) + surface->tipOrigin(),
+                rect.size());
+        }
+        return zzMapToSurface(widget, rect, &surface->window);
+    };
+    for (QLabel *label : surface->window.findChildren<QLabel *>()) {
+        if (!label->isVisible() || label->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            label,
+            label->contentsRect(),
+            static_cast<int>(label->alignment()),
+            label->text());
+        zzPaintMaskRect(&painter, mapRect(label, textRect));
+        ++result.labels;
+    }
+    for (QPushButton *button :
+         surface->window.findChildren<QPushButton *>()) {
+        if (!button->isVisible() || button->text().isEmpty()) {
+            continue;
+        }
+        const QRect textRect = zzAlignedTextRect(
+            button,
+            button->contentsRect(),
+            Qt::AlignCenter,
+            button->text());
+        zzPaintMaskRect(&painter, mapRect(button, textRect));
+        ++result.buttons;
+    }
+    painter.end();
+    return result;
+}
+
 /** @brief 为菜单栏、菜单、shortcut、tooltip 与补充状态构造文字遮罩。 */
 ZzPopupSurfaceTextMask zzBuildPopupSurfaceTextMask(
     ZzPopupSurfaceScreenshotSurface *surface,
@@ -5416,6 +5569,24 @@ QImage zzRenderContentDialogSurface(
     QPainter painter(&image);
     surface->window.render(&painter);
     surface->dialog()->render(&painter, surface->dialogOrigin());
+    painter.end();
+    return image;
+}
+
+/** @brief 把宿主和独立教学提示合成到固定物理画布。 */
+QImage zzRenderTeachingTipSurface(
+    ZzTeachingTipScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    surface->tip()->render(&painter, surface->tipOrigin());
     painter.end();
     return image;
 }
@@ -6445,6 +6616,21 @@ private Q_SLOTS:
             << QStringLiteral("content-dialog-high-contrast");
     }
 
+    void rendersTeachingTipThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("teaching-tip-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("teaching-tip-light");
+        QTest::newRow("teaching-tip-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("teaching-tip-dark");
+        QTest::newRow("teaching-tip-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("teaching-tip-high-contrast");
+    }
+
     void rendersTextInputThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -7417,6 +7603,99 @@ private Q_SLOTS:
         QFAIL(qPrintable(
             QStringLiteral(
                 "Qt %1.%2 内容对话框非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
+
+    void rendersTeachingTipThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzTeachingTipScreenshotSurface surface;
+        surface.polish();
+        QVERIFY(surface.tip() != nullptr);
+        QVERIFY(surface.tip()->isVisible());
+        QCOMPARE(
+            surface.tip()->effectivePlacement(),
+            ZzFluentUI::ZzTeachingTipPlacement::Bottom);
+        QCOMPARE(surface.tip()->targetWidget(), surface.target());
+        auto *closeButton = surface.tip()->findChild<QToolButton *>(
+            QStringLiteral("zzTeachingTipCloseButton"));
+        QVERIFY(closeButton != nullptr);
+        QVERIFY(!closeButton->icon().isNull());
+        QVERIFY(surface.target()->screen()->availableGeometry().contains(
+            surface.tip()->frameGeometry()));
+
+        const QImage actual = zzRenderTeachingTipSurface(
+            &surface, actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+        const ZzTeachingTipTextMask mask = zzBuildTeachingTipTextMask(
+            &surface, actualDpr_);
+        QVERIFY(mask.labels >= 5);
+        QCOMPARE(mask.buttons, 2);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask.image);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 教学提示非文字区域差异比例 %3 超过门限 %4，"
                 "actual=%5，diff=%6")
                 .arg(QT_VERSION_MAJOR)
                 .arg(QT_VERSION_MINOR)

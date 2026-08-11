@@ -29,6 +29,7 @@
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzTeachingTip.h>
 
 namespace ZzExample {
 
@@ -279,6 +280,9 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
     dialogButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
     dialogButton->setIcon(
         dialogButton->style()->standardIcon(QStyle::SP_DialogHelpButton));
+    auto *teachingTipButton = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate("ZzPureToolsExample", "显示教学提示"),
+        commandHost);
     QObject::connect(
         menu,
         &QMenu::triggered,
@@ -312,8 +316,31 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
             dialog->setWindowModality(Qt::WindowModal);
             dialog->open();
         });
+    QObject::connect(
+        teachingTipButton,
+        &QAbstractButton::clicked,
+        q_ptr,
+        [parent, teachingTipButton] {
+            auto *tip = new ZzFluentUI::ZzTeachingTip(parent);
+            tip->setTitle(QCoreApplication::translate(
+                "ZzPureToolsExample", "教学提示"));
+            tip->setText(QCoreApplication::translate(
+                "ZzPureToolsExample",
+                "提示会跟随目标控件，并支持点击外部关闭。"));
+            tip->setActionText(QCoreApplication::translate(
+                "ZzPureToolsExample", "了解更多"));
+            tip->setActionVisible(true);
+            tip->setTargetWidget(teachingTipButton);
+            QObject::connect(
+                tip,
+                &ZzFluentUI::ZzTeachingTip::dismissed,
+                tip,
+                &QObject::deleteLater);
+            tip->showForTarget();
+        });
     commandLayout->addWidget(menuButton);
     commandLayout->addWidget(dialogButton);
+    commandLayout->addWidget(teachingTipButton);
     layout->addWidget(commandHost);
 
     zzAddShowcaseSection(layout, QCoreApplication::translate("ZzPureToolsExample", "消息严重性"), parent);

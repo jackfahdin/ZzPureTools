@@ -71,6 +71,7 @@
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzTeachingTip.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -1132,13 +1133,23 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
     menuButton->setMenu(menu);
     auto *dialogButton = new ZzFluentUI::ZzPushButton(
         QStringLiteral("Dialog"), container);
+    auto *teachingTipButton = new ZzFluentUI::ZzPushButton(
+        QStringLiteral("Teaching tip"), container);
     QObject::connect(
         dialogButton,
         &QPushButton::clicked,
         q_ptr,
         [this] { showDialog(); });
+    QObject::connect(
+        teachingTipButton,
+        &QPushButton::clicked,
+        q_ptr,
+        [this, teachingTipButton] {
+            showTeachingTip(teachingTipButton);
+        });
     commandRow->addWidget(menuButton);
     commandRow->addWidget(dialogButton);
+    commandRow->addWidget(teachingTipButton);
     commandRow->addStretch(1);
     layout->addLayout(commandRow);
 
@@ -1302,6 +1313,28 @@ void ZzFluentControlsGalleryPrivate::showDialog()
         ZzFluentUI::ZzContentDialogButton::Primary);
     dialog->setWindowModality(Qt::WindowModal);
     dialog->open();
+}
+
+void ZzFluentControlsGalleryPrivate::showTeachingTip(QWidget *target)
+{
+    if (target == nullptr) {
+        return;
+    }
+    auto *tip = new ZzFluentUI::ZzTeachingTip(q_ptr);
+    tip->setTitle(QStringLiteral("Teaching tip"));
+    tip->setText(QStringLiteral(
+        "This non-modal surface follows its target and remains open for actions."));
+    tip->setActionText(QStringLiteral("Try action"));
+    tip->setActionVisible(true);
+    tip->setTargetWidget(target);
+    tip->setPreferredPlacement(
+        ZzFluentUI::ZzTeachingTipPlacement::Bottom);
+    QObject::connect(
+        tip,
+        &ZzFluentUI::ZzTeachingTip::dismissed,
+        tip,
+        &QObject::deleteLater);
+    tip->showForTarget();
 }
 
 void ZzFluentControlsGalleryPrivate::bindTabHost(
