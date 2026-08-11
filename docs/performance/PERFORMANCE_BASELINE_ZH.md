@@ -139,6 +139,34 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 
 十二份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足组件与综合示例启动 P95/max 不超过 300 ms，组件与综合示例主题切换 P95 不超过 50 ms，综合示例页面切换 P95 不超过 50 ms，动画、组件与综合示例大模型 P95 不超过 16.7 ms，导航整帧 P95 不超过 12 ms，绘制复杂度不超过 1.5 倍，导航 reset P95 不超过 80 ms，两项空闲 CPU 均严格低于 0.5%、RSS 增长均不超过 10%，并完成窗口生命周期计数和对应 ASan/UBSan 门禁。
 
+## 跨轮噪声与相对回归门限
+
+绝对门限判断产品是否满足性能预算；相对门限判断同一参考档案下的新提交是否发生退化。相对门限位于 `docs/performance/reference/linux/regression-thresholds.json`，必须对每个场景、指标以及 `p95`、`max` 显式声明策略，新增 reporter 指标但未增加策略时失败关闭。
+
+候选门限必须来自至少三轮完整 benchmark。每轮报告复制到互不覆盖的目录后执行：
+
+```bash
+cmake \
+  '-DZZ_RUN_DIRECTORIES=build/noise/round-1;build/noise/round-2;build/noise/round-3' \
+  -DZZ_OUTPUT_JSON=build/noise/candidate.json \
+  -DZZ_OUTPUT_MARKDOWN=build/noise/candidate.md \
+  -P scripts/ci/ZzAnalyzePerformanceNoise.cmake
+```
+
+工具对每个字段计算 `((max-min)/min)*100` 的向上取整结果。结果不超过 10% 时建议 10% gate；大于 10% 且不超过 20% 时建议同值 gate；超过 20% 时建议 observe。observe 仍打印基线、当前值和记录噪声带，但不阻断发布，避免单次尖峰迫使整场 benchmark 失去约束。候选文件不得直接覆盖正式策略，必须结合原始三轮报告人工审核。
+
+2026-08-11 在源码 `9b79f65cd107fdd25d99cbfb9e7528c69ea74c29` 上完成三轮校准，每轮 23/23 benchmark 与契约测试通过，单轮约 113 秒。原始报告保留在本机 `build/noise/round-{1,2,3}`，不进入版本库。审核结果如下：
+
+| 场景/指标 | P95 噪声 | max 噪声 | 正式策略 |
+|---|---:|---:|---|
+| `theme-switch/latency` | 66% | 123% | P95 observe 66%，max observe 100% |
+| `navigation-pane/mapping-time` | 8% | 85% | P95 gate 10%，max observe 85% |
+| `navigation-pane/reset-time` | 1% | 26% | P95 gate 10%，max observe 26% |
+| `example-large-model/frame-time` | 2% | 25% | P95 gate 10%，max observe 25% |
+| 其余 34 个指标 | 0% 至 10% | 0% 至 10% | P95/max gate 10% |
+
+`theme-switch` 的 P95 也表现出明显跨轮噪声，因此不能作为相对发布阻断；其绝对 P95 50ms 门限继续生效。百分比超过配置允许上限时以 observe 100% 保存，同时在本表保留原始 123% 证据。后续只有新的至少三轮校准证据才能修改这些策略，不得凭单轮失败扩大门限。
+
 ## 原 CI 参考档案
 
 `ubuntu2204-github-ci` 保留原架构要求：Ubuntu 22.04 兼容构建环境、Qt 6.8+、GCC 13.1+、Release/shared/LTO，以及审核后的 immutable runner image digest。其 CPU、RAM、GPU、显示和精确工具链目前为空，因此状态必须保持 `pending-user-validation`。

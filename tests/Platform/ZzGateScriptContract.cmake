@@ -17,6 +17,7 @@ set(required_tokens
     "scripts/ci/run-linux-gates.sh|linux-gcc-benchmarks"
     "scripts/ci/run-linux-gates.sh|linux-clang-asan-benchmarks"
     "scripts/ci/run-linux-gates.sh|ZzComparePerformanceReport.cmake"
+    "scripts/ci/run-linux-gates.sh|regression-thresholds.json"
     "scripts/ci/run-linux-gates.sh|sha256:\${profile_digest}"
     "scripts/ci/run-linux-gates.sh|ZZ_UBUNTU2204_BUILD_IMAGE"
     "scripts/ci/run-linux-gates.sh|pending-user-validation"

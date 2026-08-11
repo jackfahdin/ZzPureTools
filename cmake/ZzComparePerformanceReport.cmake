@@ -1,4 +1,4 @@
-foreach(required ZZ_BASELINE ZZ_CURRENT)
+foreach(required ZZ_BASELINE ZZ_CURRENT ZZ_THRESHOLDS)
     if(NOT DEFINED ${required} OR "${${required}}" STREQUAL "")
         message(FATAL_ERROR "Missing -D${required}=...")
     endif()
@@ -6,18 +6,13 @@ foreach(required ZZ_BASELINE ZZ_CURRENT)
         message(FATAL_ERROR "Performance report does not exist: ${${required}}")
     endif()
 endforeach()
-
-if(NOT DEFINED ZZ_MAX_REGRESSION_PERCENT)
-    set(ZZ_MAX_REGRESSION_PERCENT 10)
-endif()
-if(NOT "${ZZ_MAX_REGRESSION_PERCENT}" MATCHES "^[0-9]+$"
-   OR "${ZZ_MAX_REGRESSION_PERCENT}" GREATER 100)
-    message(FATAL_ERROR
-        "ZZ_MAX_REGRESSION_PERCENT must be an integer from 0 to 100")
+if(NOT EXISTS "${ZZ_THRESHOLDS}")
+    message(FATAL_ERROR "Performance threshold file does not exist: ${ZZ_THRESHOLDS}")
 endif()
 
 file(READ "${ZZ_BASELINE}" baseline_json)
 file(READ "${ZZ_CURRENT}" current_json)
+file(READ "${ZZ_THRESHOLDS}" thresholds_json)
 
 function(zz_json_get output json_text label)
     string(JSON value ERROR_VARIABLE json_error GET
@@ -76,13 +71,13 @@ function(zz_decimal_to_micro output input)
     set(${output} "${micro}" PARENT_SCOPE)
 endfunction()
 
-function(zz_assert_regression metric field baseline_value current_value)
+function(zz_assert_regression metric field baseline_value current_value mode percent)
     zz_decimal_to_micro(baseline_micro "${baseline_value}")
     zz_decimal_to_micro(current_micro "${current_value}")
     math(EXPR whole_increment
-        "(${baseline_micro} / 100) * ${ZZ_MAX_REGRESSION_PERCENT}")
+        "(${baseline_micro} / 100) * ${percent}")
     math(EXPR remainder_increment
-        "((${baseline_micro} % 100) * ${ZZ_MAX_REGRESSION_PERCENT}) / 100")
+        "((${baseline_micro} % 100) * ${percent}) / 100")
     set(maximum_signed_64 9223372036854775807)
     math(EXPR available_increment
         "${maximum_signed_64} - ${baseline_micro}")
@@ -99,9 +94,15 @@ function(zz_assert_regression metric field baseline_value current_value)
         endif()
     endif()
     if("${current_micro}" GREATER "${allowed_micro}")
-        message(FATAL_ERROR
-            "${metric}.${field} regressed from ${baseline_value} "
-            "to ${current_value}; limit is ${ZZ_MAX_REGRESSION_PERCENT}%")
+        if("${mode}" STREQUAL "observe")
+            message(WARNING
+                "OBSERVE ${metric}.${field} changed from ${baseline_value} "
+                "to ${current_value}; recorded band is ${percent}%")
+        else()
+            message(FATAL_ERROR
+                "${metric}.${field} regressed from ${baseline_value} "
+                "to ${current_value}; limit is ${percent}%")
+        endif()
     endif()
 endfunction()
 
@@ -109,8 +110,10 @@ zz_json_get(baseline_schema "${baseline_json}" "Baseline" schemaVersion)
 zz_json_get(current_schema "${current_json}" "Current" schemaVersion)
 zz_json_get(baseline_scenario "${baseline_json}" "Baseline" scenario)
 zz_json_get(current_scenario "${current_json}" "Current" scenario)
+zz_json_get(threshold_schema "${thresholds_json}" "Thresholds" schemaVersion)
 if(NOT "${baseline_schema}" STREQUAL "1"
    OR NOT "${current_schema}" STREQUAL "${baseline_schema}"
+   OR NOT "${threshold_schema}" STREQUAL "1"
    OR "${baseline_scenario}" STREQUAL ""
    OR NOT "${current_scenario}" STREQUAL "${baseline_scenario}")
     message(FATAL_ERROR
@@ -199,11 +202,33 @@ foreach(metric_index RANGE 0 ${last_metric_index})
             "${metric}" "${field}")
         zz_json_get(current_value "${current_json}" "Current" metrics
             "${metric}" "${field}")
+        zz_json_require_type("${thresholds_json}" "Thresholds" OBJECT
+            scenarios "${current_scenario}" metrics "${metric}" "${field}")
+        zz_json_require_type("${thresholds_json}" "Thresholds" STRING
+            scenarios "${current_scenario}" metrics "${metric}" "${field}" mode)
+        zz_json_require_type("${thresholds_json}" "Thresholds" NUMBER
+            scenarios "${current_scenario}" metrics "${metric}" "${field}" percent)
+        zz_json_get(mode "${thresholds_json}" "Thresholds"
+            scenarios "${current_scenario}" metrics "${metric}" "${field}" mode)
+        zz_json_get(percent "${thresholds_json}" "Thresholds"
+            scenarios "${current_scenario}" metrics "${metric}" "${field}" percent)
+        if(NOT "${mode}" STREQUAL "gate" AND NOT "${mode}" STREQUAL "observe")
+            message(FATAL_ERROR
+                "Threshold mode for ${metric}.${field} must be gate or observe")
+        endif()
+        if(NOT "${percent}" MATCHES "^[0-9]+$" OR "${percent}" GREATER 100)
+            message(FATAL_ERROR
+                "Threshold percent for ${metric}.${field} must be an integer from 0 to 100")
+        endif()
+        if("${mode}" STREQUAL "gate" AND "${percent}" GREATER 20)
+            message(FATAL_ERROR
+                "Gate threshold for ${metric}.${field} must not exceed 20%")
+        endif()
         zz_assert_regression(
-            "${metric}" "${field}" "${baseline_value}" "${current_value}")
+            "${metric}" "${field}" "${baseline_value}" "${current_value}"
+            "${mode}" "${percent}")
     endforeach()
 endforeach()
 
 message(STATUS
-    "Performance comparison passed for ${baseline_scenario} at "
-    "${ZZ_MAX_REGRESSION_PERCENT}%")
+    "Performance comparison passed for ${baseline_scenario} using ${ZZ_THRESHOLDS}")

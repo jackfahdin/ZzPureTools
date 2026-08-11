@@ -219,19 +219,19 @@ add_test(NAME benchmark.relative-comparison-valid
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
         "-DZZ_CURRENT=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
-        -DZZ_MAX_REGRESSION_PERCENT=10
+        "-DZZ_THRESHOLDS=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-thresholds-valid.json"
         -P "${PROJECT_SOURCE_DIR}/cmake/ZzComparePerformanceReport.cmake")
 add_test(NAME benchmark.relative-comparison-rejects-regression
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
         "-DZZ_CURRENT=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-regressed.json"
-        -DZZ_MAX_REGRESSION_PERCENT=10
+        "-DZZ_THRESHOLDS=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-thresholds-valid.json"
         -P "${PROJECT_SOURCE_DIR}/cmake/ZzComparePerformanceReport.cmake")
 add_test(NAME benchmark.relative-comparison-rejects-environment-mismatch
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_BASELINE=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-valid.json"
         "-DZZ_CURRENT=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-mismatched-environment.json"
-        -DZZ_MAX_REGRESSION_PERCENT=10
+        "-DZZ_THRESHOLDS=${CMAKE_CURRENT_SOURCE_DIR}/testdata/performance-thresholds-valid.json"
         -P "${PROJECT_SOURCE_DIR}/cmake/ZzComparePerformanceReport.cmake")
 set_tests_properties(
     benchmark.relative-comparison-rejects-regression

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "scenarios": {
+    "animation": { "metrics": {
+      "frame-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "example-idle": { "metrics": {
+      "average-cpu-percent": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-end-bytes": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-growth-percent": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-start-bytes": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "example-large-model": { "metrics": {
+      "frame-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "observe", "percent": 25 } },
+      "multi-data-calls": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "requested-rows": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "viewport-paints": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "example-navigation": { "metrics": {
+      "latency": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "example-startup": { "metrics": {
+      "external-total": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "first-paint": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "example-theme-switch": { "metrics": {
+      "latency": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "idle": { "metrics": {
+      "average-cpu-percent": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-end-bytes": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-growth-percent": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-start-bytes": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "large-model": { "metrics": {
+      "frame-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "multi-data-calls": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "requested-rows": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "viewport-paints": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "navigation-pane": { "metrics": {
+      "descendants": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "frame-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "mapping-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "observe", "percent": 85 } },
+      "paint-complexity-ratio": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "projections-per-pane": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "render-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "reset-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "observe", "percent": 26 } },
+      "state-update-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "views-per-pane": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "startup": { "metrics": {
+      "external-total": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "first-paint": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "modules-started": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "page-created": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "qt-created": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } },
+    "theme-switch": { "metrics": {
+      "latency": { "p95": { "mode": "observe", "percent": 66 }, "max": { "mode": "observe", "percent": 100 } }
+    } },
+    "window-lifecycle": { "metrics": {
+      "lifecycle-time": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } },
+      "rss-bytes": { "p95": { "mode": "gate", "percent": 10 }, "max": { "mode": "gate", "percent": 10 } }
+    } }
+  }
+}

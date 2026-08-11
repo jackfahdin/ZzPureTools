@@ -118,7 +118,7 @@ for scenario in "${performance_scenarios[@]}"; do
   cmake \
     -DZZ_BASELINE="docs/performance/reference/linux/${scenario}.json" \
     -DZZ_CURRENT="build/linux-gcc-benchmarks/reports/benchmark.${scenario}.json" \
-    -DZZ_MAX_REGRESSION_PERCENT=10 \
+    -DZZ_THRESHOLDS="docs/performance/reference/linux/regression-thresholds.json" \
     -P cmake/ZzComparePerformanceReport.cmake
 done
 
