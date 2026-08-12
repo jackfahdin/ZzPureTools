@@ -229,6 +229,21 @@ set_tests_properties(fluent.key-binder PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzColorPickerTest ZzColorPickerTest.cpp)
+target_link_libraries(ZzColorPickerTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzColorPickerTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzColorPickerTest)
+zz_enable_sanitizers(ZzColorPickerTest)
+add_test(NAME fluent.color-picker COMMAND ZzColorPickerTest)
+set_tests_properties(fluent.color-picker PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
 target_link_libraries(ZzMultiSelectComboBoxTest PRIVATE
     Qt6::Test

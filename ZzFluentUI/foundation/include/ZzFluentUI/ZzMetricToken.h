@@ -27,6 +27,8 @@ enum class ZzMetricToken : std::uint16_t
     DrawerDefaultWidth,
     SplitButtonMenuExtent,
     RatingGlyphExtent,
+    ColorSwatchExtent,
+    ColorSwatchGap,
     Count
 };
 

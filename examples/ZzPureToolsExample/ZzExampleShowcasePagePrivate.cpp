@@ -19,6 +19,7 @@
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
@@ -616,6 +617,41 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         });
     layout->addWidget(rating);
     layout->addWidget(ratingState);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "颜色选择"),
+        parent);
+    auto *colorPicker = new ZzFluentUI::ZzColorPicker(parent);
+    colorPicker->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample",
+        "示例颜色"));
+    colorPicker->setAlphaEnabled(true);
+    colorPicker->setCurrentColor(
+        QColor::fromRgba(qRgba(0, 120, 212, 192)));
+    auto *colorState = new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "当前颜色：%1")
+            .arg(colorPicker->currentColor()
+                     .name(QColor::HexArgb)
+                     .toUpper()),
+        parent);
+    QObject::connect(
+        colorPicker,
+        &ZzFluentUI::ZzColorPicker::currentColorChanged,
+        colorState,
+        [colorState](const QColor &color) {
+            colorState->setText(
+                QCoreApplication::translate(
+                    "ZzPureToolsExample",
+                    "当前颜色：%1")
+                    .arg(color.name(QColor::HexArgb).toUpper()));
+        });
+    layout->addWidget(colorPicker);
+    layout->addWidget(colorState);
 }
 
 void ZzExampleShowcasePagePrivate::buildIcons(

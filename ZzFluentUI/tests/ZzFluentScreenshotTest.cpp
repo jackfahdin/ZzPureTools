@@ -75,6 +75,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
+#include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
@@ -5012,13 +5013,14 @@ struct ZzInputExpansionTextMask final
     int passwordBoxes = 0;
     int splitButtons = 0;
     int keyBinders = 0;
+    int colorEditors = 0;
 };
 
 /** @brief 构造第三批输入组件的独立确定性截图面。 */
 class ZzInputExpansionScreenshotSurface final
 {
 public:
-    /** @brief 创建密码、分割按钮、评分和快捷键的稳定视觉状态。 */
+    /** @brief 创建第三批五个输入组件的稳定视觉状态。 */
     ZzInputExpansionScreenshotSurface()
     {
         window.setObjectName(
@@ -5061,10 +5063,17 @@ public:
             false);
         layout->addLayout(form);
 
+        auto *lowerLayout = new QHBoxLayout;
+        lowerLayout->setContentsMargins(0, 0, 0, 0);
+        lowerLayout->setSpacing(28);
+        auto *leftLayout = new QVBoxLayout;
+        leftLayout->setContentsMargins(0, 0, 0, 0);
+        leftLayout->setSpacing(16);
+
         auto *splitTitle = new QLabel(
             QStringLiteral("Split command states"),
             &window);
-        layout->addWidget(splitTitle);
+        leftLayout->addWidget(splitTitle);
         auto *splitLayout = new QHBoxLayout;
         splitLayout->setContentsMargins(0, 0, 0, 0);
         splitLayout->setSpacing(16);
@@ -5090,12 +5099,12 @@ public:
             QStringLiteral("Disabled"),
             ZzFluentUI::ZzButtonAppearance::Standard,
             false);
-        layout->addLayout(splitLayout);
+        leftLayout->addLayout(splitLayout);
 
         auto *ratingTitle = new QLabel(
             QStringLiteral("Rating states"),
             &window);
-        layout->addWidget(ratingTitle);
+        leftLayout->addWidget(ratingTitle);
         auto *ratingLayout = new QHBoxLayout;
         ratingLayout->setContentsMargins(0, 0, 0, 0);
         ratingLayout->setSpacing(32);
@@ -5128,12 +5137,12 @@ public:
             false,
             false);
         ratingLayout->addStretch(1);
-        layout->addLayout(ratingLayout);
+        leftLayout->addLayout(ratingLayout);
 
         auto *shortcutTitle = new QLabel(
             QStringLiteral("Shortcut recorder"),
             &window);
-        layout->addWidget(shortcutTitle);
+        leftLayout->addWidget(shortcutTitle);
         auto *shortcutForm = new QFormLayout;
         shortcutForm->setContentsMargins(0, 0, 0, 0);
         shortcutForm->setHorizontalSpacing(24);
@@ -5146,7 +5155,35 @@ public:
         shortcutForm->addRow(
             QStringLiteral("Primary shortcut"),
             keyBinder);
-        layout->addLayout(shortcutForm);
+        leftLayout->addLayout(shortcutForm);
+        leftLayout->addStretch(1);
+        lowerLayout->addLayout(leftLayout, 1);
+
+        auto *colorLayout = new QVBoxLayout;
+        colorLayout->setContentsMargins(0, 0, 0, 0);
+        colorLayout->setSpacing(10);
+        colorLayout->addWidget(new QLabel(
+            QStringLiteral("Color picker"),
+            &window));
+        auto *colorPicker = new ZzFluentUI::ZzColorPicker(&window);
+        colorPicker->setAccessibleName(QStringLiteral("RGBA color"));
+        colorPicker->setFixedWidth(384);
+        colorPicker->setPaletteColors({
+            QColor(QStringLiteral("#0078d4")),
+            QColor(QStringLiteral("#107c10")),
+            QColor(QStringLiteral("#ffb900")),
+            QColor(QStringLiteral("#d13438")),
+            QColor(QStringLiteral("#881798")),
+            QColor(QStringLiteral("#00b7c3")),
+            QColor(QStringLiteral("#ffffff")),
+            QColor(QStringLiteral("#000000"))});
+        colorPicker->setAlphaEnabled(true);
+        colorPicker->setCurrentColor(
+            QColor::fromRgba(qRgba(64, 128, 192, 128)));
+        colorLayout->addWidget(colorPicker);
+        colorLayout->addStretch(1);
+        lowerLayout->addLayout(colorLayout);
+        layout->addLayout(lowerLayout, 1);
         layout->addStretch(1);
     }
 
@@ -5201,7 +5238,7 @@ private:
         button->setAppearance(appearance);
         button->setMenu(splitMenu_);
         button->setEnabled(enabled);
-        button->setFixedWidth(176);
+        button->setFixedWidth(120);
         layout->addWidget(button);
         return button;
     }
@@ -5244,7 +5281,12 @@ ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
         qRound(zzLogicalSurfaceSize.width() * dpr),
         qRound(zzLogicalSurfaceSize.height() * dpr));
     ZzInputExpansionTextMask result{
-        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0, 0};
+        QImage(physicalSize, QImage::Format_Grayscale8),
+        0,
+        0,
+        0,
+        0,
+        0};
     result.image.setDevicePixelRatio(dpr);
     result.image.fill(0);
     QPainter painter(&result.image);
@@ -5308,6 +5350,28 @@ ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
             }
             ++result.keyBinders;
             continue;
+        }
+        if (auto *editor = qobject_cast<QLineEdit *>(widget);
+            editor != nullptr) {
+            QWidget *ancestor = editor->parentWidget();
+            while (ancestor != nullptr
+                   && qobject_cast<ZzFluentUI::ZzColorPicker *>(ancestor)
+                       == nullptr) {
+                ancestor = ancestor->parentWidget();
+            }
+            if (ancestor != nullptr) {
+                const QMargins margins = editor->textMargins();
+                const QRect textRect = editor->contentsRect().adjusted(
+                    margins.left(),
+                    0,
+                    -margins.right(),
+                    0);
+                zzPaintMaskRect(
+                    &painter,
+                    zzMapToSurface(editor, textRect, surface));
+                ++result.colorEditors;
+                continue;
+            }
         }
         auto *box = qobject_cast<ZzFluentUI::ZzPasswordBox *>(widget);
         if (box == nullptr) {
@@ -8327,6 +8391,14 @@ private Q_SLOTS:
                 Qt::ControlModifier | Qt::ShiftModifier,
                 Qt::Key_P)));
         QVERIFY(!keyBinders.constFirst()->isRecording());
+        const auto colorPickers = surface.window.findChildren<
+            ZzFluentUI::ZzColorPicker *>();
+        QCOMPARE(colorPickers.size(), 1);
+        QCOMPARE(colorPickers.constFirst()->paletteColorCount(), 8);
+        QVERIFY(colorPickers.constFirst()->isAlphaEnabled());
+        QCOMPARE(
+            colorPickers.constFirst()->currentColor().rgba(),
+            qRgba(64, 128, 192, 128));
 
         const QImage actual = zzRenderInputExpansionSurface(
             &surface,
@@ -8339,10 +8411,11 @@ private Q_SLOTS:
             zzBuildInputExpansionTextMask(
                 &surface.window,
                 actualDpr_);
-        QVERIFY(mask.labels >= 12);
+        QVERIFY(mask.labels >= 18);
         QCOMPARE(mask.passwordBoxes, 4);
         QCOMPARE(mask.splitButtons, 4);
         QCOMPARE(mask.keyBinders, 1);
+        QCOMPARE(mask.colorEditors, 5);
         surface.hide();
 
         const QString baselineDirectory = QDir(

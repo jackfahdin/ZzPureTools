@@ -932,6 +932,22 @@
         <translation>Current rating: %1 / 5</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="620"/>
+        <source>颜色选择</source>
+        <translation>Color selection</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="625"/>
+        <source>示例颜色</source>
+        <translation>Example color</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="633"/>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="646"/>
+        <source>当前颜色：%1</source>
+        <translation>Current color: %1</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="333"/>
         <source>内嵌 SVG、字体字形与 Qt 标准图标共享主题和高 DPI 渲染</source>
         <translation>Bundled SVGs, font glyphs, and Qt standard icons share theme-aware high-DPI rendering</translation>

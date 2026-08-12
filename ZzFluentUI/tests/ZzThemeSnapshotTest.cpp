@@ -54,6 +54,12 @@ private Q_SLOTS:
         QCOMPARE(
             snapshot.metric(ZzFluentUI::ZzMetricToken::RatingGlyphExtent),
             24.0);
+        QCOMPARE(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::ColorSwatchExtent),
+            32.0);
+        QCOMPARE(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::ColorSwatchGap),
+            8.0);
         QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::OverlayScrim).alpha()
                 > 0);
         QVERIFY(snapshot.color(ZzFluentUI::ZzColorToken::Information).isValid());

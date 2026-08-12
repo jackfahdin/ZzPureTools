@@ -30,6 +30,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
+#include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
@@ -225,6 +226,7 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzPivot pivot;
   ZzFluentUI::ZzPasswordBox passwordBox;
   ZzFluentUI::ZzKeyBinder keyBinder;
+  ZzFluentUI::ZzColorPicker colorPicker;
   ZzFluentUI::ZzSplitButton splitButton(QStringLiteral("Installed build"));
   ZzFluentUI::ZzRatingControl ratingControl;
   QMenu splitMenu;
@@ -323,6 +325,13 @@ int main(int argc, char *argv[]) {
   keyBinder.setKeySequence(QKeySequence(QKeyCombination(
       Qt::ControlModifier | Qt::ShiftModifier,
       Qt::Key_P)));
+  colorPicker.setStyle(&fluentStyle);
+  colorPicker.setPaletteColors({
+      QColor(QStringLiteral("#102030")),
+      QColor::fromRgba(qRgba(64, 80, 96, 128))});
+  colorPicker.setAlphaEnabled(true);
+  colorPicker.setCurrentColor(
+      QColor::fromRgba(qRgba(64, 80, 96, 128)));
   splitMenu.addAction(QStringLiteral("Installed option"));
   splitButton.setStyle(&fluentStyle);
   splitButton.setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
@@ -502,6 +511,12 @@ int main(int argc, char *argv[]) {
       keyBinder.keySequence() != QKeySequence(QKeyCombination(
           Qt::ControlModifier | Qt::ShiftModifier,
           Qt::Key_P)) ||
+      colorPicker.style() != &fluentStyle ||
+      colorPicker.paletteColorCount() != 2 ||
+      colorPicker.paletteColors().at(1).rgba() !=
+          qRgba(64, 80, 96, 128) ||
+      !colorPicker.isAlphaEnabled() ||
+      colorPicker.currentColor().rgba() != qRgba(64, 80, 96, 128) ||
       splitButton.style() != &fluentStyle ||
       splitButton.appearance() !=
           ZzFluentUI::ZzButtonAppearance::Accent ||

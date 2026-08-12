@@ -47,6 +47,7 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
+#include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
@@ -505,6 +506,24 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
             keyBinderResult->setText(
                 sequence.toString(QKeySequence::NativeText));
         });
+    auto *colorPicker = new ZzFluentUI::ZzColorPicker(container);
+    colorPicker->setAccessibleName(QStringLiteral("Accent color"));
+    colorPicker->setAlphaEnabled(true);
+    colorPicker->setCurrentColor(
+        QColor::fromRgba(qRgba(0, 120, 212, 192)));
+    auto *colorResult = new QLabel(
+        colorPicker->currentColor()
+            .name(QColor::HexArgb)
+            .toUpper(),
+        container);
+    QObject::connect(
+        colorPicker,
+        &ZzFluentUI::ZzColorPicker::currentColorChanged,
+        colorResult,
+        [colorResult](const QColor &color) {
+            colorResult->setText(
+                color.name(QColor::HexArgb).toUpper());
+        });
     auto *wholeRating = new ZzFluentUI::ZzRatingControl(container);
     wholeRating->setAccessibleName(QStringLiteral("Whole rating"));
     wholeRating->setRating(4.0);
@@ -705,6 +724,8 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     form->addRow(QStringLiteral("Password"), password);
     form->addRow(QStringLiteral("Shortcut"), keyBinder);
     form->addRow(QStringLiteral("Recorded shortcut"), keyBinderResult);
+    form->addRow(QStringLiteral("Color"), colorPicker);
+    form->addRow(QStringLiteral("Current color"), colorResult);
     form->addRow(QStringLiteral("Whole rating"), wholeRating);
     form->addRow(QStringLiteral("Half rating"), halfRating);
     form->addRow(QStringLiteral("Read-only rating"), readOnlyRating);
