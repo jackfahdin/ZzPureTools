@@ -900,6 +900,22 @@
         <translation>Password is temporarily visible</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="554"/>
+        <source>快捷键录制</source>
+        <translation>Shortcut recording</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="565"/>
+        <source>示例快捷键</source>
+        <translation>Example shortcut</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="570"/>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="581"/>
+        <source>当前快捷键：%1</source>
+        <translation>Current shortcut: %1</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="550"/>
         <source>星级评分</source>
         <translation>Star rating</translation>

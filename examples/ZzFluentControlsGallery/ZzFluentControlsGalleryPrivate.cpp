@@ -55,6 +55,7 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
+#include <ZzFluentUI/ZzKeyBinder.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -486,6 +487,24 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     auto *password = new ZzFluentUI::ZzPasswordBox(container);
     password->setAccessibleName(QStringLiteral("Workspace password"));
     password->setText(QStringLiteral("Fluent-2026"));
+    const QKeySequence defaultShortcut(QKeyCombination(
+        Qt::ControlModifier | Qt::ShiftModifier,
+        Qt::Key_P));
+    auto *keyBinder = new ZzFluentUI::ZzKeyBinder(
+        defaultShortcut,
+        container);
+    keyBinder->setAccessibleName(QStringLiteral("Build shortcut"));
+    auto *keyBinderResult = new QLabel(
+        defaultShortcut.toString(QKeySequence::NativeText),
+        container);
+    QObject::connect(
+        keyBinder,
+        &ZzFluentUI::ZzKeyBinder::recordingAccepted,
+        keyBinderResult,
+        [keyBinderResult](const QKeySequence &sequence) {
+            keyBinderResult->setText(
+                sequence.toString(QKeySequence::NativeText));
+        });
     auto *wholeRating = new ZzFluentUI::ZzRatingControl(container);
     wholeRating->setAccessibleName(QStringLiteral("Whole rating"));
     wholeRating->setRating(4.0);
@@ -684,6 +703,8 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     datePicker->setDate(QDate(2026, 8, 5));
     form->addRow(QStringLiteral("Name"), name);
     form->addRow(QStringLiteral("Password"), password);
+    form->addRow(QStringLiteral("Shortcut"), keyBinder);
+    form->addRow(QStringLiteral("Recorded shortcut"), keyBinderResult);
     form->addRow(QStringLiteral("Whole rating"), wholeRating);
     form->addRow(QStringLiteral("Half rating"), halfRating);
     form->addRow(QStringLiteral("Read-only rating"), readOnlyRating);

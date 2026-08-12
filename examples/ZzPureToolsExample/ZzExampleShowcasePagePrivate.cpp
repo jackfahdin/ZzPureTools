@@ -25,6 +25,7 @@
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzKeyBinder.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzPivot.h>
@@ -548,6 +549,41 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         });
     layout->addWidget(passwordBox);
     layout->addWidget(passwordState);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "快捷键录制"),
+        parent);
+    const QKeySequence defaultShortcut(QKeyCombination(
+        Qt::ControlModifier | Qt::ShiftModifier,
+        Qt::Key_P));
+    auto *keyBinder = new ZzFluentUI::ZzKeyBinder(
+        defaultShortcut,
+        parent);
+    keyBinder->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample",
+        "示例快捷键"));
+    auto *keyBinderState = new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "当前快捷键：%1")
+            .arg(defaultShortcut.toString(QKeySequence::NativeText)),
+        parent);
+    QObject::connect(
+        keyBinder,
+        &ZzFluentUI::ZzKeyBinder::recordingAccepted,
+        keyBinderState,
+        [keyBinderState](const QKeySequence &sequence) {
+            keyBinderState->setText(
+                QCoreApplication::translate(
+                    "ZzPureToolsExample",
+                    "当前快捷键：%1")
+                    .arg(sequence.toString(QKeySequence::NativeText)));
+        });
+    layout->addWidget(keyBinder);
+    layout->addWidget(keyBinderState);
 
     zzAddShowcaseSection(
         layout,

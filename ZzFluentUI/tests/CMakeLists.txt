@@ -214,6 +214,21 @@ set_tests_properties(fluent.rating-control PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzKeyBinderTest ZzKeyBinderTest.cpp)
+target_link_libraries(ZzKeyBinderTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzKeyBinderTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzKeyBinderTest)
+zz_enable_sanitizers(ZzKeyBinderTest)
+add_test(NAME fluent.key-binder COMMAND ZzKeyBinderTest)
+set_tests_properties(fluent.key-binder PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
 target_link_libraries(ZzMultiSelectComboBoxTest PRIVATE
     Qt6::Test

@@ -86,6 +86,7 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
+#include <ZzFluentUI/ZzKeyBinder.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMessageSeverity.h>
 #include <ZzFluentUI/ZzMetricToken.h>
@@ -5010,13 +5011,14 @@ struct ZzInputExpansionTextMask final
     int labels = 0;
     int passwordBoxes = 0;
     int splitButtons = 0;
+    int keyBinders = 0;
 };
 
 /** @brief 构造第三批输入组件的独立确定性截图面。 */
 class ZzInputExpansionScreenshotSurface final
 {
 public:
-    /** @brief 创建密码、分割按钮和评分控件的稳定视觉状态。 */
+    /** @brief 创建密码、分割按钮、评分和快捷键的稳定视觉状态。 */
     ZzInputExpansionScreenshotSurface()
     {
         window.setObjectName(
@@ -5127,6 +5129,24 @@ public:
             false);
         ratingLayout->addStretch(1);
         layout->addLayout(ratingLayout);
+
+        auto *shortcutTitle = new QLabel(
+            QStringLiteral("Shortcut recorder"),
+            &window);
+        layout->addWidget(shortcutTitle);
+        auto *shortcutForm = new QFormLayout;
+        shortcutForm->setContentsMargins(0, 0, 0, 0);
+        shortcutForm->setHorizontalSpacing(24);
+        auto *keyBinder = new ZzFluentUI::ZzKeyBinder(
+            QKeySequence(QKeyCombination(
+                Qt::ControlModifier | Qt::ShiftModifier,
+                Qt::Key_P)),
+            &window);
+        keyBinder->setAccessibleName(QStringLiteral("Primary shortcut"));
+        shortcutForm->addRow(
+            QStringLiteral("Primary shortcut"),
+            keyBinder);
+        layout->addLayout(shortcutForm);
         layout->addStretch(1);
     }
 
@@ -5224,7 +5244,7 @@ ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
         qRound(zzLogicalSurfaceSize.width() * dpr),
         qRound(zzLogicalSurfaceSize.height() * dpr));
     ZzInputExpansionTextMask result{
-        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0};
+        QImage(physicalSize, QImage::Format_Grayscale8), 0, 0, 0, 0};
     result.image.setDevicePixelRatio(dpr);
     result.image.fill(0);
     QPainter painter(&result.image);
@@ -5267,6 +5287,26 @@ ZzInputExpansionTextMask zzBuildInputExpansionTextMask(
                 &painter,
                 zzMapToSurface(button, textRect, surface));
             ++result.splitButtons;
+            continue;
+        }
+        if (auto *keyBinder =
+                qobject_cast<ZzFluentUI::ZzKeyBinder *>(widget);
+            keyBinder != nullptr) {
+            auto *editor = keyBinder->findChild<QLineEdit *>(
+                QString(),
+                Qt::FindDirectChildrenOnly);
+            if (editor != nullptr) {
+                const QMargins margins = editor->textMargins();
+                const QRect textRect = editor->contentsRect().adjusted(
+                    margins.left(),
+                    0,
+                    -margins.right(),
+                    0);
+                zzPaintMaskRect(
+                    &painter,
+                    zzMapToSurface(editor, textRect, surface));
+            }
+            ++result.keyBinders;
             continue;
         }
         auto *box = qobject_cast<ZzFluentUI::ZzPasswordBox *>(widget);
@@ -8278,6 +8318,15 @@ private Q_SLOTS:
         QCOMPARE(ratings.at(1)->rating(), 3.5);
         QVERIFY(ratings.at(2)->isReadOnly());
         QVERIFY(!ratings.at(3)->isEnabled());
+        const auto keyBinders = surface.window.findChildren<
+            ZzFluentUI::ZzKeyBinder *>();
+        QCOMPARE(keyBinders.size(), 1);
+        QCOMPARE(
+            keyBinders.constFirst()->keySequence(),
+            QKeySequence(QKeyCombination(
+                Qt::ControlModifier | Qt::ShiftModifier,
+                Qt::Key_P)));
+        QVERIFY(!keyBinders.constFirst()->isRecording());
 
         const QImage actual = zzRenderInputExpansionSurface(
             &surface,
@@ -8290,9 +8339,10 @@ private Q_SLOTS:
             zzBuildInputExpansionTextMask(
                 &surface.window,
                 actualDpr_);
-        QVERIFY(mask.labels >= 10);
+        QVERIFY(mask.labels >= 12);
         QCOMPARE(mask.passwordBoxes, 4);
         QCOMPARE(mask.splitButtons, 4);
+        QCOMPARE(mask.keyBinders, 1);
         surface.hide();
 
         const QString baselineDirectory = QDir(

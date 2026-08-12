@@ -36,6 +36,7 @@
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzImageCard.h>
+#include <ZzFluentUI/ZzKeyBinder.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzNavigationItemRole.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
@@ -223,6 +224,7 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzExpander expander;
   ZzFluentUI::ZzPivot pivot;
   ZzFluentUI::ZzPasswordBox passwordBox;
+  ZzFluentUI::ZzKeyBinder keyBinder;
   ZzFluentUI::ZzSplitButton splitButton(QStringLiteral("Installed build"));
   ZzFluentUI::ZzRatingControl ratingControl;
   QMenu splitMenu;
@@ -317,6 +319,10 @@ int main(int argc, char *argv[]) {
   passwordBox.setText(QStringLiteral("Installed secret"));
   passwordBox.setRevealMode(
       ZzFluentUI::ZzPasswordRevealMode::Visible);
+  keyBinder.setStyle(&fluentStyle);
+  keyBinder.setKeySequence(QKeySequence(QKeyCombination(
+      Qt::ControlModifier | Qt::ShiftModifier,
+      Qt::Key_P)));
   splitMenu.addAction(QStringLiteral("Installed option"));
   splitButton.setStyle(&fluentStyle);
   splitButton.setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
@@ -491,6 +497,11 @@ int main(int argc, char *argv[]) {
           ZzFluentUI::ZzPasswordRevealMode::Visible ||
       !passwordBox.isPasswordVisible() ||
       passwordBox.echoMode() != QLineEdit::Normal ||
+      keyBinder.style() != &fluentStyle || keyBinder.isRecording() ||
+      keyBinder.maximumSequenceLength() != 1 ||
+      keyBinder.keySequence() != QKeySequence(QKeyCombination(
+          Qt::ControlModifier | Qt::ShiftModifier,
+          Qt::Key_P)) ||
       splitButton.style() != &fluentStyle ||
       splitButton.appearance() !=
           ZzFluentUI::ZzButtonAppearance::Accent ||
