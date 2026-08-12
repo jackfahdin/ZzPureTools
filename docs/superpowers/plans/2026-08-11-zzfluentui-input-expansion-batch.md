@@ -595,10 +595,11 @@ scripts/ci/run-linux-gates.sh
 
 ## 11. 实施结果（完成后填写）
 
-- 提交：待实施。
-- Linux 测试：待实施。
-- 截图：待实施。
-- Clang-Tidy：待实施。
-- ASan/UBSan：待实施。
-- 性能：待实施。
-- Windows/macOS：待实施。
+- 提交：已完成，依次为 `97b9318`（PasswordBox）、`d4c3d9f`（SplitButton）、`8ee1cca`（RatingControl）、`fbfd58b`（KeyBinder）、`74c5f16`（ColorPicker）。公开 Fluent 组件数由 32 增至 37。
+- Linux 构建与测试：`linux-gcc-debug`、`linux-gcc-release`、`linux-static-release`、`linux-gcc-release-lto`、`linux-static-release-lto` 均构建成功，CTest 均为 `130/130` 通过；第三批五个定向组件测试为 `5/5` 通过。
+- 截图：`input-expansion` 已覆盖 Light、Dark、HighContrast 三主题和 DPR 100/125/150/200，共 12 张基线；四档截图测试全部通过。
+- Clang-Tidy：shared/static 两套编译数据库均为 `222/222` 文件通过。
+- ASan/UBSan：`ZzColorPickerTest` 的 10 个测试用例断言全部通过，未发现组件自身 ASan/UBSan 报告；进程退出阶段 LeakSanitizer 受当前执行环境 ptrace 限制失败（`LeakSanitizer does not work under ptrace`），因此不能记为完整 Sanitizer 门禁通过。
+- 性能：Linux benchmark preset 的 `152/152` 测试通过，12 个场景均完成采样；相对基线比较中 8 项通过，4 个场景的 5 个指标超过当前逐指标 10% 门限：`startup.modules-started.max`、`animation.frame-time.max`、`animation.frame-time.p95`、`window-lifecycle.lifecycle-time.max`、`example-navigation.latency.p95`。本批不修改阈值，性能门禁状态为“采样完成、局部比较未通过，待固定负载复核”。
+- Windows/macOS：未进行真实构建或运行，仅完成公共 API、条件编译、CMake preset、Qt 公共接口和平台依赖方向静态审计；Windows MSVC、Windows MinGW、macOS arm64/x86_64 不得写成通过。
+- 工作区：`temp_image/` 仍为未跟踪目录，未进入任何提交；构建目录和性能报告也未提交。

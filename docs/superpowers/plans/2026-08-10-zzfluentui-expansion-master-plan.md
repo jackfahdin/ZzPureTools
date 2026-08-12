@@ -6,7 +6,7 @@
 
 **技术栈：** Qt 6.8+ Widgets、C++20、CMake Presets、Qt Test、Clang-Tidy、ASan/UBSan。
 
-**路线状态（2026-08-11）：** 第 0、1、2 批已经完成，公开组件数由 26 增至 32。逐指标性能策略、视觉令牌扫描、反馈表面原语、三项反馈组件、导航与 Tree 指示条动画，以及 Expander、Pivot、Drawer 均已进入生产代码；Typography、Motion 与 AnimationPolicy 已有真实控件消费者。TabView 评估决定不新增同义控件，现有 `ZzTabBar`/`ZzTabWidget` 继续承载文档标签能力，并通过 corner widget 组合新建意图入口。下一步是编写第 3 批输入组件详细计划。
+**路线状态（2026-08-12）：** 第 0、1、2、3 批已经完成，公开组件数由 26 增至 37。逐指标性能策略、视觉令牌扫描、反馈表面原语、反馈与对话组件、导航与 Tree 指示条动画、Expander、Pivot、Drawer，以及 PasswordBox、SplitButton、RatingControl、KeyBinder、ColorPicker 均已进入生产代码；Typography、Motion 与 AnimationPolicy 已有真实控件消费者。TabView 评估决定不新增同义控件，现有 `ZzTabBar`/`ZzTabWidget` 继续承载文档标签能力，并通过 corner widget 组合新建意图入口。`ZzColorDialog` 评估结论是不包装原生 `QColorDialog`，由可组合 `ZzColorPicker` 承载 Fluent 颜色输入。下一步切换到第 4 批软件 Mica/Acrylic 窗口背景特效的详细规划；性能比较中的局部回归和 Windows/macOS 真实构建仍需单独处理。
 
 **执行方式（重要）：** 本文档是总计划（路线图粒度）。每个批次动工前，先把该批次展开为一份独立的详细实施计划，放在本目录（`docs/superpowers/plans/2026-08-XX-zzfluentui-<batch>.md`），粒度对齐既有 28 份计划（逐文件、逐绘制函数、旧代码审计、红绿命令、Expected），确认后再写代码。本文档中标注"实施时定/选简单者"的决策点，必须在批次详细计划里给出定论和理由，不允许带着未定决策动工。
 
@@ -253,7 +253,7 @@
 
 ---
 
-## 6. 批次 4：软件 Mica/Acrylic（窗口特效）
+## 6. 批次 4：软件 Mica/Acrylic（窗口特效，下一阶段）
 
 **现状（实施起点）：** `ZzWindowKit` 公开枚举 `ZzWindowBackdrop`（None/Blur/Acrylic/Mica/MicaAlt/Automatic，include/ZzWindowKit/ZzWindowBackdrop.h），入口 `ZzWindowAgent::setBackdrop()`，平台声明与支持矩阵全在 `src/private/ZzQWindowKitBackend.cpp`（Win11≥22000→Mica、22H2≥22621→MicaAlt；Linux 仅 None）；测试替身 `tests/private/ZzFakeWindowBackend.*`。
 
