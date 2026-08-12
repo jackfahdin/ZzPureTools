@@ -199,6 +199,21 @@ set_tests_properties(fluent.split-button PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzRatingControlTest ZzRatingControlTest.cpp)
+target_link_libraries(ZzRatingControlTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzRatingControlTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzRatingControlTest)
+zz_enable_sanitizers(ZzRatingControlTest)
+add_test(NAME fluent.rating-control COMMAND ZzRatingControlTest)
+set_tests_properties(fluent.rating-control PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
 target_link_libraries(ZzMultiSelectComboBoxTest PRIVATE
     Qt6::Test

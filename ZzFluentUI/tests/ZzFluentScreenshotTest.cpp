@@ -100,6 +100,8 @@
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzRatingControl.h>
+#include <ZzFluentUI/ZzRatingPrecision.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
@@ -5014,7 +5016,7 @@ struct ZzInputExpansionTextMask final
 class ZzInputExpansionScreenshotSurface final
 {
 public:
-    /** @brief 创建 PasswordBox 和 SplitButton 的稳定视觉状态。 */
+    /** @brief 创建密码、分割按钮和评分控件的稳定视觉状态。 */
     ZzInputExpansionScreenshotSurface()
     {
         window.setObjectName(
@@ -5087,6 +5089,44 @@ public:
             ZzFluentUI::ZzButtonAppearance::Standard,
             false);
         layout->addLayout(splitLayout);
+
+        auto *ratingTitle = new QLabel(
+            QStringLiteral("Rating states"),
+            &window);
+        layout->addWidget(ratingTitle);
+        auto *ratingLayout = new QHBoxLayout;
+        ratingLayout->setContentsMargins(0, 0, 0, 0);
+        ratingLayout->setSpacing(32);
+        addRatingControl(
+            ratingLayout,
+            QStringLiteral("Whole"),
+            4.0,
+            ZzFluentUI::ZzRatingPrecision::Whole,
+            false,
+            true);
+        addRatingControl(
+            ratingLayout,
+            QStringLiteral("Half"),
+            3.5,
+            ZzFluentUI::ZzRatingPrecision::Half,
+            false,
+            true);
+        addRatingControl(
+            ratingLayout,
+            QStringLiteral("Read only"),
+            4.0,
+            ZzFluentUI::ZzRatingPrecision::Whole,
+            true,
+            true);
+        addRatingControl(
+            ratingLayout,
+            QStringLiteral("Disabled"),
+            2.5,
+            ZzFluentUI::ZzRatingPrecision::Half,
+            false,
+            false);
+        ratingLayout->addStretch(1);
+        layout->addLayout(ratingLayout);
         layout->addStretch(1);
     }
 
@@ -5144,6 +5184,30 @@ private:
         button->setFixedWidth(176);
         layout->addWidget(button);
         return button;
+    }
+
+    /** @brief 增加一个带状态标题的固定评分控件。 */
+    void addRatingControl(
+        QHBoxLayout *layout,
+        const QString &label,
+        qreal rating,
+        ZzFluentUI::ZzRatingPrecision precision,
+        bool readOnly,
+        bool enabled)
+    {
+        auto *host = new QWidget(&window);
+        auto *hostLayout = new QVBoxLayout(host);
+        hostLayout->setContentsMargins(0, 0, 0, 0);
+        hostLayout->setSpacing(6);
+        hostLayout->addWidget(new QLabel(label, host));
+        auto *control = new ZzFluentUI::ZzRatingControl(host);
+        control->setAccessibleName(label);
+        control->setPrecision(precision);
+        control->setRating(rating);
+        control->setReadOnly(readOnly);
+        control->setEnabled(enabled);
+        hostLayout->addWidget(control);
+        layout->addWidget(host);
     }
 
     QPointer<ZzFluentUI::ZzPasswordBox> peekBox_;
@@ -8204,6 +8268,16 @@ private Q_SLOTS:
             splitButtons.at(2)->appearance(),
             ZzFluentUI::ZzButtonAppearance::Subtle);
         QVERIFY(!splitButtons.at(3)->isEnabled());
+        const auto ratings = surface.window.findChildren<
+            ZzFluentUI::ZzRatingControl *>();
+        QCOMPARE(ratings.size(), 4);
+        QCOMPARE(ratings.at(0)->rating(), 4.0);
+        QCOMPARE(
+            ratings.at(1)->precision(),
+            ZzFluentUI::ZzRatingPrecision::Half);
+        QCOMPARE(ratings.at(1)->rating(), 3.5);
+        QVERIFY(ratings.at(2)->isReadOnly());
+        QVERIFY(!ratings.at(3)->isEnabled());
 
         const QImage actual = zzRenderInputExpansionSurface(
             &surface,
@@ -8216,7 +8290,7 @@ private Q_SLOTS:
             zzBuildInputExpansionTextMask(
                 &surface.window,
                 actualDpr_);
-        QVERIFY(mask.labels >= 5);
+        QVERIFY(mask.labels >= 10);
         QCOMPARE(mask.passwordBoxes, 4);
         QCOMPARE(mask.splitButtons, 4);
         surface.hide();

@@ -45,6 +45,8 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzRatingControl.h>
+#include <ZzFluentUI/ZzRatingPrecision.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
@@ -222,6 +224,7 @@ int main(int argc, char *argv[]) {
   ZzFluentUI::ZzPivot pivot;
   ZzFluentUI::ZzPasswordBox passwordBox;
   ZzFluentUI::ZzSplitButton splitButton(QStringLiteral("Installed build"));
+  ZzFluentUI::ZzRatingControl ratingControl;
   QMenu splitMenu;
   QWidget drawerHost;
   ZzFluentUI::ZzDrawer drawer(&drawerHost);
@@ -318,6 +321,9 @@ int main(int argc, char *argv[]) {
   splitButton.setStyle(&fluentStyle);
   splitButton.setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
   splitButton.setMenu(&splitMenu);
+  ratingControl.setStyle(&fluentStyle);
+  ratingControl.setPrecision(ZzFluentUI::ZzRatingPrecision::Half);
+  ratingControl.setRating(3.5);
   drawerHost.resize(640, 480);
   drawer.setStyle(&fluentStyle);
   drawer.setEdge(ZzFluentUI::ZzDrawerEdge::Right);
@@ -492,6 +498,10 @@ int main(int argc, char *argv[]) {
       splitMenu.parent() != nullptr || splitMenu.actions().size() != 1 ||
       splitButton.sizeHint().width() <=
           QPushButton(QStringLiteral("Installed build")).sizeHint().width() ||
+      ratingControl.style() != &fluentStyle ||
+      ratingControl.maximumRating() != 5 ||
+      ratingControl.precision() != ZzFluentUI::ZzRatingPrecision::Half ||
+      ratingControl.rating() != 3.5 || ratingControl.isReadOnly() ||
       drawer.style() != &fluentStyle || drawer.isOpen() ||
       drawer.edge() != ZzFluentUI::ZzDrawerEdge::Right ||
       drawer.isModal() || drawer.widthHint() != 240 ||

@@ -48,6 +48,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzPushButtonPrivate.cpp
     widgets/src/ZzSplitButton.cpp
     widgets/src/private/ZzSplitButtonPrivate.cpp
+    widgets/src/ZzRatingControl.cpp
+    widgets/src/private/ZzRatingControlPrivate.cpp
     widgets/src/ZzIconButton.cpp
     widgets/src/private/ZzIconButtonPrivate.cpp
     widgets/src/ZzToggleSwitch.cpp
@@ -119,6 +121,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzFluentStyle.h
     widgets/include/ZzFluentUI/ZzPushButton.h
     widgets/include/ZzFluentUI/ZzSplitButton.h
+    widgets/include/ZzFluentUI/ZzRatingControl.h
     widgets/include/ZzFluentUI/ZzIconButton.h
     widgets/include/ZzFluentUI/ZzToggleSwitch.h
     widgets/include/ZzFluentUI/ZzProgressRing.h

@@ -900,6 +900,22 @@
         <translation>Password is temporarily visible</translation>
     </message>
     <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="550"/>
+        <source>星级评分</source>
+        <translation>Star rating</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="554"/>
+        <source>示例评分</source>
+        <translation>Example rating</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="560"/>
+        <location filename="../ZzExampleShowcasePagePrivate.cpp" line="573"/>
+        <source>当前评分：%1 / 5</source>
+        <translation>Current rating: %1 / 5</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="333"/>
         <source>内嵌 SVG、字体字形与 Qt 标准图标共享主题和高 DPI 渲染</source>
         <translation>Bundled SVGs, font glyphs, and Qt standard icons share theme-aware high-DPI rendering</translation>

@@ -30,6 +30,8 @@
 #include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzRatingControl.h>
+#include <ZzFluentUI/ZzRatingPrecision.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
@@ -546,6 +548,38 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         });
     layout->addWidget(passwordBox);
     layout->addWidget(passwordState);
+
+    zzAddShowcaseSection(
+        layout,
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "星级评分"),
+        parent);
+    auto *rating = new ZzFluentUI::ZzRatingControl(parent);
+    rating->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample",
+        "示例评分"));
+    rating->setPrecision(ZzFluentUI::ZzRatingPrecision::Half);
+    rating->setRating(3.5);
+    auto *ratingState = new QLabel(
+        QCoreApplication::translate(
+            "ZzPureToolsExample",
+            "当前评分：%1 / 5")
+            .arg(rating->rating(), 0, 'f', 1),
+        parent);
+    QObject::connect(
+        rating,
+        &ZzFluentUI::ZzRatingControl::ratingChanged,
+        ratingState,
+        [ratingState](qreal value) {
+            ratingState->setText(
+                QCoreApplication::translate(
+                    "ZzPureToolsExample",
+                    "当前评分：%1 / 5")
+                    .arg(value, 0, 'f', 1));
+        });
+    layout->addWidget(rating);
+    layout->addWidget(ratingState);
 }
 
 void ZzExampleShowcasePagePrivate::buildIcons(

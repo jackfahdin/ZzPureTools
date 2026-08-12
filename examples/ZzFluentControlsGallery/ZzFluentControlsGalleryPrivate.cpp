@@ -64,6 +64,8 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzRatingControl.h>
+#include <ZzFluentUI/ZzRatingPrecision.h>
 #include <ZzFluentUI/ZzRoller.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
@@ -484,6 +486,18 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     auto *password = new ZzFluentUI::ZzPasswordBox(container);
     password->setAccessibleName(QStringLiteral("Workspace password"));
     password->setText(QStringLiteral("Fluent-2026"));
+    auto *wholeRating = new ZzFluentUI::ZzRatingControl(container);
+    wholeRating->setAccessibleName(QStringLiteral("Whole rating"));
+    wholeRating->setRating(4.0);
+    auto *halfRating = new ZzFluentUI::ZzRatingControl(container);
+    halfRating->setAccessibleName(QStringLiteral("Half rating"));
+    halfRating->setPrecision(ZzFluentUI::ZzRatingPrecision::Half);
+    halfRating->setRating(3.5);
+    auto *readOnlyRating = new ZzFluentUI::ZzRatingControl(container);
+    readOnlyRating->setAccessibleName(QStringLiteral("Read-only rating"));
+    readOnlyRating->setPrecision(ZzFluentUI::ZzRatingPrecision::Half);
+    readOnlyRating->setRating(4.5);
+    readOnlyRating->setReadOnly(true);
     auto *notes = new QTextEdit(container);
     notes->setHtml(QStringLiteral(
         "<b>Fluent controls</b><br>Cross-platform UI"));
@@ -670,6 +684,9 @@ QWidget *ZzFluentControlsGalleryPrivate::buildControlsColumn(
     datePicker->setDate(QDate(2026, 8, 5));
     form->addRow(QStringLiteral("Name"), name);
     form->addRow(QStringLiteral("Password"), password);
+    form->addRow(QStringLiteral("Whole rating"), wholeRating);
+    form->addRow(QStringLiteral("Half rating"), halfRating);
+    form->addRow(QStringLiteral("Read-only rating"), readOnlyRating);
     form->addRow(QStringLiteral("Notes"), notes);
     form->addRow(QStringLiteral("Output"), output);
     form->addRow(QStringLiteral("RTL text"), rightToLeftText);
