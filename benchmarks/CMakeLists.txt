@@ -113,6 +113,22 @@ zz_add_benchmark(ZzWindowLifecycleBenchmark
     ZzWindowLifecycleBenchmark.cpp benchmark.window-lifecycle)
 zz_add_benchmark(ZzNavigationPaneBenchmark
     ZzNavigationPaneBenchmark.cpp benchmark.navigation-pane)
+add_executable(ZzBackdropBenchmark
+    ZzBackdropBenchmark.cpp
+    "${PROJECT_SOURCE_DIR}/ZzWindowKit/src/private/ZzSoftwareBackdrop.cpp"
+    "${PROJECT_SOURCE_DIR}/ZzWindowKit/src/private/ZzSoftwareBackdropPrivate.cpp")
+target_include_directories(ZzBackdropBenchmark PRIVATE
+    "${PROJECT_SOURCE_DIR}/ZzWindowKit/src/private")
+target_link_libraries(ZzBackdropBenchmark PRIVATE
+    ZzBenchmarkSupport Qt6::Core Qt6::Gui Qt6::Widgets)
+set_target_properties(ZzBackdropBenchmark PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzBackdropBenchmark)
+zz_enable_sanitizers(ZzBackdropBenchmark)
+add_test(NAME benchmark.backdrop COMMAND ZzBackdropBenchmark
+    --report "${CMAKE_BINARY_DIR}/reports/benchmark.backdrop.json")
+set_tests_properties(benchmark.backdrop PROPERTIES
+    LABELS "benchmark"
+    TIMEOUT 120)
 
 target_link_libraries(ZzStartupBenchmark PRIVATE Zz::PureTools)
 target_link_libraries(ZzThemeSwitchBenchmark PRIVATE Zz::FluentUI)
