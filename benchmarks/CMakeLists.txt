@@ -113,6 +113,27 @@ zz_add_benchmark(ZzWindowLifecycleBenchmark
     ZzWindowLifecycleBenchmark.cpp benchmark.window-lifecycle)
 zz_add_benchmark(ZzNavigationPaneBenchmark
     ZzNavigationPaneBenchmark.cpp benchmark.navigation-pane)
+add_executable(ZzFluentStandardSurfacesBenchmark
+    ZzFluentStandardSurfacesBenchmark.cpp)
+qt_add_resources(ZzFluentStandardSurfacesBenchmark
+    "zzfluent-standard-surfaces-icons"
+    PREFIX "/zzfluent/standard-surfaces"
+    BASE "${PROJECT_SOURCE_DIR}/ZzFluentUI/tests/resources"
+    FILES
+        "${PROJECT_SOURCE_DIR}/ZzFluentUI/tests/resources/ZzFluentTestSquare.svg")
+target_link_libraries(ZzFluentStandardSurfacesBenchmark PRIVATE
+    ZzBenchmarkSupport Qt6::Core Qt6::Gui Qt6::Test Qt6::Widgets
+    Zz::FluentUI)
+set_target_properties(ZzFluentStandardSurfacesBenchmark PROPERTIES
+    AUTOMOC ON)
+zz_enable_project_warnings(ZzFluentStandardSurfacesBenchmark)
+zz_enable_sanitizers(ZzFluentStandardSurfacesBenchmark)
+add_test(NAME benchmark.fluent-standard-surfaces
+    COMMAND ZzFluentStandardSurfacesBenchmark
+        --report "${CMAKE_BINARY_DIR}/reports/benchmark.fluent-standard-surfaces.json")
+set_tests_properties(benchmark.fluent-standard-surfaces PROPERTIES
+    LABELS "benchmark;fluent;observe"
+    TIMEOUT 120)
 add_executable(ZzBackdropBenchmark
     ZzBackdropBenchmark.cpp
     "${PROJECT_SOURCE_DIR}/ZzWindowKit/src/private/ZzSoftwareBackdrop.cpp"

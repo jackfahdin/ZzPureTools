@@ -298,6 +298,31 @@ platform.package-relocation
 本批只验证当前 Linux shared 安装消费；Linux static、Windows MSVC/MinGW 和
 macOS 的安装消费仍需各自 ABI/原生工具链证据，不能由本结果替代。
 
+性能实施结果（2026-08-13）：新增独立的
+`benchmark.fluent-standard-surfaces` 观测场景，覆盖 checkable
+`ZzPushButton`、`ZzIconButton`、`QCheckBox`、`QRadioButton`、`QSlider`、
+`QLineEdit`、`QPlainTextEdit`、`QComboBox`、`QProgressBar`、
+`QListView`、`QTableView`、`QTreeView`、`QMenuBar`、`QToolBar`、
+`QStatusBar` 和 `QLCDNumber`。场景使用统一的
+`ZzBenchmarkMetadata`/`ZzPerformanceReporter` schema，记录状态更新耗时、
+窗口渲染耗时、对象数量和 Fluent 图标样式缓存字节数；指标暂时标记为
+`observe`，没有修改现有正式性能阈值或回归门禁。
+
+Linux Qt 6.11.1/GCC 15.2.0、`linux-gcc-benchmarks`、LTO、共享库、Xvfb
+1920x1080x24 的一次基准报告结果为：
+
+| 指标 | P50 | P95 | 最大值 |
+|---|---:|---:|---:|
+| `state-update-time` | 0.262479 ms | 0.294026 ms | 0.428748 ms |
+| `render-time` | 1.344733 ms | 1.391289 ms | 1.603555 ms |
+| `object-count` | 127 | 127 | 127 |
+| `style-cache-bytes` | 6272 bytes | 6272 bytes | 6272 bytes |
+
+对象数量和图标缓存没有随 100 次测量迭代增长，固定窗口渲染结果非空。CTest
+运行依赖使用 CMake 生成的 build-tree RUNPATH；没有把临时
+`LD_LIBRARY_PATH` 写入仓库。Windows MSVC、Windows MinGW 与 macOS 本批未执行
+真实 benchmark，仅保留静态可移植性边界。
+
 静态检查：
 
 - Architecture 确认新代码无 stylesheet、裸主题色、QWindowKit、Qt Private、平台 native API 和业务模型依赖；
