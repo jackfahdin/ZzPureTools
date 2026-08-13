@@ -1,6 +1,6 @@
 # ZzPureToolsPro 原生平台验收与发布候选计划
 
-**状态：** 执行中。
+**状态：** 阶段 A 已完成，阶段 B 等待物理桌面终端执行。
 
 **目标：** 在不继续扩充组件数量的前提下，把已经完成 Linux 自动质量门禁的
 ZzPureToolsPro 推进到可审计的 Linux 物理桌面验收，并为 Windows MSVC、Windows
@@ -29,6 +29,17 @@ Linux 为当前主实现与自动验证平台。Windows 和 macOS 没有原生�
 - 用户目录 `temp_image/` 是本地验收输入，禁止修改、删除或提交；当前 Linux 采证
   脚本把该目录误判为源码脏状态，必须先修正。
 - GitHub CI 暂不作为本计划执行前置条件，不调用 GitHub CLI、不 push。
+
+**阶段 A 实施记录（2026-08-13）：** `6463102` 允许采证脚本精确保留顶层
+`temp_image/` 本地输入，`579310a` 增加 `loginctl` 本地活动桌面会话绑定。Bash
+语法、帮助入口、`platform.linux-desktop-acceptance-contract` 均通过。当前远程
+Codex shell 属于 `XDG_SESSION_ID=55`、`Remote=yes` 的 tty；本机可用物理会话是
+`session 12 / KDE / Wayland / Remote=no / Active=yes`。脚本从远程 shell 正确以
+退出码 65 拒绝，未创建伪造证据目录。
+
+native 和 forced Qt fallback 的 shared Release Example 已在同一候选提交构建完成，
+两个 ELF 的 build-tree RUNPATH 完整，`ldd` 未发现 `not found` 依赖；这些是构建和
+依赖准备结果，不是人工交互通过结果。
 
 ## 2. 状态和证据模型
 
@@ -104,7 +115,7 @@ X11 必须由 `xrandr --listmonitors` 证明存在活动输出；Wayland 必须�
 不能用 Xvfb 或伪造环境变量替代。
 
 退出条件：采证脚本合同通过，`temp_image/` 保留且没有进入提交，当前真实 session
-和可用显示输出已经识别。
+和可用显示输出已经识别。**已完成。**
 
 ---
 
@@ -186,7 +197,8 @@ fallback 验收必须确认基础移动、resize、导航和关闭可用，能�
   session 受支持前必须补证据。
 
 退出条件：当前真实 session 和 forced Qt fallback 各有独立、字段完整的人工结果；
-所有发现的问题均有结论；平台矩阵只提升实际执行的行。
+所有发现的问题均有结论；平台矩阵只提升实际执行的行。**待 session 12 的 KDE
+Wayland Konsole 执行；当前不能登记人工通过。**
 
 ---
 
