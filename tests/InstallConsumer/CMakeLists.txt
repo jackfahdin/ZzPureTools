@@ -19,6 +19,7 @@ set(zz_installed_header_specs
     "Zz::FluentFoundation|ZzFluentUI/ZzNavigationPlacement.h"
     "Zz::FluentUI|ZzFluentUI/ZzFluentWidgetVersion.h"
     "Zz::FluentUI|ZzFluentUI/ZzFluentUIExport.h"
+    "Zz::FluentUI|ZzFluentUI/ZzPushButton.h"
     "Zz::FluentUI|ZzFluentUI/ZzCalendar.h"
     "Zz::FluentUI|ZzFluentUI/ZzCalendarPicker.h"
     "Zz::FluentUI|ZzFluentUI/ZzProgressRing.h"

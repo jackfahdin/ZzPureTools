@@ -9,6 +9,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QLabel>
@@ -19,11 +20,17 @@
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QProgressBar>
+#include <QtWidgets/QRadioButton>
+#include <QtWidgets/QSlider>
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QTableView>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
+#include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
@@ -47,6 +54,7 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRatingControl.h>
 #include <ZzFluentUI/ZzRatingPrecision.h>
 #include <ZzFluentUI/ZzRoller.h>
@@ -64,6 +72,26 @@ int main(int argc, char *argv[]) {
   QApplication application(argc, argv);
   ZzFluentUI::ZzThemeController themeController;
   ZzFluentUI::ZzFluentStyle fluentStyle(&themeController);
+  ZzFluentUI::ZzPushButton checkableButton(
+      QStringLiteral("Keep preview"));
+  checkableButton.setStyle(&fluentStyle);
+  checkableButton.setCheckable(true);
+  checkableButton.setChecked(true);
+  checkableButton.setAccessibleName(QStringLiteral("Keep preview"));
+  QCheckBox checkBox(QStringLiteral("Diagnostics"));
+  checkBox.setStyle(&fluentStyle);
+  checkBox.setChecked(true);
+  QRadioButton radioButton(QStringLiteral("Balanced"));
+  radioButton.setStyle(&fluentStyle);
+  radioButton.setChecked(true);
+  QSlider slider(Qt::Horizontal);
+  slider.setStyle(&fluentStyle);
+  slider.setRange(0, 100);
+  slider.setValue(68);
+  QProgressBar progressBar;
+  progressBar.setStyle(&fluentStyle);
+  progressBar.setRange(0, 100);
+  progressBar.setValue(68);
   QLineEdit lineEdit(QStringLiteral("Alpha"));
   QTextEdit textEdit(QStringLiteral("Beta"));
   QPlainTextEdit plainTextEdit(QStringLiteral("Gamma"));
@@ -87,6 +115,21 @@ int main(int argc, char *argv[]) {
   selection.addItem(QStringLiteral("Local"), 17);
   selection.addItem(QStringLiteral("Remote"), 29);
   selection.setCurrentIndex(0);
+  QStandardItemModel itemViewModel;
+  itemViewModel.appendRow(new QStandardItem(QStringLiteral("First")));
+  itemViewModel.appendRow(new QStandardItem(QStringLiteral("Second")));
+  QListView listView;
+  listView.setStyle(&fluentStyle);
+  listView.setModel(&itemViewModel);
+  listView.setCurrentIndex(itemViewModel.index(1, 0));
+  QTableView tableView;
+  tableView.setStyle(&fluentStyle);
+  tableView.setModel(&itemViewModel);
+  tableView.setCurrentIndex(itemViewModel.index(0, 0));
+  QTreeView treeView;
+  treeView.setStyle(&fluentStyle);
+  treeView.setModel(&itemViewModel);
+  treeView.setCurrentIndex(itemViewModel.index(0, 0));
   QComboBox editableSelection;
   editableSelection.setStyle(&fluentStyle);
   editableSelection.setEditable(true);
@@ -388,6 +431,23 @@ int main(int argc, char *argv[]) {
   }
   if (commandImage.pixelColor(commandImage.rect().center()).alpha() == 0) {
     return 27;
+  }
+  if (!checkableButton.isCheckable() || !checkableButton.isChecked()
+      || checkableButton.style() != &fluentStyle
+      || checkableButton.accessibleName() != QStringLiteral("Keep preview")
+      || !checkBox.isChecked() || checkBox.style() != &fluentStyle
+      || !radioButton.isChecked() || radioButton.style() != &fluentStyle
+      || slider.minimum() != 0 || slider.maximum() != 100
+      || slider.value() != 68 || slider.style() != &fluentStyle
+      || progressBar.minimum() != 0 || progressBar.maximum() != 100
+      || progressBar.value() != 68 || progressBar.style() != &fluentStyle
+      || listView.model() != &itemViewModel
+      || listView.currentIndex() != itemViewModel.index(1, 0)
+      || tableView.model() != &itemViewModel
+      || tableView.currentIndex() != itemViewModel.index(0, 0)
+      || treeView.model() != &itemViewModel
+      || treeView.currentIndex() != itemViewModel.index(0, 0)) {
+    return 28;
   }
 
   if (lineEdit.style() != &fluentStyle || textEdit.style() != &fluentStyle ||

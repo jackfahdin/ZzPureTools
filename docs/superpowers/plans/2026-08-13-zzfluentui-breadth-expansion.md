@@ -280,6 +280,24 @@ Linux Qt 6.11.1/GCC 15.2.0 已通过 `example.puretools-integration`、英文翻
 - tests/InstallConsumer 新增只链接 Zz::FluentUI 的标准控件和 checkable `ZzPushButton` 编译/运行消费；
 - 验证 shared 与 static 的 include、导出符号、moc、资源和 CMake package 不暴露 private 头或旧版路径。
 
+### 安装消费实施结果（2026-08-13）
+
+`tests/InstallConsumer` 已补充 `ZzPushButton` 公共头，以及安装包中对
+`QCheckBox`、`QRadioButton`、`QSlider`、`QProgressBar`、`QListView`、
+`QTableView` 和 `QTreeView` 的公开 API 消费合同。安装后 GUI 消费进程验证
+checkable 状态、可访问名称、Qt model/view 模型与当前索引、范围和值以及
+Fluent style 指针均来自已安装包，不包含业务服务或 private 头。
+
+Linux Qt 6.11.1/GCC 15.2.0 的 `linux-gcc-debug` 已通过：
+
+```text
+install.consumer
+platform.package-relocation
+```
+
+本批只验证当前 Linux shared 安装消费；Linux static、Windows MSVC/MinGW 和
+macOS 的安装消费仍需各自 ABI/原生工具链证据，不能由本结果替代。
+
 静态检查：
 
 - Architecture 确认新代码无 stylesheet、裸主题色、QWindowKit、Qt Private、平台 native API 和业务模型依赖；
