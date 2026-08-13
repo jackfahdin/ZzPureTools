@@ -46,6 +46,7 @@
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzIconButton.h>
+#include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzNavigationController.h>
@@ -651,6 +652,17 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
         if (page == nullptr) {
             return false;
         }
+        auto *checkableButton = page->findChild<ZzFluentUI::ZzPushButton *>(
+            QStringLiteral("zzExampleCheckableButton"));
+        if (checkableButton == nullptr || !checkableButton->isCheckable()
+            || !checkableButton->isChecked()) {
+            return false;
+        }
+        checkableButton->click();
+        if (checkableButton->isChecked()) {
+            return false;
+        }
+        checkableButton->click();
         return !page->findChildren<QLineEdit *>().isEmpty()
             && !page->findChildren<QPlainTextEdit *>().isEmpty()
             && !page->findChildren<QComboBox *>().isEmpty()
@@ -658,7 +670,8 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
             && page->findChildren<QRadioButton *>().size() >= 2
             && !page->findChildren<QSlider *>().isEmpty()
             && !page->findChildren<QProgressBar *>().isEmpty()
-            && !page->findChildren<ZzFluentUI::ZzToggleSwitch *>().isEmpty();
+            && !page->findChildren<ZzFluentUI::ZzToggleSwitch *>().isEmpty()
+            && checkableButton->isChecked();
     }
     if (routeId == QStringLiteral("list-view")) {
         auto *view = window.findChild<QListView *>(

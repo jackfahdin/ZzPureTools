@@ -1,8 +1,10 @@
 #include <QtCore/QCoreApplication>
+#include <QtGui/QAccessible>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QDialog>
 
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -17,6 +19,72 @@ class ZzButtonControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void checkablePushButtonPreservesToggleSemantics()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QDialog dialog;
+        dialog.setStyle(&style);
+        ZzFluentUI::ZzPushButton button(
+            QStringLiteral("Pin preview"),
+            &dialog);
+        button.setStyle(&style);
+        button.setAppearance(ZzFluentUI::ZzButtonAppearance::Subtle);
+        button.setCheckable(true);
+        button.setAccessibleName(QStringLiteral("Pin preview"));
+        button.resize(140, 36);
+        button.setDefault(true);
+        dialog.resize(180, 80);
+        dialog.show();
+        button.show();
+        QCoreApplication::processEvents();
+
+        QSignalSpy toggledSpy(&button, &QAbstractButton::toggled);
+        QSignalSpy clickedSpy(&button, &QAbstractButton::clicked);
+        QCOMPARE(button.isCheckable(), true);
+        QCOMPARE(button.isChecked(), false);
+
+        button.setChecked(true);
+        QCOMPARE(button.isChecked(), true);
+        QCOMPARE(toggledSpy.count(), 1);
+        button.setChecked(true);
+        QCOMPARE(toggledSpy.count(), 1);
+
+        button.setFocus();
+        QTest::keyClick(&button, Qt::Key_Space);
+        QCOMPARE(button.isChecked(), false);
+        QCOMPARE(toggledSpy.count(), 2);
+        QCOMPARE(clickedSpy.count(), 1);
+        QTest::keyClick(&button, Qt::Key_Return);
+        QCOMPARE(button.isChecked(), true);
+        QCOMPARE(toggledSpy.count(), 3);
+        QCOMPARE(clickedSpy.count(), 2);
+
+        button.setEnabled(false);
+        QTest::keyClick(&button, Qt::Key_Space);
+        QCOMPARE(button.isChecked(), true);
+        QCOMPARE(clickedSpy.count(), 2);
+        button.setEnabled(true);
+
+        const qsizetype childCount = button.children().size();
+        const QSize stableSize = button.sizeHint();
+        for (int index = 0; index < 1000; ++index) {
+            button.setChecked((index % 2) == 0);
+        }
+        QCOMPARE(button.children().size(), childCount);
+        QCOMPARE(button.sizeHint(), stableSize);
+
+        QAccessibleInterface *accessible =
+            QAccessible::queryAccessibleInterface(&button);
+        QVERIFY(accessible != nullptr);
+        if (accessible != nullptr) {
+            QCOMPARE(accessible->role(), QAccessible::CheckBox);
+            QCOMPARE(
+                accessible->text(QAccessible::Name),
+                QStringLiteral("Pin preview"));
+        }
+    }
+
     void pushButtonPreservesQtActivation()
     {
         ZzFluentUI::ZzThemeController controller;

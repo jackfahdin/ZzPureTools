@@ -471,6 +471,11 @@
         <translation>Disabled</translation>
     </message>
     <message>
+        <location filename="../ZzExampleGalleryPagePrivate.cpp" line="288"/>
+        <source>保持预览</source>
+        <translation>Keep preview</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleGalleryPagePrivate.cpp" line="287"/>
         <source>启用标准按钮</source>
         <translation>Enable standard button</translation>
@@ -484,6 +489,16 @@
         <location filename="../ZzExampleGalleryPagePrivate.cpp" line="312"/>
         <source>主要操作已执行</source>
         <translation>Primary action completed</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleGalleryPagePrivate.cpp" line="329"/>
+        <source>预览已保持</source>
+        <translation>Preview is kept</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleGalleryPagePrivate.cpp" line="329"/>
+        <source>预览已释放</source>
+        <translation>Preview is released</translation>
     </message>
     <message>
         <location filename="../ZzExampleGalleryPagePrivate.cpp" line="322"/>

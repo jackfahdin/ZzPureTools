@@ -349,6 +349,16 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
     auto *disabledButton = new ZzFluentUI::ZzPushButton(
         QCoreApplication::translate("ZzPureToolsExample", "不可用"), content);
     disabledButton->setEnabled(false);
+    auto *checkableButton = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate("ZzPureToolsExample", "保持预览"),
+        content);
+    checkableButton->setObjectName(
+        QStringLiteral("zzExampleCheckableButton"));
+    checkableButton->setAccessibleName(
+        QCoreApplication::translate("ZzPureToolsExample", "保持预览"));
+    checkableButton->setCheckable(true);
+    checkableButton->setChecked(true);
+    checkableButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Subtle);
     auto *enabledSwitch = new ZzFluentUI::ZzToggleSwitch(
         QCoreApplication::translate("ZzPureToolsExample", "启用标准按钮"), content);
     enabledSwitch->setChecked(true);
@@ -356,6 +366,7 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
     commandRow->addWidget(accentButton);
     commandRow->addWidget(subtleButton);
     commandRow->addWidget(disabledButton);
+    commandRow->addWidget(checkableButton);
     commandRow->addStretch(1);
     commandRow->addWidget(enabledSwitch);
     layout->addLayout(commandRow);
@@ -376,6 +387,20 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
         [message] {
             message->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
             message->setText(QCoreApplication::translate("ZzPureToolsExample", "主要操作已执行"));
+            message->show();
+        });
+    QObject::connect(
+        checkableButton,
+        &QAbstractButton::toggled,
+        message,
+        [message](bool checked) {
+            message->setText(QCoreApplication::translate(
+                "ZzPureToolsExample",
+                checked ? "预览已保持" : "预览已释放"));
+            message->setSeverity(
+                checked
+                    ? ZzFluentUI::ZzMessageSeverity::Information
+                    : ZzFluentUI::ZzMessageSeverity::Warning);
             message->show();
         });
     QObject::connect(

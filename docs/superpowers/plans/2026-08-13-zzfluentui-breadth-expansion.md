@@ -70,7 +70,7 @@
 | ZzTableView | 标准控件覆盖 | QTableView 与统一 item view visual 配合，不新增包装类。 |
 | ZzTearOffWidget | 复用 ZzTabBar/ZzTabWidget intent | 新项目已将拖出表达为 intent；不提供旧版抽象工厂和隐式顶层窗口。 |
 | ZzText | 使用 QLabel + ZzTypographyToken | 纯文字包装会增加 API 但不能增加语义；富文本由调用方选择 Qt 文本控件。 |
-| ZzToggleButton | 新增 | WinUI ToggleButton 与 ToggleSwitch 语义不同，是有价值的独立可复用命令控件。 |
+| ZzToggleButton | checkable ZzPushButton | Qt 的 QPushButton 已提供命令切换所需的 checked、toggled、键盘和无障碍语义；不新增同义包装类。 |
 | ZzToolBar | 标准控件覆盖 | QToolBar action、dock、overflow 和平台行为由 Qt 保留。 |
 | ZzToolButton | 标准控件 + ZzIconButton | 普通 action 使用 QToolButton，纯图标命令使用现有 ZzIconButton。 |
 | ZzToolTip | 标准 QToolTip + ZzTeachingTip | ToolTip 是短暂被动态，TeachingTip 是持久交互反馈，两者边界已经明确。 |
@@ -87,7 +87,7 @@
 
 ### 3.1 目标结果
 
-- 新增 ZzToggleButton，公开组件数由 37 增至 38；
+- 旧版 ZzToggleButton 映射为 `ZzPushButton + setCheckable(true)`，公开组件数保持 37；
 - ZzFluentStyle 对标准控件的覆盖、尺寸、状态、RTL、焦点和高对比断言形成独立标准表面验收组；
 - Gallery 和 ZzPureToolsExample 展示基础命令、输入、数据视图、菜单/工具栏、状态栏、数字显示和弹层的完整组合；
 - 旧版 31 个候选全部有迁移、复用或拒绝迁移记录；
@@ -121,17 +121,13 @@
 - 覆盖 Normal、Hover、Pressed、Checked/Selected、Disabled、Focus、RTL 和 HighContrast；
 - 只在真的改变已有视觉契约时更新截图基线，并在同一逻辑提交中完成。
 
-### 4.2 ZzToggleButton 四文件 Pimpl
+### 4.2 旧版 ToggleButton 的组合映射
 
-文件：
-
-    ZzFluentUI/widgets/include/ZzFluentUI/ZzToggleButton.h
-    ZzFluentUI/widgets/src/ZzToggleButton.cpp
-    ZzFluentUI/widgets/src/private/ZzToggleButtonPrivate.h
-    ZzFluentUI/widgets/src/private/ZzToggleButtonPrivate.cpp
-    ZzFluentUI/tests/ZzToggleButtonTest.cpp
-
-定论：ZzToggleButton final : QPushButton，构造时设置 setCheckable(true)，直接使用 Qt 的 checked/clicked/toggled 状态；不自造第二个 bool 状态机。
+新版不新增 `ZzToggleButton` 四文件包装类。命令切换使用 `ZzPushButton` 的原生
+`setCheckable(true)`，由 `QAbstractButton` 管理 checked、toggled、鼠标取消、
+Space/Enter、焦点和无障碍协议；`ZzFluentStyle` 根据 `State_On` 绘制选中 surface。
+需要轨道和滑块表达的二值设置继续使用 `ZzToggleSwitch`，两者语义边界清晰。
+`ZzButtonControlsTest` 和 Example smoke 合同分别锁定这两种用法。
 
 公开契约：
 
@@ -197,24 +193,22 @@ Linux Qt 6.11.1/GCC 15.2.0 的 `linux-gcc-debug` 构建已通过，标准控件�
 全部通过，标准广度截图四个 DPR 档均在更新模式和关闭更新模式下通过；Windows MSVC、
 Windows MinGW 与 macOS 本批仍只做静态检查，未声明真机通过。
 
-### 第 1 批：ToggleButton 语义组件
+### 第 1 批：命令切换语义合同
 
 目的：新增唯一一个有独立 Fluent 语义的旧版缺失控件，不复制 Qt checked 状态机。
 
 修改范围：
 
-- 新建四文件和 ZzToggleButtonTest.cpp；
-- ZzFluentUI/CMakeLists.txt 加入源文件和 moc 头；
-- ZzFluentUI/tests/CMakeLists.txt 注册 fluent.toggle-button；
-- Gallery 新增 ToggleButton 小节；
-- ScreenshotTest 增加 ToggleButton 状态截图；
-- README 加入公开组件清单；
-- 本计划记录实施结果。
+- 在 `ZzButtonControlsTest` 增加 checkable `ZzPushButton` 合同；
+- Gallery 增加明确的命令切换按钮示例，不新增公共类型；
+- Example smoke 检查该按钮的 checkable 属性和原生状态；
+- README 与本计划记录旧版 `ZzToggleButton` 的组合映射。
 
 行为合同：
 
-- 主区鼠标、Space、Enter、助记键、focus 和 accessibility 与 QPushButton 一致；
-- setCheckable(true) 只在构造时设置，checked 状态由 Qt 基类拥有；
+- 主区鼠标、Space、助记键、focus 和 accessibility 与 QPushButton 一致；在 Qt
+  对话框默认按钮上下文中，Return/Enter 继续遵循 QPushButton 原生激活语义；
+- `setCheckable(true)` 由应用在需要命令切换语义时设置，checked 状态由 Qt 基类拥有；
 - 重复 setChecked 不重复发业务信号；
 - 禁用态拒绝交互但仍绘制可读文字；
 - ZzButtonAppearance 和主题 snapshot 控制 surface，不允许组件写裸色值；
@@ -222,18 +216,18 @@ Windows MinGW 与 macOS 本批仍只做静态检查，未声明真机通过。
 - 1000 次 checked/hover/focus 切换后子对象数量、style 地址和几何尺寸稳定；
 - 无障碍名称来自 text/accessibility properties，不能用内部状态字符串替代。
 
-提交标题：控件：新增Fluent切换按钮。
+提交标题：测试：固化可选中PushButton切换语义。
 
 ### 第 2 批：Example 广度串联与旧版功能映射
 
-目的：将标准表面和 ZzToggleButton 串联进新 ZzPureToolsExample，验证前后端分离和实际视觉，不把旧页面代码直接迁入库。
+目的：将标准表面和 checkable `ZzPushButton` 串联进新 ZzPureToolsExample，验证前后端分离和实际视觉，不把旧页面代码直接迁入库。
 
 修改范围：
 
 - Example 展示页/Presenter/Model，仅复用旧版页面的展示意图和资源；
 - 不复制旧版 ZzNavigationBar、ZzScrollPage、ZzPromotion*、ZzAcrylicUrlCard 实现；
 - 业务数据由现有 Example model 提供，控件页只连接 intent 和展示模型；
-- 增加标准控件、菜单、工具栏、状态栏、表格、树、列表、数字显示、进度和 ToggleButton 组合页面；
+- 增加标准控件、菜单、工具栏、状态栏、表格、树、列表、数字显示、进度和命令切换按钮组合页面；
 - 更新 Example 截图烟测，仅在页面视觉确实改变时重采对应基线。
 
 验收重点：
@@ -242,10 +236,10 @@ Windows MinGW 与 macOS 本批仍只做静态检查，未声明真机通过。
 - 选中指示条、文字、内容安全区域不重叠；
 - Setting/About 与其他导航项之间的 hover/selected 状态即时收敛；
 - Activity 日志到达尾部时自动跟随，用户手动上移后保持阅读位置；
-- ToggleButton 点击任意可见 surface 均生效，不要求命中内部圆点；
+- checkable `ZzPushButton` 点击任意可见 surface 均生效，不要求命中内部圆点；
 - 页面在 Linux 物理桌面/X11/Wayland 手工清单上记录实际结果，offscreen 只能作为自动测试。
 
-提交标题：示例：串联Fluent标准表面与切换按钮。
+提交标题：示例：串联Fluent标准表面与命令切换。
 
 ### Example 集成审计结果（2026-08-13）
 
@@ -276,14 +270,14 @@ Linux Qt 6.11.1/GCC 15.2.0 已通过 `example.puretools-integration`、英文翻
 性能：
 
 - 扩展现有 ZzBasicControlsBenchmark，或新增独立 benchmark.fluent-standard-surfaces；
-- 采集标准表面固定尺寸 render、ToggleButton 状态切换、对象数量和 style/cache 稳定性；
+- 采集标准表面固定尺寸 render、checkable `ZzPushButton` 状态切换、对象数量和 style/cache 稳定性；
 - 使用 ZzBenchmarkMetadata::populate 和 ZzPerformanceReporter，报告带 Qt、编译器、DPR、平台、GPU、commit 和 preset；
 - local-release-xvfb 至少三轮噪声采样；新指标先进入 observe，有独立基线后再决定 gate；
 - 不修改既有阈值，不把新场景直接加入正式回归循环，直到 schema、基线和比较器合同完整。
 
 安装消费：
 
-- tests/InstallConsumer 新增只链接 Zz::FluentUI 的标准控件和 ZzToggleButton 编译/运行消费；
+- tests/InstallConsumer 新增只链接 Zz::FluentUI 的标准控件和 checkable `ZzPushButton` 编译/运行消费；
 - 验证 shared 与 static 的 include、导出符号、moc、资源和 CMake package 不暴露 private 头或旧版路径。
 
 静态检查：
@@ -330,7 +324,7 @@ Linux Qt 6.11.1/GCC 15.2.0 已通过 `example.puretools-integration`、英文翻
 
 - 旧版 31 个候选全部完成迁移/复用/拒绝迁移记录；
 - 标准 Qt 控件 Fluent 视觉和 Qt 原生交互合同通过；
-- ZzToggleButton（若最终保留）具备独立公开契约、测试、截图和安装消费；
+- checkable `ZzPushButton` 具备公开行为合同、Example 展示、测试和安装消费；`ZzToggleButton` 不作为独立公开类型；
 - Linux GCC Debug/Release/Reference、Static、LTO 相关定向门禁通过；
 - Clang-Tidy、Architecture、安装消费和适用 Sanitizer 通过；
 - 变更视觉基线完成三主题、四 DPR、RTL 必要场景复核；
@@ -344,8 +338,8 @@ Linux Qt 6.11.1/GCC 15.2.0 已通过 `example.puretools-integration`、英文翻
 
     文档：规划FluentUI广度扩展
     测试：补齐Fluent标准控件广度合同
-    控件：新增Fluent切换按钮
-    示例：串联Fluent标准表面与切换按钮
+    测试：固化可选中PushButton切换语义
+    示例：串联Fluent标准表面与命令切换
     质量：完成Fluent广度扩展门禁
 
 任何阶段若发现标准控件无法在 ZzFluentStyle 中保持 Qt 语义，应先增加失败测试并修正 style/几何算法；只有证明需要独立公开语义后，才允许新增新的 Zz 类。

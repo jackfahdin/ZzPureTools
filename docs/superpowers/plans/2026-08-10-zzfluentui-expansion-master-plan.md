@@ -6,7 +6,7 @@
 
 **技术栈：** Qt 6.8+ Widgets、C++20、CMake Presets、Qt Test、Clang-Tidy、ASan/UBSan。
 
-**路线状态（2026-08-13）：** 第 0、1、2、3 批 FluentUI 扩展已经完成，公开组件数由 26 增至 37；第 4 批 `ZzWindowKit` 软件材质背景已完成实现、基准和平台文档，提交见 `e1c828e`、`7be2339`、`e3fdaed`。旧版与新项目的广度差异已完成代码级审计，下一步执行 `docs/superpowers/plans/2026-08-13-zzfluentui-breadth-expansion.md`：先补齐标准 Qt 控件的 Fluent 视觉/交互合同，再只新增真正有独立语义的 `ZzToggleButton`，最后串联 Example、安装消费和性能门禁。旧版业务卡片、页面路由和纯样式包装不直接迁移；Windows/macOS 真实构建与物理桌面验收仍需独立证据。
+**路线状态（2026-08-13）：** 第 0、1、2、3 批 FluentUI 扩展已经完成，公开组件数由 26 增至 37；第 4 批 `ZzWindowKit` 软件材质背景已完成实现、基准和平台文档，提交见 `e1c828e`、`7be2339`、`e3fdaed`。旧版与新项目的广度差异已完成代码级审计，当前执行 `docs/superpowers/plans/2026-08-13-zzfluentui-breadth-expansion.md`：标准 Qt 控件由 `ZzFluentStyle` 提供视觉/交互合同，旧版 `ZzToggleButton` 映射为 checkable `ZzPushButton`，随后完成 Example、安装消费和性能门禁。旧版业务卡片、页面路由和纯样式包装不直接迁移；Windows/macOS 真实构建与物理桌面验收仍需独立证据。
 
 **执行方式（重要）：** 本文档是总计划（路线图粒度）。每个批次动工前，先把该批次展开为一份独立的详细实施计划，放在本目录（`docs/superpowers/plans/2026-08-XX-zzfluentui-<batch>.md`），粒度对齐既有 28 份计划（逐文件、逐绘制函数、旧代码审计、红绿命令、Expected），确认后再写代码。本文档中标注"实施时定/选简单者"的决策点，必须在批次详细计划里给出定论和理由，不允许带着未定决策动工。
 
