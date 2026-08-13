@@ -53,6 +53,11 @@ private:
     /** @brief 依次导航全部正式路由并在失败时终止 smoke。 */
     void scheduleRouteSmoke(ZzPureTools::ZzApplicationWindow &window);
 
+    /** @brief 验证当前路由实际装配了计划要求的标准 Qt 表面。 */
+    [[nodiscard]] bool verifyStandardSurfaceComposition(
+        ZzPureTools::ZzApplicationWindow &window,
+        const QString &routeId) const;
+
     /** @brief 验证活动列表在底部尾随、上翻暂停和回到底部恢复。 */
     void verifyActivityTailFollowing(
         ZzPureTools::ZzApplicationWindow &window);

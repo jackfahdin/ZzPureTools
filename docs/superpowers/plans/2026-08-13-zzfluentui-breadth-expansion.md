@@ -247,6 +247,28 @@ Windows MinGW 与 macOS 本批仍只做静态检查，未声明真机通过。
 
 提交标题：示例：串联Fluent标准表面与切换按钮。
 
+### Example 集成审计结果（2026-08-13）
+
+新版 `ZzPureToolsExample` 已经完成标准表面组合，不需要直接迁移旧版页面类：
+
+| 旧版展示意图 | 新版路由/实现 | 验证边界 |
+|---|---|---|
+| 首页与快捷导航 | `home`，`ZzExampleGalleryPage` + `ZzExampleNavigationPresenter` | 路由卡片单击触发导航，搜索、前进/后退均走 `ZzNavigationController` |
+| 基础控件与设置 | `controls`，Gallery 页面 | `QLineEdit`、`QPlainTextEdit`、`QComboBox`、`QCheckBox`、`QRadioButton`、`QSlider`、`QProgressBar` 和 `ZzToggleSwitch` 组合展示 |
+| 列表/表格/树 | `list-view`、`table-view`、`tree-view`，Data 页面 + ViewModel/Presenter | Qt model/view、统一 delegate、筛选/追加/恢复意图保持前后端分离 |
+| 卡片、轮播、数字显示 | `cards`，Cards 页面 + ViewModel | `ZzActionCard`、`ZzImageCard`、`ZzCarouselView`、`QLCDNumber` 组合展示 |
+| 导航、反馈、图标 | `navigation`、`feedback`、`icons`，Showcase 页面 | 复用现有 Zz 组件和 SVG/字体图标缓存，不引入旧版全局状态 |
+| 窗口/平台/设置/关于 | `platform`、`settings`、`about`，System 页面 + Presenter | 设置通过 Context/SettingsStore 协调，UI 只发送 intent；活动 Dock 使用标准 `QDockWidget`/`QListView` |
+| 旧版日志页 | WindowShell 活动 Dock | 共享 `ZzExampleActivityModel`，尾部跟随、手动上翻暂停、回到底部恢复 |
+
+本阶段在 smoke 控制器中增加了页面级标准表面组合合同：导航到 Controls、List、Table、
+Tree、Cards 和 Settings 时，验证对应标准控件、Qt model、delegate 及既有 Fluent 控件
+真实存在；该合同只读取 UI 结构，不访问业务服务，也不改变正常运行路径。
+
+Linux Qt 6.11.1/GCC 15.2.0 已通过 `example.puretools-integration`、英文翻译、三种
+关闭守卫、多窗口、四档综合截图和 Activity model 测试。Windows MSVC、Windows MinGW
+与 macOS 仍未进行真机验证。
+
 ### 第 3 批：性能、安装消费和平台静态检查收尾
 
 目的：将广度扩展纳入质量门禁，但不虚构 Windows/macOS 结果。

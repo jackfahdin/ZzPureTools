@@ -26,19 +26,27 @@
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QCheckBox>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMessageBox>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
+#include <QtWidgets/QRadioButton>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QSlider>
+#include <QtWidgets/QTableView>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzIconButton.h>
+#include <ZzFluentUI/ZzToggleSwitch.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzPureApplication.h>
@@ -571,6 +579,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke navigation failed");
                 return;
             }
+            if (!verifyStandardSurfaceComposition(window, routeId)) {
+                fail("route smoke standard surface composition failed", routeId);
+                return;
+            }
             if (routeId == QStringLiteral("icons")
                 && !zzIconPageReady(window)) {
                 fail("route smoke icon integration failed");
@@ -627,6 +639,63 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
 
         verifyActivityTailFollowing(window);
     });
+}
+
+bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
+    ZzPureTools::ZzApplicationWindow &window,
+    const QString &routeId) const
+{
+    if (routeId == QStringLiteral("controls")) {
+        auto *page = window.findChild<QWidget *>(
+            QStringLiteral("zzExampleControlsPage"));
+        if (page == nullptr) {
+            return false;
+        }
+        return !page->findChildren<QLineEdit *>().isEmpty()
+            && !page->findChildren<QPlainTextEdit *>().isEmpty()
+            && !page->findChildren<QComboBox *>().isEmpty()
+            && !page->findChildren<QCheckBox *>().isEmpty()
+            && page->findChildren<QRadioButton *>().size() >= 2
+            && !page->findChildren<QSlider *>().isEmpty()
+            && !page->findChildren<QProgressBar *>().isEmpty()
+            && !page->findChildren<ZzFluentUI::ZzToggleSwitch *>().isEmpty();
+    }
+    if (routeId == QStringLiteral("list-view")) {
+        auto *view = window.findChild<QListView *>(
+            QStringLiteral("zzExampleListView"));
+        return view != nullptr && view->model() != nullptr
+            && view->model()->rowCount() > 0
+            && view->itemDelegate() != nullptr;
+    }
+    if (routeId == QStringLiteral("table-view")) {
+        auto *view = window.findChild<QTableView *>(
+            QStringLiteral("zzExampleTableView"));
+        return view != nullptr && view->model() != nullptr
+            && view->model()->rowCount() > 0
+            && view->model()->columnCount() > 1
+            && view->itemDelegate() != nullptr;
+    }
+    if (routeId == QStringLiteral("tree-view")) {
+        auto *view = window.findChild<QTreeView *>(
+            QStringLiteral("zzExampleTreeView"));
+        return view != nullptr && view->model() != nullptr
+            && view->model()->rowCount() > 0
+            && view->itemDelegate() != nullptr;
+    }
+    if (routeId == QStringLiteral("cards")) {
+        auto *page = window.findChild<QWidget *>(
+            QStringLiteral("zzExampleCardsPage"));
+        return page != nullptr
+            && !page->findChildren<QLCDNumber *>().isEmpty();
+    }
+    if (routeId == QStringLiteral("settings")) {
+        auto *page = window.findChild<QWidget *>(
+            QStringLiteral("zzExampleSettingsPage"));
+        return page != nullptr
+            && !page->findChildren<QComboBox *>().isEmpty()
+            && page->findChildren<ZzFluentUI::ZzToggleSwitch *>().size() >= 2;
+    }
+    return true;
 }
 
 void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
