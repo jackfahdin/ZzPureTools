@@ -16,6 +16,7 @@
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QFrame>
+#include <QtWidgets/QGridLayout>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
@@ -1275,7 +1276,135 @@ QWidget *ZzFluentControlsGalleryPrivate::buildDataColumn(QWidget *parent)
         QStringLiteral("Command and status"),
         container));
     layout->addWidget(buildCommandStatusHost(container));
+    layout->addWidget(zzSectionTitle(
+        QStringLiteral("Standard surfaces"),
+        container));
+    layout->addWidget(buildStandardSurfacesHost(container));
     return container;
+}
+
+QWidget *ZzFluentControlsGalleryPrivate::buildStandardSurfacesHost(
+    QWidget *parent)
+{
+    auto *host = new QWidget(parent);
+    auto *grid = new QGridLayout(host);
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(8);
+
+    auto *choices = new QWidget(host);
+    auto *choiceLayout = new QVBoxLayout(choices);
+    choiceLayout->setContentsMargins(0, 0, 0, 0);
+    choiceLayout->setSpacing(6);
+    auto *checkBox = new QCheckBox(
+        QStringLiteral("Enable standard control"),
+        choices);
+    checkBox->setChecked(true);
+    checkBox->setAccessibleName(QStringLiteral("Enable standard control"));
+    auto *radioButton = new QRadioButton(
+        QStringLiteral("Use local profile"),
+        choices);
+    radioButton->setChecked(true);
+    radioButton->setAccessibleName(QStringLiteral("Use local profile"));
+    choiceLayout->addWidget(checkBox);
+    choiceLayout->addWidget(radioButton);
+    grid->addWidget(choices, 0, 0);
+
+    auto *inputs = new QWidget(host);
+    auto *inputLayout = new QVBoxLayout(inputs);
+    inputLayout->setContentsMargins(0, 0, 0, 0);
+    inputLayout->setSpacing(6);
+    auto *lineEdit = new QLineEdit(inputs);
+    lineEdit->setText(QStringLiteral("Workspace"));
+    lineEdit->setAccessibleName(QStringLiteral("Workspace name"));
+    auto *plainTextEdit = new QPlainTextEdit(inputs);
+    plainTextEdit->setPlainText(QStringLiteral(
+        "Standard Qt text surface\nFluent visual layer"));
+    plainTextEdit->setFixedHeight(68);
+    plainTextEdit->setAccessibleName(QStringLiteral("Standard notes"));
+    auto *comboBox = new QComboBox(inputs);
+    comboBox->addItems({
+        QStringLiteral("Linux"),
+        QStringLiteral("Windows"),
+        QStringLiteral("macOS")});
+    comboBox->setAccessibleName(QStringLiteral("Target platform"));
+    inputLayout->addWidget(lineEdit);
+    inputLayout->addWidget(plainTextEdit);
+    inputLayout->addWidget(comboBox);
+    grid->addWidget(inputs, 0, 1);
+
+    auto *ranges = new QWidget(host);
+    auto *rangeLayout = new QVBoxLayout(ranges);
+    rangeLayout->setContentsMargins(0, 0, 0, 0);
+    rangeLayout->setSpacing(6);
+    auto *slider = new QSlider(Qt::Horizontal, ranges);
+    slider->setRange(0, 100);
+    slider->setValue(62);
+    slider->setAccessibleName(QStringLiteral("Standard range"));
+    auto *progress = new QProgressBar(ranges);
+    progress->setRange(0, 100);
+    progress->setValue(68);
+    progress->setFormat(QStringLiteral("68% complete"));
+    auto *display = new QLCDNumber(6, ranges);
+    display->setFrameStyle(QFrame::Box | QFrame::Plain);
+    display->setSegmentStyle(QLCDNumber::Flat);
+    display->display(2026);
+    display->setFixedHeight(42);
+    display->setAccessibleName(QStringLiteral("Build number"));
+    rangeLayout->addWidget(slider);
+    rangeLayout->addWidget(progress);
+    rangeLayout->addWidget(display);
+    grid->addWidget(ranges, 0, 2);
+
+    auto *standardListModel = new QStandardItemModel(host);
+    for (const QString &text : {
+             QStringLiteral("Design notes"),
+             QStringLiteral("Release checklist"),
+             QStringLiteral("Performance report")}) {
+        standardListModel->appendRow(new QStandardItem(text));
+    }
+    auto *list = new QListView(host);
+    list->setModel(standardListModel);
+    list->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(list));
+    list->setCurrentIndex(standardListModel->index(1, 0));
+    list->setFixedHeight(96);
+    list->setAccessibleName(QStringLiteral("Standard list view"));
+    grid->addWidget(list, 1, 0);
+
+    auto *standardTableModel = new QStandardItemModel(2, 2, host);
+    for (int row = 0; row < standardTableModel->rowCount(); ++row) {
+        for (int column = 0; column < standardTableModel->columnCount(); ++column) {
+            standardTableModel->setData(
+                standardTableModel->index(row, column),
+                QStringLiteral("R%1 C%2").arg(row + 1).arg(column + 1));
+        }
+    }
+    auto *table = new QTableView(host);
+    table->setModel(standardTableModel);
+    table->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(table));
+    table->horizontalHeader()->hide();
+    table->verticalHeader()->hide();
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->setCurrentIndex(standardTableModel->index(0, 1));
+    table->setFixedHeight(96);
+    table->setAccessibleName(QStringLiteral("Standard table view"));
+    grid->addWidget(table, 1, 1);
+
+    auto *standardTreeModel = new QStandardItemModel(host);
+    auto *workspace = new QStandardItem(QStringLiteral("Workspace"));
+    workspace->appendRow(new QStandardItem(QStringLiteral("Sources")));
+    workspace->appendRow(new QStandardItem(QStringLiteral("Tests")));
+    standardTreeModel->appendRow(workspace);
+    auto *tree = new QTreeView(host);
+    tree->setModel(standardTreeModel);
+    tree->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(tree));
+    tree->header()->hide();
+    tree->expandAll();
+    tree->setCurrentIndex(workspace->index());
+    tree->setFixedHeight(96);
+    tree->setAccessibleName(QStringLiteral("Standard tree view"));
+    grid->addWidget(tree, 1, 2);
+    return host;
 }
 
 QWidget *ZzFluentControlsGalleryPrivate::buildCommandStatusHost(

@@ -180,6 +180,23 @@
 
 提交标题：测试：补齐Fluent标准控件广度合同。
 
+### 第 0 批实施结果（2026-08-13）
+
+本批没有新增标准 Qt 控件的同义 `Zz` 包装类，保持 Qt 公共 API 负责模型、选择、
+键盘、弹出、无障碍和 RTL 语义，`ZzFluentStyle` 负责应用级视觉覆盖。
+
+- `ZzFluentStandardControlsTest` 新增选择范围、文本与 popup、菜单栏/工具栏/状态栏、
+  列表/表格/树模型和选择、禁用/焦点/主题绘制以及 1000 次状态切换对象预算合同。
+- `ZzFluentScreenshotTest` 新增固定 `standard-breadth` 场景，覆盖 Light、Dark、
+  HighContrast 三主题和 DPR 100/125/150/200；文字遮罩同时覆盖标准菜单栏、工具栏
+  和状态栏，继续复用原有像素比较流程。
+- `ZzFluentControlsGallery` 增加 `Standard surfaces` 分区，只使用本地固定 Qt model，
+  不访问业务数据；README 和平台支持文档同步说明标准控件覆盖边界。
+
+Linux Qt 6.11.1/GCC 15.2.0 的 `linux-gcc-debug` 构建已通过，标准控件测试 18 项
+全部通过，标准广度截图四个 DPR 档均在更新模式和关闭更新模式下通过；Windows MSVC、
+Windows MinGW 与 macOS 本批仍只做静态检查，未声明真机通过。
+
 ### 第 1 批：ToggleButton 语义组件
 
 目的：新增唯一一个有独立 Fluent 语义的旧版缺失控件，不复制 Qt checked 状态机。

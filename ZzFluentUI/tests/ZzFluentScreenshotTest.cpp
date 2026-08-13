@@ -164,6 +164,9 @@ struct ZzTextMaskCoverage final
     int comboBoxes = 0;
     int tabBars = 0;
     int menus = 0;
+    int menuBars = 0;
+    int toolBars = 0;
+    int statusBars = 0;
     int progressBars = 0;
     int itemViews = 0;
 };
@@ -437,6 +440,25 @@ QImage zzBuildTextMask(
             ++coverage->textEdits;
             continue;
         }
+        if (auto *plainTextEdit = qobject_cast<QPlainTextEdit *>(widget);
+            plainTextEdit != nullptr && !plainTextEdit->toPlainText().isEmpty()) {
+            const QRect bounds = plainTextEdit->viewport()->rect().adjusted(
+                4,
+                4,
+                -4,
+                -4);
+            const QRect textRect = zzAlignedTextRect(
+                plainTextEdit,
+                bounds,
+                Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+                plainTextEdit->toPlainText());
+            const QRect surfaceText(
+                plainTextEdit->viewport()->mapTo(surface, textRect.topLeft()),
+                textRect.size());
+            zzPaintMaskRect(&painter, surfaceText);
+            ++coverage->textEdits;
+            continue;
+        }
         if (auto *comboBox = qobject_cast<QComboBox *>(widget);
             comboBox != nullptr && !comboBox->currentText().isEmpty()) {
             QStyleOptionComboBox option;
@@ -479,6 +501,67 @@ QImage zzBuildTextMask(
             if (tabTextCount > 0) {
                 ++coverage->tabBars;
             }
+            continue;
+        }
+        if (auto *menuBar = qobject_cast<QMenuBar *>(widget);
+            menuBar != nullptr) {
+            int actionTextCount = 0;
+            for (QAction *action : menuBar->actions()) {
+                if (action == nullptr || action->isSeparator()
+                    || action->text().isEmpty()) {
+                    continue;
+                }
+                const QRect actionRect = menuBar->actionGeometry(action);
+                const QRect textRect = zzAlignedTextRect(
+                    menuBar,
+                    actionRect,
+                    Qt::AlignCenter,
+                    action->text().remove(QLatin1Char('&')));
+                zzPaintMaskRect(
+                    &painter,
+                    zzMapToSurface(menuBar, textRect, surface));
+                ++actionTextCount;
+            }
+            if (actionTextCount > 0) {
+                ++coverage->menuBars;
+            }
+            continue;
+        }
+        if (auto *toolBar = qobject_cast<QToolBar *>(widget);
+            toolBar != nullptr) {
+            int actionTextCount = 0;
+            for (QAction *action : toolBar->actions()) {
+                if (action == nullptr || action->isSeparator()
+                    || action->text().isEmpty()) {
+                    continue;
+                }
+                const QRect actionRect = toolBar->actionGeometry(action);
+                const QRect textRect = zzAlignedTextRect(
+                    toolBar,
+                    actionRect,
+                    Qt::AlignCenter,
+                    action->text());
+                zzPaintMaskRect(
+                    &painter,
+                    zzMapToSurface(toolBar, textRect, surface));
+                ++actionTextCount;
+            }
+            if (actionTextCount > 0) {
+                ++coverage->toolBars;
+            }
+            continue;
+        }
+        if (auto *statusBar = qobject_cast<QStatusBar *>(widget);
+            statusBar != nullptr && !statusBar->currentMessage().isEmpty()) {
+            const QRect textRect = zzAlignedTextRect(
+                statusBar,
+                statusBar->rect().adjusted(8, 0, -8, 0),
+                Qt::AlignLeft | Qt::AlignVCenter,
+                statusBar->currentMessage());
+            zzPaintMaskRect(
+                &painter,
+                zzMapToSurface(statusBar, textRect, surface));
+            ++coverage->statusBars;
             continue;
         }
         if (auto *progress = qobject_cast<QProgressBar *>(widget);
@@ -884,6 +967,239 @@ private:
 
     QPointer<QWidget> focusTarget;
     QStandardItemModel navigationModel;
+    QStandardItemModel tableModel;
+    QStandardItemModel treeModel;
+};
+
+/** @brief 构造标准 Qt 控件广度专用的固定截图夹具。 */
+class ZzStandardBreadthScreenshotSurface final
+{
+public:
+    /** @brief 创建包含标准控件和原生模型的确定性视觉表面。 */
+    ZzStandardBreadthScreenshotSurface()
+        : menu(&window)
+        , listModel(&window)
+        , tableModel(3, 3, &window)
+        , treeModel(&window)
+    {
+        window.setObjectName(QStringLiteral("zzStandardBreadthSurface"));
+        window.setAutoFillBackground(true);
+        window.setFixedSize(zzLogicalSurfaceSize);
+
+        auto *root = new QVBoxLayout(&window);
+        root->setContentsMargins(20, 16, 20, 16);
+        root->setSpacing(10);
+
+        menuBar = new QMenuBar(&window);
+        menuBar->setNativeMenuBar(false);
+        QMenu *fileMenu = menuBar->addMenu(QStringLiteral("File"));
+        fileMenu->addAction(QStringLiteral("Open"), QKeySequence::Open);
+        fileMenu->addAction(QStringLiteral("Save"), QKeySequence::Save);
+        QMenu *viewMenu = menuBar->addMenu(QStringLiteral("View"));
+        QAction *compact = viewMenu->addAction(QStringLiteral("Compact"));
+        compact->setCheckable(true);
+        compact->setChecked(true);
+        root->addWidget(menuBar);
+
+        toolBar = new QToolBar(QStringLiteral("Standard commands"), &window);
+        toolBar->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        QAction *build = toolBar->addAction(QStringLiteral("Build"));
+        build->setCheckable(true);
+        build->setChecked(true);
+        toolBar->addAction(QStringLiteral("Test"));
+        QAction *disabledAction = toolBar->addAction(QStringLiteral("Deploy"));
+        disabledAction->setEnabled(false);
+        root->addWidget(toolBar);
+
+        auto *body = new QGridLayout;
+        body->setHorizontalSpacing(18);
+        body->setVerticalSpacing(10);
+        root->addLayout(body, 1);
+        buildInputColumn(body);
+        buildRangeColumn(body);
+        buildViewColumn(body);
+
+        statusBar = new QStatusBar(&window);
+        statusBar->setSizeGripEnabled(false);
+        statusBar->addPermanentWidget(
+            new QLabel(QStringLiteral("Local reference"), statusBar));
+        statusBar->showMessage(QStringLiteral("Ready"));
+        root->addWidget(statusBar);
+
+        menu.addAction(QStringLiteral("Open workspace"));
+        menu.addAction(QStringLiteral("Save snapshot"));
+        menu.addSeparator();
+        menu.addAction(QStringLiteral("Close"));
+        menu.setFixedWidth(246);
+        menu.setAttribute(Qt::WA_DontShowOnScreen);
+    }
+
+    /** @brief 展示窗口、弹出菜单并完成固定布局计算。 */
+    void polish()
+    {
+        window.show();
+        menu.show();
+        QCoreApplication::processEvents();
+        menu.adjustSize();
+        menu.resize(246, menu.height());
+        if (focusTarget != nullptr) {
+            focusTarget->setFocus(Qt::OtherFocusReason);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    /** @brief 隐藏标准控件截图夹具及其独立菜单。 */
+    void hide()
+    {
+        menu.hide();
+        window.hide();
+    }
+
+    QWidget window;
+    QMenu menu;
+
+private:
+    /** @brief 填充复选、单选、编辑和组合框控件。 */
+    void buildInputColumn(QGridLayout *body)
+    {
+        auto *column = new QWidget(&window);
+        auto *layout = new QVBoxLayout(column);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(8);
+        layout->addWidget(new QLabel(QStringLiteral("Selection and text"), column));
+        auto *checkBox = new QCheckBox(QStringLiteral("Enable standard control"), column);
+        checkBox->setChecked(true);
+        layout->addWidget(checkBox);
+        auto *radioButton = new QRadioButton(QStringLiteral("Use local profile"), column);
+        radioButton->setChecked(true);
+        layout->addWidget(radioButton);
+        auto *disabledCheckBox = new QCheckBox(QStringLiteral("Disabled state"), column);
+        disabledCheckBox->setChecked(true);
+        disabledCheckBox->setEnabled(false);
+        layout->addWidget(disabledCheckBox);
+        auto *lineEdit = new QLineEdit(column);
+        lineEdit->setText(QStringLiteral("Workspace"));
+        focusTarget = lineEdit;
+        layout->addWidget(lineEdit);
+        auto *plainTextEdit = new QPlainTextEdit(column);
+        plainTextEdit->setPlainText(QStringLiteral(
+            "Standard Qt text surface\nFluent visual layer\nNo business model access"));
+        plainTextEdit->setFixedHeight(124);
+        layout->addWidget(plainTextEdit);
+        auto *comboBox = new QComboBox(column);
+        comboBox->addItems({
+            QStringLiteral("Linux"),
+            QStringLiteral("Windows"),
+            QStringLiteral("macOS")});
+        comboBox->setCurrentIndex(0);
+        comboBox->setLayoutDirection(Qt::RightToLeft);
+        layout->addWidget(comboBox);
+        auto *tabs = new QTabBar(column);
+        tabs->addTab(QStringLiteral("Overview"));
+        tabs->addTab(QStringLiteral("Details"));
+        tabs->addTab(QStringLiteral("History"));
+        tabs->setCurrentIndex(1);
+        layout->addWidget(tabs);
+        layout->addStretch(1);
+        body->addWidget(column, 0, 0);
+    }
+
+    /** @brief 填充滑块、进度条和数字显示控件。 */
+    void buildRangeColumn(QGridLayout *body)
+    {
+        auto *column = new QWidget(&window);
+        auto *layout = new QVBoxLayout(column);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(10);
+        layout->addWidget(new QLabel(QStringLiteral("Range and display"), column));
+        auto *horizontalSlider = new QSlider(Qt::Horizontal, column);
+        horizontalSlider->setRange(0, 100);
+        horizontalSlider->setValue(62);
+        layout->addWidget(horizontalSlider);
+        auto *verticalSlider = new QSlider(Qt::Vertical, column);
+        verticalSlider->setRange(0, 100);
+        verticalSlider->setValue(38);
+        verticalSlider->setFixedHeight(120);
+        layout->addWidget(verticalSlider, 0, Qt::AlignHCenter);
+        auto *progress = new QProgressBar(column);
+        progress->setRange(0, 100);
+        progress->setValue(68);
+        progress->setFormat(QStringLiteral("68% complete"));
+        layout->addWidget(progress);
+        auto *busyProgress = new QProgressBar(column);
+        busyProgress->setRange(0, 0);
+        busyProgress->setTextVisible(false);
+        layout->addWidget(busyProgress);
+        auto *lcd = new QLCDNumber(6, column);
+        lcd->setFrameStyle(QFrame::Box | QFrame::Plain);
+        lcd->setSegmentStyle(QLCDNumber::Flat);
+        lcd->display(2026);
+        lcd->setFixedHeight(58);
+        layout->addWidget(lcd);
+        layout->addStretch(1);
+        body->addWidget(column, 0, 1);
+    }
+
+    /** @brief 填充列表、表格、树和工具状态表面。 */
+    void buildViewColumn(QGridLayout *body)
+    {
+        auto *column = new QWidget(&window);
+        auto *layout = new QVBoxLayout(column);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(8);
+        layout->addWidget(new QLabel(QStringLiteral("Item views"), column));
+        for (const QString &text : {
+                 QStringLiteral("Design notes"),
+                 QStringLiteral("Release checklist"),
+                 QStringLiteral("Performance report")}) {
+            listModel.appendRow(new QStandardItem(text));
+        }
+        auto *list = new QListView(column);
+        list->setModel(&listModel);
+        list->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(list));
+        list->setCurrentIndex(listModel.index(1, 0));
+        list->setFixedHeight(112);
+        layout->addWidget(list);
+
+        for (int row = 0; row < tableModel.rowCount(); ++row) {
+            for (int columnIndex = 0; columnIndex < tableModel.columnCount(); ++columnIndex) {
+                tableModel.setData(
+                    tableModel.index(row, columnIndex),
+                    QStringLiteral("R%1 C%2").arg(row + 1).arg(columnIndex + 1));
+            }
+        }
+        auto *table = new QTableView(column);
+        table->setModel(&tableModel);
+        table->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(table));
+        table->horizontalHeader()->hide();
+        table->verticalHeader()->hide();
+        table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        table->setCurrentIndex(tableModel.index(1, 1));
+        table->setLayoutDirection(Qt::RightToLeft);
+        table->setFixedHeight(124);
+        layout->addWidget(table);
+
+        auto *rootItem = new QStandardItem(QStringLiteral("Workspace"));
+        rootItem->appendRow(new QStandardItem(QStringLiteral("Sources")));
+        rootItem->appendRow(new QStandardItem(QStringLiteral("Tests")));
+        treeModel.appendRow(rootItem);
+        auto *tree = new QTreeView(column);
+        tree->setModel(&treeModel);
+        tree->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(tree));
+        tree->header()->hide();
+        tree->expandAll();
+        tree->setCurrentIndex(rootItem->index());
+        tree->setFixedHeight(124);
+        layout->addWidget(tree);
+        layout->addStretch(1);
+        body->addWidget(column, 0, 2);
+    }
+
+    QMenuBar *menuBar = nullptr;
+    QToolBar *toolBar = nullptr;
+    QStatusBar *statusBar = nullptr;
+    QPointer<QWidget> focusTarget;
+    QStandardItemModel listModel;
     QStandardItemModel tableModel;
     QStandardItemModel treeModel;
 };
@@ -6308,6 +6624,24 @@ QImage zzRenderSurface(ZzScreenshotSurface *surface, qreal dpr)
     return image;
 }
 
+/** @brief 将标准控件广度夹具渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderStandardBreadthSurface(
+    ZzStandardBreadthScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    surface->menu.render(&painter, zzMenuOrigin);
+    painter.end();
+    return image;
+}
+
 } // namespace
 
 /** @brief 验证 Fluent 控件在固定 Linux 参考环境中的视觉基线。 */
@@ -6355,6 +6689,117 @@ private Q_SLOTS:
             new ZzFluentUI::ZzFluentStyle(controller_.get(), fusion));
     }
     // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
+
+    /** @brief 提供标准控件广度截图的三种主题数据。 */
+    void rendersStandardBreadthThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("standard-breadth-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("standard-breadth-light");
+        QTest::newRow("standard-breadth-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("standard-breadth-dark");
+        QTest::newRow("standard-breadth-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("standard-breadth-high-contrast");
+    }
+
+    /**
+     * @brief 比较标准控件广度固定场景，覆盖主题、DPR、禁用和选中表面。
+     */
+    void rendersStandardBreadthThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+
+        ZzStandardBreadthScreenshotSurface surface;
+        surface.polish();
+        const QImage actual = zzRenderStandardBreadthSurface(
+            &surface,
+            actualDpr_);
+        const QSize expectedPhysicalSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_));
+        QCOMPARE(actual.size(), expectedPhysicalSize);
+
+        ZzTextMaskCoverage coverage;
+        const QImage mask = zzBuildTextMask(
+            &surface.window,
+            &surface.menu,
+            actualDpr_,
+            &coverage);
+        const QString missingCoverage = zzValidateMaskCoverage(coverage);
+        QVERIFY2(
+            missingCoverage.isEmpty(),
+            qPrintable(QStringLiteral("标准控件广度文字遮罩漏掉：%1")
+                           .arg(missingCoverage)));
+        QVERIFY(coverage.menuBars > 0);
+        QVERIFY(coverage.toolBars > 0);
+        QVERIFY(coverage.statusBars > 0);
+        surface.hide();
+
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(
+                QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(
+                actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+
+        QImage expected(baselinePath);
+        QVERIFY2(
+            !expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        const ZzImageComparison comparison = zzCompareImages(
+            expected,
+            actual,
+            mask);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio =
+            static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        if (differenceRatio <= maximumDifferenceRatio) {
+            return;
+        }
+
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY2(
+            QDir().mkpath(reportDirectory),
+            qPrintable(QStringLiteral("无法创建截图报告目录：%1")
+                           .arg(reportDirectory)));
+        const QString actualPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png"));
+        const QString diffPath = QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png"));
+        QVERIFY(actual.save(actualPath, "PNG"));
+        QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        QFAIL(qPrintable(
+            QStringLiteral(
+                "Qt %1.%2 标准控件广度非文字区域差异比例 %3 超过门限 %4，"
+                "actual=%5，diff=%6")
+                .arg(QT_VERSION_MAJOR)
+                .arg(QT_VERSION_MINOR)
+                .arg(differenceRatio, 0, 'f', 6)
+                .arg(maximumDifferenceRatio, 0, 'f', 6)
+                .arg(actualPath, diffPath)));
+    }
 
     void rendersThemes_data()
     {

@@ -45,6 +45,9 @@ public:
     /** @brief 构造只更新本地展示状态的标准命令与状态宿主。 */
     [[nodiscard]] QWidget *buildCommandStatusHost(QWidget *parent);
 
+    /** @brief 构造只使用 Qt 原生控件和本地模型的标准表面展示区。 */
+    [[nodiscard]] QWidget *buildStandardSurfacesHost(QWidget *parent);
+
     /** @brief 构造一个不访问业务对象的窗口模态内容对话框。 */
     void showDialog();
 

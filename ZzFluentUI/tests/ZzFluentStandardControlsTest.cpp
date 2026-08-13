@@ -4,8 +4,10 @@
 #include <QtCore/QAbstractAnimation>
 #include <QtGui/QAccessible>
 #include <QtGui/QAction>
+#include <QtGui/QActionGroup>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
+#include <QtGui/QStandardItemModel>
 #include <QtTest/QTest>
 #include <QtTest/QSignalSpy>
 #include <QtWidgets/QAbstractItemView>
@@ -13,21 +15,29 @@
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QFrame>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QSlider>
+#include <QtWidgets/QStatusBar>
 #include <QtWidgets/QStyleOption>
+#include <QtWidgets/QTableView>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolTip>
+#include <QtWidgets/QTreeView>
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -145,6 +155,279 @@ private Q_SLOTS:
         comboBox.setCurrentIndex(0);
         QTest::keyClick(&comboBox, Qt::Key_Down);
         QCOMPARE(comboBox.currentIndex(), 1);
+    }
+
+    /**
+     * @brief 验证标准选择控件的范围、互斥和方向语义不被 Fluent 样式改变。
+     */
+    void preservesStandardControlRangeAndSelectionSemantics()
+    {
+        QWidget host;
+        QCheckBox checkBox(QStringLiteral("Check"), &host);
+        checkBox.setTristate(true);
+        QRadioButton firstRadio(QStringLiteral("First"), &host);
+        QRadioButton secondRadio(QStringLiteral("Second"), &host);
+        QSlider horizontalSlider(Qt::Horizontal, &host);
+        QSlider verticalSlider(Qt::Vertical, &host);
+        host.show();
+        QCoreApplication::processEvents();
+
+        checkBox.setCheckState(Qt::Unchecked);
+        QTest::keyClick(&checkBox, Qt::Key_Space);
+        QCOMPARE(checkBox.checkState(), Qt::PartiallyChecked);
+        QTest::keyClick(&checkBox, Qt::Key_Space);
+        QCOMPARE(checkBox.checkState(), Qt::Checked);
+
+        firstRadio.setChecked(true);
+        secondRadio.setChecked(true);
+        QVERIFY(!firstRadio.isChecked());
+        QVERIFY(secondRadio.autoExclusive());
+
+        horizontalSlider.setRange(-10, 20);
+        horizontalSlider.setSingleStep(3);
+        horizontalSlider.setPageStep(7);
+        horizontalSlider.setTracking(false);
+        horizontalSlider.setValue(5);
+        QTest::keyClick(&horizontalSlider, Qt::Key_Right);
+        QCOMPARE(horizontalSlider.value(), 8);
+        horizontalSlider.setLayoutDirection(Qt::RightToLeft);
+        QTest::keyClick(&horizontalSlider, Qt::Key_Right);
+        QCOMPARE(horizontalSlider.value(), 5);
+
+        verticalSlider.setRange(0, 100);
+        verticalSlider.setValue(50);
+        QTest::keyClick(&verticalSlider, Qt::Key_Up);
+        QCOMPARE(verticalSlider.value(), 51);
+        QVERIFY(verticalSlider.orientation() == Qt::Vertical);
+
+        QAccessibleInterface *accessible =
+            QAccessible::queryAccessibleInterface(&checkBox);
+        QVERIFY(accessible != nullptr);
+        QCOMPARE(accessible->role(), QAccessible::CheckBox);
+    }
+
+    /**
+     * @brief 验证文本编辑和组合框保留文本、模型、编辑及弹出生命周期语义。
+     */
+    void preservesTextAndPopupSemantics()
+    {
+        QWidget host;
+        QLineEdit lineEdit(&host);
+        QPlainTextEdit plainTextEdit(&host);
+        QComboBox comboBox(&host);
+        QStandardItemModel model(0, 1, &comboBox);
+        for (const QString &text : {
+                 QStringLiteral("Linux"),
+                 QStringLiteral("Windows"),
+                 QStringLiteral("macOS")}) {
+            model.appendRow(new QStandardItem(text));
+        }
+        comboBox.setModel(&model);
+        comboBox.setEditable(true);
+        comboBox.setCurrentIndex(1);
+        lineEdit.setText(QStringLiteral("editable text"));
+        lineEdit.selectAll();
+        QCOMPARE(lineEdit.selectedText(), QStringLiteral("editable text"));
+        lineEdit.copy();
+        lineEdit.clear();
+        lineEdit.paste();
+        QCOMPARE(lineEdit.text(), QStringLiteral("editable text"));
+
+        plainTextEdit.setPlainText(QStringLiteral("first\nsecond"));
+        plainTextEdit.moveCursor(QTextCursor::End);
+        plainTextEdit.insertPlainText(QStringLiteral("\nthird"));
+        QVERIFY(plainTextEdit.toPlainText().endsWith(QStringLiteral("third")));
+        plainTextEdit.undo();
+        QVERIFY(!plainTextEdit.toPlainText().endsWith(QStringLiteral("third")));
+
+        QCOMPARE(comboBox.currentText(), QStringLiteral("Windows"));
+        comboBox.lineEdit()->setText(QStringLiteral("custom"));
+        QCOMPARE(comboBox.currentText(), QStringLiteral("custom"));
+        comboBox.showPopup();
+        QCoreApplication::processEvents();
+        QVERIFY(comboBox.view() != nullptr);
+        QVERIFY(comboBox.view()->model() == &model);
+        comboBox.hidePopup();
+        QVERIFY(!comboBox.view()->isVisible());
+    }
+
+    /**
+     * @brief 验证菜单栏、工具栏和状态栏继续使用 QAction 与临时消息协议。
+     */
+    void preservesToolingAndStatusSurfaces()
+    {
+        QWidget host;
+        auto *menuBar = new QMenuBar(&host);
+        menuBar->setNativeMenuBar(false);
+        QMenu *fileMenu = menuBar->addMenu(QStringLiteral("File"));
+        QAction *openAction = fileMenu->addAction(
+            QStringLiteral("Open"),
+            QKeySequence::Open);
+        QAction *checkAction = fileMenu->addAction(QStringLiteral("Watch"));
+        checkAction->setCheckable(true);
+
+        QToolBar toolBar(QStringLiteral("Commands"), &host);
+        QAction *toolAction = toolBar.addAction(QStringLiteral("Build"));
+        toolAction->setCheckable(true);
+        QSignalSpy triggeredSpy(&toolBar, &QToolBar::actionTriggered);
+        toolAction->trigger();
+        QVERIFY(toolAction->isChecked());
+        QCOMPARE(triggeredSpy.count(), 1);
+
+        QStatusBar statusBar(&host);
+        auto *permanent = new QLabel(QStringLiteral("Local"), &statusBar);
+        statusBar.addPermanentWidget(permanent);
+        statusBar.showMessage(QStringLiteral("Ready"));
+        QCOMPARE(statusBar.currentMessage(), QStringLiteral("Ready"));
+        QVERIFY(statusBar.findChildren<QLabel *>().contains(permanent));
+
+        QSignalSpy openSpy(openAction, &QAction::triggered);
+        openAction->trigger();
+        QCOMPARE(openSpy.count(), 1);
+        QVERIFY(menuBar->actions().contains(fileMenu->menuAction()));
+    }
+
+    /**
+     * @brief 验证列表、表格和树视图的模型、选择、委托、展开及 RTL 语义。
+     */
+    void preservesItemViewSemantics()
+    {
+        QWidget host;
+        QStandardItemModel listModel(3, 1, &host);
+        QStandardItemModel tableModel(2, 2, &host);
+        QStandardItemModel treeModel(&host);
+        for (int row = 0; row < listModel.rowCount(); ++row) {
+            listModel.setData(
+                listModel.index(row, 0),
+                QStringLiteral("List %1").arg(row));
+        }
+        for (int row = 0; row < tableModel.rowCount(); ++row) {
+            for (int column = 0; column < tableModel.columnCount(); ++column) {
+                tableModel.setData(
+                    tableModel.index(row, column),
+                    QStringLiteral("Cell %1/%2").arg(row).arg(column));
+            }
+        }
+        auto *root = new QStandardItem(QStringLiteral("Root"));
+        root->appendRow(new QStandardItem(QStringLiteral("Child")));
+        treeModel.appendRow(root);
+
+        QListView listView(&host);
+        QTableView tableView(&host);
+        QTreeView treeView(&host);
+        listView.setModel(&listModel);
+        tableView.setModel(&tableModel);
+        treeView.setModel(&treeModel);
+        listView.setSelectionMode(QAbstractItemView::ExtendedSelection);
+        tableView.setSelectionMode(QAbstractItemView::SingleSelection);
+        listView.setCurrentIndex(listModel.index(1, 0));
+        listView.selectionModel()->select(
+            listModel.index(0, 0),
+            QItemSelectionModel::Select);
+        QCOMPARE(listView.currentIndex(), listModel.index(1, 0));
+        QVERIFY(listView.selectionModel()->isSelected(listModel.index(0, 0)));
+
+        tableView.setLayoutDirection(Qt::RightToLeft);
+        tableView.setCurrentIndex(tableModel.index(1, 1));
+        QCOMPARE(tableView.currentIndex(), tableModel.index(1, 1));
+        treeView.expand(root->index());
+        QVERIFY(treeView.isExpanded(root->index()));
+        treeView.setCurrentIndex(root->child(0)->index());
+        QCOMPARE(treeView.currentIndex().data().toString(), QStringLiteral("Child"));
+
+        for (QAbstractItemView *view : {
+                 static_cast<QAbstractItemView *>(&listView),
+                 static_cast<QAbstractItemView *>(&tableView),
+                 static_cast<QAbstractItemView *>(&treeView)}) {
+            view->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(view));
+            QVERIFY(view->itemDelegate() != nullptr);
+            view->setEnabled(false);
+            QVERIFY(!view->isEnabled());
+            view->setEnabled(true);
+        }
+    }
+
+    /**
+     * @brief 验证标准控件状态切换不会在样式层累积对象、动画或定时器。
+     */
+    void keepsStandardSurfaceObjectCountStable()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        auto *checkBox = new QCheckBox(QStringLiteral("Check"), &host);
+        auto *comboBox = new QComboBox(&host);
+        comboBox->addItems({QStringLiteral("One"), QStringLiteral("Two")});
+        auto *progress = new QProgressBar(&host);
+        progress->setRange(0, 100);
+        auto *listView = new QListView(&host);
+        auto *model = new QStandardItemModel(2, 1, listView);
+        model->setData(model->index(0, 0), QStringLiteral("One"));
+        model->setData(model->index(1, 0), QStringLiteral("Two"));
+        listView->setModel(model);
+
+        const qsizetype descendants = host.findChildren<QObject *>().size();
+        const qsizetype animations = host.findChildren<QAbstractAnimation *>().size();
+        const qsizetype timers = host.findChildren<QTimer *>().size();
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            checkBox->setChecked(iteration % 2 == 0);
+            comboBox->setCurrentIndex(iteration % 2);
+            progress->setValue(iteration % 101);
+            listView->setCurrentIndex(model->index(iteration % 2, 0));
+            if (iteration % 2 == 0) {
+                controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
+            } else {
+                controller.setMode(ZzFluentUI::ZzThemeMode::Light);
+            }
+        }
+        QCOMPARE(host.findChildren<QObject *>().size(), descendants);
+        QCOMPARE(host.findChildren<QAbstractAnimation *>().size(), animations);
+        QCOMPARE(host.findChildren<QTimer *>().size(), timers);
+    }
+
+    /**
+     * @brief 验证标准控件在主题、焦点、禁用和选中状态下均能产生稳定绘制。
+     */
+    void rendersStandardBreadthStates()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        host.setStyle(&style);
+        auto *checkBox = new QCheckBox(QStringLiteral("Checked"), &host);
+        checkBox->setChecked(true);
+        auto *plainTextEdit = new QPlainTextEdit(&host);
+        plainTextEdit->setPlainText(QStringLiteral("Standard text"));
+        auto *progress = new QProgressBar(&host);
+        progress->setRange(0, 100);
+        progress->setValue(50);
+        host.resize(320, 180);
+
+        QImage image(host.size(), QImage::Format_ARGB32_Premultiplied);
+        QPainter painter;
+        for (const ZzFluentUI::ZzThemeMode mode : {
+                 ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark,
+                 ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            image.fill(Qt::transparent);
+            painter.begin(&image);
+            host.render(&painter);
+            painter.end();
+            QVERIFY(zzContainsOpaquePixel(image));
+            checkBox->setEnabled(false);
+            plainTextEdit->setEnabled(false);
+            progress->setEnabled(false);
+            image.fill(Qt::transparent);
+            painter.begin(&image);
+            host.render(&painter);
+            painter.end();
+            QVERIFY(zzContainsOpaquePixel(image));
+            checkBox->setEnabled(true);
+            plainTextEdit->setEnabled(true);
+            progress->setEnabled(true);
+        }
     }
 
     void providesStableComboBoxGeometry()

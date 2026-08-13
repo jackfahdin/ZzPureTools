@@ -33,6 +33,15 @@ Windows、macOS 以及 Linux 桌面会话的真机交互状态以
 - 反馈与表面：`ZzMessageBar`、`ZzInfoBadge`、`ZzContentDialog`、
   `ZzTeachingTip`、`ZzActionCard`、`ZzImageCard`、`ZzFluentTitleBar`。
 
+标准 Qt Widgets 由应用级 `ZzFluentStyle` 统一提供 Fluent 外观和尺寸契约，
+包括 `QCheckBox`、`QRadioButton`、`QSlider`、`QLineEdit`、
+`QPlainTextEdit`、`QComboBox`、`QProgressBar`、`QLCDNumber`、
+`QListView`、`QTableView`、`QTreeView`、`QMenuBar`、`QToolBar` 和
+`QStatusBar`。这些控件继续保留 Qt 的模型、选择、键盘、弹出菜单、无障碍和
+RTL 语义，因此不会为了“组件名一一对应”重复创建同义的 `Zz` 包装类。
+标准控件的广度合同由 `ZzFluentStandardControlsTest` 和固定尺寸截图场景维护，
+画廊中的 `Standard surfaces` 分区只使用本地 Qt model 和固定演示数据。
+
 QWindowKit 类型不会暴露到 Zz 公共 API；UI 组件不直接访问领域模型、数据库、
 网络客户端或业务服务。完整依赖规则见
 [架构设计](docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md)。

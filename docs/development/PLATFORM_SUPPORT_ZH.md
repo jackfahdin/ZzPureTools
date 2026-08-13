@@ -33,6 +33,21 @@ Windows 的原生 Mica/Acrylic、macOS 的原生 Blur 仍由现有私有 QWindow
 
 这项选择只说明当前从哪台机器执行 Linux 自动发布门禁，不解除项目许可证、第三方来源、Windows/macOS 原生 runner 或三平台人工交互证据要求。
 
+## 标准 Qt 控件覆盖边界
+
+`ZzFluentUI` 对标准 Qt Widgets 采用应用级 `ZzFluentStyle` 覆盖视觉层，
+而不是为每个 Qt 控件复制一个同义 `Zz` 状态机。当前合同测试覆盖复选框、单选框、
+滑块、单行和多行文本、组合框、进度条、LCD 数字、列表/表格/树视图、菜单栏、
+工具栏和状态栏的原生模型、选择、键盘、弹出、禁用、焦点、RTL 与无障碍语义。
+标准控件的主题和 DPR 视觉场景使用 `fluent.screenshot-*` 中的
+`standard-breadth-light`、`standard-breadth-dark` 和
+`standard-breadth-high-contrast` 基线；它们与其他截图场景共用同一套
+`ZzFluentScreenshotTest`、文字遮罩和像素比较规则。
+
+Linux 是这些合同的实际构建与自动测试平台。Windows MSVC、Windows MinGW 和
+macOS 当前只进行静态检查；offscreen/Xvfb 能证明绘制和公共 Qt API 契约，不能替代
+真实窗口系统中的鼠标命中、焦点、原生菜单行为或 DPI 交互验收。
+
 ## GitHub 托管 CI 状态
 
 `.github/workflows/ci.yml` 已在 GitHub 上启动 Ubuntu 24.04、Windows Server 2022 MSVC/Qt MinGW、macOS 15 arm64/x86_64 矩阵。前三次运行已依次验证配置契约和全部平台 Qt 安装路径，并暴露出仍需修复的编译与工具链校验问题；目前还没有同一提交的完整成功矩阵，所以下方平台行继续保持“未执行”。工作流通过后先记录为 GitHub 托管兼容证据；Windows Server 2022 不替代 Windows 10/11，Ubuntu offscreen 不替代 KDE/GNOME X11/Wayland，只有 OS、架构和 ABI 完全匹配的原生日志才能把对应行提升为“静态验证通过”。详细边界和日志处理见 `docs/development/GITHUB_ACTIONS_ZH.md`。
