@@ -329,6 +329,34 @@ Linux Qt 6.11.1/GCC 15.2.0、`linux-gcc-benchmarks`、LTO、共享库、Xvfb
 - Linux GCC/Clang-Tidy 执行真实检查；
 - Windows MSVC、Windows MinGW、macOS 只检查条件编译、公共头、链接方向和 Qt 公共 API，未执行不得写成通过。
 
+### 第 3 批 Linux 质量门禁结果（2026-08-13）
+
+当前提交在 Qt 6.11.1、GCC 15.2.0 和 Clang 20.1.8 本机环境完成以下验证：
+
+- `linux-gcc-debug`、`linux-gcc-release`、`linux-static-release` 的完整 CTest
+  均为 131/131，通过 Architecture、四档 Fluent/Example 截图、安装消费、包重定位、
+  Example 集成和 Linux 平台合同；
+- `linux-gcc-release-lto` 与 `linux-static-release-lto` 均成功构建，Architecture、
+  标准表面、checkable 按钮、PasswordBox、Example 集成和二进制依赖等 22 项关键
+  合同各自全部通过；
+- `ZzClangTidy` 使用 Clang-Tidy 20 检查 225 个显式项目源文件，无项目诊断；新增
+  标准表面 benchmark 也在对应 compile database 下完成定向检查；
+- `linux-clang-asan` 首轮发现 PasswordBox 在内部查看按钮持有焦点时析构会从
+  `QApplication::focusChanged` 回调已释放 Pimpl。提交 `d97f868` 显式断开捕获私有状态
+  的连接并增加回归测试；复跑后 131 个测试路径均在 ASan/UBSan 下通过。
+
+标准表面场景在同一 `linux-gcc-benchmarks`、LTO、共享库和 Xvfb 身份下连续三轮
+观测：`state-update-time` P50 为 0.260744–0.263174 ms、P95 为
+0.284363–0.313323 ms；`render-time` P50 为 1.343721–1.355609 ms、P95 为
+1.499448–1.583651 ms。三轮的 `object-count` 最大值均为 127，
+`style-cache-bytes` 最大值均为 6272 bytes。场景 CTest 通过，报告只保留在忽略的
+构建目录；由于当前只是本机 Xvfb 三轮观测，新指标继续保持 `observe`，没有修改
+正式阈值或既有性能回归循环。
+
+Windows MSVC、Windows MinGW 与 macOS 在当前 Linux 主机没有执行原生编译、CTest、
+Sanitizer 或 benchmark，不能由上述结果推导为通过；相关状态仍为公共 API/条件编译
+静态边界检查，等待对应平台手工或 CI 证据。
+
 提交标题：质量：完成Fluent广度扩展门禁。
 
 ## 6. 测试与截图矩阵
