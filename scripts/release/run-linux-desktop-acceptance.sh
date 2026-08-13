@@ -35,6 +35,39 @@ require_wayland_output() {
   }
 }
 
+require_local_desktop_session() {
+  [[ -n "${XDG_SESSION_ID:-}" ]] || {
+    echo "XDG_SESSION_ID is required to identify the physical desktop session" >&2
+    return 65
+  }
+
+  local login_type login_remote login_active login_desktop
+  login_type=$(loginctl show-session "$XDG_SESSION_ID" -p Type --value) || {
+    echo "loginctl could not query session $XDG_SESSION_ID" >&2
+    return 65
+  }
+  login_remote=$(loginctl show-session "$XDG_SESSION_ID" -p Remote --value)
+  login_active=$(loginctl show-session "$XDG_SESSION_ID" -p Active --value)
+  login_desktop=$(loginctl show-session "$XDG_SESSION_ID" -p Desktop --value)
+
+  [[ "$login_remote" == no && "$login_active" == yes ]] || {
+    echo "desktop acceptance requires a local active login session" >&2
+    return 65
+  }
+  [[ "$login_type" == "$session_type" ]] || {
+    echo "XDG session type does not match loginctl: $session_type != $login_type" >&2
+    return 65
+  }
+
+  local login_desktop_lower=${login_desktop,,}
+  [[ -n "$login_desktop_lower"
+    && ("$desktop_name_lower" == *"$login_desktop_lower"*
+      || "$login_desktop_lower" == *"$desktop_name_lower"*) ]] || {
+    echo "XDG desktop does not match loginctl: $desktop_name != $login_desktop" >&2
+    return 65
+  }
+}
+
 usage() {
   cat <<'EOF'
 usage: run-linux-desktop-acceptance.sh --session <id> --build-dir <path>
@@ -102,7 +135,7 @@ esac
   exit 64
 }
 
-for tool in bash cmake file git ldd realpath sed sha256sum tee; do
+for tool in bash cmake file git ldd loginctl realpath sed sha256sum tee; do
   command -v "$tool" >/dev/null || {
     echo "required tool is unavailable: $tool" >&2
     exit 69
@@ -179,6 +212,7 @@ fi
 session_type=${XDG_SESSION_TYPE:-}
 desktop_name=${XDG_CURRENT_DESKTOP:-}
 desktop_name_lower=${desktop_name,,}
+require_local_desktop_session
 case "$session_id" in
   linux-x11-kde)
     [[ "$session_type" == x11 && "$desktop_name_lower" == *kde* ]] || {
@@ -275,6 +309,7 @@ cmake --build "$build_dir" --target ZzPureToolsExample --parallel 2 \
 compiler=$(sed -n 's/^CMAKE_CXX_COMPILER:[^=]*=//p' "$cache_file")
 {
   echo "session.id=$session_id"
+  echo "session.loginId=$XDG_SESSION_ID"
   echo "session.type=$session_type"
   echo "session.desktop=$desktop_name"
   echo "session.qtQpaPlatform=$QT_QPA_PLATFORM"

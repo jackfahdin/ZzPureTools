@@ -63,7 +63,9 @@ commit、工作树状态、桌面协议、Qt、编译器、显示器、ELF 依�
 
 仅存在 `DISPLAY` 或 `WAYLAND_DISPLAY` 环境变量不足以证明物理桌面可用。脚本还会
 要求 X11 至少存在一个 `xrandr --listmonitors` 活跃输出，或要求 Wayland compositor
-实际发布 `wl_output`；远程、隔离或无头 socket 必须在创建证据目录前失败关闭。
+实际发布 `wl_output`；同时通过 `XDG_SESSION_ID` 和 `loginctl` 确认当前进程属于本地
+活动桌面会话，并核对协议类型与桌面名称。远程 SSH/PTY 即使能访问另一个会话的
+display socket，也必须在创建证据目录前失败关闭。
 
 | 检查项 | 预期行为 | 实际结果 | 截图/日志路径 | 问题链接 |
 |---|---|---|---|---|
