@@ -20,6 +20,27 @@ set_tests_properties(windowkit.agent PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzSoftwareBackdropTest
+    ZzSoftwareBackdropTest.cpp
+    ../src/private/ZzSoftwareBackdrop.cpp
+    ../src/private/ZzSoftwareBackdropPrivate.cpp
+)
+target_include_directories(ZzSoftwareBackdropTest PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/private
+)
+target_link_libraries(ZzSoftwareBackdropTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+)
+set_target_properties(ZzSoftwareBackdropTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSoftwareBackdropTest)
+zz_enable_sanitizers(ZzSoftwareBackdropTest)
+add_test(NAME windowkit.software-backdrop COMMAND ZzSoftwareBackdropTest)
+set_tests_properties(windowkit.software-backdrop PROPERTIES
+    LABELS "unit;windowkit"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzWindowKitBootstrapTest
     ZzWindowKitBootstrapTest.cpp
 )

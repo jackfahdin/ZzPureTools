@@ -13,6 +13,8 @@
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzWindowKit/ZzWindowAgent.h>
 #include <ZzWindowKit/ZzWindowAgentState.h>
+#include <ZzWindowKit/ZzWindowApplyState.h>
+#include <ZzWindowKit/ZzWindowBackdrop.h>
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
 /**
@@ -41,6 +43,35 @@ private Q_SLOTS:
         QCOMPARE(agent.state(), ZzWindowKit::ZzWindowAgentState::Failed);
     }
 #endif
+
+    /** @brief 验证 Automatic 通过默认后端启用唯一软件材质层。 */
+    void automaticUsesSoftwareFallback()
+    {
+        QWidget window;
+        window.resize(320, 180);
+        ZzWindowKit::ZzWindowAgent agent;
+        QVERIFY(agent.attach(&window));
+
+        const auto result = agent.setBackdrop(
+            ZzWindowKit::ZzWindowBackdrop::Automatic);
+        QVERIFY(result);
+        QCOMPARE(result.value(), ZzWindowKit::ZzWindowApplyState::Applied);
+        auto *layer = window.findChild<QWidget *>(
+            QStringLiteral("zzSoftwareBackdropLayer"));
+        QVERIFY(layer != nullptr);
+        QVERIFY(!layer->isHidden());
+        QCOMPARE(
+            window.findChildren<QWidget *>(
+                QStringLiteral("zzSoftwareBackdropLayer"))
+                .size(),
+            qsizetype{1});
+
+        const auto disabled = agent.setBackdrop(
+            ZzWindowKit::ZzWindowBackdrop::None);
+        QVERIFY(disabled);
+        QCOMPARE(disabled.value(), ZzWindowKit::ZzWindowApplyState::Applied);
+        QVERIFY(layer->isHidden());
+    }
 
     void destroysAgentBeforeWindow()
     {

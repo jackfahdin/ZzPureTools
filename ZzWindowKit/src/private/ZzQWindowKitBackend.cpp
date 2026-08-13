@@ -16,6 +16,8 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 
+#include "ZzSoftwareBackdrop.h"
+
 #if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
 #include "ZzWindowKitDiagnostics.h"
 #endif
@@ -153,6 +155,13 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::attach(QWidget *window)
 
     host_ = window;
     agent_ = std::move(agent);
+    softwareBackdrop_ = std::make_unique<ZzSoftwareBackdrop>();
+    if (!softwareBackdrop_->attach(window)) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral(
+                "ZzWindowKit failed to attach the software backdrop layer"));
+    }
 #if defined(ZZ_WINDOWKIT_DIAGNOSTICS)
     Internal::ZzWindowKitDiagnostics::agentAttached();
 #endif
@@ -228,12 +237,20 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setBackdrop(
 
 #if ZZ_WINDOWKIT_FORCE_QT_CONTEXT
     if (backdrop == ZzWindowBackdrop::None) {
+        const auto software = setSoftwareBackdrop(false);
+        if (!software) {
+            return software;
+        }
         backdrop_ = ZzWindowBackdrop::None;
         return ZzCore::ZzResult<ZzWindowApplyState>::success(
             ZzWindowApplyState::Applied);
     }
+    if (backdrop == ZzWindowBackdrop::Automatic) {
+        return setSoftwareBackdrop(true);
+    }
     return zzUnsupportedApplyState();
 #elif defined(Q_OS_WIN)
+    const auto automatic = backdrop == ZzWindowBackdrop::Automatic;
     auto resolvedBackdrop = backdrop;
     if (resolvedBackdrop == ZzWindowBackdrop::Automatic) {
         if (zzIsWindows11OrGreater()) {
@@ -244,6 +261,10 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setBackdrop(
     }
     if (!zzWindowsSupportsBackdrop(resolvedBackdrop)
         || resolvedBackdrop == ZzWindowBackdrop::Automatic) {
+        if (automatic) {
+            backdrop_ = ZzWindowBackdrop::Automatic;
+            return setSoftwareBackdrop(true);
+        }
         return zzUnsupportedApplyState();
     }
 
@@ -298,23 +319,39 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setBackdrop(
         break;
     }
     if (!previousDisabled || !requestedEnabled) {
+        if (automatic) {
+            backdrop_ = ZzWindowBackdrop::Automatic;
+            const auto software = setSoftwareBackdrop(true);
+            if (software) {
+                return software;
+            }
+        }
         return zzBackendFailure<ZzWindowApplyState>(
             ZzCore::ZzErrorCode::Backend,
             QStringLiteral("QWindowKit failed to update the window backdrop"));
     }
 
+    auto software = setSoftwareBackdrop(false);
+    if (!software) {
+        return software;
+    }
     backdrop_ = resolvedBackdrop;
     return ZzCore::ZzResult<ZzWindowApplyState>::success(
         hasNativeHandle()
             ? ZzWindowApplyState::Applied
             : ZzWindowApplyState::Deferred);
 #elif defined(Q_OS_MACOS)
+    const auto automatic = backdrop == ZzWindowBackdrop::Automatic;
     auto resolvedBackdrop = backdrop;
     if (resolvedBackdrop == ZzWindowBackdrop::Automatic) {
         resolvedBackdrop = ZzWindowBackdrop::Blur;
     }
     if (resolvedBackdrop != ZzWindowBackdrop::None
         && resolvedBackdrop != ZzWindowBackdrop::Blur) {
+        if (automatic) {
+            backdrop_ = ZzWindowBackdrop::Automatic;
+            return setSoftwareBackdrop(true);
+        }
         return zzUnsupportedApplyState();
     }
 
@@ -325,9 +362,20 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setBackdrop(
                : QStringLiteral("light"));
     if (!agent_->setWindowAttribute(
             QStringLiteral("blur-effect"), attribute)) {
+        if (automatic) {
+            backdrop_ = ZzWindowBackdrop::Automatic;
+            const auto software = setSoftwareBackdrop(true);
+            if (software) {
+                return software;
+            }
+        }
         return zzBackendFailure<ZzWindowApplyState>(
             ZzCore::ZzErrorCode::Backend,
             QStringLiteral("QWindowKit failed to update the window backdrop"));
+    }
+    auto software = setSoftwareBackdrop(false);
+    if (!software) {
+        return software;
     }
     backdrop_ = resolvedBackdrop;
     return ZzCore::ZzResult<ZzWindowApplyState>::success(
@@ -335,8 +383,16 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setBackdrop(
             ? ZzWindowApplyState::Applied
             : ZzWindowApplyState::Deferred);
 #elif defined(Q_OS_LINUX)
+    if (backdrop == ZzWindowBackdrop::Automatic) {
+        backdrop_ = ZzWindowBackdrop::Automatic;
+        return setSoftwareBackdrop(true);
+    }
     if (backdrop != ZzWindowBackdrop::None) {
         return zzUnsupportedApplyState();
+    }
+    auto software = setSoftwareBackdrop(false);
+    if (!software) {
+        return software;
     }
     backdrop_ = ZzWindowBackdrop::None;
     return ZzCore::ZzResult<ZzWindowApplyState>::success(
@@ -428,6 +484,20 @@ bool ZzQWindowKitBackend::hasNativeHandle() const noexcept
     return !host_.isNull()
         && host_->testAttribute(Qt::WA_WState_Created)
         && host_->windowHandle() != nullptr;
+}
+
+ZzCore::ZzResult<ZzWindowApplyState>
+ZzQWindowKitBackend::setSoftwareBackdrop(bool enabled)
+{
+    if (softwareBackdrop_ == nullptr
+        || !softwareBackdrop_->setEnabled(enabled)) {
+        return zzBackendFailure<ZzWindowApplyState>(
+            ZzCore::ZzErrorCode::Backend,
+            QStringLiteral(
+                "ZzWindowKit failed to update the software backdrop layer"));
+    }
+    return ZzCore::ZzResult<ZzWindowApplyState>::success(
+        ZzWindowApplyState::Applied);
 }
 
 } // namespace ZzWindowKit

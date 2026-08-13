@@ -4,6 +4,8 @@ set(zz_window_kit_sources
     src/private/ZzWindowAgentPrivate.cpp
     src/ZzWindowKitBootstrap.cpp
     src/private/ZzQWindowKitBackend.cpp
+    src/private/ZzSoftwareBackdrop.cpp
+    src/private/ZzSoftwareBackdropPrivate.cpp
 )
 set(zz_window_kit_moc_headers
     include/ZzWindowKit/ZzWindowAgent.h

@@ -15,6 +15,8 @@ class WidgetWindowAgent;
 
 namespace ZzWindowKit {
 
+class ZzSoftwareBackdrop;
+
 /**
  * @brief 使用 QWindowKit WidgetWindowAgent 的私有生产后端。
  */
@@ -37,8 +39,11 @@ public:
 
 private:
     [[nodiscard]] bool hasNativeHandle() const noexcept;
+    [[nodiscard]] ZzCore::ZzResult<ZzWindowApplyState>
+    setSoftwareBackdrop(bool enabled);
 
     std::unique_ptr<QWK::WidgetWindowAgent> agent_;
+    std::unique_ptr<ZzSoftwareBackdrop> softwareBackdrop_;
     QPointer<QWidget> host_;
     ZzWindowCapabilities capabilities_;
     ZzWindowBackdrop backdrop_ = ZzWindowBackdrop::None;
