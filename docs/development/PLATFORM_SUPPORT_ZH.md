@@ -10,6 +10,16 @@
 
 自动化只能将一行从 `未执行` 提升为 `静态验证通过`。提升到 `真机验收通过` 必须由测试人员依据对应人工清单签署；另一 OS、另一 ABI、另一窗口系统或模拟显示结果不能代替。
 
+## 软件材质背景语义
+
+`ZzWindowBackdrop::Automatic` 在 Linux 当前使用 `ZzWindowKit` 内部的软件材质层。该层只在宿主窗口内部绘制基于 `QPalette::Window` 的固定低频纹理，不采样桌面、不读取桌面根窗口，也不依赖 X11、Wayland、Windows 或 macOS 原生句柄。因此它是轻量的宿主内软件材质，不等价于系统 Mica、Acrylic 或 Blur。
+
+Windows 的原生 Mica/Acrylic、macOS 的原生 Blur 仍由现有私有 QWindowKit 后端优先处理；只有 `Automatic` 的原生路径失败时才允许进入同一软件 fallback。显式请求 `Blur`、`Acrylic`、`Mica` 或 `MicaAlt` 不会静默降级。Linux 对显式系统材质继续返回 `Unsupported`，调用方应根据能力和返回状态决定界面策略。
+
+软件层不增加原生能力位，不使用 Qt Private、平台 native API、`QGraphicsEffect` 或每帧动画。高对比度、无障碍或性能受限场景由调用方明确请求 `ZzWindowBackdrop::None`，项目不通过平台私有设置猜测用户意图。
+
+软件材质性能基准目标为 `benchmark.backdrop`，报告包含 `enable-time`、`frame-time`、`rebuild-time` 和 `object-count`，并记录 Qt、编译器、显示平台、DPR、GPU 身份、提交和 preset。当前已完成基准本体与 schema 验证，尚未建立独立版本化基线，也没有把该场景接入正式回归门禁；offscreen/Xvfb 报告不能替代真实桌面交互验收。
+
 ## Linux 发布参考环境登记
 
 当前只有一台可用机器，因此项目选用 `local-release-xvfb` 作为活动 Linux 发布参考环境。它是 Ubuntu 26.04、Qt 6.11.1、GCC 15.2.0 的本机档案，已经保存 Xvfb 性能基线和四个 GCC 发布组合的自动测试记录。主机没有物理显示器，所以这些记录不能提升下方 KDE/GNOME 真机会话行。

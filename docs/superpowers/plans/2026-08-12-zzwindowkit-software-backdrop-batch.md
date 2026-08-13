@@ -155,3 +155,24 @@ benchmark 不采集桌面截图，不启动动画，不与 QWindowKit native 属
 - `Automatic` 在 Linux 可验证地启用软件材质，显式平台材质保持 `Unsupported`；Windows/macOS 只完成静态检查时不得写成通过。
 - benchmark 报告能区分软件材质与原生材质，并有版本化 profile、基线和逐指标比较结果。
 - 平台支持文档明确：“软件材质不是系统 Mica/Acrylic，不采样桌面，不替代原生材质；高对比或性能策略由调用方请求 `None`”。
+
+## 9. 实施结果（2026-08-13）
+
+本批计划已按以下提交实施：
+
+- 计划与边界文档：`28aaddd`。
+- 软件材质实现、QWindowKit fallback 和 WindowKit 测试：`e1c828e`。
+- 软件材质基准与 CMake/CTest 接入：`7be2339`。
+
+实现文件保持在 `ZzWindowKit/src/private`，没有新增公共头、公共枚举或安装接口。软件层使用固定 DPR-aware tile，在宿主尺寸变化时只更新 layer 几何；Palette、Style、屏幕或 DPR 环境变化才重建缓存。Linux `Automatic` 返回 `Applied` 并显示宿主内软件材质，显式系统材质仍为 `Unsupported`；Windows MSVC、Windows MinGW 和 macOS 只完成代码级静态边界检查，未记录为真实构建或运行通过。
+
+已完成的 Linux 验证包括：
+
+- `windowkit.agent`、`windowkit.software-backdrop`、`windowkit.lifecycle` 通过。
+- `architecture.public-headers`、`architecture.complete-audit`、`architecture.zzwindowkit-boundaries` 通过。
+- 软件材质相关源文件、测试和生命周期测试的定向 Clang-Tidy 通过。
+- `benchmark.backdrop` 成功生成统一 schema 报告；报告包含 `enable-time`、`frame-time`、`rebuild-time`、`object-count` 四项指标，1000 次切换后 layer 地址和对象数量保持稳定。当前运行记录使用本机 Qt 6.11.1、GCC 15.2.0 和 Qt `offscreen` 平台，因此只能作为实现诊断，不能提升 Linux 物理桌面验收状态。
+
+本批尚未完成独立 benchmark 基线、三轮噪声分析和逐指标正式门禁，未修改既有性能阈值，也未将 `benchmark.backdrop` 加入 `scripts/ci/run-linux-gates.sh` 的比较场景。后续应在活动 `local-release-xvfb` 环境生成独立基线，再决定 `observe` 或 `gate`，并单独保留软件材质与原生材质的环境指纹。
+
+工作区中的 `temp_image/` 是未跟踪用户资料，未纳入上述提交。
