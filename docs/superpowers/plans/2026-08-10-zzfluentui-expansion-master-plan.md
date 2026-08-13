@@ -1,12 +1,12 @@
-# ZzFluentUI 广度扩张总实施计划（第 0 批还债 + 四个控件批次）
+# ZzFluentUI 广度扩张总实施计划（已完成）
 
-**目标：** 在保持现有质量深度（五纪律、六阶段门禁）不变的前提下，把 ZzFluentUI 从 26 个控件扩展到约 40 个，并修复评审发现的两个短板：性能阈值无噪声依据以及 Typography/Motion/AnimationPolicy 无生产消费者。截图基线欠债和 Item View 选中视觉统一已经由 `568ba21` 完成。
+**目标：** 在保持现有质量深度（五纪律、六阶段门禁）不变的前提下，把 ZzFluentUI 从 26 个公开组件扩展到 37 个，并修复评审发现的两个短板：性能阈值无噪声依据以及 Typography/Motion/AnimationPolicy 无生产消费者。标准 Qt Widgets 由应用级 `ZzFluentStyle` 覆盖，不为数量创建没有独立语义的包装类。截图基线欠债和 Item View 选中视觉统一已经由 `568ba21` 完成。
 
 **执行环境：** 全部验证步骤必须在 Linux 参考机执行（截图与性能基线只在该机有效）。固定环境：i7-14700 / Xvfb 1920×1080 DPR 1.0 / Mesa llvmpipe / Ubuntu 26.04 / Qt 6.11.1 / GCC 15.2.0 / preset `linux-gcc-reference`，详见 `docs/performance/PERFORMANCE_BASELINE_ZH.md`。
 
 **技术栈：** Qt 6.8+ Widgets、C++20、CMake Presets、Qt Test、Clang-Tidy、ASan/UBSan。
 
-**路线状态（2026-08-13）：** 第 0、1、2、3 批 FluentUI 扩展已经完成，公开组件数由 26 增至 37；第 4 批 `ZzWindowKit` 软件材质背景已完成实现、基准和平台文档，提交见 `e1c828e`、`7be2339`、`e3fdaed`。旧版与新项目的广度差异已完成代码级审计，当前执行 `docs/superpowers/plans/2026-08-13-zzfluentui-breadth-expansion.md`：标准 Qt 控件由 `ZzFluentStyle` 提供视觉/交互合同，旧版 `ZzToggleButton` 映射为 checkable `ZzPushButton`，随后完成 Example、安装消费和性能门禁。旧版业务卡片、页面路由和纯样式包装不直接迁移；Windows/macOS 真实构建与物理桌面验收仍需独立证据。
+**路线状态（2026-08-13）：** 本路线及后续广度补全阶段已经关闭。第 0、1、2、3 批 FluentUI 扩展已经完成，公开组件数由 26 增至 37；第 4 批 `ZzWindowKit` 软件材质背景已完成实现、基准和平台文档，提交见 `e1c828e`、`7be2339`、`e3fdaed`。旧版与新项目的广度差异已完成代码级审计；`docs/superpowers/plans/2026-08-13-zzfluentui-breadth-expansion.md` 已完成标准 Qt 表面、checkable `ZzPushButton`、Example 串联、安装消费和性能观测，收尾提交为 `b5a0ca4`。Sanitizer 发现的 PasswordBox 析构期回调越界已由 `d97f868` 修复，标准表面性能观测由 `d0623f0` 固化。旧版业务卡片、页面路由和纯样式包装不直接迁移；下一阶段转入 Linux 物理桌面与 Windows/macOS 原生平台验收，不继续无依据增加组件。
 
 **执行方式（重要）：** 本文档是总计划（路线图粒度）。每个批次动工前，先把该批次展开为一份独立的详细实施计划，放在本目录（`docs/superpowers/plans/2026-08-XX-zzfluentui-<batch>.md`），粒度对齐既有 28 份计划（逐文件、逐绘制函数、旧代码审计、红绿命令、Expected），确认后再写代码。本文档中标注"实施时定/选简单者"的决策点，必须在批次详细计划里给出定论和理由，不允许带着未定决策动工。
 
@@ -253,7 +253,7 @@
 
 ---
 
-## 6. 批次 4：软件 Mica/Acrylic（窗口特效，下一阶段）
+## 6. 批次 4：软件 Mica/Acrylic（已完成）
 
 **现状（实施起点）：** `ZzWindowKit` 公开枚举 `ZzWindowBackdrop`（None/Blur/Acrylic/Mica/MicaAlt/Automatic，include/ZzWindowKit/ZzWindowBackdrop.h），入口 `ZzWindowAgent::setBackdrop()`，平台声明与支持矩阵全在 `src/private/ZzQWindowKitBackend.cpp`（Win11≥22000→Mica、22H2≥22621→MicaAlt；Linux 仅 None）；测试替身 `tests/private/ZzFakeWindowBackend.*`。
 
@@ -283,5 +283,17 @@
 ## 8. 总验收红线
 
 - 每批次：`ctest --preset linux-gcc-reference` 全绿；`fluent.screenshot-*` 同批重采并人工确认；`ctest -R Architecture` 过（白名单只减不增）；`run-linux-gates.sh` 绿；README/docs 同步且只写已验证能力。
-- 全部完成后：控件数 26 → 约 40；无新增死 API（每个公开令牌/策略至少一个生产消费者）；`docs/performance/PERFORMANCE_BASELINE_ZH.md` 含噪声带章节；`PLATFORM_SUPPORT_ZH.md` 含软件 Mica 降级链声明。
+- 全部完成后：公开组件数 26 → 37；标准 Qt Widgets 由 `ZzFluentStyle` 覆盖，不以空包装类凑数量；无新增死 API（每个公开令牌/策略至少一个生产消费者）；`docs/performance/PERFORMANCE_BASELINE_ZH.md` 含噪声带章节；`PLATFORM_SUPPORT_ZH.md` 含软件 Mica 降级链声明。
 - 任何批次发现既有体系新短板，按第 0 批方式先记录再修，不允许带病扩张。
+
+## 9. 阶段关闭记录（2026-08-13）
+
+- `b5a0ca4` 完成广度扩展质量门禁，37 个公开组件及标准 Qt surface 策略保持稳定；
+- `d97f868` 修复 ASan/UBSan 发现的 PasswordBox 析构期回调 use-after-free，并增加聚焦内部 reveal 按钮后销毁控件的回归测试；
+- `d0623f0` 增加 `benchmark.fluent-standard-surfaces`，覆盖状态更新、渲染、对象数量和样式缓存，指标保持 `observe`；
+- Linux Qt 6.11.1 / GCC 15.2.0 下 Debug、Release、Static 均为 131/131；Shared/Static LTO 构建及 22 项关键合同通过；
+- Clang-Tidy 20 检查 225 个显式项目源文件无项目诊断；ASan/UBSan 的 131 条测试路径均已实际执行通过；
+- 标准表面 benchmark 连续三轮的对象数量最大值均为 127，样式缓存最大值均为 6272 bytes，没有调整正式阈值；
+- Windows MSVC、Windows MinGW、macOS arm64/x86_64 仍缺少原生验证证据；Linux 物理桌面也仍需人工验收记录。上述状态不能由 Linux 自动门禁替代。
+
+此后只有产品需求、可复现缺陷、旧版能力审计缺口或明确的平台验收问题，才启动新的详细实施计划。单纯追求控件数量不构成立项依据。
