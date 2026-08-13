@@ -49,6 +49,10 @@ session ids:
 The build directory must be below this repository's build directory and must
 already contain ZzPureToolsExample. The fallback session additionally requires
 ZZ_WINDOWKIT_FORCE_QT_CONTEXT:BOOL=ON in CMakeCache.txt.
+
+The tracked source tree must be clean. The only permitted untracked input is
+the exact top-level temp_image/ directory; the script records but never reads,
+copies, hashes, or commits that directory.
 EOF
 }
 
@@ -112,9 +116,19 @@ done
 source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 cd "$source_dir"
 status_output=$(git status --porcelain --untracked-files=normal)
-[[ -z "$status_output" ]] || {
+local_untracked_inputs=none
+unexpected_status=
+while IFS= read -r status_line; do
+  [[ -n "$status_line" ]] || continue
+  if [[ "$status_line" == "?? temp_image/" ]]; then
+    local_untracked_inputs=temp_image/
+    continue
+  fi
+  unexpected_status+="${status_line}"$'\n'
+done <<<"$status_output"
+[[ -z "$unexpected_status" ]] || {
   echo "desktop acceptance requires a clean worktree" >&2
-  printf '%s\n' "$status_output" >&2
+  printf '%s' "$unexpected_status" >&2
   exit 65
 }
 
@@ -267,7 +281,8 @@ compiler=$(sed -n 's/^CMAKE_CXX_COMPILER:[^=]*=//p' "$cache_file")
   echo "session.display=${DISPLAY:-}"
   echo "session.waylandDisplay=${WAYLAND_DISPLAY:-}"
   echo "source.commit=$commit"
-  echo "source.status=clean"
+  echo "source.status=tracked-clean"
+  echo "source.localUntrackedInputs=$local_untracked_inputs"
   echo "build.directory=$build_dir"
   echo "build.forceQtContext=$fallback_value"
   echo "build.type=$build_type"

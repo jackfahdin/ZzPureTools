@@ -56,6 +56,11 @@ commit、工作树状态、桌面协议、Qt、编译器、显示器、ELF 依�
 脚本给出的 `screenshots/`，逐项填写同目录 `RESULT_ZH.md`。脚本只采证，不会自动
 把会话判定为通过，也不会修改本清单或平台状态。
 
+工作树检查要求所有受跟踪源码、暂存区和冲突状态干净，并拒绝其他未跟踪文件。唯一
+例外是仓库顶层精确命名的 `temp_image/`，它只作为用户保留的本地截图输入登记在
+`host.log`；脚本不会读取、复制、哈希或提交该目录。`temp_image-other/`、已跟踪的
+`temp_image` 修改或任何其他未跟踪路径都不会被例外覆盖。
+
 仅存在 `DISPLAY` 或 `WAYLAND_DISPLAY` 环境变量不足以证明物理桌面可用。脚本还会
 要求 X11 至少存在一个 `xrandr --listmonitors` 活跃输出，或要求 Wayland compositor
 实际发布 `wl_output`；远程、隔离或无头 socket 必须在创建证据目录前失败关闭。

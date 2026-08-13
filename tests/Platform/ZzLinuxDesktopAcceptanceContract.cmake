@@ -27,6 +27,9 @@ set(required_tokens
     "BUILD_SHARED_LIBS:BOOL="
     "Qt6_DIR:PATH="
     "git status --porcelain"
+    "[[ \"\$status_line\" == \"?? temp_image/\" ]]"
+    "source.status=tracked-clean"
+    "source.localUntrackedInputs=\$local_untracked_inputs"
     "cmake --build"
     "ZzPureToolsExample"
     "sha256sum"
@@ -79,6 +82,16 @@ if(NOT help_result EQUAL 0 OR NOT help_output MATCHES "usage:")
     message(FATAL_ERROR
         "Linux desktop script help failed: ${help_output}${help_error}")
 endif()
+foreach(required_help_token IN ITEMS
+    "tracked source tree must be clean"
+    "exact top-level temp_image/ directory"
+    "never reads")
+    string(FIND "${help_output}" "${required_help_token}" help_token_position)
+    if(help_token_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux desktop script help is missing token: ${required_help_token}")
+    endif()
+endforeach()
 
 execute_process(
     COMMAND bash "${script}" --session invalid --build-dir build/invalid
