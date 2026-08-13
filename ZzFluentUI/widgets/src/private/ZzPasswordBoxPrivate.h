@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
+
 #include <QtCore/QMargins>
+#include <QtCore/QMetaObject>
 
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
 
@@ -20,6 +23,9 @@ public:
      * @param q 非空、非拥有的公开密码输入框。
      */
     explicit ZzPasswordBoxPrivate(ZzPasswordBox *q);
+
+    /** @brief 在公开控件进入基类析构前断开所有捕获私有状态的回调。 */
+    ~ZzPasswordBoxPrivate();
 
     /** @brief 按当前主题、语言、模式和方向刷新展示。 */
     void refreshPresentation();
@@ -50,11 +56,16 @@ public:
     bool peekActive = false;
 
 private:
+    static constexpr std::size_t zzCallbackConnectionCount = 5;
+
     /** @brief 同步 QLineEdit echoMode 并只发一次可见性信号。 */
     void applyVisibility(bool wasVisible);
 
     /** @brief 返回 Peek 按钮当前是否应该显示。 */
     [[nodiscard]] bool shouldShowButton() const noexcept;
+
+    std::array<QMetaObject::Connection, zzCallbackConnectionCount>
+        callbackConnections;
 };
 
 } // namespace ZzFluentUI

@@ -33,21 +33,21 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
     revealButton->setFocusPolicy(Qt::StrongFocus);
     revealButton->setAutoRaise(true);
 
-    QObject::connect(
+    callbackConnections[0] = QObject::connect(
         revealButton,
         &ZzIconButton::pressed,
         q_ptr,
         [this] {
             beginPeek();
         });
-    QObject::connect(
+    callbackConnections[1] = QObject::connect(
         revealButton,
         &ZzIconButton::released,
         q_ptr,
         [this] {
             endPeek();
         });
-    QObject::connect(
+    callbackConnections[2] = QObject::connect(
         q_ptr,
         &QLineEdit::textChanged,
         q_ptr,
@@ -57,7 +57,7 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
             }
             syncButtonGeometry();
         });
-    QObject::connect(
+    callbackConnections[3] = QObject::connect(
         qApp,
         &QApplication::focusChanged,
         q_ptr,
@@ -66,7 +66,7 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
                 endPeek();
             }
         });
-    QObject::connect(
+    callbackConnections[4] = QObject::connect(
         qApp,
         &QApplication::applicationStateChanged,
         q_ptr,
@@ -78,6 +78,13 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
 
     applyVisibility(false);
     refreshPresentation();
+}
+
+ZzPasswordBoxPrivate::~ZzPasswordBoxPrivate()
+{
+    for (const QMetaObject::Connection &connection : callbackConnections) {
+        QObject::disconnect(connection);
+    }
 }
 
 void ZzPasswordBoxPrivate::refreshPresentation()

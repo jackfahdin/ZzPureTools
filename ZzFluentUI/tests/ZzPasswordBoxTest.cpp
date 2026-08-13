@@ -284,6 +284,26 @@ private Q_SLOTS:
         QVERIFY(!box.isPasswordVisible());
         QCOMPARE(box.echoMode(), QLineEdit::Password);
     }
+
+    void focusedRevealButtonCanBeDestroyedSafely()
+    {
+        auto box = std::make_unique<ZzFluentUI::ZzPasswordBox>();
+        QPointer<ZzFluentUI::ZzPasswordBox> boxGuard(box.get());
+        box->setText(QStringLiteral("secret"));
+        box->resize(240, 40);
+        box->show();
+        QCoreApplication::processEvents();
+
+        auto *const button = revealButton(box.get());
+        QPointer<ZzFluentUI::ZzIconButton> buttonGuard(button);
+        button->setFocus(Qt::OtherFocusReason);
+        QCoreApplication::processEvents();
+        QVERIFY(button->hasFocus());
+
+        box.reset();
+        QVERIFY(boxGuard.isNull());
+        QVERIFY(buttonGuard.isNull());
+    }
 };
 
 QTEST_MAIN(ZzPasswordBoxTest)
