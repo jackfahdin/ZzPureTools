@@ -33,7 +33,7 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
 }
 
 bool ZzTabWidget::isTabPinned(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).pinned; }
-void ZzTabWidget::setTabPinned(int index, bool value) { if(index<0||index>=count()) return; auto &s=d_ptr->ensureMetadata(widget(index)); if(s.pinned==value)return; s.pinned=value; if(value){ int firstUnpinned=0; for(int i=0;i<count();++i) if(i!=index&&!isTabPinned(i)) { firstUnpinned=i; break; } if(index>firstUnpinned) d_ptr->tabBar->moveTab(index,firstUnpinned); } Q_EMIT tabPinnedChanged(index,value); }
+void ZzTabWidget::setTabPinned(int index, bool value) { if(index<0||index>=count()) return; QWidget *page=widget(index); auto &s=d_ptr->ensureMetadata(page); if(s.pinned==value)return; s.pinned=value; int actual=index; if(value){ int firstUnpinned=0; while(firstUnpinned<count()&&isTabPinned(firstUnpinned)) ++firstUnpinned; if(index>firstUnpinned) { d_ptr->tabBar->moveTab(index,firstUnpinned); actual=firstUnpinned; } } Q_EMIT tabPinnedChanged(actual,value); }
 bool ZzTabWidget::isTabModified(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).modified; }
 void ZzTabWidget::setTabModified(int index, bool value) { if(index<0||index>=count()) return; auto &s=d_ptr->ensureMetadata(widget(index)); if(s.modified==value)return; s.modified=value; Q_EMIT tabModifiedChanged(index,value); }
 bool ZzTabWidget::hasTabAttention(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).attention; }

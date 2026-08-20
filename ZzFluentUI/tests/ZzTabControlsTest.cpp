@@ -47,6 +47,27 @@ class ZzTabControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void workspaceStateAndCloseIntentContract()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        auto *a = zzCreatePage(QStringLiteral("a"));
+        auto *b = zzCreatePage(QStringLiteral("b"));
+        auto *c = zzCreatePage(QStringLiteral("c"));
+        tabs.addTab(a, QStringLiteral("A")); tabs.addTab(b, QStringLiteral("B")); tabs.addTab(c, QStringLiteral("C"));
+        QSignalSpy modified(&tabs, &ZzFluentUI::ZzTabWidget::tabModifiedChanged);
+        tabs.setTabModified(1, true); tabs.setTabModified(1, true); QCOMPARE(modified.count(), 1);
+        QSignalSpy pinned(&tabs, &ZzFluentUI::ZzTabWidget::tabPinnedChanged);
+        tabs.setTabPinned(2, true); QCOMPARE(tabs.widget(0), c); tabs.setTabPinned(0, true); QCOMPARE(pinned.count(), 1);
+        QSignalSpy attention(&tabs, &ZzFluentUI::ZzTabWidget::tabAttentionChanged);
+        QSignalSpy closeEnabled(&tabs, &ZzFluentUI::ZzTabWidget::tabCloseEnabledChanged);
+        tabs.setTabAttention(1, true); tabs.setTabAttention(1, true); QCOMPARE(attention.count(), 1);
+        tabs.setTabCloseEnabled(1, false); tabs.setTabCloseEnabled(1, false); QCOMPARE(closeEnabled.count(), 1);
+        tabs.setPageTitle(1, QStringLiteral("Renamed")); QCOMPARE(tabs.tabText(1), QStringLiteral("Renamed")); QCOMPARE(tabs.widget(1)->windowTitle(), QStringLiteral("Renamed"));
+        QSignalSpy batch(&tabs, &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
+        tabs.closeOtherTabs(0); QCOMPARE(batch.count(), 1); QCOMPARE(batch.at(0).at(0).value<QList<QWidget *>>().size(), 1);
+        batch.clear(); tabs.setTabCloseEnabled(1, true); tabs.closeTabsToRight(0); QCOMPARE(batch.count(), 1); QCOMPARE(batch.at(0).at(0).value<QList<QWidget *>>().size(), 2);
+        QVERIFY(tabs.fluentTabBar()->newTabButton() != nullptr);
+    }
     void exposesStableDefaults()
     {
         ZzFluentUI::ZzTabWidget tabs;
