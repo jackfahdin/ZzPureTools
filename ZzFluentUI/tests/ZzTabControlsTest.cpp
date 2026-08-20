@@ -67,6 +67,9 @@ private Q_SLOTS:
         tabs.closeOtherTabs(0); QCOMPARE(batch.count(), 1); QCOMPARE(batch.at(0).at(0).value<QList<QWidget *>>().size(), 1);
         batch.clear(); tabs.setTabCloseEnabled(1, true); tabs.closeTabsToRight(0); QCOMPARE(batch.count(), 1); QCOMPARE(batch.at(0).at(0).value<QList<QWidget *>>().size(), 2);
         QVERIFY(tabs.fluentTabBar()->newTabButton() != nullptr);
+        QSignalSpy newSpy(&tabs, &ZzFluentUI::ZzTabWidget::newTabRequested);
+        QTest::mouseClick(tabs.fluentTabBar()->newTabButton(), Qt::LeftButton);
+        QCOMPARE(newSpy.count(), 1);
     }
     void exposesStableDefaults()
     {

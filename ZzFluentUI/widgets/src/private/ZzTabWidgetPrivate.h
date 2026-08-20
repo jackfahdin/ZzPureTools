@@ -60,6 +60,7 @@ public:
     Metadata &ensureMetadata(QWidget *page);
     void removeMetadata(QObject *object);
     void disconnectMetadataObservers() noexcept;
+    void normalizePinnedOrder();
 
     ZzTabWidget *const q_ptr;
     ZzTabBar *tabBar = nullptr;

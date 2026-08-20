@@ -69,6 +69,17 @@ void ZzTabWidgetPrivate::disconnectMetadataObservers() noexcept
     metadataByPage.clear();
 }
 
+void ZzTabWidgetPrivate::normalizePinnedOrder()
+{
+    int pinnedEnd = 0;
+    for (int i = 0; i < q_ptr->count(); ++i) {
+        if (metadata(q_ptr->widget(i)).pinned) {
+            if (i != pinnedEnd) tabBar->moveTab(i, pinnedEnd);
+            ++pinnedEnd;
+        }
+    }
+}
+
 ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
 {
     ZzTabTransferSnapshot result;
@@ -129,9 +140,11 @@ bool ZzTabWidgetPrivate::transferTo(
         return false;
     }
 
-    const int requestedSlot = targetIndex < 0
+    int requestedSlot = targetIndex < 0
         ? target->count()
         : std::clamp(targetIndex, 0, target->count());
+    const int pinnedCount = [&] { int n=0; for(int i=0;i<target->count();++i) if(target->isTabPinned(i)) ++n; return n; }();
+    requestedSlot = transfer.pinned ? std::clamp(requestedSlot, 0, pinnedCount) : std::clamp(requestedSlot, pinnedCount, target->count());
     if (target == q_ptr) {
         int finalIndex = requestedSlot;
         if (finalIndex > sourceIndex) {
@@ -141,6 +154,7 @@ bool ZzTabWidgetPrivate::transferTo(
         if (finalIndex != sourceIndex) {
             tabBar->moveTab(sourceIndex, finalIndex);
         }
+        normalizePinnedOrder();
         return true;
     }
 
@@ -152,6 +166,8 @@ bool ZzTabWidgetPrivate::transferTo(
     QPointer<ZzTabWidget> guardedTarget = target;
     QPointer<QWidget> guardedPage = transfer.page;
     q_ptr->removeTab(sourceIndex);
+    metadataByPage.remove(transfer.page);
+    observedPages.remove(transfer.page);
     if (guardedTarget.isNull() || guardedPage.isNull()) {
         zzRollbackTransfer(guardedSource, transfer);
         return false;
@@ -169,6 +185,7 @@ bool ZzTabWidgetPrivate::transferTo(
     }
 
     restoreMetadata(guardedTarget, insertedIndex, transfer);
+    guardedTarget->d_ptr->normalizePinnedOrder();
     guardedTarget->setCurrentIndex(insertedIndex);
     Q_EMIT guardedTarget->tabTransferred(
         guardedSource,
