@@ -4,6 +4,7 @@
 /CMakeUserPresets.json
 /.cache/
 /.clangd/
+/.superpowers/
 compile_commands.json
 *.user
 *.swp
