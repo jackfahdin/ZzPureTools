@@ -134,6 +134,13 @@ public:
      */
     void closeTabsToRight(int index);
 
+protected:
+    /**
+     * @brief 在 Qt 插入标签后重新建立固定区边界。
+     * @param index Qt 新插入标签的索引。
+     */
+    void tabInserted(int index) override;
+
 Q_SIGNALS:
     /**
      * @brief 请求调用方为仍在本容器中的页面创建新宿主。

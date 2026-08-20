@@ -168,6 +168,14 @@ void ZzTabWidget::closeTabsToRight(int index)
     }
 }
 
+void ZzTabWidget::tabInserted(int index)
+{
+    QTabWidget::tabInserted(index);
+    if (d_ptr != nullptr) {
+        d_ptr->normalizePinnedOrder();
+    }
+}
+
 ZzTabWidget::~ZzTabWidget()
 {
     d_ptr->disconnectMetadataObservers();

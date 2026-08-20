@@ -54,14 +54,27 @@ void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
     QAction *right = index >= 0
         ? menu->addAction(QStringLiteral("关闭右侧标签页"))
         : nullptr;
+    const QPointer<QWidget> selectedPage =
+        index >= 0 && !d_ptr->host.isNull()
+        ? d_ptr->host->widget(index)
+        : nullptr;
     connect(menu, &QMenu::triggered, this,
-        [this, create, others, right, index](QAction *action) {
+        [this, create, others, right, selectedPage](QAction *action) {
             if (action == create) {
                 Q_EMIT newTabRequested();
-            } else if (action == others) {
-                Q_EMIT closeOtherTabsRequested(index);
+                return;
+            }
+            if (d_ptr->host.isNull() || selectedPage.isNull()) {
+                return;
+            }
+            const int currentIndex = d_ptr->host->indexOf(selectedPage);
+            if (currentIndex < 0) {
+                return;
+            }
+            if (action == others) {
+                Q_EMIT closeOtherTabsRequested(currentIndex);
             } else if (action == right) {
-                Q_EMIT closeTabsToRightRequested(index);
+                Q_EMIT closeTabsToRightRequested(currentIndex);
             }
         });
     menu->popup(event->globalPos());

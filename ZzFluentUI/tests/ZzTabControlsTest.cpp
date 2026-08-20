@@ -90,6 +90,22 @@ private Q_SLOTS:
         }
     }
 
+    void normalizesPublicInsertTabAgainstPinnedPartition()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        auto *pinned = zzCreatePage(QStringLiteral("pinned"));
+        auto *ordinary = zzCreatePage(QStringLiteral("ordinary"));
+        tabs.addTab(pinned, QStringLiteral("Pinned"));
+        tabs.setTabPinned(0, true);
+
+        tabs.insertTab(0, ordinary, QStringLiteral("Ordinary"));
+
+        QCOMPARE(tabs.indexOf(pinned), 0);
+        QCOMPARE(tabs.indexOf(ordinary), 1);
+        QVERIFY(tabs.isTabPinned(0));
+        QVERIFY(!tabs.isTabPinned(1));
+    }
+
     void preservesWorkspaceMetadataAcrossTransfersAndFailures()
     {
         ZzFluentUI::ZzTabWidget source;
@@ -267,6 +283,53 @@ private Q_SLOTS:
         QCOMPARE(newSpy.count(), 2);
     }
 
+    void keepsContextMenuTargetPageAfterReorder()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        auto *first = zzCreatePage(QStringLiteral("first"));
+        auto *second = zzCreatePage(QStringLiteral("second"));
+        tabs.addTab(first, QStringLiteral("First"));
+        tabs.addTab(second, QStringLiteral("Second"));
+        tabs.resize(500, 180);
+        tabs.show();
+        QCoreApplication::processEvents();
+
+        QSignalSpy closeSpy(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
+        const QPoint tabPosition = tabs.fluentTabBar()->tabRect(0).center();
+        bool actionTriggered = false;
+        QTimer::singleShot(0, [&] {
+            auto *menu = qobject_cast<QMenu *>(
+                QApplication::activePopupWidget());
+            if (menu == nullptr) {
+                return;
+            }
+            tabs.fluentTabBar()->moveTab(0, 1);
+            for (QAction *action : menu->actions()) {
+                if (action->text() == QStringLiteral("关闭其他标签页")) {
+                    action->trigger();
+                    menu->close();
+                    actionTriggered = true;
+                    return;
+                }
+            }
+        });
+        QContextMenuEvent event(
+            QContextMenuEvent::Mouse,
+            tabPosition,
+            tabs.fluentTabBar()->mapToGlobal(tabPosition));
+        QApplication::sendEvent(tabs.fluentTabBar(), &event);
+        QCoreApplication::processEvents();
+
+        QVERIFY(actionTriggered);
+        QCOMPARE(closeSpy.count(), 1);
+        const QList<QWidget *> pages =
+            closeSpy.at(0).at(0).value<QList<QWidget *>>();
+        QCOMPARE(pages.size(), 1);
+        QCOMPARE(pages.front(), second);
+    }
+
     void keepsObserversAndObjectBudgetsStable()
     {
         ZzFluentUI::ZzTabWidget source;
@@ -324,6 +387,36 @@ private Q_SLOTS:
         auto *replacement = zzCreatePage(QStringLiteral("replacement"));
         source.addTab(replacement, QStringLiteral("replacement"));
         QVERIFY(source.indexOf(replacement) >= 0);
+    }
+
+    void restoresTransferAfterTargetIsDestroyedDuringCommit()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        auto *page = zzCreatePage(QStringLiteral("rollback"));
+        source.addTab(page, QStringLiteral("Rollback"));
+        source.setTabPinned(0, true);
+        source.setTabModified(0, true);
+        source.setTabAttention(0, true);
+        source.setTabCloseEnabled(0, false);
+
+        auto *target = new ZzFluentUI::ZzTabWidget;
+        QPointer<ZzFluentUI::ZzTabWidget> targetGuard(target);
+        QObject::connect(
+            &source,
+            &QTabWidget::currentChanged,
+            &source,
+            [&targetGuard](int) {
+                delete targetGuard.data();
+            });
+
+        QVERIFY(!source.transferTabTo(target, 0));
+        QVERIFY(targetGuard.isNull());
+        QCOMPARE(source.count(), 1);
+        QCOMPARE(source.widget(0), page);
+        QVERIFY(source.isTabPinned(0));
+        QVERIFY(source.isTabModified(0));
+        QVERIFY(source.hasTabAttention(0));
+        QVERIFY(!source.isTabCloseEnabled(0));
     }
 
     void workspaceStateAndCloseIntentContract()

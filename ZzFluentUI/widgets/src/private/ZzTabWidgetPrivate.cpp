@@ -208,11 +208,15 @@ bool ZzTabWidgetPrivate::transferTo(
 
     restoreMetadata(guardedTarget, insertedIndex, transfer);
     guardedTarget->d_ptr->normalizePinnedOrder();
-    guardedTarget->setCurrentIndex(insertedIndex);
+    const int actualTargetIndex = guardedTarget->indexOf(guardedPage);
+    if (actualTargetIndex < 0) {
+        return false;
+    }
+    guardedTarget->setCurrentIndex(actualTargetIndex);
     Q_EMIT guardedTarget->tabTransferred(
         guardedSource,
         transfer.sourceIndex,
-        insertedIndex,
+        actualTargetIndex,
         guardedPage);
     return true;
 }
