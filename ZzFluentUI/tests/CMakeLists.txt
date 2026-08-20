@@ -567,6 +567,38 @@ set_tests_properties(fluent.navigation-pane PROPERTIES
     LABELS "fluent;unit;component;accessibility"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+add_executable(ZzActivityBarTest ZzActivityBarTest.cpp)
+target_link_libraries(ZzActivityBarTest PRIVATE
+    Qt6::Gui
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzActivityBarTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzActivityBarTest)
+zz_enable_sanitizers(ZzActivityBarTest)
+add_test(NAME fluent.activity-bar COMMAND ZzActivityBarTest)
+set_tests_properties(fluent.activity-bar PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+add_executable(ZzSidePaneTest ZzSidePaneTest.cpp)
+target_link_libraries(ZzSidePaneTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzSidePaneTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSidePaneTest)
+zz_enable_sanitizers(ZzSidePaneTest)
+add_test(NAME fluent.side-pane COMMAND ZzSidePaneTest)
+set_tests_properties(fluent.side-pane PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 set_target_properties(ZzNavigationControlsTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzNavigationControlsTest)
 zz_enable_sanitizers(ZzNavigationControlsTest)
