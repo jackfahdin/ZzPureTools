@@ -14,6 +14,7 @@ class QListView;
 class QMimeData;
 class QModelIndex;
 class QStyledItemDelegate;
+class QTimer;
 
 namespace ZzFluentUI {
 
@@ -72,6 +73,7 @@ public:
     QPersistentModelIndex currentSourceIndex;
     QMetaObject::Connection modelDestroyedConnection;
     QHash<QString, QPersistentModelIndex> dragTokens;
+    QTimer *dragTokenExpiryTimer = nullptr;
     ZzSidePaneEdge edge = ZzSidePaneEdge::Left;
 };
 

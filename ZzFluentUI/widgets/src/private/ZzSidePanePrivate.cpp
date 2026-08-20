@@ -89,7 +89,6 @@ bool ZzSidePanePrivate::addWidget(QWidget *widget, const QString &title)
     if (currentIndex >= 0) {
         pageTitles.insert(widget, title);
         stack->setCurrentIndex(currentIndex);
-        syncCurrentWidget();
         return true;
     }
     if (widget->parent() != nullptr) {
@@ -103,9 +102,8 @@ bool ZzSidePanePrivate::addWidget(QWidget *widget, const QString &title)
             pageTitles.remove(widget);
             pageDestroyedConnections.remove(widget);
             syncCurrentWidget();
-        }));
+    }));
     stack->setCurrentIndex(index);
-    syncCurrentWidget();
     return true;
 }
 
@@ -118,7 +116,6 @@ QWidget *ZzSidePanePrivate::takeWidget(QWidget *widget)
     pageTitles.remove(widget);
     stack->removeWidget(widget);
     widget->setParent(nullptr);
-    syncCurrentWidget();
     return widget;
 }
 
@@ -129,7 +126,6 @@ bool ZzSidePanePrivate::setCurrentWidget(QWidget *widget)
         return false;
     }
     stack->setCurrentIndex(index);
-    syncCurrentWidget();
     return true;
 }
 
@@ -137,6 +133,10 @@ void ZzSidePanePrivate::syncCurrentWidget()
 {
     QWidget *const current = stack->currentWidget();
     titleLabel->setText(pageTitles.value(current));
+    if (lastNotifiedCurrent.data() == current) {
+        return;
+    }
+    lastNotifiedCurrent = current;
     Q_EMIT q_ptr->currentWidgetChanged(current);
 }
 

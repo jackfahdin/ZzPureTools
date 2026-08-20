@@ -57,6 +57,7 @@ public:
     QWidget *resizeHandle = nullptr;
     QHash<QWidget *, QString> pageTitles;
     QHash<QWidget *, QMetaObject::Connection> pageDestroyedConnections;
+    QPointer<QWidget> lastNotifiedCurrent;
     ZzSidePaneEdge edge = ZzSidePaneEdge::Left;
     int minimumWidth = 160;
     int maximumWidth = 640;

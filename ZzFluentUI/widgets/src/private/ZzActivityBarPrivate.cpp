@@ -12,6 +12,7 @@
 #include <QtGui/QPainter>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QStyledItemDelegate>
+#include <QtCore/QTimer>
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzActivityBar.h>
@@ -259,6 +260,14 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     , edge(initialEdge)
 {
     Q_ASSERT(q_ptr != nullptr);
+    dragTokenExpiryTimer = new QTimer(q_ptr);
+    dragTokenExpiryTimer->setSingleShot(true);
+    dragTokenExpiryTimer->setInterval(5000);
+    QObject::connect(
+        dragTokenExpiryTimer,
+        &QTimer::timeout,
+        q_ptr,
+        [this] { discardDragTokens(); });
     primaryProjection = new ZzActivityProjectionModel(
         this, zzAreaFor(edge, true), q_ptr);
     secondaryProjection = new ZzActivityProjectionModel(
@@ -330,6 +339,7 @@ void ZzActivityBarPrivate::setModel(QAbstractItemModel *model)
     secondaryProjection->setSourceModel(model);
     currentSourceIndex = QPersistentModelIndex();
     dragTokens.clear();
+    dragTokenExpiryTimer->stop();
     if (model != nullptr) {
         modelDestroyedConnection = QObject::connect(
             model, &QObject::destroyed, q_ptr, [this] {
@@ -349,6 +359,7 @@ void ZzActivityBarPrivate::handleModelDestroyed()
     secondaryProjection->setSourceModel(nullptr);
     currentSourceIndex = QPersistentModelIndex();
     dragTokens.clear();
+    dragTokenExpiryTimer->stop();
     modelDestroyedConnection = {};
     setCurrentSourceIndex({});
     Q_EMIT q_ptr->modelChanged(nullptr);
@@ -436,7 +447,9 @@ QMimeData *ZzActivityBarPrivate::createMimeData(const QModelIndex &sourceIndex)
         return nullptr;
     }
     const QString token = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    dragTokens.clear();
     dragTokens.insert(token, QPersistentModelIndex(sourceIndex));
+    dragTokenExpiryTimer->start();
     auto *mimeData = new QMimeData;
     mimeData->setData(
         QString::fromLatin1(zzActivityMoveMimeType), token.toUtf8());
@@ -446,6 +459,7 @@ QMimeData *ZzActivityBarPrivate::createMimeData(const QModelIndex &sourceIndex)
 void ZzActivityBarPrivate::discardDragTokens()
 {
     dragTokens.clear();
+    dragTokenExpiryTimer->stop();
 }
 
 bool ZzActivityBarPrivate::handleDrop(
@@ -474,6 +488,9 @@ bool ZzActivityBarPrivate::handleDrop(
         : targetView->model()->rowCount();
     const QModelIndex sourceIndex = tokenIt.value();
     dragTokens.remove(token);
+    if (dragTokens.isEmpty()) {
+        dragTokenExpiryTimer->stop();
+    }
     Q_EMIT q_ptr->moveRequested(
         sourceIndex, areaForView(targetView), targetRow);
     return true;

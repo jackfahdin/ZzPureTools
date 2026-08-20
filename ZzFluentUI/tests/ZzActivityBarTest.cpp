@@ -6,6 +6,7 @@
 #include <QtCore/QPointer>
 #include <QtGui/QDropEvent>
 #include <QtGui/QDragEnterEvent>
+#include <QtGui/QDragLeaveEvent>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QListView>
@@ -232,6 +233,68 @@ private Q_SLOTS:
 
         QCOMPARE(moveSpy.count(), 0);
         QCOMPARE(model.rows.size(), 4);
+    }
+
+    void handlesKeyboardWhenTheViewportOwnsFocus()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[1].enabled = true;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        QSignalSpy collapseSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::collapseRequested);
+        QListView *primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        primary->viewport()->setFocus();
+        QVERIFY(primary->viewport()->hasFocus());
+
+        QTest::keyClick(primary->viewport(), Qt::Key_Down);
+        QCOMPARE(bar.currentSourceIndex(), model.index(1, 0));
+        QTest::keyClick(primary->viewport(), Qt::Key_Enter);
+        QCOMPARE(collapseSpy.count(), 1);
+        QCOMPARE(
+            collapseSpy.first().at(0).value<QModelIndex>(), model.index(1, 0));
+    }
+
+    void keepsDragTokenWhenMovingFromPrimaryToSecondary()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        QListView *secondary = zzActivityView(
+            &bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(&bar);
+
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+        const QModelIndex projected = primary->model()->index(0, 0);
+        std::unique_ptr<QMimeData> mime(primary->model()->mimeData({projected}));
+        QVERIFY(mime != nullptr);
+        QDragEnterEvent enter(
+            primary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(primary, &enter);
+        QDragLeaveEvent leave;
+        QCoreApplication::sendEvent(primary, &leave);
+        QCoreApplication::processEvents();
+        QDragEnterEvent targetEnter(
+            secondary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(secondary, &targetEnter);
+        auto *drop = new QDropEvent(
+            secondary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::postEvent(secondary, drop);
+        QCoreApplication::processEvents();
+
+        QCOMPARE(moveSpy.count(), 1);
+        QCOMPARE(
+            moveSpy.first().at(1).value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary);
     }
 
     void acceptsOnlyComponentIssuedMimeAndKeepsFixedObjectBudget()

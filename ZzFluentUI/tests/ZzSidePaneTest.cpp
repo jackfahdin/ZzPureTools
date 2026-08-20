@@ -2,6 +2,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPointer>
+#include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QStackedWidget>
@@ -82,6 +83,9 @@ private Q_SLOTS:
         auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(first, QStringLiteral("First")));
         QVERIFY(pane.addWidget(second, QStringLiteral("Second")));
+        QSignalSpy currentSpy(
+            &pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged);
+        QVERIFY(!currentSpy.isValid() || currentSpy.isEmpty());
         QPointer<QWidget> guard(first);
 
         delete first;
@@ -90,6 +94,10 @@ private Q_SLOTS:
         QVERIFY(guard.isNull());
         QCOMPARE(pane.currentWidget(), second);
         QCOMPARE(pane.pageCount(), 1);
+        QCOMPARE(currentSpy.count(), 0);
+
+        QVERIFY(pane.setCurrentWidget(second));
+        QCOMPARE(currentSpy.count(), 0);
     }
 };
 

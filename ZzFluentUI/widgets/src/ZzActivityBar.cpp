@@ -64,8 +64,10 @@ QModelIndex ZzActivityBar::currentSourceIndex() const
 bool ZzActivityBar::eventFilter(QObject *watched, QEvent *event)
 {
     auto *view = qobject_cast<QListView *>(watched);
-    const bool isViewport = view == nullptr;
-    if (view == nullptr || event == nullptr) {
+    if (event == nullptr) {
+        return QWidget::eventFilter(watched, event);
+    }
+    if (view == nullptr) {
         if (watched == d_ptr->primaryView->viewport()) {
             view = d_ptr->primaryView;
         } else if (watched == d_ptr->secondaryView->viewport()) {
@@ -74,7 +76,7 @@ bool ZzActivityBar::eventFilter(QObject *watched, QEvent *event)
             return QWidget::eventFilter(watched, event);
         }
     }
-    if (!isViewport && event->type() == QEvent::KeyPress) {
+    if (event->type() == QEvent::KeyPress) {
         const auto *keyEvent = static_cast<QKeyEvent *>(event);
         if (d_ptr->handleKey(view, keyEvent->key())) {
             event->accept();
@@ -97,10 +99,6 @@ bool ZzActivityBar::eventFilter(QObject *watched, QEvent *event)
                 static_cast<int>(dropEvent->position().y()))) {
             event->accept();
         }
-        return true;
-    }
-    if (event->type() == QEvent::DragLeave) {
-        d_ptr->discardDragTokens();
         return true;
     }
     return QWidget::eventFilter(watched, event);
