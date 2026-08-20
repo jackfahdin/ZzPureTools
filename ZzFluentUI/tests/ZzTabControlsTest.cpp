@@ -47,6 +47,35 @@ class ZzTabControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void keepsPinnedPartitionAcrossAllMoves()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        auto *a = zzCreatePage(QStringLiteral("a")); auto *b = zzCreatePage(QStringLiteral("b")); auto *c = zzCreatePage(QStringLiteral("c"));
+        tabs.addTab(a, "a"); tabs.addTab(b, "b"); tabs.addTab(c, "c");
+        tabs.setTabPinned(2, true); tabs.fluentTabBar()->moveTab(0, 2); QVERIFY(tabs.transferTabTo(&tabs, 2, 0));
+        int ordinary = tabs.count(); for (int i=0;i<tabs.count();++i) if (!tabs.isTabPinned(i)) { ordinary=i; break; }
+        for (int i=0;i<tabs.count();++i) if (tabs.isTabPinned(i)) QVERIFY(i < ordinary);
+        tabs.setTabPinned(tabs.indexOf(c), false);
+        ordinary = tabs.count(); for (int i=0;i<tabs.count();++i) if (!tabs.isTabPinned(i)) { ordinary=i; break; }
+        for (int i=0;i<tabs.count();++i) if (tabs.isTabPinned(i)) QVERIFY(i < ordinary);
+    }
+
+    void preservesWorkspaceMetadataAcrossTransfersAndFailures()
+    {
+        ZzFluentUI::ZzTabWidget source, target; auto *page=zzCreatePage("page"); source.addTab(page,"page");
+        source.setTabPinned(0,true); source.setTabModified(0,true); source.setTabAttention(0,true); source.setTabCloseEnabled(0,false);
+        QVERIFY(source.transferTabTo(&target,0)); QCOMPARE(target.widget(0),page); QVERIFY(target.isTabPinned(0)); QVERIFY(target.isTabModified(0)); QVERIFY(target.hasTabAttention(0)); QVERIFY(!target.isTabCloseEnabled(0));
+        source.addTab(zzCreatePage("fail"),"fail"); source.setTabModified(0,true); target.fluentTabBar()->setTabTransferEnabled(false); QVERIFY(!source.transferTabTo(&target,0)); QVERIFY(source.isTabModified(0));
+    }
+
+    void filtersCloseIntentByPageState()
+    {
+        ZzFluentUI::ZzTabWidget tabs; auto *a=zzCreatePage("a"), *b=zzCreatePage("b"); tabs.addTab(a,"a"); tabs.addTab(b,"b");
+        tabs.setTabsClosable(true);
+        QSignalSpy spy(&tabs,&ZzFluentUI::ZzTabWidget::tabsCloseRequested); tabs.setTabCloseEnabled(0,false);
+        QVERIFY(QMetaObject::invokeMethod(tabs.fluentTabBar(),"tabCloseRequested",Qt::DirectConnection,Q_ARG(int,0))); QCOMPARE(spy.count(),0);
+        tabs.setTabCloseEnabled(0,true); QVERIFY(QMetaObject::invokeMethod(tabs.fluentTabBar(),"tabCloseRequested",Qt::DirectConnection,Q_ARG(int,0))); QCOMPARE(spy.count(),1); QCOMPARE(spy.at(0).at(0).value<QList<QWidget *>>().first(),a);
+    }
     void workspaceStateAndCloseIntentContract()
     {
         ZzFluentUI::ZzTabWidget tabs;
