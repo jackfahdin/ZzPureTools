@@ -21,6 +21,37 @@ private:
         return item;
     }
 private slots:
+    void replacingModelThenDestroyingOldModelKeepsCurrentModel()
+    {
+        auto *first = new QStandardItemModel;
+        first->appendRow(command(QStringLiteral("first")));
+        auto *second = new QStandardItemModel;
+        second->appendRow(command(QStringLiteral("second")));
+        ZzFluentUI::ZzCommandPalette palette;
+        palette.setModel(first);
+        palette.setModel(second);
+        delete first;
+        QCOMPARE(palette.model(), second);
+        QCOMPARE(palette.resultCount(), 1);
+        QCOMPARE(palette.resultView()->model()->index(0, 0).data().toString(), QStringLiteral("second"));
+        delete second;
+    }
+
+    void structuralChangesRefreshCurrentQuery()
+    {
+        QStandardItemModel model;
+        model.appendRow(command(QStringLiteral("open one")));
+        ZzFluentUI::ZzCommandPalette palette;
+        palette.setModel(&model);
+        palette.setQuery(QStringLiteral("open"));
+        QCOMPARE(palette.resultCount(), 1);
+        model.insertRow(0, command(QStringLiteral("open zero")));
+        QTRY_COMPARE(palette.resultCount(), 2);
+        model.removeRow(1);
+        QTRY_COMPARE(palette.resultCount(), 1);
+        QCOMPARE(palette.resultView()->model()->index(0, 0).data().toString(), QStringLiteral("open zero"));
+    }
+
     void ranksFiveMatchLevelsPriorityAndStableSourceRow()
     {
         QStandardItemModel model;

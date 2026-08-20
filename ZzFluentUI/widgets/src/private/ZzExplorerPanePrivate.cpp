@@ -81,7 +81,10 @@ void ZzExplorerPanePrivate::setModel(QAbstractItemModel *model)
     sourceModel = model;
     proxy->setSourceModel(model);
     if (model != nullptr) {
-        QObject::connect(model, &QObject::destroyed, q_ptr, [this] {
+        QObject::connect(model, &QObject::destroyed, q_ptr, [this, model] {
+            if (sourceModel.data() != model) {
+                return;
+            }
             sourceModel = nullptr;
             proxy->setSourceModel(nullptr);
             treeView->clearSelection();

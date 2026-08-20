@@ -21,6 +21,22 @@ private:
         model.appendRow(new QStandardItem(QStringLiteral("other")));
     }
 private slots:
+    void replacingModelThenDestroyingOldModelKeepsCurrentModel()
+    {
+        auto *first = new QStandardItemModel;
+        first->appendRow(new QStandardItem(QStringLiteral("first")));
+        auto *second = new QStandardItemModel;
+        second->appendRow(new QStandardItem(QStringLiteral("second")));
+        ZzFluentUI::ZzExplorerPane pane;
+        pane.setModel(first);
+        pane.setModel(second);
+        delete first;
+        QCOMPARE(pane.model(), second);
+        QCOMPARE(pane.treeView()->model()->rowCount(), 1);
+        QCOMPARE(pane.treeView()->model()->index(0, 0).data().toString(), QStringLiteral("second"));
+        delete second;
+    }
+
     void recursiveExactPrefixContainsAndSourceMapping()
     {
         QStandardItemModel model;

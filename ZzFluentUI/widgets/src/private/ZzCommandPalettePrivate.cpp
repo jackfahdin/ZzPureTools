@@ -1,6 +1,7 @@
 #include "ZzCommandPalettePrivate.h"
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QHash>
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QSortFilterProxyModel>
 #include <QtWidgets/QLineEdit>
@@ -18,17 +19,16 @@ class ZzCommandFilterProxy final : public QSortFilterProxyModel
 {
 public:
     QString query;
+    void clearCache() const { cache.clear(); }
 protected:
     bool filterAcceptsRow(int row, const QModelIndex &parent) const override
     {
         if (parent.isValid() || query.isEmpty()) return !parent.isValid();
         const QModelIndex index = sourceModel()->index(row, 0, parent);
-        const QString name = index.data(Qt::DisplayRole).toString().toCaseFolded();
-        if (name.contains(query)) return true;
-        const QStringList keywords = index.data(static_cast<int>(ZzCommandItemRole::Keywords)).toStringList();
-        for (const QString &keyword : keywords) {
-            if (keyword.toCaseFolded().contains(query)) return true;
-        }
+        const CachedData &data = cached(index);
+        if (data.name.contains(query)) return true;
+        for (const QString &keyword : data.keywords)
+            if (keyword.contains(query)) return true;
         return false;
     }
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override
@@ -36,9 +36,28 @@ protected:
         return rank(left) < rank(right);
     }
 private:
+    struct CachedData {
+        QString name;
+        QStringList keywords;
+        int priority = 0;
+    };
+    [[nodiscard]] const CachedData &cached(const QModelIndex &index) const
+    {
+        const int row = index.row();
+        const auto found = cache.constFind(row);
+        if (found != cache.constEnd()) return found.value();
+        CachedData data;
+        data.name = index.data(Qt::DisplayRole).toString().toCaseFolded();
+        const QStringList values = index.data(static_cast<int>(ZzCommandItemRole::Keywords)).toStringList();
+        data.keywords.reserve(values.size());
+        for (const QString &value : values) data.keywords.push_back(value.toCaseFolded());
+        data.priority = index.data(static_cast<int>(ZzCommandItemRole::Priority)).toInt();
+        return cache.insert(row, std::move(data)).value();
+    }
     [[nodiscard]] std::tuple<int, int, int> rank(const QModelIndex &index) const
     {
-        const QString name = index.data(Qt::DisplayRole).toString().toCaseFolded();
+        const CachedData &data = cached(index);
+        const QString &name = data.name;
         int match = 5;
         if (query.isEmpty()) match = 0;
         else if (name == query) match = 0;
@@ -49,9 +68,9 @@ private:
             if (match == 5 && name.contains(query)) match = 3;
             if (match == 5) match = 4;
         }
-        const int priority = index.data(static_cast<int>(ZzCommandItemRole::Priority)).toInt();
-        return {match, -priority, index.row()};
+        return {match, -data.priority, index.row()};
     }
+    mutable QHash<int, CachedData> cache;
 };
 
 } // namespace
@@ -84,18 +103,42 @@ void ZzCommandPalettePrivate::setModel(QAbstractItemModel *model)
     if (sourceModel == model) return;
     sourceModel = model;
     proxy->setSourceModel(model);
+    static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
     proxy->sort(0);
     if (model != nullptr) {
         QObject::connect(model, &QAbstractItemModel::dataChanged, q_ptr,
             [this](const QModelIndex &, const QModelIndex &, const QList<int> &) {
+                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
+                proxy->invalidate();
+                proxy->sort(0);
+            });
+        QObject::connect(model, &QAbstractItemModel::rowsInserted, q_ptr,
+            [this](const QModelIndex &, int, int) {
+                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
+                proxy->invalidate();
+                proxy->sort(0);
+            });
+        QObject::connect(model, &QAbstractItemModel::rowsRemoved, q_ptr,
+            [this](const QModelIndex &, int, int) {
+                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
+                proxy->invalidate();
+                proxy->sort(0);
+            });
+        QObject::connect(model, &QAbstractItemModel::layoutChanged, q_ptr,
+            [this] {
+                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
                 proxy->invalidate();
                 proxy->sort(0);
             });
         QObject::connect(model, &QAbstractItemModel::modelReset, q_ptr, [this] {
+            static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
             proxy->invalidate();
             proxy->sort(0);
         });
-        QObject::connect(model, &QObject::destroyed, q_ptr, [this] {
+        QObject::connect(model, &QObject::destroyed, q_ptr, [this, model] {
+            if (sourceModel.data() != model) {
+                return;
+            }
             sourceModel = nullptr;
             proxy->setSourceModel(nullptr);
             Q_EMIT q_ptr->modelChanged(nullptr);
