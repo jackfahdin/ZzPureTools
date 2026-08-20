@@ -14,6 +14,7 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
     d_ptr->tabBar = new ZzTabBar(this);
     d_ptr->tabBar->d_ptr->setHost(this);
     setTabBar(d_ptr->tabBar);
+    setCornerWidget(d_ptr->tabBar->newTabButton(), Qt::TopRightCorner);
     setMovable(true);
     connect(this, &QTabWidget::tabCloseRequested, this, [this](int index) {
         if (isTabCloseEnabled(index)) Q_EMIT tabsCloseRequested({widget(index)});

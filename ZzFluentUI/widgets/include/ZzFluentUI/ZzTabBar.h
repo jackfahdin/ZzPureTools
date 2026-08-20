@@ -14,7 +14,6 @@ class QDropEvent;
 class QMouseEvent;
 class QPaintEvent;
 class QContextMenuEvent;
-class QResizeEvent;
 
 namespace ZzFluentUI {
 
@@ -126,7 +125,6 @@ protected:
 
     /** @brief 绘制轻量插入指示线并保留 Qt 标签绘制。 */
     void paintEvent(QPaintEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:

@@ -10,7 +10,6 @@
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QMenu>
 #include <QtGui/QContextMenuEvent>
-#include <QtGui/QResizeEvent>
 
 #include "private/ZzTabBarPrivate.h"
 
@@ -35,14 +34,6 @@ ZzTabBar::ZzTabBar(QWidget *parent)
 }
 
 QWidget *ZzTabBar::newTabButton() const noexcept { return d_ptr->newTabButton; }
-
-void ZzTabBar::resizeEvent(QResizeEvent *event)
-{
-    QTabBar::resizeEvent(event);
-    const QSize size = d_ptr->newTabButton->sizeHint();
-    d_ptr->newTabButton->setGeometry(width() - size.width(), 0, size.width(), size.height());
-    d_ptr->newTabButton->show();
-}
 
 void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
 {
