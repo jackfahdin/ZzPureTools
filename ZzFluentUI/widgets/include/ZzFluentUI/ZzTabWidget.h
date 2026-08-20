@@ -46,6 +46,11 @@ public:
      * @param sourceIndex 来源逻辑索引。
      * @param targetIndex 目标插入槽位，负数表示末尾。
      * @return 成功移动或完成同容器重排时返回 true。
+     *
+     * 转移过程中 Qt 可能同步发出标签插入、移动和当前页变化信号。
+     * 信号处理方不得销毁仍拥有待转移页面的来源或目标容器。如果处理方
+     * 将页面同步转移给第三方容器，本方法返回 false，且不会从第三方
+     * 强行取回页面。
      */
     bool transferTabTo(
         ZzTabWidget *target,
