@@ -2,6 +2,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
+#include <QtCore/QPointer>
 #include <QtCore/QTranslator>
 #include <QtGui/QColor>
 #include <QtGui/QImage>
@@ -51,6 +52,95 @@ class ZzFluentTitleBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void preservesCompactMenuOrderForMiddleInsertions()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *menuBar = titleBar.menuBar();
+        auto *compactButton = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCompactMenuButton"));
+        QVERIFY(menuBar != nullptr);
+        QVERIFY(compactButton != nullptr);
+        QVERIFY(compactButton->menu() != nullptr);
+
+        QAction first(QStringLiteral("First"), &titleBar);
+        QAction middle(QStringLiteral("Middle"), &titleBar);
+        QAction last(QStringLiteral("Last"), &titleBar);
+        menuBar->addAction(&first);
+        menuBar->addAction(&last);
+        menuBar->insertAction(&last, &middle);
+        QCoreApplication::processEvents();
+
+        QCOMPARE(
+            menuBar->actions(),
+            QList<QAction *>({&first, &middle, &last}));
+        QCOMPARE(
+            compactButton->menu()->actions(),
+            QList<QAction *>({&first, &middle, &last}));
+    }
+
+    void rebuildsCompactMenuWithoutChangingSourceActions()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *menuBar = titleBar.menuBar();
+        auto *compactButton = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCompactMenuButton"));
+        QVERIFY(menuBar != nullptr);
+        QVERIFY(compactButton != nullptr);
+        QVERIFY(compactButton->menu() != nullptr);
+
+        auto *first = menuBar->addAction(QStringLiteral("First"));
+        auto *second = menuBar->addAction(QStringLiteral("Second"));
+        QVERIFY(first != nullptr);
+        QVERIFY(second != nullptr);
+        first->setCheckable(true);
+        first->setChecked(true);
+        first->setData(QStringLiteral("first-data"));
+        second->setEnabled(false);
+        const QPointer<QAction> firstGuard(first);
+        const QPointer<QAction> secondGuard(second);
+
+        QEvent languageChange(QEvent::LanguageChange);
+        QCoreApplication::sendEvent(&titleBar, &languageChange);
+        QCoreApplication::processEvents();
+
+        QVERIFY(!firstGuard.isNull());
+        QVERIFY(!secondGuard.isNull());
+        QCOMPARE(
+            compactButton->menu()->actions(),
+            QList<QAction *>({first, second}));
+        QVERIFY(first->isCheckable());
+        QVERIFY(first->isChecked());
+        QCOMPARE(first->data().toString(), QStringLiteral("first-data"));
+        QVERIFY(!second->isEnabled());
+    }
+
+    void presentsConfirmedHighContrastWithoutAddingShortcutAction()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *themeButton = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarThemeButton"));
+        QVERIFY(themeButton != nullptr);
+        QVERIFY(themeButton->menu() != nullptr);
+        QCOMPARE(themeButton->menu()->actions().size(), 3);
+
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::HighContrast);
+
+        QCOMPARE(
+            titleBar.themeMode(), ZzFluentUI::ZzThemeMode::HighContrast);
+        QVERIFY(themeButton->isChecked());
+        QVERIFY(themeButton->toolTip().contains(QStringLiteral("高对比度")));
+        QVERIFY(themeButton->accessibleName().contains(
+            QStringLiteral("高对比度")));
+        QCOMPARE(themeButton->menu()->actions().size(), 3);
+        for (QAction *action : themeButton->menu()->actions()) {
+            QVERIFY(
+                action->data().toInt()
+                != static_cast<int>(
+                    ZzFluentUI::ZzThemeMode::HighContrast));
+            QVERIFY(!action->isChecked());
+        }
+    }
+
     void adaptsMenuWithoutCopyingActionsOrAllocatingMenus()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;

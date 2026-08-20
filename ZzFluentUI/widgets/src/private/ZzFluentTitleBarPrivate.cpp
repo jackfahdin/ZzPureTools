@@ -461,7 +461,20 @@ void ZzFluentTitleBarPrivate::handleMenuActionEvent(QActionEvent *event)
         return;
     }
     if (event->type() == QEvent::ActionAdded) {
-        compactMenu->insertAction(event->before(), event->action());
+        // 源列表已包含新动作，投影列表仍保持插入前顺序。
+        const QList<QAction *> sourceActions = menuBar->actions();
+        const qsizetype sourceIndex = sourceActions.indexOf(event->action());
+        const QList<QAction *> projectedActions = compactMenu->actions();
+        if (sourceIndex < 0
+            || projectedActions.size() + 1 != sourceActions.size()) {
+            rebuildCompactMenu();
+        } else {
+            QAction *const insertionAnchor =
+                sourceIndex < projectedActions.size()
+                ? projectedActions.at(sourceIndex)
+                : nullptr;
+            compactMenu->insertAction(insertionAnchor, event->action());
+        }
     } else if (event->type() == QEvent::ActionRemoved) {
         compactMenu->removeAction(event->action());
     }
