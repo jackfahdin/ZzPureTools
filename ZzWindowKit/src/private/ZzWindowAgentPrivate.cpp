@@ -210,18 +210,19 @@ ZzCore::ZzResult<void> ZzWindowAgentPrivate::validateChrome(
         uniqueWidgets.insert(widget);
     }
 
-    for (auto *widget : configuration.interactiveWidgets) {
+    const auto &hitTestVisibleWidgets = configuration.interactiveWidgets;
+    for (auto *widget : hitTestVisibleWidgets) {
         if (widget == nullptr) {
             return zzWindowFailure<void>(
                 ZzCore::ZzErrorCode::InvalidArgument,
-                QStringLiteral("interactive widget must not be null"));
+                QStringLiteral("hit-test visible widget must not be null"));
         }
         if (widget->thread() != q_ptr->thread()
             || !configuration.titleBar->isAncestorOf(widget)) {
             return zzWindowFailure<void>(
                 ZzCore::ZzErrorCode::InvalidArgument,
                 QStringLiteral(
-                    "interactive widget must be a title bar descendant"));
+                    "hit-test visible widget must be a title bar descendant"));
         }
         if (uniqueWidgets.contains(widget)) {
             return zzWindowFailure<void>(

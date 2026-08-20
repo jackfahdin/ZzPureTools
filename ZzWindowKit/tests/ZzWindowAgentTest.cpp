@@ -110,7 +110,11 @@ private Q_SLOTS:
         QWidget maximize(&titleBar);
         QWidget close(&titleBar);
         QWidget menu(&titleBar);
+        QWidget theme(&titleBar);
+        QWidget alwaysOnTop(&titleBar);
         menu.setObjectName(QStringLiteral("menu"));
+        theme.setObjectName(QStringLiteral("theme"));
+        alwaysOnTop.setObjectName(QStringLiteral("always-on-top"));
 
         auto backend = std::make_unique<ZzWindowKit::ZzFakeWindowBackend>();
         auto *backendPointer = backend.get();
@@ -124,7 +128,7 @@ private Q_SLOTS:
             .minimizeButton = &minimize,
             .maximizeButton = &maximize,
             .closeButton = &close,
-            .interactiveWidgets = {&menu}};
+            .interactiveWidgets = {&menu, &theme, &alwaysOnTop}};
         QVERIFY(agent->configureChrome(configuration));
 
         QCOMPARE(agent->state(), ZzWindowKit::ZzWindowAgentState::Configured);
@@ -138,8 +142,13 @@ private Q_SLOTS:
                 QStringLiteral("minimize"),
                 QStringLiteral("maximize"),
                 QStringLiteral("close"),
-                QStringLiteral("interactive:menu")}));
+                QStringLiteral("interactive:menu"),
+                QStringLiteral("interactive:theme"),
+                QStringLiteral("interactive:always-on-top")}));
         QCOMPARE(backendPointer->lastConfiguration().titleBar, &titleBar);
+        QCOMPARE(
+            backendPointer->lastConfiguration().interactiveWidgets,
+            QList<QWidget *>({&menu, &theme, &alwaysOnTop}));
     }
 
     void rejectsDuplicateChromeWidgets()
@@ -159,6 +168,38 @@ private Q_SLOTS:
         configuration.interactiveWidgets = {&close};
         const auto result = agent->configureChrome(configuration);
 
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+        QCOMPARE(backendPointer->configureCalls(), 0);
+    }
+
+    void rejectsInvalidHitTestVisibleWidgets()
+    {
+        QWidget host;
+        QWidget otherHost;
+        QWidget titleBar(&host);
+        QWidget menu(&titleBar);
+        QWidget foreign(&otherHost);
+        auto backend = std::make_unique<ZzWindowKit::ZzFakeWindowBackend>();
+        auto *backendPointer = backend.get();
+        auto agent = ZzWindowKit::ZzWindowAgentTestAccess::create(
+            std::move(backend));
+        QVERIFY(agent->attach(&host));
+
+        ZzWindowKit::ZzWindowChromeConfiguration configuration;
+        configuration.titleBar = &titleBar;
+        configuration.interactiveWidgets = {&menu, nullptr};
+        auto result = agent->configureChrome(configuration);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+
+        configuration.interactiveWidgets = {&menu, &menu};
+        result = agent->configureChrome(configuration);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+
+        configuration.interactiveWidgets = {&foreign};
+        result = agent->configureChrome(configuration);
         QVERIFY(!result);
         QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
         QCOMPARE(backendPointer->configureCalls(), 0);

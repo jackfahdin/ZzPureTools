@@ -24,7 +24,12 @@ struct ZzWindowChromeConfiguration final
     QWidget *maximizeButton = nullptr;
     /** @brief 可选的关闭按钮。 */
     QWidget *closeButton = nullptr;
-    /** @brief 标题栏内不参与窗口拖动的交互控件。 */
+    /**
+     * @brief 标题栏内需要命中测试且不参与窗口拖动的稳定交互控件。
+     *
+     * 可同时登记同一功能的可见和隐藏展示形态，以便仅切换可见性时无需重新配置
+     * 后端；列表禁止空指针、重复项和系统按钮专用字段中的控件。
+     */
     QList<QWidget *> interactiveWidgets;
 };
 

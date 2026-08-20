@@ -9,9 +9,14 @@
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 /** @brief 为标题栏 LanguageChange 测试提供确定翻译。 */
 class ZzTitleBarTranslator final : public QTranslator
@@ -46,6 +51,197 @@ class ZzFluentTitleBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void adaptsMenuWithoutCopyingActionsOrAllocatingMenus()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *menuBar = titleBar.menuBar();
+        QVERIFY(menuBar != nullptr);
+        QVERIFY(!menuBar->isNativeMenuBar());
+        auto *fileMenu = menuBar->addMenu(QStringLiteral("File"));
+        auto *editMenu = menuBar->addMenu(QStringLiteral("Edit"));
+        QVERIFY(fileMenu != nullptr);
+        QVERIFY(editMenu != nullptr);
+        QAction dynamicAction(QStringLiteral("Help"), &titleBar);
+        auto *compactButton = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCompactMenuButton"));
+        QVERIFY(compactButton != nullptr);
+        QVERIFY(compactButton->menu() != nullptr);
+
+        titleBar.setMenuDisplayMode(
+            ZzFluentUI::ZzTitleBarMenuDisplayMode::Adaptive);
+        titleBar.resize(1200, titleBar.height());
+        titleBar.show();
+        QCoreApplication::processEvents();
+        QVERIFY(menuBar->isVisible());
+        QVERIFY(compactButton->isHidden());
+
+        titleBar.resize(520, titleBar.height());
+        QCoreApplication::processEvents();
+        QVERIFY(menuBar->isHidden());
+        QVERIFY(compactButton->isVisible());
+        QVERIFY(compactButton->menu()->actions().contains(
+            fileMenu->menuAction()));
+        QVERIFY(compactButton->menu()->actions().contains(
+            editMenu->menuAction()));
+
+        const qsizetype menuObjectCount =
+            titleBar.findChildren<QMenu *>().size();
+        menuBar->addAction(&dynamicAction);
+        QCoreApplication::processEvents();
+        QVERIFY(compactButton->menu()->actions().contains(&dynamicAction));
+        menuBar->removeAction(&dynamicAction);
+        QCoreApplication::processEvents();
+        QVERIFY(!compactButton->menu()->actions().contains(&dynamicAction));
+
+        for (const int width : {1200, 520, 1200, 520}) {
+            titleBar.resize(width, titleBar.height());
+            QCoreApplication::processEvents();
+        }
+        titleBar.setMenuDisplayMode(
+            ZzFluentUI::ZzTitleBarMenuDisplayMode::Expanded);
+        QVERIFY(menuBar->isVisible());
+        QVERIFY(compactButton->isHidden());
+        titleBar.setMenuDisplayMode(
+            ZzFluentUI::ZzTitleBarMenuDisplayMode::Compact);
+        QVERIFY(menuBar->isHidden());
+        QVERIFY(compactButton->isVisible());
+
+        titleBar.setMenuDisplayMode(
+            ZzFluentUI::ZzTitleBarMenuDisplayMode::Adaptive);
+        titleBar.resize(1200, titleBar.height());
+        QCoreApplication::processEvents();
+        int firstCompactWidth = -1;
+        for (int width = 1199; width >= 300; --width) {
+            titleBar.resize(width, titleBar.height());
+            QCoreApplication::processEvents();
+            if (compactButton->isVisible()) {
+                firstCompactWidth = width;
+                break;
+            }
+        }
+        QVERIFY(firstCompactWidth > 0);
+        titleBar.resize(firstCompactWidth + 10, titleBar.height());
+        QCoreApplication::processEvents();
+        QVERIFY(compactButton->isVisible());
+        titleBar.resize(firstCompactWidth + 30, titleBar.height());
+        QCoreApplication::processEvents();
+        QVERIFY(menuBar->isVisible());
+        QCOMPARE(
+            titleBar.findChildren<QMenu *>().size(), menuObjectCount);
+    }
+
+    void keepsTitleCenteredInsideInteractiveSafeArea()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.menuBar()->addMenu(QStringLiteral("File"));
+        titleBar.menuBar()->addMenu(QStringLiteral("Edit"));
+        titleBar.setTitle(QStringLiteral(
+            "A very long workspace title that must be elided safely"));
+        titleBar.resize(720, titleBar.height());
+        titleBar.show();
+        QCoreApplication::processEvents();
+
+        auto *titleLabel = titleBar.findChild<QLabel *>(
+            QStringLiteral("zzTitleBarTitle"));
+        QVERIFY(titleLabel != nullptr);
+        QVERIFY(titleLabel->isVisible());
+        QCOMPARE(titleLabel->geometry().center().x(), titleBar.rect().center().x());
+        QVERIFY(titleLabel->text() != titleBar.title());
+        for (QWidget *widget : titleBar.hitTestVisibleWidgets()) {
+            if (widget->isVisible()) {
+                QVERIFY(!titleLabel->geometry().intersects(widget->geometry()));
+            }
+        }
+        for (QWidget *widget : {
+                 titleBar.minimizeButton(),
+                 titleBar.maximizeButton(),
+                 titleBar.closeButton()}) {
+            if (widget->isVisible()) {
+                QVERIFY(!titleLabel->geometry().intersects(widget->geometry()));
+            }
+        }
+    }
+
+    void emitsThemeAndAlwaysOnTopIntentWithoutMutatingConfirmedState()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        titleBar.setAlwaysOnTop(true);
+        QSignalSpy themeSpy(
+            &titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::themeModeRequested);
+        QSignalSpy alwaysOnTopSpy(
+            &titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested);
+        auto *themeButton = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarThemeButton"));
+        auto *alwaysOnTopButton = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        QVERIFY(themeButton != nullptr);
+        QVERIFY(alwaysOnTopButton != nullptr);
+        QVERIFY(themeButton->menu() != nullptr);
+        QVERIFY(themeButton->isCheckable());
+        QVERIFY(themeButton->isChecked());
+        QVERIFY(!themeButton->toolTip().isEmpty());
+        QVERIFY(!themeButton->accessibleName().isEmpty());
+        QVERIFY(!alwaysOnTopButton->toolTip().isEmpty());
+        QVERIFY(!alwaysOnTopButton->accessibleName().isEmpty());
+        QVERIFY(alwaysOnTopButton->isCheckable());
+        QVERIFY(alwaysOnTopButton->isChecked());
+
+        QAction *lightAction = nullptr;
+        for (QAction *action : themeButton->menu()->actions()) {
+            if (action->data().toInt()
+                == static_cast<int>(ZzFluentUI::ZzThemeMode::Light)) {
+                lightAction = action;
+                break;
+            }
+        }
+        QVERIFY(lightAction != nullptr);
+        lightAction->trigger();
+        QTest::mouseClick(alwaysOnTopButton, Qt::LeftButton);
+
+        QCOMPARE(themeSpy.count(), 1);
+        QCOMPARE(
+            themeSpy.first().first().toInt(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+        QCOMPARE(alwaysOnTopSpy.count(), 1);
+        QCOMPARE(alwaysOnTopSpy.first().first().toBool(), false);
+        QCOMPARE(
+            titleBar.themeMode(), ZzFluentUI::ZzThemeMode::HighContrast);
+        QVERIFY(titleBar.isAlwaysOnTop());
+        QVERIFY(alwaysOnTopButton->isChecked());
+    }
+
+    void mirrorsChromeGroupsForRightToLeftLayouts()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.menuBar()->addMenu(QStringLiteral("File"));
+        titleBar.setTitle(QStringLiteral("Workspace"));
+        titleBar.resize(900, titleBar.height());
+        titleBar.show();
+        QCoreApplication::processEvents();
+        const int leftToRightIconX =
+            titleBar.windowIconWidget()->geometry().center().x();
+        const int leftToRightCloseX =
+            titleBar.closeButton()->geometry().center().x();
+        QVERIFY(leftToRightIconX < titleBar.rect().center().x());
+        QVERIFY(leftToRightCloseX > titleBar.rect().center().x());
+
+        titleBar.setLayoutDirection(Qt::RightToLeft);
+        QCoreApplication::processEvents();
+        QVERIFY(
+            titleBar.windowIconWidget()->geometry().center().x()
+            > titleBar.rect().center().x());
+        QVERIFY(
+            titleBar.closeButton()->geometry().center().x()
+            < titleBar.rect().center().x());
+        auto *titleLabel = titleBar.findChild<QLabel *>(
+            QStringLiteral("zzTitleBarTitle"));
+        QVERIFY(titleLabel != nullptr);
+        QCOMPARE(titleLabel->geometry().center().x(), titleBar.rect().center().x());
+    }
+
     void emitsSystemButtonIntentOnly()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
@@ -100,6 +296,15 @@ private Q_SLOTS:
         QVERIFY(interactive.contains(titleBar.minimizeButton()));
         QVERIFY(interactive.contains(titleBar.maximizeButton()));
         QVERIFY(interactive.contains(titleBar.closeButton()));
+
+        const QList<QWidget *> hitTestVisible =
+            titleBar.hitTestVisibleWidgets();
+        QCOMPARE(hitTestVisible.size(), 4);
+        for (QWidget *widget : hitTestVisible) {
+            QVERIFY(widget != nullptr);
+            QVERIFY(titleBar.isAncestorOf(widget));
+            QVERIFY(!interactive.contains(widget));
+        }
 
         titleBar.setSystemButtonsVisible(false);
         QVERIFY(titleBar.minimizeButton()->isHidden());

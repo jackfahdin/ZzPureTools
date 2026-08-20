@@ -181,6 +181,7 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     ZzWindowKit::ZzWindowChromeConfiguration chrome;
     chrome.titleBar = titleBar;
     chrome.windowIcon = titleBar->windowIconWidget();
+    chrome.interactiveWidgets = titleBar->hitTestVisibleWidgets();
     if (!nativeSystemButtons) {
         chrome.minimizeButton = titleBar->minimizeButton();
         chrome.maximizeButton = titleBar->maximizeButton();

@@ -8,8 +8,13 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
+#include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 class QEvent;
+class QMenuBar;
+class QObject;
+class QResizeEvent;
 
 namespace ZzFluentUI {
 
@@ -25,6 +30,21 @@ class ZZ_FLUENT_UI_EXPORT ZzFluentTitleBar final : public QWidget
     Q_OBJECT
     Q_DISABLE_COPY_MOVE(ZzFluentTitleBar)
     Q_PROPERTY(QString title READ title WRITE setTitle NOTIFY titleChanged)
+    Q_PROPERTY(
+        ZzFluentUI::ZzTitleBarMenuDisplayMode menuDisplayMode
+        READ menuDisplayMode
+        WRITE setMenuDisplayMode
+        NOTIFY menuDisplayModeChanged)
+    Q_PROPERTY(
+        ZzFluentUI::ZzThemeMode themeMode
+        READ themeMode
+        WRITE setThemeMode
+        NOTIFY themeModeChanged)
+    Q_PROPERTY(
+        bool alwaysOnTop
+        READ isAlwaysOnTop
+        WRITE setAlwaysOnTop
+        NOTIFY alwaysOnTopChanged)
 
 public:
     /**
@@ -63,6 +83,39 @@ public:
      */
     void setSystemButtonsVisible(bool visible);
 
+    /**
+     * @brief 返回由标题栏拥有的非原生菜单栏。
+     * @return 非拥有观察指针；调用方可使用标准 QMenuBar API 添加菜单。
+     */
+    [[nodiscard]] QMenuBar *menuBar() const noexcept;
+
+    /** @brief 返回当前请求的菜单展示策略。 */
+    [[nodiscard]] ZzTitleBarMenuDisplayMode menuDisplayMode() const noexcept;
+
+    /**
+     * @brief 设置菜单展示策略，并立即重新计算稳定子控件的可见性。
+     * @param mode 新展示策略。
+     */
+    void setMenuDisplayMode(ZzTitleBarMenuDisplayMode mode);
+
+    /** @brief 返回应用最后确认的主题模式。 */
+    [[nodiscard]] ZzThemeMode themeMode() const noexcept;
+
+    /**
+     * @brief 同步应用已经确认的主题模式，不执行主题切换。
+     * @param mode 已生效的主题模式。
+     */
+    void setThemeMode(ZzThemeMode mode);
+
+    /** @brief 返回宿主最后确认的置顶状态。 */
+    [[nodiscard]] bool isAlwaysOnTop() const noexcept;
+
+    /**
+     * @brief 同步宿主已经确认的置顶状态，不修改窗口标志。
+     * @param alwaysOnTop 已生效的置顶状态。
+     */
+    void setAlwaysOnTop(bool alwaysOnTop);
+
     /** @brief 返回非拥有的窗口图标子控件。 */
     [[nodiscard]] QWidget *windowIconWidget() const noexcept;
 
@@ -81,9 +134,33 @@ public:
      */
     [[nodiscard]] QList<QWidget *> interactiveWidgets() const;
 
+    /**
+     * @brief 返回需要从无边框拖动命中区排除的稳定非系统控件。
+     * @return 菜单栏、折叠菜单、主题和置顶控件的非拥有指针列表。
+     *
+     * 列表同时包含当前隐藏的菜单形态，确保 Adaptive 模式切换无需重新配置
+     * WindowKit。系统按钮只通过专用 getter 配置，不会出现在此列表中。
+     */
+    [[nodiscard]] QList<QWidget *> hitTestVisibleWidgets() const;
+
 Q_SIGNALS:
     /** @brief 展示标题实际变化后发出。 */
     void titleChanged(const QString &title);
+
+    /** @brief 菜单展示策略实际变化后发出。 */
+    void menuDisplayModeChanged(ZzTitleBarMenuDisplayMode mode);
+
+    /** @brief 应用确认的主题状态实际变化后发出。 */
+    void themeModeChanged(ZzThemeMode mode);
+
+    /** @brief 用户请求主题模式；标题栏不会直接修改应用主题。 */
+    void themeModeRequested(ZzThemeMode mode);
+
+    /** @brief 宿主确认的置顶状态实际变化后发出。 */
+    void alwaysOnTopChanged(bool alwaysOnTop);
+
+    /** @brief 用户请求修改置顶状态；标题栏不会直接修改窗口标志。 */
+    void alwaysOnTopRequested(bool alwaysOnTop);
 
     /** @brief 用户请求最小化窗口；控件不执行窗口命令。 */
     void minimizeRequested();
@@ -97,6 +174,12 @@ Q_SIGNALS:
 protected:
     /** @brief 语言、样式、调色板或 DPR 变化时刷新 chrome 展示。 */
     void changeEvent(QEvent *event) override;
+
+    /** @brief 观察菜单 Action 增删并同步折叠菜单的同一 QAction 实例。 */
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+    /** @brief 窗口宽度变化时重新计算菜单形态和全窗口居中标题。 */
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     std::unique_ptr<ZzFluentTitleBarPrivate> d_ptr;
