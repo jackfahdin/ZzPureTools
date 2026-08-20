@@ -46,26 +46,23 @@ ZzTabWidgetPrivate::Metadata ZzTabWidgetPrivate::metadata(QWidget *page) const
 ZzTabWidgetPrivate::Metadata &ZzTabWidgetPrivate::ensureMetadata(QWidget *page)
 {
     auto &state = metadataByPage[page];
-    if (page != nullptr && !observedPages.contains(page)) {
-        observedPages.insert(page);
-        QObject::connect(page, &QObject::destroyed, q_ptr,
+    if (page != nullptr && !state.destroyedConnection) {
+        state.destroyedConnection = QObject::connect(page, &QObject::destroyed, q_ptr,
             [this](QObject *object) {
                 metadataByPage.remove(static_cast<QWidget *>(object));
-                observedPages.remove(static_cast<QWidget *>(object));
             });
     }
     return state;
 }
 
 void ZzTabWidgetPrivate::removeMetadata(QObject *object)
-{ metadataByPage.remove(static_cast<QWidget *>(object)); observedPages.remove(static_cast<QWidget *>(object)); }
+{ metadataByPage.remove(static_cast<QWidget *>(object)); }
 
 void ZzTabWidgetPrivate::disconnectMetadataObservers() noexcept
 {
-    for (QWidget *page : observedPages) {
-        if (page != nullptr) QObject::disconnect(page, nullptr, q_ptr, nullptr);
+    for (auto it = metadataByPage.begin(); it != metadataByPage.end(); ++it) {
+        QObject::disconnect(it->destroyedConnection);
     }
-    observedPages.clear();
     metadataByPage.clear();
 }
 
@@ -169,9 +166,10 @@ bool ZzTabWidgetPrivate::transferTo(
     QPointer<ZzTabWidget> guardedTarget = target;
     QPointer<QWidget> guardedPage = transfer.page;
     q_ptr->removeTab(sourceIndex);
-    QObject::disconnect(transfer.page, nullptr, q_ptr, nullptr);
-    metadataByPage.remove(transfer.page);
-    observedPages.remove(transfer.page);
+    if (auto it = metadataByPage.find(transfer.page); it != metadataByPage.end()) {
+        QObject::disconnect(it->destroyedConnection);
+        metadataByPage.erase(it);
+    }
     if (guardedTarget.isNull() || guardedPage.isNull()) {
         zzRollbackTransfer(guardedSource, transfer);
         return false;

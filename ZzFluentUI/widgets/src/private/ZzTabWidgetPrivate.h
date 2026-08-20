@@ -4,6 +4,7 @@
 #include <QtCore/QString>
 #include <QtCore/QVariant>
 #include <QtCore/QHash>
+#include <QtCore/QMetaObject>
 #include <QtCore/QSet>
 #include <QtGui/QColor>
 #include <QtGui/QIcon>
@@ -55,7 +56,13 @@ public:
         int sourceIndex,
         int targetIndex);
 
-    struct Metadata { bool pinned = false; bool modified = false; bool attention = false; bool closeEnabled = true; };
+    struct Metadata {
+        bool pinned = false;
+        bool modified = false;
+        bool attention = false;
+        bool closeEnabled = true;
+        QMetaObject::Connection destroyedConnection;
+    };
     [[nodiscard]] Metadata metadata(QWidget *page) const;
     Metadata &ensureMetadata(QWidget *page);
     void removeMetadata(QObject *object);
@@ -65,7 +72,6 @@ public:
     ZzTabWidget *const q_ptr;
     ZzTabBar *tabBar = nullptr;
     QHash<QWidget *, Metadata> metadataByPage;
-    QSet<QWidget *> observedPages;
     bool normalizing = false;
 };
 
