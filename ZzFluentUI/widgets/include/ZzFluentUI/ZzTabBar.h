@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <QtCore/QPoint>
 
 #include <QtWidgets/QTabBar>
 
@@ -73,6 +74,9 @@ public:
      */
     void setTabTransferEnabled(bool enabled);
 
+    /** @brief 返回稳定的新建标签按钮。 */
+    [[nodiscard]] QWidget *newTabButton() const noexcept;
+
 Q_SIGNALS:
     /**
      * @brief 拖出能力变化后发出。
@@ -92,6 +96,7 @@ Q_SIGNALS:
      * @param globalPosition 建议的新宿主屏幕位置。
      */
     void tearOffRequested(int index, const QPoint &globalPosition);
+    void newTabRequested();
 
 protected:
     /** @brief 记录公开 tabAt() 命中的按下标签。 */

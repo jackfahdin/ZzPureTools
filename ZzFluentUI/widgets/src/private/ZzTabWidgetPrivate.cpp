@@ -40,6 +40,35 @@ ZzTabWidgetPrivate::ZzTabWidgetPrivate(ZzTabWidget *q) noexcept
     Q_ASSERT(q_ptr != nullptr);
 }
 
+ZzTabWidgetPrivate::Metadata ZzTabWidgetPrivate::metadata(QWidget *page) const
+{ return metadataByPage.value(page); }
+
+ZzTabWidgetPrivate::Metadata &ZzTabWidgetPrivate::ensureMetadata(QWidget *page)
+{
+    auto &state = metadataByPage[page];
+    if (page != nullptr && !observedPages.contains(page)) {
+        observedPages.insert(page);
+        QObject::connect(page, &QObject::destroyed, q_ptr,
+            [this](QObject *object) {
+                metadataByPage.remove(static_cast<QWidget *>(object));
+                observedPages.remove(static_cast<QWidget *>(object));
+            });
+    }
+    return state;
+}
+
+void ZzTabWidgetPrivate::removeMetadata(QObject *object)
+{ metadataByPage.remove(static_cast<QWidget *>(object)); observedPages.remove(static_cast<QWidget *>(object)); }
+
+void ZzTabWidgetPrivate::disconnectMetadataObservers() noexcept
+{
+    for (QWidget *page : observedPages) {
+        if (page != nullptr) QObject::disconnect(page, nullptr, q_ptr, nullptr);
+    }
+    observedPages.clear();
+    metadataByPage.clear();
+}
+
 ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
 {
     ZzTabTransferSnapshot result;
@@ -56,6 +85,11 @@ ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
     result.data = tabBar->tabData(index);
     result.textColor = tabBar->tabTextColor(index);
     result.sourceIndex = index;
+    const Metadata state = metadata(result.page);
+    result.pinned = state.pinned;
+    result.modified = state.modified;
+    result.attention = state.attention;
+    result.closeEnabled = state.closeEnabled;
     return result;
 }
 
@@ -72,6 +106,11 @@ void ZzTabWidgetPrivate::restoreMetadata(
     target->setTabEnabled(index, snapshotValue.enabled);
     target->fluentTabBar()->setTabData(index, snapshotValue.data);
     target->fluentTabBar()->setTabTextColor(index, snapshotValue.textColor);
+    auto &state = target->d_ptr->ensureMetadata(target->widget(index));
+    state.pinned = snapshotValue.pinned;
+    state.modified = snapshotValue.modified;
+    state.attention = snapshotValue.attention;
+    state.closeEnabled = snapshotValue.closeEnabled;
 }
 
 bool ZzTabWidgetPrivate::transferTo(

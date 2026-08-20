@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <QtCore/QList>
+#include <QtCore/QString>
 
 #include <QtWidgets/QTabWidget>
 
@@ -50,6 +52,31 @@ public:
         int sourceIndex,
         int targetIndex = -1);
 
+    /** @brief 返回标签是否固定。 */
+    [[nodiscard]] bool isTabPinned(int index) const;
+    /** @brief 设置标签固定状态。 */
+    void setTabPinned(int index, bool pinned);
+    /** @brief 返回标签是否有未保存修改。 */
+    [[nodiscard]] bool isTabModified(int index) const;
+    /** @brief 设置标签脏状态。 */
+    void setTabModified(int index, bool modified);
+    /** @brief 返回标签是否需要注意提示。 */
+    [[nodiscard]] bool hasTabAttention(int index) const;
+    /** @brief 设置标签注意提示状态。 */
+    void setTabAttention(int index, bool attention);
+    /** @brief 返回标签是否允许关闭。 */
+    [[nodiscard]] bool isTabCloseEnabled(int index) const;
+    /** @brief 设置标签关闭能力。 */
+    void setTabCloseEnabled(int index, bool enabled);
+    /** @brief 同步页面 windowTitle 与标签文本。 */
+    void setPageTitle(int index, const QString &title);
+    /** @brief 按页面指针同步页面标题。 */
+    void setPageTitle(QWidget *page, const QString &title);
+    /** @brief 发出关闭其他可关闭标签的意图。 */
+    void closeOtherTabs(int index);
+    /** @brief 发出关闭右侧可关闭标签的意图。 */
+    void closeTabsToRight(int index);
+
 Q_SIGNALS:
     /**
      * @brief 请求调用方为仍在本容器中的页面创建新宿主。
@@ -75,7 +102,21 @@ Q_SIGNALS:
         int targetIndex,
         QWidget *page);
 
+    /** @brief 标签固定状态变化。 */
+    void tabPinnedChanged(int index, bool pinned);
+    /** @brief 标签脏状态变化。 */
+    void tabModifiedChanged(int index, bool modified);
+    /** @brief 标签注意状态变化。 */
+    void tabAttentionChanged(int index, bool attention);
+    /** @brief 标签关闭能力变化。 */
+    void tabCloseEnabledChanged(int index, bool enabled);
+    /** @brief 请求创建新标签页。 */
+    void newTabRequested();
+    /** @brief 请求调用方批量关闭给定页面，控件不删除页面。 */
+    void tabsCloseRequested(const QList<QWidget *> &pages);
+
 private:
+    friend class ZzTabWidgetPrivate;
     std::unique_ptr<ZzTabWidgetPrivate> d_ptr;
 };
 

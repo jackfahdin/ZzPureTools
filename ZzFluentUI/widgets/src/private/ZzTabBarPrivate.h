@@ -9,6 +9,7 @@
 class QDragMoveEvent;
 class QMouseEvent;
 class QWidget;
+class QToolButton;
 
 namespace ZzFluentUI {
 
@@ -117,6 +118,7 @@ public:
     bool tearOffEnabled = true;
     bool tabTransferEnabled = true;
     bool dragging = false;
+    QToolButton *newTabButton = nullptr;
 };
 
 } // namespace ZzFluentUI

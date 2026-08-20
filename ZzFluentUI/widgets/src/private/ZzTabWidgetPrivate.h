@@ -3,6 +3,8 @@
 #include <QtCore/QPointer>
 #include <QtCore/QString>
 #include <QtCore/QVariant>
+#include <QtCore/QHash>
+#include <QtCore/QSet>
 #include <QtGui/QColor>
 #include <QtGui/QIcon>
 
@@ -25,6 +27,10 @@ struct ZzTabTransferSnapshot final
     QColor textColor;
     int sourceIndex = -1;
     bool enabled = true;
+    bool pinned = false;
+    bool modified = false;
+    bool attention = false;
+    bool closeEnabled = true;
 };
 
 /** @brief 持有标签容器内部引用并执行同步页面转移事务。 */
@@ -49,8 +55,16 @@ public:
         int sourceIndex,
         int targetIndex);
 
+    struct Metadata { bool pinned = false; bool modified = false; bool attention = false; bool closeEnabled = true; };
+    [[nodiscard]] Metadata metadata(QWidget *page) const;
+    Metadata &ensureMetadata(QWidget *page);
+    void removeMetadata(QObject *object);
+    void disconnectMetadataObservers() noexcept;
+
     ZzTabWidget *const q_ptr;
     ZzTabBar *tabBar = nullptr;
+    QHash<QWidget *, Metadata> metadataByPage;
+    QSet<QWidget *> observedPages;
 };
 
 } // namespace ZzFluentUI

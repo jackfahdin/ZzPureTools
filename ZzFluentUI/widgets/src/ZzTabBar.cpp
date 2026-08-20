@@ -7,6 +7,7 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QToolButton>
 
 #include "private/ZzTabBarPrivate.h"
 
@@ -21,7 +22,16 @@ ZzTabBar::ZzTabBar(QWidget *parent)
     setAcceptDrops(true);
     setElideMode(Qt::ElideRight);
     setUsesScrollButtons(true);
+    d_ptr->newTabButton = new QToolButton(this);
+    d_ptr->newTabButton->setObjectName(QStringLiteral("zzTabNewButton"));
+    d_ptr->newTabButton->setText(QStringLiteral("+"));
+    d_ptr->newTabButton->setAutoRaise(true);
+    d_ptr->newTabButton->setToolTip(QStringLiteral("新建标签页"));
+    d_ptr->newTabButton->setAccessibleName(QStringLiteral("新建标签页"));
+    connect(d_ptr->newTabButton, &QToolButton::clicked, this, &ZzTabBar::newTabRequested);
 }
+
+QWidget *ZzTabBar::newTabButton() const noexcept { return d_ptr->newTabButton; }
 
 ZzTabBar::~ZzTabBar() = default;
 
