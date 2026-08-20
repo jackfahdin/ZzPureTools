@@ -1,0 +1,85 @@
+#include <QtTest/QSignalSpy>
+#include <QtTest/QTest>
+
+#include <QtGui/QStandardItemModel>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListView>
+
+#include <ZzFluentUI/ZzCommandItemRole.h>
+#include <ZzFluentUI/ZzCommandPalette.h>
+
+class ZzCommandPaletteTest final : public QObject
+{
+    Q_OBJECT
+private:
+    static QStandardItem *command(QString name, QStringList words = {}, int priority = 0)
+    {
+        auto *item = new QStandardItem(std::move(name));
+        item->setData(std::move(words), static_cast<int>(ZzFluentUI::ZzCommandItemRole::Keywords));
+        item->setData(priority, static_cast<int>(ZzFluentUI::ZzCommandItemRole::Priority));
+        return item;
+    }
+private slots:
+    void ranksFiveMatchLevelsPriorityAndStableSourceRow()
+    {
+        QStandardItemModel model;
+        model.appendRow(command(QStringLiteral("open"), {}, 0));
+        model.appendRow(command(QStringLiteral("open file"), {}, 0));
+        model.appendRow(command(QStringLiteral("file open recent"), {}, 0));
+        model.appendRow(command(QStringLiteral("reopen"), {}, 0));
+        model.appendRow(command(QStringLiteral("close"), {QStringLiteral("open-anything")}, 100));
+        model.appendRow(command(QStringLiteral("open second"), {}, 10));
+        ZzFluentUI::ZzCommandPalette palette;
+        palette.setModel(&model);
+        palette.setQuery(QStringLiteral("open"));
+        QCOMPARE(palette.resultCount(), 6);
+        const auto *results = palette.resultView()->model();
+        QCOMPARE(results->index(0, 0).data().toString(), QStringLiteral("open"));
+        QCOMPARE(results->index(1, 0).data().toString(), QStringLiteral("open second"));
+        QCOMPARE(results->index(2, 0).data().toString(), QStringLiteral("open file"));
+        QCOMPARE(results->index(3, 0).data().toString(), QStringLiteral("file open recent"));
+        QCOMPARE(results->index(4, 0).data().toString(), QStringLiteral("reopen"));
+        QCOMPARE(results->index(5, 0).data().toString(), QStringLiteral("close"));
+    }
+
+    void tenThousandCommandsLengthLimitDisabledFocusAndObjectBudget()
+    {
+        QWidget workspace;
+        QLineEdit initial(&workspace);
+        workspace.show();
+        initial.setFocus();
+        QStandardItemModel model;
+        for (int row = 0; row < 10000; ++row) model.appendRow(command(QStringLiteral("Command %1").arg(row), {QStringLiteral("action-%1").arg(row)}, row % 7));
+        model.item(9999)->setEnabled(false);
+        ZzFluentUI::ZzCommandPalette palette(&workspace);
+        palette.setModel(&model);
+        const qsizetype widgetsBefore = QApplication::allWidgets().size();
+        const qsizetype objectsBefore = palette.findChildren<QObject *>().size();
+        palette.open();
+        QVERIFY(palette.isOpen());
+        QTRY_COMPARE(QApplication::focusWidget(), palette.searchEdit());
+        palette.setQuery(QString(600, u'x'));
+        QCOMPARE(palette.query().size(), 512);
+        palette.setQuery(QStringLiteral("command 9999"));
+        QCOMPARE(palette.resultCount(), 1);
+        QVERIFY(!palette.activateCurrent());
+        QTest::keyClick(palette.searchEdit(), Qt::Key_Escape);
+        QVERIFY(!palette.isOpen());
+        QTRY_COMPARE(QApplication::focusWidget(), &initial);
+        QSignalSpy activated(&palette, &ZzFluentUI::ZzCommandPalette::commandActivated);
+        palette.open();
+        palette.setQuery(QStringLiteral("command 1"));
+        QVERIFY(palette.activateCurrent());
+        QCOMPARE(activated.count(), 1);
+        palette.open();
+        QTest::mouseClick(&palette, Qt::LeftButton, Qt::NoModifier,
+                          QPoint(palette.width() - 1, palette.height() - 1));
+        QVERIFY(!palette.isOpen());
+        QCOMPARE(QApplication::allWidgets().size(), widgetsBefore);
+        QCOMPARE(palette.findChildren<QObject *>().size(), objectsBefore);
+    }
+};
+
+QTEST_MAIN(ZzCommandPaletteTest)
+#include "ZzCommandPaletteTest.moc"

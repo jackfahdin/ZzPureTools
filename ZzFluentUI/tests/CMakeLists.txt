@@ -599,6 +599,22 @@ set_tests_properties(fluent.side-pane PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzExplorerPaneTest ZzExplorerPaneTest.cpp)
+target_link_libraries(ZzExplorerPaneTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzExplorerPaneTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzExplorerPaneTest)
+zz_enable_sanitizers(ZzExplorerPaneTest)
+add_test(NAME fluent.explorer COMMAND ZzExplorerPaneTest)
+set_tests_properties(fluent.explorer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(ZzCommandPaletteTest ZzCommandPaletteTest.cpp)
+target_link_libraries(ZzCommandPaletteTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzCommandPaletteTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzCommandPaletteTest)
+zz_enable_sanitizers(ZzCommandPaletteTest)
+add_test(NAME fluent.command-palette COMMAND ZzCommandPaletteTest)
+set_tests_properties(fluent.command-palette PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 set_target_properties(ZzNavigationControlsTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzNavigationControlsTest)
 zz_enable_sanitizers(ZzNavigationControlsTest)

@@ -18,6 +18,7 @@ set(zz_fluent_foundation_sources
 )
 set(zz_fluent_foundation_moc_headers
     foundation/include/ZzFluentUI/ZzThemeController.h
+    foundation/include/ZzFluentUI/ZzCommandItemRole.h
 )
 
 add_library(ZzFluentFoundation ${zz_fluent_foundation_sources})
@@ -115,6 +116,10 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzActivityBarPrivate.cpp
     widgets/src/ZzSidePane.cpp
     widgets/src/private/ZzSidePanePrivate.cpp
+    widgets/src/ZzExplorerPane.cpp
+    widgets/src/private/ZzExplorerPanePrivate.cpp
+    widgets/src/ZzCommandPalette.cpp
+    widgets/src/private/ZzCommandPalettePrivate.cpp
     widgets/src/ZzBreadcrumbBar.cpp
     widgets/src/private/ZzBreadcrumbBarPrivate.cpp
     widgets/src/ZzFluentItemDelegate.cpp
@@ -163,6 +168,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzNavigationPane.h
     widgets/include/ZzFluentUI/ZzActivityBar.h
     widgets/include/ZzFluentUI/ZzSidePane.h
+    widgets/include/ZzFluentUI/ZzExplorerPane.h
+    widgets/include/ZzFluentUI/ZzCommandPalette.h
     widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
     widgets/include/ZzFluentUI/ZzFluentItemDelegate.h
     widgets/include/ZzFluentUI/ZzFluentTitleBar.h
