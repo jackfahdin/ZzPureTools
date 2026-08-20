@@ -71,6 +71,8 @@ void ZzTabWidgetPrivate::disconnectMetadataObservers() noexcept
 
 void ZzTabWidgetPrivate::normalizePinnedOrder()
 {
+    if (normalizing) return;
+    normalizing = true;
     int pinnedEnd = 0;
     for (int i = 0; i < q_ptr->count(); ++i) {
         if (metadata(q_ptr->widget(i)).pinned) {
@@ -78,6 +80,7 @@ void ZzTabWidgetPrivate::normalizePinnedOrder()
             ++pinnedEnd;
         }
     }
+    normalizing = false;
 }
 
 ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
@@ -166,6 +169,7 @@ bool ZzTabWidgetPrivate::transferTo(
     QPointer<ZzTabWidget> guardedTarget = target;
     QPointer<QWidget> guardedPage = transfer.page;
     q_ptr->removeTab(sourceIndex);
+    QObject::disconnect(transfer.page, nullptr, q_ptr, nullptr);
     metadataByPage.remove(transfer.page);
     observedPages.remove(transfer.page);
     if (guardedTarget.isNull() || guardedPage.isNull()) {

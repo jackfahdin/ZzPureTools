@@ -66,6 +66,7 @@ public:
     ZzTabBar *tabBar = nullptr;
     QHash<QWidget *, Metadata> metadataByPage;
     QSet<QWidget *> observedPages;
+    bool normalizing = false;
 };
 
 } // namespace ZzFluentUI
