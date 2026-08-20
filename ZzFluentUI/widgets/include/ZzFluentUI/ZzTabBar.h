@@ -75,7 +75,10 @@ public:
      */
     void setTabTransferEnabled(bool enabled);
 
-    /** @brief 返回稳定的新建标签按钮。 */
+    /**
+     * @brief 返回稳定的新建标签按钮。
+     * @return 由标签栏或宿主标签控件管理的按钮指针。
+     */
     [[nodiscard]] QWidget *newTabButton() const noexcept;
 
 Q_SIGNALS:
@@ -97,8 +100,20 @@ Q_SIGNALS:
      * @param globalPosition 建议的新宿主屏幕位置。
      */
     void tearOffRequested(int index, const QPoint &globalPosition);
+
+    /** @brief 请求创建新标签页。 */
     void newTabRequested();
+
+    /**
+     * @brief 请求关闭当前标签之外的标签。
+     * @param index 当前标签索引。
+     */
     void closeOtherTabsRequested(int index);
+
+    /**
+     * @brief 请求关闭当前标签右侧的标签。
+     * @param index 当前标签索引。
+     */
     void closeTabsToRightRequested(int index);
 
 protected:
@@ -125,6 +140,8 @@ protected:
 
     /** @brief 绘制轻量插入指示线并保留 Qt 标签绘制。 */
     void paintEvent(QPaintEvent *event) override;
+
+    /** @brief 弹出标签操作上下文菜单。 */
     void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:

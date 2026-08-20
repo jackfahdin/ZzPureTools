@@ -5,7 +5,6 @@
 #include <QtCore/QVariant>
 #include <QtCore/QHash>
 #include <QtCore/QMetaObject>
-#include <QtCore/QSet>
 #include <QtGui/QColor>
 #include <QtGui/QIcon>
 

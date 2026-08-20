@@ -6,7 +6,9 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtCore/QAbstractAnimation>
+#include <QtGui/QContextMenuEvent>
 #include <QtCore/QTimer>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QStyle>
@@ -50,53 +52,344 @@ private Q_SLOTS:
     void keepsPinnedPartitionAcrossAllMoves()
     {
         ZzFluentUI::ZzTabWidget tabs;
-        auto *a = zzCreatePage(QStringLiteral("a")); auto *b = zzCreatePage(QStringLiteral("b")); auto *c = zzCreatePage(QStringLiteral("c"));
-        tabs.addTab(a, "a"); tabs.addTab(b, "b"); tabs.addTab(c, "c");
-        tabs.setTabPinned(2, true); tabs.fluentTabBar()->moveTab(0, 2); QVERIFY(tabs.transferTabTo(&tabs, 2, 0));
-        int ordinary = tabs.count(); for (int i=0;i<tabs.count();++i) if (!tabs.isTabPinned(i)) { ordinary=i; break; }
-        for (int i=0;i<tabs.count();++i) if (tabs.isTabPinned(i)) QVERIFY(i < ordinary);
+        auto *a = zzCreatePage(QStringLiteral("a"));
+        auto *b = zzCreatePage(QStringLiteral("b"));
+        auto *c = zzCreatePage(QStringLiteral("c"));
+        tabs.addTab(a, QStringLiteral("a"));
+        tabs.addTab(b, QStringLiteral("b"));
+        tabs.addTab(c, QStringLiteral("c"));
+
+        tabs.setTabPinned(2, true);
+        tabs.fluentTabBar()->moveTab(0, 2);
+        QVERIFY(tabs.transferTabTo(&tabs, 2, 0));
+        int ordinary = tabs.count();
+        for (int index = 0; index < tabs.count(); ++index) {
+            if (!tabs.isTabPinned(index)) {
+                ordinary = index;
+                break;
+            }
+        }
+        for (int index = 0; index < tabs.count(); ++index) {
+            if (tabs.isTabPinned(index)) {
+                QVERIFY(index < ordinary);
+            }
+        }
+
         tabs.setTabPinned(tabs.indexOf(c), false);
-        ordinary = tabs.count(); for (int i=0;i<tabs.count();++i) if (!tabs.isTabPinned(i)) { ordinary=i; break; }
-        for (int i=0;i<tabs.count();++i) if (tabs.isTabPinned(i)) QVERIFY(i < ordinary);
+        ordinary = tabs.count();
+        for (int index = 0; index < tabs.count(); ++index) {
+            if (!tabs.isTabPinned(index)) {
+                ordinary = index;
+                break;
+            }
+        }
+        for (int index = 0; index < tabs.count(); ++index) {
+            if (tabs.isTabPinned(index)) {
+                QVERIFY(index < ordinary);
+            }
+        }
     }
 
     void preservesWorkspaceMetadataAcrossTransfersAndFailures()
     {
-        ZzFluentUI::ZzTabWidget source, target; auto *page=zzCreatePage("page"); source.addTab(page,"page");
-        source.setTabPinned(0,true); source.setTabModified(0,true); source.setTabAttention(0,true); source.setTabCloseEnabled(0,false);
-        QVERIFY(source.transferTabTo(&target,0)); QCOMPARE(target.widget(0),page); QVERIFY(target.isTabPinned(0)); QVERIFY(target.isTabModified(0)); QVERIFY(target.hasTabAttention(0)); QVERIFY(!target.isTabCloseEnabled(0));
-        source.addTab(zzCreatePage("fail"),"fail"); source.setTabModified(0,true); target.fluentTabBar()->setTabTransferEnabled(false); QVERIFY(!source.transferTabTo(&target,0)); QVERIFY(source.isTabModified(0));
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        auto *page = zzCreatePage(QStringLiteral("page"));
+        source.addTab(page, QStringLiteral("page"));
+        source.setTabPinned(0, true);
+        source.setTabModified(0, true);
+        source.setTabAttention(0, true);
+        source.setTabCloseEnabled(0, false);
+
+        QVERIFY(source.transferTabTo(&target, 0));
+        QCOMPARE(target.widget(0), page);
+        QVERIFY(target.isTabPinned(0));
+        QVERIFY(target.isTabModified(0));
+        QVERIFY(target.hasTabAttention(0));
+        QVERIFY(!target.isTabCloseEnabled(0));
+
+        auto *ordinaryPage = zzCreatePage(QStringLiteral("ordinary"));
+        source.addTab(ordinaryPage, QStringLiteral("ordinary"));
+        source.setTabModified(0, true);
+        source.setTabAttention(0, true);
+        QVERIFY(source.transferTabTo(&target, 0, 0));
+        const int ordinaryIndex = target.indexOf(ordinaryPage);
+        QCOMPARE(ordinaryIndex, 1);
+        QVERIFY(!target.isTabPinned(ordinaryIndex));
+        QVERIFY(target.isTabModified(ordinaryIndex));
+        QVERIFY(target.hasTabAttention(ordinaryIndex));
+
+        auto *failedPage = zzCreatePage(QStringLiteral("fail"));
+        source.addTab(failedPage, QStringLiteral("fail"));
+        source.setTabModified(0, true);
+        source.setTabAttention(0, true);
+        source.setTabCloseEnabled(0, false);
+        target.fluentTabBar()->setTabTransferEnabled(false);
+        QVERIFY(!source.transferTabTo(&target, 0));
+        QCOMPARE(source.widget(0), failedPage);
+        QVERIFY(source.isTabModified(0));
+        QVERIFY(source.hasTabAttention(0));
+        QVERIFY(!source.isTabCloseEnabled(0));
+
+        QSignalSpy tearOffSpy(
+            &source,
+            &ZzFluentUI::ZzTabWidget::tearOffRequested);
+        QVERIFY(QMetaObject::invokeMethod(
+            source.fluentTabBar(),
+            "tearOffRequested",
+            Qt::DirectConnection,
+            Q_ARG(int, 0),
+            Q_ARG(QPoint, QPoint(20, 20))));
+        QCOMPARE(tearOffSpy.count(), 1);
+        QVERIFY(source.isTabModified(0));
+        QVERIFY(source.hasTabAttention(0));
+        QVERIFY(!source.isTabCloseEnabled(0));
     }
 
     void filtersCloseIntentByPageState()
     {
-        ZzFluentUI::ZzTabWidget tabs; auto *a=zzCreatePage("a"), *b=zzCreatePage("b"); tabs.addTab(a,"a"); tabs.addTab(b,"b");
+        ZzFluentUI::ZzTabWidget tabs;
+        auto *a = zzCreatePage(QStringLiteral("a"));
+        auto *b = zzCreatePage(QStringLiteral("b"));
+        tabs.addTab(a, QStringLiteral("a"));
+        tabs.addTab(b, QStringLiteral("b"));
         tabs.setTabsClosable(true);
-        QSignalSpy spy(&tabs,&ZzFluentUI::ZzTabWidget::tabsCloseRequested); tabs.setTabCloseEnabled(0,false);
-        QVERIFY(QMetaObject::invokeMethod(tabs.fluentTabBar(),"tabCloseRequested",Qt::DirectConnection,Q_ARG(int,0))); QCOMPARE(spy.count(),0);
-        tabs.setTabCloseEnabled(0,true); QVERIFY(QMetaObject::invokeMethod(tabs.fluentTabBar(),"tabCloseRequested",Qt::DirectConnection,Q_ARG(int,0))); QCOMPARE(spy.count(),1); QCOMPARE(spy.at(0).at(0).value<QList<QWidget *>>().first(),a);
+        QSignalSpy spy(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
+
+        tabs.setTabCloseEnabled(0, false);
+        QVERIFY(QMetaObject::invokeMethod(
+            tabs.fluentTabBar(),
+            "tabCloseRequested",
+            Qt::DirectConnection,
+            Q_ARG(int, 0)));
+        QCOMPARE(spy.count(), 0);
+
+        tabs.setTabCloseEnabled(0, true);
+        QVERIFY(QMetaObject::invokeMethod(
+            tabs.fluentTabBar(),
+            "tabCloseRequested",
+            Qt::DirectConnection,
+            Q_ARG(int, 0)));
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(
+            spy.at(0).at(0).value<QList<QWidget *>>().first(),
+            a);
+
+        tabs.setTabPinned(0, true);
+        QVERIFY(QMetaObject::invokeMethod(
+            tabs.fluentTabBar(),
+            "tabCloseRequested",
+            Qt::DirectConnection,
+            Q_ARG(int, 0)));
+        QCOMPARE(spy.count(), 1);
     }
+
+    void laysOutAndInvokesNewTabAndContextActions()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.addTab(zzCreatePage(QStringLiteral("first")),
+                    QStringLiteral("First"));
+        tabs.addTab(zzCreatePage(QStringLiteral("second")),
+                    QStringLiteral("Second"));
+        tabs.resize(500, 180);
+        tabs.show();
+        QCoreApplication::processEvents();
+
+        QWidget *const button = tabs.fluentTabBar()->newTabButton();
+        QVERIFY(button->isVisible());
+        QVERIFY(!button->geometry().isEmpty());
+        const QRect buttonRect(
+            button->mapToGlobal(button->rect().topLeft()),
+            button->size());
+        for (int index = 0; index < tabs.count(); ++index) {
+            const QRect tab = tabs.fluentTabBar()->tabRect(index);
+            const QRect globalTab(
+                tabs.fluentTabBar()->mapToGlobal(tab.topLeft()),
+                tab.size());
+            QVERIFY(!globalTab.intersects(buttonRect));
+        }
+
+        tabs.setLayoutDirection(Qt::RightToLeft);
+        QCoreApplication::processEvents();
+        QVERIFY(button->isVisible());
+
+        QSignalSpy newSpy(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::newTabRequested);
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(newSpy.count(), 1);
+
+        const QPoint tabPosition = tabs.fluentTabBar()->tabRect(0).center();
+        auto triggerContextAction = [&](const QString &text) {
+            bool triggered = false;
+            QTimer::singleShot(0, [&] {
+                auto *menu = qobject_cast<QMenu *>(
+                    QApplication::activePopupWidget());
+                if (menu == nullptr) {
+                    return;
+                }
+                for (QAction *action : menu->actions()) {
+                    if (action->text() == text) {
+                        action->trigger();
+                        menu->close();
+                        triggered = true;
+                        return;
+                    }
+                }
+            });
+            QContextMenuEvent event(
+                QContextMenuEvent::Mouse,
+                tabPosition,
+                tabs.fluentTabBar()->mapToGlobal(tabPosition));
+            QApplication::sendEvent(tabs.fluentTabBar(), &event);
+            QCoreApplication::processEvents();
+            QVERIFY(triggered);
+        };
+
+        QSignalSpy closeSpy(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
+        triggerContextAction(QStringLiteral("关闭其他标签页"));
+        QCOMPARE(closeSpy.count(), 1);
+        QCOMPARE(
+            closeSpy.at(0).at(0).value<QList<QWidget *>>().size(),
+            1);
+        closeSpy.clear();
+        triggerContextAction(QStringLiteral("关闭右侧标签页"));
+        QCOMPARE(closeSpy.count(), 1);
+        QCOMPARE(
+            closeSpy.at(0).at(0).value<QList<QWidget *>>().size(),
+            1);
+
+        triggerContextAction(QStringLiteral("新建标签页"));
+        QCOMPARE(newSpy.count(), 2);
+    }
+
+    void keepsObserversAndObjectBudgetsStable()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        for (int index = 0; index < 200; ++index) {
+            source.addTab(
+                zzCreatePage(QString::number(index)),
+                QString::number(index));
+        }
+        const qsizetype objectCount =
+            source.findChildren<QObject *>().size()
+            + target.findChildren<QObject *>().size();
+        const qsizetype timerCount =
+            source.findChildren<QTimer *>().size()
+            + target.findChildren<QTimer *>().size();
+        const qsizetype animationCount =
+            source.findChildren<QAbstractAnimation *>().size()
+            + target.findChildren<QAbstractAnimation *>().size();
+
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            const int index = iteration % source.count();
+            source.setCurrentIndex(index);
+            source.setTabModified(index, (iteration & 1) != 0);
+            source.setTabAttention(index, (iteration & 1) != 0);
+        }
+        QCOMPARE(
+            source.findChildren<QObject *>().size()
+                + target.findChildren<QObject *>().size(),
+            objectCount);
+        QCOMPARE(
+            source.findChildren<QTimer *>().size()
+                + target.findChildren<QTimer *>().size(),
+            timerCount);
+        QCOMPARE(
+            source.findChildren<QAbstractAnimation *>().size()
+                + target.findChildren<QAbstractAnimation *>().size(),
+            animationCount);
+
+        int businessSignals = 0;
+        auto *next = zzCreatePage(QStringLiteral("next"));
+        source.addTab(next, QStringLiteral("next"));
+        QObject::connect(
+            next,
+            &QWidget::windowTitleChanged,
+            &source,
+            [&businessSignals] { ++businessSignals; });
+        QVERIFY(source.transferTabTo(&target, source.indexOf(next)));
+        next->setWindowTitle(QStringLiteral("transferred"));
+        QCOMPARE(businessSignals, 1);
+
+        QWidget *const removed = source.widget(0);
+        source.setTabModified(0, true);
+        delete removed;
+        QCoreApplication::processEvents();
+        auto *replacement = zzCreatePage(QStringLiteral("replacement"));
+        source.addTab(replacement, QStringLiteral("replacement"));
+        QVERIFY(source.indexOf(replacement) >= 0);
+    }
+
     void workspaceStateAndCloseIntentContract()
     {
         ZzFluentUI::ZzTabWidget tabs;
         auto *a = zzCreatePage(QStringLiteral("a"));
         auto *b = zzCreatePage(QStringLiteral("b"));
         auto *c = zzCreatePage(QStringLiteral("c"));
-        tabs.addTab(a, QStringLiteral("A")); tabs.addTab(b, QStringLiteral("B")); tabs.addTab(c, QStringLiteral("C"));
-        QSignalSpy modified(&tabs, &ZzFluentUI::ZzTabWidget::tabModifiedChanged);
-        tabs.setTabModified(1, true); tabs.setTabModified(1, true); QCOMPARE(modified.count(), 1);
-        QSignalSpy pinned(&tabs, &ZzFluentUI::ZzTabWidget::tabPinnedChanged);
-        tabs.setTabPinned(2, true); QCOMPARE(tabs.widget(0), c); tabs.setTabPinned(0, true); QCOMPARE(pinned.count(), 1);
-        QSignalSpy attention(&tabs, &ZzFluentUI::ZzTabWidget::tabAttentionChanged);
-        QSignalSpy closeEnabled(&tabs, &ZzFluentUI::ZzTabWidget::tabCloseEnabledChanged);
-        tabs.setTabAttention(1, true); tabs.setTabAttention(1, true); QCOMPARE(attention.count(), 1);
-        tabs.setTabCloseEnabled(1, false); tabs.setTabCloseEnabled(1, false); QCOMPARE(closeEnabled.count(), 1);
-        tabs.setPageTitle(1, QStringLiteral("Renamed")); QCOMPARE(tabs.tabText(1), QStringLiteral("Renamed")); QCOMPARE(tabs.widget(1)->windowTitle(), QStringLiteral("Renamed"));
-        QSignalSpy batch(&tabs, &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
-        tabs.closeOtherTabs(0); QCOMPARE(batch.count(), 1); QCOMPARE(batch.at(0).at(0).value<QList<QWidget *>>().size(), 1);
-        batch.clear(); tabs.setTabCloseEnabled(1, true); tabs.closeTabsToRight(0); QCOMPARE(batch.count(), 1); QCOMPARE(batch.at(0).at(0).value<QList<QWidget *>>().size(), 2);
+        tabs.addTab(a, QStringLiteral("A"));
+        tabs.addTab(b, QStringLiteral("B"));
+        tabs.addTab(c, QStringLiteral("C"));
+
+        QSignalSpy modified(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabModifiedChanged);
+        tabs.setTabModified(1, true);
+        tabs.setTabModified(1, true);
+        QCOMPARE(modified.count(), 1);
+
+        QSignalSpy pinned(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabPinnedChanged);
+        tabs.setTabPinned(2, true);
+        QCOMPARE(tabs.widget(0), c);
+        tabs.setTabPinned(0, true);
+        QCOMPARE(pinned.count(), 1);
+
+        QSignalSpy attention(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabAttentionChanged);
+        QSignalSpy closeEnabled(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabCloseEnabledChanged);
+        tabs.setTabAttention(1, true);
+        tabs.setTabAttention(1, true);
+        QCOMPARE(attention.count(), 1);
+        tabs.setTabCloseEnabled(1, false);
+        tabs.setTabCloseEnabled(1, false);
+        QCOMPARE(closeEnabled.count(), 1);
+
+        tabs.setPageTitle(1, QStringLiteral("Renamed"));
+        QCOMPARE(tabs.tabText(1), QStringLiteral("Renamed"));
+        QCOMPARE(
+            tabs.widget(1)->windowTitle(),
+            QStringLiteral("Renamed"));
+
+        QSignalSpy batch(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
+        tabs.closeOtherTabs(0);
+        QCOMPARE(batch.count(), 1);
+        QCOMPARE(
+            batch.at(0).at(0).value<QList<QWidget *>>().size(),
+            1);
+        batch.clear();
+        tabs.setTabCloseEnabled(1, true);
+        tabs.closeTabsToRight(0);
+        QCOMPARE(batch.count(), 1);
+        QCOMPARE(
+            batch.at(0).at(0).value<QList<QWidget *>>().size(),
+            2);
+
         QVERIFY(tabs.fluentTabBar()->newTabButton() != nullptr);
-        QSignalSpy newSpy(&tabs, &ZzFluentUI::ZzTabWidget::newTabRequested);
+        QSignalSpy newSpy(
+            &tabs,
+            &ZzFluentUI::ZzTabWidget::newTabRequested);
         QTest::mouseClick(tabs.fluentTabBar()->newTabButton(), Qt::LeftButton);
         QCOMPARE(newSpy.count(), 1);
     }

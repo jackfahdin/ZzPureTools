@@ -52,29 +52,86 @@ public:
         int sourceIndex,
         int targetIndex = -1);
 
-    /** @brief 返回标签是否固定。 */
+    /**
+     * @brief 返回标签是否固定。
+     * @param index 标签索引。
+     * @return 固定时返回 true，索引无效时返回 false。
+     */
     [[nodiscard]] bool isTabPinned(int index) const;
-    /** @brief 设置标签固定状态。 */
+
+    /**
+     * @brief 设置标签固定状态。
+     * @param index 标签索引。
+     * @param pinned 是否固定。
+     */
     void setTabPinned(int index, bool pinned);
-    /** @brief 返回标签是否有未保存修改。 */
+
+    /**
+     * @brief 返回标签是否有未保存修改。
+     * @param index 标签索引。
+     * @return 有未保存修改时返回 true。
+     */
     [[nodiscard]] bool isTabModified(int index) const;
-    /** @brief 设置标签脏状态。 */
+
+    /**
+     * @brief 设置标签脏状态。
+     * @param index 标签索引。
+     * @param modified 是否标记为脏。
+     */
     void setTabModified(int index, bool modified);
-    /** @brief 返回标签是否需要注意提示。 */
+
+    /**
+     * @brief 返回标签是否需要注意提示。
+     * @param index 标签索引。
+     * @return 需要提示时返回 true。
+     */
     [[nodiscard]] bool hasTabAttention(int index) const;
-    /** @brief 设置标签注意提示状态。 */
+
+    /**
+     * @brief 设置标签注意提示状态。
+     * @param index 标签索引。
+     * @param attention 是否显示注意提示。
+     */
     void setTabAttention(int index, bool attention);
-    /** @brief 返回标签是否允许关闭。 */
+
+    /**
+     * @brief 返回标签是否允许关闭。
+     * @param index 标签索引。
+     * @return 允许关闭时返回 true。
+     */
     [[nodiscard]] bool isTabCloseEnabled(int index) const;
-    /** @brief 设置标签关闭能力。 */
+
+    /**
+     * @brief 设置标签关闭能力。
+     * @param index 标签索引。
+     * @param enabled 是否允许关闭。
+     */
     void setTabCloseEnabled(int index, bool enabled);
-    /** @brief 同步页面 windowTitle 与标签文本。 */
+
+    /**
+     * @brief 同步页面 windowTitle 与标签文本。
+     * @param index 标签索引。
+     * @param title 新标题。
+     */
     void setPageTitle(int index, const QString &title);
-    /** @brief 按页面指针同步页面标题。 */
+
+    /**
+     * @brief 按页面指针同步页面标题。
+     * @param page 页面指针。
+     * @param title 新标题。
+     */
     void setPageTitle(QWidget *page, const QString &title);
-    /** @brief 发出关闭其他可关闭标签的意图。 */
+
+    /**
+     * @brief 发出关闭其他可关闭标签的意图。
+     * @param index 保留标签的索引。
+     */
     void closeOtherTabs(int index);
-    /** @brief 发出关闭右侧可关闭标签的意图。 */
+
+    /**
+     * @brief 发出关闭右侧可关闭标签的意图。
+     * @param index 作为边界的标签索引。
+     */
     void closeTabsToRight(int index);
 
 Q_SIGNALS:
@@ -102,17 +159,40 @@ Q_SIGNALS:
         int targetIndex,
         QWidget *page);
 
-    /** @brief 标签固定状态变化。 */
+    /**
+     * @brief 标签固定状态变化。
+     * @param index 变化后的标签索引。
+     * @param pinned 新固定状态。
+     */
     void tabPinnedChanged(int index, bool pinned);
-    /** @brief 标签脏状态变化。 */
+
+    /**
+     * @brief 标签脏状态变化。
+     * @param index 标签索引。
+     * @param modified 新脏状态。
+     */
     void tabModifiedChanged(int index, bool modified);
-    /** @brief 标签注意状态变化。 */
+
+    /**
+     * @brief 标签注意状态变化。
+     * @param index 标签索引。
+     * @param attention 新注意状态。
+     */
     void tabAttentionChanged(int index, bool attention);
-    /** @brief 标签关闭能力变化。 */
+
+    /**
+     * @brief 标签关闭能力变化。
+     * @param index 标签索引。
+     * @param enabled 新关闭能力。
+     */
     void tabCloseEnabledChanged(int index, bool enabled);
     /** @brief 请求创建新标签页。 */
     void newTabRequested();
-    /** @brief 请求调用方批量关闭给定页面，控件不删除页面。 */
+
+    /**
+     * @brief 请求调用方批量关闭给定页面，控件不删除页面。
+     * @param pages 允许关闭的页面列表。
+     */
     void tabsCloseRequested(const QList<QWidget *> &pages);
 
 private:

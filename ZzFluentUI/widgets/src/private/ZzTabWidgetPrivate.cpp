@@ -41,13 +41,18 @@ ZzTabWidgetPrivate::ZzTabWidgetPrivate(ZzTabWidget *q) noexcept
 }
 
 ZzTabWidgetPrivate::Metadata ZzTabWidgetPrivate::metadata(QWidget *page) const
-{ return metadataByPage.value(page); }
+{
+    return metadataByPage.value(page);
+}
 
 ZzTabWidgetPrivate::Metadata &ZzTabWidgetPrivate::ensureMetadata(QWidget *page)
 {
     auto &state = metadataByPage[page];
     if (page != nullptr && !state.destroyedConnection) {
-        state.destroyedConnection = QObject::connect(page, &QObject::destroyed, q_ptr,
+        state.destroyedConnection = QObject::connect(
+            page,
+            &QObject::destroyed,
+            q_ptr,
             [this](QObject *object) {
                 metadataByPage.remove(static_cast<QWidget *>(object));
             });
@@ -56,7 +61,14 @@ ZzTabWidgetPrivate::Metadata &ZzTabWidgetPrivate::ensureMetadata(QWidget *page)
 }
 
 void ZzTabWidgetPrivate::removeMetadata(QObject *object)
-{ metadataByPage.remove(static_cast<QWidget *>(object)); }
+{
+    auto it = metadataByPage.find(static_cast<QWidget *>(object));
+    if (it == metadataByPage.end()) {
+        return;
+    }
+    QObject::disconnect(it->destroyedConnection);
+    metadataByPage.erase(it);
+}
 
 void ZzTabWidgetPrivate::disconnectMetadataObservers() noexcept
 {
@@ -68,12 +80,16 @@ void ZzTabWidgetPrivate::disconnectMetadataObservers() noexcept
 
 void ZzTabWidgetPrivate::normalizePinnedOrder()
 {
-    if (normalizing) return;
+    if (normalizing) {
+        return;
+    }
     normalizing = true;
     int pinnedEnd = 0;
     for (int i = 0; i < q_ptr->count(); ++i) {
         if (metadata(q_ptr->widget(i)).pinned) {
-            if (i != pinnedEnd) tabBar->moveTab(i, pinnedEnd);
+            if (i != pinnedEnd) {
+                tabBar->moveTab(i, pinnedEnd);
+            }
             ++pinnedEnd;
         }
     }
@@ -143,8 +159,15 @@ bool ZzTabWidgetPrivate::transferTo(
     int requestedSlot = targetIndex < 0
         ? target->count()
         : std::clamp(targetIndex, 0, target->count());
-    const int pinnedCount = [&] { int n=0; for(int i=0;i<target->count();++i) if(target->isTabPinned(i)) ++n; return n; }();
-    requestedSlot = transfer.pinned ? std::clamp(requestedSlot, 0, pinnedCount) : std::clamp(requestedSlot, pinnedCount, target->count());
+    int pinnedCount = 0;
+    for (int index = 0; index < target->count(); ++index) {
+        if (target->isTabPinned(index)) {
+            ++pinnedCount;
+        }
+    }
+    requestedSlot = transfer.pinned
+        ? std::clamp(requestedSlot, 0, pinnedCount)
+        : std::clamp(requestedSlot, pinnedCount, target->count());
     if (target == q_ptr) {
         int finalIndex = requestedSlot;
         if (finalIndex > sourceIndex) {
@@ -166,10 +189,7 @@ bool ZzTabWidgetPrivate::transferTo(
     QPointer<ZzTabWidget> guardedTarget = target;
     QPointer<QWidget> guardedPage = transfer.page;
     q_ptr->removeTab(sourceIndex);
-    if (auto it = metadataByPage.find(transfer.page); it != metadataByPage.end()) {
-        QObject::disconnect(it->destroyedConnection);
-        metadataByPage.erase(it);
-    }
+    removeMetadata(transfer.page);
     if (guardedTarget.isNull() || guardedPage.isNull()) {
         zzRollbackTransfer(guardedSource, transfer);
         return false;

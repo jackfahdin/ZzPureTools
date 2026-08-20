@@ -6,10 +6,10 @@
 #include <QtGui/QDropEvent>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
-#include <QtWidgets/QApplication>
-#include <QtWidgets/QToolButton>
-#include <QtWidgets/QMenu>
 #include <QtGui/QContextMenuEvent>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QToolButton>
 
 #include "private/ZzTabBarPrivate.h"
 
@@ -33,19 +33,39 @@ ZzTabBar::ZzTabBar(QWidget *parent)
     connect(d_ptr->newTabButton, &QToolButton::clicked, this, &ZzTabBar::newTabRequested);
 }
 
-QWidget *ZzTabBar::newTabButton() const noexcept { return d_ptr->newTabButton; }
+QWidget *ZzTabBar::newTabButton() const noexcept
+{
+    return d_ptr->newTabButton;
+}
 
 void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
 {
-    QMenu menu(this);
-    QAction *create = menu.addAction(QStringLiteral("新建标签页"));
+    if (event == nullptr) {
+        return;
+    }
+
+    auto *menu = new QMenu(this);
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    QAction *create = menu->addAction(QStringLiteral("新建标签页"));
     const int index = tabAt(event->pos());
-    QAction *others = index >= 0 ? menu.addAction(QStringLiteral("关闭其他标签页")) : nullptr;
-    QAction *right = index >= 0 ? menu.addAction(QStringLiteral("关闭右侧标签页")) : nullptr;
-    QAction *chosen = menu.exec(event->globalPos());
-    if (chosen == create) Q_EMIT newTabRequested();
-    else if (chosen == others) Q_EMIT closeOtherTabsRequested(index);
-    else if (chosen == right) Q_EMIT closeTabsToRightRequested(index);
+    QAction *others = index >= 0
+        ? menu->addAction(QStringLiteral("关闭其他标签页"))
+        : nullptr;
+    QAction *right = index >= 0
+        ? menu->addAction(QStringLiteral("关闭右侧标签页"))
+        : nullptr;
+    connect(menu, &QMenu::triggered, this,
+        [this, create, others, right, index](QAction *action) {
+            if (action == create) {
+                Q_EMIT newTabRequested();
+            } else if (action == others) {
+                Q_EMIT closeOtherTabsRequested(index);
+            } else if (action == right) {
+                Q_EMIT closeTabsToRightRequested(index);
+            }
+        });
+    menu->popup(event->globalPos());
+    event->accept();
 }
 
 ZzTabBar::~ZzTabBar() = default;

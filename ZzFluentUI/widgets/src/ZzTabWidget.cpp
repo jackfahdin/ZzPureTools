@@ -17,7 +17,9 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
     setCornerWidget(d_ptr->tabBar->newTabButton(), Qt::TopRightCorner);
     setMovable(true);
     connect(this, &QTabWidget::tabCloseRequested, this, [this](int index) {
-        if (isTabCloseEnabled(index)) Q_EMIT tabsCloseRequested({widget(index)});
+        if (isTabCloseEnabled(index) && !isTabPinned(index)) {
+            Q_EMIT tabsCloseRequested({widget(index)});
+        }
     });
     connect(d_ptr->tabBar, &ZzTabBar::newTabRequested, this, &ZzTabWidget::newTabRequested);
     connect(d_ptr->tabBar, &ZzTabBar::closeOtherTabsRequested, this, &ZzTabWidget::closeOtherTabs);
@@ -36,18 +38,135 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
         });
 }
 
-bool ZzTabWidget::isTabPinned(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).pinned; }
-void ZzTabWidget::setTabPinned(int index, bool value) { if(index<0||index>=count()) return; QWidget *page=widget(index); auto &s=d_ptr->ensureMetadata(page); if(s.pinned==value)return; s.pinned=value; d_ptr->normalizePinnedOrder(); Q_EMIT tabPinnedChanged(indexOf(page),value); }
-bool ZzTabWidget::isTabModified(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).modified; }
-void ZzTabWidget::setTabModified(int index, bool value) { if(index<0||index>=count()) return; auto &s=d_ptr->ensureMetadata(widget(index)); if(s.modified==value)return; s.modified=value; Q_EMIT tabModifiedChanged(index,value); }
-bool ZzTabWidget::hasTabAttention(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).attention; }
-void ZzTabWidget::setTabAttention(int index, bool value) { if(index<0||index>=count()) return; auto &s=d_ptr->ensureMetadata(widget(index)); if(s.attention==value)return; s.attention=value; Q_EMIT tabAttentionChanged(index,value); }
-bool ZzTabWidget::isTabCloseEnabled(int index) const { return index >= 0 && index < count() && d_ptr->metadata(widget(index)).closeEnabled; }
-void ZzTabWidget::setTabCloseEnabled(int index, bool value) { if(index<0||index>=count()) return; auto &s=d_ptr->ensureMetadata(widget(index)); if(s.closeEnabled==value)return; s.closeEnabled=value; Q_EMIT tabCloseEnabledChanged(index,value); }
-void ZzTabWidget::setPageTitle(int index, const QString &title) { if(index<0||index>=count()) return; setTabText(index,title); if(auto *p=widget(index)) p->setWindowTitle(title); }
-void ZzTabWidget::setPageTitle(QWidget *page, const QString &title) { const int i=indexOf(page); if(i>=0)setPageTitle(i,title); }
-void ZzTabWidget::closeOtherTabs(int index) { if(index<0||index>=count()) return; QList<QWidget*> pages; for(int i=0;i<count();++i) if(i!=index&&!isTabPinned(i)&&isTabCloseEnabled(i)) pages.push_back(widget(i)); if(!pages.isEmpty()) Q_EMIT tabsCloseRequested(pages); }
-void ZzTabWidget::closeTabsToRight(int index) { if(index<0||index>=count()) return; QList<QWidget*> pages; for(int i=index+1;i<count();++i) if(!isTabPinned(i)&&isTabCloseEnabled(i)) pages.push_back(widget(i)); if(!pages.isEmpty()) Q_EMIT tabsCloseRequested(pages); }
+bool ZzTabWidget::isTabPinned(int index) const
+{
+    return index >= 0 && index < count()
+        && d_ptr->metadata(widget(index)).pinned;
+}
+
+void ZzTabWidget::setTabPinned(int index, bool value)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    QWidget *const page = widget(index);
+    auto &state = d_ptr->ensureMetadata(page);
+    if (state.pinned == value) {
+        return;
+    }
+    state.pinned = value;
+    d_ptr->normalizePinnedOrder();
+    Q_EMIT tabPinnedChanged(indexOf(page), value);
+}
+
+bool ZzTabWidget::isTabModified(int index) const
+{
+    return index >= 0 && index < count()
+        && d_ptr->metadata(widget(index)).modified;
+}
+
+void ZzTabWidget::setTabModified(int index, bool value)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    auto &state = d_ptr->ensureMetadata(widget(index));
+    if (state.modified == value) {
+        return;
+    }
+    state.modified = value;
+    Q_EMIT tabModifiedChanged(index, value);
+}
+
+bool ZzTabWidget::hasTabAttention(int index) const
+{
+    return index >= 0 && index < count()
+        && d_ptr->metadata(widget(index)).attention;
+}
+
+void ZzTabWidget::setTabAttention(int index, bool value)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    auto &state = d_ptr->ensureMetadata(widget(index));
+    if (state.attention == value) {
+        return;
+    }
+    state.attention = value;
+    Q_EMIT tabAttentionChanged(index, value);
+}
+
+bool ZzTabWidget::isTabCloseEnabled(int index) const
+{
+    return index >= 0 && index < count()
+        && d_ptr->metadata(widget(index)).closeEnabled;
+}
+
+void ZzTabWidget::setTabCloseEnabled(int index, bool value)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    auto &state = d_ptr->ensureMetadata(widget(index));
+    if (state.closeEnabled == value) {
+        return;
+    }
+    state.closeEnabled = value;
+    Q_EMIT tabCloseEnabledChanged(index, value);
+}
+
+void ZzTabWidget::setPageTitle(int index, const QString &title)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    setTabText(index, title);
+    if (QWidget *const page = widget(index); page != nullptr) {
+        page->setWindowTitle(title);
+    }
+}
+
+void ZzTabWidget::setPageTitle(QWidget *page, const QString &title)
+{
+    const int index = indexOf(page);
+    if (index >= 0) {
+        setPageTitle(index, title);
+    }
+}
+
+void ZzTabWidget::closeOtherTabs(int index)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    QList<QWidget *> pages;
+    for (int tabIndex = 0; tabIndex < count(); ++tabIndex) {
+        if (tabIndex != index && !isTabPinned(tabIndex)
+            && isTabCloseEnabled(tabIndex)) {
+            pages.push_back(widget(tabIndex));
+        }
+    }
+    if (!pages.isEmpty()) {
+        Q_EMIT tabsCloseRequested(pages);
+    }
+}
+
+void ZzTabWidget::closeTabsToRight(int index)
+{
+    if (index < 0 || index >= count()) {
+        return;
+    }
+    QList<QWidget *> pages;
+    for (int tabIndex = index + 1; tabIndex < count(); ++tabIndex) {
+        if (!isTabPinned(tabIndex) && isTabCloseEnabled(tabIndex)) {
+            pages.push_back(widget(tabIndex));
+        }
+    }
+    if (!pages.isEmpty()) {
+        Q_EMIT tabsCloseRequested(pages);
+    }
+}
 
 ZzTabWidget::~ZzTabWidget()
 {
