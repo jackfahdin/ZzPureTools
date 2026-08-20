@@ -171,7 +171,7 @@ void ZzTabWidget::closeTabsToRight(int index)
 void ZzTabWidget::tabInserted(int index)
 {
     QTabWidget::tabInserted(index);
-    if (d_ptr != nullptr) {
+    if (d_ptr != nullptr && d_ptr->transferInsertionDepth == 0) {
         d_ptr->normalizePinnedOrder();
     }
 }

@@ -43,8 +43,8 @@ public:
     /** @brief 捕获指定标签的页面和全部公开展示元数据。 */
     [[nodiscard]] ZzTabTransferSnapshot snapshot(int index) const;
 
-    /** @brief 在指定容器和索引恢复标签元数据。 */
-    static void restoreMetadata(
+    /** @brief 按页面身份在指定容器恢复标签元数据。 */
+    [[nodiscard]] static bool restoreMetadata(
         ZzTabWidget *target,
         int index,
         const ZzTabTransferSnapshot &snapshot);
@@ -72,6 +72,7 @@ public:
     ZzTabBar *tabBar = nullptr;
     QHash<QWidget *, Metadata> metadataByPage;
     bool normalizing = false;
+    int transferInsertionDepth = 0;
 };
 
 } // namespace ZzFluentUI

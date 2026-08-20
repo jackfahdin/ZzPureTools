@@ -419,6 +419,143 @@ private Q_SLOTS:
         QVERIFY(!source.isTabCloseEnabled(0));
     }
 
+    void rollsBackWhenTargetIsDestroyedFromTabMovedCallback()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        auto *page = zzCreatePage(QStringLiteral("destroyed-target"));
+        source.addTab(page, QStringLiteral("Destroyed target"));
+        source.setTabModified(0, true);
+        source.setTabAttention(0, true);
+        source.setTabCloseEnabled(0, false);
+
+        auto *target = new ZzFluentUI::ZzTabWidget;
+        auto *existing = zzCreatePage(QStringLiteral("existing-pinned"));
+        target->addTab(existing, QStringLiteral("Existing"));
+        target->setTabPinned(0, true);
+        QPointer<ZzFluentUI::ZzTabWidget> targetGuard(target);
+        bool destroyingTarget = false;
+        QObject::connect(
+            target->fluentTabBar(),
+            &QTabBar::tabMoved,
+            &source,
+            [&, page](int, int) {
+                if (destroyingTarget || targetGuard.isNull()) {
+                    return;
+                }
+                destroyingTarget = true;
+                const int pageIndex = targetGuard->indexOf(page);
+                if (pageIndex >= 0) {
+                    targetGuard->removeTab(pageIndex);
+                }
+                page->setParent(nullptr);
+                delete targetGuard.data();
+            });
+
+        QVERIFY(!source.transferTabTo(target, 0, 0));
+        QVERIFY(targetGuard.isNull());
+        QCOMPARE(source.count(), 1);
+        QCOMPARE(source.widget(0), page);
+        QVERIFY(!source.isTabPinned(0));
+        QVERIFY(source.isTabModified(0));
+        QVERIFY(source.hasTabAttention(0));
+        QVERIFY(!source.isTabCloseEnabled(0));
+    }
+
+    void rollsBackWhenTargetRemovesPageDuringNormalize()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        auto *page = zzCreatePage(QStringLiteral("removed-during-normalize"));
+        source.addTab(page, QStringLiteral("Removed during normalize"));
+        source.setTabModified(0, true);
+        source.setTabAttention(0, true);
+        source.setTabCloseEnabled(0, false);
+
+        auto *pinned = zzCreatePage(QStringLiteral("target-pinned"));
+        target.addTab(pinned, QStringLiteral("Pinned"));
+        target.setTabPinned(0, true);
+        bool removedDuringNormalize = false;
+        QObject::connect(
+            target.fluentTabBar(),
+            &QTabBar::tabMoved,
+            &target,
+            [&](int, int) {
+                const int pageIndex = target.indexOf(page);
+                if (pageIndex < 0) {
+                    return;
+                }
+                target.removeTab(pageIndex);
+                removedDuringNormalize = true;
+            });
+
+        QVERIFY(!source.transferTabTo(&target, 0, 0));
+        QVERIFY(removedDuringNormalize);
+        QCOMPARE(target.indexOf(page), -1);
+        QCOMPARE(source.count(), 1);
+        QCOMPARE(source.widget(0), page);
+        QVERIFY(!source.isTabPinned(0));
+        QVERIFY(source.isTabModified(0));
+        QVERIFY(source.hasTabAttention(0));
+        QVERIFY(!source.isTabCloseEnabled(0));
+    }
+
+    void reportsNormalizedTargetIndexAfterPinnedPartition()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        auto *page = zzCreatePage(QStringLiteral("ordinary-transfer"));
+        auto *pinned = zzCreatePage(QStringLiteral("existing-pinned"));
+        source.addTab(page, QStringLiteral("Ordinary"));
+        target.addTab(pinned, QStringLiteral("Pinned"));
+        target.setTabPinned(0, true);
+        QSignalSpy transferredSpy(
+            &target,
+            &ZzFluentUI::ZzTabWidget::tabTransferred);
+
+        QVERIFY(source.transferTabTo(&target, 0, 0));
+
+        QCOMPARE(target.indexOf(page), 1);
+        QCOMPARE(transferredSpy.count(), 1);
+        QCOMPARE(
+            transferredSpy.at(0).at(2).toInt(),
+            target.indexOf(page));
+    }
+
+    void doesNotStealPageTakenByThirdPartyDuringTransfer()
+    {
+        ZzFluentUI::ZzTabWidget source;
+        ZzFluentUI::ZzTabWidget target;
+        ZzFluentUI::ZzTabWidget thirdParty;
+        auto *page = zzCreatePage(QStringLiteral("third-party-page"));
+        auto *pinned = zzCreatePage(QStringLiteral("target-pinned"));
+        source.addTab(page, QStringLiteral("Third party"));
+        target.addTab(pinned, QStringLiteral("Pinned"));
+        target.setTabPinned(0, true);
+        bool taken = false;
+        QObject::connect(
+            target.fluentTabBar(),
+            &QTabBar::tabMoved,
+            &target,
+            [&](int, int) {
+                if (taken) {
+                    return;
+                }
+                const int pageIndex = target.indexOf(page);
+                if (pageIndex >= 0) {
+                    taken = target.transferTabTo(
+                        &thirdParty,
+                        pageIndex);
+                }
+            });
+
+        QVERIFY(!source.transferTabTo(&target, 0, 0));
+        QVERIFY(taken);
+        QCOMPARE(source.indexOf(page), -1);
+        QCOMPARE(target.indexOf(page), -1);
+        QCOMPARE(thirdParty.count(), 1);
+        QCOMPARE(thirdParty.widget(0), page);
+    }
+
     void workspaceStateAndCloseIntentContract()
     {
         ZzFluentUI::ZzTabWidget tabs;

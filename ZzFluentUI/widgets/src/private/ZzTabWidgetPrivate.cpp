@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <QtCore/QPointer>
+#include <QtCore/QSignalBlocker>
 
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
@@ -11,25 +12,18 @@ namespace ZzFluentUI {
 
 namespace {
 
-/** @brief 在目标提交失败后恢复来源标签及完整公开元数据。 */
-bool zzRollbackTransfer(
-    ZzTabWidget *source,
-    const ZzTabTransferSnapshot &transfer)
+/** @brief 返回页面父对象链中的标签容器，用于识别外部接管。 */
+QTabWidget *zzOwningTabWidget(QWidget *page)
 {
-    if (source == nullptr || transfer.page.isNull()) {
-        return false;
+    for (QObject *current = page != nullptr ? page->parent() : nullptr;
+         current != nullptr;
+         current = current->parent()) {
+        if (auto *tabs = qobject_cast<QTabWidget *>(current);
+            tabs != nullptr) {
+            return tabs;
+        }
     }
-    const int rollbackIndex = source->insertTab(
-        std::clamp(transfer.sourceIndex, 0, source->count()),
-        transfer.page,
-        transfer.icon,
-        transfer.text);
-    if (rollbackIndex < 0) {
-        return false;
-    }
-    ZzTabWidgetPrivate::restoreMetadata(source, rollbackIndex, transfer);
-    source->setCurrentIndex(rollbackIndex);
-    return true;
+    return nullptr;
 }
 
 } // namespace
@@ -83,12 +77,27 @@ void ZzTabWidgetPrivate::normalizePinnedOrder()
     if (normalizing) {
         return;
     }
+    QPointer<ZzTabWidget> guardedWidget = q_ptr;
     normalizing = true;
     int pinnedEnd = 0;
-    for (int i = 0; i < q_ptr->count(); ++i) {
-        if (metadata(q_ptr->widget(i)).pinned) {
+    for (int i = 0; i < guardedWidget->count(); ++i) {
+        if (metadata(guardedWidget->widget(i)).pinned) {
             if (i != pinnedEnd) {
-                tabBar->moveTab(i, pinnedEnd);
+                QPointer<ZzTabBar> guardedTabBar = tabBar;
+                {
+                    const QSignalBlocker blocker(guardedTabBar);
+                    guardedTabBar->moveTab(i, pinnedEnd);
+                }
+                QMetaObject::invokeMethod(
+                    guardedTabBar,
+                    "tabMoved",
+                    Qt::DirectConnection,
+                    Q_ARG(int, i),
+                    Q_ARG(int, pinnedEnd));
+                if (guardedWidget.isNull()
+                    || guardedTabBar.isNull()) {
+                    return;
+                }
             }
             ++pinnedEnd;
         }
@@ -120,24 +129,63 @@ ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
     return result;
 }
 
-void ZzTabWidgetPrivate::restoreMetadata(
+bool ZzTabWidgetPrivate::restoreMetadata(
     ZzTabWidget *target,
     int index,
     const ZzTabTransferSnapshot &snapshotValue)
 {
-    if (target == nullptr || index < 0 || index >= target->count()) {
-        return;
+    QPointer<ZzTabWidget> guardedTarget = target;
+    QPointer<QWidget> guardedPage = snapshotValue.page;
+    if (guardedTarget.isNull() || guardedPage.isNull()) {
+        return false;
     }
-    target->setTabToolTip(index, snapshotValue.toolTip);
-    target->setTabWhatsThis(index, snapshotValue.whatsThis);
-    target->setTabEnabled(index, snapshotValue.enabled);
-    target->fluentTabBar()->setTabData(index, snapshotValue.data);
-    target->fluentTabBar()->setTabTextColor(index, snapshotValue.textColor);
-    auto &state = target->d_ptr->ensureMetadata(target->widget(index));
+
+    const auto resolveIndex = [&]() {
+        if (guardedTarget.isNull() || guardedPage.isNull()) {
+            return -1;
+        }
+        return guardedTarget->indexOf(guardedPage);
+    };
+    index = resolveIndex();
+    if (index < 0) {
+        return false;
+    }
+    guardedTarget->setTabText(index, snapshotValue.text);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTarget->setTabIcon(index, snapshotValue.icon);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTarget->setTabToolTip(index, snapshotValue.toolTip);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTarget->setTabWhatsThis(index, snapshotValue.whatsThis);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTarget->setTabEnabled(index, snapshotValue.enabled);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTarget->fluentTabBar()->setTabData(index, snapshotValue.data);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTarget->fluentTabBar()->setTabTextColor(
+        index,
+        snapshotValue.textColor);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    auto &state = guardedTarget->d_ptr->ensureMetadata(guardedPage);
     state.pinned = snapshotValue.pinned;
     state.modified = snapshotValue.modified;
     state.attention = snapshotValue.attention;
     state.closeEnabled = snapshotValue.closeEnabled;
+    return resolveIndex() >= 0;
 }
 
 bool ZzTabWidgetPrivate::transferTo(
@@ -165,10 +213,13 @@ bool ZzTabWidgetPrivate::transferTo(
             ++pinnedCount;
         }
     }
-    requestedSlot = transfer.pinned
-        ? std::clamp(requestedSlot, 0, pinnedCount)
-        : std::clamp(requestedSlot, pinnedCount, target->count());
     if (target == q_ptr) {
+        requestedSlot = transfer.pinned
+            ? std::clamp(requestedSlot, 0, pinnedCount)
+            : std::clamp(
+                requestedSlot,
+                pinnedCount,
+                target->count());
         int finalIndex = requestedSlot;
         if (finalIndex > sourceIndex) {
             --finalIndex;
@@ -188,35 +239,138 @@ bool ZzTabWidgetPrivate::transferTo(
     QPointer<ZzTabWidget> guardedSource = q_ptr;
     QPointer<ZzTabWidget> guardedTarget = target;
     QPointer<QWidget> guardedPage = transfer.page;
-    q_ptr->removeTab(sourceIndex);
+    const auto rollback = [&]() {
+        if (guardedSource.isNull() || guardedPage.isNull()) {
+            return false;
+        }
+
+        int sourcePageIndex = guardedSource->indexOf(guardedPage);
+        if (sourcePageIndex < 0 && !guardedTarget.isNull()) {
+            const int targetPageIndex =
+                guardedTarget->indexOf(guardedPage);
+            if (targetPageIndex >= 0) {
+                guardedTarget->d_ptr->removeMetadata(guardedPage);
+                guardedTarget->removeTab(targetPageIndex);
+                if (guardedSource.isNull() || guardedPage.isNull()) {
+                    return false;
+                }
+                if (guardedTarget.isNull()
+                    || guardedTarget->indexOf(guardedPage) >= 0) {
+                    return false;
+                }
+            }
+        }
+
+        sourcePageIndex = guardedSource->indexOf(guardedPage);
+        if (sourcePageIndex < 0) {
+            QTabWidget *const owner = zzOwningTabWidget(guardedPage);
+            if (owner != nullptr && owner != guardedSource
+                && owner != guardedTarget) {
+                return false;
+            }
+            ++guardedSource->d_ptr->transferInsertionDepth;
+            guardedSource->insertTab(
+                std::clamp(
+                    transfer.sourceIndex,
+                    0,
+                    guardedSource->count()),
+                guardedPage,
+                transfer.icon,
+                transfer.text);
+            if (!guardedSource.isNull()) {
+                --guardedSource->d_ptr->transferInsertionDepth;
+            }
+            if (guardedSource.isNull() || guardedPage.isNull()
+                || guardedSource->indexOf(guardedPage) < 0) {
+                return false;
+            }
+        }
+
+        sourcePageIndex = guardedSource->indexOf(guardedPage);
+        if (!restoreMetadata(
+                guardedSource,
+                sourcePageIndex,
+                transfer)) {
+            return false;
+        }
+        guardedSource->d_ptr->normalizePinnedOrder();
+        if (guardedSource.isNull() || guardedPage.isNull()) {
+            return false;
+        }
+        sourcePageIndex = guardedSource->indexOf(guardedPage);
+        if (sourcePageIndex < 0) {
+            return false;
+        }
+        guardedSource->setCurrentIndex(sourcePageIndex);
+        return !guardedSource.isNull() && !guardedPage.isNull()
+            && guardedSource->indexOf(guardedPage) >= 0;
+    };
+
     removeMetadata(transfer.page);
-    if (guardedTarget.isNull() || guardedPage.isNull()) {
-        zzRollbackTransfer(guardedSource, transfer);
+    q_ptr->removeTab(sourceIndex);
+    if (guardedSource.isNull() || guardedTarget.isNull()
+        || guardedPage.isNull()) {
+        rollback();
+        return false;
+    }
+    QTabWidget *const ownerAfterRemoval =
+        zzOwningTabWidget(guardedPage);
+    if (guardedSource->indexOf(guardedPage) >= 0
+        || (ownerAfterRemoval != nullptr
+            && ownerAfterRemoval != guardedSource)) {
+        rollback();
         return false;
     }
 
+    ++guardedTarget->d_ptr->transferInsertionDepth;
     const int insertedIndex = guardedTarget->insertTab(
         requestedSlot,
         guardedPage,
         transfer.icon,
         transfer.text);
-    if (insertedIndex < 0 || guardedTarget.isNull()
-        || guardedPage.isNull()) {
-        zzRollbackTransfer(guardedSource, transfer);
+    if (!guardedTarget.isNull()) {
+        --guardedTarget->d_ptr->transferInsertionDepth;
+    }
+    if (insertedIndex < 0 || guardedSource.isNull()
+        || guardedTarget.isNull() || guardedPage.isNull()
+        || guardedTarget->indexOf(guardedPage) < 0) {
+        rollback();
         return false;
     }
 
-    restoreMetadata(guardedTarget, insertedIndex, transfer);
+    if (!restoreMetadata(guardedTarget, insertedIndex, transfer)
+        || guardedSource.isNull() || guardedTarget.isNull()
+        || guardedPage.isNull()) {
+        rollback();
+        return false;
+    }
     guardedTarget->d_ptr->normalizePinnedOrder();
+    if (guardedSource.isNull() || guardedTarget.isNull()
+        || guardedPage.isNull()) {
+        rollback();
+        return false;
+    }
     const int actualTargetIndex = guardedTarget->indexOf(guardedPage);
     if (actualTargetIndex < 0) {
+        rollback();
         return false;
     }
     guardedTarget->setCurrentIndex(actualTargetIndex);
+    if (guardedSource.isNull() || guardedTarget.isNull()
+        || guardedPage.isNull()) {
+        rollback();
+        return false;
+    }
+    const int committedTargetIndex =
+        guardedTarget->indexOf(guardedPage);
+    if (committedTargetIndex < 0) {
+        rollback();
+        return false;
+    }
     Q_EMIT guardedTarget->tabTransferred(
         guardedSource,
         transfer.sourceIndex,
-        actualTargetIndex,
+        committedTargetIndex,
         guardedPage);
     return true;
 }
