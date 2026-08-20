@@ -8,6 +8,9 @@
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QToolButton>
+#include <QtWidgets/QMenu>
+#include <QtGui/QContextMenuEvent>
+#include <QtGui/QResizeEvent>
 
 #include "private/ZzTabBarPrivate.h"
 
@@ -32,6 +35,27 @@ ZzTabBar::ZzTabBar(QWidget *parent)
 }
 
 QWidget *ZzTabBar::newTabButton() const noexcept { return d_ptr->newTabButton; }
+
+void ZzTabBar::resizeEvent(QResizeEvent *event)
+{
+    QTabBar::resizeEvent(event);
+    const QSize size = d_ptr->newTabButton->sizeHint();
+    d_ptr->newTabButton->setGeometry(width() - size.width(), 0, size.width(), size.height());
+    d_ptr->newTabButton->show();
+}
+
+void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
+{
+    QMenu menu(this);
+    QAction *create = menu.addAction(QStringLiteral("新建标签页"));
+    const int index = tabAt(event->pos());
+    QAction *others = index >= 0 ? menu.addAction(QStringLiteral("关闭其他标签页")) : nullptr;
+    QAction *right = index >= 0 ? menu.addAction(QStringLiteral("关闭右侧标签页")) : nullptr;
+    QAction *chosen = menu.exec(event->globalPos());
+    if (chosen == create) Q_EMIT newTabRequested();
+    else if (chosen == others) Q_EMIT closeOtherTabsRequested(index);
+    else if (chosen == right) Q_EMIT closeTabsToRightRequested(index);
+}
 
 ZzTabBar::~ZzTabBar() = default;
 

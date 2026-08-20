@@ -13,6 +13,8 @@ class QDragMoveEvent;
 class QDropEvent;
 class QMouseEvent;
 class QPaintEvent;
+class QContextMenuEvent;
+class QResizeEvent;
 
 namespace ZzFluentUI {
 
@@ -97,6 +99,8 @@ Q_SIGNALS:
      */
     void tearOffRequested(int index, const QPoint &globalPosition);
     void newTabRequested();
+    void closeOtherTabsRequested(int index);
+    void closeTabsToRightRequested(int index);
 
 protected:
     /** @brief 记录公开 tabAt() 命中的按下标签。 */
@@ -122,6 +126,8 @@ protected:
 
     /** @brief 绘制轻量插入指示线并保留 Qt 标签绘制。 */
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
     friend class ZzTabWidget;

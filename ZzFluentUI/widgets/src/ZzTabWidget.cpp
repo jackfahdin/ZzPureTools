@@ -19,6 +19,8 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
         if (isTabCloseEnabled(index)) Q_EMIT tabsCloseRequested({widget(index)});
     });
     connect(d_ptr->tabBar, &ZzTabBar::newTabRequested, this, &ZzTabWidget::newTabRequested);
+    connect(d_ptr->tabBar, &ZzTabBar::closeOtherTabsRequested, this, &ZzTabWidget::closeOtherTabs);
+    connect(d_ptr->tabBar, &ZzTabBar::closeTabsToRightRequested, this, &ZzTabWidget::closeTabsToRight);
     connect(d_ptr->tabBar, &QTabBar::tabMoved, this, [this](int, int) { d_ptr->normalizePinnedOrder(); });
 
     connect(
