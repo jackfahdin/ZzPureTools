@@ -9,6 +9,24 @@
 #include <ZzFluentUI/ZzCommandItemRole.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 
+namespace {
+
+class ZzCountingCommandModel final : public QStandardItemModel
+{
+public:
+    [[nodiscard]] QVariant data(
+        const QModelIndex &index,
+        int role = Qt::DisplayRole) const override
+    {
+        ++dataReads;
+        return QStandardItemModel::data(index, role);
+    }
+
+    mutable int dataReads = 0;
+};
+
+} // namespace
+
 class ZzCommandPaletteTest final : public QObject
 {
     Q_OBJECT
@@ -35,6 +53,27 @@ private slots:
         QCOMPARE(palette.resultCount(), 1);
         QCOMPARE(palette.resultView()->model()->index(0, 0).data().toString(), QStringLiteral("second"));
         delete second;
+    }
+
+    void ignoresChangesFromAnOldModelThatRemainsAlive()
+    {
+        QStandardItemModel oldModel;
+        oldModel.appendRow(command(QStringLiteral("old command")));
+        ZzCountingCommandModel currentModel;
+        currentModel.appendRow(command(QStringLiteral("current command")));
+        ZzFluentUI::ZzCommandPalette palette;
+        palette.setModel(&oldModel);
+        palette.setModel(&currentModel);
+        palette.setQuery(QStringLiteral("current"));
+        QCOMPARE(palette.resultCount(), 1);
+        currentModel.dataReads = 0;
+
+        oldModel.item(0)->setText(QStringLiteral("changed old command"));
+        QCoreApplication::processEvents();
+
+        QCOMPARE(palette.model(), &currentModel);
+        QCOMPARE(palette.resultCount(), 1);
+        QCOMPARE(currentModel.dataReads, 0);
     }
 
     void structuralChangesRefreshCurrentQuery()

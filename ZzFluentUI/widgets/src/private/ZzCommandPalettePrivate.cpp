@@ -101,48 +101,50 @@ ZzCommandPalettePrivate::ZzCommandPalettePrivate(ZzCommandPalette *q)
 void ZzCommandPalettePrivate::setModel(QAbstractItemModel *model)
 {
     if (sourceModel == model) return;
+    for (const QMetaObject::Connection &connection : modelConnections) {
+        QObject::disconnect(connection);
+    }
+    modelConnections.clear();
     sourceModel = model;
     proxy->setSourceModel(model);
     static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
     proxy->sort(0);
     if (model != nullptr) {
-        QObject::connect(model, &QAbstractItemModel::dataChanged, q_ptr,
-            [this](const QModelIndex &, const QModelIndex &, const QList<int> &) {
+        const auto refresh = [this, model] {
+            if (sourceModel.data() != model) {
+                return;
+            }
                 static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
                 proxy->invalidate();
                 proxy->sort(0);
-            });
-        QObject::connect(model, &QAbstractItemModel::rowsInserted, q_ptr,
-            [this](const QModelIndex &, int, int) {
-                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
-                proxy->invalidate();
-                proxy->sort(0);
-            });
-        QObject::connect(model, &QAbstractItemModel::rowsRemoved, q_ptr,
-            [this](const QModelIndex &, int, int) {
-                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
-                proxy->invalidate();
-                proxy->sort(0);
-            });
-        QObject::connect(model, &QAbstractItemModel::layoutChanged, q_ptr,
-            [this] {
-                static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
-                proxy->invalidate();
-                proxy->sort(0);
-            });
-        QObject::connect(model, &QAbstractItemModel::modelReset, q_ptr, [this] {
-            static_cast<ZzCommandFilterProxy *>(proxy)->clearCache();
-            proxy->invalidate();
-            proxy->sort(0);
-        });
-        QObject::connect(model, &QObject::destroyed, q_ptr, [this, model] {
+        };
+        modelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::dataChanged, q_ptr,
+            [refresh](const QModelIndex &, const QModelIndex &, const QList<int> &) {
+                refresh();
+            }));
+        modelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::rowsInserted, q_ptr,
+            [refresh](const QModelIndex &, int, int) { refresh(); }));
+        modelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::rowsRemoved, q_ptr,
+            [refresh](const QModelIndex &, int, int) { refresh(); }));
+        modelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::layoutChanged, q_ptr,
+            [refresh] { refresh(); }));
+        modelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::modelReset, q_ptr,
+            [refresh] { refresh(); }));
+        modelConnections.append(QObject::connect(
+            model, &QObject::destroyed, q_ptr, [this, model] {
             if (sourceModel.data() != model) {
                 return;
             }
             sourceModel = nullptr;
             proxy->setSourceModel(nullptr);
+            modelConnections.clear();
             Q_EMIT q_ptr->modelChanged(nullptr);
-        });
+        }));
     }
     Q_EMIT q_ptr->modelChanged(model);
 }

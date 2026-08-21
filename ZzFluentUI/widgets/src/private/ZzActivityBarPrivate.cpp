@@ -337,7 +337,6 @@ void ZzActivityBarPrivate::setModel(QAbstractItemModel *model)
     sourceModel = model;
     primaryProjection->setSourceModel(model);
     secondaryProjection->setSourceModel(model);
-    currentSourceIndex = QPersistentModelIndex();
     dragTokens.clear();
     dragTokenExpiryTimer->stop();
     if (model != nullptr) {
@@ -357,7 +356,6 @@ void ZzActivityBarPrivate::handleModelDestroyed()
     sourceModel.clear();
     primaryProjection->setSourceModel(nullptr);
     secondaryProjection->setSourceModel(nullptr);
-    currentSourceIndex = QPersistentModelIndex();
     dragTokens.clear();
     dragTokenExpiryTimer->stop();
     modelDestroyedConnection = {};

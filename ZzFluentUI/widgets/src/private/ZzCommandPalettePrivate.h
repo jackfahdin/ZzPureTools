@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtCore/QList>
+#include <QtCore/QMetaObject>
 #include <QtCore/QPointer>
 
 class QAbstractItemModel;
@@ -27,6 +29,7 @@ public:
     QLineEdit *searchEdit = nullptr;
     QListView *resultView = nullptr;
     QSortFilterProxyModel *proxy = nullptr;
+    QList<QMetaObject::Connection> modelConnections;
     QString query;
     bool opened = false;
 };

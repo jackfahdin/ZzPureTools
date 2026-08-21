@@ -356,6 +356,33 @@ private Q_SLOTS:
                 ->model()->rowCount(),
             0);
     }
+
+    void notifiesWhenChangingOrDestroyingTheCurrentModelClearsSelection()
+    {
+        ZzActivityRowsModel first;
+        ZzActivityRowsModel second;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&first);
+        bar.setCurrentSourceIndex(first.index(0, 0));
+        QSignalSpy currentSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::currentSourceIndexChanged);
+
+        bar.setModel(&second);
+
+        QCOMPARE(currentSpy.count(), 1);
+        QVERIFY(!currentSpy.at(0).at(0).value<QModelIndex>().isValid());
+        bar.setCurrentSourceIndex(second.index(0, 0));
+        currentSpy.clear();
+        auto ownedModel = std::make_unique<ZzActivityRowsModel>();
+        bar.setModel(ownedModel.get());
+        bar.setCurrentSourceIndex(ownedModel->index(0, 0));
+        currentSpy.clear();
+
+        ownedModel.reset();
+
+        QCOMPARE(currentSpy.count(), 1);
+        QVERIFY(!currentSpy.at(0).at(0).value<QModelIndex>().isValid());
+    }
 };
 
 QTEST_MAIN(ZzActivityBarTest)
