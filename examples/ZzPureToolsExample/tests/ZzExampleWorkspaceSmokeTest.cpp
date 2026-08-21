@@ -72,7 +72,8 @@ private Q_SLOTS:
             zzPanelId("sessions"), QStringLiteral("会话"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary,
             sessionPanel.get()));
-        sessionPanel.release();
+        [[maybe_unused]] QWidget *const adoptedSessionPanel =
+            sessionPanel.release();
 
         auto terminal =
             ZzExample::ZzExampleWorkspaceContent::createTerminalPage(
@@ -109,7 +110,8 @@ private Q_SLOTS:
             QVERIFY(shell->registerDockPanel(
                 zzPanelId(dock.id), dock.title, zzIcon(),
                 Qt::BottomDockWidgetArea, dock.content.get()));
-            dock.content.release();
+            [[maybe_unused]] QWidget *const adoptedDockContent =
+                dock.content.release();
         }
 
         host.show();
