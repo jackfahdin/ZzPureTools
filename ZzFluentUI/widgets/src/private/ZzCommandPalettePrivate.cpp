@@ -136,15 +136,12 @@ void ZzCommandPalettePrivate::setModel(QAbstractItemModel *model)
             model, &QAbstractItemModel::modelReset, q_ptr,
             [refresh] { refresh(); }));
         modelConnections.append(QObject::connect(
-            model, &QObject::destroyed, q_ptr, [this, model] {
-            if (sourceModel.data() != model) {
-                return;
-            }
-            sourceModel = nullptr;
-            proxy->setSourceModel(nullptr);
-            modelConnections.clear();
-            Q_EMIT q_ptr->modelChanged(nullptr);
-        }));
+            model, &QObject::destroyed, q_ptr, [this] {
+                sourceModel = nullptr;
+                proxy->setSourceModel(nullptr);
+                modelConnections.clear();
+                Q_EMIT q_ptr->modelChanged(nullptr);
+            }));
     }
     Q_EMIT q_ptr->modelChanged(model);
 }

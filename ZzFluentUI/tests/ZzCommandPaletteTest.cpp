@@ -39,6 +39,25 @@ private:
         return item;
     }
 private slots:
+    void destroyingCurrentModelNotifiesThatTheModelWasCleared()
+    {
+        auto *model = new QStandardItemModel;
+        model->appendRow(command(QStringLiteral("current")));
+        ZzFluentUI::ZzCommandPalette palette;
+        palette.setModel(model);
+        QSignalSpy modelChangedSpy(
+            &palette, &ZzFluentUI::ZzCommandPalette::modelChanged);
+
+        delete model;
+
+        QCOMPARE(palette.model(), nullptr);
+        QCOMPARE(palette.resultCount(), 0);
+        QCOMPARE(modelChangedSpy.count(), 1);
+        QCOMPARE(
+            modelChangedSpy.at(0).at(0).value<QAbstractItemModel *>(),
+            nullptr);
+    }
+
     void replacingModelThenDestroyingOldModelKeepsCurrentModel()
     {
         auto *first = new QStandardItemModel;
