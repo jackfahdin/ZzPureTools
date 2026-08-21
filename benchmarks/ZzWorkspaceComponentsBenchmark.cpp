@@ -47,6 +47,9 @@ constexpr int zzCommandCount = 10000;
 constexpr int zzTabCount = 200;
 constexpr int zzSidePanelCount = 64;
 constexpr int zzDockPanelCount = 32;
+// QListView 的 viewport 与滚动条需要固定少量 QWidget；每个结果一行的实现
+// 会在 10,000 条命令下远超此预算。
+constexpr qsizetype zzMaximumResultViewWidgets = 8;
 
 /** @brief 返回命令行中 --report 后的输出路径。 */
 QString zzReportPath(const QStringList &arguments)
@@ -131,6 +134,25 @@ bool zzHasStableObjectBudget(
         && expected.timers == actual.timers
         && expected.animations == actual.animations
         && expected.resultViewWidgets == actual.resultViewWidgets;
+}
+
+/** @brief 断言虚拟化命令列表没有为每条结果创建 QWidget。 */
+bool zzHasBoundedResultViewWidgets(const ZzWorkspaceObjectBudget &budget)
+{
+    return budget.resultViewWidgets <= zzMaximumResultViewWidgets;
+}
+
+/** @brief 返回渲染图像是否至少包含一个非透明像素。 */
+bool zzContainsOpaquePixel(const QImage &image)
+{
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (qAlpha(image.pixel(x, y)) != 0) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 /** @brief 在 GUI 队列中完成一次同步状态消费。 */
@@ -236,6 +258,10 @@ int main(int argc, char *argv[])
     }
     ZzWorkspaceObjectBudget stableBudget = zzObjectBudget(
         host, *palette);
+    if (!zzHasBoundedResultViewWidgets(stableBudget)) {
+        return zzFail(QStringLiteral(
+            "command palette result view exceeded widget virtualization budget"));
+    }
     ZzBenchmarks::ZzPerformanceReporter reporter;
     reporter.setScenario(QStringLiteral("workspace-components"));
     reporter.setWarmupIterations(zzWarmupIterations);
@@ -359,6 +385,9 @@ int main(int argc, char *argv[])
         image.fill(Qt::transparent);
         timer.restart();
         host.render(&image);
+        if (!zzContainsOpaquePixel(image)) {
+            return zzFail(QStringLiteral("workspace render was fully transparent"));
+        }
         if (measured) {
             reporter.addSample({QStringLiteral("workspace-render-time"),
                                 QStringLiteral("ms"),
@@ -367,6 +396,10 @@ int main(int argc, char *argv[])
 
         const ZzWorkspaceObjectBudget currentBudget = zzObjectBudget(
             host, *palette);
+        if (!zzHasBoundedResultViewWidgets(currentBudget)) {
+            return zzFail(QStringLiteral(
+                "command palette result view exceeded widget virtualization budget"));
+        }
         if (!measured) {
             stableBudget = currentBudget;
         } else if (!zzHasStableObjectBudget(stableBudget, currentBudget)) {
