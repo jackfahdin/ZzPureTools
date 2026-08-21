@@ -18,6 +18,12 @@
   - 每轮写入 object/timer/animation/result-view/style-cache/RSS 指标，不调整正式阈值。
 - `ad66738 docs(性能): 更新工作区三轮观测证据`
   - 三轮原始 observe JSON：`docs/performance/evidence/workspace-components/2026-08-21/round-{1,2,3}.json`。
+- `a591d62 fix(截图): 恢复 Fluent 截图命名空间边界`
+  - Workspace 截图迁移时，旧场景的禁用块误包含匿名 namespace 闭合，导致
+    Fluent 截图测试的 MOC 解析失败；已恢复 namespace 边界。
+- `aa84a2a test(动效): 稳定折叠容器反向动画验收`
+  - 用状态条件等待替换固定帧等待，避免并行 CTest 下首次动画帧尚未调度时
+    偶发观察到零高度，同时保留动画推进和连续反向的断言。
 
 ## 验证
 
@@ -26,6 +32,16 @@
 - `architecture.zzfluent-boundaries`：通过。
 - 新 PureTools 工作区截图：100/125/150/200 DPR 均通过 Light、Dark、HighContrast 的宽/窄场景。
 - 基准目标以 Linux GCC 15/Qt 6.11.1 编译；三轮 JSON 包含全部新增指标。
+- 使用 `GCC_13=/usr/bin/gcc-15`、`GXX_13=/usr/bin/g++-15` 与
+  `QT_ROOT=/home/zz/Qt/6.11.1/gcc_64` 运行
+  `cmake --fresh --preset linux-gcc-debug`，恢复标准 Debug 构建树。
+- 随后运行 `cmake --build --preset linux-gcc-debug --parallel 2`，完整
+  Debug 构建通过。
+- 完整 CTest 以相同工具链和可写临时 `HOME` 执行。受单次执行窗口限制，
+  按编号分组验收：第 1–64 项为 64/64 通过；第 65–127 项先通过 58/63，
+  其余 `install.consumer`、`architecture.public-headers`、
+  `platform.package-relocation`、`release.blocked-without-evidence` 与
+  `release.complete-fixture` 也均通过。最终合计 127/127 通过。
 
 ## 基准身份与边界
 
@@ -37,4 +53,5 @@
 ## 残余风险
 
 - 本轮只在 Linux offscreen raster 上执行 GUI/截图；Windows MSVC、Windows MinGW、macOS 未执行原生 GUI 验证。
-- 当前本地 Debug CMake 缓存因一次空编译器重配使用 install RPATH；CTest 子进程无法继承本地库路径，截图验证以等价的显式 offscreen 环境直接运行。源码和新目标均已成功编译。
+- `platform.package-relocation` 通过，验证安装包在隔离前缀下可被消费者重定位使用；
+  其运行时间为 79.36 秒，属于本轮最长的 CTest 门禁。
