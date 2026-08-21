@@ -34,7 +34,14 @@
 
 namespace {
 
-constexpr qsizetype zzWorkspaceMaximumLayoutSize = 1024 * 1024;
+constexpr qsizetype zzWorkspaceMaximumLayoutSize = qsizetype{1024} * 1024;
+
+/** @brief 在组件接管对象后释放测试夹具持有的临时所有权。 */
+template <typename T>
+void zzReleaseAfterAdoption(std::unique_ptr<T> &object) noexcept
+{
+    [[maybe_unused]] T *const adoptedObject = object.release();
+}
 
 struct ZzShellFixture final
 {
@@ -319,7 +326,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("left"), QStringLiteral("Left"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
-        content.release();
+        zzReleaseAfterAdoption(content);
 
         QVERIFY(!leftPane->isCollapsed());
         QVERIFY(!leftBar->isHidden());
@@ -387,7 +394,7 @@ private Q_SLOTS:
             zzPanelId("explorer"), QStringLiteral("Explorer"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary,
             sideContent.get()));
-        sideContent.release();
+        zzReleaseAfterAdoption(sideContent);
         QVERIFY(sideRaw->parentWidget() != nullptr);
         QCOMPARE(
             fixture.shell->sidePane(
@@ -406,7 +413,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("terminal"), QStringLiteral("Terminal"), zzIcon(),
             Qt::BottomDockWidgetArea, dockContent.get()));
-        dockContent.release();
+        zzReleaseAfterAdoption(dockContent);
         auto *dock = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
             QStringLiteral("zzWorkspaceDock:terminal"));
         QVERIFY(dock != nullptr);
@@ -442,7 +449,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, side.get()));
-        side.release();
+        zzReleaseAfterAdoption(side);
         QAbstractItemModel *const model = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left)->model();
         QCOMPARE(model->rowCount(), 1);
@@ -469,7 +476,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::BottomDockWidgetArea, dockContent.get()));
-        dockContent.release();
+        zzReleaseAfterAdoption(dockContent);
         QPointer<ZzFluentUI::ZzDockPanel> dock =
             fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
                 QStringLiteral("zzWorkspaceDock:dock"));
@@ -508,7 +515,7 @@ private Q_SLOTS:
             zzPanelId("side"), QStringLiteral("Replacement side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary,
             replacementSide.get()));
-        replacementSide.release();
+        zzReleaseAfterAdoption(replacementSide);
     }
 
     void externalDockContentDestructionCleansStateAndAllowsIdReuse()
@@ -528,7 +535,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Replacement dock"), zzIcon(),
             Qt::RightDockWidgetArea, replacementDock.get()));
-        replacementDock.release();
+        zzReleaseAfterAdoption(replacementDock);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
         QVERIFY(dock.isNull());
@@ -566,7 +573,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
-        content.release();
+        zzReleaseAfterAdoption(content);
 
         QVERIFY(callbackEntered);
         QVERIFY(!duplicateRegistrationSucceeded);
@@ -601,7 +608,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::BottomDockWidgetArea, content.get()));
-        content.release();
+        zzReleaseAfterAdoption(content);
 
         QVERIFY(callbackEntered);
         QVERIFY(!duplicateRegistrationSucceeded);
@@ -627,7 +634,7 @@ private Q_SLOTS:
                 zzPanelId(ids.at(index)),
                 QString::fromLatin1(titles.at(index)), zzIcon(),
                 areas.at(index), content.get()));
-            content.release();
+            zzReleaseAfterAdoption(content);
         }
 
         QAbstractItemModel *const model = fixture.shell->activityBar(
@@ -657,11 +664,11 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::RightPrimary, side.get()));
-        side.release();
+        zzReleaseAfterAdoption(side);
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::RightDockWidgetArea, dock.get()));
-        dock.release();
+        zzReleaseAfterAdoption(dock);
 
         QVERIFY(fixture.shell->showPanel(zzPanelId("side"), false));
         QVERIFY(fixture.shell->sidePane(
@@ -779,20 +786,20 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("left-one"), QStringLiteral("Left one"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, leftOne.get()));
-        leftOne.release();
+        zzReleaseAfterAdoption(leftOne);
         QWidget *const leftTwoRaw = leftTwo.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("left-two"), QStringLiteral("Left two"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftSecondary, leftTwo.get()));
-        leftTwo.release();
+        zzReleaseAfterAdoption(leftTwo);
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("right"), QStringLiteral("Right"), zzIcon(),
             ZzFluentUI::ZzActivityArea::RightPrimary, right.get()));
-        right.release();
+        zzReleaseAfterAdoption(right);
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::LeftDockWidgetArea, dock.get()));
-        dock.release();
+        zzReleaseAfterAdoption(dock);
         fixture.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(333);
         fixture.shell->sidePane(
@@ -806,7 +813,7 @@ private Q_SLOTS:
 
         auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
-        const QByteArray state = saved.value();
+        const QByteArray &state = saved.value();
         QVERIFY(state.size() <= zzWorkspaceMaximumLayoutSize);
         QCOMPARE(state.first(4), QByteArrayLiteral("ZZWS"));
         QDataStream envelope(state);
@@ -865,7 +872,7 @@ private Q_SLOTS:
         ZzShellFixture fixture;
         auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
-        const QByteArray valid = saved.value();
+        const QByteArray &valid = saved.value();
 
         QVERIFY(!fixture.shell->restoreLayout(
             zzMutatedByte(valid, 0, 'X')));
@@ -913,11 +920,11 @@ private Q_SLOTS:
         QVERIFY(source.shell->registerSidePanel(
             zzPanelId("ghost-side"), QStringLiteral("Ghost side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, ghostSide.get()));
-        ghostSide.release();
+        zzReleaseAfterAdoption(ghostSide);
         QVERIFY(source.shell->registerDockPanel(
             zzPanelId("ghost-dock"), QStringLiteral("Ghost dock"), zzIcon(),
             Qt::RightDockWidgetArea, ghostDock.get()));
-        ghostDock.release();
+        zzReleaseAfterAdoption(ghostDock);
         auto saved = source.shell->saveLayout();
         QVERIFY(saved);
 
@@ -927,7 +934,7 @@ private Q_SLOTS:
         QVERIFY(target.shell->registerSidePanel(
             zzPanelId("known"), QStringLiteral("Known"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, known.get()));
-        known.release();
+        zzReleaseAfterAdoption(known);
 
         QVERIFY(target.shell->restoreLayout(saved.value()));
         QCOMPARE(
@@ -948,7 +955,7 @@ private Q_SLOTS:
             QVERIFY(source.shell->registerSidePanel(
                 zzPanelId(id), QString::fromLatin1(id), zzIcon(),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
-            content.release();
+            zzReleaseAfterAdoption(content);
         }
         auto saved = source.shell->saveLayout();
         QVERIFY(saved);
@@ -959,7 +966,7 @@ private Q_SLOTS:
             QVERIFY(target.shell->registerSidePanel(
                 zzPanelId(id), QString::fromLatin1(id), zzIcon(),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
-            content.release();
+            zzReleaseAfterAdoption(content);
         }
         QVERIFY(target.shell->restoreLayout(saved.value()));
 
@@ -976,7 +983,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::LeftDockWidgetArea, dock.get()));
-        dock.release();
+        zzReleaseAfterAdoption(dock);
         auto *dockPanel = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
             QStringLiteral("zzWorkspaceDock:dock"));
         QVERIFY(dockPanel != nullptr);
@@ -1019,11 +1026,11 @@ private Q_SLOTS:
         QVERIFY(source.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, sourceSide.get()));
-        sourceSide.release();
+        zzReleaseAfterAdoption(sourceSide);
         QVERIFY(source.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::RightDockWidgetArea, sourceDock.get()));
-        sourceDock.release();
+        zzReleaseAfterAdoption(sourceDock);
         source.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(800);
         source.shell->sidePane(
@@ -1037,11 +1044,11 @@ private Q_SLOTS:
         QVERIFY(target.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, targetSide.get()));
-        targetSide.release();
+        zzReleaseAfterAdoption(targetSide);
         QVERIFY(target.shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::LeftDockWidgetArea, targetDock.get()));
-        targetDock.release();
+        zzReleaseAfterAdoption(targetDock);
         target.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(321);
         auto *dockPanel = target.host.findChild<ZzFluentUI::ZzDockPanel *>(
@@ -1066,7 +1073,7 @@ private Q_SLOTS:
         QVERIFY(source.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
-        sourceContent.release();
+        zzReleaseAfterAdoption(sourceContent);
         source.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(800);
         source.shell->sidePane(
@@ -1089,7 +1096,7 @@ private Q_SLOTS:
         QVERIFY(target.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
-        targetContent.release();
+        zzReleaseAfterAdoption(targetContent);
         target.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(321);
         armed = true;
@@ -1115,12 +1122,12 @@ private Q_SLOTS:
         QVERIFY(shell->registerDockPanel(
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::BottomDockWidgetArea, content.get()));
-        content.release();
+        zzReleaseAfterAdoption(content);
         auto secondContent = std::make_unique<QWidget>();
         QVERIFY(shell->registerDockPanel(
             zzPanelId("second-dock"), QStringLiteral("Second dock"), zzIcon(),
             Qt::RightDockWidgetArea, secondContent.get()));
-        secondContent.release();
+        zzReleaseAfterAdoption(secondContent);
 
         host.reset();
 
@@ -1145,11 +1152,11 @@ private Q_SLOTS:
             QVERIFY(shell->registerDockPanel(
                 zzPanelId(id), QString::fromLatin1(id), zzIcon(), area,
                 content.get()));
-            content.release();
+            zzReleaseAfterAdoption(content);
         }
         QPointer<ZzPureTools::ZzWorkspaceShell> shellGuard(shell.get());
         shell->setParent(host.get());
-        shell.release();
+        zzReleaseAfterAdoption(shell);
 
         host.reset();
 

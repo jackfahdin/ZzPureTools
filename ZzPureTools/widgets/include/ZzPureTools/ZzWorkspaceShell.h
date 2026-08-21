@@ -75,7 +75,7 @@ public:
     /** @brief 校验后接管无父对象内容，并注册到对应侧栏分组。 */
     [[nodiscard]] ZzCore::ZzResult<void> registerSidePanel(
         const ZzWorkspacePanelId &id,
-        QString title,
+        const QString &title,
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
         QWidget *content);
@@ -83,7 +83,7 @@ public:
     /** @brief 校验后创建原生 Dock 并接管无父对象内容。 */
     [[nodiscard]] ZzCore::ZzResult<void> registerDockPanel(
         const ZzWorkspacePanelId &id,
-        QString title,
+        const QString &title,
         ZzFluentUI::ZzIconDescriptor icon,
         Qt::DockWidgetArea area,
         QWidget *content);

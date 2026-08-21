@@ -29,7 +29,7 @@ namespace ZzPureTools {
 
 namespace {
 
-constexpr qsizetype zzMaximumLayoutSize = 1024 * 1024;
+constexpr qsizetype zzMaximumLayoutSize = qsizetype{1024} * 1024;
 constexpr quint16 zzLayoutSchemaVersion = 1;
 constexpr auto zzLayoutStreamVersion = QDataStream::Qt_6_8;
 constexpr int zzLayoutDigestSize = 32;
@@ -501,7 +501,7 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
 
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     const ZzWorkspacePanelId &id,
-    QString title,
+    const QString &title,
     ZzFluentUI::ZzIconDescriptor icon,
     ZzFluentUI::ZzActivityArea area,
     QWidget *content)
@@ -587,7 +587,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
 
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
     const ZzWorkspacePanelId &id,
-    QString title,
+    const QString &title,
     ZzFluentUI::ZzIconDescriptor icon,
     Qt::DockWidgetArea area,
     QWidget *content)

@@ -92,13 +92,13 @@ public:
 
     [[nodiscard]] ZzCore::ZzResult<void> registerSidePanel(
         const ZzWorkspacePanelId &id,
-        QString title,
+        const QString &title,
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
         QWidget *content);
     [[nodiscard]] ZzCore::ZzResult<void> registerDockPanel(
         const ZzWorkspacePanelId &id,
-        QString title,
+        const QString &title,
         ZzFluentUI::ZzIconDescriptor icon,
         Qt::DockWidgetArea area,
         QWidget *content);
