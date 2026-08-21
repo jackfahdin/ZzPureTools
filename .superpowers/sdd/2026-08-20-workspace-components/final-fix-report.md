@@ -43,6 +43,30 @@
   `platform.package-relocation`、`release.blocked-without-evidence` 与
   `release.complete-fixture` 也均通过。最终合计 127/127 通过。
 
+## Example 基线补充验收
+
+- 基线更新提交：`HEAD`（本提交）。
+- 重采命令：
+
+  ```bash
+  HOME=/tmp/zzpuretools-ctest-home \
+  GCC_13=/usr/bin/gcc-15 \
+  GXX_13=/usr/bin/g++-15 \
+  QT_ROOT=/home/zz/Qt/6.11.1/gcc_64 \
+  ZZ_UPDATE_EXAMPLE_SCREENSHOTS=1 \
+  ctest --preset linux-gcc-debug \
+    -R '^example\.puretools-screenshot-(100|125|150|200)$' \
+    --parallel 4 --output-on-failure
+  ```
+
+  四档 DPR 均成功写入，共更新 12 张 PNG。
+- 关闭更新变量后的同一截图测试为 4/4 通过；`example.workspace-smoke` 为 1/1
+  通过。
+- 逐张校验 12 张 PNG 均为预期 RGBA 尺寸且非空，三主题 SHA-256 各不相同；
+  人工查看 dpr-100 的 Light、Dark、HighContrast 与 dpr-200 Light，SFTP、
+  会话、终端、属性、日志和任务工作区均完整渲染，未见空白帧、截图边界裁切、
+  控件重叠或主题串色。
+
 ## 基准身份与边界
 
 - 代码采样 SHA：`02b87516ed73ec62c842fc617c9ffa8502c8fd8f`。
