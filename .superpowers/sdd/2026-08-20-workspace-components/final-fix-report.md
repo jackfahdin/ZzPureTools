@@ -1,0 +1,40 @@
+# 工作区组件最终修复报告
+
+## 修复批次
+
+- `5f389e9 fix(工作区): 防护面板同步析构`
+  - SidePane add/take 的同步删除回归，以及 host 析构时 dock 防护。
+- `42bab7e fix(工作区): 隔离模型切换状态`
+  - Command Palette 旧模型连接断开，ActivityBar 清空索引通知。
+- `1cab046 fix(工作区): 限制布局解码并报告回滚失败`
+  - 4096 条侧栏 schema 上限、线性去重、回滚成功/失败错误语义。
+  - 红灯：旧实现接受 4097 项且错误报告仍称回滚成功；绿灯：`puretools.workspace-shell`。
+- `9569f6f fix(示例): 适配活动日志视图烟雾验收`
+  - Smoke 查找新 `QTableView`/`zzExampleActivityLogView`，保留尾随、共享模型和关闭守卫验证。
+- `f95af31 fix(架构): 迁移工作区截图到 PureTools`
+  - 工作区截图从 Fluent 移至 PureTools，24 张基线原样迁移。
+  - 红灯：`architecture.zzfluent-boundaries`；绿灯：架构门禁和 100/125/150/200 DPR 下六个工作区截图场景。
+- `02b8751 fix(性能): 记录工作区结构与内存观测`
+  - 每轮写入 object/timer/animation/result-view/style-cache/RSS 指标，不调整正式阈值。
+- `ad66738 docs(性能): 更新工作区三轮观测证据`
+  - 三轮原始 observe JSON：`docs/performance/evidence/workspace-components/2026-08-21/round-{1,2,3}.json`。
+
+## 验证
+
+- `puretools.workspace-shell`：通过。
+- Example integration、英文、三种 close guard、多窗口：通过（测试模式日志目录使用可写临时 HOME）。
+- `architecture.zzfluent-boundaries`：通过。
+- 新 PureTools 工作区截图：100/125/150/200 DPR 均通过 Light、Dark、HighContrast 的宽/窄场景。
+- 基准目标以 Linux GCC 15/Qt 6.11.1 编译；三轮 JSON 包含全部新增指标。
+
+## 基准身份与边界
+
+- 代码采样 SHA：`02b87516ed73ec62c842fc617c9ffa8502c8fd8f`。
+- runner digest：`sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41`。
+- GPU identity：`Qt offscreen raster`。
+- RSS 仅在 Linux `/proc/self/statm` 可用时报告；其他平台不伪造该项。
+
+## 残余风险
+
+- 本轮只在 Linux offscreen raster 上执行 GUI/截图；Windows MSVC、Windows MinGW、macOS 未执行原生 GUI 验证。
+- 当前本地 Debug CMake 缓存因一次空编译器重配使用 install RPATH；CTest 子进程无法继承本地库路径，截图验证以等价的显式 offscreen 环境直接运行。源码和新目标均已成功编译。
