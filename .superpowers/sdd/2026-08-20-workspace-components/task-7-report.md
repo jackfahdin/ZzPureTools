@@ -47,6 +47,10 @@ ArchitectureAudit 首次发现工作区新增代码的裸尺寸、陈旧视觉�
   `workspace-narrow-*.png` 基线失败；生成 12 张新基线后，四档 DPR 比较均通过。
   几何断言覆盖折叠菜单、标题、主题、置顶、最小化、最大化、关闭、图标及
   Activity/Tab/Dock 区域的非重叠与可见性。
+- 工作区 foundation 公开头也纳入扫描；临时向 `ZzActivityArea.h` 注入
+  `SshClient.h` 后完整审计以 `WORKSPACE_PRESENTATION_DEPENDENCY` 失败。完整扫描
+  同时暴露 Qt 的 `QFontDatabase` 被旧子串规则误判，规则改为匹配 include 路径起始或
+  目录分段后，完整审计与三类 PIMPL/依赖夹具重新通过。
 
 ## 验证
 

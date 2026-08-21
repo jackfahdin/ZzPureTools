@@ -12,9 +12,11 @@ zz_run_complete_architecture_audit(
     "${ZZ_SOURCE_DIR}" "${ZZ_TARGET_MANIFEST}")
 
 set(ZZ_WORKSPACE_PUBLIC_ROOTS
+    "${ZZ_SOURCE_DIR}/ZzFluentUI/foundation/include"
     "${ZZ_SOURCE_DIR}/ZzFluentUI/widgets/include"
     "${ZZ_SOURCE_DIR}/ZzPureTools/widgets/include")
 set(ZZ_WORKSPACE_SOURCE_ROOTS
+    "${ZZ_SOURCE_DIR}/ZzFluentUI/foundation/src"
     "${ZZ_SOURCE_DIR}/ZzFluentUI/widgets/src"
     "${ZZ_SOURCE_DIR}/ZzPureTools/widgets/src")
 set(ZZ_WORKSPACE_PRIVATE_ROOTS

@@ -44,11 +44,19 @@ foreach(source_file IN LISTS
     string(REGEX REPLACE "/\\*([^*]|\\*[^/])*\\*/" "" source_code
         "${source_content}")
     string(REGEX REPLACE "//[^\r\n]*" "" source_code "${source_code}")
-    string(TOLOWER "${source_code}" source_code_lower)
-    if(source_code_lower MATCHES
-       "#[ \t]*include[ \t]*[<\"][^>\"]*(ssh|sftp|network|setting|repository|database|domain)[^>\"]*[>\"]")
-        zz_workspace_fail(WORKSPACE_PRESENTATION_DEPENDENCY "${source_file}")
-    endif()
+    string(REGEX MATCHALL
+        "#[ \t]*include[ \t]*[<\"][^>\"]+[>\"]"
+        include_directives
+        "${source_code}")
+    foreach(include_directive IN LISTS include_directives)
+        string(TOLOWER "${include_directive}" include_directive_lower)
+        if(include_directive_lower MATCHES
+           "#[ \t]*include[ \t]*[<\"][ \t]*(ssh|sftp|network|setting|repository|database|domain)"
+           OR include_directive_lower MATCHES
+           "/(ssh|sftp|network|setting|repository|database|domain)")
+            zz_workspace_fail(WORKSPACE_PRESENTATION_DEPENDENCY "${source_file}")
+        endif()
+    endforeach()
 endforeach()
 
 foreach(public_header IN LISTS zz_workspace_public_files)
