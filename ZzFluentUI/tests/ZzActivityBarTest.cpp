@@ -156,6 +156,31 @@ void zzShow(QWidget *widget)
     return count;
 }
 
+/** @brief 返回指定区域内接近目标颜色的实际像素边界。 */
+[[nodiscard]] QRect zzPixelBoundsNearColor(
+    const QImage &image,
+    const QRect &rect,
+    const QColor &expected)
+{
+    constexpr int tolerance = 4;
+    QRect bounds;
+    const QRect bounded = rect.intersected(image.rect());
+    for (int y = bounded.top(); y <= bounded.bottom(); ++y) {
+        for (int x = bounded.left(); x <= bounded.right(); ++x) {
+            const QColor pixel = image.pixelColor(x, y);
+            if (pixel.alpha() <= 200
+                || qAbs(pixel.red() - expected.red()) > tolerance
+                || qAbs(pixel.green() - expected.green()) > tolerance
+                || qAbs(pixel.blue() - expected.blue()) > tolerance) {
+                continue;
+            }
+            const QRect pixelRect(x, y, 1, 1);
+            bounds = bounds.isNull() ? pixelRect : bounds.united(pixelRect);
+        }
+    }
+    return bounds;
+}
+
 } // namespace
 
 /** @brief 验证 Activity Bar 的固定投影、键盘意图和进程内拖放契约。 */
@@ -164,6 +189,70 @@ class ZzActivityBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void keepsBadgeSeparateFromEntryVisual_data()
+    {
+        QTest::addColumn<ZzFluentUI::ZzIconDescriptor>("descriptor");
+        QTest::addColumn<int>("badge");
+
+        QTest::newRow("font-icon-and-single-digit")
+            << ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+                   ZzFluentUI::ZzFontIcon::House,
+                   false,
+                   ZzFluentUI::ZzIconColorMode::Custom,
+                   QColor(QStringLiteral("#ff00cc")))
+            << 7;
+        QTest::newRow("svg-icon-and-capped-badge")
+            << ZzFluentUI::ZzIconDescriptor::fromBundledSvg(
+                   ZzFluentUI::ZzBundledSvgIcon::PinFill,
+                   false,
+                   ZzFluentUI::ZzIconColorMode::Custom,
+                   QColor(QStringLiteral("#ff00cc")))
+            << 120;
+        QTest::newRow("fallback-and-capped-badge")
+            << ZzFluentUI::ZzIconDescriptor{}
+            << 120;
+    }
+
+    void keepsBadgeSeparateFromEntryVisual()
+    {
+        QFETCH(ZzFluentUI::ZzIconDescriptor, descriptor);
+        QFETCH(int, badge);
+
+        const QColor visualColor(QStringLiteral("#ff00cc"));
+        const QColor badgeColor(QStringLiteral("#00ff55"));
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzActivityRowsModel model;
+        model.rows[0].badge = badge;
+        model.rows[0].icon = descriptor;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const view = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        QPalette palette = view->palette();
+        palette.setColor(QPalette::Text, visualColor);
+        palette.setColor(QPalette::Highlight, badgeColor);
+        view->setPalette(palette);
+        view->setStyle(&style);
+        view->viewport()->setStyle(&style);
+        zzShow(&bar);
+
+        const QRect rowRect = view->visualRect(view->model()->index(0, 0));
+        QVERIFY(!rowRect.isEmpty());
+        const QImage rendered = zzRenderWidget(view->viewport());
+        const QRect visualBounds = zzPixelBoundsNearColor(
+            rendered, rowRect, visualColor);
+        const QRect badgeBounds = zzPixelBoundsNearColor(
+            rendered, rowRect, badgeColor);
+
+        QVERIFY2(!visualBounds.isEmpty(),
+                 "Activity Bar 的图标或首字符被 badge 完全覆盖");
+        QVERIFY2(!badgeBounds.isEmpty(),
+                 "Activity Bar 没有绘制 badge 背板");
+        QVERIFY2(!visualBounds.intersects(badgeBounds),
+                 "Activity Bar 的 badge 覆盖了图标或首字符区域");
+    }
+
     void rendersFontAndSvgDescriptors_data()
     {
         QTest::addColumn<ZzFluentUI::ZzIconDescriptor>("descriptor");

@@ -34,6 +34,10 @@ constexpr auto zzActivityMoveMimeType =
 constexpr int zzActivityBarWidth = 48;
 constexpr int zzActivityItemHeight = 40;
 constexpr int zzActivityIconExtent = 20;
+constexpr int zzActivityIconExtentWithBadge = 16;
+constexpr int zzActivityItemMargin = 4;
+constexpr int zzActivityBadgeMaximumWidth = 22;
+constexpr int zzActivityBadgeHeight = 14;
 
 [[nodiscard]] ZzActivityArea zzAreaFor(
     ZzSidePaneEdge edge,
@@ -52,6 +56,14 @@ constexpr int zzActivityIconExtent = 20;
     return index.isValid()
         && index.model() != nullptr
         && index.model()->flags(index).testFlag(Qt::ItemIsEnabled);
+}
+
+/** @brief 将模型中的徽标数值约束为非负整数。 */
+[[nodiscard]] int zzBadgeValue(const QModelIndex &index)
+{
+    return std::max(
+        0,
+        index.data(static_cast<int>(ZzActivityItemRole::Badge)).toInt());
 }
 
 /** @brief 判断统一图标描述是否包含可交给 Fluent 缓存的来源。 */
@@ -97,7 +109,7 @@ public:
             : nullptr;
         if (fluentStyle == nullptr) {
             QStyledItemDelegate::paint(painter, adjusted, index);
-            drawBadge(painter, adjusted, index);
+            drawBadge(painter, adjusted, zzBadgeValue(index));
             return;
         }
 
@@ -117,26 +129,37 @@ public:
             descriptorValue.value<ZzIconDescriptor>();
         const bool hasDescriptor = zzHasIconDescriptor(
             descriptorValue, descriptor);
+        const int badge = zzBadgeValue(index);
+        const int iconExtent = badge > 0
+            ? zzActivityIconExtentWithBadge : zzActivityIconExtent;
+        const QRect logicalIconRect = badge > 0
+            ? QRect(
+                  adjusted.rect.left() + zzActivityItemMargin,
+                  adjusted.rect.center().y() - iconExtent / 2,
+                  iconExtent,
+                  iconExtent)
+            : QRect(
+                  adjusted.rect.center().x() - iconExtent / 2,
+                  adjusted.rect.center().y() - iconExtent / 2,
+                  iconExtent,
+                  iconExtent);
+        const QRect iconRect = QStyle::visualRect(
+            adjusted.direction, adjusted.rect, logicalIconRect);
         QPixmap icon;
         if (hasDescriptor && adjusted.widget != nullptr) {
             icon = fluentStyle->iconPixmap(
                 descriptor,
-                QSize(zzActivityIconExtent, zzActivityIconExtent),
+                QSize(iconExtent, iconExtent),
                 adjusted.widget->devicePixelRatioF(),
                 foreground,
                 adjusted.direction);
         }
         if (!icon.isNull()) {
-            const QRect iconRect(
-                adjusted.rect.center().x() - zzActivityIconExtent / 2,
-                adjusted.rect.center().y() - zzActivityIconExtent / 2,
-                zzActivityIconExtent,
-                zzActivityIconExtent);
             painter->drawPixmap(iconRect, icon);
         } else {
-            drawTextFallback(painter, adjusted, foreground);
+            drawTextFallback(painter, adjusted, iconRect, foreground);
         }
-        drawBadge(painter, adjusted, index);
+        drawBadge(painter, adjusted, badge);
         drawFocus(painter, adjusted);
         painter->restore();
     }
@@ -157,6 +180,7 @@ private:
     static void drawTextFallback(
         QPainter *painter,
         const QStyleOptionViewItem &option,
+        const QRect &visualRect,
         const QColor &foreground)
     {
         const QString fallback = option.text.trimmed().left(1).toUpper();
@@ -167,34 +191,40 @@ private:
         font.setWeight(QFont::DemiBold);
         painter->setFont(font);
         painter->setPen(foreground);
-        painter->drawText(option.rect, Qt::AlignCenter, fallback);
+        painter->drawText(visualRect, Qt::AlignCenter, fallback);
     }
 
     /** @brief 用 palette 绘制有界数字徽标，不创建额外 QObject。 */
     static void drawBadge(
         QPainter *painter,
         const QStyleOptionViewItem &option,
-        const QModelIndex &index)
+        int badge)
     {
-        const int badge = std::max(
-            0,
-            index.data(static_cast<int>(ZzActivityItemRole::Badge)).toInt());
         if (badge <= 0) {
             return;
         }
         const QString text = badge > 99
             ? QStringLiteral("99+") : QString::number(badge);
-        const QFontMetrics metrics(option.font);
+        QFont badgeFont = option.font;
+        badgeFont.setPixelSize(10);
+        badgeFont.setWeight(QFont::DemiBold);
+        const QFontMetrics metrics(badgeFont);
         const int textWidth = metrics.horizontalAdvance(text);
-        const int markerWidth = std::max(16, textWidth + 8);
-        const int markerHeight = std::max(
-            1, std::min(18, option.rect.height() - 8));
-        const QRect marker(
-            option.rect.right() - markerWidth - 6,
-            option.rect.top() + (option.rect.height() - markerHeight) / 2,
+        const int markerWidth = std::min(
+            zzActivityBadgeMaximumWidth,
+            std::max(14, textWidth + 4));
+        const int markerHeight = std::min(
+            zzActivityBadgeHeight,
+            std::max(1, option.rect.height() - 2 * zzActivityItemMargin));
+        const QRect logicalMarker(
+            option.rect.right() - markerWidth - zzActivityItemMargin + 1,
+            option.rect.center().y() - markerHeight / 2,
             markerWidth,
             markerHeight);
+        const QRect marker = QStyle::visualRect(
+            option.direction, option.rect, logicalMarker);
         painter->save();
+        painter->setFont(badgeFont);
         painter->setPen(Qt::NoPen);
         painter->setBrush(option.palette.highlight());
         painter->drawRoundedRect(marker, markerHeight / 2.0, markerHeight / 2.0);
