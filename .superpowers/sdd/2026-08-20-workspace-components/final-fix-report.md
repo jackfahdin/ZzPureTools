@@ -45,7 +45,7 @@
 
 ## Example 基线补充验收
 
-- 基线更新提交：`HEAD`（本提交）。
+- 基线更新提交：`df59dc1`。
 - 重采命令：
 
   ```bash
@@ -66,6 +66,21 @@
   人工查看 dpr-100 的 Light、Dark、HighContrast 与 dpr-200 Light，SFTP、
   会话、终端、属性、日志和任务工作区均完整渲染，未见空白帧、截图边界裁切、
   控件重叠或主题串色。
+
+## 空侧边缘修复与基线更新
+
+- `9a1cd18 fix(工作区): 隐藏空侧边缘`：空 Shell 的左右 SidePane 默认收起，
+  ActivityBar 默认隐藏；注册首个面板、移除最后一个面板、外部销毁、注册回滚与
+  布局恢复均按实际存活面板同步边缘可见性。
+- 红灯：新增 `hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge` 后，
+  `puretools.workspace-shell` 在未修复实现上因左 SidePane 未收起失败。
+- 绿灯：`puretools.workspace-shell` 通过；`puretools.workspace-screenshot`
+  四档 DPR 为 4/4 通过；`example.workspace-smoke` 为 1/1 通过。
+- Example 基线更新提交：`HEAD`（本提交）。以 Qt 6.11.1、GCC 15、
+  `linux-gcc-debug` 和 `ZZ_UPDATE_EXAMPLE_SCREENSHOTS=1` 重采 12 张 PNG；
+  关闭变量后 `example.puretools-screenshot-*` 为 4/4 通过。
+- 人工查看 dpr-100 三主题和 dpr-200 Light：右侧空 Shell rail 已释放，中心
+  工作区获得额外宽度；无空白、截图边界裁切、重叠或主题串色。
 
 ## 基准身份与边界
 
