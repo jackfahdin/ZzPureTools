@@ -24,11 +24,20 @@
 - `aa84a2a test(动效): 稳定折叠容器反向动画验收`
   - 用状态条件等待替换固定帧等待，避免并行 CTest 下首次动画帧尚未调度时
     偶发观察到零高度，同时保留动画推进和连续反向的断言。
+- `d717428 fix(活动栏): 绘制统一图标描述`
+  - ActivityBar 专用 delegate 通过 `ZzFluentStyle::iconPixmap()` 绘制字体与 SVG
+    描述符；空描述符使用标题首字符后备。
+  - 内部视图与虚拟行统一为 48 逻辑像素，避免标题 `sizeHint()` 把图标中心推到
+    可视轨道外；不增加逐行 QWidget。
+- `ea9ece8 feat(示例): 为会话入口配置服务器图标`
+  - Example 通过公开 `registerSidePanel()` 接口传入 `ZzFontIcon::Server`，并同步
+    四档 DPR、三种主题共 12 张截图基线。
 
 ## 验证
 
 - `puretools.workspace-shell`：通过。
-- Example integration、英文、三种 close guard、多窗口：通过（测试模式日志目录使用可写临时 HOME）。
+- Example integration、英文、三种 close guard、多窗口、四档截图和 workspace smoke：
+  全部通过。
 - `architecture.zzfluent-boundaries`：通过。
 - 新 PureTools 工作区截图：100/125/150/200 DPR 均通过 Light、Dark、HighContrast 的宽/窄场景。
 - 基准目标以 Linux GCC 15/Qt 6.11.1 编译；三轮 JSON 包含全部新增指标。
@@ -37,19 +46,18 @@
   `cmake --fresh --preset linux-gcc-debug`，恢复标准 Debug 构建树。
 - 随后运行 `cmake --build --preset linux-gcc-debug --parallel 2`，完整
   Debug 构建通过。
-- 完整 CTest 以相同工具链和可写临时 `HOME` 执行。受单次执行窗口限制，
-  按编号分组验收：第 1–64 项为 64/64 通过；第 65–127 项先通过 58/63，
-  其余 `install.consumer`、`architecture.public-headers`、
-  `platform.package-relocation`、`release.blocked-without-evidence` 与
-  `release.complete-fixture` 也均通过。最终合计 127/127 通过。
+- 在 `ea9ece8` 上运行 `ctest --preset linux-gcc-debug --output-on-failure`，
+  单次完整执行为 143/143 通过，总耗时 141.21 秒。该结果包含 12 项截图、
+  `install.consumer`、`architecture.public-headers`、
+  `platform.package-relocation`、全部平台/发布合同及 16 项 Example，不再沿用
+  早期漏配 Example 的 127 项结果。
 
 ## Example 基线补充验收
 
-- 基线更新提交：`df59dc1`。
+- 初次工作区集成基线提交：`df59dc1`；当前 Server 图标基线提交：`ea9ece8`。
 - 重采命令：
 
   ```bash
-  HOME=/tmp/zzpuretools-ctest-home \
   GCC_13=/usr/bin/gcc-15 \
   GXX_13=/usr/bin/g++-15 \
   QT_ROOT=/home/zz/Qt/6.11.1/gcc_64 \
@@ -69,14 +77,14 @@
 
 ## 空侧边缘修复与基线更新
 
-- `9a1cd18 fix(工作区): 隐藏空侧边缘`：空 Shell 的左右 SidePane 默认收起，
+- `b25dfec fix(工作区): 隐藏空侧边缘`：空 Shell 的左右 SidePane 默认收起，
   ActivityBar 默认隐藏；注册首个面板、移除最后一个面板、外部销毁、注册回滚与
   布局恢复均按实际存活面板同步边缘可见性。
 - 红灯：新增 `hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge` 后，
   `puretools.workspace-shell` 在未修复实现上因左 SidePane 未收起失败。
 - 绿灯：`puretools.workspace-shell` 通过；`puretools.workspace-screenshot`
   四档 DPR 为 4/4 通过；`example.workspace-smoke` 为 1/1 通过。
-- Example 基线更新提交：`HEAD`（本提交）。以 Qt 6.11.1、GCC 15、
+- 截图基线更新提交：`629b4a6`。以 Qt 6.11.1、GCC 15、
   `linux-gcc-debug` 和 `ZZ_UPDATE_EXAMPLE_SCREENSHOTS=1` 重采 12 张 PNG；
   关闭变量后 `example.puretools-screenshot-*` 为 4/4 通过。
 - 人工查看 dpr-100 三主题和 dpr-200 Light：右侧空 Shell rail 已释放，中心
@@ -92,12 +100,25 @@
 - 绿灯：`fluent.activity-bar`、`puretools.workspace-shell` 与
   `example.workspace-smoke` 均通过；工作区截图和 Example 截图在关闭更新变量后，
   四档 DPR 均为 4/4 通过。
-- 基线更新提交：`HEAD`（本提交）。以 Qt 6.11.1、GCC 15、
-  `linux-gcc-debug` 重采 24 张 PureTools workspace PNG 与 12 张 Example PNG。
+- PureTools 工作区基线随组件提交 `620f92a` 更新，Example 基线提交为
+  `6c92f06`。以 Qt 6.11.1、GCC 15、`linux-gcc-debug` 重采 24 张
+  PureTools workspace PNG 与 12 张 Example PNG。
   README 的 SHA-256 已逐项匹配，所有 Example 图像分别为 1280x800、1600x1000、
   1920x1200 和 2560x1600，且每档 DPR 的三主题哈希不同。
 - 人工查看 dpr-100 的 Light、Dark、HighContrast 与 dpr-200 Light：ActivityBar
   为 48 px 窄轨道，中心标签页宽度增大；未见空白帧、截图裁切、控件重叠或主题串色。
+
+## ActivityBar 图标描述符与内部几何
+
+- 红灯：`rendersFontAndSvgDescriptors` 在旧 delegate 上的字体与 SVG 两个数据行均
+  因目标颜色像素为零失败；诊断同时确认外层栏宽为 48px 时，标题测量仍把内部
+  虚拟行扩展到 107px，图标中心落在可视区域之外。
+- 绿灯：字体 `House` 与内嵌 `PinFill.svg` 均通过自定义颜色像素断言，且
+  `rowRect.width()` 等于 viewport 宽度；`fluent.activity-bar` 通过。
+- 关闭更新变量后，ActivityBar、WorkspaceShell、四档工作区截图及四项架构/文档
+  门禁为 10/10 通过；Example 四档截图与 workspace smoke 为 5/5 通过。
+- 人工查看工作区和 Example 的 dpr-100 三主题及 dpr-200 Light：后备字符与 Server
+  图标均居中，选中背板和 leading 强调条不遮挡内容，高对比主题可辨识。
 
 ## 基准身份与边界
 
@@ -110,4 +131,4 @@
 
 - 本轮只在 Linux offscreen raster 上执行 GUI/截图；Windows MSVC、Windows MinGW、macOS 未执行原生 GUI 验证。
 - `platform.package-relocation` 通过，验证安装包在隔离前缀下可被消费者重定位使用；
-  其运行时间为 79.36 秒，属于本轮最长的 CTest 门禁。
+  本次完整验收中其运行时间为 49.65 秒，属于本轮最长的 CTest 门禁。
