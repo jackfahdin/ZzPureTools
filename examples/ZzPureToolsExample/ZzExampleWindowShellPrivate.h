@@ -5,11 +5,9 @@
 #include <ZzCore/ZzResult.h>
 
 class QAction;
-class QDockWidget;
 class QEvent;
 class QLabel;
 class QLineEdit;
-class QListView;
 class QObject;
 class QStatusBar;
 
@@ -17,18 +15,25 @@ namespace ZzCore {
 class ZzError;
 }
 
+namespace ZzFluentUI {
+class ZzDockPanel;
+}
+
 namespace ZzPureTools {
 class ZzApplicationWindow;
 class ZzNavigationController;
 class ZzPureApplication;
+class ZzWorkspaceShell;
 }
 
 namespace ZzExample {
 
 class ZzExampleApplicationContext;
+enum class ZzExampleCommandId : int;
+class ZzExampleSessionModel;
 class ZzExampleWindowShell;
 
-/** @brief 实现单窗口壳层控件创建与展示意图转发。 */
+/** @brief 使用公开工作区组件实现单窗口展示与 QAction 意图转发。 */
 class ZzExampleWindowShellPrivate final
 {
 public:
@@ -40,7 +45,10 @@ public:
         ZzPureTools::ZzPureApplication *pureApplication,
         bool enableCloseGuard);
 
-    /** @brief 创建控件并连接窗口级导航、主题和多窗口意图。 */
+    /** @brief 在完整类型可见处释放公开 Shell 和本地会话模型。 */
+    ~ZzExampleWindowShellPrivate();
+
+    /** @brief 通过公开 Shell 创建 Activity、Tab、Command 和 Dock 工作区。 */
     [[nodiscard]] ZzCore::ZzResult<void> initialize();
 
     /** @brief 按搜索文本激活首个匹配路由。 */
@@ -48,6 +56,15 @@ public:
 
     /** @brief 循环切换 System、Light、Dark 与 HighContrast。 */
     void cycleTheme();
+
+    /** @brief 执行命令模型选中的窗口级展示意图。 */
+    void dispatchWorkspaceCommand(ZzExampleCommandId command);
+
+    /** @brief 创建并激活一个本地终端展示标签。 */
+    void createTerminalTab();
+
+    /** @brief 关闭当前允许关闭的终端展示标签。 */
+    void closeCurrentTerminal();
 
     /** @brief 在状态栏报告技术失败并写入 Qt 日志。 */
     void reportFailure(const ZzCore::ZzError &error);
@@ -58,31 +75,29 @@ public:
     /** @brief 同步返回与前进命令的启用状态。 */
     void syncHistoryActions(bool canGoBack, bool canGoForward) noexcept;
 
-    /** @brief 返回活动 Dock 当前可见性。 */
+    /** @brief 返回活动日志 Dock 当前可见性。 */
     [[nodiscard]] bool isActivityDockVisible() const noexcept;
 
-    /** @brief 设置活动 Dock 可见性。 */
+    /** @brief 通过公开 Shell 设置活动日志 Dock 可见性。 */
     void setActivityDockVisible(bool visible);
 
     /** @brief 处理当前窗口的取消、最小化或确认关闭选择。 */
-    [[nodiscard]] bool filterWindowEvent(
-        QObject *watched,
-        QEvent *event);
+    [[nodiscard]] bool filterWindowEvent(QObject *watched, QEvent *event);
 
     ZzExampleWindowShell *q_ptr = nullptr;
     ZzPureTools::ZzApplicationWindow *window = nullptr;
     std::shared_ptr<ZzExampleApplicationContext> context;
     ZzPureTools::ZzPureApplication *application = nullptr;
     ZzPureTools::ZzNavigationController *navigation = nullptr;
+    std::unique_ptr<ZzPureTools::ZzWorkspaceShell> workspace;
+    std::unique_ptr<ZzExampleSessionModel> sessions;
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
-    QDockWidget *activityDock = nullptr;
-    QListView *activityState = nullptr;
+    ZzFluentUI::ZzDockPanel *activityDock = nullptr;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;
-    bool activityFollowsTail = true;
-    bool activityTailScrollPending = false;
+    int terminalSequence = 0;
     bool closeGuardEnabled = true;
     bool closeGuardActive = false;
 };

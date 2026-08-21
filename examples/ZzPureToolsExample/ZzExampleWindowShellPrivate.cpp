@@ -1,71 +1,67 @@
 #include "ZzExampleWindowShellPrivate.h"
 
 #include <utility>
+#include <vector>
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
 #include <QtCore/QEvent>
 #include <QtCore/QTime>
-#include <QtCore/QTimer>
 #include <QtGui/QAction>
-#include <QtGui/QIcon>
-#include <QtWidgets/QDockWidget>
+#include <QtGui/QKeySequence>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
-#include <QtWidgets/QListView>
-#include <QtWidgets/QMenu>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStatusBar>
-#include <QtWidgets/QStyle>
-#include <QtWidgets/QTabWidget>
-#include <QtWidgets/QToolBar>
-#include <QtWidgets/QToolButton>
+#include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
-
+#include <ZzFluentUI/ZzCommandPalette.h>
+#include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
-#include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
-
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
-
+#include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
+#include <ZzPureTools/ZzWorkspaceTitleMode.h>
 #include <ZzLog/ZzLog.h>
 
 #include "ZzExampleActivityModel.h"
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleRouteCatalog.h"
+#include "ZzExampleSessionModel.h"
 #include "ZzExampleWindowShell.h"
+#include "ZzExampleWorkspaceContent.h"
 
 namespace ZzExample {
 
 namespace {
 
-/** @brief 将路由表中的 UTF-8 常量转换为 Qt 字符串。 */
 [[nodiscard]] QString zzFromUtf8(std::string_view text)
 {
     return QString::fromUtf8(
         text.data(), static_cast<qsizetype>(text.size()));
 }
 
-/** @brief 创建统一图标、工具提示和可访问名称的工具栏命令。 */
-[[nodiscard]] QAction *zzAddCommand(
-    QToolBar *toolBar,
-    QStyle::StandardPixmap icon,
-    const QString &text)
+[[nodiscard]] ZzPureTools::ZzWorkspacePanelId zzPanelId(
+    const char *value)
 {
-    auto *action = toolBar->addAction(
-        toolBar->style()->standardIcon(icon), text);
-    action->setToolTip(text);
-    action->setStatusTip(text);
-    return action;
+    return ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(value));
+}
+
+[[nodiscard]] ZzCore::ZzResult<void> zzInvalidState(QString message)
+{
+    return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+        ZzCore::ZzErrorCode::InvalidState, std::move(message)));
 }
 
 } // namespace
@@ -84,6 +80,8 @@ ZzExampleWindowShellPrivate::ZzExampleWindowShellPrivate(
 {
 }
 
+ZzExampleWindowShellPrivate::~ZzExampleWindowShellPrivate() = default;
+
 ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
 {
     if (q_ptr == nullptr || window == nullptr || !context
@@ -93,12 +91,10 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
             QStringLiteral("window shell requires window, context and application")));
     }
     navigation = window->navigationController();
-    auto *theme = application->themeController();
-    if (navigation == nullptr || theme == nullptr
+    if (navigation == nullptr || application->themeController() == nullptr
         || window->titleBar() == nullptr) {
-        return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("window shell requires initialized navigation and theme")));
+        return zzInvalidState(
+            QStringLiteral("window shell requires initialized navigation and theme"));
     }
 
     window->setMinimumSize(860, 560);
@@ -107,197 +103,197 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         window->installEventFilter(q_ptr);
     }
 
-    auto *commandBar = new QToolBar(
-        QCoreApplication::translate("ZzPureToolsExample", "窗口命令"), window);
-    commandBar->setObjectName(QStringLiteral("zzExampleCommandBar"));
-    commandBar->setMovable(false);
-    commandBar->setFloatable(false);
-    commandBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    window->addToolBar(Qt::TopToolBarArea, commandBar);
+    QWidget *const navigationContent = window->takeCentralWidget();
+    if (navigationContent == nullptr) {
+        return zzInvalidState(
+            QStringLiteral("window shell requires existing navigation content"));
+    }
+    auto created = ZzPureTools::ZzWorkspaceShell::create(
+        window, window->titleBar());
+    if (!created) {
+        window->setCentralWidget(navigationContent);
+        return ZzCore::ZzResult<void>::failure(created.error());
+    }
+    workspace = std::move(created).value();
+    window->setCentralWidget(workspace->workspaceWidget());
+    workspace->setApplicationTitle(QStringLiteral("ZzPureToolsExample"));
+    workspace->setTitleMode(
+        ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
 
-    backAction = zzAddCommand(
-        commandBar, QStyle::SP_ArrowBack, QCoreApplication::translate("ZzPureToolsExample", "返回"));
-    backAction->setObjectName(QStringLiteral("zzExampleBackAction"));
-    forwardAction = zzAddCommand(
-        commandBar, QStyle::SP_ArrowForward, QCoreApplication::translate("ZzPureToolsExample", "前进"));
-    forwardAction->setObjectName(QStringLiteral("zzExampleForwardAction"));
-    commandBar->addSeparator();
-
-    searchEdit = new QLineEdit(commandBar);
+    sessions = std::make_unique<ZzExampleSessionModel>(q_ptr);
+    workspace->commandPalette()->setModel(sessions->commandModel());
+    searchEdit = workspace->commandPalette()->searchEdit();
     searchEdit->setObjectName(QStringLiteral("zzExamplePageSearch"));
-    searchEdit->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "页面搜索"));
-    searchEdit->setPlaceholderText(QCoreApplication::translate("ZzPureToolsExample", "搜索页面"));
-    searchEdit->setClearButtonEnabled(true);
-    searchEdit->setMinimumWidth(180);
-    searchEdit->setMaximumWidth(320);
-    commandBar->addWidget(searchEdit);
-    commandBar->addSeparator();
+    searchEdit->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample", "命令搜索"));
 
-    auto *themeAction = zzAddCommand(
-        commandBar, QStyle::SP_DesktopIcon, QCoreApplication::translate("ZzPureToolsExample", "切换主题"));
+    auto sessionPanel = ZzExampleWorkspaceContent::createSessionPanel(
+        sessions.get());
+    auto side = workspace->registerSidePanel(
+        zzPanelId("sessions"),
+        QCoreApplication::translate("ZzPureToolsExample", "会话"),
+        {}, ZzFluentUI::ZzActivityArea::LeftPrimary,
+        sessionPanel.get());
+    if (!side) {
+        return side;
+    }
+    sessionPanel.release();
+
+    const int navigationIndex = workspace->tabWidget()->addTab(
+        navigationContent,
+        QCoreApplication::translate("ZzPureToolsExample", "组件示例"));
+    workspace->tabWidget()->setTabPinned(navigationIndex, true);
+    workspace->tabWidget()->setTabCloseEnabled(navigationIndex, false);
+    createTerminalTab();
+    workspace->tabWidget()->setCurrentIndex(navigationIndex);
+
+    struct ZzDockRegistration final
+    {
+        ZzPureTools::ZzWorkspacePanelId id;
+        QString title;
+        Qt::DockWidgetArea area;
+        std::unique_ptr<QWidget> content;
+    };
+    std::vector<ZzDockRegistration> docks;
+    docks.emplace_back(ZzDockRegistration{
+        zzPanelId("sftp"), QStringLiteral("SFTP"),
+        Qt::LeftDockWidgetArea,
+        ZzExampleWorkspaceContent::createSftpPanel()});
+    docks.emplace_back(ZzDockRegistration{
+        zzPanelId("activity-log"),
+        QCoreApplication::translate("ZzPureToolsExample", "日志"),
+        Qt::BottomDockWidgetArea,
+        ZzExampleWorkspaceContent::createActivityLogPanel(
+            &context->activityModel())});
+    docks.emplace_back(ZzDockRegistration{
+        zzPanelId("properties"),
+        QCoreApplication::translate("ZzPureToolsExample", "属性"),
+        Qt::RightDockWidgetArea,
+        ZzExampleWorkspaceContent::createPropertiesPanel()});
+    docks.emplace_back(ZzDockRegistration{
+        zzPanelId("tasks"),
+        QCoreApplication::translate("ZzPureToolsExample", "任务"),
+        Qt::BottomDockWidgetArea,
+        ZzExampleWorkspaceContent::createTasksPanel()});
+    for (ZzDockRegistration &dock : docks) {
+        auto result = workspace->registerDockPanel(
+            dock.id, dock.title, {}, dock.area, dock.content.get());
+        if (!result) {
+            return result;
+        }
+        dock.content.release();
+    }
+    activityDock = window->findChild<ZzFluentUI::ZzDockPanel *>(
+        QStringLiteral("zzWorkspaceDock:activity-log"));
+    if (activityDock == nullptr) {
+        return zzInvalidState(
+            QStringLiteral("workspace activity log dock was not created"));
+    }
+    QObject::connect(
+        activityDock, &ZzFluentUI::ZzDockPanel::visibilityChanged,
+        q_ptr, &ZzExampleWindowShell::activityDockVisibilityChanged);
+
+    backAction = new QAction(q_ptr);
+    backAction->setObjectName(QStringLiteral("zzExampleBackAction"));
+    backAction->setShortcut(QKeySequence::Back);
+    forwardAction = new QAction(q_ptr);
+    forwardAction->setObjectName(QStringLiteral("zzExampleForwardAction"));
+    forwardAction->setShortcut(QKeySequence::Forward);
+    auto *themeAction = new QAction(q_ptr);
     themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
-    auto *newWindowAction = zzAddCommand(
-        commandBar, QStyle::SP_FileIcon, QCoreApplication::translate("ZzPureToolsExample", "新建窗口"));
+    auto *newWindowAction = new QAction(q_ptr);
     newWindowAction->setObjectName(QStringLiteral("zzExampleNewWindowAction"));
-
-    auto *windowMenuButton = new QToolButton(commandBar);
-    windowMenuButton->setObjectName(
-        QStringLiteral("zzExampleWindowMenuButton"));
-    windowMenuButton->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "窗口菜单"));
-    windowMenuButton->setToolTip(QCoreApplication::translate("ZzPureToolsExample", "窗口菜单"));
-    windowMenuButton->setIcon(
-        commandBar->style()->standardIcon(QStyle::SP_TitleBarMenuButton));
-    windowMenuButton->setPopupMode(QToolButton::InstantPopup);
-    auto *windowMenu = new QMenu(windowMenuButton);
-    auto *minimizeAction = windowMenu->addAction(
-        commandBar->style()->standardIcon(QStyle::SP_TitleBarMinButton),
-        QCoreApplication::translate("ZzPureToolsExample", "最小化"));
-    auto *maximizeAction = windowMenu->addAction(
-        commandBar->style()->standardIcon(QStyle::SP_TitleBarMaxButton),
-        QCoreApplication::translate("ZzPureToolsExample", "最大化或还原"));
-    auto *closeAction = windowMenu->addAction(
-        commandBar->style()->standardIcon(QStyle::SP_TitleBarCloseButton),
-        QCoreApplication::translate("ZzPureToolsExample", "关闭"));
-    windowMenuButton->setMenu(windowMenu);
-    commandBar->addWidget(windowMenuButton);
-
-    activityDock = new QDockWidget(
-        QCoreApplication::translate("ZzPureToolsExample", "活动与更新"), window);
-    activityDock->setObjectName(QStringLiteral("zzExampleActivityDock"));
-    activityDock->setAllowedAreas(
-        Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
-    auto *activityTabs = new QTabWidget(activityDock);
-    activityTabs->setObjectName(QStringLiteral("zzExampleActivityTabs"));
-    activityState = new QListView(activityTabs);
-    activityState->setObjectName(QStringLiteral("zzExampleActivityList"));
-    activityState->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "应用活动"));
-    activityState->setModel(&context->activityModel());
-    activityState->setItemDelegate(
-        new ZzFluentUI::ZzFluentItemDelegate(activityState));
-    activityState->setUniformItemSizes(true);
-    activityState->setSelectionMode(QAbstractItemView::SingleSelection);
-    QScrollBar *const activityScrollBar =
-        activityState->verticalScrollBar();
-    QObject::connect(
-        activityScrollBar,
-        &QScrollBar::valueChanged,
-        q_ptr,
-        [this, activityScrollBar](int value) {
-            if (!activityTailScrollPending) {
-                activityFollowsTail = value >= activityScrollBar->maximum();
-            }
-        });
-    QObject::connect(
-        &context->activityModel(),
-        &QAbstractItemModel::rowsInserted,
-        q_ptr,
-        [this](const QModelIndex &parent, int, int) {
-            if (parent.isValid() || !activityFollowsTail
-                || activityTailScrollPending) {
-                return;
-            }
-            activityTailScrollPending = true;
-            QTimer::singleShot(0, q_ptr, [this] {
-                if (activityState != nullptr && activityFollowsTail) {
-                    activityState->scrollToBottom();
-                }
-                activityTailScrollPending = false;
-            });
-        });
-    auto *updateState = new QLabel(
-        QCoreApplication::translate("ZzPureToolsExample", "组件状态已就绪"), activityTabs);
-    updateState->setAlignment(Qt::AlignCenter);
-    activityTabs->addTab(activityState, QCoreApplication::translate("ZzPureToolsExample", "活动"));
-    activityTabs->addTab(updateState, QCoreApplication::translate("ZzPureToolsExample", "更新"));
-    activityDock->setWidget(activityTabs);
-    window->addDockWidget(Qt::RightDockWidgetArea, activityDock);
-    QObject::connect(
-        activityDock,
-        &QDockWidget::visibilityChanged,
-        q_ptr,
-        &ZzExampleWindowShell::activityDockVisibilityChanged);
+    auto *openPaletteAction = new QAction(q_ptr);
+    openPaletteAction->setShortcut(
+        QKeySequence(QStringLiteral("Ctrl+Shift+P")));
+    auto *newTerminalAction = new QAction(q_ptr);
+    newTerminalAction->setShortcut(QKeySequence::AddTab);
+    auto *closeTerminalAction = new QAction(q_ptr);
+    closeTerminalAction->setShortcut(QKeySequence::Close);
+    window->addActions({backAction, forwardAction, themeAction,
+        newWindowAction, openPaletteAction, newTerminalAction,
+        closeTerminalAction});
 
     statusBar = new QStatusBar(window);
     statusBar->setObjectName(QStringLiteral("zzExampleStatusBar"));
     routeLabel = new QLabel(statusBar);
     routeLabel->setObjectName(QStringLiteral("zzExampleRouteStatus"));
-    auto *taskLabel = new QLabel(QCoreApplication::translate("ZzPureToolsExample", "任务：就绪"), statusBar);
-    taskLabel->setObjectName(QStringLiteral("zzExampleTaskStatus"));
-    auto *platformLabel = new QLabel(context->platformName(), statusBar);
-    platformLabel->setObjectName(QStringLiteral("zzExamplePlatformStatus"));
     statusBar->addWidget(routeLabel, 1);
-    statusBar->addPermanentWidget(taskLabel);
-    statusBar->addPermanentWidget(platformLabel);
+    statusBar->addPermanentWidget(new QLabel(
+        QCoreApplication::translate("ZzPureToolsExample", "任务：就绪"),
+        statusBar));
+    statusBar->addPermanentWidget(
+        new QLabel(context->platformName(), statusBar));
     window->setStatusBar(statusBar);
-    recordActivity(QCoreApplication::translate("ZzPureToolsExample", "窗口已完成装配"));
 
-    QObject::connect(
-        backAction, &QAction::triggered, q_ptr, [this] {
-            auto result = navigation->goBack();
-            if (!result) {
-                reportFailure(result.error());
-            }
-        });
-    QObject::connect(
-        forwardAction, &QAction::triggered, q_ptr, [this] {
-            auto result = navigation->goForward();
-            if (!result) {
-                reportFailure(result.error());
-            }
-        });
-    QObject::connect(
-        navigation,
+    QObject::connect(backAction, &QAction::triggered, q_ptr, [this] {
+        auto result = navigation->goBack();
+        if (!result) {
+            reportFailure(result.error());
+        }
+    });
+    QObject::connect(forwardAction, &QAction::triggered, q_ptr, [this] {
+        auto result = navigation->goForward();
+        if (!result) {
+            reportFailure(result.error());
+        }
+    });
+    QObject::connect(navigation,
         &ZzPureTools::ZzNavigationController::historyStateChanged,
-        q_ptr,
-        [this](bool canGoBack, bool canGoForward) {
-            syncHistoryActions(canGoBack, canGoForward);
+        q_ptr, [this](bool back, bool forward) {
+            syncHistoryActions(back, forward);
         });
-    QObject::connect(
-        navigation,
+    QObject::connect(navigation,
         &ZzPureTools::ZzNavigationController::currentRouteChanged,
-        q_ptr,
-        [this](const ZzPureTools::ZzRouteId &routeId) {
-            routeLabel->setText(
-                QCoreApplication::translate("ZzPureToolsExample", "路由：%1").arg(routeId.value()));
-            recordActivity(
-                QCoreApplication::translate("ZzPureToolsExample", "已导航到 %1").arg(routeId.value()));
+        q_ptr, [this](const ZzPureTools::ZzRouteId &routeId) {
+            routeLabel->setText(QCoreApplication::translate(
+                "ZzPureToolsExample", "路由：%1").arg(routeId.value()));
+            recordActivity(QCoreApplication::translate(
+                "ZzPureToolsExample", "已导航到 %1")
+                               .arg(routeId.value()));
         });
-    QObject::connect(
-        searchEdit, &QLineEdit::returnPressed, q_ptr,
-        [this] { navigateFromSearch(); });
-    QObject::connect(
-        themeAction, &QAction::triggered, q_ptr,
-        [this] { cycleTheme(); });
-    QObject::connect(
-        newWindowAction, &QAction::triggered, q_ptr, [this] {
+    QObject::connect(searchEdit, &QLineEdit::returnPressed,
+        q_ptr, [this] { navigateFromSearch(); });
+    QObject::connect(themeAction, &QAction::triggered,
+        q_ptr, [this] { cycleTheme(); });
+    QObject::connect(newWindowAction, &QAction::triggered,
+        q_ptr, [this] {
             auto result = application->createWindow();
             if (!result) {
                 reportFailure(result.error());
             }
         });
-    QObject::connect(
-        minimizeAction, &QAction::triggered, window,
-        &QWidget::showMinimized);
-    QObject::connect(
-        maximizeAction, &QAction::triggered, q_ptr, [this] {
-            if (window->isMaximized()) {
-                window->showNormal();
-            } else {
-                window->showMaximized();
+    QObject::connect(openPaletteAction, &QAction::triggered,
+        workspace->commandPalette(),
+        &ZzFluentUI::ZzCommandPalette::open);
+    QObject::connect(newTerminalAction, &QAction::triggered,
+        q_ptr, [this] { createTerminalTab(); });
+    QObject::connect(closeTerminalAction, &QAction::triggered,
+        q_ptr, [this] { closeCurrentTerminal(); });
+    QObject::connect(workspace->commandPalette(),
+        &ZzFluentUI::ZzCommandPalette::commandActivated,
+        q_ptr, [this](const QModelIndex &index) {
+            dispatchWorkspaceCommand(
+                ZzExampleSessionModel::commandId(index));
+        });
+    QObject::connect(workspace->tabWidget(),
+        &QTabWidget::tabCloseRequested, q_ptr, [this](int index) {
+            if (workspace->tabWidget()->isTabCloseEnabled(index)) {
+                QWidget *const page = workspace->tabWidget()->widget(index);
+                workspace->tabWidget()->removeTab(index);
+                delete page;
             }
         });
-    QObject::connect(
-        closeAction, &QAction::triggered, window, &QWidget::close);
+    QObject::connect(workspace->tabWidget(),
+        &ZzFluentUI::ZzTabWidget::newTabRequested,
+        q_ptr, [this] { createTerminalTab(); });
 
     syncHistoryActions(
         navigation->canGoBack(), navigation->canGoForward());
-    routeLabel->setText(QCoreApplication::translate("ZzPureToolsExample", "路由：准备中"));
-
-    QTimer::singleShot(0, q_ptr, [this] {
-        const QString title = QStringLiteral("ZzPureToolsExample");
-        window->setWindowTitle(title);
-        window->titleBar()->setTitle(title);
-    });
+    routeLabel->setText(QCoreApplication::translate(
+        "ZzPureToolsExample", "路由：准备中"));
+    recordActivity(QCoreApplication::translate(
+        "ZzPureToolsExample", "窗口已完成装配"));
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -307,7 +303,6 @@ void ZzExampleWindowShellPrivate::navigateFromSearch()
     if (query.isEmpty()) {
         return;
     }
-
     for (const auto &route : ZzExampleRouteCatalog::routes()) {
         const QString routeId = zzFromUtf8(route.routeId);
         const QString title = zzFromUtf8(route.title);
@@ -315,8 +310,7 @@ void ZzExampleWindowShellPrivate::navigateFromSearch()
             && !title.contains(query, Qt::CaseInsensitive)) {
             continue;
         }
-        auto result = navigation->navigate(
-            ZzPureTools::ZzRouteId(routeId));
+        auto result = navigation->navigate(ZzPureTools::ZzRouteId(routeId));
         if (!result) {
             reportFailure(result.error());
         } else {
@@ -324,7 +318,8 @@ void ZzExampleWindowShellPrivate::navigateFromSearch()
         }
         return;
     }
-    statusBar->showMessage(QCoreApplication::translate("ZzPureToolsExample", "未找到匹配页面"), 2500);
+    statusBar->showMessage(QCoreApplication::translate(
+        "ZzPureToolsExample", "未找到匹配页面"), 2500);
 }
 
 void ZzExampleWindowShellPrivate::cycleTheme()
@@ -344,17 +339,75 @@ void ZzExampleWindowShellPrivate::cycleTheme()
         theme->setMode(ZzFluentUI::ZzThemeMode::System);
         break;
     }
-    statusBar->showMessage(QCoreApplication::translate("ZzPureToolsExample", "主题已切换"), 1800);
+    statusBar->showMessage(QCoreApplication::translate(
+        "ZzPureToolsExample", "主题已切换"), 1800);
 }
 
-void ZzExampleWindowShellPrivate::reportFailure(
-    const ZzCore::ZzError &error)
+void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(
+    ZzExampleCommandId command)
 {
-    statusBar->showMessage(QCoreApplication::translate("ZzPureToolsExample", "操作失败"), 3000);
-    qWarning().noquote()
-        << "ZzPureToolsExample operation failed:"
-        << error.technicalMessage()
-        << error.context();
+    switch (command) {
+    case ZzExampleCommandId::NewTerminal:
+        createTerminalTab();
+        break;
+    case ZzExampleCommandId::CloseTerminal:
+        closeCurrentTerminal();
+        break;
+    case ZzExampleCommandId::ShowSftp:
+        static_cast<void>(workspace->showPanel(zzPanelId("sftp")));
+        break;
+    case ZzExampleCommandId::ShowActivityLog:
+        static_cast<void>(workspace->showPanel(zzPanelId("activity-log")));
+        break;
+    case ZzExampleCommandId::ShowProperties:
+        static_cast<void>(workspace->showPanel(zzPanelId("properties")));
+        break;
+    case ZzExampleCommandId::ShowTasks:
+        static_cast<void>(workspace->showPanel(zzPanelId("tasks")));
+        break;
+    }
+}
+
+void ZzExampleWindowShellPrivate::createTerminalTab()
+{
+    if (workspace == nullptr || workspace->tabWidget() == nullptr) {
+        return;
+    }
+    ++terminalSequence;
+    const QString title = QCoreApplication::translate(
+        "ZzPureToolsExample", "终端 %1").arg(terminalSequence);
+    auto terminal = ZzExampleWorkspaceContent::createTerminalPage(title);
+    const int index = workspace->tabWidget()->addTab(
+        terminal.release(), title);
+    workspace->tabWidget()->setCurrentIndex(index);
+    recordActivity(QCoreApplication::translate(
+        "ZzPureToolsExample", "已创建 %1").arg(title));
+}
+
+void ZzExampleWindowShellPrivate::closeCurrentTerminal()
+{
+    if (workspace == nullptr || workspace->tabWidget() == nullptr) {
+        return;
+    }
+    const int index = workspace->tabWidget()->currentIndex();
+    if (!workspace->tabWidget()->isTabCloseEnabled(index)) {
+        return;
+    }
+    QWidget *const page = workspace->tabWidget()->widget(index);
+    workspace->tabWidget()->removeTab(index);
+    delete page;
+    recordActivity(QCoreApplication::translate(
+        "ZzPureToolsExample", "已关闭当前终端"));
+}
+
+void ZzExampleWindowShellPrivate::reportFailure(const ZzCore::ZzError &error)
+{
+    if (statusBar != nullptr) {
+        statusBar->showMessage(QCoreApplication::translate(
+            "ZzPureToolsExample", "操作失败"), 3000);
+    }
+    qWarning().noquote() << "ZzPureToolsExample operation failed:"
+                         << error.technicalMessage() << error.context();
 }
 
 void ZzExampleWindowShellPrivate::recordActivity(const QString &text)
@@ -363,18 +416,15 @@ void ZzExampleWindowShellPrivate::recordActivity(const QString &text)
     if (normalized.isEmpty()) {
         return;
     }
-    const QString display = QStringLiteral("%1  %2")
-        .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
-             normalized);
-    context->activityModel().append(display);
+    context->activityModel().append(QStringLiteral("%1  %2").arg(
+        QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
+        normalized));
     ZzLog::writeText(
-        ZzLog::ZzLogLevel::Info,
-        normalized.toUtf8().toStdString());
+        ZzLog::ZzLogLevel::Info, normalized.toUtf8().toStdString());
 }
 
 void ZzExampleWindowShellPrivate::syncHistoryActions(
-    bool canGoBack,
-    bool canGoForward) noexcept
+    bool canGoBack, bool canGoForward) noexcept
 {
     backAction->setEnabled(canGoBack);
     forwardAction->setEnabled(canGoForward);
@@ -387,14 +437,18 @@ bool ZzExampleWindowShellPrivate::isActivityDockVisible() const noexcept
 
 void ZzExampleWindowShellPrivate::setActivityDockVisible(bool visible)
 {
-    if (activityDock != nullptr) {
-        activityDock->setVisible(visible);
+    if (workspace == nullptr) {
+        return;
+    }
+    auto result = workspace->showPanel(
+        zzPanelId("activity-log"), visible);
+    if (!result) {
+        reportFailure(result.error());
     }
 }
 
 bool ZzExampleWindowShellPrivate::filterWindowEvent(
-    QObject *watched,
-    QEvent *event)
+    QObject *watched, QEvent *event)
 {
     if (watched != window || event == nullptr
         || event->type() != QEvent::Close) {
@@ -409,17 +463,19 @@ bool ZzExampleWindowShellPrivate::filterWindowEvent(
     auto *dialog = new QMessageBox(
         QMessageBox::Question,
         QCoreApplication::translate("ZzPureToolsExample", "关闭窗口"),
-        QCoreApplication::translate("ZzPureToolsExample", "请选择当前窗口的关闭方式。"),
-        QMessageBox::NoButton,
-        window);
+        QCoreApplication::translate(
+            "ZzPureToolsExample", "请选择当前窗口的关闭方式。"),
+        QMessageBox::NoButton, window);
     QAbstractButton *cancelButton = dialog->addButton(
-        QCoreApplication::translate("ZzPureToolsExample", "取消"), QMessageBox::RejectRole);
+        QCoreApplication::translate("ZzPureToolsExample", "取消"),
+        QMessageBox::RejectRole);
     QAbstractButton *minimizeButton = dialog->addButton(
-        QCoreApplication::translate("ZzPureToolsExample", "最小化"), QMessageBox::ActionRole);
+        QCoreApplication::translate("ZzPureToolsExample", "最小化"),
+        QMessageBox::ActionRole);
     QAbstractButton *closeButton = dialog->addButton(
-        QCoreApplication::translate("ZzPureToolsExample", "关闭"), QMessageBox::AcceptRole);
-    dialog->setDefaultButton(
-        qobject_cast<QPushButton *>(cancelButton));
+        QCoreApplication::translate("ZzPureToolsExample", "关闭"),
+        QMessageBox::AcceptRole);
+    dialog->setDefaultButton(qobject_cast<QPushButton *>(cancelButton));
     dialog->exec();
     QAbstractButton *clicked = dialog->clickedButton();
     const bool closeRequested = clicked == closeButton;
@@ -428,15 +484,18 @@ bool ZzExampleWindowShellPrivate::filterWindowEvent(
     closeGuardActive = false;
 
     if (closeRequested) {
-        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "窗口关闭已确认"));
+        recordActivity(QCoreApplication::translate(
+            "ZzPureToolsExample", "窗口关闭已确认"));
         return false;
     }
     event->ignore();
     if (minimizeRequested) {
         window->showMinimized();
-        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "窗口关闭已转换为最小化"));
+        recordActivity(QCoreApplication::translate(
+            "ZzPureToolsExample", "窗口关闭已转换为最小化"));
     } else {
-        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "窗口关闭已取消"));
+        recordActivity(QCoreApplication::translate(
+            "ZzPureToolsExample", "窗口关闭已取消"));
     }
     return true;
 }
