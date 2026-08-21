@@ -53,6 +53,40 @@ set_tests_properties(puretools.workspace-shell PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzWorkspaceScreenshotTest ZzWorkspaceScreenshotTest.cpp)
+target_link_libraries(ZzWorkspaceScreenshotTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::PureTools
+    Zz::FluentUI
+)
+target_compile_definitions(ZzWorkspaceScreenshotTest PRIVATE
+    "ZZ_PURETOOLS_WORKSPACE_SCREENSHOT_BASELINE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/baselines/linux\""
+    "ZZ_PURETOOLS_WORKSPACE_SCREENSHOT_REPORT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/reports/workspace-screenshots\""
+    ZZ_PURETOOLS_SCREENSHOT_REFERENCE_QT_MAJOR=6
+    ZZ_PURETOOLS_SCREENSHOT_REFERENCE_QT_MINOR=11
+)
+set_target_properties(ZzWorkspaceScreenshotTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceScreenshotTest)
+zz_enable_sanitizers(ZzWorkspaceScreenshotTest)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    function(zz_add_workspace_screenshot_test suffix scale)
+        add_test(NAME "puretools.workspace-screenshot-${suffix}"
+            COMMAND ZzWorkspaceScreenshotTest
+                --expected-dpr "${scale}"
+                --baseline-subdir "dpr-${suffix}")
+        set_tests_properties("puretools.workspace-screenshot-${suffix}" PROPERTIES
+            LABELS "puretools;screenshot;workspace"
+            ENVIRONMENT
+                "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale};QT_SCALE_FACTOR_ROUNDING_POLICY=PassThrough;LANG=C.UTF-8;LC_ALL=C.UTF-8"
+        )
+    endfunction()
+    zz_add_workspace_screenshot_test(100 1.0)
+    zz_add_workspace_screenshot_test(125 1.25)
+    zz_add_workspace_screenshot_test(150 1.5)
+    zz_add_workspace_screenshot_test(200 2.0)
+endif()
+
 add_executable(ZzApplicationBuilderTest ZzApplicationBuilderTest.cpp)
 target_link_libraries(ZzApplicationBuilderTest PRIVATE
     Qt6::Test

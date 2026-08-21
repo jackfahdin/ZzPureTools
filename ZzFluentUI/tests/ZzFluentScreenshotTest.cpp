@@ -126,8 +126,6 @@
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
-#include <ZzPureTools/ZzWorkspacePanelId.h>
-#include <ZzPureTools/ZzWorkspaceShell.h>
 
 namespace {
 
@@ -6652,6 +6650,7 @@ QImage zzRenderStandardBreadthSurface(
     return image;
 }
 
+#if 0 // Workspace screenshots are owned by ZzWorkspaceScreenshotTest.
 /** @brief 构造标题栏、侧栏、停靠面板和标签页组成的工作区截图面。 */
 class ZzWorkspaceScreenshotSurface final
 {
@@ -6798,6 +6797,7 @@ void zzVerifyNarrowWorkspaceGeometry(
 }
 
 } // namespace
+#endif
 
 /** @brief 验证 Fluent 控件在固定 Linux 参考环境中的视觉基线。 */
 class ZzFluentScreenshotTest final : public QObject
@@ -9351,6 +9351,7 @@ private Q_SLOTS:
                 .arg(actualPath, diffPath)));
     }
 
+#if 0 // Workspace screenshots are owned by ZzWorkspaceScreenshotTest.
     void rendersWorkspaceThemes_data()
     {
         QTest::addColumn<int>("mode");
@@ -9490,6 +9491,7 @@ private Q_SLOTS:
         QFAIL("narrow workspace screenshot differs from baseline");
     }
 
+#endif
     void cleanupTestCase()
     {
         QApplication::setStyle(
