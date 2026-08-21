@@ -82,6 +82,23 @@
 - 人工查看 dpr-100 三主题和 dpr-200 Light：右侧空 Shell rail 已释放，中心
   工作区获得额外宽度；无空白、截图边界裁切、重叠或主题串色。
 
+## ActivityBar 固定轨道修复与基线更新
+
+- 组件修复提交：`620f92a fix(活动栏): 固定入口轨道宽度`。
+- 红灯：新增 `keepsFixedWidthInsideExpandingHorizontalLayout` 后，未修复实现的
+  `fluent.activity-bar` 因 `bar->minimumWidth()` 为 `0` 而失败，期望为 `48`。
+- 实现：在 `ZzActivityBarPrivate` 构造路径调用 `setFixedWidth(48)`，不改变公开
+  API、模型、拖拽、item 高度或 SidePane。
+- 绿灯：`fluent.activity-bar`、`puretools.workspace-shell` 与
+  `example.workspace-smoke` 均通过；工作区截图和 Example 截图在关闭更新变量后，
+  四档 DPR 均为 4/4 通过。
+- 基线更新提交：`HEAD`（本提交）。以 Qt 6.11.1、GCC 15、
+  `linux-gcc-debug` 重采 24 张 PureTools workspace PNG 与 12 张 Example PNG。
+  README 的 SHA-256 已逐项匹配，所有 Example 图像分别为 1280x800、1600x1000、
+  1920x1200 和 2560x1600，且每档 DPR 的三主题哈希不同。
+- 人工查看 dpr-100 的 Light、Dark、HighContrast 与 dpr-200 Light：ActivityBar
+  为 48 px 窄轨道，中心标签页宽度增大；未见空白帧、截图裁切、控件重叠或主题串色。
+
 ## 基准身份与边界
 
 - 代码采样 SHA：`02b87516ed73ec62c842fc617c9ffa8502c8fd8f`。

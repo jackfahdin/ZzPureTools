@@ -40,15 +40,15 @@ ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
 
 | 文件 | SHA-256 |
 |---|---|
-| `linux/dpr-100/dark.png` | `065845ccc8c4aa36463a93d370ce9c922d8c9f3c26658fc9842aaf7a7ef7c59f` |
-| `linux/dpr-100/high-contrast.png` | `459e79ba92834ca7ea4b0cb5a111f0e59d11d17bf4b077b4dd0ebc13233fc22d` |
-| `linux/dpr-100/light.png` | `a6adc6d2a285a2f2a332a523f305eb624e509004f65635eeb844c1ee2e44e344` |
-| `linux/dpr-125/dark.png` | `b4b885c2eb371894fdd55fcfbee9a0fa29f663ac0357cadd2aadf2ac8848f8be` |
-| `linux/dpr-125/high-contrast.png` | `ed4086977c02213f1c2998421c588915b3c125b9a4814b0e7767c74e1ba72199` |
-| `linux/dpr-125/light.png` | `13657fe04df9f8b0a32d427f85229e5b9465dfd0d33f3c6ccf0308ab75f641e3` |
-| `linux/dpr-150/dark.png` | `2787618923e0b50991db25cd85c790098f94b79c37c7818d9ae73a88be7026f0` |
-| `linux/dpr-150/high-contrast.png` | `64407e3bee9f23c79ca9fee1e3db2de1f567d811e8b416117a506f68e628a384` |
-| `linux/dpr-150/light.png` | `507dd93fc536559df1353b282ab29c957459e80ed441f5d97698b5d5152bbb33` |
-| `linux/dpr-200/dark.png` | `30fd6ef5918fdc6377739d14ebe7a763b32a253f48f2af1f27cec751292e0b38` |
-| `linux/dpr-200/high-contrast.png` | `dd15bf3f4b51201bc91b3557ee3b3e59f7967f3cc048cbbc28db1504d8e4d5e1` |
-| `linux/dpr-200/light.png` | `bc0596cd4d41b62caf0a98dce31f61e4861ca13c611972be98d8edc024e4c2bb` |
+| `linux/dpr-100/dark.png` | `df094f360a08a85f3561cdfb593aa1cd7b30b5329a56bddf58c33fd3bf774e3a` |
+| `linux/dpr-100/high-contrast.png` | `f35efe158acaadc2b2d614f4ff2515a4159e57d3001c43999c6bd290f050ebb5` |
+| `linux/dpr-100/light.png` | `9725edbe50165fe2bb8804def37685826df92b03b86752d1e880b5304f768cb1` |
+| `linux/dpr-125/dark.png` | `9d6978a2a6332096edac880146bddab660f2f12412369fc267c60e8e0e941819` |
+| `linux/dpr-125/high-contrast.png` | `274be1a2ea27c0b5de36aa594bb4b80a7146ad531441d190f366299dbc2859b2` |
+| `linux/dpr-125/light.png` | `1ad14a3df77942aa57a3e3158ee31e32d982fbb87f765f170d0f7fab05c7df42` |
+| `linux/dpr-150/dark.png` | `7c2e5556a1c3b29035a7624ceb171c55f85adfdbb07fad6b6ab01086cfaaec27` |
+| `linux/dpr-150/high-contrast.png` | `3fff28a00804ab312f98336d750ce5d3020f8f8bf8d27757658fc3bcf91d5f85` |
+| `linux/dpr-150/light.png` | `6d0301bfdf963194965d9d5de0556513bc87f92a5675bfc3b5c3b7c35dec3da7` |
+| `linux/dpr-200/dark.png` | `61445c271427cbeb50e0e804d6798fdcfc9f4a5060116fb71150cc35e7d316b5` |
+| `linux/dpr-200/high-contrast.png` | `03ef03f2e4fc526191d7fe04b3c72bd4ad2282ee0a2e52304ee438b3cf020f80` |
+| `linux/dpr-200/light.png` | `32bf6d07fddb18e0f7eec1596f71a1dffa07d4dbc2206f8efc2f439f4f13d7b2` |
