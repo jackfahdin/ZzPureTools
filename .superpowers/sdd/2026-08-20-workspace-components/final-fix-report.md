@@ -32,6 +32,12 @@
 - `ea9ece8 feat(示例): 为会话入口配置服务器图标`
   - Example 通过公开 `registerSidePanel()` 接口传入 `ZzFontIcon::Server`，并同步
     四档 DPR、三种主题共 12 张截图基线。
+- `3e1cb44` 至 `510b81f` 静态检查收口
+  - 清理工作区实现与测试中的 57 条 Clang-Tidy 诊断，涵盖重入索引、等价分支、
+    字符串复制、空控件失败路径和 `unique_ptr` 所有权转交表达。
+- `76e0a3e fix(工作区): 避免宿主析构期类型失效`
+  - 修复 UBSan 稳定捕获的宿主析构期无效 `QMainWindow` 向下转换；改用当前动态类型
+    与 Dock 身份判断，保留外部销毁内容时的同步注册清理。
 
 ## 验证
 
@@ -46,8 +52,8 @@
   `cmake --fresh --preset linux-gcc-debug`，恢复标准 Debug 构建树。
 - 随后运行 `cmake --build --preset linux-gcc-debug --parallel 2`，完整
   Debug 构建通过。
-- 在 `ea9ece8` 上运行 `ctest --preset linux-gcc-debug --output-on-failure`，
-  单次完整执行为 143/143 通过，总耗时 141.21 秒。该结果包含 12 项截图、
+- 在 `76e0a3e` 上运行 `ctest --preset linux-gcc-debug --output-on-failure`，
+  单次完整执行为 143/143 通过，总耗时 141.35 秒。该结果包含 12 项截图、
   `install.consumer`、`architecture.public-headers`、
   `platform.package-relocation`、全部平台/发布合同及 16 项 Example，不再沿用
   早期漏配 Example 的 127 项结果。
@@ -122,10 +128,29 @@
 
 ## 基准身份与边界
 
-- 代码采样 SHA：`02b87516ed73ec62c842fc617c9ffa8502c8fd8f`。
+- 代码采样 SHA：`76e0a3e38cfbe08bb209ef9aa8d611492301c4c3`。
 - runner digest：`sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41`。
 - GPU identity：`Qt offscreen raster`。
 - RSS 仅在 Linux `/proc/self/statm` 可用时报告；其他平台不伪造该项。
+
+三轮原始证据 SHA-256 依次为
+`b57c0fd9e06bd07efcaf1bde5be51f104f1702dc42423a7a65486fd5366d8105`、
+`83c8b8fda5787b2d0cd3a90ee1abe2b85ad3556f336fe1a0e96e49fea7b7de34` 和
+`ffcff1c38de27bf0fc625cbd2d84368c69b832bdb15845994f68305b8f947ea4`。
+
+## 最终质量门禁
+
+- `linux-clang-tidy-release`：最终 HEAD 完整扫描 248/248，退出码 0，无实际
+  `warning:` 或 `error:` 诊断。
+- `linux-clang-tidy-static`：最终 HEAD 完整扫描 248/248，退出码 0，无实际
+  `warning:` 或 `error:` 诊断。
+- `linux-clang-asan`：完整构建通过；ASan/UBSan CTest 143/143 通过，总耗时
+  181.55 秒。当前工具进程由 `ptrace` 管理，LSan 会统一报不受支持，因此本地运行
+  使用 `detect_leaks=0`；未修改 preset，CI 与正常主机仍保持泄漏检测。
+- `linux-gcc-debug`：最终 HEAD 增量构建通过；CTest 143/143 通过，总耗时
+  141.35 秒。
+- `benchmark.workspace-components`：三轮均为 1/1 通过，单轮分别耗时 4.85、
+  4.83 和 4.85 秒；全部耗时指标保持 `observe`，正式阈值未调整。
 
 ## 残余风险
 

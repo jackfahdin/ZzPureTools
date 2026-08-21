@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "c8e1374f23612814806a776b2c5f4cbd2b39fc5e",
+        "commit": "76e0a3e38cfbe08bb209ef9aa8d611492301c4c3",
         "lto": true,
         "preset": "linux-gcc-benchmarks",
         "sanitizers": "none",
@@ -22,9 +22,9 @@
     "metrics": {
         "activity-activation-time": {
             "count": 80,
-            "max": 0.107365,
-            "p50": 0.065553,
-            "p95": 0.074436,
+            "max": 0.104004,
+            "p50": 0.065685,
+            "p95": 0.076441,
             "unit": "ms"
         },
         "animation-count": {
@@ -36,30 +36,30 @@
         },
         "command-filter-time": {
             "count": 80,
-            "max": 5.661949,
-            "p50": 5.388042,
-            "p95": 5.633322,
+            "max": 5.828154,
+            "p50": 5.450993,
+            "p95": 5.724316,
             "unit": "ms"
         },
         "explorer-filter-time": {
             "count": 80,
-            "max": 32.898584,
-            "p50": 27.963266,
-            "p95": 32.482939,
+            "max": 33.624578,
+            "p50": 28.199478,
+            "p95": 32.891535,
             "unit": "ms"
         },
         "layout-restore-time": {
             "count": 80,
-            "max": 5.508721,
-            "p50": 4.967863,
-            "p95": 5.354792,
+            "max": 5.645829,
+            "p50": 5.099732,
+            "p95": 5.482266,
             "unit": "ms"
         },
         "layout-save-time": {
             "count": 80,
-            "max": 0.055629,
-            "p50": 0.049779,
-            "p95": 0.054309,
+            "max": 0.055323,
+            "p50": 0.049774,
+            "p95": 0.054094,
             "unit": "ms"
         },
         "object-count": {
@@ -78,9 +78,9 @@
         },
         "rss-bytes": {
             "count": 80,
-            "max": 197115904,
-            "p50": 197115904,
-            "p95": 197115904,
+            "max": 197320704,
+            "p50": 197320704,
+            "p95": 197320704,
             "unit": "bytes"
         },
         "style-cache-bytes": {
@@ -92,9 +92,9 @@
         },
         "tab-state-time": {
             "count": 80,
-            "max": 0.021977,
-            "p50": 0.00712,
-            "p95": 0.017768,
+            "max": 0.02534,
+            "p50": 0.003357,
+            "p95": 0.017648,
             "unit": "ms"
         },
         "timer-count": {
@@ -106,16 +106,16 @@
         },
         "title-menu-switch-time": {
             "count": 80,
-            "max": 3.079055,
-            "p50": 0.143421,
-            "p95": 3.039066,
+            "max": 3.686668,
+            "p50": 0.116087,
+            "p95": 3.591353,
             "unit": "ms"
         },
         "workspace-render-time": {
             "count": 80,
-            "max": 7.630068,
-            "p50": 7.041216,
-            "p95": 7.285173,
+            "max": 7.958773,
+            "p50": 7.060388,
+            "p95": 7.62735,
             "unit": "ms"
         }
     },
