@@ -59,8 +59,7 @@ private:
         const ZzCachedData &data = cached(index);
         const QString &name = data.name;
         int match = 5;
-        if (query.isEmpty()) match = 0;
-        else if (name == query) match = 0;
+        if (query.isEmpty() || name == query) match = 0;
         else if (name.startsWith(query)) match = 1;
         else {
             const QStringList tokens = name.split(u' ', Qt::SkipEmptyParts);

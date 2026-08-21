@@ -74,7 +74,6 @@ public:
         const Row &row = rows.at(index.row());
         switch (role) {
         case Qt::DisplayRole:
-            return row.text;
         case Qt::ToolTipRole:
             return row.text;
         case Qt::DecorationRole:

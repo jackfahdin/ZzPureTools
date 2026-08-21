@@ -31,10 +31,15 @@ class ZzCommandPaletteTest final : public QObject
 {
     Q_OBJECT
 private:
-    static QStandardItem *command(QString name, QStringList words = {}, int priority = 0)
+    static QStandardItem *command(
+        const QString &name,
+        const QStringList &words = {},
+        int priority = 0)
     {
-        auto *item = new QStandardItem(std::move(name));
-        item->setData(std::move(words), static_cast<int>(ZzFluentUI::ZzCommandItemRole::Keywords));
+        auto *item = new QStandardItem(name);
+        item->setData(
+            words,
+            static_cast<int>(ZzFluentUI::ZzCommandItemRole::Keywords));
         item->setData(priority, static_cast<int>(ZzFluentUI::ZzCommandItemRole::Priority));
         return item;
     }
