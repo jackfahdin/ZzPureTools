@@ -17,6 +17,7 @@ set(zz_pure_tools_example_sources
     ZzExampleNavigationPresenter.cpp
     ZzExamplePageFactory.cpp
     ZzExampleRouteCatalog.cpp
+    ZzExampleSessionModel.cpp
     ZzExampleShowcasePage.cpp
     ZzExampleShowcasePagePrivate.cpp
     ZzExampleSmokeController.cpp
@@ -28,6 +29,7 @@ set(zz_pure_tools_example_sources
     ZzExampleSystemViewModel.cpp
     ZzExampleWindowShell.cpp
     ZzExampleWindowShellPrivate.cpp
+    ZzExampleWorkspaceContent.cpp
 )
 if(ZZ_BUILD_BENCHMARKS)
     list(APPEND zz_pure_tools_example_sources

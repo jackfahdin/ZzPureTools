@@ -1,10 +1,12 @@
 #include <memory>
+#include <vector>
 
 #include <QtCore/QAbstractItemModel>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMainWindow>
 
 #include <ZzFluentUI/ZzActivityBar.h>
@@ -88,18 +90,18 @@ private Q_SLOTS:
             QString title;
             std::unique_ptr<QWidget> content;
         };
-        QList<ZzDockFixture> docks;
-        docks.emplaceBack(ZzDockFixture{
+        std::vector<ZzDockFixture> docks;
+        docks.emplace_back(ZzDockFixture{
             "sftp", QStringLiteral("SFTP"),
             ZzExample::ZzExampleWorkspaceContent::createSftpPanel()});
-        docks.emplaceBack(ZzDockFixture{
+        docks.emplace_back(ZzDockFixture{
             "log", QStringLiteral("日志"),
             ZzExample::ZzExampleWorkspaceContent::createActivityLogPanel(
                 &activities)});
-        docks.emplaceBack(ZzDockFixture{
+        docks.emplace_back(ZzDockFixture{
             "properties", QStringLiteral("属性"),
             ZzExample::ZzExampleWorkspaceContent::createPropertiesPanel()});
-        docks.emplaceBack(ZzDockFixture{
+        docks.emplace_back(ZzDockFixture{
             "tasks", QStringLiteral("任务"),
             ZzExample::ZzExampleWorkspaceContent::createTasksPanel()});
         for (auto &dock : docks) {
