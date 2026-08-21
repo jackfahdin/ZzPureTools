@@ -138,6 +138,15 @@ add_test(NAME architecture.complete-audit
 set_tests_properties(architecture.complete-audit PROPERTIES
     LABELS "architecture")
 
+add_test(
+    NAME architecture.workspace-boundaries-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzWorkspaceBoundariesContract.cmake"
+)
+set_tests_properties(architecture.workspace-boundaries-contract PROPERTIES
+    LABELS "architecture;contract;workspace")
+
 add_test(NAME architecture.fluent-visual-token-contract
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
