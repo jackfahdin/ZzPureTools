@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include <QtCore/QPointer>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QStackedWidget>
@@ -94,17 +95,22 @@ bool ZzSidePanePrivate::addWidget(QWidget *widget, const QString &title)
     if (widget->parent() != nullptr) {
         return false;
     }
+    QPointer<QWidget> widgetGuard(widget);
     pageTitles.insert(widget, title);
-    const int index = stack->addWidget(widget);
     pageDestroyedConnections.insert(
         widget,
         QObject::connect(widget, &QObject::destroyed, q_ptr, [this, widget] {
             pageTitles.remove(widget);
             pageDestroyedConnections.remove(widget);
             syncCurrentWidget();
-    }));
+        }));
+    const int index = stack->addWidget(widget);
+    if (widgetGuard.isNull() || stack->indexOf(widgetGuard.data()) != index) {
+        return false;
+    }
     stack->setCurrentIndex(index);
-    return true;
+    return !widgetGuard.isNull()
+        && stack->indexOf(widgetGuard.data()) == index;
 }
 
 QWidget *ZzSidePanePrivate::takeWidget(QWidget *widget)
@@ -114,9 +120,14 @@ QWidget *ZzSidePanePrivate::takeWidget(QWidget *widget)
     }
     QObject::disconnect(pageDestroyedConnections.take(widget));
     pageTitles.remove(widget);
+    QPointer<QWidget> widgetGuard(widget);
     stack->removeWidget(widget);
-    widget->setParent(nullptr);
-    return widget;
+    if (widgetGuard.isNull()
+        || stack->indexOf(widgetGuard.data()) >= 0) {
+        return nullptr;
+    }
+    widgetGuard->setParent(nullptr);
+    return widgetGuard.data();
 }
 
 bool ZzSidePanePrivate::setCurrentWidget(QWidget *widget)

@@ -2,6 +2,7 @@
 #include <functional>
 #include <memory>
 #include <thread>
+#include <utility>
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QBuffer>
@@ -12,6 +13,7 @@
 #include <QtCore/QPointer>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QLayout>
 #include <QtWidgets/QMainWindow>
 
 #include <ZzCore/ZzErrorCode.h>
@@ -133,6 +135,16 @@ protected:
             parentChanged();
         }
         return handled;
+    }
+};
+
+/** @brief 在销毁 QObject 子对象前模拟 QMainWindow 已释放内部布局的阶段。 */
+class ZzLayoutTornDownMainWindow final : public QMainWindow
+{
+public:
+    ~ZzLayoutTornDownMainWindow() override
+    {
+        delete layout();
     }
 };
 
@@ -899,7 +911,7 @@ private Q_SLOTS:
 
     void survivesHostDestructionBeforeShell()
     {
-        auto host = std::make_unique<QMainWindow>();
+        auto host = std::make_unique<ZzLayoutTornDownMainWindow>();
         auto *titleBar = new ZzFluentUI::ZzFluentTitleBar(host.get());
         auto result = ZzPureTools::ZzWorkspaceShell::create(
             host.get(), titleBar);
@@ -911,6 +923,11 @@ private Q_SLOTS:
             zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
             Qt::BottomDockWidgetArea, content.get()));
         content.release();
+        auto secondContent = std::make_unique<QWidget>();
+        QVERIFY(shell->registerDockPanel(
+            zzPanelId("second-dock"), QStringLiteral("Second dock"), zzIcon(),
+            Qt::RightDockWidgetArea, secondContent.get()));
+        secondContent.release();
 
         host.reset();
 
@@ -920,6 +937,30 @@ private Q_SLOTS:
         QCOMPARE(shell->commandPalette(), nullptr);
         QVERIFY(!shell->saveLayout());
         shell.reset();
+    }
+
+    void destroysHostOwnedShellWithMultipleDocksAfterHostLayoutIsTornDown()
+    {
+        auto host = std::make_unique<QMainWindow>();
+        auto result = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        QVERIFY(result);
+        auto shell = std::move(result).value();
+        for (const auto &[id, area] : std::array{
+                 std::pair{"first", Qt::BottomDockWidgetArea},
+                 std::pair{"second", Qt::RightDockWidgetArea}}) {
+            auto content = std::make_unique<QWidget>();
+            QVERIFY(shell->registerDockPanel(
+                zzPanelId(id), QString::fromLatin1(id), zzIcon(), area,
+                content.get()));
+            content.release();
+        }
+        QPointer<ZzPureTools::ZzWorkspaceShell> shellGuard(shell.get());
+        shell->setParent(host.get());
+        shell.release();
+
+        host.reset();
+
+        QVERIFY(shellGuard.isNull());
     }
 };
 

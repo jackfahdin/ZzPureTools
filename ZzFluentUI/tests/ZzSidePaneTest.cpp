@@ -99,6 +99,66 @@ private Q_SLOTS:
         QVERIFY(pane.setCurrentWidget(second));
         QCOMPARE(currentSpy.count(), 0);
     }
+
+    void rejectsAddWhenCurrentChangedDeletesTheNewPageSynchronously()
+    {
+        ZzFluentUI::ZzSidePane pane;
+        auto *page = new QLabel(QStringLiteral("Ephemeral"));
+        QPointer<QWidget> pageGuard(page);
+        QObject::connect(
+            &pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            &pane, [&pageGuard](QWidget *current) {
+                if (current == pageGuard.data()) {
+                    delete current;
+                }
+            });
+
+        QVERIFY(!pane.addWidget(page, QStringLiteral("Ephemeral")));
+        QVERIFY(pageGuard.isNull());
+        QCOMPARE(pane.pageCount(), 0);
+        QCOMPARE(pane.currentWidget(), nullptr);
+    }
+
+    void rejectsTakeWhenCurrentChangedDeletesTheRemovedPageSynchronously()
+    {
+        ZzFluentUI::ZzSidePane pane;
+        auto *first = new QLabel(QStringLiteral("First"));
+        auto *second = new QLabel(QStringLiteral("Second"));
+        QVERIFY(pane.addWidget(first, QStringLiteral("First")));
+        QVERIFY(pane.addWidget(second, QStringLiteral("Second")));
+        QVERIFY(pane.setCurrentWidget(first));
+        QPointer<QWidget> firstGuard(first);
+        QObject::connect(
+            &pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            &pane, [&firstGuard](QWidget *) {
+                if (firstGuard != nullptr) {
+                    delete firstGuard.data();
+                }
+            });
+
+        QCOMPARE(pane.takeWidget(first), nullptr);
+        QVERIFY(firstGuard.isNull());
+        QCOMPARE(pane.pageCount(), 1);
+        QCOMPARE(pane.currentWidget(), second);
+    }
+
+    void notifiesWhenMinimumWidthRaisesMaximumWidth()
+    {
+        ZzFluentUI::ZzSidePane pane;
+        pane.setMaximumPaneWidth(120);
+        QSignalSpy minimumSpy(
+            &pane, &ZzFluentUI::ZzSidePane::minimumPaneWidthChanged);
+        QSignalSpy maximumSpy(
+            &pane, &ZzFluentUI::ZzSidePane::maximumPaneWidthChanged);
+
+        pane.setMinimumPaneWidth(180);
+
+        QCOMPARE(pane.minimumPaneWidth(), 180);
+        QCOMPARE(pane.maximumPaneWidth(), 180);
+        QCOMPARE(minimumSpy.count(), 1);
+        QCOMPARE(maximumSpy.count(), 1);
+        QCOMPARE(maximumSpy.at(0).at(0).toInt(), 180);
+    }
 };
 
 QTEST_MAIN(ZzSidePaneTest)

@@ -481,7 +481,8 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
     for (ZzPanelRecord &record : panels) {
         QObject::disconnect(record.contentDestroyedConnection);
     }
-    if (host != nullptr) {
+    const bool hostCanManageDocks = host != nullptr && host->layout() != nullptr;
+    if (hostCanManageDocks) {
         for (const ZzPanelRecord &record : std::as_const(panels)) {
             if (record.dock != nullptr) {
                 host->removeDockWidget(record.dock);
@@ -728,10 +729,12 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
                 QStringLiteral("Workspace panel content is unavailable"),
                 id.value());
         }
-        if (host != nullptr) {
+        if (host != nullptr && host->layout() != nullptr) {
             host->removeDockWidget(record.dock);
         }
-        delete record.dock;
+        if (host == nullptr || host->layout() != nullptr) {
+            delete record.dock;
+        }
     }
     const int currentIndex = indexOf(id);
     if (currentIndex >= 0
@@ -1041,10 +1044,12 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
             && record.dock->widget() == record.content) {
             static_cast<void>(record.dock->takeContentWidget());
         }
-        if (host != nullptr) {
+        if (host != nullptr && host->layout() != nullptr) {
             host->removeDockWidget(record.dock);
         }
-        delete record.dock;
+        if (host == nullptr || host->layout() != nullptr) {
+            delete record.dock;
+        }
     }
 
     panelIndex = indexOf(id);

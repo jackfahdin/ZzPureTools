@@ -114,10 +114,14 @@ void ZzSidePane::setMinimumPaneWidth(int width)
     if (d_ptr->minimumWidth == normalized) {
         return;
     }
+    const int previousMaximum = d_ptr->maximumWidth;
     d_ptr->minimumWidth = normalized;
     d_ptr->maximumWidth = std::max(d_ptr->maximumWidth, normalized);
     setPaneWidth(d_ptr->expandedWidth);
     Q_EMIT minimumPaneWidthChanged(normalized);
+    if (d_ptr->maximumWidth != previousMaximum) {
+        Q_EMIT maximumPaneWidthChanged(d_ptr->maximumWidth);
+    }
 }
 
 int ZzSidePane::maximumPaneWidth() const noexcept
