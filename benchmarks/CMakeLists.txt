@@ -113,6 +113,13 @@ zz_add_benchmark(ZzWindowLifecycleBenchmark
     ZzWindowLifecycleBenchmark.cpp benchmark.window-lifecycle)
 zz_add_benchmark(ZzNavigationPaneBenchmark
     ZzNavigationPaneBenchmark.cpp benchmark.navigation-pane)
+zz_add_benchmark(ZzWorkspaceComponentsBenchmark
+    ZzWorkspaceComponentsBenchmark.cpp benchmark.workspace-components)
+target_link_libraries(ZzWorkspaceComponentsBenchmark PRIVATE
+    Zz::PureTools
+    Zz::FluentUI)
+set_tests_properties(benchmark.workspace-components PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_executable(ZzFluentStandardSurfacesBenchmark
     ZzFluentStandardSurfacesBenchmark.cpp)
 qt_add_resources(ZzFluentStandardSurfacesBenchmark
