@@ -109,6 +109,8 @@ zz_configure_first_party_target(ZzPureToolsExample
     SOURCES ${zz_pure_tools_example_sources})
 
 if(ZZ_BUILD_TESTS)
+    add_subdirectory(tests)
+
     add_executable(ZzExampleActivityModelTest
         tests/ZzExampleActivityModelTest.cpp
         ZzExampleActivityModel.cpp
