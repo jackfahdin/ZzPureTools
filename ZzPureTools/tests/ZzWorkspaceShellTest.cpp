@@ -9,6 +9,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
 #include <QtTest/QSignalSpy>
@@ -108,6 +109,89 @@ struct ZzShellFixture final
     }
     result.append(QCryptographicHash::hash(
         newPayload, QCryptographicHash::Sha256));
+    return result;
+}
+
+[[nodiscard]] QByteArray zzLayoutWithSideEntries(
+    const QByteArray &layout,
+    quint32 sideCount,
+    const QString &tailDuplicateId = {})
+{
+    QDataStream outer(layout);
+    outer.setVersion(QDataStream::Qt_6_8);
+    char magic[4]{};
+    quint16 schemaVersion = 0;
+    quint16 streamVersion = 0;
+    quint32 payloadLength = 0;
+    if (outer.readRawData(magic, 4) != 4) {
+        return {};
+    }
+    outer >> schemaVersion >> streamVersion >> payloadLength;
+    QByteArray payload(static_cast<qsizetype>(payloadLength), Qt::Uninitialized);
+    if (outer.readRawData(payload.data(), static_cast<int>(payloadLength))
+        != static_cast<int>(payloadLength)) {
+        return {};
+    }
+
+    QByteArray qtState;
+    bool leftCollapsed = false;
+    bool rightCollapsed = false;
+    qint32 leftWidth = 0;
+    qint32 rightWidth = 0;
+    QString leftCurrent;
+    QString rightCurrent;
+    quint32 originalSideCount = 0;
+    qint32 currentTabIndex = -1;
+    quint8 titleMode = 0;
+    QDataStream payloadIn(payload);
+    payloadIn.setVersion(QDataStream::Qt_6_8);
+    payloadIn >> qtState >> leftCollapsed >> leftWidth >> rightCollapsed
+              >> rightWidth >> leftCurrent >> rightCurrent >> originalSideCount;
+    for (quint32 index = 0; index < originalSideCount; ++index) {
+        QString id;
+        quint8 area = 0;
+        qint32 order = 0;
+        payloadIn >> id >> area >> order;
+    }
+    payloadIn >> currentTabIndex >> titleMode;
+    if (payloadIn.status() != QDataStream::Ok || !payloadIn.atEnd()) {
+        return {};
+    }
+
+    QByteArray replacementPayload;
+    QDataStream payloadOut(&replacementPayload, QIODevice::WriteOnly);
+    payloadOut.setVersion(QDataStream::Qt_6_8);
+    payloadOut << qtState << leftCollapsed << leftWidth << rightCollapsed
+               << rightWidth << leftCurrent << rightCurrent << sideCount;
+    for (quint32 index = 0; index < sideCount; ++index) {
+        const QString id = index + 1 == sideCount && !tailDuplicateId.isEmpty()
+            ? tailDuplicateId
+            : QStringLiteral("side-%1").arg(index, 4, 10, QLatin1Char('0'));
+        payloadOut << id
+                   << static_cast<quint8>(
+                          ZzFluentUI::ZzActivityArea::LeftPrimary)
+                   << static_cast<qint32>(index);
+    }
+    payloadOut << currentTabIndex << titleMode;
+    if (payloadOut.status() != QDataStream::Ok) {
+        return {};
+    }
+
+    QByteArray result;
+    QDataStream resultOut(&result, QIODevice::WriteOnly);
+    resultOut.setVersion(QDataStream::Qt_6_8);
+    if (resultOut.writeRawData("ZZWS", 4) != 4) {
+        return {};
+    }
+    resultOut << schemaVersion << streamVersion
+              << static_cast<quint32>(replacementPayload.size());
+    if (resultOut.writeRawData(
+            replacementPayload.constData(), replacementPayload.size())
+        != replacementPayload.size()) {
+        return {};
+    }
+    result.append(QCryptographicHash::hash(
+        replacementPayload, QCryptographicHash::Sha256));
     return result;
 }
 
@@ -759,6 +843,31 @@ private Q_SLOTS:
             QByteArray(zzWorkspaceMaximumLayoutSize + 1, 'x')));
     }
 
+    void boundsAndDeduplicatesNearLimitSideLayoutEntries()
+    {
+        ZzShellFixture fixture;
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+
+        QElapsedTimer timer;
+        timer.start();
+        const auto maximumUnique = zzLayoutWithSideEntries(
+            saved.value(), 4096);
+        QVERIFY(!maximumUnique.isEmpty());
+        QVERIFY(fixture.shell->restoreLayout(maximumUnique));
+        QVERIFY2(timer.elapsed() < 1000,
+            "The maximum valid side layout must be decoded on the GUI thread promptly");
+
+        const auto excessive = zzLayoutWithSideEntries(saved.value(), 4097);
+        QVERIFY(!excessive.isEmpty());
+        QVERIFY(!fixture.shell->restoreLayout(excessive));
+
+        const auto duplicateTail = zzLayoutWithSideEntries(
+            saved.value(), 4096, QStringLiteral("side-0000"));
+        QVERIFY(!duplicateTail.isEmpty());
+        QVERIFY(!fixture.shell->restoreLayout(duplicateTail));
+    }
+
     void ignoresUnknownPanelIdsDuringRestore()
     {
         ZzShellFixture source;
@@ -847,8 +956,12 @@ private Q_SLOTS:
         const QByteArray qtBefore = fixture.host.saveState(1);
         const QByteArray validEnvelopeWithInvalidQtState = zzReplaceQtState(
             saved.value(), QByteArrayLiteral("not-a-qmainwindow-state"));
-        QVERIFY(!fixture.shell->restoreLayout(
-            validEnvelopeWithInvalidQtState));
+        const auto restored = fixture.shell->restoreLayout(
+            validEnvelopeWithInvalidQtState);
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and was rolled back"));
 
         QCOMPARE(fixture.host.saveState(1), qtBefore);
         QCOMPARE(fixture.host.dockWidgetArea(dockPanel), Qt::LeftDockWidgetArea);
@@ -907,6 +1020,49 @@ private Q_SLOTS:
             target.shell->sidePane(
                 ZzFluentUI::ZzSidePaneEdge::Left)->paneWidth(),
             321);
+    }
+
+    void reportsWhenLayoutRollbackFails()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        sourceContent.release();
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(800);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(700);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<ZzParentChangeWidget>();
+        bool armed = false;
+        bool callbackEntered = false;
+        targetContent->parentChanged = [&] {
+            if (!armed || callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            target.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(100);
+        };
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        targetContent.release();
+        target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(321);
+        armed = true;
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
     }
 
     void survivesHostDestructionBeforeShell()

@@ -8,6 +8,7 @@
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
+#include <QtCore/QSet>
 #include <QtCore/QThread>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMainWindow>
@@ -33,6 +34,8 @@ constexpr quint16 zzLayoutSchemaVersion = 1;
 constexpr auto zzLayoutStreamVersion = QDataStream::Qt_6_8;
 constexpr int zzLayoutDigestSize = 32;
 constexpr int zzLayoutHeaderSize = 12;
+// 现有基准覆盖 64 个侧面板；4096 保持足够兼容余量，同时拒绝异常布局。
+constexpr quint32 zzMaximumSideLayoutEntries = 4096;
 
 template<typename ZzValue>
 [[nodiscard]] ZzCore::ZzResult<ZzValue> zzWorkspaceFailure(
@@ -306,7 +309,7 @@ private:
            >> rightCurrent
            >> sideCount;
     if (stream.status() != QDataStream::Ok
-        || sideCount > static_cast<quint32>(zzMaximumLayoutSize / 8)
+        || sideCount > zzMaximumSideLayoutEntries
         || leftWidth <= 0 || rightWidth <= 0
         || leftWidth > zzMaximumLayoutSize
         || rightWidth > zzMaximumLayoutSize) {
@@ -318,6 +321,8 @@ private:
     state->rightCurrent = ZzWorkspacePanelId(std::move(rightCurrent));
     state->sideEntries.clear();
     state->sideEntries.reserve(static_cast<qsizetype>(sideCount));
+    QSet<QString> seenSideIds;
+    seenSideIds.reserve(static_cast<qsizetype>(sideCount));
     for (quint32 index = 0; index < sideCount; ++index) {
         QString idValue;
         quint8 areaValue = 0;
@@ -330,14 +335,11 @@ private:
         if (stream.status() != QDataStream::Ok
             || !entry.id.isValid()
             || !zzIsSideArea(entry.area)
-            || entry.order < 0) {
+            || entry.order < 0
+            || seenSideIds.contains(entry.id.value())) {
             return false;
         }
-        for (const auto &existing : state->sideEntries) {
-            if (existing.id == entry.id) {
-                return false;
-            }
-        }
+        seenSideIds.insert(entry.id.value());
         state->sideEntries.append(std::move(entry));
     }
     qint32 tabIndex = -1;
@@ -899,14 +901,18 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::restoreLayout(
             QStringLiteral("Workspace layout envelope is invalid"));
     }
     const ZzLayoutState snapshot = captureLayoutState();
-    if (!host->restoreState(requested.qtState, zzLayoutSchemaVersion)
-        || !applyShellLayout(requested)) {
-        static_cast<void>(applyShellLayout(snapshot));
-        static_cast<void>(host->restoreState(
-            snapshot.qtState, zzLayoutSchemaVersion));
+    const bool restoredQt = host->restoreState(
+        requested.qtState, zzLayoutSchemaVersion);
+    const bool appliedShell = restoredQt && applyShellLayout(requested);
+    if (!appliedShell) {
+        const bool restoredShellSnapshot = applyShellLayout(snapshot);
+        const bool restoredQtSnapshot = host->restoreState(
+            snapshot.qtState, zzLayoutSchemaVersion);
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace layout restore failed and was rolled back"));
+            restoredShellSnapshot && restoredQtSnapshot
+                ? QStringLiteral("Workspace layout restore failed and was rolled back")
+                : QStringLiteral("Workspace layout restore failed and rollback failed"));
     }
     return ZzCore::ZzResult<void>::success();
 }
