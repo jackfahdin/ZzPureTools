@@ -6796,8 +6796,9 @@ void zzVerifyNarrowWorkspaceGeometry(
     QVERIFY(!tabRect.intersects(dockRect));
 }
 
-} // namespace
 #endif
+
+} // namespace
 
 /** @brief 验证 Fluent 控件在固定 Linux 参考环境中的视觉基线。 */
 class ZzFluentScreenshotTest final : public QObject
