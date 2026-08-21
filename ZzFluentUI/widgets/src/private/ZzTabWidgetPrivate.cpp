@@ -151,33 +151,39 @@ bool ZzTabWidgetPrivate::restoreMetadata(
         return false;
     }
     guardedTarget->setTabText(index, snapshotValue.text);
-    if ((index = resolveIndex()) < 0) {
+    index = resolveIndex();
+    if (index < 0) {
         return false;
     }
     guardedTarget->setTabIcon(index, snapshotValue.icon);
-    if ((index = resolveIndex()) < 0) {
+    index = resolveIndex();
+    if (index < 0) {
         return false;
     }
     guardedTarget->setTabToolTip(index, snapshotValue.toolTip);
-    if ((index = resolveIndex()) < 0) {
+    index = resolveIndex();
+    if (index < 0) {
         return false;
     }
     guardedTarget->setTabWhatsThis(index, snapshotValue.whatsThis);
-    if ((index = resolveIndex()) < 0) {
+    index = resolveIndex();
+    if (index < 0) {
         return false;
     }
     guardedTarget->setTabEnabled(index, snapshotValue.enabled);
-    if ((index = resolveIndex()) < 0) {
+    index = resolveIndex();
+    if (index < 0) {
         return false;
     }
     guardedTarget->fluentTabBar()->setTabData(index, snapshotValue.data);
-    if ((index = resolveIndex()) < 0) {
+    index = resolveIndex();
+    if (index < 0) {
         return false;
     }
     guardedTarget->fluentTabBar()->setTabTextColor(
         index,
         snapshotValue.textColor);
-    if ((index = resolveIndex()) < 0) {
+    if (resolveIndex() < 0) {
         return false;
     }
     auto &state = guardedTarget->d_ptr->ensureMetadata(guardedPage);

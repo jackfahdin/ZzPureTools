@@ -130,7 +130,6 @@
 namespace {
 
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
-constexpr QSize zzNarrowWorkspaceSurfaceSize(480, 540);
 constexpr QPoint zzMenuOrigin(914, 590);
 constexpr QPoint zzComboBoxPopupOrigin(770, 570);
 constexpr QPoint zzSuggestBoxPopupOrigin(770, 660);
@@ -6651,6 +6650,8 @@ QImage zzRenderStandardBreadthSurface(
 }
 
 #if 0 // Workspace screenshots are owned by ZzWorkspaceScreenshotTest.
+constexpr QSize zzNarrowWorkspaceSurfaceSize(480, 540);
+
 /** @brief 构造标题栏、侧栏、停靠面板和标签页组成的工作区截图面。 */
 class ZzWorkspaceScreenshotSurface final
 {

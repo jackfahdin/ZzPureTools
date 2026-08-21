@@ -170,9 +170,9 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     themeButton->setPopupMode(QToolButton::InstantPopup);
     themeActionGroup->setExclusive(true);
     const auto addThemeAction = [this](
-                                    QString text,
+                                    const QString &text,
                                     ZzThemeMode mode) -> QAction * {
-        auto *action = themeMenu->addAction(std::move(text));
+        auto *action = themeMenu->addAction(text);
         action->setCheckable(true);
         action->setData(static_cast<int>(mode));
         themeActionGroup->addAction(action);
