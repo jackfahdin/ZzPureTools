@@ -76,6 +76,9 @@ private Q_SLOTS:
 
         QWidget *const titleBar = panel->titleBarWidget();
         QVERIFY(titleBar != nullptr);
+        if (titleBar == nullptr) {
+            return;
+        }
         QVERIFY(!titleBar->accessibleName().isEmpty());
         auto *floatButton = titleBar->findChild<QToolButton *>(
             QStringLiteral("zzDockPanelFloatButton"));
@@ -83,6 +86,9 @@ private Q_SLOTS:
             QStringLiteral("zzDockPanelCloseButton"));
         QVERIFY(floatButton != nullptr);
         QVERIFY(closeButton != nullptr);
+        if (floatButton == nullptr || closeButton == nullptr) {
+            return;
+        }
         QVERIFY(!floatButton->accessibleName().isEmpty());
         QVERIFY(!closeButton->accessibleName().isEmpty());
         QVERIFY(floatButton->isVisible());
@@ -144,6 +150,9 @@ private Q_SLOTS:
         auto *closeButton = panel->titleBarWidget()->findChild<QToolButton *>(
             QStringLiteral("zzDockPanelCloseButton"));
         QVERIFY(closeButton != nullptr);
+        if (closeButton == nullptr) {
+            return;
+        }
         QVERIFY(closeButton->isVisible());
         ZzCloseEventObserver observer;
         panel->installEventFilter(&observer);

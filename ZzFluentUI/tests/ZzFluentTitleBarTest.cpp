@@ -60,7 +60,13 @@ private Q_SLOTS:
             QStringLiteral("zzTitleBarCompactMenuButton"));
         QVERIFY(menuBar != nullptr);
         QVERIFY(compactButton != nullptr);
+        if (menuBar == nullptr || compactButton == nullptr) {
+            return;
+        }
         QVERIFY(compactButton->menu() != nullptr);
+        if (compactButton->menu() == nullptr) {
+            return;
+        }
 
         QAction first(QStringLiteral("First"), &titleBar);
         QAction middle(QStringLiteral("Middle"), &titleBar);
@@ -86,7 +92,13 @@ private Q_SLOTS:
             QStringLiteral("zzTitleBarCompactMenuButton"));
         QVERIFY(menuBar != nullptr);
         QVERIFY(compactButton != nullptr);
+        if (menuBar == nullptr || compactButton == nullptr) {
+            return;
+        }
         QVERIFY(compactButton->menu() != nullptr);
+        if (compactButton->menu() == nullptr) {
+            return;
+        }
 
         auto *first = menuBar->addAction(QStringLiteral("First"));
         auto *second = menuBar->addAction(QStringLiteral("Second"));
@@ -120,7 +132,13 @@ private Q_SLOTS:
         auto *themeButton = titleBar.findChild<QToolButton *>(
             QStringLiteral("zzTitleBarThemeButton"));
         QVERIFY(themeButton != nullptr);
+        if (themeButton == nullptr) {
+            return;
+        }
         QVERIFY(themeButton->menu() != nullptr);
+        if (themeButton->menu() == nullptr) {
+            return;
+        }
         QCOMPARE(themeButton->menu()->actions().size(), 3);
 
         titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::HighContrast);
@@ -146,16 +164,28 @@ private Q_SLOTS:
         ZzFluentUI::ZzFluentTitleBar titleBar;
         auto *menuBar = titleBar.menuBar();
         QVERIFY(menuBar != nullptr);
+        if (menuBar == nullptr) {
+            return;
+        }
         QVERIFY(!menuBar->isNativeMenuBar());
         auto *fileMenu = menuBar->addMenu(QStringLiteral("File"));
         auto *editMenu = menuBar->addMenu(QStringLiteral("Edit"));
         QVERIFY(fileMenu != nullptr);
         QVERIFY(editMenu != nullptr);
+        if (fileMenu == nullptr || editMenu == nullptr) {
+            return;
+        }
         QAction dynamicAction(QStringLiteral("Help"), &titleBar);
         auto *compactButton = titleBar.findChild<QToolButton *>(
             QStringLiteral("zzTitleBarCompactMenuButton"));
         QVERIFY(compactButton != nullptr);
+        if (compactButton == nullptr) {
+            return;
+        }
         QVERIFY(compactButton->menu() != nullptr);
+        if (compactButton->menu() == nullptr) {
+            return;
+        }
 
         titleBar.setMenuDisplayMode(
             ZzFluentUI::ZzTitleBarMenuDisplayMode::Adaptive);
@@ -234,6 +264,9 @@ private Q_SLOTS:
         auto *titleLabel = titleBar.findChild<QLabel *>(
             QStringLiteral("zzTitleBarTitle"));
         QVERIFY(titleLabel != nullptr);
+        if (titleLabel == nullptr) {
+            return;
+        }
         QVERIFY(titleLabel->isVisible());
         QCOMPARE(titleLabel->geometry().center().x(), titleBar.rect().center().x());
         QVERIFY(titleLabel->text() != titleBar.title());
@@ -269,7 +302,13 @@ private Q_SLOTS:
             QStringLiteral("zzTitleBarAlwaysOnTopButton"));
         QVERIFY(themeButton != nullptr);
         QVERIFY(alwaysOnTopButton != nullptr);
+        if (themeButton == nullptr || alwaysOnTopButton == nullptr) {
+            return;
+        }
         QVERIFY(themeButton->menu() != nullptr);
+        if (themeButton->menu() == nullptr) {
+            return;
+        }
         QVERIFY(themeButton->isCheckable());
         QVERIFY(themeButton->isChecked());
         QVERIFY(!themeButton->toolTip().isEmpty());
@@ -288,6 +327,9 @@ private Q_SLOTS:
             }
         }
         QVERIFY(lightAction != nullptr);
+        if (lightAction == nullptr) {
+            return;
+        }
         lightAction->trigger();
         QTest::mouseClick(alwaysOnTopButton, Qt::LeftButton);
 
@@ -329,6 +371,9 @@ private Q_SLOTS:
         auto *titleLabel = titleBar.findChild<QLabel *>(
             QStringLiteral("zzTitleBarTitle"));
         QVERIFY(titleLabel != nullptr);
+        if (titleLabel == nullptr) {
+            return;
+        }
         QCOMPARE(titleLabel->geometry().center().x(), titleBar.rect().center().x());
     }
 
@@ -346,6 +391,9 @@ private Q_SLOTS:
         QVERIFY(minimize != nullptr);
         QVERIFY(maximize != nullptr);
         QVERIFY(close != nullptr);
+        if (minimize == nullptr || maximize == nullptr || close == nullptr) {
+            return;
+        }
         QSignalSpy minimizeSpy(
             &titleBar,
             &ZzFluentUI::ZzFluentTitleBar::minimizeRequested);
@@ -379,6 +427,9 @@ private Q_SLOTS:
             titleBar.closeButton()};
         for (QWidget *widget : chrome) {
             QVERIFY(widget != nullptr);
+            if (widget == nullptr) {
+                return;
+            }
             QVERIFY(titleBar.isAncestorOf(widget));
         }
         const QList<QWidget *> interactive = titleBar.interactiveWidgets();
@@ -392,6 +443,9 @@ private Q_SLOTS:
         QCOMPARE(hitTestVisible.size(), 4);
         for (QWidget *widget : hitTestVisible) {
             QVERIFY(widget != nullptr);
+            if (widget == nullptr) {
+                return;
+            }
             QVERIFY(titleBar.isAncestorOf(widget));
             QVERIFY(!interactive.contains(widget));
         }
