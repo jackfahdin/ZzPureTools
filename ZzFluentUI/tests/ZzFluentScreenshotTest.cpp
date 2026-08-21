@@ -70,15 +70,18 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzActionCard.h>
+#include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzColorPicker.h>
+#include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
+#include <ZzFluentUI/ZzExplorerPane.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -119,6 +122,8 @@
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
+#include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
 
 namespace {
 
@@ -6642,6 +6647,81 @@ QImage zzRenderStandardBreadthSurface(
     return image;
 }
 
+/** @brief 构造标题栏、侧栏、停靠面板和标签页组成的工作区截图面。 */
+class ZzWorkspaceScreenshotSurface final
+{
+public:
+    ZzWorkspaceScreenshotSurface()
+        : titleBar(&window)
+    {
+        window.setObjectName(QStringLiteral("zzWorkspaceScreenshotSurface"));
+        window.setWindowTitle(QStringLiteral("Workspace"));
+        window.setFixedSize(zzLogicalSurfaceSize);
+        auto *fileMenu = titleBar.menuBar()->addMenu(QStringLiteral("File"));
+        fileMenu->addAction(QStringLiteral("Open"));
+        titleBar.menuBar()->addMenu(QStringLiteral("View"));
+        window.setMenuWidget(&titleBar);
+        auto result = ZzPureTools::ZzWorkspaceShell::create(
+            &window, &titleBar);
+        Q_ASSERT(result);
+        shell = std::move(result).value();
+        window.setCentralWidget(shell->workspaceWidget());
+        auto *explorer = new ZzFluentUI::ZzExplorerPane;
+        explorerModel.appendRow(new QStandardItem(QStringLiteral("src")));
+        explorerModel.appendRow(new QStandardItem(QStringLiteral("README.md")));
+        explorer->setModel(&explorerModel);
+        const auto sideResult = shell->registerSidePanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("explorer")),
+            QStringLiteral("Explorer"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, explorer);
+        Q_ASSERT(sideResult);
+        const auto dockResult = shell->registerDockPanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
+            QStringLiteral("Terminal"), {}, Qt::BottomDockWidgetArea,
+            new QWidget);
+        Q_ASSERT(dockResult);
+        shell->tabWidget()->addTab(new QWidget, QStringLiteral("main.cpp"));
+        shell->tabWidget()->addTab(new QWidget, QStringLiteral("Preview"));
+        commandModel.appendRow(new QStandardItem(QStringLiteral("Build workspace")));
+        shell->commandPalette()->setModel(&commandModel);
+    }
+
+    void polish()
+    {
+        window.show();
+        QCoreApplication::processEvents();
+    }
+
+    void hide()
+    {
+        shell.reset();
+        window.hide();
+    }
+
+    QMainWindow window;
+    ZzFluentUI::ZzFluentTitleBar titleBar;
+    std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
+    QStandardItemModel explorerModel;
+    QStandardItemModel commandModel;
+};
+
+/** @brief 将工作区窗口渲染到指定 DPR 的固定物理画布。 */
+QImage zzRenderWorkspaceSurface(
+    ZzWorkspaceScreenshotSurface *surface,
+    qreal dpr)
+{
+    const QSize physicalSize(
+        qRound(zzLogicalSurfaceSize.width() * dpr),
+        qRound(zzLogicalSurfaceSize.height() * dpr));
+    QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
+    image.setDevicePixelRatio(dpr);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    surface->window.render(&painter);
+    painter.end();
+    return image;
+}
+
 } // namespace
 
 /** @brief 验证 Fluent 控件在固定 Linux 参考环境中的视觉基线。 */
@@ -9194,6 +9274,74 @@ private Q_SLOTS:
                 .arg(differenceRatio, 0, 'f', 6)
                 .arg(maximumDifferenceRatio, 0, 'f', 6)
                 .arg(actualPath, diffPath)));
+    }
+
+    void rendersWorkspaceThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("workspace-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("workspace-light");
+        QTest::newRow("workspace-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("workspace-dark");
+        QTest::newRow("workspace-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("workspace-high-contrast");
+    }
+
+    void rendersWorkspaceThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzWorkspaceScreenshotSurface surface;
+        surface.polish();
+        const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
+        QCOMPARE(actual.size(), QSize(
+            qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+            qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        surface.hide();
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+        QImage expected(baselinePath);
+        QVERIFY2(!expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        QImage noTextMask(actual.size(), QImage::Format_Grayscale8);
+        noTextMask.fill(0);
+        const ZzImageComparison comparison = zzCompareImages(
+            expected, actual, noTextMask);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio = static_cast<qreal>(
+            comparison.differentPixels) / static_cast<qreal>(
+                comparison.comparedPixels);
+        if (differenceRatio <= zzMaximumDifferenceRatio()) {
+            return;
+        }
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY(QDir().mkpath(reportDirectory));
+        QVERIFY(actual.save(QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png")), "PNG"));
+        QVERIFY(comparison.difference.save(QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png")), "PNG"));
+        QFAIL("workspace screenshot differs from baseline");
     }
 
     void cleanupTestCase()

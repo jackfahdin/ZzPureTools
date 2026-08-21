@@ -691,6 +691,7 @@ target_link_libraries(ZzFluentScreenshotTest PRIVATE
     Qt6::Test
     Qt6::Widgets
     Zz::FluentUI
+    Zz::PureTools
 )
 target_compile_definitions(ZzFluentScreenshotTest PRIVATE
     "ZZ_FLUENT_SCREENSHOT_BASELINE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/baselines/linux\""
