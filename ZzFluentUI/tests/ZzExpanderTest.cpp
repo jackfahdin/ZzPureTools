@@ -217,15 +217,14 @@ private Q_SLOTS:
 
         expander->setExpanded(true);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
-        QTest::qWait(24);
+        QTRY_VERIFY(contentHost(expander)->maximumHeight() > 0);
         const int expandingHeight = contentHost(expander)->maximumHeight();
-        QVERIFY(expandingHeight > 0);
         QVERIFY(expandingHeight < QWIDGETSIZE_MAX);
 
         expander->setExpanded(false);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         QCOMPARE(contentHost(expander)->maximumHeight(), expandingHeight);
-        QTest::qWait(12);
+        QTRY_VERIFY(contentHost(expander)->maximumHeight() < expandingHeight);
         const int collapsingHeight = contentHost(expander)->maximumHeight();
         expander->setExpanded(true);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
