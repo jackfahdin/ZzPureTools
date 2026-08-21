@@ -22,6 +22,7 @@
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -132,7 +133,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto side = workspace->registerSidePanel(
         zzPanelId("sessions"),
         QCoreApplication::translate("ZzPureToolsExample", "会话"),
-        {}, ZzFluentUI::ZzActivityArea::LeftPrimary,
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::Server),
+        ZzFluentUI::ZzActivityArea::LeftPrimary,
         sessionPanel.get());
     if (!side) {
         return side;
