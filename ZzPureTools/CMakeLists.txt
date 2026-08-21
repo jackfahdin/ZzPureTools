@@ -59,6 +59,9 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzApplicationBuilderPrivate.cpp
     widgets/src/ZzApplicationWindow.cpp
     widgets/src/private/ZzApplicationWindowPrivate.cpp
+    widgets/src/ZzWorkspacePanelId.cpp
+    widgets/src/ZzWorkspaceShell.cpp
+    widgets/src/private/ZzWorkspaceShellPrivate.cpp
 )
 set(zz_pure_tools_moc_headers
     widgets/include/ZzPureTools/ZzPageHost.h

@@ -120,6 +120,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzExplorerPanePrivate.cpp
     widgets/src/ZzCommandPalette.cpp
     widgets/src/private/ZzCommandPalettePrivate.cpp
+    widgets/src/ZzDockPanel.cpp
+    widgets/src/private/ZzDockPanelPrivate.cpp
     widgets/src/ZzBreadcrumbBar.cpp
     widgets/src/private/ZzBreadcrumbBarPrivate.cpp
     widgets/src/ZzFluentItemDelegate.cpp
@@ -170,6 +172,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzSidePane.h
     widgets/include/ZzFluentUI/ZzExplorerPane.h
     widgets/include/ZzFluentUI/ZzCommandPalette.h
+    widgets/include/ZzFluentUI/ZzDockPanel.h
     widgets/include/ZzFluentUI/ZzBreadcrumbBar.h
     widgets/include/ZzFluentUI/ZzFluentItemDelegate.h
     widgets/include/ZzFluentUI/ZzFluentTitleBar.h

@@ -615,6 +615,17 @@ zz_enable_sanitizers(ZzCommandPaletteTest)
 add_test(NAME fluent.command-palette COMMAND ZzCommandPaletteTest)
 set_tests_properties(fluent.command-palette PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(ZzDockPanelTest ZzDockPanelTest.cpp)
+target_link_libraries(ZzDockPanelTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzDockPanelTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzDockPanelTest)
+zz_enable_sanitizers(ZzDockPanelTest)
+add_test(NAME fluent.dock-panel COMMAND ZzDockPanelTest)
+set_tests_properties(fluent.dock-panel PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 set_target_properties(ZzNavigationControlsTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzNavigationControlsTest)
 zz_enable_sanitizers(ZzNavigationControlsTest)

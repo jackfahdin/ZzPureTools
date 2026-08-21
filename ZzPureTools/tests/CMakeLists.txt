@@ -37,6 +37,22 @@ set_tests_properties(puretools.navigation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzWorkspaceShellTest ZzWorkspaceShellTest.cpp)
+target_link_libraries(ZzWorkspaceShellTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::PureTools
+    Zz::FluentUI
+)
+set_target_properties(ZzWorkspaceShellTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceShellTest)
+zz_enable_sanitizers(ZzWorkspaceShellTest)
+add_test(NAME puretools.workspace-shell COMMAND ZzWorkspaceShellTest)
+set_tests_properties(puretools.workspace-shell PROPERTIES
+    LABELS "component;puretools;workspace"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzApplicationBuilderTest ZzApplicationBuilderTest.cpp)
 target_link_libraries(ZzApplicationBuilderTest PRIVATE
     Qt6::Test
