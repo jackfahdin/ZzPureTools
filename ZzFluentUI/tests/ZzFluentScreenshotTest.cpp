@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cmath>
 #include <cstdio>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include <QtCore/QAbstractAnimation>
@@ -71,6 +73,7 @@
 
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzActivityArea.h>
+#include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
@@ -78,6 +81,7 @@
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
+#include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzContentDialog.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
@@ -128,6 +132,7 @@
 namespace {
 
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
+constexpr QSize zzNarrowWorkspaceSurfaceSize(480, 540);
 constexpr QPoint zzMenuOrigin(914, 590);
 constexpr QPoint zzComboBoxPopupOrigin(770, 570);
 constexpr QPoint zzSuggestBoxPopupOrigin(770, 660);
@@ -6651,12 +6656,15 @@ QImage zzRenderStandardBreadthSurface(
 class ZzWorkspaceScreenshotSurface final
 {
 public:
-    ZzWorkspaceScreenshotSurface()
+    explicit ZzWorkspaceScreenshotSurface(
+        QSize surfaceSize = zzLogicalSurfaceSize,
+        QString titleBarTitle = {})
         : titleBar(&window)
     {
         window.setObjectName(QStringLiteral("zzWorkspaceScreenshotSurface"));
         window.setWindowTitle(QStringLiteral("Workspace"));
-        window.setFixedSize(zzLogicalSurfaceSize);
+        window.setFixedSize(surfaceSize);
+        titleBar.setTitle(std::move(titleBarTitle));
         auto *fileMenu = titleBar.menuBar()->addMenu(QStringLiteral("File"));
         fileMenu->addAction(QStringLiteral("Open"));
         titleBar.menuBar()->addMenu(QStringLiteral("View"));
@@ -6711,8 +6719,8 @@ QImage zzRenderWorkspaceSurface(
     qreal dpr)
 {
     const QSize physicalSize(
-        qRound(zzLogicalSurfaceSize.width() * dpr),
-        qRound(zzLogicalSurfaceSize.height() * dpr));
+        qRound(surface->window.width() * dpr),
+        qRound(surface->window.height() * dpr));
     QImage image(physicalSize, QImage::Format_ARGB32_Premultiplied);
     image.setDevicePixelRatio(dpr);
     image.fill(Qt::transparent);
@@ -6720,6 +6728,73 @@ QImage zzRenderWorkspaceSurface(
     surface->window.render(&painter);
     painter.end();
     return image;
+}
+
+/** @brief 验证窄工作区标题栏与主要面板没有相互覆盖。 */
+void zzVerifyNarrowWorkspaceGeometry(
+    ZzWorkspaceScreenshotSurface &surface)
+{
+    const auto *title = surface.titleBar.findChild<QLabel *>(
+        QStringLiteral("zzTitleBarTitle"));
+    const auto *compactMenu = surface.titleBar.findChild<QToolButton *>(
+        QStringLiteral("zzTitleBarCompactMenuButton"));
+    const auto *theme = surface.titleBar.findChild<QToolButton *>(
+        QStringLiteral("zzTitleBarThemeButton"));
+    const auto *alwaysOnTop = surface.titleBar.findChild<QToolButton *>(
+        QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+    QVERIFY(title != nullptr);
+    QVERIFY(compactMenu != nullptr);
+    QVERIFY(theme != nullptr);
+    QVERIFY(alwaysOnTop != nullptr);
+    QVERIFY(compactMenu->isVisible());
+    QVERIFY(!surface.titleBar.menuBar()->isVisible());
+
+    const std::array<const QWidget *, 8> titleBarWidgets{
+        compactMenu,
+        title,
+        theme,
+        alwaysOnTop,
+        surface.titleBar.minimizeButton(),
+        surface.titleBar.maximizeButton(),
+        surface.titleBar.closeButton(),
+        surface.titleBar.windowIconWidget()};
+    for (const QWidget *widget : titleBarWidgets) {
+        QVERIFY(widget != nullptr);
+        QVERIFY(widget->isVisible());
+        QVERIFY(!widget->geometry().isEmpty());
+    }
+    for (std::size_t first = 0; first < titleBarWidgets.size(); ++first) {
+        for (std::size_t second = first + 1;
+             second < titleBarWidgets.size(); ++second) {
+            QVERIFY2(
+                !titleBarWidgets.at(first)->geometry().intersects(
+                    titleBarWidgets.at(second)->geometry()),
+                "narrow title bar widgets overlap");
+        }
+    }
+
+    auto *activity = surface.shell->activityBar(
+        ZzFluentUI::ZzSidePaneEdge::Left);
+    auto *tabs = surface.shell->tabWidget();
+    auto *dock = surface.window.findChild<ZzFluentUI::ZzDockPanel *>();
+    QVERIFY(activity != nullptr);
+    QVERIFY(tabs != nullptr);
+    QVERIFY(dock != nullptr);
+    QVERIFY(activity->isVisible());
+    QVERIFY(tabs->isVisible());
+    QVERIFY(dock->isVisible());
+    const QRect activityRect = zzMapToSurface(
+        activity, activity->rect(), &surface.window);
+    const QRect tabRect = zzMapToSurface(
+        tabs, tabs->rect(), &surface.window);
+    const QRect dockRect = zzMapToSurface(
+        dock, dock->rect(), &surface.window);
+    QVERIFY(!activityRect.isEmpty());
+    QVERIFY(!tabRect.isEmpty());
+    QVERIFY(!dockRect.isEmpty());
+    QVERIFY(!activityRect.intersects(tabRect));
+    QVERIFY(!activityRect.intersects(dockRect));
+    QVERIFY(!tabRect.intersects(dockRect));
 }
 
 } // namespace
@@ -9342,6 +9417,77 @@ private Q_SLOTS:
         QVERIFY(comparison.difference.save(QDir(reportDirectory).filePath(
             fileStem + QStringLiteral("-diff.png")), "PNG"));
         QFAIL("workspace screenshot differs from baseline");
+    }
+
+    void rendersNarrowWorkspaceThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("workspace-narrow-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("workspace-narrow-light");
+        QTest::newRow("workspace-narrow-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("workspace-narrow-dark");
+        QTest::newRow("workspace-narrow-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("workspace-narrow-high-contrast");
+    }
+
+    void rendersNarrowWorkspaceThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzWorkspaceScreenshotSurface surface(
+            zzNarrowWorkspaceSurfaceSize,
+            QStringLiteral("Narrow workspace title"));
+        surface.polish();
+        zzVerifyNarrowWorkspaceGeometry(surface);
+        const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
+        QCOMPARE(actual.size(), QSize(
+            qRound(zzNarrowWorkspaceSurfaceSize.width() * expectedDpr_),
+            qRound(zzNarrowWorkspaceSurfaceSize.height() * expectedDpr_)));
+        surface.hide();
+        const QString baselineDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                              .filePath(baselineSubdirectory_);
+        const QString baselinePath = QDir(baselineDirectory).filePath(
+            fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY2(QDir().mkpath(baselineDirectory),
+                qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
+                               .arg(baselineDirectory)));
+            QVERIFY2(actual.save(baselinePath, "PNG"),
+                qPrintable(QStringLiteral("无法写入 baseline：%1")
+                               .arg(baselinePath)));
+            return;
+        }
+        QImage expected(baselinePath);
+        QVERIFY2(!expected.isNull(),
+            qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
+                           .arg(baselinePath)));
+        QCOMPARE(expected.size(), actual.size());
+        QImage noTextMask(actual.size(), QImage::Format_Grayscale8);
+        noTextMask.fill(0);
+        const ZzImageComparison comparison = zzCompareImages(
+            expected, actual, noTextMask);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal differenceRatio = static_cast<qreal>(
+            comparison.differentPixels) / static_cast<qreal>(
+            comparison.comparedPixels);
+        if (differenceRatio <= zzMaximumDifferenceRatio()) {
+            return;
+        }
+        const QString reportDirectory = QDir(
+            QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                            .filePath(baselineSubdirectory_);
+        QVERIFY(QDir().mkpath(reportDirectory));
+        QVERIFY(actual.save(QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-actual.png")), "PNG"));
+        QVERIFY(comparison.difference.save(QDir(reportDirectory).filePath(
+            fileStem + QStringLiteral("-diff.png")), "PNG"));
+        QFAIL("narrow workspace screenshot differs from baseline");
     }
 
     void cleanupTestCase()
