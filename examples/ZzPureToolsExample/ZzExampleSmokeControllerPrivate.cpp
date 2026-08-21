@@ -714,10 +714,10 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
 void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
     ZzPureTools::ZzApplicationWindow &window)
 {
-    auto *activity = window.findChild<QListView *>(
-        QStringLiteral("zzExampleActivityList"));
+    auto *activity = window.findChild<QTableView *>(
+        QStringLiteral("zzExampleActivityLogView"));
     if (activity == nullptr) {
-        fail("route smoke has no activity list");
+        fail("route smoke has no activity log view");
         return;
     }
 
@@ -730,7 +730,7 @@ void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
         QScrollBar *const scrollBar = activity->verticalScrollBar();
         if (scrollBar->maximum() <= scrollBar->minimum()
             || scrollBar->value() != scrollBar->maximum()) {
-            fail("activity list did not follow appended rows at the tail");
+            fail("activity log view did not follow appended rows at the tail");
             return;
         }
 
@@ -745,7 +745,7 @@ void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
                 QScrollBar *const pausedScrollBar =
                     activity->verticalScrollBar();
                 if (pausedScrollBar->value() != pausedValue) {
-                    fail("activity list interrupted manual history browsing");
+                    fail("activity log view interrupted manual history browsing");
                     return;
                 }
 
@@ -757,7 +757,7 @@ void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
                         activity->verticalScrollBar();
                     if (resumedScrollBar->value()
                         != resumedScrollBar->maximum()) {
-                        fail("activity list did not resume tail following");
+                        fail("activity log view did not resume tail following");
                         return;
                     }
                     application->beginShutdown();
@@ -806,10 +806,10 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
             return;
         }
 
-        auto *firstActivity = firstWindow.findChild<QListView *>(
-            QStringLiteral("zzExampleActivityList"));
-        auto *secondActivity = secondWindow->findChild<QListView *>(
-            QStringLiteral("zzExampleActivityList"));
+        auto *firstActivity = firstWindow.findChild<QTableView *>(
+            QStringLiteral("zzExampleActivityLogView"));
+        auto *secondActivity = secondWindow->findChild<QTableView *>(
+            QStringLiteral("zzExampleActivityLogView"));
         if (firstActivity == nullptr || secondActivity == nullptr
             || firstActivity->model() != &context->activityModel()
             || secondActivity->model() != &context->activityModel()) {
