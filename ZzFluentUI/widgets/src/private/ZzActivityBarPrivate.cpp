@@ -24,6 +24,7 @@ namespace {
 
 constexpr auto zzActivityMoveMimeType =
     "application/x-zzfluentui-activity-move";
+constexpr int zzActivityBarWidth = 48;
 constexpr int zzActivityItemHeight = 40;
 
 [[nodiscard]] ZzActivityArea zzAreaFor(
@@ -260,6 +261,7 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     , edge(initialEdge)
 {
     Q_ASSERT(q_ptr != nullptr);
+    q_ptr->setFixedWidth(zzActivityBarWidth);
     dragTokenExpiryTimer = new QTimer(q_ptr);
     dragTokenExpiryTimer->setSingleShot(true);
     dragTokenExpiryTimer->setInterval(5000);

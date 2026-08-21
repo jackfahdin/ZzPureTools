@@ -9,7 +9,9 @@
 #include <QtGui/QDragLeaveEvent>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
@@ -119,6 +121,29 @@ class ZzActivityBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void keepsFixedWidthInsideExpandingHorizontalLayout()
+    {
+        QWidget host;
+        auto *layout = new QHBoxLayout(&host);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        auto *bar = new ZzFluentUI::ZzActivityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left, &host);
+        auto *sibling = new QWidget(&host);
+        sibling->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        layout->addWidget(bar);
+        layout->addWidget(sibling, 1);
+
+        host.resize(480, 320);
+        host.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(bar->minimumWidth(), 48);
+        QCOMPARE(bar->maximumWidth(), 48);
+        QCOMPARE(bar->width(), 48);
+        QCOMPARE(sibling->width(), 432);
+    }
+
     void projectsOnlyTheConfiguredPhysicalSide()
     {
         ZzActivityRowsModel model;
