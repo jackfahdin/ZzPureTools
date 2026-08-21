@@ -4,9 +4,12 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QMimeData>
 #include <QtCore/QPointer>
+#include <QtGui/QColor>
 #include <QtGui/QDropEvent>
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDragLeaveEvent>
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QHBoxLayout>
@@ -16,7 +19,12 @@
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
+#include <ZzFluentUI/ZzBundledSvgIcon.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzFontIcon.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzThemeController.h>
 
 namespace {
 
@@ -32,6 +40,7 @@ public:
         bool enabled = true;
         bool draggable = true;
         QString text;
+        ZzFluentUI::ZzIconDescriptor icon;
     };
 
     explicit ZzActivityRowsModel(QObject *parent = nullptr)
@@ -39,13 +48,13 @@ public:
     {
         rows = {
             {ZzFluentUI::ZzActivityArea::LeftPrimary, 7, true, true,
-             QStringLiteral("Left primary")},
+             QStringLiteral("Left primary"), {}},
             {ZzFluentUI::ZzActivityArea::LeftSecondary, 0, false, false,
-             QStringLiteral("Left disabled")},
+             QStringLiteral("Left disabled"), {}},
             {ZzFluentUI::ZzActivityArea::RightPrimary, 120, true, true,
-             QStringLiteral("Right primary")},
+             QStringLiteral("Right primary"), {}},
             {ZzFluentUI::ZzActivityArea::RightSecondary, 2, true, true,
-             QStringLiteral("Right secondary")},
+             QStringLiteral("Right secondary"), {}},
         };
     }
 
@@ -68,6 +77,8 @@ public:
             return row.text;
         case Qt::ToolTipRole:
             return row.text;
+        case Qt::DecorationRole:
+            return QVariant::fromValue(row.icon);
         case static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area):
             return QVariant::fromValue(row.area);
         case static_cast<int>(ZzFluentUI::ZzActivityItemRole::Badge):
@@ -113,6 +124,38 @@ void zzShow(QWidget *widget)
     QCoreApplication::processEvents();
 }
 
+[[nodiscard]] QImage zzRenderWidget(QWidget *widget)
+{
+    Q_ASSERT(widget != nullptr);
+    QImage image(widget->size(), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    widget->render(&painter);
+    return image;
+}
+
+[[nodiscard]] int zzCountPixelsNearColor(
+    const QImage &image,
+    const QRect &rect,
+    const QColor &expected)
+{
+    constexpr int tolerance = 4;
+    int count = 0;
+    const QRect bounded = rect.intersected(image.rect());
+    for (int y = bounded.top(); y <= bounded.bottom(); ++y) {
+        for (int x = bounded.left(); x <= bounded.right(); ++x) {
+            const QColor pixel = image.pixelColor(x, y);
+            if (pixel.alpha() > 200
+                && qAbs(pixel.red() - expected.red()) <= tolerance
+                && qAbs(pixel.green() - expected.green()) <= tolerance
+                && qAbs(pixel.blue() - expected.blue()) <= tolerance) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 } // namespace
 
 /** @brief 验证 Activity Bar 的固定投影、键盘意图和进程内拖放契约。 */
@@ -121,6 +164,82 @@ class ZzActivityBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void rendersFontAndSvgDescriptors_data()
+    {
+        QTest::addColumn<ZzFluentUI::ZzIconDescriptor>("descriptor");
+        QTest::addColumn<QColor>("expectedColor");
+
+        const QColor fontColor(QStringLiteral("#ff00cc"));
+        QTest::newRow("font-glyph")
+            << ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+                   ZzFluentUI::ZzFontIcon::House,
+                   false,
+                   ZzFluentUI::ZzIconColorMode::Custom,
+                   fontColor)
+            << fontColor;
+
+        const QColor svgColor(QStringLiteral("#00c8ff"));
+        QTest::newRow("bundled-svg")
+            << ZzFluentUI::ZzIconDescriptor::fromBundledSvg(
+                   ZzFluentUI::ZzBundledSvgIcon::PinFill,
+                   false,
+                   ZzFluentUI::ZzIconColorMode::Custom,
+                   svgColor)
+            << svgColor;
+    }
+
+    void rendersFontAndSvgDescriptors()
+    {
+        QFETCH(ZzFluentUI::ZzIconDescriptor, descriptor);
+        QFETCH(QColor, expectedColor);
+
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzActivityRowsModel model;
+        model.rows[0].badge = 0;
+        model.rows[0].icon = descriptor;
+        QWidget host;
+        auto *layout = new QHBoxLayout(&host);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        auto *bar = new ZzFluentUI::ZzActivityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left, &host);
+        auto *sibling = new QWidget(&host);
+        sibling->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        layout->addWidget(bar);
+        layout->addWidget(sibling, 1);
+        bar->setModel(&model);
+
+        QListView *const view = zzActivityView(
+            bar, QStringLiteral("zzActivityPrimaryView"));
+        view->setStyle(&style);
+        view->viewport()->setStyle(&style);
+        host.resize(480, 320);
+        host.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(bar->width(), 48);
+        const QRect rowRect = view->visualRect(view->model()->index(0, 0));
+        QVERIFY(!rowRect.isEmpty());
+        QCOMPARE(rowRect.left(), 0);
+        QCOMPARE(rowRect.width(), view->viewport()->width());
+        const QRect visibleRow(
+            0,
+            rowRect.top(),
+            view->viewport()->width(),
+            rowRect.height());
+        const QRect iconRect(
+            visibleRow.center().x() - 12,
+            visibleRow.center().y() - 12,
+            24,
+            24);
+        const QImage rendered = zzRenderWidget(view->viewport());
+
+        QVERIFY2(
+            zzCountPixelsNearColor(rendered, iconRect, expectedColor) > 3,
+            "Activity Bar 没有通过 Fluent 图标缓存绘制 descriptor");
+    }
+
     void keepsFixedWidthInsideExpandingHorizontalLayout()
     {
         QWidget host;

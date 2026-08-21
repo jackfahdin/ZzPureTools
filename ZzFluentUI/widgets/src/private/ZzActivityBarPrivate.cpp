@@ -7,16 +7,23 @@
 #include <QtCore/QMimeData>
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QThread>
+#include <QtCore/QTimer>
 #include <QtCore/QUuid>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QPainter>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QStyle>
+#include <QtWidgets/QStyleOption>
 #include <QtWidgets/QStyledItemDelegate>
-#include <QtCore/QTimer>
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
+
+#include "ZzItemViewVisual.h"
 
 namespace ZzFluentUI {
 
@@ -26,6 +33,7 @@ constexpr auto zzActivityMoveMimeType =
     "application/x-zzfluentui-activity-move";
 constexpr int zzActivityBarWidth = 48;
 constexpr int zzActivityItemHeight = 40;
+constexpr int zzActivityIconExtent = 20;
 
 [[nodiscard]] ZzActivityArea zzAreaFor(
     ZzSidePaneEdge edge,
@@ -46,25 +54,132 @@ constexpr int zzActivityItemHeight = 40;
         && index.model()->flags(index).testFlag(Qt::ItemIsEnabled);
 }
 
-/** @brief 在标准绘制后用 palette 绘制有界数字徽标。 */
+/** @brief 判断统一图标描述是否包含可交给 Fluent 缓存的来源。 */
+[[nodiscard]] bool zzHasIconDescriptor(
+    const QVariant &value,
+    const ZzIconDescriptor &descriptor)
+{
+    if (!value.canConvert<ZzIconDescriptor>()) {
+        return false;
+    }
+    switch (descriptor.source) {
+    case ZzIconSource::SvgResource:
+        return !descriptor.resourceId.trimmed().isEmpty();
+    case ZzIconSource::FontGlyph:
+        return descriptor.fontIcon != ZzFontIcon::None;
+    }
+    return false;
+}
+
+/** @brief 绘制固定轨道的交互背板、图标后备、badge 和键盘焦点。 */
 class ZzActivityItemDelegate final : public QStyledItemDelegate
 {
 public:
+    /** @brief 创建不分配逐行控件的共享 delegate。 */
     explicit ZzActivityItemDelegate(QObject *parent)
         : QStyledItemDelegate(parent)
     {
     }
 
+    /** @brief 通过 Fluent 图标缓存绘制当前可见活动入口。 */
     void paint(
         QPainter *painter,
         const QStyleOptionViewItem &option,
         const QModelIndex &index) const override
     {
-        QStyledItemDelegate::paint(painter, option, index);
+        if (painter == nullptr) {
+            return;
+        }
+        QStyleOptionViewItem adjusted = option;
+        initStyleOption(&adjusted, index);
+        auto *fluentStyle = adjusted.widget != nullptr
+            ? qobject_cast<ZzFluentStyle *>(adjusted.widget->style())
+            : nullptr;
+        if (fluentStyle == nullptr) {
+            QStyledItemDelegate::paint(painter, adjusted, index);
+            drawBadge(painter, adjusted, index);
+            return;
+        }
+
+        painter->save();
+        [[maybe_unused]] const ZzItemViewVisualLayout visual =
+            ZzItemViewVisual::draw(
+                *fluentStyle,
+                adjusted,
+                painter);
+        const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
+        const QPalette::ColorGroup colorGroup = enabled
+            ? QPalette::Normal : QPalette::Disabled;
+        const QColor foreground = adjusted.palette.color(
+            colorGroup, QPalette::Text);
+        const QVariant descriptorValue = index.data(Qt::DecorationRole);
+        const ZzIconDescriptor descriptor =
+            descriptorValue.value<ZzIconDescriptor>();
+        const bool hasDescriptor = zzHasIconDescriptor(
+            descriptorValue, descriptor);
+        QPixmap icon;
+        if (hasDescriptor && adjusted.widget != nullptr) {
+            icon = fluentStyle->iconPixmap(
+                descriptor,
+                QSize(zzActivityIconExtent, zzActivityIconExtent),
+                adjusted.widget->devicePixelRatioF(),
+                foreground,
+                adjusted.direction);
+        }
+        if (!icon.isNull()) {
+            const QRect iconRect(
+                adjusted.rect.center().x() - zzActivityIconExtent / 2,
+                adjusted.rect.center().y() - zzActivityIconExtent / 2,
+                zzActivityIconExtent,
+                zzActivityIconExtent);
+            painter->drawPixmap(iconRect, icon);
+        } else {
+            drawTextFallback(painter, adjusted, foreground);
+        }
+        drawBadge(painter, adjusted, index);
+        drawFocus(painter, adjusted);
+        painter->restore();
+    }
+
+    /** @brief 返回与 Activity Bar 视觉合同一致的固定逻辑行高。 */
+    [[nodiscard]] QSize sizeHint(
+        const QStyleOptionViewItem &option,
+        const QModelIndex &index) const override
+    {
+        QSize result = QStyledItemDelegate::sizeHint(option, index);
+        result.setWidth(zzActivityBarWidth);
+        result.setHeight(zzActivityItemHeight);
+        return result;
+    }
+
+private:
+    /** @brief 在没有有效 descriptor 时居中绘制标题首字符。 */
+    static void drawTextFallback(
+        QPainter *painter,
+        const QStyleOptionViewItem &option,
+        const QColor &foreground)
+    {
+        const QString fallback = option.text.trimmed().left(1).toUpper();
+        if (fallback.isEmpty()) {
+            return;
+        }
+        QFont font = option.font;
+        font.setWeight(QFont::DemiBold);
+        painter->setFont(font);
+        painter->setPen(foreground);
+        painter->drawText(option.rect, Qt::AlignCenter, fallback);
+    }
+
+    /** @brief 用 palette 绘制有界数字徽标，不创建额外 QObject。 */
+    static void drawBadge(
+        QPainter *painter,
+        const QStyleOptionViewItem &option,
+        const QModelIndex &index)
+    {
         const int badge = std::max(
             0,
             index.data(static_cast<int>(ZzActivityItemRole::Badge)).toInt());
-        if (badge <= 0 || painter == nullptr) {
+        if (badge <= 0) {
             return;
         }
         const QString text = badge > 99
@@ -88,13 +203,27 @@ public:
         painter->restore();
     }
 
-    [[nodiscard]] QSize sizeHint(
-        const QStyleOptionViewItem &option,
-        const QModelIndex &index) const override
+    /** @brief 使用当前样式绘制键盘导航焦点矩形。 */
+    static void drawFocus(
+        QPainter *painter,
+        const QStyleOptionViewItem &option)
     {
-        QSize result = QStyledItemDelegate::sizeHint(option, index);
-        result.setHeight(zzActivityItemHeight);
-        return result;
+        if (!option.state.testFlag(QStyle::State_HasFocus)) {
+            return;
+        }
+        QStyleOptionFocusRect focus;
+        focus.rect = option.rect.adjusted(1, 1, -1, -1);
+        focus.state = option.state;
+        focus.direction = option.direction;
+        focus.palette = option.palette;
+        focus.fontMetrics = option.fontMetrics;
+        QStyle *const style = option.widget != nullptr
+            ? option.widget->style() : QApplication::style();
+        style->drawPrimitive(
+            QStyle::PE_FrameFocusRect,
+            &focus,
+            painter,
+            option.widget);
     }
 };
 
@@ -280,6 +409,8 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     primaryView->setObjectName(QStringLiteral("zzActivityPrimaryView"));
     secondaryView->setObjectName(QStringLiteral("zzActivitySecondaryView"));
     for (QListView *view : {primaryView, secondaryView}) {
+        view->setFixedWidth(zzActivityBarWidth);
+        view->setFrameShape(QFrame::NoFrame);
         view->setModel(view == primaryView
             ? static_cast<QAbstractItemModel *>(primaryProjection)
             : static_cast<QAbstractItemModel *>(secondaryProjection));
@@ -290,6 +421,7 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
         view->setSelectionMode(QAbstractItemView::SingleSelection);
         view->setEditTriggers(QAbstractItemView::NoEditTriggers);
         view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         view->setDragEnabled(true);
         view->setAcceptDrops(true);
         view->setDragDropMode(QAbstractItemView::DragDrop);

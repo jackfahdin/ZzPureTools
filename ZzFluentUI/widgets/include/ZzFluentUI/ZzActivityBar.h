@@ -19,6 +19,8 @@ class ZzActivityBarPrivate;
 /**
  * @brief 将一个平面模型投影为固定主次两组的活动入口栏。
  *
+ * 每行通过 Qt::DisplayRole 提供标题，通过 Qt::DecorationRole 提供
+ * ZzIconDescriptor，并通过 ZzActivityItemRole 提供分组与 badge。
  * model 是非拥有观察值。组件只发出激活、折叠和移动意图，绝不修改外部模型；
  * 调用方必须在 GUI 线程中设置模型并提交后续业务状态。
  */
