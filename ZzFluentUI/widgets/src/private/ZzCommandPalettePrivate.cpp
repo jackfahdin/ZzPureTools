@@ -25,7 +25,7 @@ protected:
     {
         if (parent.isValid() || query.isEmpty()) return !parent.isValid();
         const QModelIndex index = sourceModel()->index(row, 0, parent);
-        const CachedData &data = cached(index);
+        const ZzCachedData &data = cached(index);
         if (data.name.contains(query)) return true;
         for (const QString &keyword : data.keywords)
             if (keyword.contains(query)) return true;
@@ -36,17 +36,17 @@ protected:
         return rank(left) < rank(right);
     }
 private:
-    struct CachedData {
+    struct ZzCachedData {
         QString name;
         QStringList keywords;
         int priority = 0;
     };
-    [[nodiscard]] const CachedData &cached(const QModelIndex &index) const
+    [[nodiscard]] const ZzCachedData &cached(const QModelIndex &index) const
     {
         const int row = index.row();
         const auto found = cache.constFind(row);
         if (found != cache.constEnd()) return found.value();
-        CachedData data;
+        ZzCachedData data;
         data.name = index.data(Qt::DisplayRole).toString().toCaseFolded();
         const QStringList values = index.data(static_cast<int>(ZzCommandItemRole::Keywords)).toStringList();
         data.keywords.reserve(values.size());
@@ -56,7 +56,7 @@ private:
     }
     [[nodiscard]] std::tuple<int, int, int> rank(const QModelIndex &index) const
     {
-        const CachedData &data = cached(index);
+        const ZzCachedData &data = cached(index);
         const QString &name = data.name;
         int match = 5;
         if (query.isEmpty()) match = 0;
@@ -70,7 +70,7 @@ private:
         }
         return {match, -data.priority, index.row()};
     }
-    mutable QHash<int, CachedData> cache;
+    mutable QHash<int, ZzCachedData> cache;
 };
 
 } // namespace

@@ -36,18 +36,18 @@ class ZzWorkspaceShell;
 class ZzWorkspaceShellPrivate final
 {
 public:
-    enum class PanelKind : std::uint8_t
+    enum class ZzPanelKind : std::uint8_t
     {
         Side,
         Dock
     };
 
-    struct PanelRecord final
+    struct ZzPanelRecord final
     {
         ZzWorkspacePanelId id;
         QString title;
         ZzFluentUI::ZzIconDescriptor icon;
-        PanelKind kind = PanelKind::Side;
+        ZzPanelKind kind = ZzPanelKind::Side;
         ZzFluentUI::ZzActivityArea activityArea =
             ZzFluentUI::ZzActivityArea::LeftPrimary;
         Qt::DockWidgetArea dockArea = Qt::NoDockWidgetArea;
@@ -59,7 +59,7 @@ public:
         bool removalInProgress = false;
     };
 
-    struct SideLayoutEntry final
+    struct ZzSideLayoutEntry final
     {
         ZzWorkspacePanelId id;
         ZzFluentUI::ZzActivityArea area =
@@ -67,7 +67,7 @@ public:
         int order = 0;
     };
 
-    struct LayoutState final
+    struct ZzLayoutState final
     {
         QByteArray qtState;
         bool leftCollapsed = false;
@@ -76,7 +76,7 @@ public:
         int rightWidth = 280;
         ZzWorkspacePanelId leftCurrent;
         ZzWorkspacePanelId rightCurrent;
-        QVector<SideLayoutEntry> sideEntries;
+        QVector<ZzSideLayoutEntry> sideEntries;
         int currentTabIndex = -1;
         ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
     };
@@ -142,8 +142,8 @@ public:
     [[nodiscard]] int indexOf(const ZzWorkspacePanelId &id) const noexcept;
     [[nodiscard]] ZzWorkspacePanelId currentSideId(
         ZzFluentUI::ZzSidePane *pane) const;
-    [[nodiscard]] LayoutState captureLayoutState() const;
-    [[nodiscard]] bool applyShellLayout(const LayoutState &state);
+    [[nodiscard]] ZzLayoutState captureLayoutState() const;
+    [[nodiscard]] bool applyShellLayout(const ZzLayoutState &state);
 
     ZzWorkspaceShell *const q_ptr;
     QPointer<QMainWindow> host;
@@ -156,7 +156,7 @@ public:
     QPointer<ZzFluentUI::ZzTabWidget> tabs;
     QPointer<ZzFluentUI::ZzCommandPalette> palette;
     QPointer<QAbstractListModel> activityModel;
-    QVector<PanelRecord> panels;
+    QVector<ZzPanelRecord> panels;
     QString applicationTitle;
     QString customTitle;
     ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;

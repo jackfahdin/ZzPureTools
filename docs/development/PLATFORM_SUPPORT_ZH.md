@@ -48,6 +48,17 @@ Linux 是这些合同的实际构建与自动测试平台。Windows MSVC、Windo
 macOS 当前只进行静态检查；offscreen/Xvfb 能证明绘制和公共 Qt API 契约，不能替代
 真实窗口系统中的鼠标命中、焦点、原生菜单行为或 DPI 交互验收。
 
+## 工作区组件平台边界
+
+2026-08-21 的工作区组件验证在 Linux `offscreen` 环境执行，使用 GNU 15.2、
+Qt 6.11.1、Release/shared/LTO。它覆盖四档 DPR 截图、公开头编译、安装消费者、
+ArchitectureAudit 与 `ZzWorkspaceShell` 的布局/所有权测试；该结果仅证明 Qt
+公共 API 和软件渲染路径，不提升任一真实桌面会话状态。
+
+Windows MSVC、Windows MinGW 和 macOS 对工作区组件均为“未执行”：没有在对应
+SDK、ABI 或原生窗口系统上配置、构建或运行消费者。现有 preset、公共头和
+ArchitectureAudit 只提供源码/静态合同，不能替代这些原生记录。
+
 ## GitHub 托管 CI 状态
 
 `.github/workflows/ci.yml` 已在 GitHub 上启动 Ubuntu 24.04、Windows Server 2022 MSVC/Qt MinGW、macOS 15 arm64/x86_64 矩阵。前三次运行已依次验证配置契约和全部平台 Qt 安装路径，并暴露出仍需修复的编译与工具链校验问题；目前还没有同一提交的完整成功矩阵，所以下方平台行继续保持“未执行”。工作流通过后先记录为 GitHub 托管兼容证据；Windows Server 2022 不替代 Windows 10/11，Ubuntu offscreen 不替代 KDE/GNOME X11/Wayland，只有 OS、架构和 ABI 完全匹配的原生日志才能把对应行提升为“静态验证通过”。详细边界和日志处理见 `docs/development/GITHUB_ACTIONS_ZH.md`。

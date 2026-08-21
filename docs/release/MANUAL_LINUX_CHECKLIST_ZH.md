@@ -76,6 +76,9 @@ display socket，也必须在创建证据目录前失败关闭。
 | [ ] 强制 Qt fallback | 启用 `ZZ_WINDOWKIT_FORCE_QT_CONTEXT` 后基础窗口功能可用且不加载 native 后端 |  |  |  |
 | [ ] shared 包 | 安装后的 shared 包可从干净前缀启动，依赖解析无 `not found` |  |  |  |
 | [ ] static 包 | static 一方库由外部消费者链接成功，不要求 QWindowKit 包或私有头 |  |  |  |
+| [ ] 工作区标题栏与菜单 | 宽窗口显示横向菜单、窄窗口显示折叠菜单；标题不与内容或系统按钮重叠 |  |  |  |
+| [ ] 工作区侧栏与 Explorer | Activity 激活/折叠、Side 宽度和 10 万节点筛选在当前会话可用 |  |  |  |
+| [ ] 工作区 Tab、Command 与 Dock | Tab 状态、命令搜索/焦点恢复、Dock 浮动/重新停靠及布局保存恢复正确 |  |  |  |
 | [ ] 标题栏拖动 | 可拖动窗口；按钮、输入和交互区域不会误触发拖动 |  |  |  |
 | [ ] 四边与四角 resize | 支持的会话中 cursor、双轴方向、最小尺寸和连续 resize 正确 |  |  |  |
 | [ ] 双击最大化 | 支持的会话中最大化/还原和窗口几何正确 |  |  |  |

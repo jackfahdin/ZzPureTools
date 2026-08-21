@@ -167,6 +167,34 @@ cmake \
 
 `theme-switch` 的 P95 也表现出明显跨轮噪声，因此不能作为相对发布阻断；其绝对 P95 50ms 门限继续生效。百分比超过配置允许上限时以 observe 100% 保存，同时在本表保留原始 123% 证据。后续只有新的至少三轮校准证据才能修改这些策略，不得凭单轮失败扩大门限。
 
+## 工作区组件 Observe 记录
+
+2026-08-21 在源码 `b6f5dc6ddca2a8de4145f8b599bbbfe6056667b7` 完成
+`benchmark.workspace-components` 三轮观测。原始 JSON 位于本机
+`build/noise/workspace-components/round-{1,2,3}/workspace-components.json`，不进入
+版本库；三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、`offscreen`、DPR 1、
+Release/shared/LTO、`linux-gcc-benchmarks`、runner digest
+`sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41` 和
+`Qt offscreen raster` renderer identity。
+
+每项每轮采集 80 个样本，单位为 ms。下表记录三轮 P50/P95/max 的最小至最大范围：
+
+| 指标 | P50 | P95 | max |
+|---|---:|---:|---:|
+| `title-menu-switch-time` | 0.114336 - 0.124344 | 3.436596 - 3.513456 | 3.498951 - 3.597902 |
+| `activity-activation-time` | 0.063206 - 0.064650 | 0.071037 - 0.078536 | 0.100823 - 0.104715 |
+| `explorer-filter-time` | 30.110081 - 31.647010 | 33.556180 - 34.046572 | 34.315112 - 34.606763 |
+| `tab-state-time` | 0.003604 - 0.004022 | 0.018507 - 0.019476 | 0.020081 - 0.024721 |
+| `command-filter-time` | 5.625440 - 5.645705 | 5.797291 - 5.878819 | 6.067612 - 6.170271 |
+| `layout-save-time` | 0.050139 - 0.051099 | 0.052227 - 0.053676 | 0.054938 - 0.074134 |
+| `layout-restore-time` | 5.004124 - 5.008723 | 5.354454 - 5.403321 | 5.440289 - 5.465336 |
+| `workspace-render-time` | 7.684917 - 7.729033 | 7.957389 - 8.143893 | 8.185156 - 10.790870 |
+
+`layout-save-time` 的 max 噪声为 34.94%，`workspace-render-time` 的 max 噪声为
+31.83%，均超过 gate 候选范围。因此八项工作区指标维持 `observe`，没有新增或修改
+正式性能阈值。基准同时失败关闭：重复操作的 QObject 增长、结果列表逐行 QWidget、
+失败布局恢复未回滚、空绘制，以及 1000 次状态切换后的 timer/animation 增长。
+
 ## 原 CI 参考档案
 
 `ubuntu2204-github-ci` 保留原架构要求：Ubuntu 22.04 兼容构建环境、Qt 6.8+、GCC 13.1+、Release/shared/LTO，以及审核后的 immutable runner image digest。其 CPU、RAM、GPU、显示和精确工具链目前为空，因此状态必须保持 `pending-user-validation`。

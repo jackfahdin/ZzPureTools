@@ -34,12 +34,12 @@ ZzTabWidgetPrivate::ZzTabWidgetPrivate(ZzTabWidget *q) noexcept
     Q_ASSERT(q_ptr != nullptr);
 }
 
-ZzTabWidgetPrivate::Metadata ZzTabWidgetPrivate::metadata(QWidget *page) const
+ZzTabWidgetPrivate::ZzMetadata ZzTabWidgetPrivate::metadata(QWidget *page) const
 {
     return metadataByPage.value(page);
 }
 
-ZzTabWidgetPrivate::Metadata &ZzTabWidgetPrivate::ensureMetadata(QWidget *page)
+ZzTabWidgetPrivate::ZzMetadata &ZzTabWidgetPrivate::ensureMetadata(QWidget *page)
 {
     auto &state = metadataByPage[page];
     if (page != nullptr && !state.destroyedConnection) {
@@ -121,7 +121,7 @@ ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
     result.data = tabBar->tabData(index);
     result.textColor = tabBar->tabTextColor(index);
     result.sourceIndex = index;
-    const Metadata state = metadata(result.page);
+    const ZzMetadata state = metadata(result.page);
     result.pinned = state.pinned;
     result.modified = state.modified;
     result.attention = state.attention;

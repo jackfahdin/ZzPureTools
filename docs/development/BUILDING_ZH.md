@@ -226,6 +226,28 @@ ctest --test-dir build/linux-gcc-release \
 
 普通 `install.consumer` 也会构建外部消费者，但发布和平台门禁以同时覆盖 InstallConsumer/PublicHeaderConsumer 的 `platform.package-relocation` 为准。
 
+### 工作区组件质量门禁
+
+工作区组件使用 `linux-gcc-benchmarks` 的 Release/shared/LTO 档位。下列命令覆盖
+公开安装消费、完整架构审计、四档 DPR 截图与 observe 基准：
+
+```bash
+cmake --build --preset linux-gcc-benchmarks --target \
+  ZzFluentTitleBarTest ZzCommandPaletteTest ZzDockPanelTest \
+  ZzTabControlsTest ZzWorkspaceShellTest --parallel 2
+ctest --preset linux-gcc-benchmarks \
+  -R 'fluent\.(tab-controls|command-palette|dock-panel|title-bar)|puretools\.workspace-shell' \
+  --output-on-failure
+ctest --preset linux-gcc-benchmarks \
+  -R '^fluent\.screenshot-(100|125|150|200)$|^benchmark\.workspace-components$|^architecture\.complete-audit$|^platform\.package-relocation$' \
+  --output-on-failure
+```
+
+`ZzFluentInstallConsumer` 会从安装前缀构造标题栏、Activity/Side、Explorer、
+Command Palette、Dock、Tab 和最小 `ZzWorkspaceShell`。`PublicHeaderConsumer`
+逐个编译全部安装头，并显式要求 14 个工作区公开头存在。外部消费者与其 Qt
+依赖必须只从 relocation 后的 prefix B 解析。
+
 ## 正式发布配置
 
 `ZZ_RELEASE_BUILD=ON` 是失败关闭的正式发布模式。仓库根 `LICENSE`、Jackfahdin 所有者批准记录和两个 manifest 已完成审核；除普通工具链变量外，仍必须让 `ZZ_RELEASE_EVIDENCE_ROOT` 指向逐字节匹配的外部来源证据。Linux 捆绑 GNU runtime 时还需要：

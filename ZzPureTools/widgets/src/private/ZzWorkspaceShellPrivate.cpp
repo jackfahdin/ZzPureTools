@@ -260,7 +260,7 @@ private:
 }
 
 [[nodiscard]] bool zzWritePayload(
-    const ZzWorkspaceShellPrivate::LayoutState &state,
+    const ZzWorkspaceShellPrivate::ZzLayoutState &state,
     QByteArray *payload)
 {
     Q_ASSERT(payload != nullptr);
@@ -287,7 +287,7 @@ private:
 
 [[nodiscard]] bool zzReadPayload(
     const QByteArray &payload,
-    ZzWorkspaceShellPrivate::LayoutState *state)
+    ZzWorkspaceShellPrivate::ZzLayoutState *state)
 {
     Q_ASSERT(state != nullptr);
     QDataStream stream(payload);
@@ -323,7 +323,7 @@ private:
         quint8 areaValue = 0;
         qint32 order = 0;
         stream >> idValue >> areaValue >> order;
-        ZzWorkspaceShellPrivate::SideLayoutEntry entry{
+        ZzWorkspaceShellPrivate::ZzSideLayoutEntry entry{
             ZzWorkspacePanelId(std::move(idValue)),
             static_cast<ZzFluentUI::ZzActivityArea>(areaValue),
             order};
@@ -353,7 +353,7 @@ private:
 
 [[nodiscard]] bool zzDecodeLayout(
     const QByteArray &encoded,
-    ZzWorkspaceShellPrivate::LayoutState *state)
+    ZzWorkspaceShellPrivate::ZzLayoutState *state)
 {
     if (encoded.size() < zzLayoutHeaderSize + zzLayoutDigestSize
         || encoded.size() > zzMaximumLayoutSize) {
@@ -478,11 +478,11 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
 ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
 {
     QObject::disconnect(currentTabTitleConnection);
-    for (PanelRecord &record : panels) {
+    for (ZzPanelRecord &record : panels) {
         QObject::disconnect(record.contentDestroyedConnection);
     }
     if (host != nullptr) {
-        for (const PanelRecord &record : std::as_const(panels)) {
+        for (const ZzPanelRecord &record : std::as_const(panels)) {
             if (record.dock != nullptr) {
                 host->removeDockWidget(record.dock);
                 delete record.dock;
@@ -536,11 +536,11 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
             QStringLiteral("Side panel rejected content"), id.value());
     }
 
-    PanelRecord record;
+    ZzPanelRecord record;
     record.id = id;
     record.title = normalizedTitle;
     record.icon = icon;
-    record.kind = PanelKind::Side;
+    record.kind = ZzPanelKind::Side;
     record.activityArea = area;
     record.content = content;
     record.contentIdentity = content;
@@ -617,11 +617,11 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
         QStringLiteral("zzWorkspaceDock:") + id.value());
     dock->setIconDescriptor(icon);
 
-    PanelRecord record;
+    ZzPanelRecord record;
     record.id = id;
     record.title = normalizedTitle;
     record.icon = std::move(icon);
-    record.kind = PanelKind::Dock;
+    record.kind = ZzPanelKind::Dock;
     record.dockArea = area;
     record.content = content;
     record.contentIdentity = content;
@@ -670,7 +670,7 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
             ZzCore::ZzErrorCode::NotFound,
             QStringLiteral("Workspace panel is not registered"), id.value());
     }
-    PanelRecord record = panels.at(panelIndex);
+    ZzPanelRecord record = panels.at(panelIndex);
     if (record.registrationInProgress || record.removalInProgress) {
         return zzWorkspaceFailure<QWidget *>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -678,7 +678,7 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
             id.value());
     }
     QWidget *content = nullptr;
-    if (record.kind == PanelKind::Side) {
+    if (record.kind == ZzPanelKind::Side) {
         ZzFluentUI::ZzSidePane *const pane = zzIsLeftArea(record.activityArea)
             ? leftSidePane.data() : rightSidePane.data();
         if (pane == nullptr || record.content == nullptr) {
@@ -751,8 +751,8 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
             ZzCore::ZzErrorCode::NotFound,
             QStringLiteral("Workspace panel is not registered"), id.value());
     }
-    PanelRecord &record = panels[panelIndex];
-    if (record.kind == PanelKind::Dock) {
+    ZzPanelRecord &record = panels[panelIndex];
+    if (record.kind == ZzPanelKind::Dock) {
         if (record.dock == nullptr) {
             return zzWorkspaceFailure<void>(
                 ZzCore::ZzErrorCode::InvalidState,
@@ -796,7 +796,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setPanelBadge(
             ZzCore::ZzErrorCode::NotFound,
             QStringLiteral("Workspace panel is not registered"), id.value());
     }
-    if (value < 0 || panels.at(panelIndex).kind != PanelKind::Side) {
+    if (value < 0 || panels.at(panelIndex).kind != ZzPanelKind::Side) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Badge requires a side panel and non-negative value"),
@@ -889,13 +889,13 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::restoreLayout(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace host has been destroyed"));
     }
-    LayoutState requested;
+    ZzLayoutState requested;
     if (!zzDecodeLayout(state, &requested)) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Workspace layout envelope is invalid"));
     }
-    const LayoutState snapshot = captureLayoutState();
+    const ZzLayoutState snapshot = captureLayoutState();
     if (!host->restoreState(requested.qtState, zzLayoutSchemaVersion)
         || !applyShellLayout(requested)) {
         static_cast<void>(applyShellLayout(snapshot));
@@ -991,8 +991,8 @@ void ZzWorkspaceShellPrivate::handlePanelContentDestroyed(
 
     panels[panelIndex].removalInProgress = true;
     QObject::disconnect(panels[panelIndex].contentDestroyedConnection);
-    const PanelRecord record = panels.at(panelIndex);
-    if (record.kind == PanelKind::Side) {
+    const ZzPanelRecord record = panels.at(panelIndex);
+    if (record.kind == ZzPanelKind::Side) {
         if (activityModel != nullptr) {
             static_cast<void>(zzActivityModel(activityModel)->remove(id));
         }
@@ -1025,8 +1025,8 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
 
     panels[panelIndex].removalInProgress = true;
     QObject::disconnect(panels[panelIndex].contentDestroyedConnection);
-    const PanelRecord record = panels.at(panelIndex);
-    if (record.kind == PanelKind::Side) {
+    const ZzPanelRecord record = panels.at(panelIndex);
+    if (record.kind == ZzPanelKind::Side) {
         ZzFluentUI::ZzSidePane *const pane =
             zzIsLeftArea(record.activityArea)
             ? leftSidePane.data() : rightSidePane.data();
@@ -1064,10 +1064,10 @@ void ZzWorkspaceShellPrivate::activateSidePanel(
     const ZzWorkspacePanelId id =
         zzActivityModel(activityModel)->idAt(sourceIndex.row());
     const int panelIndex = indexOf(id);
-    if (panelIndex < 0 || panels.at(panelIndex).kind != PanelKind::Side) {
+    if (panelIndex < 0 || panels.at(panelIndex).kind != ZzPanelKind::Side) {
         return;
     }
-    const PanelRecord &record = panels.at(panelIndex);
+    const ZzPanelRecord &record = panels.at(panelIndex);
     ZzFluentUI::ZzSidePane *const pane = zzIsLeftArea(record.activityArea)
         ? leftSidePane.data() : rightSidePane.data();
     if (collapse && pane != nullptr
@@ -1096,8 +1096,8 @@ ZzWorkspacePanelId ZzWorkspaceShellPrivate::currentSideId(
     if (pane == nullptr || pane->currentWidget() == nullptr) {
         return {};
     }
-    for (const PanelRecord &record : panels) {
-        if (record.kind == PanelKind::Side
+    for (const ZzPanelRecord &record : panels) {
+        if (record.kind == ZzPanelKind::Side
             && record.content == pane->currentWidget()) {
             return record.id;
         }
@@ -1105,10 +1105,10 @@ ZzWorkspacePanelId ZzWorkspaceShellPrivate::currentSideId(
     return {};
 }
 
-ZzWorkspaceShellPrivate::LayoutState
+ZzWorkspaceShellPrivate::ZzLayoutState
 ZzWorkspaceShellPrivate::captureLayoutState() const
 {
-    LayoutState state;
+    ZzLayoutState state;
     state.qtState = host != nullptr
         ? host->saveState(zzLayoutSchemaVersion) : QByteArray{};
     if (leftSidePane != nullptr) {
@@ -1126,12 +1126,12 @@ ZzWorkspaceShellPrivate::captureLayoutState() const
     for (int row = 0; row < model->rowCount(); ++row) {
         const int panelIndex = indexOf(model->idAt(row));
         if (panelIndex < 0
-            || panels.at(panelIndex).kind != PanelKind::Side) {
+            || panels.at(panelIndex).kind != ZzPanelKind::Side) {
             continue;
         }
-        const PanelRecord &record = panels.at(panelIndex);
+        const ZzPanelRecord &record = panels.at(panelIndex);
         const auto areaIndex = static_cast<std::size_t>(record.activityArea);
-        state.sideEntries.append(SideLayoutEntry{
+        state.sideEntries.append(ZzSideLayoutEntry{
             record.id, record.activityArea, orders.at(areaIndex)++});
     }
     state.currentTabIndex = tabs != nullptr ? tabs->currentIndex() : -1;
@@ -1139,7 +1139,7 @@ ZzWorkspaceShellPrivate::captureLayoutState() const
     return state;
 }
 
-bool ZzWorkspaceShellPrivate::applyShellLayout(const LayoutState &state)
+bool ZzWorkspaceShellPrivate::applyShellLayout(const ZzLayoutState &state)
 {
     if (leftSidePane == nullptr || rightSidePane == nullptr
         || tabs == nullptr || activityModel == nullptr) {
@@ -1149,13 +1149,13 @@ bool ZzWorkspaceShellPrivate::applyShellLayout(const LayoutState &state)
     const ZzWorkspacePanelId oldRightCurrent = currentSideId(rightSidePane);
     QVector<ZzWorkspacePanelId> requestedOrder;
     requestedOrder.reserve(state.sideEntries.size());
-    for (const SideLayoutEntry &entry : state.sideEntries) {
+    for (const ZzSideLayoutEntry &entry : state.sideEntries) {
         const int panelIndex = indexOf(entry.id);
         if (panelIndex < 0) {
             continue;
         }
-        PanelRecord &record = panels[panelIndex];
-        if (record.kind != PanelKind::Side) {
+        ZzPanelRecord &record = panels[panelIndex];
+        if (record.kind != ZzPanelKind::Side) {
             continue;
         }
         record.activityArea = entry.area;
@@ -1164,8 +1164,8 @@ bool ZzWorkspaceShellPrivate::applyShellLayout(const LayoutState &state)
     }
     zzActivityModel(activityModel)->reorder(requestedOrder);
 
-    for (const PanelRecord &record : std::as_const(panels)) {
-        if (record.kind != PanelKind::Side || record.content == nullptr) {
+    for (const ZzPanelRecord &record : std::as_const(panels)) {
+        if (record.kind != ZzPanelKind::Side || record.content == nullptr) {
             continue;
         }
         if (leftSidePane->takeWidget(record.content) == nullptr) {
@@ -1174,20 +1174,20 @@ bool ZzWorkspaceShellPrivate::applyShellLayout(const LayoutState &state)
     }
 
     auto addArea = [this, &state](ZzFluentUI::ZzActivityArea area) {
-        QVector<const SideLayoutEntry *> requested;
-        for (const SideLayoutEntry &entry : state.sideEntries) {
+        QVector<const ZzSideLayoutEntry *> requested;
+        for (const ZzSideLayoutEntry &entry : state.sideEntries) {
             if (entry.area == area && indexOf(entry.id) >= 0) {
                 requested.append(&entry);
             }
         }
         std::sort(
             requested.begin(), requested.end(),
-            [](const SideLayoutEntry *left, const SideLayoutEntry *right) {
+            [](const ZzSideLayoutEntry *left, const ZzSideLayoutEntry *right) {
                 return left->order < right->order;
             });
         QVector<ZzWorkspacePanelId> added;
-        auto addRecord = [this, area, &added](PanelRecord &record) {
-            if (record.kind != PanelKind::Side
+        auto addRecord = [this, area, &added](ZzPanelRecord &record) {
+            if (record.kind != ZzPanelKind::Side
                 || record.activityArea != area
                 || record.content == nullptr
                 || added.contains(record.id)) {
@@ -1202,13 +1202,13 @@ bool ZzWorkspaceShellPrivate::applyShellLayout(const LayoutState &state)
             added.append(record.id);
             return true;
         };
-        for (const SideLayoutEntry *entry : requested) {
-            PanelRecord &record = panels[indexOf(entry->id)];
+        for (const ZzSideLayoutEntry *entry : requested) {
+            ZzPanelRecord &record = panels[indexOf(entry->id)];
             if (!addRecord(record)) {
                 return false;
             }
         }
-        for (PanelRecord &record : panels) {
+        for (ZzPanelRecord &record : panels) {
             if (!addRecord(record)) {
                 return false;
             }
@@ -1238,7 +1238,7 @@ bool ZzWorkspaceShellPrivate::applyShellLayout(const LayoutState &state)
         for (const ZzWorkspacePanelId &candidate : {requested, fallback}) {
             const int panelIndex = indexOf(candidate);
             if (panelIndex >= 0
-                && panels.at(panelIndex).kind == PanelKind::Side
+                && panels.at(panelIndex).kind == ZzPanelKind::Side
                 && panels.at(panelIndex).content != nullptr
                 && pane->setCurrentWidget(panels.at(panelIndex).content)) {
                 return;

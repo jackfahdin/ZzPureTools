@@ -33,16 +33,24 @@
 #include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzActionCard.h>
+#include <ZzFluentUI/ZzActivityArea.h>
+#include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzColorPicker.h>
+#include <ZzFluentUI/ZzCommandItemRole.h>
+#include <ZzFluentUI/ZzCommandPalette.h>
+#include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
+#include <ZzFluentUI/ZzExplorerPane.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzKeyBinder.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -61,12 +69,18 @@
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzScrollBar.h>
+#include <ZzFluentUI/ZzSidePane.h>
+#include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
+#include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
+#include <ZzPureTools/ZzWorkspaceTitleMode.h>
 
 int main(int argc, char *argv[]) {
   QApplication application(argc, argv);
@@ -201,6 +215,47 @@ int main(int argc, char *argv[]) {
   QPainter commandPainter(&commandImage);
   commandToolBar->render(&commandPainter);
   commandPainter.end();
+
+  QMainWindow workspaceWindow;
+  workspaceWindow.resize(760, 480);
+  auto *workspaceTitleBar = new ZzFluentUI::ZzFluentTitleBar;
+  workspaceTitleBar->setTitle(QStringLiteral("Installed workspace"));
+  workspaceTitleBar->setMenuDisplayMode(
+      ZzFluentUI::ZzTitleBarMenuDisplayMode::Adaptive);
+  workspaceTitleBar->menuBar()->addMenu(QStringLiteral("File"));
+  workspaceWindow.setMenuWidget(workspaceTitleBar);
+  QStandardItemModel workspaceExplorerModel;
+  workspaceExplorerModel.appendRow(new QStandardItem(QStringLiteral("src")));
+  QStandardItemModel workspaceCommandModel;
+  workspaceCommandModel.appendRow(
+      new QStandardItem(QStringLiteral("Open installed workspace")));
+  workspaceCommandModel.item(0)->setData(
+      QStringList{QStringLiteral("installed"), QStringLiteral("workspace")},
+      static_cast<int>(ZzFluentUI::ZzCommandItemRole::Keywords));
+  auto workspaceResult = ZzPureTools::ZzWorkspaceShell::create(
+      &workspaceWindow, workspaceTitleBar);
+  if (!workspaceResult) {
+    return 28;
+  }
+  auto workspaceShell = std::move(workspaceResult).value();
+  workspaceWindow.setCentralWidget(workspaceShell->workspaceWidget());
+  workspaceShell->setApplicationTitle(QStringLiteral("Installed workspace"));
+  workspaceShell->setTitleMode(
+      ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+  auto *explorerPane = new ZzFluentUI::ZzExplorerPane;
+  explorerPane->setModel(&workspaceExplorerModel);
+  const auto registeredExplorer = workspaceShell->registerSidePanel(
+      ZzPureTools::ZzWorkspacePanelId(QStringLiteral("explorer")),
+      QStringLiteral("Explorer"), {},
+      ZzFluentUI::ZzActivityArea::LeftPrimary, explorerPane);
+  const auto registeredDock = workspaceShell->registerDockPanel(
+      ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
+      QStringLiteral("Terminal"), {}, Qt::BottomDockWidgetArea, new QWidget);
+  workspaceShell->commandPalette()->setModel(&workspaceCommandModel);
+  workspaceShell->tabWidget()->addTab(
+      new QWidget, QStringLiteral("Overview"));
+  workspaceWindow.show();
+  QCoreApplication::processEvents();
   ZzFluentUI::ZzCalendar calendar;
   ZzFluentUI::ZzCalendarPicker picker;
   ZzFluentUI::ZzActionCard actionCard(QStringLiteral("Settings"),
@@ -595,7 +650,15 @@ int main(int argc, char *argv[]) {
       installedDrawerContent == nullptr ||
       sourceTabs.fluentTabBar() == nullptr ||
       !sourceTabs.transferTabTo(&targetTabs, 0) || sourceTabs.count() != 0 ||
-      targetTabs.widget(0) != tabPage) {
+      targetTabs.widget(0) != tabPage || !registeredExplorer ||
+      !registeredDock || workspaceShell->activityBar(
+          ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
+      workspaceShell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
+      workspaceShell->commandPalette()->model() != &workspaceCommandModel ||
+      workspaceShell->tabWidget()->count() != 1 ||
+      workspaceShell->tabWidget()->tabText(0) != QStringLiteral("Overview") ||
+      explorerPane->model() != &workspaceExplorerModel ||
+      !ZzPureTools::ZzWorkspacePanelId(QStringLiteral(" explorer ")).isValid()) {
     return 1;
   }
   return 0;

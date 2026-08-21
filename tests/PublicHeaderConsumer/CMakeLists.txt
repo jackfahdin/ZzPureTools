@@ -37,6 +37,29 @@ foreach(header IN LISTS installed_headers)
 endforeach()
 list(SORT installed_header_names)
 
+set(required_workspace_headers
+    ZzFluentUI/ZzActivityArea.h
+    ZzFluentUI/ZzActivityBar.h
+    ZzFluentUI/ZzActivityItemRole.h
+    ZzFluentUI/ZzCommandItemRole.h
+    ZzFluentUI/ZzCommandPalette.h
+    ZzFluentUI/ZzDockPanel.h
+    ZzFluentUI/ZzExplorerPane.h
+    ZzFluentUI/ZzFluentTitleBar.h
+    ZzFluentUI/ZzSidePane.h
+    ZzFluentUI/ZzSidePaneEdge.h
+    ZzFluentUI/ZzTitleBarMenuDisplayMode.h
+    ZzPureTools/ZzWorkspacePanelId.h
+    ZzPureTools/ZzWorkspaceShell.h
+    ZzPureTools/ZzWorkspaceTitleMode.h
+)
+foreach(required_workspace_header IN LISTS required_workspace_headers)
+    if(NOT "${required_workspace_header}" IN_LIST installed_header_names)
+        message(FATAL_ERROR
+            "Installed package is missing workspace public header: ${required_workspace_header}")
+    endif()
+endforeach()
+
 set(zz_header_owners
     ZzLog::ZzLog
     Zz::Core

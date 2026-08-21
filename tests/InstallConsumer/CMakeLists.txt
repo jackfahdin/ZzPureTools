@@ -17,6 +17,11 @@ set(zz_installed_header_specs
     "Zz::FluentFoundation|ZzFluentUI/ZzNavigationDisplayMode.h"
     "Zz::FluentFoundation|ZzFluentUI/ZzNavigationItemRole.h"
     "Zz::FluentFoundation|ZzFluentUI/ZzNavigationPlacement.h"
+    "Zz::FluentFoundation|ZzFluentUI/ZzTitleBarMenuDisplayMode.h"
+    "Zz::FluentFoundation|ZzFluentUI/ZzActivityArea.h"
+    "Zz::FluentFoundation|ZzFluentUI/ZzActivityItemRole.h"
+    "Zz::FluentFoundation|ZzFluentUI/ZzSidePaneEdge.h"
+    "Zz::FluentFoundation|ZzFluentUI/ZzCommandItemRole.h"
     "Zz::FluentUI|ZzFluentUI/ZzFluentWidgetVersion.h"
     "Zz::FluentUI|ZzFluentUI/ZzFluentUIExport.h"
     "Zz::FluentUI|ZzFluentUI/ZzPushButton.h"
@@ -34,10 +39,19 @@ set(zz_installed_header_specs
     "Zz::FluentUI|ZzFluentUI/ZzRollerPicker.h"
     "Zz::FluentUI|ZzFluentUI/ZzTabBar.h"
     "Zz::FluentUI|ZzFluentUI/ZzTabWidget.h"
+    "Zz::FluentUI|ZzFluentUI/ZzFluentTitleBar.h"
+    "Zz::FluentUI|ZzFluentUI/ZzActivityBar.h"
+    "Zz::FluentUI|ZzFluentUI/ZzSidePane.h"
+    "Zz::FluentUI|ZzFluentUI/ZzExplorerPane.h"
+    "Zz::FluentUI|ZzFluentUI/ZzCommandPalette.h"
+    "Zz::FluentUI|ZzFluentUI/ZzDockPanel.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreVersion.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreExport.h"
     "Zz::PureTools|ZzPureTools/ZzPureToolsVersion.h"
     "Zz::PureTools|ZzPureTools/ZzPureToolsExport.h"
+    "Zz::PureTools|ZzPureTools/ZzWorkspacePanelId.h"
+    "Zz::PureTools|ZzPureTools/ZzWorkspaceTitleMode.h"
+    "Zz::PureTools|ZzPureTools/ZzWorkspaceShell.h"
 )
 
 add_custom_target(ZzInstalledPublicHeadersTest ALL)
@@ -78,7 +92,10 @@ add_test(NAME zz.install-consumer.run COMMAND ZzInstallConsumer)
 add_executable(ZzFluentInstallConsumer Gui/main.cpp)
 target_compile_features(ZzFluentInstallConsumer PRIVATE cxx_std_20)
 set_target_properties(ZzFluentInstallConsumer PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(ZzFluentInstallConsumer PRIVATE Zz::FluentUI)
+target_link_libraries(ZzFluentInstallConsumer PRIVATE
+    Zz::FluentUI
+    Zz::PureTools
+)
 add_test(
     NAME zz.fluent-install-consumer.run
     COMMAND ZzFluentInstallConsumer

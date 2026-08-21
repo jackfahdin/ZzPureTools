@@ -13,12 +13,18 @@
 
 namespace ZzFluentUI {
 
+namespace {
+
+constexpr int zzTitleBarHeight = 32;
+
+} // namespace
+
 ZzFluentTitleBar::ZzFluentTitleBar(QWidget *parent)
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzFluentTitleBarPrivate>(this))
 {
     d_ptr->menuBar->installEventFilter(this);
-    setFixedHeight(32);
+    setFixedHeight(zzTitleBarHeight);
 }
 
 ZzFluentTitleBar::~ZzFluentTitleBar()

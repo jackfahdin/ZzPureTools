@@ -1,5 +1,6 @@
 #include "ZzDockPanelPrivate.h"
 
+#include <QtCore/QMargins>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 
@@ -8,6 +9,13 @@
 #include <ZzFluentUI/ZzIconButton.h>
 
 namespace ZzFluentUI {
+
+namespace {
+
+const QMargins zzDockPanelMargins(8, 2, 4, 2);
+constexpr int zzDockPanelSpacing = 4;
+
+} // namespace
 
 ZzDockPanelPrivate::ZzDockPanelPrivate(ZzDockPanel *publicObject)
     : q_ptr(publicObject)
@@ -40,8 +48,8 @@ ZzDockPanelPrivate::ZzDockPanelPrivate(ZzDockPanel *publicObject)
         ZzBundledSvgIcon::Close));
 
     auto *layout = new QHBoxLayout(titleBar);
-    layout->setContentsMargins(8, 2, 4, 2);
-    layout->setSpacing(4);
+    layout->setContentsMargins(zzDockPanelMargins);
+    layout->setSpacing(zzDockPanelSpacing);
     layout->addWidget(iconWidget);
     layout->addWidget(titleLabel, 1);
     layout->addWidget(floatButton);

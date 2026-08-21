@@ -55,22 +55,22 @@ public:
         int sourceIndex,
         int targetIndex);
 
-    struct Metadata {
+    struct ZzMetadata {
         bool pinned = false;
         bool modified = false;
         bool attention = false;
         bool closeEnabled = true;
         QMetaObject::Connection destroyedConnection;
     };
-    [[nodiscard]] Metadata metadata(QWidget *page) const;
-    Metadata &ensureMetadata(QWidget *page);
+    [[nodiscard]] ZzMetadata metadata(QWidget *page) const;
+    ZzMetadata &ensureMetadata(QWidget *page);
     void removeMetadata(QObject *object);
     void disconnectMetadataObservers() noexcept;
     void normalizePinnedOrder();
 
     ZzTabWidget *const q_ptr;
     ZzTabBar *tabBar = nullptr;
-    QHash<QWidget *, Metadata> metadataByPage;
+    QHash<QWidget *, ZzMetadata> metadataByPage;
     bool normalizing = false;
     int transferInsertionDepth = 0;
 };
