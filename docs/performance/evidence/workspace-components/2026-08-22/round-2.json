@@ -1,0 +1,125 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "c8e1374f23612814806a776b2c5f4cbd2b39fc5e",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Qt offscreen raster",
+        "memoryBytes": 32709509120,
+        "os": "Ubuntu 26.04 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41",
+        "windowSystem": "offscreen"
+    },
+    "metrics": {
+        "activity-activation-time": {
+            "count": 80,
+            "max": 0.100181,
+            "p50": 0.065826,
+            "p95": 0.075623,
+            "unit": "ms"
+        },
+        "animation-count": {
+            "count": 80,
+            "max": 34,
+            "p50": 34,
+            "p95": 34,
+            "unit": "count"
+        },
+        "command-filter-time": {
+            "count": 80,
+            "max": 5.790638,
+            "p50": 5.404747,
+            "p95": 5.65192,
+            "unit": "ms"
+        },
+        "explorer-filter-time": {
+            "count": 80,
+            "max": 31.99486,
+            "p50": 27.331468,
+            "p95": 31.748789,
+            "unit": "ms"
+        },
+        "layout-restore-time": {
+            "count": 80,
+            "max": 5.383774,
+            "p50": 4.965633,
+            "p95": 5.303182,
+            "unit": "ms"
+        },
+        "layout-save-time": {
+            "count": 80,
+            "max": 0.078834,
+            "p50": 0.04995,
+            "p95": 0.054919,
+            "unit": "ms"
+        },
+        "object-count": {
+            "count": 80,
+            "max": 866,
+            "p50": 866,
+            "p95": 866,
+            "unit": "count"
+        },
+        "result-view-widget-count": {
+            "count": 80,
+            "max": 5,
+            "p50": 5,
+            "p95": 5,
+            "unit": "count"
+        },
+        "rss-bytes": {
+            "count": 80,
+            "max": 197156864,
+            "p50": 197156864,
+            "p95": 197156864,
+            "unit": "bytes"
+        },
+        "style-cache-bytes": {
+            "count": 80,
+            "max": 16360,
+            "p50": 16360,
+            "p95": 16360,
+            "unit": "bytes"
+        },
+        "tab-state-time": {
+            "count": 80,
+            "max": 0.01885,
+            "p50": 0.003618,
+            "p95": 0.018508,
+            "unit": "ms"
+        },
+        "timer-count": {
+            "count": 80,
+            "max": 3,
+            "p50": 3,
+            "p95": 3,
+            "unit": "count"
+        },
+        "title-menu-switch-time": {
+            "count": 80,
+            "max": 3.110717,
+            "p50": 0.115684,
+            "p95": 3.055987,
+            "unit": "ms"
+        },
+        "workspace-render-time": {
+            "count": 80,
+            "max": 7.560651,
+            "p50": 7.049211,
+            "p95": 7.30233,
+            "unit": "ms"
+        }
+    },
+    "scenario": "workspace-components",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}

@@ -169,14 +169,16 @@ cmake \
 
 ## 工作区组件 Observe 记录
 
-2026-08-21 在源码 `3f9dcb1cb7a11d5a28bd96045caf144794e69cc5` 完成
-`benchmark.workspace-components` 三轮观测。原始 reporter JSON 已入库，分别为：
+2026-08-22 在源码 `c8e1374f23612814806a776b2c5f4cbd2b39fc5e` 完成
+`benchmark.workspace-components` 最终三轮观测。该版本已经包含 ActivityBar
+字体/SVG 图标缓存路径、徽标几何和运行时 Linux 页大小换算。原始 reporter JSON
+已入库，分别为：
 
 | 轮次 | 证据文件 | SHA-256 |
 |---|---|---|
-| 1 | `docs/performance/evidence/workspace-components/2026-08-21/round-1.json` | `54b0b553235b9ab9b4dbe17eba219c9e4e91f4a9ecfb49eaf5529a9160ce57e4` |
-| 2 | `docs/performance/evidence/workspace-components/2026-08-21/round-2.json` | `292a2b0dd0e869f6ad151d6c1d5de5b0d9dcd09cb5cc5be08f4fcf896adc0598` |
-| 3 | `docs/performance/evidence/workspace-components/2026-08-21/round-3.json` | `aca39dd571a60d7f6aad21907adf80c18bc91d7f4e50072c089f76a7d98cad2a` |
+| 1 | `docs/performance/evidence/workspace-components/2026-08-22/round-1.json` | `04316d520c8b44acfc8474eb4d4568bcff656c65d99505b50e8b0f811bb7ebe7` |
+| 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `82efd0284d39dc5702e1e303877c1fdd4513476c19d3cd5e06b0ac4e8deb65ee` |
+| 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `452bdb15c710df8cc9af7ed6b8828d948b710148b76c7f2d909398fa1e0768aa` |
 
 三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、`offscreen`、DPR 1、
 Release/shared/LTO、`linux-gcc-benchmarks`、runner digest
@@ -187,21 +189,28 @@ Release/shared/LTO、`linux-gcc-benchmarks`、runner digest
 
 | 指标 | P50 | P95 | max |
 |---|---:|---:|---:|
-| `title-menu-switch-time` | 0.118882 - 0.140406 | 3.502460 - 3.534552 | 3.568265 - 3.774565 |
-| `activity-activation-time` | 0.063974 - 0.064738 | 0.072668 - 0.074637 | 0.100473 - 0.115692 |
-| `explorer-filter-time` | 29.886250 - 30.669390 | 32.945117 - 34.032560 | 34.153073 - 50.276150 |
-| `tab-state-time` | 0.003558 - 0.004012 | 0.018963 - 0.019523 | 0.022931 - 0.027566 |
-| `command-filter-time` | 5.638316 - 5.659059 | 5.790761 - 5.990888 | 6.088368 - 9.789170 |
-| `layout-save-time` | 0.050327 - 0.050818 | 0.052003 - 0.053888 | 0.053394 - 0.079063 |
-| `layout-restore-time` | 4.971860 - 5.017521 | 5.371449 - 5.385125 | 5.439880 - 8.044986 |
-| `workspace-render-time` | 7.662589 - 7.707870 | 7.986502 - 8.065470 | 8.321202 - 8.835307 |
+| `title-menu-switch-time` | 0.115684 - 0.143421 | 3.039066 - 3.068301 | 3.079055 - 3.163473 |
+| `activity-activation-time` | 0.064882 - 0.065826 | 0.072952 - 0.075623 | 0.100181 - 0.111935 |
+| `explorer-filter-time` | 27.331468 - 31.469246 | 31.748789 - 32.482939 | 31.994860 - 37.916669 |
+| `tab-state-time` | 0.003443 - 0.007120 | 0.017768 - 0.018540 | 0.018850 - 0.030598 |
+| `command-filter-time` | 5.388042 - 5.421013 | 5.633322 - 5.688228 | 5.661949 - 10.360483 |
+| `layout-save-time` | 0.049779 - 0.050258 | 0.054309 - 0.054966 | 0.055629 - 0.078834 |
+| `layout-restore-time` | 4.965633 - 5.169745 | 5.303182 - 5.499553 | 5.383774 - 7.899473 |
+| `workspace-render-time` | 7.041216 - 7.228578 | 7.285173 - 7.433525 | 7.560651 - 13.328467 |
 
-三轮 P95 噪声最高为 `layout-save-time` 的 3.63%，但 `command-filter-time`、
-`layout-save-time`、`layout-restore-time`、`explorer-filter-time` 和 `tab-state-time`
-的 max 噪声分别为 60.79%、48.07%、47.89%、47.21% 和 20.21%。因此八项工作区指标
-维持 `observe`，没有新增或修改正式性能阈值。基准同时失败关闭：重复操作的 QObject
-增长、结果列表超过 8 个 QWidget、失败布局恢复未回滚、全透明绘制，以及 1000 次状态
-切换后的 timer/animation 增长。
+三轮 P95 噪声最高为 `tab-state-time` 的 4.34%；max 噪声仍有明显调度尖峰，
+`command-filter-time`、`workspace-render-time`、`tab-state-time`、
+`layout-restore-time` 和 `layout-save-time` 分别为 82.98%、76.29%、62.32%、
+46.73% 和 41.71%。因此八项工作区耗时指标维持 `observe`，没有新增或修改正式
+性能阈值。
+
+三轮结构观测完全一致：QObject 为 866、结果视图 QWidget 为 5、timer 为 3、
+animation 为 34、图标样式缓存为 16360 bytes；Linux RSS 为
+197115904 - 197156864 bytes。缓存值包含字体和 SVG ActivityBar 图标，基准在采样前
+分别验证两类描述符都会填充缓存。基准同时失败关闭：重复操作的 QObject 增长、结果
+列表超过 8 个 QWidget、字体/SVG 缓存路径未生效、失败布局恢复未回滚、全透明绘制，
+以及 1000 次状态切换后的 timer/animation 增长。2026-08-21 的三份 JSON 仅保留为
+历史记录，不再作为当前工作区组件验收证据。
 
 ## 原 CI 参考档案
 
