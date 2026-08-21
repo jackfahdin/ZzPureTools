@@ -436,6 +436,7 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     layout->addWidget(tabs, 1);
     layout->addWidget(rightSidePane);
     layout->addWidget(rightActivityBar);
+    syncSideEdgeVisibility();
 
     QObject::connect(
         leftActivityBar, &ZzFluentUI::ZzActivityBar::activationRequested,
@@ -580,6 +581,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
             id.value());
     }
     panels[panelIndex].registrationInProgress = false;
+    syncSideEdgeVisibility();
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -742,6 +744,9 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
     if (currentIndex >= 0
         && panels.at(currentIndex).contentIdentity == record.contentIdentity) {
         panels.removeAt(currentIndex);
+    }
+    if (record.kind == ZzPanelKind::Side) {
+        syncSideEdgeVisibility();
     }
     return ZzCore::ZzResult<QWidget *>::success(content);
 }
@@ -1019,6 +1024,9 @@ void ZzWorkspaceShellPrivate::handlePanelContentDestroyed(
         && panels.at(panelIndex).contentIdentity == contentIdentity) {
         panels.removeAt(panelIndex);
     }
+    if (record.kind == ZzPanelKind::Side) {
+        syncSideEdgeVisibility();
+    }
 }
 
 void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
@@ -1063,6 +1071,9 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
         && panels.at(panelIndex).contentIdentity == contentIdentity) {
         panels.removeAt(panelIndex);
     }
+    if (record.kind == ZzPanelKind::Side) {
+        syncSideEdgeVisibility();
+    }
 }
 
 void ZzWorkspaceShellPrivate::activateSidePanel(
@@ -1088,6 +1099,31 @@ void ZzWorkspaceShellPrivate::activateSidePanel(
         return;
     }
     static_cast<void>(showPanel(id, true));
+}
+
+void ZzWorkspaceShellPrivate::syncSideEdgeVisibility()
+{
+    const auto syncEdge = [this](
+                              ZzFluentUI::ZzSidePane *pane,
+                              ZzFluentUI::ZzActivityBar *bar,
+                              bool left) {
+        if (pane == nullptr || bar == nullptr) {
+            return;
+        }
+        const bool hasPanel = std::any_of(
+            panels.cbegin(), panels.cend(), [left](const ZzPanelRecord &record) {
+                return record.kind == ZzPanelKind::Side
+                    && record.content != nullptr
+                    && zzIsLeftArea(record.activityArea) == left;
+            });
+        bar->setVisible(hasPanel);
+        if (!hasPanel) {
+            bar->setCurrentSourceIndex({});
+            pane->setCollapsed(true);
+        }
+    };
+    syncEdge(leftSidePane, leftActivityBar, true);
+    syncEdge(rightSidePane, rightActivityBar, false);
 }
 
 int ZzWorkspaceShellPrivate::indexOf(
@@ -1266,6 +1302,7 @@ bool ZzWorkspaceShellPrivate::applyShellLayout(const ZzLayoutState &state)
             currentSideId(rightSidePane)));
     leftSidePane->setCollapsed(state.leftCollapsed);
     rightSidePane->setCollapsed(state.rightCollapsed);
+    syncSideEdgeVisibility();
     if (state.currentTabIndex >= 0
         && state.currentTabIndex < tabs->count()) {
         tabs->setCurrentIndex(state.currentTabIndex);

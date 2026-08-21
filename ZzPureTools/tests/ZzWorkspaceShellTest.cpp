@@ -298,6 +298,43 @@ private Q_SLOTS:
         host.takeCentralWidget();
     }
 
+    void hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge()
+    {
+        ZzShellFixture fixture;
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+
+        QVERIFY(leftPane->isCollapsed());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(leftBar->isHidden());
+        QVERIFY(rightBar->isHidden());
+
+        auto content = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left"), QStringLiteral("Left"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        content.release();
+
+        QVERIFY(!leftPane->isCollapsed());
+        QVERIFY(!leftBar->isHidden());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(rightBar->isHidden());
+
+        auto taken = fixture.shell->takePanel(zzPanelId("left"));
+        QVERIFY(taken);
+        std::unique_ptr<QWidget> returned(taken.value());
+        QVERIFY(leftPane->isCollapsed());
+        QVERIFY(leftBar->isHidden());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(rightBar->isHidden());
+    }
+
     void rejectsRegistrationErrorsWithoutTakingContent()
     {
         ZzShellFixture fixture;

@@ -139,6 +139,9 @@ public:
     /** @brief 将 Activity 激活或折叠意图应用到对应 Side Panel。 */
     void activateSidePanel(const QModelIndex &sourceIndex, bool collapse);
 
+    /** @brief 隐藏没有已注册内容的边缘，并收起其 Side Pane。 */
+    void syncSideEdgeVisibility();
+
     [[nodiscard]] int indexOf(const ZzWorkspacePanelId &id) const noexcept;
     [[nodiscard]] ZzWorkspacePanelId currentSideId(
         ZzFluentUI::ZzSidePane *pane) const;
