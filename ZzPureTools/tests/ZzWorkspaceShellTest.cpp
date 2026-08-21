@@ -1,4 +1,5 @@
 #include <array>
+#include <functional>
 #include <memory>
 #include <thread>
 
@@ -7,7 +8,9 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QEvent>
 #include <QtCore/QPointer>
+#include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QMainWindow>
 
@@ -115,6 +118,23 @@ struct ZzShellFixture final
     state[offset] = value;
     return state;
 }
+
+class ZzParentChangeWidget final : public QWidget
+{
+public:
+    std::function<void()> parentChanged;
+
+protected:
+    bool event(QEvent *event) override
+    {
+        const bool handled = QWidget::event(event);
+        if (event != nullptr && event->type() == QEvent::ParentChange
+            && parentWidget() != nullptr && parentChanged) {
+            parentChanged();
+        }
+        return handled;
+    }
+};
 
 } // namespace
 
@@ -281,6 +301,184 @@ private Q_SLOTS:
         QCOMPARE(missing.error().code(), ZzCore::ZzErrorCode::NotFound);
     }
 
+    void failedTakePreservesRegisteredSideState()
+    {
+        ZzShellFixture fixture;
+        auto side = std::make_unique<QWidget>();
+        QWidget *const sideRaw = side.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, side.get()));
+        side.release();
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->rowCount(), 1);
+
+        std::unique_ptr<QWidget> externallyTakenSide(
+            fixture.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Left)->takeWidget(sideRaw));
+        QCOMPARE(externallyTakenSide.get(), sideRaw);
+        auto failedSideTake = fixture.shell->takePanel(zzPanelId("side"));
+        QVERIFY(!failedSideTake);
+        QCOMPARE(failedSideTake.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(model->rowCount(), 1);
+        QWidget duplicateSide;
+        QVERIFY(!fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Duplicate side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, &duplicateSide));
+    }
+
+    void failedTakePreservesRegisteredDockState()
+    {
+        ZzShellFixture fixture;
+        auto dockContent = std::make_unique<QWidget>();
+        QWidget *const dockRaw = dockContent.get();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, dockContent.get()));
+        dockContent.release();
+        QPointer<ZzFluentUI::ZzDockPanel> dock =
+            fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+                QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        std::unique_ptr<QWidget> externallyTakenDock(
+            dock->takeContentWidget());
+        QCOMPARE(externallyTakenDock.get(), dockRaw);
+
+        auto failedDockTake = fixture.shell->takePanel(zzPanelId("dock"));
+        QVERIFY(!failedDockTake);
+        QCOMPARE(failedDockTake.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(dock != nullptr);
+        QCOMPARE(dock->widget(), nullptr);
+        QWidget duplicateDock;
+        QVERIFY(!fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Duplicate dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, &duplicateDock));
+    }
+
+    void externalSideContentDestructionCleansStateAndAllowsIdReuse()
+    {
+        ZzShellFixture fixture;
+        auto *side = new QWidget;
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, side));
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->rowCount(), 1);
+
+        delete side;
+
+        QCOMPARE(model->rowCount(), 0);
+        auto replacementSide = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Replacement side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            replacementSide.get()));
+        replacementSide.release();
+    }
+
+    void externalDockContentDestructionCleansStateAndAllowsIdReuse()
+    {
+        ZzShellFixture fixture;
+        auto *dockContent = new QWidget;
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::RightDockWidgetArea, dockContent));
+        QPointer<ZzFluentUI::ZzDockPanel> dock =
+            fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+                QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+
+        delete dockContent;
+        auto replacementDock = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Replacement dock"), zzIcon(),
+            Qt::RightDockWidgetArea, replacementDock.get()));
+        replacementDock.release();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QVERIFY(dock.isNull());
+        QVERIFY(fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock")) != nullptr);
+    }
+
+    void reservesSideIdDuringSynchronousRegistrationSignals()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QWidget duplicateContent;
+        bool callbackEntered = false;
+        bool duplicateRegistrationSucceeded = false;
+        bool reentrantTakeSucceeded = false;
+        QObject::connect(
+            fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left),
+            &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(),
+            [&](QWidget *current) {
+                if (callbackEntered || current != contentRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                duplicateRegistrationSucceeded = static_cast<bool>(
+                    fixture.shell->registerSidePanel(
+                        zzPanelId("side"), QStringLiteral("Duplicate"),
+                        zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+                        &duplicateContent));
+                reentrantTakeSucceeded = static_cast<bool>(
+                    fixture.shell->takePanel(zzPanelId("side")));
+            });
+
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        content.release();
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!duplicateRegistrationSucceeded);
+        QVERIFY(!reentrantTakeSucceeded);
+        QCOMPARE(fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 1);
+        QCOMPARE(fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->pageCount(), 1);
+    }
+
+    void reservesDockIdDuringSynchronousParentChange()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<ZzParentChangeWidget>();
+        QWidget duplicateContent;
+        bool callbackEntered = false;
+        bool duplicateRegistrationSucceeded = false;
+        bool reentrantTakeSucceeded = false;
+        content->parentChanged = [&] {
+            if (callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            duplicateRegistrationSucceeded = static_cast<bool>(
+                fixture.shell->registerDockPanel(
+                    zzPanelId("dock"), QStringLiteral("Duplicate"), zzIcon(),
+                    Qt::BottomDockWidgetArea, &duplicateContent));
+            reentrantTakeSucceeded = static_cast<bool>(
+                fixture.shell->takePanel(zzPanelId("dock")));
+        };
+
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        content.release();
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!duplicateRegistrationSucceeded);
+        QVERIFY(!reentrantTakeSucceeded);
+        QCOMPARE(
+            fixture.host.findChildren<ZzFluentUI::ZzDockPanel *>(
+                QStringLiteral("zzWorkspaceDock:dock")).size(),
+            1);
+    }
+
     void preservesRegistrationOrderAndUpdatesBadges()
     {
         ZzShellFixture fixture;
@@ -382,6 +580,36 @@ private Q_SLOTS:
         QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Workspace A"));
         fixture.shell->setCustomTitle({});
         QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Pure Tools"));
+    }
+
+    void refreshesCurrentTabTitlesFromPagePresentationChanges()
+    {
+        ZzShellFixture fixture;
+        auto page = std::make_unique<QWidget>();
+        QWidget *const pageRaw = page.get();
+        fixture.shell->tabWidget()->addTab(
+            page.release(), QStringLiteral("Initial"));
+        fixture.shell->setApplicationTitle(QStringLiteral("Pure Tools"));
+        fixture.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Initial"));
+        QSignalSpy presentationSpy(
+            fixture.shell->tabWidget(),
+            &ZzFluentUI::ZzTabWidget::pagePresentationChanged);
+
+        fixture.shell->tabWidget()->setPageTitle(
+            pageRaw, QStringLiteral("Renamed"));
+
+        QCOMPARE(presentationSpy.count(), 1);
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Renamed"));
+        fixture.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+        fixture.shell->tabWidget()->setPageTitle(
+            pageRaw, QStringLiteral("Final"));
+        QCOMPARE(presentationSpy.count(), 2);
+        QCOMPARE(
+            fixture.host.windowTitle(),
+            QStringLiteral("Final - Pure Tools"));
     }
 
     void appliesAlwaysOnTopRequestsWithoutHidingOrLosingWindowState()

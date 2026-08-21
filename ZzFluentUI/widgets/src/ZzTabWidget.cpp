@@ -121,10 +121,14 @@ void ZzTabWidget::setPageTitle(int index, const QString &title)
     if (index < 0 || index >= count()) {
         return;
     }
-    setTabText(index, title);
-    if (QWidget *const page = widget(index); page != nullptr) {
-        page->setWindowTitle(title);
+    QWidget *const page = widget(index);
+    if (page == nullptr
+        || (tabText(index) == title && page->windowTitle() == title)) {
+        return;
     }
+    setTabText(index, title);
+    page->setWindowTitle(title);
+    Q_EMIT pagePresentationChanged(page);
 }
 
 void ZzTabWidget::setPageTitle(QWidget *page, const QString &title)

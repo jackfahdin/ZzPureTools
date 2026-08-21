@@ -100,23 +100,39 @@ ZzWorkspaceShell::~ZzWorkspaceShell() = default;
 
 QWidget *ZzWorkspaceShell::workspaceWidget() const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
     return d_ptr->workspaceRoot.data();
 }
 
 ZzFluentUI::ZzTabWidget *ZzWorkspaceShell::tabWidget() const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
     return d_ptr->tabs.data();
 }
 
 ZzFluentUI::ZzCommandPalette *
 ZzWorkspaceShell::commandPalette() const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
     return d_ptr->palette.data();
 }
 
 ZzFluentUI::ZzActivityBar *ZzWorkspaceShell::activityBar(
     ZzFluentUI::ZzSidePaneEdge edge) const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
     return edge == ZzFluentUI::ZzSidePaneEdge::Left
         ? d_ptr->leftActivityBar.data() : d_ptr->rightActivityBar.data();
 }
@@ -124,6 +140,10 @@ ZzFluentUI::ZzActivityBar *ZzWorkspaceShell::activityBar(
 ZzFluentUI::ZzSidePane *ZzWorkspaceShell::sidePane(
     ZzFluentUI::ZzSidePaneEdge edge) const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
     return edge == ZzFluentUI::ZzSidePaneEdge::Left
         ? d_ptr->leftSidePane.data() : d_ptr->rightSidePane.data();
 }
@@ -202,6 +222,10 @@ ZzCore::ZzResult<void> ZzWorkspaceShell::setPanelBadge(
 
 QString ZzWorkspaceShell::applicationTitle() const
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return {};
+    }
     return d_ptr->applicationTitle;
 }
 
@@ -217,6 +241,10 @@ void ZzWorkspaceShell::setApplicationTitle(QString title)
 
 QString ZzWorkspaceShell::customTitle() const
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return {};
+    }
     return d_ptr->customTitle;
 }
 
@@ -232,6 +260,10 @@ void ZzWorkspaceShell::setCustomTitle(QString title)
 
 ZzWorkspaceTitleMode ZzWorkspaceShell::titleMode() const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return ZzWorkspaceTitleMode::Application;
+    }
     return d_ptr->titleMode;
 }
 
@@ -254,6 +286,10 @@ void ZzWorkspaceShell::setTitleMode(ZzWorkspaceTitleMode mode)
 
 bool ZzWorkspaceShell::isAlwaysOnTop() const noexcept
 {
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return false;
+    }
     return d_ptr->host != nullptr
         && d_ptr->host->windowFlags().testFlag(Qt::WindowStaysOnTopHint);
 }

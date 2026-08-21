@@ -63,3 +63,54 @@ ctest --preset linux-static-release -R 'dock-panel|workspace-shell|architecture.
 - `linux-static-release` 没有独立 static Debug preset。本机的 `GCC_13/GXX_13/QT_ROOT` 环境变量为空，首次强制 Debug 重配因找不到编译器失败；随后显式使用 shared 缓存已验证的 GCC 15 和 Qt 6.11.1 路径配置该目录。最终 CMakeCache 已确认 static + Debug，构建和测试均通过。
 - offscreen 平台下 `addDockWidget()` 不会自动清除已有 floating 状态；测试按 Qt 原生合同显式调用 `setFloating(false)` 后验证目标 Dock area，没有在组件中伪造额外停靠协议。
 - 未修改或提交 `temp_image/`。
+
+## 首轮审查修复（2026-08-21）
+
+### 审查发现与回归测试
+
+- `takePanel()` 在确认内容转移成功前删除 Activity 行或 Dock，失败时会破坏注册表、界面和模型的一致性。
+- Side/Dock 注册内容没有外部 `destroyed` 清理连接，内容被外部删除后残留注册和 Dock，并永久占用面板 ID。
+- Side 的 `addWidget()`、Dock 的 `setWidget()`/`addDockWidget()` 会同步发出 Qt 信号；原实现直到这些调用完成后才写入注册表，同步回调可以重复注册或取走半提交面板。
+- Shell 只观察页面 `windowTitleChanged`，`setPageTitle()` 后缺少明确的页面展示变化通知。
+- Dock 自定义关闭按钮调用 `hide()`，不会进入 Qt 的 `closeEvent` 协议。
+- Workspace Shell 的公开 QWidget/QPointer getter 缺少一致的 GUI 线程断言和发布版兜底。
+
+新增真实组件回归覆盖：失败 take 状态保留、外部内容销毁和 ID 复用、Side `currentWidgetChanged` 重入、Dock 内容 `ParentChange` 重入、`pagePresentationChanged` 标题刷新以及自定义 Dock close 的 `QEvent::Close`。
+
+### TDD 红灯证据
+
+先只加入测试并构建：
+
+```text
+cmake --build --preset linux-gcc-debug --target ZzDockPanelTest ZzWorkspaceShellTest --parallel 2
+```
+
+首次结果为编译失败：测试引用的 `pagePresentationChanged` 尚不存在。将该测试临时改为运行时信号查找后，运行 focused tests 得到 7 个 WorkspaceShell 失败和 1 个 DockPanel 失败：
+
+- Side 失败 take 后 Activity 行实际为 0（期望保留为 1）。
+- Dock 失败 take 找不到应保留的 Dock。
+- 外部删除 Side 内容后模型行实际仍为 1（期望为 0）。
+- 外部删除 Dock 内容后 Dock 仍存在，ID 无法复用。
+- Side/Dock 同步注册回调中的重复注册均实际成功。
+- 标题展示变化信号不存在且标题未刷新。
+- Dock close 按钮产生 0 个 `QEvent::Close`（期望 1）。
+
+### 修复与绿灯证据
+
+- 注册在所有权转移前写入 provisional `PanelRecord`，预占 ID；每个同步 Qt 调用后按 ID 和内容身份重新解析，失败统一 rollback。
+- 记录内容销毁连接、注册/移除事务状态和稳定内容身份；外部销毁会清理 Activity、Dock 和注册记录并允许 ID 复用。宿主析构期间不再对已失效的 QMainWindow layout 调用 `removeDockWidget()`。
+- `takePanel()` 先验证实际容器归属和事务状态，只有成功 take 后才删除模型、Dock 和记录。
+- `ZzTabWidget::setPageTitle()` 发出 `pagePresentationChanged(QWidget *)`；Shell 只对当前页刷新标题。
+- Dock close 按钮改为 `close()`；Shell 公开 getter 统一加入 GUI 线程断言和发布版安全返回值。
+
+shared Debug 与 static Debug 均通过：
+
+```text
+cmake --build --preset linux-gcc-debug --target ZzDockPanelTest ZzWorkspaceShellTest ZzPublicHeadersTest --parallel 2
+ctest --preset linux-gcc-debug -R 'dock-panel|workspace-shell|tab-controls|architecture.public-headers|architecture.boundaries' --output-on-failure
+5/5 passed
+
+cmake --build --preset linux-static-release --target ZzDockPanelTest ZzWorkspaceShellTest ZzPublicHeadersTest --parallel 2
+ctest --preset linux-static-release -R 'dock-panel|workspace-shell|tab-controls|architecture.public-headers|architecture.boundaries' --output-on-failure
+5/5 passed
+```

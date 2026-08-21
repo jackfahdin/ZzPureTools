@@ -1,6 +1,7 @@
 #include <memory>
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QEvent>
 #include <QtTest/QTest>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QToolButton>
@@ -8,6 +9,26 @@
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+
+namespace {
+
+class ZzCloseEventObserver final : public QObject
+{
+public:
+    int closeEventCount = 0;
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched != nullptr && event != nullptr
+            && event->type() == QEvent::Close) {
+            ++closeEventCount;
+        }
+        return false;
+    }
+};
+
+} // namespace
 
 /** @brief 验证 Dock Panel 保留 Qt 原生停靠协议和内容转移语义。 */
 class ZzDockPanelTest final : public QObject
@@ -109,6 +130,28 @@ private Q_SLOTS:
         QCOMPARE(returned.get(), rawContent);
         QCOMPARE(panel.widget(), nullptr);
         QCOMPARE(returned->parentWidget(), nullptr);
+    }
+
+    void closeButtonDeliversCloseEventInsteadOfOnlyHiding()
+    {
+        QMainWindow host;
+        auto *panel = new ZzFluentUI::ZzDockPanel(
+            QStringLiteral("Terminal"), &host);
+        host.addDockWidget(Qt::BottomDockWidgetArea, panel);
+        host.resize(640, 480);
+        host.show();
+        QCoreApplication::processEvents();
+        auto *closeButton = panel->titleBarWidget()->findChild<QToolButton *>(
+            QStringLiteral("zzDockPanelCloseButton"));
+        QVERIFY(closeButton != nullptr);
+        QVERIFY(closeButton->isVisible());
+        ZzCloseEventObserver observer;
+        panel->installEventFilter(&observer);
+
+        QTest::mouseClick(closeButton, Qt::LeftButton);
+
+        QCOMPARE(observer.closeEventCount, 1);
+        QVERIFY(panel->isHidden());
     }
 };
 

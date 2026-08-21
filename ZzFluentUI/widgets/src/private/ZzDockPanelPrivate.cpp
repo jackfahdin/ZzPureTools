@@ -62,7 +62,7 @@ ZzDockPanelPrivate::ZzDockPanelPrivate(ZzDockPanel *publicObject)
         q_ptr, [this] { toggleFloating(); });
     QObject::connect(
         closeButton, &QToolButton::clicked,
-        q_ptr, &QWidget::hide);
+        q_ptr, &QWidget::close);
     refreshPresentation();
 }
 

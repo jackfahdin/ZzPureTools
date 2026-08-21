@@ -198,6 +198,13 @@ Q_SIGNALS:
      * @param enabled 新关闭能力。
      */
     void tabCloseEnabledChanged(int index, bool enabled);
+
+    /**
+     * @brief 页面标题展示通过 setPageTitle 更新。
+     * @param page 展示发生变化的页面。
+     */
+    void pagePresentationChanged(QWidget *page);
+
     /** @brief 请求创建新标签页。 */
     void newTabRequested();
 

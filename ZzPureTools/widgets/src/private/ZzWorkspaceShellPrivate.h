@@ -52,7 +52,11 @@ public:
             ZzFluentUI::ZzActivityArea::LeftPrimary;
         Qt::DockWidgetArea dockArea = Qt::NoDockWidgetArea;
         QPointer<QWidget> content;
+        QWidget *contentIdentity = nullptr;
         QPointer<ZzFluentUI::ZzDockPanel> dock;
+        QMetaObject::Connection contentDestroyedConnection;
+        bool registrationInProgress = false;
+        bool removalInProgress = false;
     };
 
     struct SideLayoutEntry final
@@ -116,6 +120,21 @@ public:
 
     /** @brief 更新当前页标题观察连接并刷新标题。 */
     void refreshCurrentTabConnection();
+
+    /** @brief 为注册内容建立销毁清理连接。 */
+    void connectPanelContentDestroyed(
+        const ZzWorkspacePanelId &id,
+        QWidget *content);
+
+    /** @brief 清理被外部销毁内容对应的注册与界面状态。 */
+    void handlePanelContentDestroyed(
+        const ZzWorkspacePanelId &id,
+        QWidget *contentIdentity);
+
+    /** @brief 回滚尚未提交的面板注册。 */
+    void rollbackPanelRegistration(
+        const ZzWorkspacePanelId &id,
+        QWidget *contentIdentity);
 
     /** @brief 将 Activity 激活或折叠意图应用到对应 Side Panel。 */
     void activateSidePanel(const QModelIndex &sourceIndex, bool collapse);
