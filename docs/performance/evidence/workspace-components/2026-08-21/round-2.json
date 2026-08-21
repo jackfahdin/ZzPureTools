@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "3f9dcb1cb7a11d5a28bd96045caf144794e69cc5",
+        "commit": "02b87516ed73ec62c842fc617c9ffa8502c8fd8f",
         "lto": true,
         "preset": "linux-gcc-benchmarks",
         "sanitizers": "none",
@@ -22,58 +22,100 @@
     "metrics": {
         "activity-activation-time": {
             "count": 80,
-            "max": 0.115692,
-            "p50": 0.063974,
-            "p95": 0.074637,
+            "max": 0.116849,
+            "p50": 0.065515,
+            "p95": 0.075619,
             "unit": "ms"
+        },
+        "animation-count": {
+            "count": 80,
+            "max": 34,
+            "p50": 34,
+            "p95": 34,
+            "unit": "count"
         },
         "command-filter-time": {
             "count": 80,
-            "max": 9.78917,
-            "p50": 5.638624,
-            "p95": 5.990888,
+            "max": 8.941189,
+            "p50": 5.330243,
+            "p95": 5.623602,
             "unit": "ms"
         },
         "explorer-filter-time": {
             "count": 80,
-            "max": 50.27615,
-            "p50": 29.88625,
-            "p95": 32.945117,
+            "max": 34.359745,
+            "p50": 29.015585,
+            "p95": 33.429636,
             "unit": "ms"
         },
         "layout-restore-time": {
             "count": 80,
-            "max": 8.044986,
-            "p50": 5.017521,
-            "p95": 5.384842,
+            "max": 7.55635,
+            "p50": 5.138613,
+            "p95": 5.592328,
             "unit": "ms"
         },
         "layout-save-time": {
             "count": 80,
-            "max": 0.072405,
-            "p50": 0.05043,
-            "p95": 0.053292,
+            "max": 0.065467,
+            "p50": 0.049215,
+            "p95": 0.054999,
             "unit": "ms"
+        },
+        "object-count": {
+            "count": 80,
+            "max": 866,
+            "p50": 866,
+            "p95": 866,
+            "unit": "count"
+        },
+        "result-view-widget-count": {
+            "count": 80,
+            "max": 5,
+            "p50": 5,
+            "p95": 5,
+            "unit": "count"
+        },
+        "rss-bytes": {
+            "count": 80,
+            "max": 193265664,
+            "p50": 193265664,
+            "p95": 193265664,
+            "unit": "bytes"
+        },
+        "style-cache-bytes": {
+            "count": 80,
+            "max": 9960,
+            "p50": 9960,
+            "p95": 9960,
+            "unit": "bytes"
         },
         "tab-state-time": {
             "count": 80,
-            "max": 0.027566,
-            "p50": 0.004012,
-            "p95": 0.019523,
+            "max": 0.042449,
+            "p50": 0.003365,
+            "p95": 0.018609,
             "unit": "ms"
+        },
+        "timer-count": {
+            "count": 80,
+            "max": 3,
+            "p50": 3,
+            "p95": 3,
+            "unit": "count"
         },
         "title-menu-switch-time": {
             "count": 80,
-            "max": 3.603199,
-            "p50": 0.122273,
-            "p95": 3.517565,
+            "max": 3.477258,
+            "p50": 0.191424,
+            "p95": 3.271596,
             "unit": "ms"
         },
         "workspace-render-time": {
             "count": 80,
-            "max": 8.835307,
-            "p50": 7.662589,
-            "p95": 7.986502,
+            "max": 7.69656,
+            "p50": 7.12717,
+            "p95": 7.532835,
             "unit": "ms"
         }
     },
