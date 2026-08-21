@@ -2,12 +2,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEventLoop>
+#include <QtCore/QFile>
 #include <QtCore/QIODevice>
 #include <QtCore/QTextStream>
 #include <QtCore/QTimer>
@@ -19,6 +21,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
@@ -27,9 +30,11 @@
 #include <ZzFluentUI/ZzCommandItemRole.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzExplorerPane.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
+#include <ZzFluentUI/ZzThemeController.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -155,6 +160,29 @@ bool zzContainsOpaquePixel(const QImage &image)
     return false;
 }
 
+[[nodiscard]] std::optional<quint64> zzResidentBytes()
+{
+#if defined(Q_OS_LINUX)
+    QFile statm(QStringLiteral("/proc/self/statm"));
+    if (!statm.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return std::nullopt;
+    }
+    const QList<QByteArray> fields = statm.readAll().split(' ');
+    if (fields.size() < 2) {
+        return std::nullopt;
+    }
+    bool valid = false;
+    const quint64 pages = fields.at(1).trimmed().toULongLong(&valid);
+    if (!valid) {
+        return std::nullopt;
+    }
+    constexpr quint64 pageBytes = 4096;
+    return pages * pageBytes;
+#else
+    return std::nullopt;
+#endif
+}
+
 /** @brief 在 GUI 队列中完成一次同步状态消费。 */
 void zzProcessGuiEvents()
 {
@@ -172,6 +200,13 @@ int main(int argc, char *argv[])
     }
 
     QMainWindow host;
+    ZzFluentUI::ZzThemeController themeController;
+    QStyle *const fusion = QStyleFactory::create(QStringLiteral("Fusion"));
+    if (fusion == nullptr) {
+        return zzFail(QStringLiteral("Fusion style is unavailable"));
+    }
+    auto *fluentStyle = new ZzFluentUI::ZzFluentStyle(&themeController, fusion);
+    QApplication::setStyle(fluentStyle);
     host.setObjectName(QStringLiteral("ZzWorkspaceComponentsBenchmarkHost"));
     host.resize(1200, 800);
     ZzFluentUI::ZzFluentTitleBar titleBar(&host);
@@ -404,6 +439,28 @@ int main(int argc, char *argv[])
             stableBudget = currentBudget;
         } else if (!zzHasStableObjectBudget(stableBudget, currentBudget)) {
             return zzFail(QStringLiteral("repeated workspace operations changed object budget"));
+        }
+        if (measured) {
+            reporter.addSample({QStringLiteral("object-count"),
+                                QStringLiteral("count"),
+                                static_cast<double>(currentBudget.objects)});
+            reporter.addSample({QStringLiteral("timer-count"),
+                                QStringLiteral("count"),
+                                static_cast<double>(currentBudget.timers)});
+            reporter.addSample({QStringLiteral("animation-count"),
+                                QStringLiteral("count"),
+                                static_cast<double>(currentBudget.animations)});
+            reporter.addSample({QStringLiteral("result-view-widget-count"),
+                                QStringLiteral("count"),
+                                static_cast<double>(currentBudget.resultViewWidgets)});
+            reporter.addSample({QStringLiteral("style-cache-bytes"),
+                                QStringLiteral("bytes"),
+                                static_cast<double>(fluentStyle->iconCacheBytes())});
+            if (const auto resident = zzResidentBytes()) {
+                reporter.addSample({QStringLiteral("rss-bytes"),
+                                    QStringLiteral("bytes"),
+                                    static_cast<double>(*resident)});
+            }
         }
     }
 
