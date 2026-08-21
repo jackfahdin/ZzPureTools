@@ -104,6 +104,10 @@ QAbstractItemModel *ZzExampleSessionModel::commandModel() const noexcept
 ZzExampleCommandId ZzExampleSessionModel::commandId(
     const QModelIndex &index) noexcept
 {
+    if (!index.isValid() || index.column() != 0
+        || index.model() != commands_.get()) {
+        return ZzExampleCommandId::NewTerminal;
+    }
     bool valid = false;
     const int value = index.data(zzCommandIdRole).toInt(&valid);
     if (!valid || value < static_cast<int>(ZzExampleCommandId::NewTerminal)

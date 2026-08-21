@@ -51,3 +51,21 @@ QAction 意图、导航/主题/关闭守卫和日志写入策略。
 - offscreen 直接启动检查在受限沙箱中无法写入用户测试日志目录，因此未在该
   沙箱内重复启动；目标构建与 Qt Test smoke 已通过。
 - `temp_image/` 为既有未跟踪目录，未修改、未加入提交。
+
+## Important 修复
+
+- `dispatchWorkspaceCommand()` 现在检查四类 `showPanel()` 的
+  `ZzResult`，失败时统一调用 `reportFailure()`，不再丢弃错误结果。
+  Smoke 额外对未注册面板执行 `showPanel()` 并断言失败，覆盖失败可观察路径。
+- `ZzExampleSessionModel::commandId()` 改为实例方法，校验索引有效性、
+  column 0 以及模型身份必须是本对象拥有的命令模型。回归测试覆盖空索引、
+  外来模型携带相同内部 role、错误列索引，均回退到 `NewTerminal`。
+
+追加验证：
+
+```text
+cmake --build --preset linux-gcc-debug --target ZzPureToolsExample ZzExampleWorkspaceSmokeTest --parallel 2
+ctest --preset linux-gcc-debug -R 'example.workspace-smoke|example.puretools-activity-model' --output-on-failure
+```
+
+结果为构建成功、2/2 测试通过；WindowShell 架构 `rg` 门禁仍全部无匹配。

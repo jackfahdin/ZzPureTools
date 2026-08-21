@@ -51,11 +51,11 @@ public:
     [[nodiscard]] QAbstractItemModel *commandModel() const noexcept;
 
     /**
-     * @brief 从命令模型源索引读取稳定意图。
+     * @brief 从本对象命令模型的源索引读取稳定意图。
      * @param index commandModel() 返回模型中的有效索引。
-     * @return 无效或外来索引回退为 NewTerminal。
+     * @return 无效、错误列或外来模型索引回退为 NewTerminal。
      */
-    [[nodiscard]] static ZzExampleCommandId commandId(
+    [[nodiscard]] ZzExampleCommandId commandId(
         const QModelIndex &index) noexcept;
 
 private:

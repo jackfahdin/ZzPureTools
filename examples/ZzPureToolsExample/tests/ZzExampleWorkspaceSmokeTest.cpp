@@ -140,9 +140,25 @@ private Q_SLOTS:
             shell->commandPalette()->searchEdit(), Qt::Key_Return);
         QCOMPARE(commandSpy.count(), 1);
         QCOMPARE(
-            ZzExample::ZzExampleSessionModel::commandId(
+            sessions.commandId(
                 commandSpy.first().at(0).value<QModelIndex>()),
             ZzExample::ZzExampleCommandId::NewTerminal);
+
+        auto foreignModel = std::make_unique<QStandardItemModel>();
+        auto *foreignItem = new QStandardItem(QStringLiteral("外来命令"));
+        foreignItem->setData(
+            static_cast<int>(ZzExample::ZzExampleCommandId::ShowTasks),
+            Qt::UserRole + 0x520);
+        foreignModel->appendRow(foreignItem);
+        QVERIFY(
+            sessions.commandId({})
+            == ZzExample::ZzExampleCommandId::NewTerminal);
+        QVERIFY(
+            sessions.commandId(foreignModel->index(0, 0))
+            == ZzExample::ZzExampleCommandId::NewTerminal);
+        QVERIFY(
+            sessions.commandId(sessions.commandModel()->index(0, 1))
+            == ZzExample::ZzExampleCommandId::NewTerminal);
 
         auto secondTerminal =
             ZzExample::ZzExampleWorkspaceContent::createTerminalPage(
@@ -183,6 +199,10 @@ private Q_SLOTS:
                 ->paneWidth(),
             360);
         QVERIFY(sftpDock->isFloating());
+
+        auto missingPanel = shell->showPanel(
+            zzPanelId("not-registered"));
+        QVERIFY(!missingPanel);
     }
 };
 

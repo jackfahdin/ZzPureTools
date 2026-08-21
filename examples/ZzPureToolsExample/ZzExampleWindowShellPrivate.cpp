@@ -273,8 +273,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     QObject::connect(workspace->commandPalette(),
         &ZzFluentUI::ZzCommandPalette::commandActivated,
         q_ptr, [this](const QModelIndex &index) {
-            dispatchWorkspaceCommand(
-                ZzExampleSessionModel::commandId(index));
+            dispatchWorkspaceCommand(sessions->commandId(index));
         });
     QObject::connect(workspace->tabWidget(),
         &QTabWidget::tabCloseRequested, q_ptr, [this](int index) {
@@ -354,16 +353,26 @@ void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(
         closeCurrentTerminal();
         break;
     case ZzExampleCommandId::ShowSftp:
-        static_cast<void>(workspace->showPanel(zzPanelId("sftp")));
+        if (auto result = workspace->showPanel(zzPanelId("sftp")); !result) {
+            reportFailure(result.error());
+        }
         break;
     case ZzExampleCommandId::ShowActivityLog:
-        static_cast<void>(workspace->showPanel(zzPanelId("activity-log")));
+        if (auto result = workspace->showPanel(zzPanelId("activity-log"));
+            !result) {
+            reportFailure(result.error());
+        }
         break;
     case ZzExampleCommandId::ShowProperties:
-        static_cast<void>(workspace->showPanel(zzPanelId("properties")));
+        if (auto result = workspace->showPanel(zzPanelId("properties"));
+            !result) {
+            reportFailure(result.error());
+        }
         break;
     case ZzExampleCommandId::ShowTasks:
-        static_cast<void>(workspace->showPanel(zzPanelId("tasks")));
+        if (auto result = workspace->showPanel(zzPanelId("tasks")); !result) {
+            reportFailure(result.error());
+        }
         break;
     }
 }
