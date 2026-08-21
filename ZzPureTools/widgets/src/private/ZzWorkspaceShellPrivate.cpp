@@ -484,13 +484,14 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
     for (ZzPanelRecord &record : panels) {
         QObject::disconnect(record.contentDestroyedConnection);
     }
-    const bool hostCanManageDocks = host != nullptr && host->layout() != nullptr;
-    if (hostCanManageDocks) {
-        for (const ZzPanelRecord &record : std::as_const(panels)) {
-            if (record.dock != nullptr) {
-                host->removeDockWidget(record.dock);
-                delete record.dock;
-            }
+    for (const ZzPanelRecord &record : std::as_const(panels)) {
+        auto *const dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
+            record.dockIdentity);
+        auto *const dockHost = dock != nullptr
+            ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
+        if (dockHost != nullptr && dockHost->layout() != nullptr) {
+            dockHost->removeDockWidget(dock);
+            delete dock;
         }
     }
     panels.clear();
@@ -631,6 +632,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
     record.content = content;
     record.contentIdentity = content;
     record.dock = dock;
+    record.dockIdentity = dock;
     record.registrationInProgress = true;
     panels.append(std::move(record));
     connectPanelContentDestroyed(id, content);
@@ -1010,12 +1012,14 @@ void ZzWorkspaceShellPrivate::handlePanelContentDestroyed(
         if (activityModel != nullptr) {
             static_cast<void>(zzActivityModel(activityModel)->remove(id));
         }
-    } else if (record.dock != nullptr) {
-        const bool hostCanManageDock = host != nullptr
-            && host->layout() != nullptr;
-        if (hostCanManageDock) {
-            host->removeDockWidget(record.dock);
-            record.dock->deleteLater();
+    } else {
+        auto *const dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
+            record.dockIdentity);
+        auto *const dockHost = dock != nullptr
+            ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
+        if (dockHost != nullptr && dockHost->layout() != nullptr) {
+            dockHost->removeDockWidget(dock);
+            dock->deleteLater();
         }
     }
 

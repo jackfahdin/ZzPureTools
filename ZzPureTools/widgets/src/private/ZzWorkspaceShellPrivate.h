@@ -54,6 +54,7 @@ public:
         QPointer<QWidget> content;
         QWidget *contentIdentity = nullptr;
         QPointer<ZzFluentUI::ZzDockPanel> dock;
+        ZzFluentUI::ZzDockPanel *dockIdentity = nullptr;
         QMetaObject::Connection contentDestroyedConnection;
         bool registrationInProgress = false;
         bool removalInProgress = false;
