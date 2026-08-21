@@ -251,6 +251,10 @@ void zzVerifyNarrowWorkspaceGeometry(ZzWorkspaceScreenshotSurface &surface)
     QVERIFY(compactMenu != nullptr);
     QVERIFY(theme != nullptr);
     QVERIFY(alwaysOnTop != nullptr);
+    if (title == nullptr || compactMenu == nullptr || theme == nullptr
+        || alwaysOnTop == nullptr) {
+        return;
+    }
     QVERIFY(compactMenu->isVisible());
     QVERIFY(!surface.titleBar.menuBar()->isVisible());
     const std::array<const QWidget *, 8> titleBarWidgets{
@@ -259,6 +263,9 @@ void zzVerifyNarrowWorkspaceGeometry(ZzWorkspaceScreenshotSurface &surface)
         surface.titleBar.closeButton(), surface.titleBar.windowIconWidget()};
     for (const QWidget *widget : titleBarWidgets) {
         QVERIFY(widget != nullptr);
+        if (widget == nullptr) {
+            return;
+        }
         QVERIFY(widget->isVisible());
         QVERIFY(!widget->geometry().isEmpty());
     }
@@ -276,6 +283,9 @@ void zzVerifyNarrowWorkspaceGeometry(ZzWorkspaceScreenshotSurface &surface)
     QVERIFY(activity != nullptr);
     QVERIFY(tabs != nullptr);
     QVERIFY(dock != nullptr);
+    if (activity == nullptr || tabs == nullptr || dock == nullptr) {
+        return;
+    }
     QVERIFY(activity->isVisible());
     QVERIFY(tabs->isVisible());
     QVERIFY(dock->isVisible());

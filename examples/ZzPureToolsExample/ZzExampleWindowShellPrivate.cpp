@@ -140,7 +140,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     if (!side) {
         return side;
     }
-    sessionPanel.release();
+    [[maybe_unused]] QWidget *const adoptedSessionPanel =
+        sessionPanel.release();
 
     const int navigationIndex = workspace->tabWidget()->addTab(
         navigationContent,
@@ -184,7 +185,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         if (!result) {
             return result;
         }
-        dock.content.release();
+        [[maybe_unused]] QWidget *const adoptedDockContent =
+            dock.content.release();
     }
     activityDock = window->findChild<ZzFluentUI::ZzDockPanel *>(
         QStringLiteral("zzWorkspaceDock:activity-log"));

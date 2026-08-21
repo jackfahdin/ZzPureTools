@@ -80,8 +80,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzSidePane pane;
         auto *first = new QLabel(QStringLiteral("First"));
-        auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(first, QStringLiteral("First")));
+        auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(second, QStringLiteral("Second")));
         QSignalSpy currentSpy(
             &pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged);
@@ -123,8 +123,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzSidePane pane;
         auto *first = new QLabel(QStringLiteral("First"));
-        auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(first, QStringLiteral("First")));
+        auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(second, QStringLiteral("Second")));
         QVERIFY(pane.setCurrentWidget(first));
         QPointer<QWidget> firstGuard(first);
