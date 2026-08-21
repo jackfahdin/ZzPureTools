@@ -14,8 +14,9 @@
 #include <QtCore/QTextStream>
 #include <QtCore/QTimer>
 #include <QtCore/QVector>
-#include <QtGui/QStandardItemModel>
+#include <QtGui/QColor>
 #include <QtGui/QImage>
+#include <QtGui/QStandardItemModel>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QMainWindow>
@@ -25,13 +26,20 @@
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
+#if defined(Q_OS_LINUX)
+#include <unistd.h>
+#endif
+
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzBundledSvgIcon.h>
 #include <ZzFluentUI/ZzCommandItemRole.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzExplorerPane.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFontIcon.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -176,8 +184,11 @@ bool zzContainsOpaquePixel(const QImage &image)
     if (!valid) {
         return std::nullopt;
     }
-    constexpr quint64 pageBytes = 4096;
-    return pages * pageBytes;
+    const long nativePageBytes = ::sysconf(_SC_PAGESIZE);
+    if (nativePageBytes <= 0) {
+        return std::nullopt;
+    }
+    return pages * static_cast<quint64>(nativePageBytes);
 #else
     return std::nullopt;
 #endif
@@ -236,6 +247,20 @@ int main(int argc, char *argv[])
     explorer->setSearchDelay(0);
     QVector<ZzPureTools::ZzWorkspacePanelId> sidePanelIds;
     sidePanelIds.reserve(zzSidePanelCount);
+    const ZzFluentUI::ZzIconDescriptor fontActivityIcon =
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::Server,
+            false,
+            ZzFluentUI::ZzIconColorMode::Custom,
+            QColor(QStringLiteral("#f35325")));
+    const ZzFluentUI::ZzIconDescriptor svgActivityIcon =
+        ZzFluentUI::ZzIconDescriptor::fromBundledSvg(
+            ZzFluentUI::ZzBundledSvgIcon::PinFill,
+            false,
+            ZzFluentUI::ZzIconColorMode::Custom,
+            QColor(QStringLiteral("#3478f6")));
+    const int cacheBytesBeforeActivityIcons = fluentStyle->iconCacheBytes();
+    int cacheBytesAfterFontIcon = cacheBytesBeforeActivityIcons;
     for (int index = 0; index < zzSidePanelCount; ++index) {
         const ZzPureTools::ZzWorkspacePanelId id(
             QStringLiteral("benchmark-side-%1").arg(index));
@@ -244,7 +269,7 @@ int main(int argc, char *argv[])
         const auto registration = shell->registerSidePanel(
             id,
             QStringLiteral("Side panel %1").arg(index),
-            {},
+            (index % 2) == 0 ? fontActivityIcon : svgActivityIcon,
             (index % 2) == 0
                 ? ZzFluentUI::ZzActivityArea::LeftPrimary
                 : ZzFluentUI::ZzActivityArea::LeftSecondary,
@@ -254,6 +279,30 @@ int main(int argc, char *argv[])
             return zzFail(registration.error().technicalMessage());
         }
         sidePanelIds.append(id);
+        if (index <= 1) {
+            zzProcessGuiEvents();
+            auto *activityBar = shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left);
+            QImage activityImage(
+                activityBar->size(), QImage::Format_ARGB32_Premultiplied);
+            activityImage.fill(Qt::transparent);
+            activityBar->render(&activityImage);
+            if (!zzContainsOpaquePixel(activityImage)) {
+                return zzFail(QStringLiteral(
+                    "activity bar descriptor render was fully transparent"));
+            }
+            const int currentCacheBytes = fluentStyle->iconCacheBytes();
+            if (index == 0) {
+                if (currentCacheBytes <= cacheBytesBeforeActivityIcons) {
+                    return zzFail(QStringLiteral(
+                        "font activity icon did not populate the style cache"));
+                }
+                cacheBytesAfterFontIcon = currentCacheBytes;
+            } else if (currentCacheBytes <= cacheBytesAfterFontIcon) {
+                return zzFail(QStringLiteral(
+                    "SVG activity icon did not populate the style cache"));
+            }
+        }
     }
     for (int index = 0; index < zzDockPanelCount; ++index) {
         auto *content = new QWidget;
