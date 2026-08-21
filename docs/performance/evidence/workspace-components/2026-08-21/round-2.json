@@ -1,0 +1,83 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "3f9dcb1cb7a11d5a28bd96045caf144794e69cc5",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Qt offscreen raster",
+        "memoryBytes": 32709509120,
+        "os": "Ubuntu 26.04 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41",
+        "windowSystem": "offscreen"
+    },
+    "metrics": {
+        "activity-activation-time": {
+            "count": 80,
+            "max": 0.115692,
+            "p50": 0.063974,
+            "p95": 0.074637,
+            "unit": "ms"
+        },
+        "command-filter-time": {
+            "count": 80,
+            "max": 9.78917,
+            "p50": 5.638624,
+            "p95": 5.990888,
+            "unit": "ms"
+        },
+        "explorer-filter-time": {
+            "count": 80,
+            "max": 50.27615,
+            "p50": 29.88625,
+            "p95": 32.945117,
+            "unit": "ms"
+        },
+        "layout-restore-time": {
+            "count": 80,
+            "max": 8.044986,
+            "p50": 5.017521,
+            "p95": 5.384842,
+            "unit": "ms"
+        },
+        "layout-save-time": {
+            "count": 80,
+            "max": 0.072405,
+            "p50": 0.05043,
+            "p95": 0.053292,
+            "unit": "ms"
+        },
+        "tab-state-time": {
+            "count": 80,
+            "max": 0.027566,
+            "p50": 0.004012,
+            "p95": 0.019523,
+            "unit": "ms"
+        },
+        "title-menu-switch-time": {
+            "count": 80,
+            "max": 3.603199,
+            "p50": 0.122273,
+            "p95": 3.517565,
+            "unit": "ms"
+        },
+        "workspace-render-time": {
+            "count": 80,
+            "max": 8.835307,
+            "p50": 7.662589,
+            "p95": 7.986502,
+            "unit": "ms"
+        }
+    },
+    "scenario": "workspace-components",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}

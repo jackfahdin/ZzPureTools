@@ -169,10 +169,16 @@ cmake \
 
 ## 工作区组件 Observe 记录
 
-2026-08-21 在源码 `b6f5dc6ddca2a8de4145f8b599bbbfe6056667b7` 完成
-`benchmark.workspace-components` 三轮观测。原始 JSON 位于本机
-`build/noise/workspace-components/round-{1,2,3}/workspace-components.json`，不进入
-版本库；三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、`offscreen`、DPR 1、
+2026-08-21 在源码 `3f9dcb1cb7a11d5a28bd96045caf144794e69cc5` 完成
+`benchmark.workspace-components` 三轮观测。原始 reporter JSON 已入库，分别为：
+
+| 轮次 | 证据文件 | SHA-256 |
+|---|---|---|
+| 1 | `docs/performance/evidence/workspace-components/2026-08-21/round-1.json` | `54b0b553235b9ab9b4dbe17eba219c9e4e91f4a9ecfb49eaf5529a9160ce57e4` |
+| 2 | `docs/performance/evidence/workspace-components/2026-08-21/round-2.json` | `292a2b0dd0e869f6ad151d6c1d5de5b0d9dcd09cb5cc5be08f4fcf896adc0598` |
+| 3 | `docs/performance/evidence/workspace-components/2026-08-21/round-3.json` | `aca39dd571a60d7f6aad21907adf80c18bc91d7f4e50072c089f76a7d98cad2a` |
+
+三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、`offscreen`、DPR 1、
 Release/shared/LTO、`linux-gcc-benchmarks`、runner digest
 `sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41` 和
 `Qt offscreen raster` renderer identity。
@@ -181,19 +187,21 @@ Release/shared/LTO、`linux-gcc-benchmarks`、runner digest
 
 | 指标 | P50 | P95 | max |
 |---|---:|---:|---:|
-| `title-menu-switch-time` | 0.114336 - 0.124344 | 3.436596 - 3.513456 | 3.498951 - 3.597902 |
-| `activity-activation-time` | 0.063206 - 0.064650 | 0.071037 - 0.078536 | 0.100823 - 0.104715 |
-| `explorer-filter-time` | 30.110081 - 31.647010 | 33.556180 - 34.046572 | 34.315112 - 34.606763 |
-| `tab-state-time` | 0.003604 - 0.004022 | 0.018507 - 0.019476 | 0.020081 - 0.024721 |
-| `command-filter-time` | 5.625440 - 5.645705 | 5.797291 - 5.878819 | 6.067612 - 6.170271 |
-| `layout-save-time` | 0.050139 - 0.051099 | 0.052227 - 0.053676 | 0.054938 - 0.074134 |
-| `layout-restore-time` | 5.004124 - 5.008723 | 5.354454 - 5.403321 | 5.440289 - 5.465336 |
-| `workspace-render-time` | 7.684917 - 7.729033 | 7.957389 - 8.143893 | 8.185156 - 10.790870 |
+| `title-menu-switch-time` | 0.118882 - 0.140406 | 3.502460 - 3.534552 | 3.568265 - 3.774565 |
+| `activity-activation-time` | 0.063974 - 0.064738 | 0.072668 - 0.074637 | 0.100473 - 0.115692 |
+| `explorer-filter-time` | 29.886250 - 30.669390 | 32.945117 - 34.032560 | 34.153073 - 50.276150 |
+| `tab-state-time` | 0.003558 - 0.004012 | 0.018963 - 0.019523 | 0.022931 - 0.027566 |
+| `command-filter-time` | 5.638316 - 5.659059 | 5.790761 - 5.990888 | 6.088368 - 9.789170 |
+| `layout-save-time` | 0.050327 - 0.050818 | 0.052003 - 0.053888 | 0.053394 - 0.079063 |
+| `layout-restore-time` | 4.971860 - 5.017521 | 5.371449 - 5.385125 | 5.439880 - 8.044986 |
+| `workspace-render-time` | 7.662589 - 7.707870 | 7.986502 - 8.065470 | 8.321202 - 8.835307 |
 
-`layout-save-time` 的 max 噪声为 34.94%，`workspace-render-time` 的 max 噪声为
-31.83%，均超过 gate 候选范围。因此八项工作区指标维持 `observe`，没有新增或修改
-正式性能阈值。基准同时失败关闭：重复操作的 QObject 增长、结果列表逐行 QWidget、
-失败布局恢复未回滚、空绘制，以及 1000 次状态切换后的 timer/animation 增长。
+三轮 P95 噪声最高为 `layout-save-time` 的 3.63%，但 `command-filter-time`、
+`layout-save-time`、`layout-restore-time`、`explorer-filter-time` 和 `tab-state-time`
+的 max 噪声分别为 60.79%、48.07%、47.89%、47.21% 和 20.21%。因此八项工作区指标
+维持 `observe`，没有新增或修改正式性能阈值。基准同时失败关闭：重复操作的 QObject
+增长、结果列表超过 8 个 QWidget、失败布局恢复未回滚、全透明绘制，以及 1000 次状态
+切换后的 timer/animation 增长。
 
 ## 原 CI 参考档案
 
