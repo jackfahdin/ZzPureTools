@@ -11,6 +11,13 @@
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzTabGroupId.h>
 
+class QDragEnterEvent;
+class QDragLeaveEvent;
+class QDragMoveEvent;
+class QDropEvent;
+class QEvent;
+class QObject;
+
 namespace ZzFluentUI {
 
 class ZzSplitWorkspacePrivate;
@@ -21,6 +28,16 @@ enum class ZzSplitPlacement : std::uint8_t
 {
     Before,
     After
+};
+
+/** @brief 指定标签拖放到目标组的中心或物理边缘区域。 */
+enum class ZzWorkspaceDropZone : std::uint8_t
+{
+    Center,
+    Left,
+    Top,
+    Right,
+    Bottom
 };
 
 /**
@@ -106,6 +123,34 @@ public:
      */
     bool focusAdjacentGroup(Qt::Edge direction);
 
+    /**
+     * @brief 在两个已有标签组之间同步转移标签。
+     * @param source 来源标签组。
+     * @param sourceIndex 来源逻辑索引。
+     * @param target 目标标签组。
+     * @param targetIndex 目标插入槽位，负数表示末尾。
+     * @return 页面最终由目标组拥有时返回 true。
+     */
+    bool transferTab(
+        const ZzTabGroupId &source,
+        int sourceIndex,
+        const ZzTabGroupId &target,
+        int targetIndex = -1);
+
+    /**
+     * @brief 将标签提交到目标组中心或目标组旁的新分屏。
+     * @param source 来源标签组。
+     * @param sourceIndex 来源逻辑索引。
+     * @param target 目标标签组。
+     * @param zone 中心或物理边缘区域。
+     * @return 完整事务提交后返回 true；失败时恢复原分割树。
+     */
+    bool moveTabToDropZone(
+        const ZzTabGroupId &source,
+        int sourceIndex,
+        const ZzTabGroupId &target,
+        ZzWorkspaceDropZone zone);
+
 Q_SIGNALS:
     /** @brief 活动标签组实际变化后发出。 */
     void activeGroupChanged(const ZzTabGroupId &id);
@@ -118,6 +163,35 @@ Q_SIGNALS:
 
     /** @brief 分割树结构成功提交变化后发出。 */
     void layoutChanged();
+
+    /**
+     * @brief 一次中心或边缘标签拖放已完整提交。
+     * @param source 转移开始时的来源组。
+     * @param destination 页面最终所在组。
+     * @param zone 用户选择的物理拖放区域。
+     * @param page 已由目标组拥有的页面。
+     */
+    void tabDropCommitted(
+        const ZzTabGroupId &source,
+        const ZzTabGroupId &destination,
+        ZzWorkspaceDropZone zone,
+        QWidget *page);
+
+protected:
+    /** @brief 截获标签栏拖放事件并统一交给工作区事务处理。 */
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+    /** @brief 验证工作区实例内拖放令牌。 */
+    void dragEnterEvent(QDragEnterEvent *event) override;
+
+    /** @brief 更新共享拖放区域覆盖层。 */
+    void dragMoveEvent(QDragMoveEvent *event) override;
+
+    /** @brief 隐藏覆盖层并清理离开的拖放令牌。 */
+    void dragLeaveEvent(QDragLeaveEvent *event) override;
+
+    /** @brief 提交令牌对应的标签转移事务。 */
+    void dropEvent(QDropEvent *event) override;
 
 private:
     friend class ZzSplitWorkspacePrivate;
