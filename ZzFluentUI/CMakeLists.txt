@@ -121,6 +121,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzPanelStackPrivate.cpp
     widgets/src/ZzSidePane.cpp
     widgets/src/private/ZzSidePanePrivate.cpp
+    widgets/src/ZzBottomPane.cpp
+    widgets/src/private/ZzBottomPanePrivate.cpp
     widgets/src/ZzExplorerPane.cpp
     widgets/src/private/ZzExplorerPanePrivate.cpp
     widgets/src/ZzCommandPalette.cpp
@@ -177,6 +179,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzActivityBar.h
     widgets/include/ZzFluentUI/ZzPanelStack.h
     widgets/include/ZzFluentUI/ZzSidePane.h
+    widgets/include/ZzFluentUI/ZzBottomPane.h
     widgets/include/ZzFluentUI/ZzExplorerPane.h
     widgets/include/ZzFluentUI/ZzCommandPalette.h
     widgets/include/ZzFluentUI/ZzDockPanel.h
