@@ -38,7 +38,6 @@ constexpr quint16 zzLayoutSchemaVersion = 1;
 constexpr auto zzLayoutStreamVersion = QDataStream::Qt_6_8;
 constexpr int zzLayoutDigestSize = 32;
 constexpr int zzLayoutHeaderSize = 12;
-constexpr int zzMaximumSynchronousDockCleanupAttempts = 8;
 // 现有基准覆盖 64 个侧面板；4096 保持足够兼容余量，同时拒绝异常布局。
 constexpr quint32 zzMaximumSideLayoutEntries = 4096;
 
@@ -505,7 +504,7 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
             break;
         case ZzPanelKind::Dock: {
             if (record.removalInProgress) {
-                cleanupPendingDockPanelForDestruction(record.dock);
+                cleanupPendingDockPanelForDestruction(record);
                 break;
             }
             ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
@@ -1445,13 +1444,21 @@ bool ZzWorkspaceShellPrivate::cleanupDockPanel(
 }
 
 void ZzWorkspaceShellPrivate::cleanupPendingDockPanelForDestruction(
-    QPointer<ZzFluentUI::ZzDockPanel> dock)
+    ZzPanelRecord expected)
 {
-    for (int attempt = 0;
-         dock != nullptr
-         && attempt < zzMaximumSynchronousDockCleanupAttempts;
-         ++attempt) {
-        if (cleanupDockPanel(dock.data())) {
+    while (true) {
+        const int panelIndex = stablePanelIndex(expected);
+        if (panelIndex < 0 || !panels.at(panelIndex).removalInProgress) {
+            return;
+        }
+        ZzFluentUI::ZzDockPanel *const dock =
+            panels.at(panelIndex).dock.data();
+        QWidget *const content = dock != nullptr ? dock->widget() : nullptr;
+        if (dock == nullptr || dock != expected.dockIdentity
+            || (content != nullptr && content->parentWidget() != dock)) {
+            return;
+        }
+        if (cleanupDockPanel(dock)) {
             return;
         }
     }

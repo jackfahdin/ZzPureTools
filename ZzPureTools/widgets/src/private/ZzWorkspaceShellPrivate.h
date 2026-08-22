@@ -160,9 +160,9 @@ public:
     [[nodiscard]] bool cleanupDockPanel(
         ZzFluentUI::ZzDockPanel *dockIdentity);
 
-    /** @brief 析构时以有界同步重试收敛待清理 Dock。 */
+    /** @brief 析构时同步收敛任意有限回调链中的待清理 Dock。 */
     void cleanupPendingDockPanelForDestruction(
-        QPointer<ZzFluentUI::ZzDockPanel> dock);
+        ZzPanelRecord expected);
 
     /** @brief 保留事务记录，并在当前同步回调退出后重试移除清理。 */
     void scheduleInterruptedPanelRemovalCleanup(
