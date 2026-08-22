@@ -21,10 +21,12 @@ class QWidget;
 
 namespace ZzFluentUI {
 class ZzActivityBar;
+class ZzBottomPane;
 class ZzCommandPalette;
 class ZzDockPanel;
 class ZzFluentTitleBar;
 class ZzSidePane;
+class ZzSplitWorkspace;
 class ZzTabWidget;
 }
 
@@ -39,6 +41,7 @@ public:
     enum class ZzPanelKind : std::uint8_t
     {
         Side,
+        Bottom,
         Dock
     };
 
@@ -103,6 +106,12 @@ public:
         ZzFluentUI::ZzIconDescriptor icon,
         Qt::DockWidgetArea area,
         QWidget *content);
+    /** @brief 预占全局标识后事务接管中央底部面板内容。 */
+    [[nodiscard]] ZzCore::ZzResult<void> registerBottomPanel(
+        const ZzWorkspacePanelId &id,
+        const QString &title,
+        ZzFluentUI::ZzIconDescriptor icon,
+        QWidget *content);
     [[nodiscard]] ZzCore::ZzResult<QWidget *> takePanel(
         const ZzWorkspacePanelId &id);
     [[nodiscard]] ZzCore::ZzResult<void> showPanel(
@@ -118,6 +127,9 @@ public:
 
     /** @brief 根据当前标签和策略同步宿主及标题栏文本。 */
     void refreshTitle();
+
+    /** @brief 重新绑定当前活动标签组的展示与当前页信号。 */
+    void refreshActiveTabConnections();
 
     /** @brief 更新当前页标题观察连接并刷新标题。 */
     void refreshCurrentTabConnection();
@@ -157,13 +169,19 @@ public:
     QPointer<ZzFluentUI::ZzActivityBar> rightActivityBar;
     QPointer<ZzFluentUI::ZzSidePane> leftSidePane;
     QPointer<ZzFluentUI::ZzSidePane> rightSidePane;
-    QPointer<ZzFluentUI::ZzTabWidget> tabs;
+    QPointer<QWidget> centerHost;
+    QPointer<ZzFluentUI::ZzSplitWorkspace> splitWorkspace;
+    QPointer<ZzFluentUI::ZzBottomPane> bottomPane;
+    QPointer<ZzFluentUI::ZzTabWidget> activeTabs;
     QPointer<ZzFluentUI::ZzCommandPalette> palette;
     QPointer<QAbstractListModel> activityModel;
     QVector<ZzPanelRecord> panels;
     QString applicationTitle;
     QString customTitle;
     ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
+    std::uint64_t titleRefreshGeneration = 0;
+    QMetaObject::Connection activeTabChangedConnection;
+    QMetaObject::Connection activeTabPresentationConnection;
     QMetaObject::Connection currentTabTitleConnection;
 };
 

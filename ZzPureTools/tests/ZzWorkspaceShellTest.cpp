@@ -16,17 +16,21 @@
 #include <QtTest/QTest>
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QVBoxLayout>
 
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
+#include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
@@ -305,6 +309,36 @@ private Q_SLOTS:
         host.takeCentralWidget();
     }
 
+    void createsSplitWorkspaceAndBottomPane()
+    {
+        ZzShellFixture fixture;
+        auto *const splitWorkspace = fixture.shell->splitWorkspace();
+        auto *const bottomPane = fixture.shell->bottomPane();
+
+        QVERIFY(splitWorkspace != nullptr);
+        QVERIFY(bottomPane != nullptr);
+        QCOMPARE(
+            fixture.shell->tabWidget(),
+            splitWorkspace->tabWidget(splitWorkspace->activeGroupId()));
+        QCOMPARE(splitWorkspace->parentWidget(), bottomPane->parentWidget());
+        QWidget *const centerHost = splitWorkspace->parentWidget();
+        QVERIFY(centerHost != nullptr);
+        QCOMPARE(centerHost->parentWidget(), fixture.shell->workspaceWidget());
+        auto *const centerLayout = qobject_cast<QVBoxLayout *>(
+            centerHost->layout());
+        QVERIFY(centerLayout != nullptr);
+        QCOMPARE(centerLayout->count(), 2);
+        QCOMPARE(centerLayout->itemAt(0)->widget(), splitWorkspace);
+        QCOMPARE(centerLayout->itemAt(1)->widget(), bottomPane);
+        QCOMPARE(centerLayout->stretch(0), 1);
+        QCOMPARE(
+            fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)->mode(),
+            ZzFluentUI::ZzSidePaneMode::Stacked);
+        QCOMPARE(
+            fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Right)->mode(),
+            ZzFluentUI::ZzSidePaneMode::Stacked);
+    }
+
     void hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge()
     {
         ZzShellFixture fixture;
@@ -439,6 +473,166 @@ private Q_SLOTS:
         auto missing = fixture.shell->takePanel(zzPanelId("terminal"));
         QVERIFY(!missing);
         QCOMPARE(missing.error().code(), ZzCore::ZzErrorCode::NotFound);
+    }
+
+    void registersShowsAndReturnsBottomOwnership()
+    {
+        ZzShellFixture fixture;
+        auto output = std::make_unique<QWidget>();
+        QWidget *const outputRaw = output.get();
+
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("output"), QStringLiteral("Output"), zzIcon(),
+            output.get()));
+        zzReleaseAfterAdoption(output);
+        QCOMPARE(fixture.shell->bottomPane()->widgetCount(), 1);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("output"), true));
+        QCOMPARE(fixture.shell->bottomPane()->currentWidget(), outputRaw);
+        QVERIFY(!fixture.shell->bottomPane()->isCollapsed());
+        QVERIFY(fixture.shell->showPanel(zzPanelId("output"), false));
+        QVERIFY(fixture.shell->bottomPane()->isCollapsed());
+
+        auto taken = fixture.shell->takePanel(zzPanelId("output"));
+        QVERIFY(taken);
+        std::unique_ptr<QWidget> returned(taken.value());
+        QCOMPARE(returned.get(), outputRaw);
+        QCOMPARE(returned->parent(), nullptr);
+        QCOMPARE(fixture.shell->bottomPane()->widgetCount(), 0);
+    }
+
+    void rejectsDuplicateIdsAcrossSideBottomAndDockWithoutTakingContent()
+    {
+        ZzShellFixture fixture;
+        auto side = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, side.get()));
+        zzReleaseAfterAdoption(side);
+        QWidget sideToBottom;
+        QWidget sideToDock;
+        QVERIFY(!fixture.shell->registerBottomPanel(
+            zzPanelId("side"), QStringLiteral("Duplicate"), zzIcon(),
+            &sideToBottom));
+        QVERIFY(!fixture.shell->registerDockPanel(
+            zzPanelId("side"), QStringLiteral("Duplicate"), zzIcon(),
+            Qt::BottomDockWidgetArea, &sideToDock));
+        QCOMPARE(sideToBottom.parent(), nullptr);
+        QCOMPARE(sideToDock.parent(), nullptr);
+
+        auto bottom = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            bottom.get()));
+        zzReleaseAfterAdoption(bottom);
+        QWidget bottomToSide;
+        QWidget bottomToDock;
+        QVERIFY(!fixture.shell->registerSidePanel(
+            zzPanelId("bottom"), QStringLiteral("Duplicate"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, &bottomToSide));
+        QVERIFY(!fixture.shell->registerDockPanel(
+            zzPanelId("bottom"), QStringLiteral("Duplicate"), zzIcon(),
+            Qt::BottomDockWidgetArea, &bottomToDock));
+        QCOMPARE(bottomToSide.parent(), nullptr);
+        QCOMPARE(bottomToDock.parent(), nullptr);
+
+        auto dock = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, dock.get()));
+        zzReleaseAfterAdoption(dock);
+        QWidget dockToSide;
+        QWidget dockToBottom;
+        QVERIFY(!fixture.shell->registerSidePanel(
+            zzPanelId("dock"), QStringLiteral("Duplicate"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, &dockToSide));
+        QVERIFY(!fixture.shell->registerBottomPanel(
+            zzPanelId("dock"), QStringLiteral("Duplicate"), zzIcon(),
+            &dockToBottom));
+        QCOMPARE(dockToSide.parent(), nullptr);
+        QCOMPARE(dockToBottom.parent(), nullptr);
+    }
+
+    void reservesBottomIdDuringSynchronousRegistrationSignals()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<ZzParentChangeWidget>();
+        QWidget *const contentRaw = content.get();
+        QWidget duplicateContent;
+        bool callbackEntered = false;
+        bool duplicateRegistrationSucceeded = false;
+        bool reentrantTakeSucceeded = false;
+        content->parentChanged = [&] {
+            if (callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            duplicateRegistrationSucceeded = static_cast<bool>(
+                fixture.shell->registerBottomPanel(
+                    zzPanelId("bottom"), QStringLiteral("Duplicate"),
+                    zzIcon(), &duplicateContent));
+            reentrantTakeSucceeded = static_cast<bool>(
+                fixture.shell->takePanel(zzPanelId("bottom")));
+        };
+
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            content.get()));
+        zzReleaseAfterAdoption(content);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!duplicateRegistrationSucceeded);
+        QVERIFY(!reentrantTakeSucceeded);
+        QCOMPARE(fixture.shell->bottomPane()->widgetCount(), 1);
+        QCOMPARE(fixture.shell->bottomPane()->currentWidget(), contentRaw);
+    }
+
+    void externalBottomContentDestructionCleansStateAndAllowsIdReuse()
+    {
+        ZzShellFixture fixture;
+        auto *bottom = new QWidget;
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(), bottom));
+        QCOMPARE(fixture.shell->bottomPane()->widgetCount(), 1);
+
+        delete bottom;
+
+        QCOMPARE(fixture.shell->bottomPane()->widgetCount(), 0);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Replacement"), zzIcon(),
+            replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void cleansBottomIdWhenContentIsDestroyedDuringTakeSignals()
+    {
+        ZzShellFixture fixture;
+        auto *bottom = new QWidget;
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(), bottom));
+        bool callbackEntered = false;
+        QObject::connect(
+            fixture.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::currentWidgetChanged,
+            fixture.shell.get(),
+            [&](QWidget *) {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                delete bottom;
+            });
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("bottom"));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedTake);
+        QCOMPARE(fixture.shell->bottomPane()->widgetCount(), 0);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Replacement"), zzIcon(),
+            replacement.get()));
+        zzReleaseAfterAdoption(replacement);
     }
 
     void failedTakePreservesRegisteredSideState()
@@ -752,6 +946,103 @@ private Q_SLOTS:
             QStringLiteral("Final - Pure Tools"));
     }
 
+    void followsTheActiveGroupCurrentPageTitle()
+    {
+        ZzShellFixture fixture;
+        auto *const splitWorkspace = fixture.shell->splitWorkspace();
+        const ZzFluentUI::ZzTabGroupId firstGroup =
+            splitWorkspace->activeGroupId();
+        auto *const firstTabs = splitWorkspace->tabWidget(firstGroup);
+        auto firstPage = std::make_unique<QWidget>();
+        firstPage->setWindowTitle(QStringLiteral("First Window"));
+        firstTabs->addTab(firstPage.release(), QStringLiteral("First Tab"));
+
+        const auto secondGroup = splitWorkspace->splitGroup(
+            firstGroup, Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(secondGroup.has_value());
+        auto *const secondTabs = splitWorkspace->tabWidget(*secondGroup);
+        auto secondWindowPage = std::make_unique<QWidget>();
+        QWidget *const secondWindowRaw = secondWindowPage.get();
+        secondWindowPage->setWindowTitle(QStringLiteral("Second Window"));
+        secondTabs->addTab(
+            secondWindowPage.release(), QStringLiteral("Second Tab"));
+        auto secondFallbackPage = std::make_unique<QWidget>();
+        QWidget *const secondFallbackRaw = secondFallbackPage.get();
+        secondTabs->addTab(
+            secondFallbackPage.release(), QStringLiteral("Second Fallback"));
+
+        fixture.shell->setApplicationTitle(QStringLiteral("Pure Tools"));
+        fixture.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
+        QVERIFY(splitWorkspace->setActiveGroup(*secondGroup));
+        QCOMPARE(fixture.shell->tabWidget(), secondTabs);
+        secondTabs->setCurrentWidget(secondWindowRaw);
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Second Window"));
+        QCOMPARE(fixture.titleBar.title(), QStringLiteral("Second Window"));
+
+        secondWindowRaw->setWindowTitle(QStringLiteral("Changed Window"));
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Changed Window"));
+        QCOMPARE(fixture.titleBar.title(), QStringLiteral("Changed Window"));
+        secondTabs->setCurrentWidget(secondFallbackRaw);
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Second Fallback"));
+        QCOMPARE(fixture.titleBar.title(), QStringLiteral("Second Fallback"));
+        secondTabs->setPageTitle(
+            secondFallbackRaw, QStringLiteral("Renamed Fallback"));
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Renamed Fallback"));
+        QCOMPARE(fixture.titleBar.title(), QStringLiteral("Renamed Fallback"));
+
+        QVERIFY(splitWorkspace->setActiveGroup(firstGroup));
+        QCOMPARE(fixture.shell->tabWidget(), firstTabs);
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("First Window"));
+        QCOMPARE(fixture.titleBar.title(), QStringLiteral("First Window"));
+    }
+
+    void keepsBothTitleSinksAlignedDuringActiveGroupReentry()
+    {
+        ZzShellFixture fixture;
+        auto *const splitWorkspace = fixture.shell->splitWorkspace();
+        const ZzFluentUI::ZzTabGroupId firstGroup =
+            splitWorkspace->activeGroupId();
+        auto firstPage = std::make_unique<QWidget>();
+        firstPage->setWindowTitle(QStringLiteral("First"));
+        splitWorkspace->tabWidget(firstGroup)->addTab(
+            firstPage.release(), QStringLiteral("First"));
+        const auto secondGroup = splitWorkspace->splitGroup(
+            firstGroup, Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(secondGroup.has_value());
+        auto secondPage = std::make_unique<QWidget>();
+        secondPage->setWindowTitle(QStringLiteral("Second"));
+        splitWorkspace->tabWidget(*secondGroup)->addTab(
+            secondPage.release(), QStringLiteral("Second"));
+        QVERIFY(splitWorkspace->setActiveGroup(firstGroup));
+        fixture.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
+
+        bool callbackEntered = false;
+        bool reactivatedFirstGroup = false;
+        QObject::connect(
+            &fixture.host, &QWidget::windowTitleChanged,
+            fixture.shell.get(),
+            [&](const QString &title) {
+                if (callbackEntered || title != QStringLiteral("Second")) {
+                    return;
+                }
+                callbackEntered = true;
+                reactivatedFirstGroup =
+                    splitWorkspace->setActiveGroup(firstGroup);
+            });
+
+        QVERIFY(splitWorkspace->setActiveGroup(*secondGroup));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(reactivatedFirstGroup);
+        QCOMPARE(splitWorkspace->activeGroupId(), firstGroup);
+        QCOMPARE(fixture.host.windowTitle(), QStringLiteral("First"));
+        QCOMPARE(fixture.titleBar.title(), QStringLiteral("First"));
+    }
+
     void appliesAlwaysOnTopRequestsWithoutHidingOrLosingWindowState()
     {
         ZzShellFixture fixture;
@@ -810,6 +1101,11 @@ private Q_SLOTS:
             ZzFluentUI::ZzSidePaneEdge::Right)->setCollapsed(true);
         fixture.shell->setTitleMode(
             ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+        fixture.shell->tabWidget()->addTab(
+            new QWidget, QStringLiteral("First tab"));
+        fixture.shell->tabWidget()->addTab(
+            new QWidget, QStringLiteral("Second tab"));
+        fixture.shell->tabWidget()->setCurrentIndex(1);
 
         auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
@@ -842,6 +1138,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzSidePaneEdge::Right)->setCollapsed(false);
         fixture.shell->setTitleMode(
             ZzPureTools::ZzWorkspaceTitleMode::Application);
+        fixture.shell->tabWidget()->setCurrentIndex(0);
         QVERIFY(fixture.shell->restoreLayout(state));
         QCOMPARE(
             fixture.shell->sidePane(
@@ -865,6 +1162,7 @@ private Q_SLOTS:
         QCOMPARE(
             fixture.shell->titleMode(),
             ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+        QCOMPARE(fixture.shell->tabWidget()->currentIndex(), 1);
     }
 
     void rejectsMagicVersionLengthDigestAndOversizeCorruption()

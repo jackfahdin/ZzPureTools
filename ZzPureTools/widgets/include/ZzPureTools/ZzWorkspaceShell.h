@@ -20,9 +20,11 @@ class QWidget;
 
 namespace ZzFluentUI {
 class ZzActivityBar;
+class ZzBottomPane;
 class ZzCommandPalette;
 class ZzFluentTitleBar;
 class ZzSidePane;
+class ZzSplitWorkspace;
 class ZzTabWidget;
 }
 
@@ -58,8 +60,17 @@ public:
     /** @brief 返回待由调用方挂载的工作区根控件。 */
     [[nodiscard]] QWidget *workspaceWidget() const noexcept;
 
-    /** @brief 返回中央标签控件。 */
+    /**
+     * @brief 返回当前活动标签组的标签控件。
+     * @return 指针会随活动组改变；宿主销毁后返回 nullptr。
+     */
     [[nodiscard]] ZzFluentUI::ZzTabWidget *tabWidget() const noexcept;
+
+    /** @brief 返回承载全部中央标签组的分屏工作区。 */
+    [[nodiscard]] ZzFluentUI::ZzSplitWorkspace *splitWorkspace() const noexcept;
+
+    /** @brief 返回中央区域底部的工具面板。 */
+    [[nodiscard]] ZzFluentUI::ZzBottomPane *bottomPane() const noexcept;
 
     /** @brief 返回工作区内覆盖式命令面板。 */
     [[nodiscard]] ZzFluentUI::ZzCommandPalette *commandPalette() const noexcept;
@@ -80,6 +91,13 @@ public:
         ZzFluentUI::ZzActivityArea area,
         QWidget *content);
 
+    /** @brief 校验后接管无父对象内容，并注册到中央底部工具区。 */
+    [[nodiscard]] ZzCore::ZzResult<void> registerBottomPanel(
+        const ZzWorkspacePanelId &id,
+        const QString &title,
+        ZzFluentUI::ZzIconDescriptor icon,
+        QWidget *content);
+
     /** @brief 校验后创建原生 Dock 并接管无父对象内容。 */
     [[nodiscard]] ZzCore::ZzResult<void> registerDockPanel(
         const ZzWorkspacePanelId &id,
@@ -88,11 +106,11 @@ public:
         Qt::DockWidgetArea area,
         QWidget *content);
 
-    /** @brief 从 Side Pane 或 Dock 中移除面板并归还无父对象内容。 */
+    /** @brief 从 Side、Bottom 或 Dock 中移除面板并归还无父对象内容。 */
     [[nodiscard]] ZzCore::ZzResult<QWidget *> takePanel(
         const ZzWorkspacePanelId &id);
 
-    /** @brief 展开/折叠 Side Pane，或显示/隐藏 Dock。 */
+    /** @brief 展开/折叠 Side 或 Bottom Pane，或显示/隐藏 Dock。 */
     [[nodiscard]] ZzCore::ZzResult<void> showPanel(
         const ZzWorkspacePanelId &id,
         bool visible = true);

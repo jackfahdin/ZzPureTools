@@ -11,9 +11,11 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzSidePane.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 
 #include "private/ZzWorkspaceShellPrivate.h"
@@ -113,7 +115,30 @@ ZzFluentUI::ZzTabWidget *ZzWorkspaceShell::tabWidget() const noexcept
     if (!zzIsShellThread(this)) {
         return nullptr;
     }
-    return d_ptr->tabs.data();
+    if (d_ptr->splitWorkspace == nullptr) {
+        return nullptr;
+    }
+    return d_ptr->splitWorkspace->tabWidget(
+        d_ptr->splitWorkspace->activeGroupId());
+}
+
+ZzFluentUI::ZzSplitWorkspace *
+ZzWorkspaceShell::splitWorkspace() const noexcept
+{
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
+    return d_ptr->splitWorkspace.data();
+}
+
+ZzFluentUI::ZzBottomPane *ZzWorkspaceShell::bottomPane() const noexcept
+{
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return nullptr;
+    }
+    return d_ptr->bottomPane.data();
 }
 
 ZzFluentUI::ZzCommandPalette *
@@ -180,6 +205,22 @@ ZzCore::ZzResult<void> ZzWorkspaceShell::registerDockPanel(
     }
     return d_ptr->registerDockPanel(
         id, title, std::move(icon), area, content);
+}
+
+ZzCore::ZzResult<void> ZzWorkspaceShell::registerBottomPanel(
+    const ZzWorkspacePanelId &id,
+    const QString &title,
+    ZzFluentUI::ZzIconDescriptor icon,
+    QWidget *content)
+{
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return zzWorkspaceCreateFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace operation requires its GUI thread"));
+    }
+    return d_ptr->registerBottomPanel(
+        id, title, std::move(icon), content);
 }
 
 ZzCore::ZzResult<QWidget *> ZzWorkspaceShell::takePanel(
