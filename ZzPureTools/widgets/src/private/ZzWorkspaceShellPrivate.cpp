@@ -38,6 +38,7 @@ constexpr quint16 zzLayoutSchemaVersion = 1;
 constexpr auto zzLayoutStreamVersion = QDataStream::Qt_6_8;
 constexpr int zzLayoutDigestSize = 32;
 constexpr int zzLayoutHeaderSize = 12;
+constexpr int zzMaximumSynchronousDockCleanupAttempts = 8;
 // 现有基准覆盖 64 个侧面板；4096 保持足够兼容余量，同时拒绝异常布局。
 constexpr quint32 zzMaximumSideLayoutEntries = 4096;
 
@@ -503,20 +504,11 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
         case ZzPanelKind::Bottom:
             break;
         case ZzPanelKind::Dock: {
-            ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
-            if (record.removalInProgress && dock != nullptr) {
-                if (!cleanupDockPanel(dock)) {
-                    auto *const dockHost = qobject_cast<QMainWindow *>(
-                        dock->parentWidget());
-                    if (dockHost != nullptr
-                        && dockHost->layout() != nullptr) {
-                        dockHost->removeDockWidget(dock);
-                    }
-                    dock->hide();
-                    dock->setParent(nullptr);
-                }
+            if (record.removalInProgress) {
+                cleanupPendingDockPanelForDestruction(record.dock);
                 break;
             }
+            ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
             auto *const dockHost = dock != nullptr
                 ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
             if (dockHost != nullptr && dockHost->layout() != nullptr) {
@@ -1288,8 +1280,7 @@ void ZzWorkspaceShellPrivate::handlePanelContentDestroyed(
     case ZzPanelKind::Bottom:
         break;
     case ZzPanelKind::Dock: {
-        auto *const dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
-            record.dockIdentity);
+        ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
         auto *const dockHost = dock != nullptr
             ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
         if (dockHost != nullptr && dockHost->layout() != nullptr) {
@@ -1451,6 +1442,19 @@ bool ZzWorkspaceShellPrivate::cleanupDockPanel(
         delete dockGuard;
     }
     return true;
+}
+
+void ZzWorkspaceShellPrivate::cleanupPendingDockPanelForDestruction(
+    QPointer<ZzFluentUI::ZzDockPanel> dock)
+{
+    for (int attempt = 0;
+         dock != nullptr
+         && attempt < zzMaximumSynchronousDockCleanupAttempts;
+         ++attempt) {
+        if (cleanupDockPanel(dock.data())) {
+            return;
+        }
+    }
 }
 
 void ZzWorkspaceShellPrivate::scheduleInterruptedPanelRemovalCleanup(

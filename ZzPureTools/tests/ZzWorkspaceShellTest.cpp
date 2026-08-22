@@ -911,6 +911,78 @@ private Q_SLOTS:
         std::unique_ptr<QWidget> preservedSecond(secondInjectedGuard.data());
     }
 
+    void pendingDockCleanupPreservesThirdInjectionDuringDestruction_data()
+    {
+        QTest::addColumn<bool>("destroyHostFirst");
+        QTest::newRow("shell-first") << false;
+        QTest::newRow("host-first") << true;
+    }
+
+    void pendingDockCleanupPreservesThirdInjectionDuringDestruction()
+    {
+        QFETCH(bool, destroyHostFirst);
+        auto host = std::make_unique<QMainWindow>();
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto content = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const contentRaw = content.get();
+        QPointer<QWidget> contentGuard(contentRaw);
+        auto firstInjected = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const firstInjectedRaw = firstInjected.get();
+        QPointer<QWidget> firstInjectedGuard(firstInjectedRaw);
+        auto secondInjected = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const secondInjectedRaw = secondInjected.get();
+        QPointer<QWidget> secondInjectedGuard(secondInjectedRaw);
+        auto thirdInjected = std::make_unique<QWidget>();
+        QPointer<QWidget> thirdInjectedGuard(thirdInjected.get());
+        QVERIFY(shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const dock = host->findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
+        contentRaw->parentRemoved = [&] {
+            dock->setWidget(firstInjected.get());
+            firstInjected.release();
+        };
+        firstInjectedRaw->parentRemoved = [&] {
+            dock->setWidget(secondInjected.get());
+            secondInjected.release();
+        };
+        secondInjectedRaw->parentRemoved = [&] {
+            dock->setWidget(thirdInjected.get());
+            thirdInjected.release();
+        };
+        auto interruptedTake = shell->takePanel(zzPanelId("dock"));
+        QVERIFY(!interruptedTake);
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), dock);
+        if (destroyHostFirst) {
+            host.reset();
+            QVERIFY(dockGuard != nullptr);
+            QCOMPARE(dockGuard->parent(), nullptr);
+        }
+
+        shell.reset();
+
+        QVERIFY(dockGuard.isNull());
+        QVERIFY(contentGuard != nullptr);
+        QCOMPARE(contentGuard->parent(), nullptr);
+        QVERIFY(firstInjectedGuard != nullptr);
+        QCOMPARE(firstInjectedGuard->parent(), nullptr);
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), nullptr);
+        QVERIFY(thirdInjectedGuard != nullptr);
+        QCOMPARE(thirdInjectedGuard->parent(), nullptr);
+        std::unique_ptr<QWidget> preservedContent(contentRaw);
+        std::unique_ptr<QWidget> preservedFirst(firstInjectedGuard.data());
+        std::unique_ptr<QWidget> preservedSecond(secondInjectedGuard.data());
+        std::unique_ptr<QWidget> preservedThird(thirdInjectedGuard.data());
+    }
+
     void sideTakeRejectsDestroyedContentAfterActivityRemovalSignals()
     {
         ZzShellFixture fixture;
@@ -1310,6 +1382,40 @@ private Q_SLOTS:
         QVERIFY(dock.isNull());
         QVERIFY(fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
             QStringLiteral("zzWorkspaceDock:dock")) != nullptr);
+    }
+
+    void dockDestructionBeforeContentDoesNotUseStaleIdentity()
+    {
+        ZzShellFixture fixture;
+        auto *content = new QWidget;
+        QPointer<QWidget> contentGuard(content);
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::RightDockWidgetArea, content));
+        QPointer<ZzFluentUI::ZzDockPanel> dock =
+            fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+                QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        QObject::connect(
+            dock, &QObject::destroyed, fixture.shell.get(),
+            [contentGuard] {
+                if (contentGuard != nullptr) {
+                    contentGuard->setParent(nullptr);
+                }
+            });
+
+        delete dock;
+
+        QVERIFY(dock.isNull());
+        QVERIFY(contentGuard != nullptr);
+        QCOMPARE(contentGuard->parent(), nullptr);
+        delete content;
+        QVERIFY(contentGuard.isNull());
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Replacement"), zzIcon(),
+            Qt::RightDockWidgetArea, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
     }
 
     void reservesSideIdDuringSynchronousRegistrationSignals()
