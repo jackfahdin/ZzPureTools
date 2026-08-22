@@ -140,6 +140,15 @@ private Q_SLOTS:
                 ? Qt::Horizontal
                 : Qt::Vertical;
             QCOMPARE(splitter->orientation(), expectedOrientation);
+            const auto ids = workspace.groupIds();
+            const qsizetype destinationPosition = ids.indexOf(destinationId);
+            const qsizetype targetPosition = ids.indexOf(targetId);
+            if (zone == ZzFluentUI::ZzWorkspaceDropZone::Left
+                || zone == ZzFluentUI::ZzWorkspaceDropZone::Top) {
+                QCOMPARE(destinationPosition + 1, targetPosition);
+            } else {
+                QCOMPARE(destinationPosition, targetPosition + 1);
+            }
         }
 
         ZzFluentUI::ZzSplitWorkspace workspace;
@@ -239,6 +248,326 @@ private Q_SLOTS:
                 delete workspace.data();
             }
         }
+    }
+
+    void edgeTransferSignalsMayInvalidateParticipants()
+    {
+        enum class Action {
+            DeleteSource,
+            DeleteOriginalTarget,
+            DeleteTemporary,
+            DeletePage,
+            DeleteWorkspace
+        };
+        for (const auto action : {
+                 Action::DeleteSource,
+                 Action::DeleteOriginalTarget,
+                 Action::DeleteTemporary,
+                 Action::DeletePage,
+                 Action::DeleteWorkspace}) {
+            auto *rawWorkspace = new ZzFluentUI::ZzSplitWorkspace;
+            QPointer<ZzFluentUI::ZzSplitWorkspace> workspace = rawWorkspace;
+            const auto targetId = rawWorkspace->groupIds().constFirst();
+            const auto sourceId = rawWorkspace->splitGroup(
+                targetId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+            QVERIFY(sourceId.has_value());
+            QPointer<ZzFluentUI::ZzTabWidget> source =
+                rawWorkspace->tabWidget(sourceId.value());
+            QPointer<ZzFluentUI::ZzTabWidget> originalTarget =
+                rawWorkspace->tabWidget(targetId);
+            QPointer<ZzFluentUI::ZzTabWidget> temporary;
+            QPointer<QWidget> page = new QWidget;
+            source->addTab(page, QStringLiteral("Edge guarded"));
+            const auto beforeIds = rawWorkspace->groupIds();
+            connect(
+                source,
+                &QTabWidget::currentChanged,
+                source,
+                [&, action](int) {
+                    if (!temporary.isNull() || workspace.isNull()) {
+                        return;
+                    }
+                    for (const auto &id : workspace->groupIds()) {
+                        if (!beforeIds.contains(id)) {
+                            temporary = workspace->tabWidget(id);
+                            break;
+                        }
+                    }
+                    if (temporary.isNull()) {
+                        return;
+                    }
+                    connect(
+                        temporary,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        temporary,
+                        [&, action](
+                            ZzFluentUI::ZzTabWidget *, int, int, QWidget *) {
+                            if (action == Action::DeleteSource) {
+                                delete source.data();
+                            } else if (
+                                action == Action::DeleteOriginalTarget) {
+                                delete originalTarget.data();
+                            } else if (action == Action::DeleteTemporary) {
+                                delete temporary.data();
+                            } else if (action == Action::DeletePage) {
+                                delete page.data();
+                            } else {
+                                delete workspace.data();
+                            }
+                        });
+                });
+
+            const bool moved = rawWorkspace->moveTabToDropZone(
+                sourceId.value(),
+                0,
+                targetId,
+                ZzFluentUI::ZzWorkspaceDropZone::Top);
+            if (action == Action::DeleteWorkspace) {
+                QVERIFY(workspace.isNull());
+                QVERIFY(moved);
+                continue;
+            }
+            QVERIFY(!workspace.isNull());
+            if (action == Action::DeleteSource) {
+                QVERIFY(moved);
+                QCOMPARE(workspace->groupIds().size(), 2);
+                QVERIFY(!workspace->groupIds().contains(sourceId.value()));
+            } else if (action == Action::DeleteOriginalTarget) {
+                QVERIFY(!moved);
+                QVERIFY(workspace->tabWidget(targetId) == nullptr);
+                QVERIFY(!page.isNull());
+                QCOMPARE(
+                    workspace->tabWidget(sourceId.value())->indexOf(page),
+                    0);
+            } else {
+                QVERIFY(!moved);
+            }
+            delete workspace.data();
+        }
+    }
+
+    void edgeFailurePreservesNestedTreeStateAndSignals()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto targetId = workspace.groupIds().constFirst();
+        const auto sourceId = workspace.splitGroup(
+            targetId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(sourceId.has_value());
+        const auto nestedId = workspace.splitGroup(
+            targetId, Qt::Vertical, ZzFluentUI::ZzSplitPlacement::Before);
+        QVERIFY(nestedId.has_value());
+        workspace.resize(900, 700);
+        workspace.show();
+        QCoreApplication::processEvents();
+        for (QSplitter *splitter : workspace.findChildren<QSplitter *>()) {
+            splitter->setSizes(
+                splitter->orientation() == Qt::Horizontal
+                    ? QList<int> {241, 659}
+                    : QList<int> {173, 527});
+        }
+        QVERIFY(workspace.setActiveGroup(nestedId.value()));
+        auto *page = new QWidget;
+        workspace.tabWidget(sourceId.value())->addTab(
+            page, QStringLiteral("Nested rollback"));
+
+        const auto beforeIds = workspace.groupIds();
+        const auto beforeSizes = zzSplitterSizes(workspace);
+        const auto beforeActive = workspace.activeGroupId();
+        QWidget *const beforeParent = page->parentWidget();
+        const int beforeIndex = workspace.tabWidget(sourceId.value())->indexOf(page);
+        QSignalSpy addedSpy(
+            &workspace, &ZzFluentUI::ZzSplitWorkspace::groupAdded);
+        QSignalSpy removedSpy(
+            &workspace,
+            &ZzFluentUI::ZzSplitWorkspace::groupAboutToBeRemoved);
+        QSignalSpy activeSpy(
+            &workspace,
+            &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged);
+        QSignalSpy committedSpy(
+            &workspace,
+            &ZzFluentUI::ZzSplitWorkspace::tabDropCommitted);
+        QSignalSpy layoutSpy(
+            &workspace, &ZzFluentUI::ZzSplitWorkspace::layoutChanged);
+        bool destroyedTemporary = false;
+        connect(
+            workspace.tabWidget(sourceId.value()),
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (destroyedTemporary) {
+                    return;
+                }
+                for (const auto &id : workspace.groupIds()) {
+                    if (!beforeIds.contains(id)) {
+                        destroyedTemporary = true;
+                        delete workspace.tabWidget(id);
+                        return;
+                    }
+                }
+            });
+
+        QVERIFY(!workspace.moveTabToDropZone(
+            sourceId.value(),
+            0,
+            targetId,
+            ZzFluentUI::ZzWorkspaceDropZone::Right));
+        QVERIFY(destroyedTemporary);
+        QCOMPARE(workspace.groupIds(), beforeIds);
+        QCOMPARE(zzSplitterSizes(workspace), beforeSizes);
+        QCOMPARE(workspace.activeGroupId(), beforeActive);
+        QCOMPARE(page->parentWidget(), beforeParent);
+        QCOMPARE(workspace.tabWidget(sourceId.value())->indexOf(page), beforeIndex);
+        QCOMPARE(addedSpy.size(), 0);
+        QCOMPARE(removedSpy.size(), 0);
+        QCOMPARE(activeSpy.size(), 0);
+        QCOMPARE(committedSpy.size(), 0);
+        QCOMPARE(layoutSpy.size(), 0);
+    }
+
+    void deletedSourceTargetIdentityIsNotRecreated()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto sourceTargetId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> sourceTarget =
+            workspace.tabWidget(sourceTargetId);
+        QPointer<QWidget> page = new QWidget;
+        sourceTarget->addTab(page, QStringLiteral("Moved"));
+        sourceTarget->addTab(new QWidget, QStringLiteral("Deleted"));
+        const auto beforeIds = workspace.groupIds();
+        QPointer<ZzFluentUI::ZzTabWidget> temporary;
+        connect(
+            sourceTarget,
+            &QTabWidget::currentChanged,
+            sourceTarget,
+            [&](int) {
+                if (!temporary.isNull()) {
+                    return;
+                }
+                for (const auto &id : workspace.groupIds()) {
+                    if (!beforeIds.contains(id)) {
+                        temporary = workspace.tabWidget(id);
+                        break;
+                    }
+                }
+                if (!temporary.isNull()) {
+                    connect(
+                        temporary,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        temporary,
+                        [&](ZzFluentUI::ZzTabWidget *, int, int, QWidget *) {
+                            delete sourceTarget.data();
+                        });
+                }
+            });
+
+        QVERIFY(!workspace.moveTabToDropZone(
+            sourceTargetId,
+            0,
+            sourceTargetId,
+            ZzFluentUI::ZzWorkspaceDropZone::Bottom));
+        QVERIFY(sourceTarget.isNull());
+        QVERIFY(workspace.tabWidget(sourceTargetId) == nullptr);
+        QCOMPARE(workspace.groupIds().size(), 1);
+        QVERIFY(!page.isNull());
+        QCOMPARE(workspace.tabWidget(workspace.groupIds().constFirst())->indexOf(page), 0);
+    }
+
+    void dragTokensDoNotAllocateTimers()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        QCOMPARE(workspace.findChildren<QTimer *>().size(), 0);
+    }
+
+    void edgeMoveFromActiveSourceEmitsActiveChange()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto targetId = workspace.groupIds().constFirst();
+        const auto sourceId = workspace.splitGroup(
+            targetId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(sourceId.has_value());
+        workspace.tabWidget(sourceId.value())->addTab(
+            new QWidget, QStringLiteral("Active source"));
+        QVERIFY(workspace.setActiveGroup(sourceId.value()));
+        QSignalSpy activeSpy(
+            &workspace,
+            &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged);
+
+        QVERIFY(workspace.moveTabToDropZone(
+            sourceId.value(),
+            0,
+            targetId,
+            ZzFluentUI::ZzWorkspaceDropZone::Top));
+
+        QCOMPARE(activeSpy.size(), 1);
+        QCOMPARE(
+            activeSpy.constFirst().constFirst().value<ZzFluentUI::ZzTabGroupId>(),
+            workspace.activeGroupId());
+        QVERIFY(workspace.activeGroupId() != sourceId.value());
+    }
+
+    void replacementTargetWithSameIdIsNotRemoved()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto targetId = workspace.groupIds().constFirst();
+        const auto sourceId = workspace.splitGroup(
+            targetId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(sourceId.has_value());
+        QPointer<ZzFluentUI::ZzTabWidget> originalTarget =
+            workspace.tabWidget(targetId);
+        QPointer<ZzFluentUI::ZzTabWidget> replacementTarget;
+        auto *page = new QWidget;
+        workspace.tabWidget(sourceId.value())->addTab(
+            page, QStringLiteral("Replacement target"));
+        const auto beforeIds = workspace.groupIds();
+        bool replacedTarget = false;
+        connect(
+            workspace.tabWidget(sourceId.value()),
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                for (const auto &id : workspace.groupIds()) {
+                    if (beforeIds.contains(id)) {
+                        continue;
+                    }
+                    auto *temporary = workspace.tabWidget(id);
+                    connect(
+                        temporary,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&](ZzFluentUI::ZzTabWidget *, int, int, QWidget *) {
+                            if (replacedTarget) {
+                                return;
+                            }
+                            delete originalTarget.data();
+                            if (!workspace.removeEmptyGroup(targetId)) {
+                                return;
+                            }
+                            const auto replacementId = workspace.splitGroup(
+                                sourceId.value(),
+                                Qt::Horizontal,
+                                ZzFluentUI::ZzSplitPlacement::After,
+                                targetId);
+                            if (!replacementId.has_value()) {
+                                return;
+                            }
+                            replacementTarget = workspace.tabWidget(targetId);
+                            replacedTarget = !replacementTarget.isNull();
+                        });
+                    return;
+                }
+            });
+
+        QVERIFY(!workspace.moveTabToDropZone(
+            sourceId.value(),
+            0,
+            targetId,
+            ZzFluentUI::ZzWorkspaceDropZone::Bottom));
+
+        QVERIFY(replacedTarget);
+        QVERIFY(originalTarget.isNull());
+        QVERIFY(!replacementTarget.isNull());
+        QCOMPARE(workspace.tabWidget(targetId), replacementTarget.data());
+        QCOMPARE(workspace.tabWidget(sourceId.value())->indexOf(page), 0);
     }
 
     void doesNotTakeBackPageClaimedByThirdParty()
@@ -415,6 +744,8 @@ private Q_SLOTS:
         bool sawRealDrag = false;
         bool acceptedEnter = false;
         bool acceptedMove = false;
+        bool acceptedMoveAfterOverlayDeletion = false;
+        bool acceptedLongDragMoves = true;
         bool acceptedDrop = false;
         bool rejectedByOtherWorkspace = false;
         qsizetype overlayCount = -1;
@@ -460,6 +791,32 @@ private Q_SLOTS:
             acceptedMove = move.isAccepted();
             overlayCount = workspace.findChildren<QWidget *>(
                 QStringLiteral("zzSplitWorkspaceDropOverlay")).size();
+            const auto overlays = workspace.findChildren<QWidget *>(
+                QStringLiteral("zzSplitWorkspaceDropOverlay"));
+            if (!overlays.isEmpty()) {
+                delete overlays.constFirst();
+            }
+            QDragMoveEvent moveAfterDeletion(
+                targetCenter,
+                Qt::MoveAction,
+                drag->mimeData(),
+                Qt::LeftButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(&workspace, &moveAfterDeletion);
+            acceptedMoveAfterOverlayDeletion =
+                moveAfterDeletion.isAccepted();
+            for (int moveCount = 0; moveCount < 6; ++moveCount) {
+                QTest::qWait(900);
+                QDragMoveEvent continuedMove(
+                    targetCenter,
+                    Qt::MoveAction,
+                    drag->mimeData(),
+                    Qt::LeftButton,
+                    Qt::NoModifier);
+                QCoreApplication::sendEvent(&workspace, &continuedMove);
+                acceptedLongDragMoves = acceptedLongDragMoves
+                    && continuedMove.isAccepted();
+            }
 
             QDropEvent drop(
                 QPointF(targetCenter),
@@ -498,6 +855,8 @@ private Q_SLOTS:
         QVERIFY(acceptedEnter);
         QVERIFY(rejectedByOtherWorkspace);
         QVERIFY(acceptedMove);
+        QVERIFY(acceptedMoveAfterOverlayDeletion);
+        QVERIFY(acceptedLongDragMoves);
         QVERIFY(acceptedDrop);
         QCOMPARE(overlayCount, 1);
         QCOMPARE(workspace.tabWidget(targetId.value())->indexOf(page), 0);
@@ -518,6 +877,82 @@ private Q_SLOTS:
             workspace.findChildren<QWidget *>(
                 QStringLiteral("zzSplitWorkspaceDropOverlay")).size(),
             1);
+    }
+
+    void expiredRealDragTokenCannotBeReissued()
+    {
+        if (QApplication::platformName() == QStringLiteral("offscreen")) {
+            return;
+        }
+
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto sourceId = workspace.groupIds().constFirst();
+        workspace.tabWidget(sourceId)->addTab(
+            new QWidget, QStringLiteral("Expiring drag"));
+        workspace.resize(500, 300);
+        workspace.show();
+        workspace.raise();
+        workspace.activateWindow();
+        QCoreApplication::processEvents();
+
+        bool sawRealDrag = false;
+        bool acceptedInitialEnter = false;
+        bool rejectedExpiredEnter = false;
+        QTimer::singleShot(0, &workspace, [&] {
+            auto *drag = workspace.findChild<QDrag *>();
+            if (drag == nullptr) {
+                QDrag::cancel();
+                return;
+            }
+            sawRealDrag = true;
+            const QPoint center = workspace.rect().center();
+            QDragEnterEvent initialEnter(
+                center,
+                Qt::MoveAction,
+                drag->mimeData(),
+                Qt::LeftButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(&workspace, &initialEnter);
+            acceptedInitialEnter = initialEnter.isAccepted();
+
+            QTest::qWait(5100);
+            QDragEnterEvent expiredEnter(
+                center,
+                Qt::MoveAction,
+                drag->mimeData(),
+                Qt::LeftButton,
+                Qt::NoModifier);
+            QCoreApplication::sendEvent(&workspace, &expiredEnter);
+            rejectedExpiredEnter = !expiredEnter.isAccepted();
+            QDrag::cancel();
+        });
+
+        auto *sourceBar = workspace.tabWidget(sourceId)->fluentTabBar();
+        const QPoint pressPosition = sourceBar->tabRect(0).center();
+        const QPoint movePosition = pressPosition
+            + QPoint(QApplication::startDragDistance() + 2, 0);
+        QTest::mousePress(
+            sourceBar,
+            Qt::LeftButton,
+            Qt::NoModifier,
+            pressPosition);
+        QMouseEvent move(
+            QEvent::MouseMove,
+            QPointF(movePosition),
+            QPointF(sourceBar->mapToGlobal(movePosition)),
+            Qt::NoButton,
+            Qt::LeftButton,
+            Qt::NoModifier);
+        QCoreApplication::sendEvent(sourceBar, &move);
+        QTest::mouseRelease(
+            sourceBar,
+            Qt::LeftButton,
+            Qt::NoModifier,
+            movePosition);
+
+        QVERIFY(sawRealDrag);
+        QVERIFY(acceptedInitialEnter);
+        QVERIFY(rejectedExpiredEnter);
     }
 
     void splitsFlattensAndKeepsOneLeaf()

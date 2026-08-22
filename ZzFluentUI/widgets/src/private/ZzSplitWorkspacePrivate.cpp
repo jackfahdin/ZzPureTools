@@ -9,7 +9,6 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QEvent>
 #include <QtCore/QMimeData>
-#include <QtCore/QTimer>
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDragLeaveEvent>
 #include <QtGui/QDragMoveEvent>
@@ -33,6 +32,7 @@ namespace {
 
 constexpr auto zzWorkspaceTabMimeType =
     "application/x-zz-split-workspace-tab-v1";
+constexpr auto zzWorkspaceDragTokenLifetime = std::chrono::seconds(5);
 
 /** @brief 绘制工作区唯一共享的当前拖放目标区域。 */
 class ZzWorkspaceDropOverlay final : public QWidget
@@ -105,14 +105,6 @@ ZzSplitWorkspacePrivate::ZzSplitWorkspacePrivate(
     rootLayout->addWidget(std::get<ZzLeaf>(root->value).tabs);
 
     q_ptr->setAcceptDrops(true);
-    dragTokenExpiryTimer = new QTimer(q_ptr);
-    dragTokenExpiryTimer->setSingleShot(true);
-    dragTokenExpiryTimer->setInterval(5000);
-    QObject::connect(
-        dragTokenExpiryTimer,
-        &QTimer::timeout,
-        q_ptr,
-        [this] { dragTokens.clear(); });
 
     QObject::connect(
         qApp,
@@ -365,6 +357,228 @@ ZzTabGroupId ZzSplitWorkspacePrivate::adjacentGroup(
                            : ZzTabGroupId {};
 }
 
+bool ZzSplitWorkspacePrivate::transferTab(
+    const ZzTabGroupId &source,
+    int sourceIndex,
+    const ZzTabGroupId &target,
+    int targetIndex)
+{
+    QPointer<ZzSplitWorkspace> guardedWorkspace = q_ptr;
+    ZzNode *const sourceNode = findLeaf(source);
+    ZzNode *const targetNode = findLeaf(target);
+    QPointer<ZzTabWidget> sourceTabs = sourceNode != nullptr
+        ? std::get<ZzLeaf>(sourceNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    QPointer<ZzTabWidget> targetTabs = targetNode != nullptr
+        ? std::get<ZzLeaf>(targetNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    if (sourceTabs.isNull() || targetTabs.isNull()
+        || sourceIndex < 0 || sourceIndex >= sourceTabs->count()) {
+        return false;
+    }
+    QPointer<QWidget> page = sourceTabs->widget(sourceIndex);
+    if (page.isNull()) {
+        return false;
+    }
+
+    const bool transferred = sourceTabs->transferTabTo(
+        targetTabs, sourceIndex, targetIndex);
+    if (guardedWorkspace.isNull()) {
+        return transferred;
+    }
+    if (!transferred || sourceTabs.isNull() || targetTabs.isNull()
+        || page.isNull()) {
+        return false;
+    }
+    ZzNode *const resolvedTargetNode = findLeaf(target);
+    const QPointer<ZzTabWidget> resolvedTarget =
+        resolvedTargetNode != nullptr
+        ? std::get<ZzLeaf>(resolvedTargetNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    return resolvedTarget == targetTabs
+        && resolvedTarget->indexOf(page) >= 0;
+}
+
+ZzWorkspaceTransferResult ZzSplitWorkspacePrivate::moveTabToDropZone(
+    const ZzTabGroupId &source,
+    int sourceIndex,
+    const ZzTabGroupId &target,
+    ZzWorkspaceDropZone zone)
+{
+    ZzWorkspaceTransferResult result;
+    result.sourceId = source;
+    result.zone = zone;
+    switch (zone) {
+    case ZzWorkspaceDropZone::Center:
+    case ZzWorkspaceDropZone::Left:
+    case ZzWorkspaceDropZone::Top:
+    case ZzWorkspaceDropZone::Right:
+    case ZzWorkspaceDropZone::Bottom:
+        break;
+    default:
+        return result;
+    }
+
+    QPointer<ZzSplitWorkspace> guardedWorkspace = q_ptr;
+    ZzNode *const sourceNode = findLeaf(source);
+    ZzNode *const targetNode = findLeaf(target);
+    QPointer<ZzTabWidget> sourceTabs = sourceNode != nullptr
+        ? std::get<ZzLeaf>(sourceNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    QPointer<ZzTabWidget> originalTargetTabs = targetNode != nullptr
+        ? std::get<ZzLeaf>(targetNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    if (sourceTabs.isNull() || originalTargetTabs.isNull()
+        || sourceIndex < 0 || sourceIndex >= sourceTabs->count()) {
+        return result;
+    }
+    QPointer<QWidget> page = sourceTabs->widget(sourceIndex);
+    if (page.isNull()) {
+        return result;
+    }
+    result.page = page;
+
+    if (zone == ZzWorkspaceDropZone::Center) {
+        result.committed = transferTab(source, sourceIndex, target, -1);
+        result.destinationId = target;
+        return result;
+    }
+
+    const Qt::Orientation orientation =
+        zone == ZzWorkspaceDropZone::Left
+            || zone == ZzWorkspaceDropZone::Right
+        ? Qt::Horizontal
+        : Qt::Vertical;
+    ZzSplitPlacement placement =
+        zone == ZzWorkspaceDropZone::Left
+            || zone == ZzWorkspaceDropZone::Top
+        ? ZzSplitPlacement::Before
+        : ZzSplitPlacement::After;
+    if (orientation == Qt::Horizontal
+        && q_ptr->layoutDirection() == Qt::RightToLeft) {
+        placement = placement == ZzSplitPlacement::Before
+            ? ZzSplitPlacement::After
+            : ZzSplitPlacement::Before;
+    }
+
+    const ZzTreeSnapshot snapshot = captureTreeSnapshot();
+    const auto temporaryId = splitGroup(
+        target, orientation, placement, {}, false);
+    if (!temporaryId.has_value() || guardedWorkspace.isNull()) {
+        return result;
+    }
+    result.destinationId = temporaryId.value();
+    sourceTabs = findLeaf(source) != nullptr
+        ? std::get<ZzLeaf>(findLeaf(source)->value).tabs
+        : QPointer<ZzTabWidget> {};
+    ZzNode *const temporaryNode = findLeaf(temporaryId.value());
+    QPointer<ZzTabWidget> temporaryTabs = temporaryNode != nullptr
+        ? std::get<ZzLeaf>(temporaryNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    const auto discardTemporary = [&]() {
+        if (guardedWorkspace.isNull()) {
+            return;
+        }
+        if (removeEmptyGroup(temporaryId.value(), false)) {
+            delete temporaryTabs.data();
+            return;
+        }
+        restoreTreeSnapshot(snapshot);
+    };
+    if (sourceTabs.isNull() || temporaryTabs.isNull() || page.isNull()
+        || sourceTabs->indexOf(page) != sourceIndex
+        || !sourceTabs->transferTabTo(temporaryTabs, sourceIndex)) {
+        discardTemporary();
+        return result;
+    }
+    if (guardedWorkspace.isNull()) {
+        result.committed = true;
+        return result;
+    }
+
+    ZzNode *const resolvedTemporaryNode = findLeaf(temporaryId.value());
+    const QPointer<ZzTabWidget> resolvedTemporary =
+        resolvedTemporaryNode != nullptr
+        ? std::get<ZzLeaf>(resolvedTemporaryNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    if (page.isNull() || temporaryTabs.isNull()
+        || resolvedTemporary != temporaryTabs
+        || resolvedTemporary->indexOf(page) < 0) {
+        discardTemporary();
+        return result;
+    }
+
+    ZzNode *const resolvedOriginalTargetNode = findLeaf(target);
+    const QPointer<ZzTabWidget> resolvedOriginalTarget =
+        resolvedOriginalTargetNode != nullptr
+        ? std::get<ZzLeaf>(resolvedOriginalTargetNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    if (originalTargetTabs.isNull()
+        || resolvedOriginalTarget != originalTargetTabs) {
+        ZzNode *const resolvedSourceNode = findLeaf(source);
+        QPointer<ZzTabWidget> resolvedSource =
+            resolvedSourceNode != nullptr
+            ? std::get<ZzLeaf>(resolvedSourceNode->value).tabs
+            : QPointer<ZzTabWidget> {};
+        const int temporaryIndex = temporaryTabs->indexOf(page);
+        if (!resolvedSource.isNull() && temporaryIndex >= 0) {
+            temporaryTabs->transferTabTo(
+                resolvedSource, temporaryIndex, sourceIndex);
+        }
+        if (guardedWorkspace.isNull()) {
+            return result;
+        }
+        if (!temporaryTabs.isNull() && temporaryTabs->count() == 0) {
+            discardTemporary();
+            if (guardedWorkspace.isNull()) {
+                return result;
+            }
+        }
+        ZzNode *const invalidTargetNode = findLeaf(target);
+        const QPointer<ZzTabWidget> invalidTargetTabs =
+            invalidTargetNode != nullptr
+            ? std::get<ZzLeaf>(invalidTargetNode->value).tabs
+            : QPointer<ZzTabWidget> {};
+        if (invalidTargetNode != nullptr && invalidTargetTabs.isNull()) {
+            removeEmptyGroup(target, false);
+        }
+        rebuildView();
+        return result;
+    }
+
+    const ZzTabGroupId activeBeforeSourceRemoval = activeId;
+    if (findLeaf(source) != nullptr) {
+        result.sourceRemoved = removeEmptyGroup(source);
+        if (guardedWorkspace.isNull()) {
+            result.committed = true;
+            return result;
+        }
+    }
+    if (!result.sourceRemoved) {
+        rebuildView();
+        if (guardedWorkspace.isNull()) {
+            result.committed = true;
+            return result;
+        }
+    }
+
+    const bool activeChanged = activeId != temporaryId.value()
+        || (result.sourceRemoved && activeBeforeSourceRemoval == source);
+    activeId = temporaryId.value();
+    ZzNode *const activeNode = findLeaf(temporaryId.value());
+    QPointer<ZzTabWidget> activeTabs = activeNode != nullptr
+        ? std::get<ZzLeaf>(activeNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    if (!activeTabs.isNull()) {
+        activeTabs->setFocus(Qt::OtherFocusReason);
+    }
+    result.committed = true;
+    result.layoutChanged = true;
+    result.groupAdded = true;
+    result.activeChanged = activeChanged;
+    return result;
+}
+
 ZzTreeSnapshot ZzSplitWorkspacePrivate::captureTreeSnapshot() const
 {
     return ZzTreeSnapshot {captureNodeSnapshot(root.get()), activeId};
@@ -415,6 +629,8 @@ bool ZzSplitWorkspacePrivate::handleDragEnter(
         if (event != nullptr) {
             event->ignore();
         }
+        discardDragTokens();
+        hideDropOverlay();
         return event != nullptr
             && (event->mimeData()->hasFormat(
                     QString::fromLatin1(zzWorkspaceTabMimeType))
@@ -443,6 +659,7 @@ bool ZzSplitWorkspacePrivate::handleDragMove(
         if (event != nullptr) {
             event->ignore();
         }
+        discardDragTokens();
         hideDropOverlay();
         return event != nullptr
             && event->mimeData()->hasFormat(
@@ -484,6 +701,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         if (event != nullptr) {
             event->ignore();
         }
+        discardDragTokens();
         hideDropOverlay();
         return event != nullptr
             && event->mimeData()->hasFormat(
@@ -781,8 +999,10 @@ void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
 
 bool ZzSplitWorkspacePrivate::ensureDragToken(const QMimeData *mimeData)
 {
-    if (dragRecord(mimeData).has_value()) {
-        return true;
+    const QString workspaceFormat =
+        QString::fromLatin1(zzWorkspaceTabMimeType);
+    if (mimeData != nullptr && mimeData->hasFormat(workspaceFormat)) {
+        return dragRecord(mimeData).has_value();
     }
     const auto *tabPayload = dynamic_cast<const ZzTabMimeData *>(mimeData);
     if (tabPayload == nullptr || tabPayload->source.isNull()
@@ -810,15 +1030,18 @@ bool ZzSplitWorkspacePrivate::ensureDragToken(const QMimeData *mimeData)
     dragTokens.insert(
         token,
         ZzWorkspaceDragRecord {
-            sourceId, tabPayload->sourceIndex, tabPayload->page});
-    dragTokenExpiryTimer->start();
+            sourceId,
+            tabPayload->sourceIndex,
+            tabPayload->page,
+            std::chrono::steady_clock::now()
+                + zzWorkspaceDragTokenLifetime});
     const_cast<QMimeData *>(mimeData)->setData(
         QString::fromLatin1(zzWorkspaceTabMimeType), encoded);
     return true;
 }
 
 std::optional<ZzWorkspaceDragRecord> ZzSplitWorkspacePrivate::dragRecord(
-    const QMimeData *mimeData) const
+    const QMimeData *mimeData)
 {
     const QString format = QString::fromLatin1(zzWorkspaceTabMimeType);
     if (mimeData == nullptr || !mimeData->hasFormat(format)) {
@@ -839,14 +1062,25 @@ std::optional<ZzWorkspaceDragRecord> ZzSplitWorkspacePrivate::dragRecord(
         return std::nullopt;
     }
     const auto found = dragTokens.constFind(token);
-    if (found == dragTokens.cend()
-        || found->sourceId.value() != sourceValue
+    if (found == dragTokens.cend()) {
+        return std::nullopt;
+    }
+    if (found->sourceId.value() != sourceValue
         || found->sourceIndex != static_cast<int>(sourceIndex)
         || found->page.isNull()) {
+        dragTokens.clear();
+        hideDropOverlay();
+        return std::nullopt;
+    }
+    if (std::chrono::steady_clock::now() > found->deadline) {
+        dragTokens.clear();
+        hideDropOverlay();
         return std::nullopt;
     }
     ZzNode *const sourceNode = findLeaf(found->sourceId);
     if (sourceNode == nullptr) {
+        dragTokens.clear();
+        hideDropOverlay();
         return std::nullopt;
     }
     const QPointer<ZzTabWidget> tabs =
@@ -854,9 +1088,15 @@ std::optional<ZzWorkspaceDragRecord> ZzSplitWorkspacePrivate::dragRecord(
     if (tabs.isNull() || found->sourceIndex < 0
         || found->sourceIndex >= tabs->count()
         || tabs->widget(found->sourceIndex) != found->page) {
+        dragTokens.clear();
+        hideDropOverlay();
         return std::nullopt;
     }
-    return found.value();
+    auto record = found.value();
+    record.deadline = std::chrono::steady_clock::now()
+        + zzWorkspaceDragTokenLifetime;
+    dragTokens[token] = record;
+    return record;
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::groupAt(
@@ -973,17 +1213,25 @@ void ZzSplitWorkspacePrivate::showDropOverlay(const QRect &geometry)
         hideDropOverlay();
         return;
     }
-    if (dropOverlay == nullptr) {
-        dropOverlay = new ZzWorkspaceDropOverlay(q_ptr);
+    QPointer<QWidget> overlay = dropOverlay;
+    if (overlay.isNull()) {
+        overlay = new ZzWorkspaceDropOverlay(q_ptr);
+        dropOverlay = overlay;
     }
-    dropOverlay->setGeometry(geometry);
-    dropOverlay->show();
-    dropOverlay->raise();
+    overlay->setGeometry(geometry);
+    if (overlay.isNull()) {
+        return;
+    }
+    overlay->show();
+    if (overlay.isNull()) {
+        return;
+    }
+    overlay->raise();
 }
 
 void ZzSplitWorkspacePrivate::hideDropOverlay()
 {
-    if (dropOverlay != nullptr) {
+    if (!dropOverlay.isNull()) {
         dropOverlay->hide();
     }
 }
@@ -991,7 +1239,6 @@ void ZzSplitWorkspacePrivate::hideDropOverlay()
 void ZzSplitWorkspacePrivate::discardDragTokens()
 {
     dragTokens.clear();
-    dragTokenExpiryTimer->stop();
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::createGroupId()

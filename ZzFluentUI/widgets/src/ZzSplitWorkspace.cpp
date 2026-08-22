@@ -128,31 +128,7 @@ bool ZzSplitWorkspace::transferTab(
     const ZzTabGroupId &target,
     int targetIndex)
 {
-    QPointer<ZzSplitWorkspace> guardedWorkspace = this;
-    QPointer<ZzTabWidget> guardedSource = tabWidget(source);
-    QPointer<ZzTabWidget> guardedTarget = tabWidget(target);
-    if (guardedSource.isNull() || guardedTarget.isNull()
-        || sourceIndex < 0 || sourceIndex >= guardedSource->count()) {
-        return false;
-    }
-    QPointer<QWidget> guardedPage = guardedSource->widget(sourceIndex);
-    if (guardedPage.isNull()) {
-        return false;
-    }
-
-    const bool transferred = guardedSource->transferTabTo(
-        guardedTarget, sourceIndex, targetIndex);
-    if (guardedWorkspace.isNull()) {
-        return transferred;
-    }
-    if (!transferred || guardedSource.isNull() || guardedTarget.isNull()
-        || guardedPage.isNull()) {
-        return false;
-    }
-
-    ZzTabWidget *const resolvedTarget = tabWidget(target);
-    return resolvedTarget == guardedTarget
-        && resolvedTarget->indexOf(guardedPage) >= 0;
+    return d_ptr->transferTab(source, sourceIndex, target, targetIndex);
 }
 
 bool ZzSplitWorkspace::moveTabToDropZone(
@@ -161,142 +137,41 @@ bool ZzSplitWorkspace::moveTabToDropZone(
     const ZzTabGroupId &target,
     ZzWorkspaceDropZone zone)
 {
-    switch (zone) {
-    case ZzWorkspaceDropZone::Center:
-    case ZzWorkspaceDropZone::Left:
-    case ZzWorkspaceDropZone::Top:
-    case ZzWorkspaceDropZone::Right:
-    case ZzWorkspaceDropZone::Bottom:
-        break;
-    default:
-        return false;
-    }
-
     QPointer<ZzSplitWorkspace> guardedWorkspace = this;
-    QPointer<ZzTabWidget> guardedSource = tabWidget(source);
-    QPointer<ZzTabWidget> guardedTarget = tabWidget(target);
-    if (guardedSource.isNull() || guardedTarget.isNull()
-        || sourceIndex < 0 || sourceIndex >= guardedSource->count()) {
-        return false;
+    const ZzWorkspaceTransferResult result = d_ptr->moveTabToDropZone(
+        source, sourceIndex, target, zone);
+    if (!result.committed || guardedWorkspace.isNull()) {
+        return result.committed;
     }
-    QPointer<QWidget> guardedPage = guardedSource->widget(sourceIndex);
-    if (guardedPage.isNull()) {
-        return false;
-    }
-
-    if (zone == ZzWorkspaceDropZone::Center) {
-        const bool transferred = guardedSource->transferTabTo(
-            guardedTarget, sourceIndex);
-        if (guardedWorkspace.isNull()) {
-            return transferred;
-        }
-        if (!transferred) {
-            return false;
-        }
-        ZzTabWidget *const resolvedTarget = tabWidget(target);
-        if (guardedPage.isNull() || guardedTarget.isNull()
-            || resolvedTarget != guardedTarget
-            || resolvedTarget->indexOf(guardedPage) < 0) {
-            return false;
-        }
-        Q_EMIT tabDropCommitted(source, target, zone, guardedPage);
-        return true;
-    }
-
-    const Qt::Orientation orientation =
-        zone == ZzWorkspaceDropZone::Left
-            || zone == ZzWorkspaceDropZone::Right
-        ? Qt::Horizontal
-        : Qt::Vertical;
-    ZzSplitPlacement placement =
-        zone == ZzWorkspaceDropZone::Left
-            || zone == ZzWorkspaceDropZone::Top
-        ? ZzSplitPlacement::Before
-        : ZzSplitPlacement::After;
-    if (orientation == Qt::Horizontal
-        && layoutDirection() == Qt::RightToLeft) {
-        placement = placement == ZzSplitPlacement::Before
-            ? ZzSplitPlacement::After
-            : ZzSplitPlacement::Before;
-    }
-
-    const ZzTreeSnapshot snapshot = d_ptr->captureTreeSnapshot();
-    const auto temporaryId = d_ptr->splitGroup(
-        target, orientation, placement, {}, false);
-    if (!temporaryId.has_value() || guardedWorkspace.isNull()) {
-        return false;
-    }
-
-    guardedSource = tabWidget(source);
-    QPointer<ZzTabWidget> temporaryTabs = tabWidget(temporaryId.value());
-    const auto rollbackTemporary = [&]() {
-        if (guardedWorkspace.isNull()) {
-            return;
-        }
-        if (d_ptr->removeEmptyGroup(temporaryId.value(), false)) {
-            delete temporaryTabs.data();
-            return;
-        }
-        d_ptr->restoreTreeSnapshot(snapshot);
-    };
-    if (guardedSource.isNull() || temporaryTabs.isNull()
-        || guardedPage.isNull()
-        || guardedSource->indexOf(guardedPage) != sourceIndex
-        || !guardedSource->transferTabTo(temporaryTabs, sourceIndex)) {
-        rollbackTemporary();
-        return false;
-    }
-    if (guardedWorkspace.isNull()) {
-        return true;
-    }
-
-    ZzTabWidget *const resolvedTemporary = tabWidget(temporaryId.value());
-    if (guardedPage.isNull() || temporaryTabs.isNull()
-        || resolvedTemporary != temporaryTabs
-        || resolvedTemporary->indexOf(guardedPage) < 0) {
-        rollbackTemporary();
-        return false;
-    }
-
-    bool removedSource = false;
-    if (ZzTabWidget *const resolvedSource = tabWidget(source);
-        resolvedSource != nullptr && resolvedSource->count() == 0
-        && source != temporaryId.value()) {
-        removedSource = d_ptr->removeEmptyGroup(source);
+    if (result.activeChanged) {
+        Q_EMIT activeGroupChanged(result.destinationId);
         if (guardedWorkspace.isNull()) {
             return true;
         }
     }
-    if (!removedSource) {
-        d_ptr->rebuildView();
-        if (guardedWorkspace.isNull()) {
-            return true;
-        }
-    }
-
-    if (!setActiveGroup(temporaryId.value())) {
-        return false;
+    if (result.groupAdded) {
+        Q_EMIT groupAdded(result.destinationId);
     }
     if (guardedWorkspace.isNull()) {
         return true;
     }
-
-    Q_EMIT groupAdded(temporaryId.value());
-    if (guardedWorkspace.isNull()) {
-        return true;
-    }
-    if (removedSource) {
-        Q_EMIT groupAboutToBeRemoved(source);
+    if (result.sourceRemoved) {
+        Q_EMIT groupAboutToBeRemoved(result.sourceId);
         if (guardedWorkspace.isNull()) {
             return true;
         }
     }
     Q_EMIT tabDropCommitted(
-        source, temporaryId.value(), zone, guardedPage.data());
+        result.sourceId,
+        result.destinationId,
+        result.zone,
+        result.page.data());
     if (guardedWorkspace.isNull()) {
         return true;
     }
-    Q_EMIT layoutChanged();
+    if (result.layoutChanged) {
+        Q_EMIT layoutChanged();
+    }
     return true;
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <variant>
@@ -23,7 +24,6 @@ class QDropEvent;
 class QEvent;
 class QMimeData;
 class QObject;
-class QTimer;
 class QVBoxLayout;
 class QWidget;
 
@@ -71,6 +71,21 @@ struct ZzWorkspaceDragRecord final
 {
     ZzTabGroupId sourceId;
     int sourceIndex = -1;
+    QPointer<QWidget> page;
+    std::chrono::steady_clock::time_point deadline;
+};
+
+/** @brief 返回统一标签事务提交后需要发布的公开状态。 */
+struct ZzWorkspaceTransferResult final
+{
+    bool committed = false;
+    bool layoutChanged = false;
+    bool groupAdded = false;
+    bool sourceRemoved = false;
+    bool activeChanged = false;
+    ZzTabGroupId sourceId;
+    ZzTabGroupId destinationId;
+    ZzWorkspaceDropZone zone = ZzWorkspaceDropZone::Center;
     QPointer<QWidget> page;
 };
 
@@ -122,6 +137,20 @@ public:
 
     /** @brief 返回指定物理方向最近叶子的标识。 */
     [[nodiscard]] ZzTabGroupId adjacentGroup(Qt::Edge direction) const;
+
+    /** @brief 复用标签容器原子能力并验证最终页面所有权。 */
+    bool transferTab(
+        const ZzTabGroupId &source,
+        int sourceIndex,
+        const ZzTabGroupId &target,
+        int targetIndex);
+
+    /** @brief 执行 Center 或四边统一事务并返回公开信号事实。 */
+    [[nodiscard]] ZzWorkspaceTransferResult moveTabToDropZone(
+        const ZzTabGroupId &source,
+        int sourceIndex,
+        const ZzTabGroupId &target,
+        ZzWorkspaceDropZone zone);
 
     /** @brief 捕获当前分割树、组引用、活动组和 splitter sizes。 */
     [[nodiscard]] ZzTreeSnapshot captureTreeSnapshot() const;
@@ -198,7 +227,7 @@ public:
 
     /** @brief 严格解析并验证当前实例内拖放载荷。 */
     [[nodiscard]] std::optional<ZzWorkspaceDragRecord> dragRecord(
-        const QMimeData *mimeData) const;
+        const QMimeData *mimeData);
 
     /** @brief 返回工作区坐标命中的标签组。 */
     [[nodiscard]] ZzTabGroupId groupAt(const QPoint &position) const;
@@ -219,7 +248,7 @@ public:
     /** @brief 隐藏共享覆盖层。 */
     void hideDropOverlay();
 
-    /** @brief 清空有界令牌集合并停止过期计时器。 */
+    /** @brief 清空当前实例内的拖放令牌集合。 */
     void discardDragTokens();
 
     /** @brief 返回自动生成的无花括号 UUID 标识。 */
@@ -230,8 +259,7 @@ public:
     QVBoxLayout *rootLayout = nullptr;
     std::unique_ptr<ZzNode> root;
     ZzTabGroupId activeId;
-    QWidget *dropOverlay = nullptr;
-    QTimer *dragTokenExpiryTimer = nullptr;
+    QPointer<QWidget> dropOverlay;
     QHash<QString, ZzWorkspaceDragRecord> dragTokens;
 };
 
