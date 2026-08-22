@@ -1016,9 +1016,30 @@ private:
       return false;
     }
 
+    std::vector<std::unique_ptr<ZzScopedSignalMute>> signalMutes;
+    muteEmitterTree(escrow, signalMutes);
+    muteEmitterTree(target, signalMutes);
     if (!zzRestoreWorkspacePageMetadata(escrow, snapshot, sourceIndex) ||
         m_publicWorkspace.isNull() || escrow.isNull() || target.isNull() ||
         page.isNull() || zzOwningWorkspaceTabs(page) != escrow) {
+      return false;
+    }
+    if (!synchronizePinnedStackOrder(escrow) || m_publicWorkspace.isNull() ||
+        escrow.isNull() || target.isNull() || page.isNull()) {
+      return false;
+    }
+    const QPointer<ZzTabBar> escrowBar = escrow->fluentTabBar();
+    const QPointer<QStackedWidget> escrowStack =
+        escrow->findChild<QStackedWidget *>(QString(),
+                                           Qt::FindDirectChildrenOnly);
+    if (escrowBar.isNull() || escrowStack.isNull()) {
+      return false;
+    }
+    const int escrowCurrentIndex = escrowBar->currentIndex();
+    escrowStack->setCurrentIndex(escrowCurrentIndex);
+    if (m_publicWorkspace.isNull() || escrow.isNull() || target.isNull() ||
+        escrowBar.isNull() || escrowStack.isNull() || page.isNull() ||
+        escrowStack->currentIndex() != escrowCurrentIndex) {
       return false;
     }
     sourceIndex = escrow->indexOf(page);
@@ -1027,9 +1048,6 @@ private:
       return false;
     }
 
-    std::vector<std::unique_ptr<ZzScopedSignalMute>> signalMutes;
-    muteEmitterTree(escrow, signalMutes);
-    muteEmitterTree(target, signalMutes);
     ZzScopedTabTransferAcceptance transferAcceptance(target);
     if (m_publicWorkspace.isNull() || escrow.isNull() || target.isNull() ||
         page.isNull() || !transferAcceptance.isReady()) {
@@ -1043,6 +1061,9 @@ private:
     }
     if (escrow->count() == sourceCount) {
       const QPointer<ZzTabBar> sourceBar = escrow->fluentTabBar();
+      if (sourceBar.isNull()) {
+        return false;
+      }
       sourceBar->removeTab(sourceIndex);
       if (m_publicWorkspace.isNull() || escrow.isNull() || target.isNull() ||
           sourceBar.isNull() || page.isNull()) {
@@ -1323,9 +1344,16 @@ private:
     if (!restoreCommittedPages()) {
       return m_publicWorkspace.isNull() ? false : rollbackCommittedView();
     }
+    if (!restorePreservedPages() || m_publicWorkspace.isNull() ||
+        !restoreStagedCurrentPages()) {
+      return m_publicWorkspace.isNull() ? false : rollbackCommittedView();
+    }
+    if (m_escrowTabs.isNull() || m_escrowTabs->count() != 0) {
+      return rollbackCommittedView();
+    }
     m_previousRoot.reset();
     m_oldViewRemoved = false;
-    return m_modelCommitted && stagedViewValid() &&
+    return m_modelCommitted && stagedStructureValid() &&
            m_workspace->rootLayout != nullptr &&
            m_workspace->rootLayout->count() == 1 &&
            m_workspace->rootLayout->itemAt(0)->widget() == m_stagedRootWidget;

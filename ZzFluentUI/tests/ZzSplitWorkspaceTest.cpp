@@ -1450,6 +1450,10 @@ private Q_SLOTS:
         bool connectedStaging = false;
         bool addedToSource = false;
         bool addedKeySet = false;
+        bool cleanupObserved = false;
+        bool metadataPerturbed = false;
+        bool deletionAttempted = false;
+        ZzTestEventFilter cleanupFilter;
         connect(
             originalTabs,
             &QTabWidget::currentChanged,
@@ -1459,6 +1463,51 @@ private Q_SLOTS:
                     return;
                 }
                 connectedStaging = true;
+                QWidget *rootHost = originalTabs.data();
+                while (rootHost != nullptr
+                       && rootHost->parentWidget() != &workspace) {
+                    rootHost = rootHost->parentWidget();
+                }
+                QVERIFY(rootHost != nullptr);
+                cleanupFilter.callback = [&](QObject *, QEvent *event) {
+                    if (cleanupObserved
+                        || event->type() != QEvent::ChildRemoved
+                        || addedPage.isNull()) {
+                        return false;
+                    }
+                    cleanupObserved = true;
+                    QWidget *ancestor = addedPage->parentWidget();
+                    while (ancestor != nullptr
+                           && qobject_cast<ZzFluentUI::ZzTabWidget *>(ancestor)
+                               == nullptr) {
+                        ancestor = ancestor->parentWidget();
+                    }
+                    auto *const escrow =
+                        qobject_cast<ZzFluentUI::ZzTabWidget *>(ancestor);
+                    if (escrow == nullptr) {
+                        return false;
+                    }
+                    const int preservedIndex = escrow->indexOf(addedPage);
+                    if (preservedIndex < 0) {
+                        return false;
+                    }
+                    connect(
+                        escrow,
+                        &ZzFluentUI::ZzTabWidget::tabModifiedChanged,
+                        &workspace,
+                        [&, escrow](int index, bool modified) {
+                            if (deletionAttempted || !modified
+                                || escrow->widget(index) != addedPage) {
+                                return;
+                            }
+                            deletionAttempted = true;
+                            delete workspace.tabWidget(groupId);
+                        });
+                    metadataPerturbed = true;
+                    escrow->setTabModified(preservedIndex, false);
+                    return false;
+                };
+                rootHost->installEventFilter(&cleanupFilter);
                 const auto allTabs = workspace.findChildren<
                     ZzFluentUI::ZzTabWidget *>();
                 for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
@@ -1504,13 +1553,17 @@ private Q_SLOTS:
                 }
             });
 
-        QVERIFY(workspace.restoreLayout(saved));
+        const bool restored = workspace.restoreLayout(saved);
+        QVERIFY(restored);
         QVERIFY(connectedStaging);
         QVERIFY(addedToSource);
         QVERIFY(addedKeySet);
+        QVERIFY(cleanupObserved);
+        QVERIFY(metadataPerturbed);
         QVERIFY(originalTabs.isNull());
         QVERIFY(!capturedPage.isNull());
         QVERIFY(!addedPage.isNull());
+        QVERIFY(!deletionAttempted);
         auto *const restoredTabs = workspace.tabWidget(groupId);
         QVERIFY(restoredTabs != nullptr);
         QCOMPARE(restoredTabs->indexOf(addedPage), 0);
@@ -1542,6 +1595,110 @@ private Q_SLOTS:
             tabWidgetBudget);
         QCOMPARE(
             workspace.findChildren<QWidget *>().size(), widgetBudget + 1);
+    }
+
+    void restoreCommitPropagatesDestroyedPreservedPageRefillFailure()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(groupId);
+        QPointer<QWidget> capturedPage = new QWidget;
+        QPointer<QWidget> preservedPage;
+        originalTabs->addTab(capturedPage, QStringLiteral("Captured survivor"));
+        originalTabs->setTabToolTip(
+            0, QStringLiteral("Captured survivor tooltip"));
+        originalTabs->setTabPinned(0, true);
+        originalTabs->setTabModified(0, true);
+        const QString capturedKey = QStringLiteral("refill-fail:captured");
+        QVERIFY(workspace.setPageLayoutKey(capturedPage, capturedKey));
+        const QByteArray saved = workspace.saveLayout();
+        const qsizetype tabWidgetBudget = workspace.findChildren<
+            ZzFluentUI::ZzTabWidget *>().size();
+
+        bool connectedStaging = false;
+        bool addedToSource = false;
+        bool cleanupObserved = false;
+        ZzTestEventFilter cleanupFilter;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                QWidget *rootHost = originalTabs.data();
+                while (rootHost != nullptr
+                       && rootHost->parentWidget() != &workspace) {
+                    rootHost = rootHost->parentWidget();
+                }
+                QVERIFY(rootHost != nullptr);
+                cleanupFilter.callback = [&](QObject *, QEvent *event) {
+                    if (cleanupObserved
+                        || event->type() != QEvent::ChildRemoved
+                        || preservedPage.isNull()) {
+                        return false;
+                    }
+                    cleanupObserved = true;
+                    delete preservedPage.data();
+                    return false;
+                };
+                rootHost->installEventFilter(&cleanupFilter);
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs.data()) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&](ZzFluentUI::ZzTabWidget *source,
+                            int,
+                            int,
+                            QWidget *page) {
+                            if (addedToSource || source != originalTabs.data()
+                                || page != capturedPage) {
+                                return;
+                            }
+                            addedToSource = true;
+                            preservedPage = new QWidget;
+                            source->addTab(
+                                preservedPage,
+                                QStringLiteral("Destroyed preserved page"));
+                        });
+                }
+            });
+
+        const bool restored = workspace.restoreLayout(saved);
+        QVERIFY(connectedStaging);
+        QVERIFY(addedToSource);
+        QVERIFY(cleanupObserved);
+        QVERIFY(preservedPage.isNull());
+        QVERIFY(!restored);
+        QVERIFY(!capturedPage.isNull());
+        QCOMPARE(workspace.groupIds(), QList {groupId});
+        auto *const restoredTabs = workspace.tabWidget(groupId);
+        QVERIFY(restoredTabs != nullptr);
+        QCOMPARE(restoredTabs->count(), 1);
+        QCOMPARE(restoredTabs->indexOf(capturedPage), 0);
+        QCOMPARE(restoredTabs->currentWidget(), capturedPage.data());
+        QCOMPARE(restoredTabs->tabText(0), QStringLiteral("Captured survivor"));
+        QCOMPARE(
+            restoredTabs->tabToolTip(0),
+            QStringLiteral("Captured survivor tooltip"));
+        QVERIFY(restoredTabs->isTabPinned(0));
+        QVERIFY(restoredTabs->isTabModified(0));
+        QCOMPARE(workspace.pageLayoutKey(capturedPage), capturedKey);
+        QCOMPARE(
+            workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
+            tabWidgetBudget);
+        QCOMPARE(
+            workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
+            workspace.groupIds().size());
     }
 
     void restoreCallbacksCanUpdateStagedPageLayoutKey()
