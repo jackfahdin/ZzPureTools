@@ -5,7 +5,8 @@
 #include <QtCore/QEvent>
 #include <QtCore/QThread>
 #include <QtGui/QMouseEvent>
-#include <QtWidgets/QStackedWidget>
+
+#include <ZzFluentUI/ZzPanelStack.h>
 
 #include "private/ZzSidePanePrivate.h"
 
@@ -39,12 +40,36 @@ void ZzSidePane::setEdge(ZzSidePaneEdge edge)
 
 int ZzSidePane::pageCount() const noexcept
 {
-    return d_ptr->stack->count();
+    return d_ptr->panelStack->panelCount();
 }
 
 QWidget *ZzSidePane::currentWidget() const noexcept
 {
-    return d_ptr->stack->currentWidget();
+    return d_ptr->panelStack->currentPanel();
+}
+
+ZzPanelStack *ZzSidePane::panelStack() const noexcept
+{
+    return d_ptr->panelStack;
+}
+
+QList<QWidget *> ZzSidePane::visibleWidgets() const
+{
+    return d_ptr->panelStack->visiblePanels();
+}
+
+ZzSidePaneMode ZzSidePane::mode() const noexcept
+{
+    return d_ptr->mode;
+}
+
+void ZzSidePane::setMode(ZzSidePaneMode mode)
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (QThread::currentThread() != thread() || d_ptr->mode == mode) {
+        return;
+    }
+    d_ptr->setMode(mode);
 }
 
 bool ZzSidePane::addWidget(QWidget *widget, const QString &title)
@@ -74,6 +99,15 @@ bool ZzSidePane::setCurrentWidget(QWidget *widget)
     return d_ptr->setCurrentWidget(widget);
 }
 
+bool ZzSidePane::setWidgetVisible(QWidget *widget, bool visible)
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (QThread::currentThread() != thread()) {
+        return false;
+    }
+    return d_ptr->setWidgetVisible(widget, visible);
+}
+
 bool ZzSidePane::isCollapsed() const noexcept
 {
     return d_ptr->collapsed;
@@ -90,11 +124,11 @@ void ZzSidePane::setCollapsed(bool collapsed)
     }
     d_ptr->collapsed = collapsed;
     if (collapsed) {
-        hide();
+        d_ptr->contentHost->hide();
         setFixedWidth(0);
     } else {
         d_ptr->applyExpandedWidth();
-        show();
+        d_ptr->contentHost->show();
     }
     Q_EMIT collapsedChanged(collapsed);
 }

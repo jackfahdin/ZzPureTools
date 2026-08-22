@@ -1,20 +1,20 @@
 #pragma once
 
-#include <QtCore/QHash>
+#include <QtCore/QList>
 #include <QtCore/QMetaObject>
 #include <QtCore/QPointer>
 
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
 
-class QLabel;
-class QStackedWidget;
 class QWidget;
 
 namespace ZzFluentUI {
 
 class ZzSidePane;
+class ZzPanelStack;
 
-/** @brief 管理固定标题、页面堆栈、折叠宽度和 4 px 把手。 */
+/** @brief 管理固定多面板容器、折叠宽度和 4 px 把手。 */
 class ZzSidePanePrivate final
 {
 public:
@@ -38,8 +38,17 @@ public:
     /** @brief 只切换已注册页面。 */
     bool setCurrentWidget(QWidget *widget);
 
-    /** @brief 更新标题并转发当前页变化。 */
+    /** @brief 设置页面逻辑可见性并维护多页集合。 */
+    bool setWidgetVisible(QWidget *widget, bool visible);
+
+    /** @brief 切换页面展示模式。 */
+    void setMode(ZzSidePaneMode newMode);
+
+    /** @brief 转发当前页变化，且同步删除后不解引用裸指针。 */
     void syncCurrentWidget();
+
+    /** @brief 删除失效观察值并保留稳定页面顺序。 */
+    void sanitizeStackedVisible();
 
     /** @brief 按范围钳制宽度。 */
     [[nodiscard]] int clampWidth(int width) const noexcept;
@@ -52,13 +61,13 @@ public:
 
     ZzSidePane *const q_ptr;
     QWidget *contentHost = nullptr;
-    QLabel *titleLabel = nullptr;
-    QStackedWidget *stack = nullptr;
+    ZzPanelStack *panelStack = nullptr;
     QWidget *resizeHandle = nullptr;
-    QHash<QWidget *, QString> pageTitles;
-    QHash<QWidget *, QMetaObject::Connection> pageDestroyedConnections;
+    QMetaObject::Connection currentPanelConnection;
     QPointer<QWidget> lastNotifiedCurrent;
+    QList<QPointer<QWidget>> stackedVisible;
     ZzSidePaneEdge edge = ZzSidePaneEdge::Left;
+    ZzSidePaneMode mode = ZzSidePaneMode::Single;
     int minimumWidth = 160;
     int maximumWidth = 640;
     int expandedWidth = 280;

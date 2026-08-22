@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtCore/QList>
 #include <QtCore/QModelIndex>
 #include <QtWidgets/QWidget>
 
@@ -33,6 +34,11 @@ class ZZ_FLUENT_UI_EXPORT ZzActivityBar final : public QWidget
         READ edge
         WRITE setEdge
         NOTIFY edgeChanged)
+    Q_PROPERTY(
+        bool multiActiveEnabled
+        READ isMultiActiveEnabled
+        WRITE setMultiActiveEnabled
+        NOTIFY multiActiveEnabledChanged)
 
 public:
     /**
@@ -74,6 +80,18 @@ public:
     /** @brief 返回最近同步或由用户激活的源模型索引。 */
     [[nodiscard]] QModelIndex currentSourceIndex() const;
 
+    /** @brief 返回是否显示多个活动入口指示条。 */
+    [[nodiscard]] bool isMultiActiveEnabled() const noexcept;
+
+    /** @brief 启用或关闭多个活动入口指示条。 */
+    void setMultiActiveEnabled(bool enabled);
+
+    /** @brief 返回按输入顺序去重后的当前有效活动源索引。 */
+    [[nodiscard]] QList<QModelIndex> activeSourceIndexes() const;
+
+    /** @brief 设置当前模型和物理侧投影内的活动源索引集合。 */
+    void setActiveSourceIndexes(const QList<QModelIndex> &indexes);
+
 Q_SIGNALS:
     /** @brief 物理侧实际变化后发出。 */
     void edgeChanged(ZzSidePaneEdge edge);
@@ -83,6 +101,12 @@ Q_SIGNALS:
 
     /** @brief 当前源索引变化后发出。 */
     void currentSourceIndexChanged(const QModelIndex &sourceIndex);
+
+    /** @brief 多活动指示条开关实际变化后发出。 */
+    void multiActiveEnabledChanged(bool enabled);
+
+    /** @brief 活动源索引集合实际变化后发出。 */
+    void activeSourceIndexesChanged(const QList<QModelIndex> &sourceIndexes);
 
     /** @brief 用户激活非当前有效入口时发出，不执行业务路由。 */
     void activationRequested(const QModelIndex &sourceIndex);

@@ -61,6 +61,42 @@ QModelIndex ZzActivityBar::currentSourceIndex() const
     return d_ptr->currentSourceIndex;
 }
 
+bool ZzActivityBar::isMultiActiveEnabled() const noexcept
+{
+    return d_ptr->multiActiveEnabled;
+}
+
+void ZzActivityBar::setMultiActiveEnabled(bool enabled)
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (QThread::currentThread() != thread() || d_ptr->multiActiveEnabled == enabled) {
+        return;
+    }
+    d_ptr->multiActiveEnabled = enabled;
+    d_ptr->primaryView->viewport()->update();
+    d_ptr->secondaryView->viewport()->update();
+    Q_EMIT multiActiveEnabledChanged(enabled);
+}
+
+QList<QModelIndex> ZzActivityBar::activeSourceIndexes() const
+{
+    QList<QModelIndex> result;
+    result.reserve(d_ptr->activeSourceIndexes.size());
+    for (const QPersistentModelIndex &index : d_ptr->activeSourceIndexes) {
+        result.append(index);
+    }
+    return result;
+}
+
+void ZzActivityBar::setActiveSourceIndexes(const QList<QModelIndex> &indexes)
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (QThread::currentThread() != thread()) {
+        return;
+    }
+    d_ptr->setActiveSourceIndexes(indexes);
+}
+
 bool ZzActivityBar::eventFilter(QObject *watched, QEvent *event)
 {
     auto *view = qobject_cast<QListView *>(watched);

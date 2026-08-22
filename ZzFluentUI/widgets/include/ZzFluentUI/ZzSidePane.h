@@ -2,16 +2,19 @@
 
 #include <memory>
 
+#include <QtCore/QList>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
 
 class QEvent;
 
 namespace ZzFluentUI {
 
 class ZzSidePanePrivate;
+class ZzPanelStack;
 
 /**
  * @brief 提供标题、页面堆栈、折叠和物理边缘宽度调整的可复用侧面板。
@@ -30,6 +33,7 @@ class ZZ_FLUENT_UI_EXPORT ZzSidePane final : public QWidget
         NOTIFY edgeChanged)
     Q_PROPERTY(bool collapsed READ isCollapsed WRITE setCollapsed NOTIFY collapsedChanged)
     Q_PROPERTY(int paneWidth READ paneWidth WRITE setPaneWidth NOTIFY paneWidthChanged)
+    Q_PROPERTY(ZzFluentUI::ZzSidePaneMode mode READ mode WRITE setMode NOTIFY modeChanged)
 
 public:
     /**
@@ -56,6 +60,18 @@ public:
     /** @brief 返回当前页面；没有页面时返回 nullptr。 */
     [[nodiscard]] QWidget *currentWidget() const noexcept;
 
+    /** @brief 返回固定的多面板容器；调用方不得转移其所有权。 */
+    [[nodiscard]] ZzPanelStack *panelStack() const noexcept;
+
+    /** @brief 返回按稳定布局顺序排列的逻辑可见页面。 */
+    [[nodiscard]] QList<QWidget *> visibleWidgets() const;
+
+    /** @brief 返回当前页面展示模式。 */
+    [[nodiscard]] ZzSidePaneMode mode() const noexcept;
+
+    /** @brief 切换单页或多页堆叠模式，并保留多页模式的可见集合。 */
+    void setMode(ZzSidePaneMode mode);
+
     /**
      * @brief 接管一个无父对象页面并使其成为当前页。
      * @param widget 必须非空且没有 QObject 父对象。
@@ -77,6 +93,9 @@ public:
      * @return 页面存在时为 true；失败不会改变当前页。
      */
     bool setCurrentWidget(QWidget *widget);
+
+    /** @brief 设置已注册页面的逻辑可见性。 */
+    bool setWidgetVisible(QWidget *widget, bool visible);
 
     /** @brief 返回面板是否已折叠隐藏。 */
     [[nodiscard]] bool isCollapsed() const noexcept;
@@ -126,6 +145,9 @@ Q_SIGNALS:
 
     /** @brief 当前或最近展开宽度变化后发出。 */
     void paneWidthChanged(int width);
+
+    /** @brief 页面展示模式实际变化后发出。 */
+    void modeChanged(ZzSidePaneMode mode);
 
 protected:
     /** @brief 以 O(1) 方式处理固定 4 px 把手的拖拽。 */

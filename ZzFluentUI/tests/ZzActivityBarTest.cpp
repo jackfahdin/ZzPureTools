@@ -14,6 +14,8 @@
 #include <QtTest/QTest>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QListView>
+#include <QtGui/QStandardItem>
+#include <QtGui/QStandardItemModel>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzActivityArea.h>
@@ -378,6 +380,81 @@ private Q_SLOTS:
                 ->model()->rowCount(),
             1);
         QCOMPARE(left.findChildren<QListView *>().size(), 2);
+    }
+
+    void keepsOrderedValidMultipleActiveSourceIndexes()
+    {
+        QStandardItemModel model(3, 2);
+        QStandardItemModel otherModel(1, 1);
+        model.setItem(0, 0, new QStandardItem);
+        model.item(0, 0)->appendRow(new QStandardItem);
+        const QModelIndex first = model.index(0, 0);
+        const QModelIndex second = model.index(1, 0);
+        const QModelIndex third = model.index(2, 0);
+        const QModelIndex child = model.index(0, 0, first);
+        model.setData(
+            first,
+            QVariant::fromValue(ZzFluentUI::ZzActivityArea::LeftPrimary),
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+        model.setData(
+            second,
+            QVariant::fromValue(ZzFluentUI::ZzActivityArea::LeftSecondary),
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+        model.setData(
+            third,
+            QVariant::fromValue(ZzFluentUI::ZzActivityArea::LeftPrimary),
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(third);
+        bar.setMultiActiveEnabled(true);
+        bar.setActiveSourceIndexes(
+            {first, second, first, child, model.index(0, 1), otherModel.index(0, 0)});
+
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({first, second}));
+        QCOMPARE(bar.currentSourceIndex(), third);
+
+        QSignalSpy activeSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activeSourceIndexesChanged);
+        model.clear();
+
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>());
+        QCOMPARE(activeSpy.count(), 1);
+    }
+
+    void rendersMultipleActiveIndicatorsOnTheLogicalLeadingEdge()
+    {
+        const QColor indicatorColor(QStringLiteral("#00ff55"));
+        for (const Qt::LayoutDirection direction : {
+                 Qt::LeftToRight, Qt::RightToLeft}) {
+            ZzFluentUI::ZzThemeController controller;
+            ZzFluentUI::ZzFluentStyle style(&controller);
+            ZzActivityRowsModel model;
+            model.rows[0].badge = 0;
+            ZzFluentUI::ZzActivityBar bar;
+            bar.setLayoutDirection(direction);
+            bar.setModel(&model);
+            bar.setMultiActiveEnabled(true);
+            bar.setActiveSourceIndexes({model.index(0, 0)});
+            QListView *const view = zzActivityView(
+                &bar, QStringLiteral("zzActivityPrimaryView"));
+            QPalette palette = view->palette();
+            palette.setColor(QPalette::Highlight, indicatorColor);
+            view->setPalette(palette);
+            view->setStyle(&style);
+            view->viewport()->setStyle(&style);
+            zzShow(&bar);
+
+            const QRect rowRect = view->visualRect(view->model()->index(0, 0));
+            const QRect leadingEdge = direction == Qt::LeftToRight
+                ? QRect(rowRect.left(), rowRect.top(), 4, rowRect.height())
+                : QRect(rowRect.right() - 3, rowRect.top(), 4, rowRect.height());
+            const QImage rendered = zzRenderWidget(view->viewport());
+            QVERIFY2(
+                zzCountPixelsNearColor(rendered, leadingEdge, indicatorColor) > 8,
+                "Activity Bar 没有在逻辑 leading 边缘绘制多激活指示条");
+        }
     }
 
     void activatesOtherRowsAndCollapsesTheCurrentRow()

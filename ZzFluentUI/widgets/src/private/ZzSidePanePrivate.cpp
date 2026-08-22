@@ -4,10 +4,9 @@
 
 #include <QtCore/QPointer>
 #include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QLabel>
-#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QVBoxLayout>
 
+#include <ZzFluentUI/ZzPanelStack.h>
 #include <ZzFluentUI/ZzSidePane.h>
 
 namespace ZzFluentUI {
@@ -26,11 +25,8 @@ ZzSidePanePrivate::ZzSidePanePrivate(
 {
     Q_ASSERT(q_ptr != nullptr);
     contentHost = new QWidget(q_ptr);
-    titleLabel = new QLabel(contentHost);
-    titleLabel->setObjectName(QStringLiteral("zzSidePaneTitleLabel"));
-    titleLabel->setAccessibleName(ZzSidePane::tr("侧面板标题"));
-    stack = new QStackedWidget(contentHost);
-    stack->setObjectName(QStringLiteral("zzSidePanePageStack"));
+    panelStack = new ZzPanelStack(contentHost);
+    panelStack->setObjectName(QStringLiteral("zzSidePanePanelStack"));
     resizeHandle = new QWidget(q_ptr);
     resizeHandle->setObjectName(QStringLiteral("zzSidePaneResizeHandle"));
     resizeHandle->setFixedWidth(zzSidePaneHandleWidth);
@@ -40,28 +36,23 @@ ZzSidePanePrivate::ZzSidePanePrivate(
     auto *contentLayout = new QVBoxLayout(contentHost);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(0);
-    contentLayout->addWidget(titleLabel);
-    contentLayout->addWidget(stack, 1);
+    contentLayout->addWidget(panelStack);
 
     auto *layout = new QHBoxLayout(q_ptr);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    QObject::connect(
-        stack,
-        &QStackedWidget::currentChanged,
+    currentPanelConnection = QObject::connect(
+        panelStack,
+        &ZzPanelStack::currentPanelChanged,
         q_ptr,
-        [this](int) { syncCurrentWidget(); });
+        [this](QWidget *) { syncCurrentWidget(); });
     setEdge(edge);
     applyExpandedWidth();
 }
 
 ZzSidePanePrivate::~ZzSidePanePrivate()
 {
-    for (const QMetaObject::Connection &connection
-         : pageDestroyedConnections) {
-        QObject::disconnect(connection);
-    }
-    pageDestroyedConnections.clear();
+    QObject::disconnect(currentPanelConnection);
 }
 
 void ZzSidePanePrivate::setEdge(ZzSidePaneEdge newEdge)
@@ -86,69 +77,182 @@ bool ZzSidePanePrivate::addWidget(QWidget *widget, const QString &title)
     if (widget == nullptr) {
         return false;
     }
-    const int currentIndex = stack->indexOf(widget);
-    if (currentIndex >= 0) {
-        pageTitles.insert(widget, title);
-        stack->setCurrentIndex(currentIndex);
-        return true;
+    if (panelStack->panels().contains(widget)) {
+        return panelStack->setPanelTitle(widget, title)
+            && setCurrentWidget(widget);
     }
     if (widget->parent() != nullptr) {
         return false;
     }
+    QPointer<ZzSidePane> paneGuard(q_ptr);
     QPointer<QWidget> widgetGuard(widget);
-    pageTitles.insert(widget, title);
-    pageDestroyedConnections.insert(
-        widget,
-        QObject::connect(widget, &QObject::destroyed, q_ptr, [this, widget] {
-            pageTitles.remove(widget);
-            pageDestroyedConnections.remove(widget);
-            syncCurrentWidget();
-        }));
-    const int index = stack->addWidget(widget);
-    if (widgetGuard.isNull() || stack->indexOf(widgetGuard.data()) != index) {
+    if (!panelStack->addPanel(widget, title)
+        || paneGuard.isNull()
+        || widgetGuard.isNull()
+        || !panelStack->panels().contains(widgetGuard.data())) {
         return false;
     }
-    stack->setCurrentIndex(index);
-    return !widgetGuard.isNull()
-        && stack->indexOf(widgetGuard.data()) == index;
+    if (mode == ZzSidePaneMode::Stacked) {
+        if (!stackedVisible.contains(widgetGuard)) {
+            stackedVisible.append(widgetGuard);
+        }
+    } else {
+        stackedVisible = {widgetGuard};
+    }
+    return !widgetGuard.isNull() && setCurrentWidget(widgetGuard.data());
 }
 
 QWidget *ZzSidePanePrivate::takeWidget(QWidget *widget)
 {
-    if (widget == nullptr || stack->indexOf(widget) < 0) {
+    if (widget == nullptr || !panelStack->panels().contains(widget)) {
         return nullptr;
     }
-    QObject::disconnect(pageDestroyedConnections.take(widget));
-    pageTitles.remove(widget);
+    if (mode == ZzSidePaneMode::Single
+        && panelStack->currentPanel() == widget) {
+        for (QWidget *const candidate : panelStack->panels()) {
+            if (candidate != widget) {
+                QPointer<ZzSidePane> paneGuard(q_ptr);
+                panelStack->setPanelVisible(candidate, true);
+                if (paneGuard.isNull()) {
+                    return nullptr;
+                }
+                break;
+            }
+        }
+    }
     QPointer<QWidget> widgetGuard(widget);
-    stack->removeWidget(widget);
-    if (widgetGuard.isNull()
-        || stack->indexOf(widgetGuard.data()) >= 0) {
+    QPointer<ZzSidePane> paneGuard(q_ptr);
+    QWidget *const result = panelStack->takePanel(widget);
+    if (paneGuard.isNull()) {
         return nullptr;
     }
-    widgetGuard->setParent(nullptr);
-    return widgetGuard.data();
+    sanitizeStackedVisible();
+    if (widgetGuard.isNull() || result == nullptr
+        || panelStack->panels().contains(widgetGuard.data())) {
+        return nullptr;
+    }
+    return result;
 }
 
 bool ZzSidePanePrivate::setCurrentWidget(QWidget *widget)
 {
-    const int index = widget != nullptr ? stack->indexOf(widget) : -1;
-    if (index < 0) {
+    if (widget == nullptr || !panelStack->panels().contains(widget)) {
         return false;
     }
-    stack->setCurrentIndex(index);
+    QPointer<ZzSidePane> paneGuard(q_ptr);
+    QPointer<QWidget> widgetGuard(widget);
+    if (mode == ZzSidePaneMode::Single) {
+        const QList<QWidget *> pages = panelStack->panels();
+        for (QWidget *const page : pages) {
+            if (page != nullptr
+                && !panelStack->setPanelVisible(page, page == widgetGuard.data())) {
+                return false;
+            }
+            if (paneGuard.isNull() || widgetGuard.isNull()) {
+                return false;
+            }
+        }
+        stackedVisible = {widgetGuard};
+    } else if (!panelStack->setPanelVisible(widget, true)) {
+        return false;
+    }
+    return !paneGuard.isNull() && !widgetGuard.isNull()
+        && panelStack->setCurrentPanel(widgetGuard.data());
+}
+
+bool ZzSidePanePrivate::setWidgetVisible(QWidget *widget, bool visible)
+{
+    if (widget == nullptr || !panelStack->panels().contains(widget)) {
+        return false;
+    }
+    if (mode == ZzSidePaneMode::Single && visible) {
+        return setCurrentWidget(widget);
+    }
+    QPointer<ZzSidePane> paneGuard(q_ptr);
+    QPointer<QWidget> widgetGuard(widget);
+    if (!panelStack->setPanelVisible(widget, visible)
+        || paneGuard.isNull() || widgetGuard.isNull()) {
+        return false;
+    }
+    if (mode == ZzSidePaneMode::Stacked) {
+        sanitizeStackedVisible();
+        if (visible && !stackedVisible.contains(widgetGuard)) {
+            stackedVisible.append(widgetGuard);
+        } else if (!visible) {
+            stackedVisible.removeAll(widgetGuard);
+        }
+    }
     return true;
+}
+
+void ZzSidePanePrivate::setMode(ZzSidePaneMode newMode)
+{
+    if (mode == newMode) {
+        return;
+    }
+    if (mode == ZzSidePaneMode::Stacked) {
+        stackedVisible.clear();
+        for (QWidget *const widget : panelStack->visiblePanels()) {
+            stackedVisible.append(widget);
+        }
+    }
+    mode = newMode;
+    QPointer<ZzSidePane> paneGuard(q_ptr);
+    if (mode == ZzSidePaneMode::Single) {
+        if (QWidget *const current = panelStack->currentPanel(); current != nullptr) {
+            for (QWidget *const page : panelStack->panels()) {
+                if (page != nullptr) {
+                    panelStack->setPanelVisible(page, page == current);
+                    if (paneGuard.isNull()) {
+                        return;
+                    }
+                }
+            }
+            panelStack->setCurrentPanel(current);
+            if (paneGuard.isNull()) {
+                return;
+            }
+        }
+    } else {
+        sanitizeStackedVisible();
+        for (const QPointer<QWidget> &widget : std::as_const(stackedVisible)) {
+            if (widget != nullptr) {
+                panelStack->setPanelVisible(widget.data(), true);
+                if (paneGuard.isNull()) {
+                    return;
+                }
+            }
+        }
+    }
+    Q_EMIT q_ptr->modeChanged(mode);
 }
 
 void ZzSidePanePrivate::syncCurrentWidget()
 {
-    QWidget *const current = stack->currentWidget();
-    titleLabel->setText(pageTitles.value(current));
+    QWidget *const current = panelStack->currentPanel();
+    sanitizeStackedVisible();
     if (lastNotifiedCurrent.data() == current) {
         return;
     }
     lastNotifiedCurrent = current;
+    QPointer<ZzSidePane> paneGuard(q_ptr);
     Q_EMIT q_ptr->currentWidgetChanged(current);
+    if (paneGuard.isNull()) {
+        return;
+    }
+}
+
+void ZzSidePanePrivate::sanitizeStackedVisible()
+{
+    const QList<QWidget *> panels = panelStack->panels();
+    stackedVisible.erase(
+        std::remove_if(
+            stackedVisible.begin(),
+            stackedVisible.end(),
+            [&panels](const QPointer<QWidget> &widget) {
+                return widget.isNull() || !panels.contains(widget.data());
+            }),
+        stackedVisible.end());
 }
 
 int ZzSidePanePrivate::clampWidth(int width) const noexcept

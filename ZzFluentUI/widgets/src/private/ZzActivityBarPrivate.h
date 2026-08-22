@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtCore/QHash>
+#include <QtCore/QList>
 #include <QtCore/QMetaObject>
 #include <QtCore/QPersistentModelIndex>
 #include <QtCore/QPointer>
@@ -45,6 +46,21 @@ public:
     /** @brief 按源索引同步两个视图的唯一选择。 */
     void setCurrentSourceIndex(const QModelIndex &index);
 
+    /** @brief 设置按输入顺序去重的多个活动源索引。 */
+    void setActiveSourceIndexes(const QList<QModelIndex> &indexes);
+
+    /** @brief 清除当前模型或物理侧投影外的失效活动索引。 */
+    void sanitizeActiveIndexes();
+
+    /** @brief 判断源索引是否属于当前有效活动集合。 */
+    [[nodiscard]] bool isSourceIndexActive(const QModelIndex &index) const;
+
+    /** @brief 判断投影视图索引映射的源项是否处于活动集合。 */
+    [[nodiscard]] bool isProjectionIndexActive(const QModelIndex &index) const;
+
+    /** @brief 判断索引是否属于当前模型、顶层 column 0 和物理侧投影。 */
+    [[nodiscard]] bool acceptsSourceIndex(const QModelIndex &index) const;
+
     /** @brief 处理点击或键盘激活，只发出公开意图。 */
     void activateSourceIndex(const QModelIndex &index);
 
@@ -71,7 +87,10 @@ public:
     QStyledItemDelegate *delegate = nullptr;
     QPointer<QAbstractItemModel> sourceModel;
     QPersistentModelIndex currentSourceIndex;
+    bool multiActiveEnabled = false;
+    QList<QPersistentModelIndex> activeSourceIndexes;
     QMetaObject::Connection modelDestroyedConnection;
+    QList<QMetaObject::Connection> activeModelConnections;
     QHash<QString, QPersistentModelIndex> dragTokens;
     QTimer *dragTokenExpiryTimer = nullptr;
     ZzSidePaneEdge edge = ZzSidePaneEdge::Left;

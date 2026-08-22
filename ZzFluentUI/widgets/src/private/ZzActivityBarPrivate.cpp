@@ -8,6 +8,7 @@
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
+#include <QtCore/QtMath>
 #include <QtCore/QUuid>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QPainter>
@@ -22,6 +23,8 @@
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzItemViewVisual.h"
 
@@ -88,8 +91,11 @@ class ZzActivityItemDelegate final : public QStyledItemDelegate
 {
 public:
     /** @brief 创建不分配逐行控件的共享 delegate。 */
-    explicit ZzActivityItemDelegate(QObject *parent)
+    explicit ZzActivityItemDelegate(
+        ZzActivityBarPrivate *owner,
+        QObject *parent)
         : QStyledItemDelegate(parent)
+        , owner_(owner)
     {
     }
 
@@ -119,6 +125,20 @@ public:
                 *fluentStyle,
                 adjusted,
                 painter);
+        if (owner_ != nullptr && owner_->multiActiveEnabled
+            && owner_->isProjectionIndexActive(index)) {
+            const auto snapshot = fluentStyle->themeSnapshot();
+            const int thickness = std::max(
+                1,
+                qCeil(snapshot->metric(
+                    ZzMetricToken::SelectionIndicatorThickness)));
+            const QRect logicalIndicator(
+                adjusted.rect.left(), adjusted.rect.top(), thickness,
+                adjusted.rect.height());
+            const QRect indicator = QStyle::visualRect(
+                adjusted.direction, adjusted.rect, logicalIndicator);
+            painter->fillRect(indicator, adjusted.palette.highlight());
+        }
         const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
         const QPalette::ColorGroup colorGroup = enabled
             ? QPalette::Normal : QPalette::Disabled;
@@ -255,6 +275,8 @@ private:
             painter,
             option.widget);
     }
+
+    ZzActivityBarPrivate *owner_ = nullptr;
 };
 
 } // namespace
@@ -433,7 +455,7 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
         this, zzAreaFor(edge, true), q_ptr);
     secondaryProjection = new ZzActivityProjectionModel(
         this, zzAreaFor(edge, false), q_ptr);
-    delegate = new ZzActivityItemDelegate(q_ptr);
+    delegate = new ZzActivityItemDelegate(this, q_ptr);
     primaryView = new QListView(q_ptr);
     secondaryView = new QListView(q_ptr);
     primaryView->setObjectName(QStringLiteral("zzActivityPrimaryView"));
@@ -478,6 +500,9 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
 ZzActivityBarPrivate::~ZzActivityBarPrivate()
 {
     QObject::disconnect(modelDestroyedConnection);
+    for (const QMetaObject::Connection &connection : activeModelConnections) {
+        QObject::disconnect(connection);
+    }
 }
 
 void ZzActivityBarPrivate::setEdge(ZzSidePaneEdge newEdge)
@@ -488,7 +513,15 @@ void ZzActivityBarPrivate::setEdge(ZzSidePaneEdge newEdge)
     edge = newEdge;
     primaryProjection->setArea(zzAreaFor(edge, true));
     secondaryProjection->setArea(zzAreaFor(edge, false));
+    QPointer<ZzActivityBar> barGuard(q_ptr);
     setCurrentSourceIndex(currentSourceIndex);
+    if (barGuard.isNull()) {
+        return;
+    }
+    sanitizeActiveIndexes();
+    if (barGuard.isNull()) {
+        return;
+    }
     Q_EMIT q_ptr->edgeChanged(edge);
 }
 
@@ -498,6 +531,10 @@ void ZzActivityBarPrivate::setModel(QAbstractItemModel *model)
         return;
     }
     QObject::disconnect(modelDestroyedConnection);
+    for (const QMetaObject::Connection &connection : activeModelConnections) {
+        QObject::disconnect(connection);
+    }
+    activeModelConnections.clear();
     sourceModel = model;
     primaryProjection->setSourceModel(model);
     secondaryProjection->setSourceModel(model);
@@ -508,10 +545,32 @@ void ZzActivityBarPrivate::setModel(QAbstractItemModel *model)
             model, &QObject::destroyed, q_ptr, [this] {
                 handleModelDestroyed();
             });
+        const auto sanitize = [this] { sanitizeActiveIndexes(); };
+        activeModelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::modelReset, q_ptr, sanitize));
+        activeModelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::rowsRemoved, q_ptr,
+            [sanitize](const QModelIndex &, int, int) { sanitize(); }));
+        activeModelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::layoutChanged, q_ptr,
+            [sanitize](const QList<QPersistentModelIndex> &,
+                       QAbstractItemModel::LayoutChangeHint) { sanitize(); }));
+        activeModelConnections.append(QObject::connect(
+            model, &QAbstractItemModel::dataChanged, q_ptr,
+            [sanitize](const QModelIndex &, const QModelIndex &,
+                       const QList<int> &) { sanitize(); }));
     } else {
         modelDestroyedConnection = {};
     }
+    QPointer<ZzActivityBar> barGuard(q_ptr);
     setCurrentSourceIndex({});
+    if (barGuard.isNull()) {
+        return;
+    }
+    setActiveSourceIndexes({});
+    if (barGuard.isNull()) {
+        return;
+    }
     Q_EMIT q_ptr->modelChanged(model);
 }
 
@@ -523,15 +582,21 @@ void ZzActivityBarPrivate::handleModelDestroyed()
     dragTokens.clear();
     dragTokenExpiryTimer->stop();
     modelDestroyedConnection = {};
+    QPointer<ZzActivityBar> barGuard(q_ptr);
     setCurrentSourceIndex({});
+    if (barGuard.isNull()) {
+        return;
+    }
+    setActiveSourceIndexes({});
+    if (barGuard.isNull()) {
+        return;
+    }
     Q_EMIT q_ptr->modelChanged(nullptr);
 }
 
 void ZzActivityBarPrivate::setCurrentSourceIndex(const QModelIndex &index)
 {
-    const bool accepted = index.isValid()
-        && index.model() == sourceModel.data()
-        && !index.parent().isValid() && index.column() == 0;
+    const bool accepted = acceptsSourceIndex(index);
     const QModelIndex sourceIndex = accepted ? index : QModelIndex();
     const QModelIndex primaryIndex = accepted
         ? primaryProjection->mapFromSource(sourceIndex) : QModelIndex();
@@ -545,6 +610,69 @@ void ZzActivityBarPrivate::setCurrentSourceIndex(const QModelIndex &index)
     if (previous != currentSourceIndex) {
         Q_EMIT q_ptr->currentSourceIndexChanged(currentSourceIndex);
     }
+}
+
+void ZzActivityBarPrivate::setActiveSourceIndexes(
+    const QList<QModelIndex> &indexes)
+{
+    QList<QPersistentModelIndex> next;
+    next.reserve(indexes.size());
+    for (const QModelIndex &index : indexes) {
+        if (!acceptsSourceIndex(index)) {
+            continue;
+        }
+        const QPersistentModelIndex persistent(index);
+        if (!next.contains(persistent)) {
+            next.append(persistent);
+        }
+    }
+    if (activeSourceIndexes == next) {
+        return;
+    }
+    activeSourceIndexes = next;
+    primaryView->viewport()->update();
+    secondaryView->viewport()->update();
+    QList<QModelIndex> publicIndexes;
+    publicIndexes.reserve(activeSourceIndexes.size());
+    for (const QPersistentModelIndex &index : activeSourceIndexes) {
+        publicIndexes.append(index);
+    }
+    Q_EMIT q_ptr->activeSourceIndexesChanged(publicIndexes);
+}
+
+void ZzActivityBarPrivate::sanitizeActiveIndexes()
+{
+    QList<QModelIndex> indexes;
+    indexes.reserve(activeSourceIndexes.size());
+    for (const QPersistentModelIndex &index : activeSourceIndexes) {
+        indexes.append(index);
+    }
+    setActiveSourceIndexes(indexes);
+}
+
+bool ZzActivityBarPrivate::isSourceIndexActive(const QModelIndex &index) const
+{
+    return multiActiveEnabled && activeSourceIndexes.contains(index);
+}
+
+bool ZzActivityBarPrivate::isProjectionIndexActive(
+    const QModelIndex &index) const
+{
+    const auto *projection = index.model() == primaryProjection
+        ? primaryProjection
+        : index.model() == secondaryProjection ? secondaryProjection : nullptr;
+    return projection != nullptr
+        && isSourceIndexActive(projection->mapToSource(index));
+}
+
+bool ZzActivityBarPrivate::acceptsSourceIndex(const QModelIndex &index) const
+{
+    if (!index.isValid() || index.model() != sourceModel.data()
+        || index.parent().isValid() || index.column() != 0) {
+        return false;
+    }
+    return primaryProjection->mapFromSource(index).isValid()
+        || secondaryProjection->mapFromSource(index).isValid();
 }
 
 void ZzActivityBarPrivate::activateSourceIndex(const QModelIndex &index)

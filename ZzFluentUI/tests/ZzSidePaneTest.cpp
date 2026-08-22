@@ -5,10 +5,11 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLabel>
-#include <QtWidgets/QStackedWidget>
 
+#include <ZzFluentUI/ZzPanelStack.h>
 #include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
 
 /** @brief 验证 Side Pane 的页面所有权、宽度和物理边缘契约。 */
 class ZzSidePaneTest final : public QObject
@@ -22,7 +23,8 @@ private Q_SLOTS:
         auto *page = new QLabel(QStringLiteral("Page"));
         QVERIFY(pane.addWidget(page, QStringLiteral("First")));
         QCOMPARE(pane.currentWidget(), page);
-        QCOMPARE(page->parentWidget()->metaObject()->className(), "QStackedWidget");
+        QVERIFY(page->parentWidget() != nullptr);
+        QCOMPARE(pane.panelStack()->panels(), QList<QWidget *>({page}));
 
         std::unique_ptr<QWidget> taken(pane.takeWidget(page));
         QCOMPARE(taken.get(), page);
@@ -33,6 +35,38 @@ private Q_SLOTS:
         auto *foreign = new QLabel(QStringLiteral("Foreign"), &foreignOwner);
         QVERIFY(!pane.addWidget(foreign, QStringLiteral("Rejected")));
         QCOMPARE(foreign->parentWidget(), &foreignOwner);
+    }
+
+    void keepsSingleCompatibilityAndRestoresStackedVisiblePanels()
+    {
+        ZzFluentUI::ZzSidePane pane;
+        auto *first = new QLabel(QStringLiteral("First"));
+        auto *second = new QLabel(QStringLiteral("Second"));
+        QVERIFY(pane.addWidget(first, QStringLiteral("First")));
+        QVERIFY(pane.addWidget(second, QStringLiteral("Second")));
+
+        QCOMPARE(pane.mode(), ZzFluentUI::ZzSidePaneMode::Single);
+        QCOMPARE(pane.currentWidget(), second);
+        QCOMPARE(pane.visibleWidgets(), QList<QWidget *>({second}));
+
+        pane.setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+        QVERIFY(pane.setWidgetVisible(first, true));
+        QVERIFY(pane.setWidgetVisible(second, true));
+        QCOMPARE(pane.visibleWidgets(), QList<QWidget *>({first, second}));
+        QCOMPARE(pane.panelStack()->visiblePanelCount(), 2);
+        QVERIFY(pane.panelStack()->setPanelSizes({120, 200}));
+        pane.setCollapsed(true);
+        pane.setCollapsed(false);
+        QCOMPARE(pane.visibleWidgets(), QList<QWidget *>({first, second}));
+        QCOMPARE(pane.panelStack()->panelSizes(), QList<int>({120, 200}));
+        pane.setMode(ZzFluentUI::ZzSidePaneMode::Single);
+        pane.setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+        QCOMPARE(pane.visibleWidgets(), QList<QWidget *>({first, second}));
+        QVERIFY(pane.setWidgetVisible(first, false));
+        QCOMPARE(pane.visibleWidgets(), QList<QWidget *>({second}));
+        pane.setMode(ZzFluentUI::ZzSidePaneMode::Single);
+        pane.setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+        QCOMPARE(pane.visibleWidgets(), QList<QWidget *>({second}));
     }
 
     void collapsesAndRestoresTheLastExpandedClampedWidth()
