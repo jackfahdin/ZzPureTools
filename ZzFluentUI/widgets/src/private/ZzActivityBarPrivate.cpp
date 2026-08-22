@@ -125,8 +125,7 @@ public:
                 *fluentStyle,
                 adjusted,
                 painter);
-        if (owner_ != nullptr && owner_->multiActiveEnabled
-            && owner_->isProjectionIndexActive(index)) {
+        if (owner_ != nullptr && owner_->isProjectionIndexActive(index)) {
             const auto snapshot = fluentStyle->themeSnapshot();
             const int thickness = std::max(
                 1,
@@ -607,6 +606,13 @@ void ZzActivityBarPrivate::setCurrentSourceIndex(const QModelIndex &index)
     const QPersistentModelIndex previous = currentSourceIndex;
     currentSourceIndex = primaryIndex.isValid() || secondaryIndex.isValid()
         ? QPersistentModelIndex(sourceIndex) : QPersistentModelIndex();
+    if (!multiActiveEnabled) {
+        QPointer<ZzActivityBar> barGuard(q_ptr);
+        setActiveSourceIndexes({currentSourceIndex});
+        if (barGuard.isNull()) {
+            return;
+        }
+    }
     if (previous != currentSourceIndex) {
         Q_EMIT q_ptr->currentSourceIndexChanged(currentSourceIndex);
     }
@@ -616,14 +622,20 @@ void ZzActivityBarPrivate::setActiveSourceIndexes(
     const QList<QModelIndex> &indexes)
 {
     QList<QPersistentModelIndex> next;
-    next.reserve(indexes.size());
-    for (const QModelIndex &index : indexes) {
-        if (!acceptsSourceIndex(index)) {
-            continue;
+    if (!multiActiveEnabled) {
+        if (acceptsSourceIndex(currentSourceIndex)) {
+            next.append(currentSourceIndex);
         }
-        const QPersistentModelIndex persistent(index);
-        if (!next.contains(persistent)) {
-            next.append(persistent);
+    } else {
+        next.reserve(indexes.size());
+        for (const QModelIndex &index : indexes) {
+            if (!acceptsSourceIndex(index)) {
+                continue;
+            }
+            const QPersistentModelIndex persistent(index);
+            if (!next.contains(persistent)) {
+                next.append(persistent);
+            }
         }
     }
     if (activeSourceIndexes == next) {
@@ -652,7 +664,7 @@ void ZzActivityBarPrivate::sanitizeActiveIndexes()
 
 bool ZzActivityBarPrivate::isSourceIndexActive(const QModelIndex &index) const
 {
-    return multiActiveEnabled && activeSourceIndexes.contains(index);
+    return activeSourceIndexes.contains(index);
 }
 
 bool ZzActivityBarPrivate::isProjectionIndexActive(

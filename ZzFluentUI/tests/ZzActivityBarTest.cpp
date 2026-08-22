@@ -423,7 +423,34 @@ private Q_SLOTS:
         QCOMPARE(activeSpy.count(), 1);
     }
 
-    void rendersMultipleActiveIndicatorsOnTheLogicalLeadingEdge()
+    void synchronizesSingleActiveIndexWithCurrentSourceIndex()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        const QModelIndex first = model.index(0, 0);
+        const QModelIndex second = model.index(1, 0);
+        bar.setModel(&model);
+
+        QVERIFY(!bar.isMultiActiveEnabled());
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>());
+        bar.setActiveSourceIndexes({first, second});
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>());
+
+        bar.setCurrentSourceIndex(first);
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({first}));
+        bar.setActiveSourceIndexes({second, first});
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({first}));
+
+        bar.setCurrentSourceIndex(second);
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({second}));
+        bar.setMultiActiveEnabled(true);
+        bar.setActiveSourceIndexes({first, second});
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({first, second}));
+        bar.setMultiActiveEnabled(false);
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({second}));
+    }
+
+    void rendersActiveIndicatorsOnTheLogicalLeadingEdge()
     {
         const QColor indicatorColor(QStringLiteral("#00ff55"));
         for (const Qt::LayoutDirection direction : {
@@ -435,8 +462,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityBar bar;
             bar.setLayoutDirection(direction);
             bar.setModel(&model);
-            bar.setMultiActiveEnabled(true);
-            bar.setActiveSourceIndexes({model.index(0, 0)});
+            bar.setCurrentSourceIndex(model.index(0, 0));
             QListView *const view = zzActivityView(
                 &bar, QStringLiteral("zzActivityPrimaryView"));
             QPalette palette = view->palette();
@@ -453,6 +479,14 @@ private Q_SLOTS:
             const QImage rendered = zzRenderWidget(view->viewport());
             QVERIFY2(
                 zzCountPixelsNearColor(rendered, leadingEdge, indicatorColor) > 8,
+                "Activity Bar 没有在逻辑 leading 边缘绘制默认激活指示条");
+
+            bar.setMultiActiveEnabled(true);
+            bar.setActiveSourceIndexes({model.index(0, 0)});
+            const QImage multiActiveRendered = zzRenderWidget(view->viewport());
+            QVERIFY2(
+                zzCountPixelsNearColor(
+                    multiActiveRendered, leadingEdge, indicatorColor) > 8,
                 "Activity Bar 没有在逻辑 leading 边缘绘制多激活指示条");
         }
     }

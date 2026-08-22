@@ -73,6 +73,13 @@ void ZzActivityBar::setMultiActiveEnabled(bool enabled)
         return;
     }
     d_ptr->multiActiveEnabled = enabled;
+    QPointer<ZzActivityBar> barGuard(this);
+    if (!enabled) {
+        d_ptr->setActiveSourceIndexes({d_ptr->currentSourceIndex});
+        if (barGuard.isNull()) {
+            return;
+        }
+    }
     d_ptr->primaryView->viewport()->update();
     d_ptr->secondaryView->viewport()->update();
     Q_EMIT multiActiveEnabledChanged(enabled);
