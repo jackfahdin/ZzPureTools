@@ -4,7 +4,9 @@
 #include <memory>
 #include <optional>
 
+#include <QtCore/QByteArray>
 #include <QtCore/QList>
+#include <QtCore/QString>
 #include <QtCore/Qt>
 #include <QtWidgets/QWidget>
 
@@ -136,6 +138,47 @@ public:
         int sourceIndex,
         const ZzTabGroupId &target,
         int targetIndex = -1);
+
+    /**
+     * @brief 为工作区中的页面设置持久布局键。
+     * @param page 当前由本工作区某个标签组拥有的页面。
+     * @param key trim 后至多 256 个 UTF-16 code unit 的唯一键；空键取消。
+     * @return 页面有效且键满足唯一性和长度约束时返回 true。
+     *
+     * 拒绝重复键或超限键时保留页面原键不变，不使用 QObject 动态属性。
+     */
+    bool setPageLayoutKey(QWidget *page, const QString &key);
+
+    /**
+     * @brief 返回页面在本工作区登记的持久布局键。
+     * @param page 待查询页面。
+     * @return 已 trim 的键；页面未登记时返回空字符串。
+     */
+    [[nodiscard]] QString pageLayoutKey(const QWidget *page) const;
+
+    /**
+     * @brief 保存独立、带版本和 SHA-256 摘要的分屏布局。
+     * @return 成功时返回 `ZZSW` 版本 1 布局；当前状态超限时返回空数组。
+     */
+    [[nodiscard]] QByteArray saveLayout() const;
+
+    /**
+     * @brief 从不可信二进制输入事务恢复分屏树和已登记页面位置。
+     * @param state `ZZSW` 版本 1 布局数据。
+     * @return 完整解码、离屏建树和页面转移均提交时返回 true。
+     *
+     * 输入先完整解码为有界值对象，提交失败会恢复原树、页面顺序、当前页、
+     * splitter sizes 和已保存键映射；被第三方接管的页面不会被强取回来。
+     */
+    bool restoreLayout(const QByteArray &state);
+
+    /**
+     * @brief 查询最近成功恢复的布局为页面键保存的目标组。
+     * @param key 待查询的页面布局键，查询前会 trim。
+     * @return 保存的组标识；键未知、为空或超限时返回无效标识。
+     */
+    [[nodiscard]] ZzTabGroupId savedGroupForPageKey(
+        const QString &key) const;
 
     /**
      * @brief 将标签提交到目标组中心或目标组旁的新分屏。

@@ -131,6 +131,49 @@ bool ZzSplitWorkspace::transferTab(
     return d_ptr->transferTab(source, sourceIndex, target, targetIndex);
 }
 
+bool ZzSplitWorkspace::setPageLayoutKey(
+    QWidget *page,
+    const QString &key)
+{
+    return d_ptr->setPageLayoutKey(page, key);
+}
+
+QString ZzSplitWorkspace::pageLayoutKey(const QWidget *page) const
+{
+    return d_ptr->pageLayoutKey(page);
+}
+
+QByteArray ZzSplitWorkspace::saveLayout() const
+{
+    return d_ptr->saveLayout();
+}
+
+bool ZzSplitWorkspace::restoreLayout(const QByteArray &state)
+{
+    const ZzTabGroupId previousActive = d_ptr->activeId;
+    QPointer<ZzSplitWorkspace> guardedWorkspace = this;
+    if (!d_ptr->restoreLayout(state)) {
+        return false;
+    }
+    if (guardedWorkspace.isNull()) {
+        return true;
+    }
+    if (previousActive != d_ptr->activeId) {
+        Q_EMIT activeGroupChanged(d_ptr->activeId);
+        if (guardedWorkspace.isNull()) {
+            return true;
+        }
+    }
+    Q_EMIT layoutChanged();
+    return true;
+}
+
+ZzTabGroupId ZzSplitWorkspace::savedGroupForPageKey(
+    const QString &key) const
+{
+    return d_ptr->savedGroupForPageKey(key);
+}
+
 bool ZzSplitWorkspace::moveTabToDropZone(
     const ZzTabGroupId &source,
     int sourceIndex,

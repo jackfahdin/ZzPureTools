@@ -66,6 +66,40 @@ struct ZzTreeSnapshot final
     ZzTabGroupId activeId;
 };
 
+/** @brief 保存完全解码且不引用 QWidget 的持久布局树节点。 */
+struct ZzWorkspaceLayoutNode final
+{
+    bool leaf = true;
+    ZzTabGroupId id;
+    Qt::Orientation orientation = Qt::Horizontal;
+    QList<int> sizes;
+    std::vector<ZzWorkspaceLayoutNode> children;
+};
+
+/** @brief 保存一个页面键在持久布局中的组、顺序和当前状态。 */
+struct ZzWorkspaceLayoutPage final
+{
+    QString key;
+    ZzTabGroupId groupId;
+    int order = 0;
+    bool current = false;
+};
+
+/** @brief 保存经过全部边界与交叉引用验证的纯值布局。 */
+struct ZzWorkspaceLayoutState final
+{
+    ZzWorkspaceLayoutNode root;
+    ZzTabGroupId activeId;
+    std::vector<ZzWorkspaceLayoutPage> pages;
+};
+
+/** @brief 关联仍存活页面与工作区内唯一持久布局键。 */
+struct ZzWorkspacePageKey final
+{
+    QPointer<QWidget> page;
+    QString key;
+};
+
 /** @brief 保存一次实例内拖放令牌绑定的稳定来源。 */
 struct ZzWorkspaceDragRecord final
 {
@@ -145,6 +179,26 @@ public:
         const ZzTabGroupId &target,
         int targetIndex);
 
+    /** @brief 原子设置、替换或取消工作区页面的唯一布局键。 */
+    bool setPageLayoutKey(QWidget *page, const QString &key);
+
+    /** @brief 返回页面登记的布局键。 */
+    [[nodiscard]] QString pageLayoutKey(const QWidget *page) const;
+
+    /** @brief 将当前树、尺寸、活动组和 keyed 页面编码为独立格式。 */
+    [[nodiscard]] QByteArray saveLayout() const;
+
+    /**
+     * @brief 预解码不可信输入并以离屏树、页面快照和稳定身份提交恢复。
+     *
+     * 任一同步边界失败时仅从本事务临时标签组取回页面；第三方所有权优先。
+     */
+    bool restoreLayout(const QByteArray &state);
+
+    /** @brief 返回最近成功恢复的布局键目标组。 */
+    [[nodiscard]] ZzTabGroupId savedGroupForPageKey(
+        const QString &key) const;
+
     /** @brief 执行 Center 或四边统一事务并返回公开信号事实。 */
     [[nodiscard]] ZzWorkspaceTransferResult moveTabToDropZone(
         const ZzTabGroupId &source,
@@ -214,6 +268,12 @@ public:
         const ZzTreeNodeSnapshot &snapshot,
         ZzNode *parent);
 
+    /** @brief 在指定离屏父对象下从纯值 DTO 创建全新的树和标签容器。 */
+    [[nodiscard]] std::unique_ptr<ZzNode> buildLayoutNode(
+        const ZzWorkspaceLayoutNode &layout,
+        QWidget *pageParent,
+        ZzNode *parent);
+
     /** @brief 递归恢复快照中的分割尺寸。 */
     static void restoreNodeSizes(
         const ZzTreeNodeSnapshot &snapshot,
@@ -261,6 +321,8 @@ public:
     ZzTabGroupId activeId;
     QPointer<QWidget> dropOverlay;
     QHash<QString, ZzWorkspaceDragRecord> dragTokens;
+    std::vector<ZzWorkspacePageKey> pageKeys;
+    std::vector<ZzWorkspaceLayoutPage> savedPages;
 };
 
 } // namespace ZzFluentUI

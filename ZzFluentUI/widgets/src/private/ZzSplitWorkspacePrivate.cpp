@@ -3,16 +3,22 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <tuple>
 #include <utility>
 
+#include <QtCore/QCryptographicHash>
 #include <QtCore/QUuid>
 #include <QtCore/QDataStream>
 #include <QtCore/QEvent>
 #include <QtCore/QMimeData>
+#include <QtCore/QSet>
+#include <QtCore/QVariant>
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDragLeaveEvent>
 #include <QtGui/QDragMoveEvent>
 #include <QtGui/QDropEvent>
+#include <QtGui/QColor>
+#include <QtGui/QIcon>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QSplitter>
@@ -33,6 +39,448 @@ namespace {
 constexpr auto zzWorkspaceTabMimeType =
     "application/x-zz-split-workspace-tab-v1";
 constexpr auto zzWorkspaceDragTokenLifetime = std::chrono::seconds(5);
+constexpr auto zzWorkspaceLayoutMagic = "ZZSW";
+constexpr quint16 zzWorkspaceLayoutSchemaVersion = 1;
+constexpr auto zzWorkspaceLayoutStreamVersion = QDataStream::Qt_6_8;
+constexpr qsizetype zzWorkspaceLayoutDigestSize = 32;
+constexpr qsizetype zzWorkspaceLayoutHeaderSize = 12;
+constexpr qsizetype zzWorkspaceMaximumPayloadSize = 1024 * 1024;
+constexpr int zzWorkspaceMaximumNodeCount = 127;
+constexpr int zzWorkspaceMaximumStringLength = 256;
+constexpr int zzWorkspaceMaximumSavedPageCount = 4096;
+constexpr int zzWorkspaceMaximumPageOrder = 65535;
+
+struct ZzWorkspaceLivePage final
+{
+    QPointer<QWidget> page;
+    QString text;
+    QIcon icon;
+    QString toolTip;
+    QString whatsThis;
+    QVariant data;
+    QColor textColor;
+    bool enabled = true;
+    bool pinned = false;
+    bool modified = false;
+    bool attention = false;
+    bool closeEnabled = true;
+};
+
+struct ZzWorkspaceLiveGroup final
+{
+    ZzTabGroupId id;
+    QPointer<ZzTabWidget> tabs;
+    const ZzTabWidget *identity = nullptr;
+    std::vector<ZzWorkspaceLivePage> pages;
+    QPointer<QWidget> currentPage;
+};
+
+struct ZzWorkspaceDesiredPage final
+{
+    QPointer<QWidget> page;
+    QPointer<ZzTabWidget> originalTabs;
+    ZzTabGroupId targetId;
+    int desiredOrder = 0;
+    int sequence = 0;
+    bool savedOrder = false;
+};
+
+void zzWriteWorkspaceString(QDataStream &stream, const QString &value)
+{
+    stream << static_cast<quint16>(value.size());
+    for (const QChar character : value) {
+        stream << character.unicode();
+    }
+}
+
+[[nodiscard]] bool zzReadWorkspaceString(
+    QDataStream &stream,
+    QString *value)
+{
+    Q_ASSERT(value != nullptr);
+    quint16 length = 0;
+    stream >> length;
+    if (stream.status() != QDataStream::Ok
+        || length > zzWorkspaceMaximumStringLength) {
+        return false;
+    }
+
+    value->clear();
+    value->reserve(length);
+    for (quint16 index = 0; index < length; ++index) {
+        quint16 codeUnit = 0;
+        stream >> codeUnit;
+        if (stream.status() != QDataStream::Ok) {
+            return false;
+        }
+        value->append(QChar(codeUnit));
+    }
+    return true;
+}
+
+[[nodiscard]] bool zzWriteWorkspaceNode(
+    QDataStream &stream,
+    const ZzNode *node,
+    int depth,
+    int *nodeCount,
+    int *groupCount)
+{
+    Q_ASSERT(nodeCount != nullptr);
+    Q_ASSERT(groupCount != nullptr);
+    if (node == nullptr || depth > ZzSplitWorkspacePrivate::maximumTreeDepth
+        || ++(*nodeCount) > zzWorkspaceMaximumNodeCount) {
+        return false;
+    }
+    if (std::holds_alternative<ZzLeaf>(node->value)) {
+        const QString id = std::get<ZzLeaf>(node->value).id.value();
+        if (id.isEmpty() || id.size() > zzWorkspaceMaximumStringLength
+            || ++(*groupCount)
+                > ZzSplitWorkspacePrivate::maximumGroupCount) {
+            return false;
+        }
+        stream << static_cast<quint8>(0);
+        zzWriteWorkspaceString(stream, id);
+        return stream.status() == QDataStream::Ok;
+    }
+
+    const auto &branch = std::get<ZzBranch>(node->value);
+    if ((branch.orientation != Qt::Horizontal
+         && branch.orientation != Qt::Vertical)
+        || branch.children.size() < 2
+        || branch.children.size()
+            > static_cast<std::size_t>(
+                ZzSplitWorkspacePrivate::maximumGroupCount)) {
+        return false;
+    }
+    stream << static_cast<quint8>(1)
+           << static_cast<quint8>(branch.orientation)
+           << static_cast<quint16>(branch.children.size());
+    for (const auto &child : branch.children) {
+        if (!zzWriteWorkspaceNode(
+                stream,
+                child.get(),
+                depth + 1,
+                nodeCount,
+                groupCount)) {
+            return false;
+        }
+    }
+
+    QList<int> sizes = branch.splitter != nullptr
+        ? branch.splitter->sizes()
+        : QList<int> {};
+    if (sizes.size()
+        != static_cast<qsizetype>(branch.children.size())) {
+        sizes.fill(1, static_cast<qsizetype>(branch.children.size()));
+    }
+    stream << static_cast<quint16>(sizes.size());
+    for (const int size : sizes) {
+        stream << static_cast<qint32>(std::max(1, size));
+    }
+    return stream.status() == QDataStream::Ok;
+}
+
+[[nodiscard]] bool zzReadWorkspaceNode(
+    QDataStream &stream,
+    int depth,
+    std::optional<Qt::Orientation> parentOrientation,
+    int *nodeCount,
+    int *groupCount,
+    QSet<QString> *ids,
+    ZzWorkspaceLayoutNode *node)
+{
+    Q_ASSERT(nodeCount != nullptr);
+    Q_ASSERT(groupCount != nullptr);
+    Q_ASSERT(ids != nullptr);
+    Q_ASSERT(node != nullptr);
+    if (depth > ZzSplitWorkspacePrivate::maximumTreeDepth
+        || ++(*nodeCount) > zzWorkspaceMaximumNodeCount) {
+        return false;
+    }
+
+    quint8 tag = 0;
+    stream >> tag;
+    if (stream.status() != QDataStream::Ok || tag > 1) {
+        return false;
+    }
+    if (tag == 0) {
+        QString rawId;
+        if (!zzReadWorkspaceString(stream, &rawId)) {
+            return false;
+        }
+        const ZzTabGroupId id(rawId);
+        if (!id.isValid() || ids->contains(id.value())
+            || ++(*groupCount)
+                > ZzSplitWorkspacePrivate::maximumGroupCount) {
+            return false;
+        }
+        ids->insert(id.value());
+        node->leaf = true;
+        node->id = id;
+        return true;
+    }
+
+    quint8 rawOrientation = 0;
+    quint16 childCount = 0;
+    stream >> rawOrientation >> childCount;
+    if (stream.status() != QDataStream::Ok
+        || (rawOrientation != static_cast<quint8>(Qt::Horizontal)
+            && rawOrientation != static_cast<quint8>(Qt::Vertical))
+        || childCount < 2
+        || childCount > ZzSplitWorkspacePrivate::maximumGroupCount) {
+        return false;
+    }
+    const auto orientation = static_cast<Qt::Orientation>(rawOrientation);
+    if (parentOrientation.has_value()
+        && parentOrientation.value() == orientation) {
+        return false;
+    }
+
+    node->leaf = false;
+    node->orientation = orientation;
+    node->children.clear();
+    node->children.reserve(childCount);
+    for (quint16 index = 0; index < childCount; ++index) {
+        ZzWorkspaceLayoutNode child;
+        if (!zzReadWorkspaceNode(
+                stream,
+                depth + 1,
+                orientation,
+                nodeCount,
+                groupCount,
+                ids,
+                &child)) {
+            return false;
+        }
+        node->children.push_back(std::move(child));
+    }
+
+    quint16 sizeCount = 0;
+    stream >> sizeCount;
+    if (stream.status() != QDataStream::Ok || sizeCount != childCount) {
+        return false;
+    }
+    node->sizes.clear();
+    node->sizes.reserve(sizeCount);
+    for (quint16 index = 0; index < sizeCount; ++index) {
+        qint32 size = 0;
+        stream >> size;
+        if (stream.status() != QDataStream::Ok || size <= 0) {
+            return false;
+        }
+        node->sizes.push_back(size);
+    }
+    return true;
+}
+
+[[nodiscard]] std::optional<ZzWorkspaceLayoutState>
+zzDecodeWorkspaceLayout(const QByteArray &encoded)
+{
+    const qsizetype maximumEncodedSize = zzWorkspaceLayoutHeaderSize
+        + zzWorkspaceMaximumPayloadSize + zzWorkspaceLayoutDigestSize;
+    if (encoded.size() < zzWorkspaceLayoutHeaderSize
+            + zzWorkspaceLayoutDigestSize
+        || encoded.size() > maximumEncodedSize
+        || encoded.first(4) != QByteArray(zzWorkspaceLayoutMagic, 4)) {
+        return std::nullopt;
+    }
+
+    QDataStream envelope(encoded);
+    envelope.setVersion(zzWorkspaceLayoutStreamVersion);
+    char magic[4] {};
+    if (envelope.readRawData(magic, 4) != 4) {
+        return std::nullopt;
+    }
+    quint16 schemaVersion = 0;
+    quint16 streamVersion = 0;
+    quint32 payloadLength = 0;
+    envelope >> schemaVersion >> streamVersion >> payloadLength;
+    const qint64 expectedSize = zzWorkspaceLayoutHeaderSize
+        + static_cast<qint64>(payloadLength)
+        + zzWorkspaceLayoutDigestSize;
+    if (envelope.status() != QDataStream::Ok
+        || schemaVersion != zzWorkspaceLayoutSchemaVersion
+        || streamVersion
+            != static_cast<quint16>(zzWorkspaceLayoutStreamVersion)
+        || payloadLength
+            > static_cast<quint32>(zzWorkspaceMaximumPayloadSize)
+        || expectedSize != encoded.size()) {
+        return std::nullopt;
+    }
+
+    const QByteArray payload = encoded.sliced(
+        zzWorkspaceLayoutHeaderSize,
+        static_cast<qsizetype>(payloadLength));
+    const QByteArray digest = encoded.last(zzWorkspaceLayoutDigestSize);
+    if (digest != QCryptographicHash::hash(
+            payload, QCryptographicHash::Sha256)) {
+        return std::nullopt;
+    }
+
+    QDataStream stream(payload);
+    stream.setVersion(zzWorkspaceLayoutStreamVersion);
+    ZzWorkspaceLayoutState state;
+    QSet<QString> ids;
+    int nodeCount = 0;
+    int groupCount = 0;
+    if (!zzReadWorkspaceNode(
+            stream,
+            1,
+            std::nullopt,
+            &nodeCount,
+            &groupCount,
+            &ids,
+            &state.root)) {
+        return std::nullopt;
+    }
+
+    QString rawActiveId;
+    if (!zzReadWorkspaceString(stream, &rawActiveId)) {
+        return std::nullopt;
+    }
+    state.activeId = ZzTabGroupId(rawActiveId);
+    if (!ids.contains(state.activeId.value())) {
+        return std::nullopt;
+    }
+
+    quint16 pageCount = 0;
+    stream >> pageCount;
+    if (stream.status() != QDataStream::Ok
+        || pageCount > zzWorkspaceMaximumSavedPageCount) {
+        return std::nullopt;
+    }
+    state.pages.reserve(pageCount);
+    QSet<QString> keys;
+    QSet<QString> groupsWithCurrentPage;
+    for (quint16 index = 0; index < pageCount; ++index) {
+        QString rawKey;
+        QString rawGroupId;
+        qint32 order = 0;
+        quint8 current = 0;
+        if (!zzReadWorkspaceString(stream, &rawKey)
+            || !zzReadWorkspaceString(stream, &rawGroupId)) {
+            return std::nullopt;
+        }
+        stream >> order >> current;
+        const QString key = rawKey.trimmed();
+        const ZzTabGroupId groupId(rawGroupId);
+        if (stream.status() != QDataStream::Ok || key.isEmpty()
+            || key.size() > zzWorkspaceMaximumStringLength
+            || keys.contains(key) || !ids.contains(groupId.value())
+            || order < 0 || order > zzWorkspaceMaximumPageOrder
+            || current > 1
+            || (current == 1
+                && groupsWithCurrentPage.contains(groupId.value()))) {
+            return std::nullopt;
+        }
+        keys.insert(key);
+        if (current == 1) {
+            groupsWithCurrentPage.insert(groupId.value());
+        }
+        state.pages.push_back(
+            {key, groupId, static_cast<int>(order), current == 1});
+    }
+    if (stream.status() != QDataStream::Ok || !stream.atEnd()) {
+        return std::nullopt;
+    }
+    return state;
+}
+
+void zzRestoreWorkspaceLayoutSizes(
+    const ZzWorkspaceLayoutNode &layout,
+    ZzNode *node)
+{
+    if (layout.leaf || node == nullptr
+        || std::holds_alternative<ZzLeaf>(node->value)) {
+        return;
+    }
+    auto &branch = std::get<ZzBranch>(node->value);
+    if (branch.splitter != nullptr
+        && layout.sizes.size()
+            == static_cast<qsizetype>(branch.children.size())) {
+        branch.splitter->setSizes(layout.sizes);
+    }
+    const auto childCount = std::min(
+        layout.children.size(), branch.children.size());
+    for (std::size_t index = 0; index < childCount; ++index) {
+        zzRestoreWorkspaceLayoutSizes(
+            layout.children[index], branch.children[index].get());
+    }
+}
+
+[[nodiscard]] ZzTabWidget *zzOwningWorkspaceTabs(QWidget *page)
+{
+    for (QObject *current = page != nullptr ? page->parent() : nullptr;
+         current != nullptr;
+         current = current->parent()) {
+        if (auto *tabs = qobject_cast<ZzTabWidget *>(current);
+            tabs != nullptr) {
+            return tabs;
+        }
+    }
+    return nullptr;
+}
+
+[[nodiscard]] bool zzRestoreWorkspacePageMetadata(
+    ZzTabWidget *tabs,
+    const ZzWorkspaceLivePage &snapshot)
+{
+    QPointer<ZzTabWidget> guardedTabs = tabs;
+    const QPointer<QWidget> page = snapshot.page;
+    const auto resolveIndex = [&]() {
+        return !guardedTabs.isNull() && !page.isNull()
+            ? guardedTabs->indexOf(page)
+            : -1;
+    };
+    int index = resolveIndex();
+    if (index < 0) {
+        return false;
+    }
+
+    guardedTabs->setTabText(index, snapshot.text);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabIcon(index, snapshot.icon);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabToolTip(index, snapshot.toolTip);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabWhatsThis(index, snapshot.whatsThis);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabEnabled(index, snapshot.enabled);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->fluentTabBar()->setTabData(index, snapshot.data);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->fluentTabBar()->setTabTextColor(
+        index, snapshot.textColor);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabPinned(index, snapshot.pinned);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabModified(index, snapshot.modified);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabAttention(index, snapshot.attention);
+    if ((index = resolveIndex()) < 0) {
+        return false;
+    }
+    guardedTabs->setTabCloseEnabled(index, snapshot.closeEnabled);
+    return resolveIndex() >= 0;
+}
 
 /** @brief 绘制工作区唯一共享的当前拖放目标区域。 */
 class ZzWorkspaceDropOverlay final : public QWidget
@@ -397,6 +845,648 @@ bool ZzSplitWorkspacePrivate::transferTab(
         : QPointer<ZzTabWidget> {};
     return resolvedTarget == targetTabs
         && resolvedTarget->indexOf(page) >= 0;
+}
+
+bool ZzSplitWorkspacePrivate::setPageLayoutKey(
+    QWidget *page,
+    const QString &key)
+{
+    pageKeys.erase(
+        std::remove_if(
+            pageKeys.begin(),
+            pageKeys.end(),
+            [](const ZzWorkspacePageKey &entry) {
+                return entry.page.isNull();
+            }),
+        pageKeys.end());
+
+    ZzNode *ownerNode = nullptr;
+    std::vector<ZzNode *> leaves;
+    collectLeaves(root.get(), leaves);
+    for (ZzNode *leafNode : leaves) {
+        const auto &leaf = std::get<ZzLeaf>(leafNode->value);
+        if (!leaf.tabs.isNull() && leaf.tabs->indexOf(page) >= 0) {
+            ownerNode = leafNode;
+            break;
+        }
+    }
+    if (page == nullptr || ownerNode == nullptr) {
+        return false;
+    }
+
+    const QString normalized = key.trimmed();
+    if (normalized.size() > zzWorkspaceMaximumStringLength) {
+        return false;
+    }
+    const auto existing = std::find_if(
+        pageKeys.begin(),
+        pageKeys.end(),
+        [page](const ZzWorkspacePageKey &entry) {
+            return entry.page == page;
+        });
+    if (!normalized.isEmpty()) {
+        const auto duplicate = std::find_if(
+            pageKeys.cbegin(),
+            pageKeys.cend(),
+            [&normalized, page](const ZzWorkspacePageKey &entry) {
+                return entry.page != page && entry.key == normalized;
+            });
+        if (duplicate != pageKeys.cend()) {
+            return false;
+        }
+    }
+
+    const QString previousKey = existing != pageKeys.end()
+        ? existing->key
+        : QString {};
+    if (normalized.isEmpty()) {
+        if (existing != pageKeys.end()) {
+            pageKeys.erase(existing);
+        }
+    } else if (existing != pageKeys.end()) {
+        existing->key = normalized;
+    } else {
+        pageKeys.push_back({page, normalized});
+    }
+    if (!previousKey.isEmpty() && previousKey != normalized) {
+        savedPages.erase(
+            std::remove_if(
+                savedPages.begin(),
+                savedPages.end(),
+                [&previousKey](const ZzWorkspaceLayoutPage &saved) {
+                    return saved.key == previousKey;
+                }),
+            savedPages.end());
+    }
+    return true;
+}
+
+QString ZzSplitWorkspacePrivate::pageLayoutKey(
+    const QWidget *page) const
+{
+    const auto found = std::find_if(
+        pageKeys.cbegin(),
+        pageKeys.cend(),
+        [page](const ZzWorkspacePageKey &entry) {
+            return !entry.page.isNull() && entry.page == page;
+        });
+    return found != pageKeys.cend() ? found->key : QString {};
+}
+
+QByteArray ZzSplitWorkspacePrivate::saveLayout() const
+{
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(zzWorkspaceLayoutStreamVersion);
+    int nodeCount = 0;
+    int groupCount = 0;
+    if (!zzWriteWorkspaceNode(
+            stream, root.get(), 1, &nodeCount, &groupCount)
+        || !activeId.isValid()
+        || activeId.value().size() > zzWorkspaceMaximumStringLength) {
+        return {};
+    }
+    zzWriteWorkspaceString(stream, activeId.value());
+
+    const QList<ZzTabGroupId> ids = groupIds();
+    QHash<ZzTabGroupId, int> groupOrder;
+    QSet<QString> groupValues;
+    for (qsizetype index = 0; index < ids.size(); ++index) {
+        groupOrder.insert(ids.at(index), static_cast<int>(index));
+        groupValues.insert(ids.at(index).value());
+    }
+
+    std::vector<ZzWorkspaceLayoutPage> pages;
+    QSet<QString> liveKeys;
+    for (const ZzTabGroupId &id : ids) {
+        ZzNode *const leafNode = findLeaf(id);
+        const QPointer<ZzTabWidget> tabs = leafNode != nullptr
+            ? std::get<ZzLeaf>(leafNode->value).tabs
+            : QPointer<ZzTabWidget> {};
+        if (tabs.isNull()) {
+            return {};
+        }
+        for (int index = 0; index < tabs->count(); ++index) {
+            QWidget *const page = tabs->widget(index);
+            const QString key = pageLayoutKey(page);
+            if (key.isEmpty()) {
+                continue;
+            }
+            if (key.size() > zzWorkspaceMaximumStringLength
+                || liveKeys.contains(key)
+                || index > zzWorkspaceMaximumPageOrder) {
+                return {};
+            }
+            liveKeys.insert(key);
+            pages.push_back(
+                {key, id, index, tabs->currentWidget() == page});
+        }
+    }
+    for (const auto &saved : savedPages) {
+        if (!liveKeys.contains(saved.key)
+            && groupValues.contains(saved.groupId.value())) {
+            pages.push_back(saved);
+        }
+    }
+    if (pages.size()
+        > static_cast<std::size_t>(zzWorkspaceMaximumSavedPageCount)) {
+        return {};
+    }
+    std::stable_sort(
+        pages.begin(),
+        pages.end(),
+        [&groupOrder](
+            const ZzWorkspaceLayoutPage &left,
+            const ZzWorkspaceLayoutPage &right) {
+            return std::tuple(
+                       groupOrder.value(left.groupId),
+                       left.order,
+                       left.key)
+                < std::tuple(
+                       groupOrder.value(right.groupId),
+                       right.order,
+                       right.key);
+        });
+    QSet<QString> groupsWithCurrent;
+    for (auto &page : pages) {
+        if (page.current
+            && groupsWithCurrent.contains(page.groupId.value())) {
+            page.current = false;
+        }
+        if (page.current) {
+            groupsWithCurrent.insert(page.groupId.value());
+        }
+    }
+
+    stream << static_cast<quint16>(pages.size());
+    for (const auto &page : pages) {
+        zzWriteWorkspaceString(stream, page.key);
+        zzWriteWorkspaceString(stream, page.groupId.value());
+        stream << static_cast<qint32>(page.order)
+               << static_cast<quint8>(page.current ? 1 : 0);
+    }
+    if (stream.status() != QDataStream::Ok
+        || payload.size() > zzWorkspaceMaximumPayloadSize) {
+        return {};
+    }
+
+    QByteArray encoded;
+    encoded.reserve(
+        zzWorkspaceLayoutHeaderSize + payload.size()
+        + zzWorkspaceLayoutDigestSize);
+    QDataStream envelope(&encoded, QIODevice::WriteOnly);
+    envelope.setVersion(zzWorkspaceLayoutStreamVersion);
+    envelope.writeRawData(zzWorkspaceLayoutMagic, 4);
+    envelope << zzWorkspaceLayoutSchemaVersion
+             << static_cast<quint16>(zzWorkspaceLayoutStreamVersion)
+             << static_cast<quint32>(payload.size());
+    if (envelope.writeRawData(payload.constData(), payload.size())
+            != payload.size()
+        || envelope.status() != QDataStream::Ok) {
+        return {};
+    }
+    encoded.append(QCryptographicHash::hash(
+        payload, QCryptographicHash::Sha256));
+    return encoded;
+}
+
+bool ZzSplitWorkspacePrivate::restoreLayout(const QByteArray &encoded)
+{
+    const auto decoded = zzDecodeWorkspaceLayout(encoded);
+    if (!decoded.has_value()) {
+        return false;
+    }
+    const ZzWorkspaceLayoutState state = decoded.value();
+    QPointer<ZzSplitWorkspace> guardedWorkspace = q_ptr;
+    const ZzTreeSnapshot treeSnapshot = captureTreeSnapshot();
+    const QList<ZzTabGroupId> originalIds = groupIds();
+    const auto originalSavedPages = savedPages;
+
+    std::vector<ZzWorkspaceLiveGroup> originalGroups;
+    originalGroups.reserve(static_cast<std::size_t>(originalIds.size()));
+    for (const ZzTabGroupId &id : originalIds) {
+        ZzNode *const leafNode = findLeaf(id);
+        QPointer<ZzTabWidget> tabs = leafNode != nullptr
+            ? std::get<ZzLeaf>(leafNode->value).tabs
+            : QPointer<ZzTabWidget> {};
+        if (tabs.isNull()) {
+            return false;
+        }
+        ZzWorkspaceLiveGroup group;
+        group.id = id;
+        group.tabs = tabs;
+        group.identity = tabs.data();
+        group.currentPage = tabs->currentWidget();
+        group.pages.reserve(static_cast<std::size_t>(tabs->count()));
+        for (int index = 0; index < tabs->count(); ++index) {
+            group.pages.push_back(
+                {tabs->widget(index),
+                 tabs->tabText(index),
+                 tabs->tabIcon(index),
+                 tabs->tabToolTip(index),
+                 tabs->tabWhatsThis(index),
+                 tabs->fluentTabBar()->tabData(index),
+                 tabs->fluentTabBar()->tabTextColor(index),
+                 tabs->isTabEnabled(index),
+                 tabs->isTabPinned(index),
+                 tabs->isTabModified(index),
+                 tabs->hasTabAttention(index),
+                 tabs->isTabCloseEnabled(index)});
+        }
+        originalGroups.push_back(std::move(group));
+    }
+
+    auto *stagingHostObject = new QWidget(q_ptr);
+    QPointer<QWidget> stagingHost = stagingHostObject;
+    QObject::connect(
+        q_ptr,
+        &QObject::destroyed,
+        stagingHostObject,
+        [stagingHost]() {
+            delete stagingHost.data();
+        });
+    const auto discardStaging = [&stagingHost]() {
+        if (!stagingHost.isNull()) {
+            stagingHost->setParent(nullptr);
+            stagingHost->deleteLater();
+        }
+    };
+    stagingHostObject->hide();
+    auto *stagingLayout = new QVBoxLayout(stagingHostObject);
+    stagingLayout->setContentsMargins(0, 0, 0, 0);
+    stagingLayout->setSpacing(0);
+    auto stagedRoot = buildLayoutNode(
+        state.root, stagingHostObject, nullptr);
+    if (stagedRoot == nullptr) {
+        discardStaging();
+        return false;
+    }
+    stagedRoot = normalize(std::move(stagedRoot), nullptr);
+    QPointer<QWidget> stagedRootWidget = buildNodeWidget(
+        stagedRoot.get(), stagingHostObject);
+    stagingLayout->addWidget(stagedRootWidget);
+    zzRestoreWorkspaceLayoutSizes(state.root, stagedRoot.get());
+
+    QHash<ZzTabGroupId, QPointer<ZzTabWidget>> stagedTabs;
+    QList<ZzTabGroupId> restoredIds;
+    std::vector<QPointer<ZzTabWidget>> stagedTabList;
+    std::vector<ZzNode *> stagedLeaves;
+    collectLeaves(stagedRoot.get(), stagedLeaves);
+    for (ZzNode *leafNode : stagedLeaves) {
+        const auto &leaf = std::get<ZzLeaf>(leafNode->value);
+        if (leaf.tabs.isNull()) {
+            discardStaging();
+            return false;
+        }
+        stagedTabs.insert(leaf.id, leaf.tabs);
+        restoredIds.push_back(leaf.id);
+        stagedTabList.push_back(leaf.tabs);
+    }
+
+    QHash<QString, ZzWorkspaceLayoutPage> savedByKey;
+    QSet<QString> restoredGroupValues;
+    for (const ZzTabGroupId &id : stagedTabs.keys()) {
+        restoredGroupValues.insert(id.value());
+    }
+    for (const auto &page : state.pages) {
+        savedByKey.insert(page.key, page);
+    }
+
+    QHash<ZzTabGroupId, std::vector<ZzWorkspaceDesiredPage>> desiredPages;
+    QHash<QWidget *, ZzTabGroupId> desiredTargets;
+    QHash<QString, QPointer<QWidget>> livePagesByKey;
+    int sequence = 0;
+    for (const auto &group : originalGroups) {
+        for (std::size_t index = 0; index < group.pages.size(); ++index) {
+            const QPointer<QWidget> page = group.pages[index].page;
+            if (page.isNull()) {
+                discardStaging();
+                return false;
+            }
+            const QString key = pageLayoutKey(page);
+            ZzWorkspaceDesiredPage desired;
+            desired.page = page;
+            desired.originalTabs = group.tabs;
+            desired.sequence = sequence++;
+            const auto saved = savedByKey.constFind(key);
+            if (!key.isEmpty() && saved != savedByKey.cend()) {
+                desired.targetId = saved->groupId;
+                desired.desiredOrder = saved->order;
+                desired.savedOrder = true;
+                livePagesByKey.insert(key, page);
+            } else {
+                desired.targetId = restoredGroupValues.contains(
+                    group.id.value())
+                    ? group.id
+                    : state.activeId;
+                desired.desiredOrder = static_cast<int>(index);
+            }
+            desiredTargets.insert(page, desired.targetId);
+            desiredPages[desired.targetId].push_back(std::move(desired));
+        }
+    }
+    for (auto pageIt = desiredPages.begin();
+         pageIt != desiredPages.end();
+         ++pageIt) {
+        std::stable_sort(
+            pageIt->begin(),
+            pageIt->end(),
+            [](const ZzWorkspaceDesiredPage &left,
+               const ZzWorkspaceDesiredPage &right) {
+                if (left.desiredOrder != right.desiredOrder) {
+                    return left.desiredOrder < right.desiredOrder;
+                }
+                if (left.savedOrder != right.savedOrder) {
+                    return left.savedOrder;
+                }
+                return left.sequence < right.sequence;
+            });
+    }
+
+    const auto rollback = [&]() {
+        if (guardedWorkspace.isNull()) {
+            return false;
+        }
+        for (const auto &group : originalGroups) {
+            ZzNode *const originalNode = findLeaf(group.id);
+            const QPointer<ZzTabWidget> originalTabs =
+                originalNode != nullptr
+                ? std::get<ZzLeaf>(originalNode->value).tabs
+                : QPointer<ZzTabWidget> {};
+            if (originalTabs.isNull()
+                || originalTabs.data() != group.identity) {
+                continue;
+            }
+            for (std::size_t index = 0;
+                 index < group.pages.size();
+                 ++index) {
+                const auto &snapshot = group.pages[index];
+                const QPointer<QWidget> page = snapshot.page;
+                if (page.isNull()) {
+                    continue;
+                }
+                QPointer<ZzTabWidget> owner = zzOwningWorkspaceTabs(page);
+                const bool parentedByStaging = std::any_of(
+                    stagedTabList.cbegin(),
+                    stagedTabList.cend(),
+                    [owner](const QPointer<ZzTabWidget> &tabs) {
+                        return !tabs.isNull() && tabs == owner;
+                    });
+                if (!parentedByStaging || owner.isNull()) {
+                    continue;
+                }
+                int currentIndex = owner->indexOf(page);
+                bool rebuiltStagingTab = false;
+                if (currentIndex < 0) {
+                    const QPointer<ZzTabWidget> stagingOwner = owner;
+                    owner->insertTab(
+                        owner->count(), page, snapshot.icon, snapshot.text);
+                    if (guardedWorkspace.isNull()) {
+                        return false;
+                    }
+                    if (stagingOwner.isNull() || page.isNull()) {
+                        continue;
+                    }
+                    owner = stagingOwner;
+                    currentIndex = owner->indexOf(page);
+                    if (currentIndex < 0) {
+                        continue;
+                    }
+                    rebuiltStagingTab = true;
+                }
+                if (currentIndex >= 0) {
+                    owner->transferTabTo(
+                        originalTabs,
+                        currentIndex,
+                        static_cast<int>(index));
+                    if (guardedWorkspace.isNull()) {
+                        return false;
+                    }
+                    if (rebuiltStagingTab && !page.isNull()
+                        && !originalTabs.isNull()
+                        && originalTabs->indexOf(page) >= 0) {
+                        const bool metadataRestored =
+                            zzRestoreWorkspacePageMetadata(
+                            originalTabs, snapshot);
+                        if (guardedWorkspace.isNull()) {
+                            return false;
+                        }
+                        if (!metadataRestored) {
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        for (const auto &group : originalGroups) {
+            ZzNode *const originalNode = findLeaf(group.id);
+            QPointer<ZzTabWidget> tabs = originalNode != nullptr
+                ? std::get<ZzLeaf>(originalNode->value).tabs
+                : QPointer<ZzTabWidget> {};
+            if (tabs.isNull() || tabs.data() != group.identity) {
+                continue;
+            }
+            for (std::size_t index = 0;
+                 index < group.pages.size();
+                 ++index) {
+                const QPointer<QWidget> page = group.pages[index].page;
+                if (page.isNull()) {
+                    continue;
+                }
+                const int currentIndex = tabs->indexOf(page);
+                const int wantedIndex = static_cast<int>(index);
+                if (currentIndex >= 0 && currentIndex != wantedIndex) {
+                    const int insertionSlot = currentIndex < wantedIndex
+                        ? wantedIndex + 1
+                        : wantedIndex;
+                    tabs->transferTabTo(
+                        tabs, currentIndex, insertionSlot);
+                    if (guardedWorkspace.isNull()) {
+                        return false;
+                    }
+                }
+            }
+            if (!group.currentPage.isNull()
+                && tabs->indexOf(group.currentPage) >= 0) {
+                tabs->setCurrentWidget(group.currentPage);
+                if (guardedWorkspace.isNull()) {
+                    return false;
+                }
+            }
+        }
+
+        bool originalIdentitiesPresent = true;
+        for (const auto &group : originalGroups) {
+            ZzNode *const node = findLeaf(group.id);
+            const QPointer<ZzTabWidget> tabs = node != nullptr
+                ? std::get<ZzLeaf>(node->value).tabs
+                : QPointer<ZzTabWidget> {};
+            if (tabs.isNull() || tabs.data() != group.identity) {
+                originalIdentitiesPresent = false;
+                break;
+            }
+        }
+        if (originalIdentitiesPresent && groupIds() == originalIds) {
+            activeId = treeSnapshot.activeId;
+            restoreNodeSizes(treeSnapshot.root, root.get());
+        }
+        savedPages = originalSavedPages;
+        discardStaging();
+        return false;
+    };
+
+    for (const ZzTabGroupId &targetId : restoredIds) {
+        QPointer<ZzTabWidget> target = stagedTabs.value(targetId);
+        auto &pages = desiredPages[targetId];
+        if (target.isNull()) {
+            return rollback();
+        }
+        for (const auto &desired : pages) {
+            if (desired.page.isNull() || desired.originalTabs.isNull()
+                || desired.originalTabs->indexOf(desired.page) < 0) {
+                return rollback();
+            }
+            const int sourceIndex = desired.originalTabs->indexOf(
+                desired.page);
+            if (!desired.originalTabs->transferTabTo(
+                    target, sourceIndex, -1)) {
+                return rollback();
+            }
+            if (guardedWorkspace.isNull()) {
+                return false;
+            }
+            target = stagedTabs.value(targetId);
+            if (desired.page.isNull() || target.isNull()
+                || zzOwningWorkspaceTabs(desired.page) != target) {
+                return rollback();
+            }
+        }
+        if (target->count() != static_cast<int>(pages.size())) {
+            return rollback();
+        }
+        for (std::size_t index = 0; index < pages.size(); ++index) {
+            if (pages[index].page.isNull()
+                || target->widget(static_cast<int>(index))
+                    != pages[index].page) {
+                return rollback();
+            }
+        }
+    }
+
+    QHash<ZzTabGroupId, QPointer<QWidget>> desiredCurrentPages;
+    for (const auto &saved : state.pages) {
+        if (!saved.current) {
+            continue;
+        }
+        const QPointer<QWidget> page = livePagesByKey.value(saved.key);
+        if (!page.isNull()
+            && desiredTargets.value(page) == saved.groupId) {
+            desiredCurrentPages.insert(saved.groupId, page);
+        }
+    }
+    for (const auto &group : originalGroups) {
+        if (!group.currentPage.isNull()) {
+            const ZzTabGroupId targetId = desiredTargets.value(
+                group.currentPage);
+            if (targetId.isValid()
+                && !desiredCurrentPages.contains(targetId)) {
+                desiredCurrentPages.insert(targetId, group.currentPage);
+            }
+        }
+    }
+    for (auto currentIt = desiredCurrentPages.cbegin();
+         currentIt != desiredCurrentPages.cend();
+         ++currentIt) {
+        QPointer<ZzTabWidget> target = stagedTabs.value(currentIt.key());
+        const QPointer<QWidget> page = currentIt.value();
+        if (target.isNull() || page.isNull()
+            || target->indexOf(page) < 0) {
+            return rollback();
+        }
+        target->setCurrentWidget(page);
+        if (guardedWorkspace.isNull()) {
+            return false;
+        }
+        target = stagedTabs.value(currentIt.key());
+        if (target.isNull() || page.isNull()
+            || target->currentWidget() != page) {
+            return rollback();
+        }
+    }
+
+    for (const ZzTabGroupId &targetId : restoredIds) {
+        const QPointer<ZzTabWidget> target = stagedTabs.value(targetId);
+        const auto &pages = desiredPages[targetId];
+        if (target.isNull()
+            || target->count() != static_cast<int>(pages.size())) {
+            return rollback();
+        }
+        for (std::size_t index = 0; index < pages.size(); ++index) {
+            if (pages[index].page.isNull()
+                || target->widget(static_cast<int>(index))
+                    != pages[index].page
+                || zzOwningWorkspaceTabs(pages[index].page) != target) {
+                return rollback();
+            }
+        }
+    }
+    if (groupIds() != originalIds) {
+        return rollback();
+    }
+    for (const auto &group : originalGroups) {
+        ZzNode *const node = findLeaf(group.id);
+        const QPointer<ZzTabWidget> tabs = node != nullptr
+            ? std::get<ZzLeaf>(node->value).tabs
+            : QPointer<ZzTabWidget> {};
+        if (tabs.isNull() || tabs.data() != group.identity) {
+            return rollback();
+        }
+    }
+
+    if (stagingHost.isNull() || stagedRootWidget.isNull()
+        || rootLayout->count() != 1) {
+        return rollback();
+    }
+    QPointer<QWidget> previousRootWidget =
+        rootLayout->itemAt(0)->widget();
+    if (previousRootWidget.isNull()) {
+        return rollback();
+    }
+    rootLayout->removeWidget(previousRootWidget);
+    previousRootWidget->setParent(stagingHost);
+    if (guardedWorkspace.isNull()) {
+        return false;
+    }
+
+    auto previousRoot = std::move(root);
+    root = std::move(stagedRoot);
+    activeId = state.activeId;
+    savedPages = state.pages;
+    stagingLayout->removeWidget(stagedRootWidget);
+    stagedRootWidget->setParent(rootHost);
+    rootLayout->addWidget(stagedRootWidget);
+    stagedRootWidget->show();
+    zzRestoreWorkspaceLayoutSizes(state.root, root.get());
+    discardStaging();
+    return true;
+}
+
+ZzTabGroupId ZzSplitWorkspacePrivate::savedGroupForPageKey(
+    const QString &key) const
+{
+    const QString normalized = key.trimmed();
+    if (normalized.isEmpty()
+        || normalized.size() > zzWorkspaceMaximumStringLength) {
+        return {};
+    }
+    const auto found = std::find_if(
+        savedPages.cbegin(),
+        savedPages.cend(),
+        [&normalized](const ZzWorkspaceLayoutPage &saved) {
+            return saved.key == normalized;
+        });
+    return found != savedPages.cend() ? found->groupId
+                                     : ZzTabGroupId {};
 }
 
 ZzWorkspaceTransferResult ZzSplitWorkspacePrivate::moveTabToDropZone(
@@ -985,6 +2075,40 @@ std::unique_ptr<ZzNode> ZzSplitWorkspacePrivate::buildSnapshotNode(
     children.reserve(snapshot.children.size());
     for (const auto &childSnapshot : snapshot.children) {
         children.push_back(buildSnapshotNode(childSnapshot, node.get()));
+    }
+    return node;
+}
+
+std::unique_ptr<ZzNode> ZzSplitWorkspacePrivate::buildLayoutNode(
+    const ZzWorkspaceLayoutNode &layout,
+    QWidget *pageParent,
+    ZzNode *parent)
+{
+    if (pageParent == nullptr) {
+        return nullptr;
+    }
+    if (layout.leaf) {
+        auto *tabs = new ZzTabWidget(pageParent);
+        prepareTabs(tabs);
+        auto node = std::make_unique<ZzNode>(
+            ZzLeaf {layout.id, tabs});
+        node->parent = parent;
+        return node;
+    }
+
+    ZzBranch branch;
+    branch.orientation = layout.orientation;
+    auto node = std::make_unique<ZzNode>(std::move(branch));
+    node->parent = parent;
+    auto &children = std::get<ZzBranch>(node->value).children;
+    children.reserve(layout.children.size());
+    for (const auto &childLayout : layout.children) {
+        auto child = buildLayoutNode(
+            childLayout, pageParent, node.get());
+        if (child == nullptr) {
+            return nullptr;
+        }
+        children.push_back(std::move(child));
     }
     return node;
 }
