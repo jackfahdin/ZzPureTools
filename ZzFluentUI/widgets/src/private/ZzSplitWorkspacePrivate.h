@@ -323,6 +323,8 @@ public:
     QHash<QString, ZzWorkspaceDragRecord> dragTokens;
     std::vector<ZzWorkspacePageKey> pageKeys;
     std::vector<ZzWorkspaceLayoutPage> savedPages;
+    std::vector<QPointer<ZzTabWidget>> restoreTransactionOwners;
+    QHash<QWidget *, QString> restoreTransactionKeyChanges;
 };
 
 } // namespace ZzFluentUI
