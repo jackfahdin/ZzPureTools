@@ -4,6 +4,10 @@
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzMotionToken.h>
+#include <ZzFluentUI/ZzScrollMarkerKind.h>
+#include <ZzFluentUI/ZzScrollMarkerRole.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
+#include <ZzFluentUI/ZzTabGroupId.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzTypographyToken.h>
@@ -70,6 +74,63 @@ private Q_SLOTS:
                     ZzFluentUI::ZzTypographyToken::Body)
                      .family()
                      .isEmpty());
+    }
+
+    void exposesWorkbenchTokensAndStableGroupIds()
+    {
+        const auto snapshot = ZzFluentUI::ZzThemeSnapshot::create(
+            ZzFluentUI::ZzThemeMode::Light,
+            QColor(),
+            1,
+            true);
+
+        QCOMPARE(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::PanelHeaderHeight),
+            32.0);
+        QCOMPARE(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::PanelSplitterExtent),
+            4.0);
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::WorkspaceDropTargetExtent),
+            48.0);
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::BottomPaneHeaderHeight),
+            32.0);
+        QCOMPARE(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::CommandBarHeight),
+            40.0);
+        QCOMPARE(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::CommandBarMoreExtent),
+            32.0);
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::AnnotatedScrollBarExtent),
+            16.0);
+        QCOMPARE(
+            snapshot.metric(
+                ZzFluentUI::ZzMetricToken::ScrollMarkerThickness),
+            3.0);
+
+        const ZzFluentUI::ZzTabGroupId first(
+            QStringLiteral("  group-a  "));
+        const ZzFluentUI::ZzTabGroupId same(QStringLiteral("group-a"));
+        QCOMPARE(first.value(), QStringLiteral("group-a"));
+        QCOMPARE(first, same);
+        QVERIFY(first.isValid());
+        QVERIFY(!ZzFluentUI::ZzTabGroupId().isValid());
+        QCOMPARE(qHash(first), qHash(same));
+
+        QCOMPARE(
+            static_cast<int>(ZzFluentUI::ZzSidePaneMode::Stacked),
+            1);
+        QCOMPARE(
+            static_cast<int>(ZzFluentUI::ZzScrollMarkerKind::SearchMatch),
+            5);
+        QCOMPARE(
+            static_cast<int>(ZzFluentUI::ZzScrollMarkerRole::Position),
+            Qt::UserRole + 0x200);
     }
 
     void keepsHighContrastLegible()

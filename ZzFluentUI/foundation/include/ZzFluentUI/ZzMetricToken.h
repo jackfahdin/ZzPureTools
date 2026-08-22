@@ -29,6 +29,14 @@ enum class ZzMetricToken : std::uint16_t
     RatingGlyphExtent,
     ColorSwatchExtent,
     ColorSwatchGap,
+    PanelHeaderHeight,
+    PanelSplitterExtent,
+    WorkspaceDropTargetExtent,
+    BottomPaneHeaderHeight,
+    CommandBarHeight,
+    CommandBarMoreExtent,
+    AnnotatedScrollBarExtent,
+    ScrollMarkerThickness,
     Count
 };
 
