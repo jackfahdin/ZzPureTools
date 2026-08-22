@@ -1597,6 +1597,248 @@ private Q_SLOTS:
             workspace.findChildren<QWidget *>().size(), widgetBudget + 1);
     }
 
+    void restoreCleanupEscrowOrphanIsRefilled_data()
+    {
+        QTest::addColumn<int>("orphanKind");
+        QTest::newRow("captured") << 0;
+        QTest::newRow("preserved") << 1;
+        QTest::newRow("unknown") << 2;
+    }
+
+    void restoreCleanupEscrowOrphanIsRefilled()
+    {
+        QFETCH(int, orphanKind);
+
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(groupId);
+        QPointer<QWidget> capturedPage = new QWidget;
+        QPointer<QWidget> preservedPage;
+        QPointer<QWidget> unknownPage;
+        QPixmap capturedPixmap(4, 4);
+        capturedPixmap.fill(Qt::blue);
+        const QIcon capturedIcon(capturedPixmap);
+        const int capturedIndex = originalTabs->addTab(
+            capturedPage, capturedIcon, QStringLiteral("Captured orphan"));
+        originalTabs->setTabToolTip(
+            capturedIndex, QStringLiteral("Captured tooltip"));
+        originalTabs->setTabWhatsThis(
+            capturedIndex, QStringLiteral("Captured help"));
+        originalTabs->fluentTabBar()->setTabData(
+            capturedIndex, QStringLiteral("captured-data"));
+        originalTabs->fluentTabBar()->setTabTextColor(
+            capturedIndex, QColor(Qt::red));
+        originalTabs->setTabModified(capturedIndex, true);
+        originalTabs->setTabAttention(capturedIndex, true);
+        originalTabs->setTabCloseEnabled(capturedIndex, false);
+        const QString capturedKey = QStringLiteral("cleanup-orphan:captured");
+        const QString preservedKey = QStringLiteral("cleanup-orphan:preserved");
+        QVERIFY(workspace.setPageLayoutKey(capturedPage, capturedKey));
+        const QByteArray saved = workspace.saveLayout();
+        const qsizetype tabWidgetBudget = workspace.findChildren<
+            ZzFluentUI::ZzTabWidget *>().size();
+        const qsizetype widgetBudget =
+            workspace.findChildren<QWidget *>().size();
+        QPixmap preservedPixmap(4, 4);
+        preservedPixmap.fill(Qt::green);
+        const QIcon preservedIcon(preservedPixmap);
+
+        bool connectedStaging = false;
+        bool addedToSource = false;
+        bool preservedKeySet = false;
+        bool cleanupObserved = false;
+        bool escrowObserved = false;
+        bool orphanRemoved = false;
+        bool orphanStillOwnedByEscrow = false;
+        ZzTestEventFilter cleanupFilter;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                QWidget *rootHost = originalTabs.data();
+                while (rootHost != nullptr
+                       && rootHost->parentWidget() != &workspace) {
+                    rootHost = rootHost->parentWidget();
+                }
+                QVERIFY(rootHost != nullptr);
+                cleanupFilter.callback = [&](QObject *, QEvent *event) {
+                    if (cleanupObserved
+                        || event->type() != QEvent::ChildRemoved
+                        || preservedPage.isNull()) {
+                        return false;
+                    }
+                    cleanupObserved = true;
+                    const QPointer<QWidget> ownershipProbe =
+                        orphanKind == 1 ? preservedPage : capturedPage;
+                    QWidget *ancestor = ownershipProbe->parentWidget();
+                    while (ancestor != nullptr
+                           && qobject_cast<ZzFluentUI::ZzTabWidget *>(ancestor)
+                               == nullptr) {
+                        ancestor = ancestor->parentWidget();
+                    }
+                    auto *const escrow =
+                        qobject_cast<ZzFluentUI::ZzTabWidget *>(ancestor);
+                    escrowObserved = escrow != nullptr
+                        && escrow != originalTabs.data()
+                        && escrow->parentWidget() == nullptr
+                        && escrow->indexOf(capturedPage) >= 0
+                        && escrow->indexOf(preservedPage) >= 0;
+                    if (!escrowObserved) {
+                        return false;
+                    }
+                    if (orphanKind == 2) {
+                        unknownPage = new QWidget;
+                        unknownPage->setWindowTitle(
+                            QStringLiteral("Unknown escrow orphan"));
+                        escrow->addTab(
+                            unknownPage,
+                            QStringLiteral("Unknown escrow orphan"));
+                    }
+                    const QPointer<QWidget> orphan = orphanKind == 0
+                        ? capturedPage
+                        : orphanKind == 1 ? preservedPage : unknownPage;
+                    escrow->removeTab(escrow->indexOf(orphan));
+                    orphanRemoved = !orphan.isNull()
+                        && escrow->indexOf(orphan) < 0;
+                    ancestor = orphan.isNull() ? nullptr
+                                               : orphan->parentWidget();
+                    while (ancestor != nullptr
+                           && qobject_cast<ZzFluentUI::ZzTabWidget *>(ancestor)
+                               == nullptr) {
+                        ancestor = ancestor->parentWidget();
+                    }
+                    orphanStillOwnedByEscrow = ancestor == escrow;
+                    return false;
+                };
+                rootHost->installEventFilter(&cleanupFilter);
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs.data()) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&](ZzFluentUI::ZzTabWidget *source,
+                            int,
+                            int,
+                            QWidget *page) {
+                            if (addedToSource || source != originalTabs.data()
+                                || page != capturedPage) {
+                                return;
+                            }
+                            addedToSource = true;
+                            preservedPage = new QWidget;
+                            int index = source->addTab(
+                                preservedPage,
+                                preservedIcon,
+                                QStringLiteral("Preserved orphan"));
+                            source->setTabToolTip(
+                                index, QStringLiteral("Preserved tooltip"));
+                            source->setTabWhatsThis(
+                                index, QStringLiteral("Preserved help"));
+                            source->fluentTabBar()->setTabData(
+                                index, QStringLiteral("preserved-data"));
+                            source->fluentTabBar()->setTabTextColor(
+                                index, QColor(Qt::magenta));
+                            source->setTabEnabled(index, false);
+                            source->setTabPinned(index, true);
+                            index = source->indexOf(preservedPage);
+                            source->setTabModified(index, true);
+                            source->setTabAttention(index, true);
+                            source->setTabCloseEnabled(index, false);
+                            preservedKeySet = workspace.setPageLayoutKey(
+                                preservedPage, preservedKey);
+                        });
+                }
+            });
+
+        const bool restored = workspace.restoreLayout(saved);
+        QVERIFY(connectedStaging);
+        QVERIFY(addedToSource);
+        QVERIFY(preservedKeySet);
+        QVERIFY(cleanupObserved);
+        QVERIFY(escrowObserved);
+        QVERIFY(orphanRemoved);
+        QVERIFY(orphanStillOwnedByEscrow);
+        const QString outcome = QStringLiteral(
+            "restored=%1 capturedAlive=%2 preservedAlive=%3 unknownAlive=%4")
+                                    .arg(restored)
+                                    .arg(!capturedPage.isNull())
+                                    .arg(!preservedPage.isNull())
+                                    .arg(!unknownPage.isNull());
+        QVERIFY2(restored && !capturedPage.isNull()
+                     && !preservedPage.isNull()
+                     && (orphanKind != 2 || !unknownPage.isNull()),
+                 qPrintable(outcome));
+        QVERIFY(originalTabs.isNull());
+        QCOMPARE(workspace.groupIds(), QList {groupId});
+        auto *const restoredTabs = workspace.tabWidget(groupId);
+        QVERIFY(restoredTabs != nullptr);
+        QCOMPARE(restoredTabs->count(), orphanKind == 2 ? 3 : 2);
+        QCOMPARE(restoredTabs->indexOf(preservedPage), 0);
+        QCOMPARE(restoredTabs->indexOf(capturedPage), 1);
+        QCOMPARE(restoredTabs->currentWidget(), capturedPage.data());
+        QCOMPARE(restoredTabs->tabText(0), QStringLiteral("Preserved orphan"));
+        QCOMPARE(restoredTabs->tabIcon(0).cacheKey(), preservedIcon.cacheKey());
+        QCOMPARE(
+            restoredTabs->tabToolTip(0), QStringLiteral("Preserved tooltip"));
+        QCOMPARE(
+            restoredTabs->tabWhatsThis(0), QStringLiteral("Preserved help"));
+        QCOMPARE(
+            restoredTabs->fluentTabBar()->tabData(0),
+            QVariant(QStringLiteral("preserved-data")));
+        QCOMPARE(
+            restoredTabs->fluentTabBar()->tabTextColor(0),
+            QColor(Qt::magenta));
+        QVERIFY(!restoredTabs->isTabEnabled(0));
+        QVERIFY(restoredTabs->isTabPinned(0));
+        QVERIFY(restoredTabs->isTabModified(0));
+        QVERIFY(restoredTabs->hasTabAttention(0));
+        QVERIFY(!restoredTabs->isTabCloseEnabled(0));
+        QCOMPARE(restoredTabs->tabText(1), QStringLiteral("Captured orphan"));
+        QCOMPARE(restoredTabs->tabIcon(1).cacheKey(), capturedIcon.cacheKey());
+        QCOMPARE(
+            restoredTabs->tabToolTip(1), QStringLiteral("Captured tooltip"));
+        QCOMPARE(
+            restoredTabs->tabWhatsThis(1), QStringLiteral("Captured help"));
+        QCOMPARE(
+            restoredTabs->fluentTabBar()->tabData(1),
+            QVariant(QStringLiteral("captured-data")));
+        QCOMPARE(
+            restoredTabs->fluentTabBar()->tabTextColor(1), QColor(Qt::red));
+        QVERIFY(restoredTabs->isTabEnabled(1));
+        QVERIFY(!restoredTabs->isTabPinned(1));
+        QVERIFY(restoredTabs->isTabModified(1));
+        QVERIFY(restoredTabs->hasTabAttention(1));
+        QVERIFY(!restoredTabs->isTabCloseEnabled(1));
+        QCOMPARE(workspace.pageLayoutKey(capturedPage), capturedKey);
+        QCOMPARE(workspace.pageLayoutKey(preservedPage), preservedKey);
+        if (orphanKind == 2) {
+            QVERIFY(restoredTabs->indexOf(unknownPage) >= 0);
+            QCOMPARE(
+                restoredTabs->tabText(restoredTabs->indexOf(unknownPage)),
+                QStringLiteral("Unknown escrow orphan"));
+        }
+        QCOMPARE(
+            workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
+            tabWidgetBudget);
+        QCOMPARE(
+            workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
+            workspace.groupIds().size());
+        QCOMPARE(
+            workspace.findChildren<QWidget *>().size(),
+            widgetBudget + (orphanKind == 2 ? 2 : 1));
+    }
+
     void restoreCommitPropagatesDestroyedPreservedPageRefillFailure()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;

@@ -604,16 +604,31 @@ public:
     if (m_escrowTabs.isNull()) {
       return;
     }
-    if (m_escrowTabs->count() > 0 && !m_publicWorkspace.isNull() &&
+    if (escrowOwnsLivePage() && !m_publicWorkspace.isNull() &&
         m_workspace->rootHost != nullptr) {
       if (ensurePublicLeafTabs()) {
         [[maybe_unused]] const bool capturedPagesRestored =
             restoreRemainingCapturedPages();
         [[maybe_unused]] const bool preservedPagesRestored =
             restorePreservedPages();
+        [[maybe_unused]] const bool unknownPagesRestored =
+            restoreUnknownEscrowPages();
         [[maybe_unused]] const bool currentPagesRestored =
             restoreOriginalCurrentPages();
       }
+    }
+    if (escrowOwnsLivePage()) {
+      const QPointer<ZzTabWidget> escrow = m_escrowTabs;
+      if (m_publicWorkspace.isNull()) {
+        delete escrow.data();
+        return;
+      }
+      escrow->setParent(m_publicWorkspace.data());
+      if (!escrow.isNull()) {
+        escrow->hide();
+      }
+      m_escrowTabs.clear();
+      return;
     }
     delete m_escrowTabs.data();
   }
@@ -1000,6 +1015,53 @@ private:
             tabs->isTabCloseEnabled(index)};
   }
 
+  [[nodiscard]] bool collectEscrowOwnedPages(
+      std::vector<QPointer<QWidget>> &pages) const {
+    pages.clear();
+    if (m_escrowTabs.isNull()) {
+      return false;
+    }
+    const QPointer<QStackedWidget> stack =
+        m_escrowTabs->findChild<QStackedWidget *>(
+            QString(), Qt::FindDirectChildrenOnly);
+    if (stack.isNull()) {
+      return false;
+    }
+    for (QObject *const child : stack->children()) {
+      auto *const page = qobject_cast<QWidget *>(child);
+      if (page != nullptr && zzOwningWorkspaceTabs(page) == m_escrowTabs) {
+        pages.push_back(page);
+        if (pages.size() > static_cast<std::size_t>(
+                               zzWorkspaceMaximumSavedPageCount)) {
+          break;
+        }
+      }
+    }
+    return true;
+  }
+
+  [[nodiscard]] bool escrowOwnsLivePage() const {
+    if (m_escrowTabs.isNull()) {
+      return false;
+    }
+    for (const auto &group : m_originalGroups) {
+      for (const auto &snapshot : group.pages) {
+        if (!snapshot.page.isNull() &&
+            zzOwningWorkspaceTabs(snapshot.page) == m_escrowTabs) {
+          return true;
+        }
+      }
+    }
+    for (const auto &preserved : m_preservedPages) {
+      if (!preserved.snapshot.page.isNull() &&
+          zzOwningWorkspaceTabs(preserved.snapshot.page) == m_escrowTabs) {
+        return true;
+      }
+    }
+    std::vector<QPointer<QWidget>> pages;
+    return !collectEscrowOwnedPages(pages) || !pages.empty();
+  }
+
   [[nodiscard]] bool transferPageFromEscrow(
       const QPointer<ZzTabWidget> &target,
       const QPointer<QWidget> &page,
@@ -1011,15 +1073,14 @@ private:
         zzOwningWorkspaceTabs(page) != escrow) {
       return false;
     }
-    int sourceIndex = escrow->indexOf(page);
-    if (sourceIndex < 0) {
-      return false;
-    }
-
     std::vector<std::unique_ptr<ZzScopedSignalMute>> signalMutes;
     muteEmitterTree(escrow, signalMutes);
     muteEmitterTree(target, signalMutes);
-    if (!zzRestoreWorkspacePageMetadata(escrow, snapshot, sourceIndex) ||
+    int sourceIndex = escrow->indexOf(page);
+    const int desiredSourceIndex =
+        sourceIndex >= 0 ? sourceIndex : escrow->count();
+    if (!zzRestoreWorkspacePageMetadata(
+            escrow, snapshot, desiredSourceIndex) ||
         m_publicWorkspace.isNull() || escrow.isNull() || target.isNull() ||
         page.isNull() || zzOwningWorkspaceTabs(page) != escrow) {
       return false;
@@ -1266,13 +1327,15 @@ private:
     const bool remainingPagesRestored = publicTargetsReady &&
                                         restoreRemainingCapturedPages();
     const bool preservedPagesRestored = restorePreservedPages();
+    const bool unknownPagesRestored = restoreUnknownEscrowPages();
     cleanupStaging();
     if (m_publicWorkspace.isNull()) {
       return false;
     }
     const bool currentPagesRestored = restoreOriginalCurrentPages();
     pagesRestored = pagesRestored && remainingPagesRestored &&
-                    preservedPagesRestored && currentPagesRestored;
+                    preservedPagesRestored && unknownPagesRestored &&
+                    currentPagesRestored;
     return false;
   }
 
@@ -1344,11 +1407,12 @@ private:
     if (!restoreCommittedPages()) {
       return m_publicWorkspace.isNull() ? false : rollbackCommittedView();
     }
-    if (!restorePreservedPages() || m_publicWorkspace.isNull() ||
+    if (!restorePreservedPages() || !restoreUnknownEscrowPages() ||
+        m_publicWorkspace.isNull() ||
         !restoreStagedCurrentPages()) {
       return m_publicWorkspace.isNull() ? false : rollbackCommittedView();
     }
-    if (m_escrowTabs.isNull() || m_escrowTabs->count() != 0) {
+    if (m_escrowTabs.isNull() || escrowOwnsLivePage()) {
       return rollbackCommittedView();
     }
     m_previousRoot.reset();
@@ -1640,6 +1704,64 @@ private:
     return restoredAll;
   }
 
+  [[nodiscard]] bool restoreUnknownEscrowPages() {
+    if (m_publicWorkspace.isNull() || m_escrowTabs.isNull()) {
+      return false;
+    }
+    std::vector<QPointer<QWidget>> pages;
+    if (!collectEscrowOwnedPages(pages)) {
+      return false;
+    }
+    if (pages.size() >
+        static_cast<std::size_t>(zzWorkspaceMaximumSavedPageCount)) {
+      return false;
+    }
+    int rescueCount = 0;
+    for (const QPointer<QWidget> &page : pages) {
+      if (page.isNull() || snapshotForPage(page) != nullptr) {
+        continue;
+      }
+      const auto preserved = std::find_if(
+          m_preservedPages.cbegin(), m_preservedPages.cend(),
+          [page](const ZzWorkspacePreservedPage &candidate) {
+            return !candidate.snapshot.page.isNull() &&
+                   candidate.snapshot.page == page;
+          });
+      if (preserved != m_preservedPages.cend()) {
+        continue;
+      }
+      if (++rescueCount > zzWorkspaceMaximumSavedPageCount) {
+        return false;
+      }
+
+      const int sourceIndex = m_escrowTabs->indexOf(page);
+      const ZzWorkspaceLivePage snapshot = sourceIndex >= 0
+          ? capturePage(m_escrowTabs, sourceIndex)
+          : ZzWorkspaceLivePage{page,
+                                page->windowTitle(),
+                                page->windowIcon(),
+                                page->toolTip(),
+                                page->whatsThis(),
+                                {},
+                                {},
+                                page->isEnabled(),
+                                false,
+                                false,
+                                false,
+                                true};
+      QPointer<ZzTabWidget> target = publicTargetTabs(m_workspace->activeId);
+      if (target.isNull() ||
+          !transferPageFromEscrow(target, page, target->count(), snapshot) ||
+          m_publicWorkspace.isNull() || m_escrowTabs.isNull() ||
+          target.isNull() || page.isNull() ||
+          zzOwningWorkspaceTabs(page) != target || target->indexOf(page) < 0) {
+        return false;
+      }
+      m_preservedPages.push_back({snapshot, m_workspace->activeId});
+    }
+    return true;
+  }
+
   [[nodiscard]] bool restoreOriginalCurrentPages() {
     if (m_publicWorkspace.isNull()) {
       return false;
@@ -1736,6 +1858,18 @@ private:
         }
         QPointer<ZzTabWidget> owner = zzOwningWorkspaceTabs(page);
         if (owner == m_escrowTabs) {
+          if (owner->indexOf(page) < 0) {
+            const bool registered = zzRestoreWorkspacePageMetadata(
+                owner, snapshot, owner->count());
+            if (m_publicWorkspace.isNull() || m_escrowTabs.isNull()) {
+              return false;
+            }
+            if (!registered || owner.isNull() || page.isNull() ||
+                zzOwningWorkspaceTabs(page) != owner ||
+                owner->indexOf(page) < 0) {
+              rescuedAllPages = false;
+            }
+          }
           continue;
         }
         if (owner.isNull()) {
