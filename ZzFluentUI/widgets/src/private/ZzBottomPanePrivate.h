@@ -21,10 +21,6 @@ class ZzPivot;
 class ZzBottomPanePrivate final
 {
 public:
-    static constexpr int DefaultMinimumHeight = 120;
-    static constexpr int DefaultHeight = 240;
-    static constexpr int DefaultMaximumHeight = 640;
-
     /** @brief 创建固定对象树及所有切换连接。 */
     explicit ZzBottomPanePrivate(ZzBottomPane *publicObject);
 
@@ -70,13 +66,15 @@ public:
     ZzWidgetTheme theme;
     QList<QWidget *> widgets;
     QPointer<QWidget> lastNotifiedCurrent;
-    int minimumHeight = DefaultMinimumHeight;
-    int maximumHeight = DefaultMaximumHeight;
-    int expandedHeight = DefaultHeight;
+    int minimumHeight = 0;
+    int maximumHeight = 0;
+    int expandedHeight = 0;
     bool collapsed = false;
     bool resizing = false;
+    bool hasNotifiedCurrent = false;
+    bool lastNotifiedCurrentWasNull = true;
     int resizeStartGlobalY = 0;
-    int resizeStartHeight = DefaultHeight;
+    int resizeStartHeight = 0;
 };
 
 } // namespace ZzFluentUI

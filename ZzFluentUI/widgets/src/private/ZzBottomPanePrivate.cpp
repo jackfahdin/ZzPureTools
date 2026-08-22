@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include <QtCore/QPointer>
+#include <QtCore/QSignalBlocker>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QStackedWidget>
@@ -19,20 +20,28 @@
 
 namespace ZzFluentUI {
 
-namespace {
-
-constexpr int zzBottomPaneHandleExtent = 4;
-
-} // namespace
-
 ZzBottomPanePrivate::ZzBottomPanePrivate(ZzBottomPane *publicObject)
     : q_ptr(publicObject)
     , theme(publicObject)
 {
     Q_ASSERT(q_ptr != nullptr);
+    const std::shared_ptr<const ZzThemeSnapshot> snapshot = theme.snapshot();
+    const int headerHeight = qRound(
+        snapshot->metric(ZzMetricToken::BottomPaneHeaderHeight));
+    const int handleExtent = qRound(
+        snapshot->metric(ZzMetricToken::PanelSplitterExtent));
+    const int defaultHeight = qRound(
+        snapshot->metric(ZzMetricToken::DrawerDefaultWidth));
+    const int maximumPaneHeight = qRound(
+        snapshot->metric(ZzMetricToken::DialogMaxWidth));
+    minimumHeight = headerHeight + handleExtent;
+    expandedHeight = defaultHeight;
+    maximumHeight = maximumPaneHeight;
+    resizeStartHeight = expandedHeight;
+
     resizeHandle = new QWidget(q_ptr);
     resizeHandle->setObjectName(QStringLiteral("zzBottomPaneResizeHandle"));
-    resizeHandle->setFixedHeight(zzBottomPaneHandleExtent);
+    resizeHandle->setFixedHeight(handleExtent);
     resizeHandle->setCursor(Qt::SizeVerCursor);
     resizeHandle->setAccessibleName(
         ZzBottomPane::tr("调整底部工具区高度"));
@@ -68,9 +77,6 @@ ZzBottomPanePrivate::ZzBottomPanePrivate(ZzBottomPane *publicObject)
     layout->addWidget(header);
     layout->addWidget(stackedWidget, 1);
 
-    const std::shared_ptr<const ZzThemeSnapshot> snapshot = theme.snapshot();
-    const int headerHeight = qRound(
-        snapshot->metric(ZzMetricToken::BottomPaneHeaderHeight));
     header->setFixedHeight(headerHeight);
     closeButton->setFixedSize(headerHeight, headerHeight);
     applyExpandedHeight();
@@ -115,17 +121,25 @@ bool ZzBottomPanePrivate::addWidget(
     }
     QPointer<ZzBottomPane> paneGuard(q_ptr);
     QPointer<QWidget> widgetGuard(widget);
-    const int index = stackedWidget->addWidget(widget);
-    if (index < 0 || paneGuard.isNull() || widgetGuard.isNull()) {
-        return false;
+    int index = -1;
+    {
+        QSignalBlocker blockCurrentChanged(stackedWidget);
+        index = stackedWidget->addWidget(widget);
+        if (index < 0 || paneGuard.isNull() || widgetGuard.isNull()) {
+            return false;
+        }
+        widgets.insert(index, widgetGuard.data());
+        pivot->addTab(pivotIcon(icon), title);
     }
-    widgets.insert(index, widgetGuard.data());
-    pivot->addTab(pivotIcon(icon), title);
     if (paneGuard.isNull() || widgetGuard.isNull()
         || pivot->count() != widgets.size()) {
         return false;
     }
-    return setCurrentWidget(widgetGuard.data());
+    if (!setCurrentWidget(widgetGuard.data()) || paneGuard.isNull()) {
+        return false;
+    }
+    syncCurrentWidget();
+    return !paneGuard.isNull() && !widgetGuard.isNull();
 }
 
 QWidget *ZzBottomPanePrivate::takeWidget(QWidget *widget)
@@ -172,10 +186,16 @@ void ZzBottomPanePrivate::removeWidgetAt(int index)
 void ZzBottomPanePrivate::syncCurrentWidget()
 {
     QWidget *const current = stackedWidget->currentWidget();
-    if (lastNotifiedCurrent.data() == current) {
+    if (hasNotifiedCurrent
+        && ((current == nullptr && lastNotifiedCurrentWasNull)
+            || (current != nullptr
+                && !lastNotifiedCurrentWasNull
+                && lastNotifiedCurrent.data() == current))) {
         return;
     }
     lastNotifiedCurrent = current;
+    hasNotifiedCurrent = true;
+    lastNotifiedCurrentWasNull = current == nullptr;
     QPointer<ZzBottomPane> paneGuard(q_ptr);
     Q_EMIT q_ptr->currentWidgetChanged(current);
     if (paneGuard.isNull()) {

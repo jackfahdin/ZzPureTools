@@ -4,12 +4,16 @@
 #include <QtCore/QPointer>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtGui/QColor>
 #include <QtWidgets/QDockWidget>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzBottomPane.h>
+#include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzPivot.h>
+#include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 /** @brief 验证中央底部工具区的所有权、切换、折叠和高度契约。 */
 class ZzBottomPaneTest final : public QObject
@@ -73,6 +77,32 @@ private Q_SLOTS:
         QCOMPARE(pane.lastExpandedHeight(), 240);
     }
 
+    // 此测试捕获把手和初始高度脱离现有视觉 metric token 的回归。
+    void derivesInitialDimensionsFromExistingMetricTokens()
+    {
+        ZzFluentUI::ZzBottomPane pane;
+        const auto snapshot = ZzFluentUI::ZzThemeSnapshot::create(
+            ZzFluentUI::ZzThemeMode::Light, QColor(), 1, false);
+        const int headerHeight = qRound(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::BottomPaneHeaderHeight));
+        const int handleHeight = qRound(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::PanelSplitterExtent));
+        const int defaultHeight = qRound(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::DrawerDefaultWidth));
+        const int maximumPaneHeight = qRound(
+            snapshot.metric(ZzFluentUI::ZzMetricToken::DialogMaxWidth));
+        auto *handle = pane.findChild<QWidget *>(
+            QStringLiteral("zzBottomPaneResizeHandle"));
+        QVERIFY(handle != nullptr);
+        if (handle == nullptr) {
+            return;
+        }
+        QCOMPARE(handle->height(), handleHeight);
+        QCOMPARE(pane.minimumPaneHeight(), headerHeight + handleHeight);
+        QCOMPARE(pane.paneHeight(), defaultHeight);
+        QCOMPARE(pane.maximumPaneHeight(), maximumPaneHeight);
+    }
+
     // 此测试捕获把手宽度或向上拖动时高度计算错误的回归。
     void resizesThroughTheFixedFourPixelHandle()
     {
@@ -133,6 +163,45 @@ private Q_SLOTS:
         QCOMPARE(closeSpy.at(0).at(0).value<QWidget *>(), terminal);
         QCOMPARE(pane.currentWidget(), terminal);
         QCOMPARE(pane.widgetCount(), 2);
+    }
+
+    // 此测试捕获唯一当前工具被外部销毁后遗漏 nullptr 状态通知的回归。
+    void notifiesWhenTheOnlyCurrentToolIsDestroyedExternally()
+    {
+        ZzFluentUI::ZzBottomPane pane;
+        auto *terminal = new QWidget;
+        QVERIFY(pane.addWidget(terminal, QStringLiteral("Terminal")));
+        QSignalSpy currentSpy(
+            &pane, &ZzFluentUI::ZzBottomPane::currentWidgetChanged);
+
+        delete terminal;
+        QCoreApplication::processEvents();
+
+        QCOMPARE(pane.currentWidget(), nullptr);
+        QCOMPARE(currentSpy.count(), 1);
+        QCOMPARE(currentSpy.at(0).at(0).value<QWidget *>(), nullptr);
+    }
+
+    // 此测试捕获首次添加时先发出不完整当前工具状态的回归。
+    void notifiesTheFirstCurrentToolOnlyAfterRegistrationIsConsistent()
+    {
+        ZzFluentUI::ZzBottomPane pane;
+        auto *terminal = new QWidget;
+        int notifiedCount = -1;
+        bool couldSelectNotifiedWidget = false;
+        QObject::connect(
+            &pane,
+            &ZzFluentUI::ZzBottomPane::currentWidgetChanged,
+            &pane,
+            [&pane, &notifiedCount, &couldSelectNotifiedWidget](QWidget *widget) {
+                notifiedCount = pane.widgetCount();
+                couldSelectNotifiedWidget = pane.setCurrentWidget(widget);
+            });
+
+        QVERIFY(pane.addWidget(terminal, QStringLiteral("Terminal")));
+
+        QCOMPARE(notifiedCount, 1);
+        QVERIFY(couldSelectNotifiedWidget);
     }
 
     // 此测试捕获外部删除后保留悬空映射或遗留 Pivot 项的回归。
