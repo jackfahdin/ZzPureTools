@@ -1,6 +1,9 @@
+#include <functional>
+
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QEvent>
 #include <QtCore/QMimeData>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
@@ -13,6 +16,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLayout>
 #include <QtWidgets/QSplitter>
 
 #include <ZzFluentUI/ZzSplitWorkspace.h>
@@ -63,6 +67,16 @@ QList<QList<int>> zzSplitterSizes(const ZzFluentUI::ZzSplitWorkspace &workspace)
     }
     return result;
 }
+
+class ZzTestEventFilter final : public QObject {
+public:
+  std::function<bool(QObject *, QEvent *)> callback;
+
+protected:
+  bool eventFilter(QObject *watched, QEvent *event) override {
+    return callback ? callback(watched, event) : false;
+  }
+};
 
 struct ZzTestLayoutNode final
 {
@@ -205,6 +219,36 @@ private Q_SLOTS:
         QVERIFY(!workspace.setPageLayoutKey(&outsider, maximumKey));
     }
 
+    void clearsLayoutKeysWhenLivePagesLeaveWorkspace() {
+      ZzFluentUI::ZzSplitWorkspace workspace;
+      ZzFluentUI::ZzTabWidget thirdParty;
+      const auto groupId = workspace.groupIds().constFirst();
+      auto *removedPage = new QWidget;
+      auto *replacementPage = new QWidget;
+      auto *claimedPage = new QWidget;
+      auto *claimedReplacement = new QWidget;
+      auto *const tabs = workspace.tabWidget(groupId);
+      tabs->addTab(removedPage, QStringLiteral("Removed"));
+      tabs->addTab(replacementPage, QStringLiteral("Replacement"));
+      tabs->addTab(claimedPage, QStringLiteral("Claimed"));
+      tabs->addTab(claimedReplacement, QStringLiteral("Claimed replacement"));
+
+      QVERIFY(workspace.setPageLayoutKey(removedPage,
+                                         QStringLiteral("reusable:removed")));
+      tabs->removeTab(tabs->indexOf(removedPage));
+      QVERIFY(workspace.pageLayoutKey(removedPage).isEmpty());
+      QVERIFY(workspace.setPageLayoutKey(replacementPage,
+                                         QStringLiteral("reusable:removed")));
+
+      QVERIFY(workspace.setPageLayoutKey(claimedPage,
+                                         QStringLiteral("reusable:claimed")));
+      QVERIFY(tabs->transferTabTo(&thirdParty, tabs->indexOf(claimedPage)));
+      QCOMPARE(thirdParty.indexOf(claimedPage), 0);
+      QVERIFY(workspace.pageLayoutKey(claimedPage).isEmpty());
+      QVERIFY(workspace.setPageLayoutKey(claimedReplacement,
+                                         QStringLiteral("reusable:claimed")));
+    }
+
     void savesAndRestoresKeyedPagesTransactionally()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
@@ -304,6 +348,37 @@ private Q_SLOTS:
         QCOMPARE(workspace.saveLayout(), saved);
     }
 
+    void preservesMissingPageSlotsAcrossRepeatedSaves()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<QWidget> missingPage = new QWidget;
+        auto *livePage = new QWidget;
+        workspace.tabWidget(groupId)->addTab(
+            missingPage, QStringLiteral("Missing first"));
+        workspace.tabWidget(groupId)->addTab(
+            livePage, QStringLiteral("Live second"));
+        QVERIFY(workspace.setPageLayoutKey(
+            missingPage, QStringLiteral("missing:first")));
+        QVERIFY(workspace.setPageLayoutKey(
+            livePage, QStringLiteral("live:second")));
+        const QByteArray original = workspace.saveLayout();
+        QVERIFY(!original.isEmpty());
+
+        delete missingPage.data();
+        QVERIFY(missingPage.isNull());
+        QVERIFY(workspace.restoreLayout(original));
+        QCOMPARE(workspace.tabWidget(groupId)->indexOf(livePage), 0);
+
+        const QByteArray repeated = workspace.saveLayout();
+        QVERIFY(!repeated.isEmpty());
+        QVERIFY(workspace.restoreLayout(repeated));
+        QCOMPARE(workspace.tabWidget(groupId)->indexOf(livePage), 0);
+        QCOMPARE(
+            workspace.savedGroupForPageKey(QStringLiteral("missing:first")),
+            groupId);
+    }
+
     void rejectsMalformedAndOverLimitLayoutsWithoutMutation()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
@@ -349,6 +424,17 @@ private Q_SLOTS:
             QStringLiteral("only"),
             {{QStringLiteral("same"), QStringLiteral("only"), 0, true},
              {QStringLiteral(" same "), QStringLiteral("only"), 1, false}}));
+        invalidLayouts.push_back(zzBuildTestLayout(
+            ZzTestLayoutNode(QStringLiteral("only")),
+            QStringLiteral("only"),
+            {{QStringLiteral("first-order"),
+              QStringLiteral("only"),
+              7,
+              false},
+             {QStringLiteral("duplicate-order"),
+              QStringLiteral("only"),
+              7,
+              false}}));
         invalidLayouts.push_back(zzBuildTestLayout(
             ZzTestLayoutNode(QStringLiteral("only")),
             QStringLiteral("missing-active")));
@@ -591,8 +677,17 @@ private Q_SLOTS:
         const auto beforeIds = workspace.groupIds();
         const auto beforeActive = workspace.activeGroupId();
         bool removedFromStaging = false;
-        bool removedDuringMetadataRestore = false;
+        bool metadataSignalLeaked = false;
         bool connectedStaging = false;
+        connect(
+            originalTabs,
+            &ZzFluentUI::ZzTabWidget::tabPinnedChanged,
+            &workspace,
+            [&](int, bool) {
+                if (removedFromStaging) {
+                    metadataSignalLeaked = true;
+                }
+            });
         connect(
             originalTabs,
             &QTabWidget::currentChanged,
@@ -610,20 +705,6 @@ private Q_SLOTS:
                     }
                     connect(
                         tabs,
-                        &ZzFluentUI::ZzTabWidget::tabPinnedChanged,
-                        &workspace,
-                        [&, tabs](int index, bool pinned) {
-                            if (!removedFromStaging
-                                || removedDuringMetadataRestore
-                                || !pinned
-                                || tabs->widget(index) != detachedPage) {
-                                return;
-                            }
-                            removedDuringMetadataRestore = true;
-                            tabs->removeTab(index);
-                        });
-                    connect(
-                        tabs,
                         &ZzFluentUI::ZzTabWidget::tabTransferred,
                         &workspace,
                         [&, tabs](ZzFluentUI::ZzTabWidget *,
@@ -638,12 +719,14 @@ private Q_SLOTS:
                             const int pageIndex = tabs->indexOf(page);
                             tabs->setTabPinned(pageIndex, false);
                             tabs->removeTab(tabs->indexOf(page));
+                            page->setParent(nullptr);
                         });
                 }
             });
 
         QVERIFY(!workspace.restoreLayout(sourceLayout));
         QVERIFY(removedFromStaging);
+        QVERIFY(!metadataSignalLeaked);
         QVERIFY(!detachedPage.isNull());
         QCOMPARE(workspace.groupIds(), beforeIds);
         QCOMPARE(workspace.activeGroupId(), beforeActive);
@@ -669,6 +752,193 @@ private Q_SLOTS:
         QVERIFY(originalTabs->isTabModified(0));
         QVERIFY(originalTabs->hasTabAttention(0));
         QVERIFY(!originalTabs->isTabCloseEnabled(0));
+    }
+
+    void rollbackRechecksOrderAfterTabMovedCallbacks()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        auto *firstPage = new QWidget;
+        auto *secondPage = new QWidget;
+        auto *thirdPage = new QWidget;
+        workspace.tabWidget(groupId)->addTab(
+            firstPage, QStringLiteral("First"));
+        workspace.tabWidget(groupId)->addTab(
+            secondPage, QStringLiteral("Second"));
+        workspace.tabWidget(groupId)->addTab(
+            thirdPage, QStringLiteral("Third"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("order-rollback:first")));
+        const QByteArray saved = workspace.saveLayout();
+
+        auto *const originalTabs = workspace.tabWidget(groupId);
+        originalTabs->setCurrentWidget(firstPage);
+        originalTabs->setTabCloseEnabled(
+            originalTabs->indexOf(thirdPage), false);
+
+        bool connectedStaging = false;
+        bool removedFromStaging = false;
+        bool rollbackArmed = false;
+        bool tabMovedLeaked = false;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&, tabs](
+                            ZzFluentUI::ZzTabWidget *,
+                            int,
+                            int,
+                            QWidget *page) {
+                            if (removedFromStaging || page != firstPage) {
+                                return;
+                            }
+                            const int thirdIndex =
+                                originalTabs->indexOf(thirdPage);
+                            const QIcon thirdIcon =
+                                originalTabs->tabIcon(thirdIndex);
+                            const QString thirdText =
+                                originalTabs->tabText(thirdIndex);
+                            originalTabs->removeTab(thirdIndex);
+                            QCOMPARE(
+                                originalTabs->insertTab(
+                                    0, thirdPage, thirdIcon, thirdText),
+                                0);
+                            originalTabs->setTabCloseEnabled(0, false);
+                            QCOMPARE(originalTabs->indexOf(thirdPage), 0);
+                            QCOMPARE(originalTabs->indexOf(secondPage), 1);
+                            rollbackArmed = true;
+                            removedFromStaging = true;
+                            tabs->removeTab(tabs->indexOf(page));
+                            page->setParent(nullptr);
+                        });
+                }
+            });
+        connect(
+            originalTabs->fluentTabBar(),
+            &QTabBar::tabMoved,
+            &workspace,
+            [&](int, int) {
+                if (rollbackArmed) {
+                    tabMovedLeaked = true;
+                }
+            });
+
+        QVERIFY(!workspace.restoreLayout(saved));
+        QVERIFY(removedFromStaging);
+        QVERIFY(rollbackArmed);
+        QVERIFY(!tabMovedLeaked);
+        QCOMPARE(originalTabs->indexOf(firstPage), 0);
+        QCOMPARE(originalTabs->indexOf(secondPage), 1);
+        QCOMPARE(originalTabs->indexOf(thirdPage), 2);
+        QCOMPARE(originalTabs->currentWidget(), firstPage);
+        QVERIFY(!originalTabs->isTabCloseEnabled(2));
+    }
+
+    void rollbackRechecksCurrentPageAfterCurrentChangedCallbacks()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto sourceId = workspace.groupIds().constFirst();
+        const ZzFluentUI::ZzTabGroupId targetId(
+            QStringLiteral("current-rollback-target"));
+        QVERIFY(workspace.splitGroup(
+            sourceId,
+            Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After,
+            targetId).has_value());
+        auto *firstPage = new QWidget;
+        auto *secondPage = new QWidget;
+        auto *thirdPage = new QWidget;
+        workspace.tabWidget(sourceId)->addTab(
+            firstPage, QStringLiteral("First"));
+        workspace.tabWidget(sourceId)->addTab(
+            secondPage, QStringLiteral("Second"));
+        workspace.tabWidget(sourceId)->addTab(
+            thirdPage, QStringLiteral("Third"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("current-rollback:first")));
+        const QByteArray sourceLayout = workspace.saveLayout();
+
+        while (workspace.tabWidget(sourceId)->count() > 0) {
+            QVERIFY(workspace.transferTab(sourceId, 0, targetId));
+        }
+        QVERIFY(workspace.removeEmptyGroup(sourceId));
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(targetId);
+        originalTabs->setCurrentWidget(firstPage);
+        originalTabs->setTabCloseEnabled(
+            originalTabs->indexOf(thirdPage), false);
+
+        bool connectedStaging = false;
+        bool removedFromStaging = false;
+        bool rollbackArmed = false;
+        bool currentSignalLeaked = false;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (!connectedStaging) {
+                    connectedStaging = true;
+                    const auto allTabs = workspace.findChildren<
+                        ZzFluentUI::ZzTabWidget *>();
+                    for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                        if (tabs == originalTabs) {
+                            continue;
+                        }
+                        connect(
+                            tabs,
+                            &ZzFluentUI::ZzTabWidget::tabTransferred,
+                            &workspace,
+                            [&, tabs](
+                                ZzFluentUI::ZzTabWidget *,
+                                int,
+                                int,
+                                QWidget *page) {
+                                if (page == thirdPage) {
+                                    tabs->setTabCloseEnabled(
+                                        tabs->indexOf(page), true);
+                                    rollbackArmed = true;
+                                }
+                                if (removedFromStaging
+                                    || page != firstPage) {
+                                    return;
+                                }
+                                removedFromStaging = true;
+                                tabs->removeTab(tabs->indexOf(page));
+                            });
+                    }
+                }
+                if (rollbackArmed && !currentSignalLeaked) {
+                    currentSignalLeaked = true;
+                    delete originalTabs.data();
+                }
+            });
+
+        QVERIFY(!workspace.restoreLayout(sourceLayout));
+        QVERIFY(removedFromStaging);
+        QVERIFY(rollbackArmed);
+        QVERIFY(!currentSignalLeaked);
+        QVERIFY(!originalTabs.isNull());
+        QCOMPARE(originalTabs->indexOf(firstPage), 0);
+        QCOMPARE(originalTabs->indexOf(secondPage), 1);
+        QCOMPARE(originalTabs->indexOf(thirdPage), 2);
+        QCOMPARE(originalTabs->currentWidget(), firstPage);
+        QVERIFY(!originalTabs->isTabCloseEnabled(2));
     }
 
     void restoreRollbackLeavesThirdPartyPageAlone()
@@ -962,6 +1232,798 @@ private Q_SLOTS:
             QVERIFY(!rawWorkspace->restoreLayout(saved));
             QVERIFY(workspace.isNull());
         }
+    }
+
+    void restoreRollbackSweepsPastDeletedSnapshotPage()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(groupId);
+        QPointer<QWidget> firstPage = new QWidget;
+        QPointer<QWidget> secondPage = new QWidget;
+        originalTabs->addTab(firstPage, QStringLiteral("Deleted first"));
+        originalTabs->addTab(secondPage, QStringLiteral("Surviving second"));
+        originalTabs->setTabToolTip(
+            1, QStringLiteral("Surviving second tooltip"));
+        originalTabs->setTabModified(1, true);
+        originalTabs->setTabCloseEnabled(1, false);
+        const QByteArray saved = workspace.saveLayout();
+
+        bool connectedStaging = false;
+        bool sawFirstTransfer = false;
+        bool deletedFirst = false;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs.data()) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&](ZzFluentUI::ZzTabWidget *,
+                            int,
+                            int,
+                            QWidget *page) {
+                            if (page == firstPage) {
+                                sawFirstTransfer = true;
+                                return;
+                            }
+                            if (page == secondPage && sawFirstTransfer
+                                && !deletedFirst) {
+                                deletedFirst = true;
+                                delete firstPage.data();
+                            }
+                        });
+                }
+            });
+
+        QVERIFY(!workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(sawFirstTransfer);
+        QVERIFY(deletedFirst);
+        QVERIFY(firstPage.isNull());
+        QVERIFY(!secondPage.isNull());
+        QVERIFY(!originalTabs.isNull());
+        QCOMPARE(workspace.tabWidget(groupId), originalTabs.data());
+        QCOMPARE(originalTabs->count(), 1);
+        QCOMPARE(originalTabs->indexOf(secondPage), 0);
+        QCOMPARE(
+            originalTabs->tabText(0), QStringLiteral("Surviving second"));
+        QCOMPARE(
+            originalTabs->tabToolTip(0),
+            QStringLiteral("Surviving second tooltip"));
+        QVERIFY(originalTabs->isTabModified(0));
+        QVERIFY(!originalTabs->isTabCloseEnabled(0));
+    }
+
+    void restoreKeepsEscrowAlignedWhenPinnedMetadataIsRepaired()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto firstGroupId = workspace.groupIds().constFirst();
+        const auto secondGroupId = workspace.splitGroup(
+            firstGroupId,
+            Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(secondGroupId.has_value());
+        QPointer<ZzFluentUI::ZzTabWidget> firstOriginalTabs =
+            workspace.tabWidget(firstGroupId);
+        QPointer<ZzFluentUI::ZzTabWidget> secondOriginalTabs =
+            workspace.tabWidget(secondGroupId.value());
+        QPointer<QWidget> unpinnedPage = new QWidget;
+        QPointer<QWidget> pinnedPage = new QWidget;
+        QPointer<QWidget> currentPage = new QWidget;
+        firstOriginalTabs->addTab(
+            pinnedPage, QStringLiteral("Pinned first group page"));
+        firstOriginalTabs->addTab(
+            currentPage, QStringLiteral("Current first group page"));
+        secondOriginalTabs->addTab(
+            unpinnedPage, QStringLiteral("Second group page"));
+        firstOriginalTabs->setTabPinned(0, true);
+        firstOriginalTabs->setTabToolTip(
+            0, QStringLiteral("Pinned page tooltip"));
+        firstOriginalTabs->setCurrentWidget(currentPage);
+        QVERIFY(workspace.setPageLayoutKey(
+            pinnedPage, QStringLiteral("pinned-repair:pinned")));
+        QVERIFY(workspace.setPageLayoutKey(
+            currentPage, QStringLiteral("pinned-repair:current")));
+        QVERIFY(workspace.setPageLayoutKey(
+            unpinnedPage, QStringLiteral("pinned-repair:unpinned")));
+        const QByteArray saved = workspace.saveLayout();
+
+        QVERIFY(workspace.transferTab(
+            firstGroupId, 0, secondGroupId.value()));
+        QVERIFY(workspace.transferTab(
+            firstGroupId, 0, secondGroupId.value()));
+        const int unpinnedIndex =
+            secondOriginalTabs->indexOf(unpinnedPage);
+        QVERIFY(unpinnedIndex >= 0);
+        QVERIFY(workspace.transferTab(
+            secondGroupId.value(), unpinnedIndex, firstGroupId));
+        QCOMPARE(firstOriginalTabs->indexOf(unpinnedPage), 0);
+        QCOMPARE(secondOriginalTabs->indexOf(pinnedPage), 0);
+        QCOMPARE(secondOriginalTabs->indexOf(currentPage), 1);
+
+        bool connectedStaging = false;
+        bool perturbedPinned = false;
+        bool pinnedSignalLeaked = false;
+        const auto connectStaging = [&](int) {
+            if (connectedStaging) {
+                return;
+            }
+            connectedStaging = true;
+            const auto allTabs = workspace.findChildren<
+                ZzFluentUI::ZzTabWidget *>();
+            for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                if (tabs == firstOriginalTabs.data()
+                    || tabs == secondOriginalTabs.data()) {
+                    continue;
+                }
+                connect(
+                    tabs,
+                    &ZzFluentUI::ZzTabWidget::tabPinnedChanged,
+                    &workspace,
+                    [&, tabs](int index, bool pinned) {
+                        if (perturbedPinned && pinned
+                            && tabs->widget(index) == pinnedPage) {
+                            pinnedSignalLeaked = true;
+                        }
+                    });
+                connect(
+                    tabs,
+                    &ZzFluentUI::ZzTabWidget::tabTransferred,
+                    &workspace,
+                    [&, tabs](ZzFluentUI::ZzTabWidget *,
+                              int,
+                              int targetIndex,
+                              QWidget *page) {
+                        if (!perturbedPinned && page == pinnedPage) {
+                            perturbedPinned = true;
+                            tabs->setTabPinned(targetIndex, false);
+                        }
+                    });
+            }
+        };
+        connect(
+            firstOriginalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            connectStaging);
+        connect(
+            secondOriginalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            connectStaging);
+
+        QVERIFY(workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(perturbedPinned);
+        QVERIFY(!pinnedSignalLeaked);
+        QVERIFY(!unpinnedPage.isNull());
+        QVERIFY(!pinnedPage.isNull());
+        QVERIFY(!currentPage.isNull());
+        auto *const firstRestoredTabs = workspace.tabWidget(firstGroupId);
+        auto *const secondRestoredTabs =
+            workspace.tabWidget(secondGroupId.value());
+        QVERIFY(firstRestoredTabs != nullptr);
+        QVERIFY(secondRestoredTabs != nullptr);
+        QCOMPARE(firstRestoredTabs->indexOf(pinnedPage), 0);
+        QCOMPARE(firstRestoredTabs->indexOf(currentPage), 1);
+        QCOMPARE(secondRestoredTabs->indexOf(unpinnedPage), 0);
+        QCOMPARE(
+            firstRestoredTabs->tabText(0),
+            QStringLiteral("Pinned first group page"));
+        QCOMPARE(
+            firstRestoredTabs->tabToolTip(0),
+            QStringLiteral("Pinned page tooltip"));
+        QVERIFY(firstRestoredTabs->isTabPinned(0));
+        QCOMPARE(firstRestoredTabs->currentWidget(), currentPage.data());
+    }
+
+    void restoreEscrowsAllPagesBeforeStagedCurrentChangedCallbacks_data()
+    {
+        QTest::addColumn<bool>("tabBarEmitter");
+        QTest::newRow("tab-widget") << false;
+        QTest::newRow("tab-bar") << true;
+    }
+
+    void restoreEscrowsAllPagesBeforeStagedCurrentChangedCallbacks()
+    {
+        QFETCH(bool, tabBarEmitter);
+
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto firstGroupId = workspace.groupIds().constFirst();
+        const auto secondGroupId = workspace.splitGroup(
+            firstGroupId,
+            Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(secondGroupId.has_value());
+        QPointer<QWidget> firstPage = new QWidget;
+        QPointer<QWidget> secondPage = new QWidget;
+        workspace.tabWidget(firstGroupId)->addTab(
+            firstPage, QStringLiteral("First staged page"));
+        workspace.tabWidget(secondGroupId.value())->addTab(
+            secondPage, QStringLiteral("Later staged page"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("staged-current:first")));
+        QVERIFY(workspace.setPageLayoutKey(
+            secondPage, QStringLiteral("staged-current:second")));
+        const QByteArray saved = workspace.saveLayout();
+
+        QVERIFY(workspace.transferTab(
+            secondGroupId.value(), 0, firstGroupId));
+        QVERIFY(workspace.removeEmptyGroup(secondGroupId.value()));
+        auto *const originalTabs = workspace.tabWidget(firstGroupId);
+        QCOMPARE(originalTabs->count(), 2);
+
+        bool connectedStaging = false;
+        bool armed = false;
+        bool invalidated = false;
+        QPointer<ZzFluentUI::ZzTabWidget> firstStagedTabs;
+        QPointer<ZzFluentUI::ZzTabWidget> laterStagedTabs;
+        connect(
+            originalTabs, &QTabWidget::currentChanged, &workspace, [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs =
+                    workspace.findChildren<ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs) {
+                        continue;
+                    }
+                    connect(tabs,
+                            &ZzFluentUI::ZzTabWidget::tabTransferred,
+                            &workspace,
+                            [&, tabs](ZzFluentUI::ZzTabWidget *,
+                                      int,
+                                      int,
+                                      QWidget *transferredPage) {
+                                if (transferredPage == firstPage) {
+                                    firstStagedTabs = tabs;
+                                } else if (transferredPage == secondPage) {
+                                    laterStagedTabs = tabs;
+                                }
+                                armed = !firstStagedTabs.isNull()
+                                    && !laterStagedTabs.isNull();
+                            });
+                    const auto invalidateLater = [&, tabs](int) {
+                        if (!armed || invalidated
+                            || tabs != firstStagedTabs
+                            || tabs->count() != 0) {
+                            return;
+                        }
+                        invalidated = true;
+                        delete laterStagedTabs.data();
+                    };
+                    if (tabBarEmitter) {
+                        connect(tabs->fluentTabBar(),
+                                &QTabBar::currentChanged,
+                                &workspace,
+                                invalidateLater);
+                    } else {
+                        connect(tabs,
+                                &QTabWidget::currentChanged,
+                                &workspace,
+                                invalidateLater);
+                    }
+                }
+            });
+
+        const bool restored = workspace.restoreLayout(saved);
+        QVERIFY(connectedStaging);
+        QVERIFY(!firstStagedTabs.isNull());
+        QVERIFY(!laterStagedTabs.isNull());
+        QVERIFY(armed);
+        QVERIFY(!invalidated);
+        QVERIFY(restored);
+        QVERIFY(!firstPage.isNull());
+        QVERIFY(!secondPage.isNull());
+        QCOMPARE(workspace.tabWidget(firstGroupId)->indexOf(firstPage), 0);
+        QCOMPARE(workspace.tabWidget(secondGroupId.value())->indexOf(secondPage),
+                 0);
+    }
+
+    void restoreCommitRefillSignalsCannotDeleteEscrowOrTarget_data()
+    {
+        QTest::addColumn<bool>("deleteSource");
+        QTest::newRow("source") << true;
+        QTest::newRow("target") << false;
+    }
+
+    void restoreCommitRefillSignalsCannotDeleteEscrowOrTarget()
+    {
+        QFETCH(bool, deleteSource);
+
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        auto *const originalTabs = workspace.tabWidget(groupId);
+        QPointer<QWidget> firstPage = new QWidget;
+        QPointer<QWidget> secondPage = new QWidget;
+        originalTabs->addTab(firstPage, QStringLiteral("First refill page"));
+        originalTabs->addTab(secondPage, QStringLiteral("Second refill page"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("commit-refill:first")));
+        QVERIFY(workspace.setPageLayoutKey(
+            secondPage, QStringLiteral("commit-refill:second")));
+        const QByteArray saved = workspace.saveLayout();
+
+        bool connectedStaging = false;
+        bool deletionAttempted = false;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&, tabs](
+                            ZzFluentUI::ZzTabWidget *source,
+                            int,
+                            int,
+                            QWidget *) {
+                            if (source == nullptr
+                                || source->parentWidget() != nullptr) {
+                                return;
+                            }
+                            deletionAttempted = true;
+                            delete (deleteSource ? source : tabs);
+                        });
+                }
+            });
+
+        QVERIFY(workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(!deletionAttempted);
+        QVERIFY(!firstPage.isNull());
+        QVERIFY(!secondPage.isNull());
+        auto *const restoredTabs = workspace.tabWidget(groupId);
+        QVERIFY(restoredTabs != nullptr);
+        QCOMPARE(restoredTabs->indexOf(firstPage), 0);
+        QCOMPARE(restoredTabs->indexOf(secondPage), 1);
+    }
+
+    void restoreRollbackRefillSignalsCannotDeleteEscrowOrTarget_data()
+    {
+        QTest::addColumn<bool>("deleteSource");
+        QTest::newRow("source") << true;
+        QTest::newRow("target") << false;
+    }
+
+    void restoreRollbackRefillSignalsCannotDeleteEscrowOrTarget()
+    {
+        QFETCH(bool, deleteSource);
+
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(groupId);
+        QPointer<QWidget> firstPage = new QWidget;
+        QPointer<QWidget> secondPage = new QWidget;
+        originalTabs->addTab(firstPage, QStringLiteral("First rollback page"));
+        originalTabs->addTab(secondPage,
+                             QStringLiteral("Second rollback page"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("rollback-refill:first")));
+        QVERIFY(workspace.setPageLayoutKey(
+            secondPage, QStringLiteral("rollback-refill:second")));
+        const QByteArray saved = workspace.saveLayout();
+
+        bool connectedStaging = false;
+        bool removedFromStaging = false;
+        bool deletionAttempted = false;
+        connect(
+            originalTabs,
+            &ZzFluentUI::ZzTabWidget::tabTransferred,
+            &workspace,
+            [&](ZzFluentUI::ZzTabWidget *source,
+                int,
+                int,
+                QWidget *) {
+                if (source == nullptr
+                    || source->parentWidget() != nullptr) {
+                    return;
+                }
+                deletionAttempted = true;
+                delete (deleteSource ? source : originalTabs.data());
+            });
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs.data()) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&, tabs](
+                            ZzFluentUI::ZzTabWidget *,
+                            int,
+                            int targetIndex,
+                            QWidget *page) {
+                            if (removedFromStaging || page != firstPage) {
+                                return;
+                            }
+                            removedFromStaging = true;
+                            tabs->removeTab(targetIndex);
+                        });
+                }
+            });
+
+        QVERIFY(!workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(removedFromStaging);
+        QVERIFY(!deletionAttempted);
+        QVERIFY(!originalTabs.isNull());
+        QVERIFY(!firstPage.isNull());
+        QVERIFY(!secondPage.isNull());
+        QCOMPARE(originalTabs->indexOf(firstPage), 0);
+        QCOMPARE(originalTabs->indexOf(secondPage), 1);
+    }
+
+    void restoreCommitRefillMetadataSignalsCannotDeleteTarget()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        auto *const originalTabs = workspace.tabWidget(groupId);
+        QPointer<QWidget> firstPage = new QWidget;
+        QPointer<QWidget> secondPage = new QWidget;
+        originalTabs->addTab(firstPage,
+                             QStringLiteral("First metadata page"));
+        originalTabs->addTab(secondPage,
+                             QStringLiteral("Second metadata page"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("commit-metadata:first")));
+        QVERIFY(workspace.setPageLayoutKey(
+            secondPage, QStringLiteral("commit-metadata:second")));
+        const QByteArray saved = workspace.saveLayout();
+
+        bool connectedStaging = false;
+        bool perturbedMetadata = false;
+        bool deletionAttempted = false;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabModifiedChanged,
+                        &workspace,
+                        [&, tabs](int index, bool modified) {
+                            if (deletionAttempted || modified
+                                || workspace.tabWidget(groupId) != tabs
+                                || tabs->widget(index) != secondPage) {
+                                return;
+                            }
+                            deletionAttempted = true;
+                            delete tabs;
+                        });
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&, tabs](
+                            ZzFluentUI::ZzTabWidget *,
+                            int,
+                            int targetIndex,
+                            QWidget *page) {
+                            if (perturbedMetadata || page != secondPage) {
+                                return;
+                            }
+                            perturbedMetadata = true;
+                            tabs->setTabModified(targetIndex, true);
+                        });
+                }
+            });
+
+        QVERIFY(workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(perturbedMetadata);
+        QVERIFY(!deletionAttempted);
+        QVERIFY(!firstPage.isNull());
+        QVERIFY(!secondPage.isNull());
+        auto *const restoredTabs = workspace.tabWidget(groupId);
+        QVERIFY(restoredTabs != nullptr);
+        QCOMPARE(restoredTabs->indexOf(firstPage), 0);
+        QCOMPARE(restoredTabs->indexOf(secondPage), 1);
+        QVERIFY(!restoredTabs->isTabModified(1));
+    }
+
+    void restoreRollbackRefillMetadataSignalsCannotDeleteTarget()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(groupId);
+        QPointer<QWidget> firstPage = new QWidget;
+        QPointer<QWidget> secondPage = new QWidget;
+        originalTabs->addTab(firstPage,
+                             QStringLiteral("First rollback metadata"));
+        originalTabs->addTab(secondPage,
+                             QStringLiteral("Second rollback metadata"));
+        QVERIFY(workspace.setPageLayoutKey(
+            firstPage, QStringLiteral("rollback-metadata:first")));
+        QVERIFY(workspace.setPageLayoutKey(
+            secondPage, QStringLiteral("rollback-metadata:second")));
+        const QByteArray saved = workspace.saveLayout();
+
+        bool connectedStaging = false;
+        bool removedFromStaging = false;
+        bool perturbedMetadata = false;
+        bool deletionAttempted = false;
+        connect(
+            originalTabs,
+            &ZzFluentUI::ZzTabWidget::tabModifiedChanged,
+            &workspace,
+            [&](int index, bool modified) {
+                if (deletionAttempted || modified
+                    || !removedFromStaging
+                    || originalTabs->widget(index) != secondPage) {
+                    return;
+                }
+                deletionAttempted = true;
+                delete originalTabs.data();
+            });
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs.data()) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&, tabs](
+                            ZzFluentUI::ZzTabWidget *,
+                            int,
+                            int targetIndex,
+                            QWidget *page) {
+                            if (page == secondPage && !perturbedMetadata) {
+                                perturbedMetadata = true;
+                                tabs->setTabModified(targetIndex, true);
+                                return;
+                            }
+                            if (page == firstPage && !removedFromStaging) {
+                                removedFromStaging = true;
+                                tabs->removeTab(targetIndex);
+                            }
+                        });
+                }
+            });
+
+        QVERIFY(!workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(removedFromStaging);
+        QVERIFY(perturbedMetadata);
+        QVERIFY(!deletionAttempted);
+        QVERIFY(!originalTabs.isNull());
+        QVERIFY(!firstPage.isNull());
+        QVERIFY(!secondPage.isNull());
+        QCOMPARE(originalTabs->indexOf(firstPage), 0);
+        QCOMPARE(originalTabs->indexOf(secondPage), 1);
+        QVERIFY(!originalTabs->isTabModified(1));
+    }
+
+    void restoreCommitEventsMayInvalidateParticipants_data() {
+      QTest::addColumn<int>("invalidation");
+      QTest::newRow("cleanup-workspace") << 0;
+      QTest::newRow("staged-root") << 1;
+      QTest::newRow("leaf-target") << 2;
+      QTest::newRow("cleanup-staged-root") << 3;
+    }
+
+    void restoreCommitEventsMayInvalidateParticipants() {
+      QFETCH(int, invalidation);
+
+      auto *rawWorkspace = new ZzFluentUI::ZzSplitWorkspace;
+      QPointer<ZzFluentUI::ZzSplitWorkspace> workspace = rawWorkspace;
+      const auto sourceId = rawWorkspace->groupIds().constFirst();
+      const auto targetId = rawWorkspace->splitGroup(
+          sourceId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+      QVERIFY(targetId.has_value());
+      QPointer<QWidget> page = new QWidget;
+      rawWorkspace->tabWidget(sourceId)->addTab(
+          page, QStringLiteral("Commit boundary"));
+      QVERIFY(rawWorkspace->setPageLayoutKey(
+          page, QStringLiteral("commit-boundary:key")));
+      const QByteArray saved = rawWorkspace->saveLayout();
+      QVERIFY(rawWorkspace->transferTab(sourceId, 0, targetId.value()));
+      QVERIFY(rawWorkspace->removeEmptyGroup(sourceId));
+      const auto beforeIds = rawWorkspace->groupIds();
+      QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+          rawWorkspace->tabWidget(targetId.value());
+
+      ZzTestEventFilter eventFilter;
+      bool installed = false;
+      bool invalidated = false;
+      QPointer<QObject> deletionTarget;
+      connect(
+          originalTabs, &QTabWidget::currentChanged, rawWorkspace, [&](int) {
+            if (installed || workspace.isNull()) {
+              return;
+            }
+            installed = true;
+            const auto allTabs =
+                rawWorkspace->findChildren<ZzFluentUI::ZzTabWidget *>();
+            ZzFluentUI::ZzTabWidget *stagedLeaf = nullptr;
+            QWidget *stagingHost = nullptr;
+            for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+              if (tabs == originalTabs.data()) {
+                continue;
+              }
+              if (stagedLeaf == nullptr) {
+                stagedLeaf = tabs;
+                QWidget *candidate = tabs;
+                while (candidate->parentWidget() != rawWorkspace) {
+                  candidate = candidate->parentWidget();
+                  QVERIFY(candidate != nullptr);
+                }
+                stagingHost = candidate;
+              }
+              if (invalidation == 2) {
+                connect(
+                    tabs,
+                    &ZzFluentUI::ZzTabWidget::tabTransferred,
+                    rawWorkspace,
+                    [&, tabs](
+                        ZzFluentUI::ZzTabWidget *,
+                        int,
+                        int,
+                        QWidget *transferredPage) {
+                      if (transferredPage == page) {
+                        deletionTarget = tabs;
+                      }
+                    });
+              }
+            }
+            QVERIFY(stagedLeaf != nullptr);
+            QWidget *const rootHost = stagingHost;
+            QVERIFY(rootHost != nullptr);
+            QVERIFY(rootHost->layout() != nullptr);
+            QVERIFY(rootHost->layout()->count() == 1);
+            QWidget *const oldRoot = rootHost->layout()->itemAt(0)->widget();
+            QVERIFY(oldRoot == originalTabs.data());
+            QWidget *stagedRoot = stagedLeaf;
+            while (stagedRoot->parentWidget() != rootHost) {
+              stagedRoot = stagedRoot->parentWidget();
+              QVERIFY(stagedRoot != nullptr);
+            }
+            QVERIFY(stagedRoot != nullptr);
+
+            const bool cleanupInvalidation =
+                invalidation == 0 || invalidation == 3;
+            QObject *const watched = cleanupInvalidation
+                                         ? static_cast<QObject *>(rootHost)
+                                         : static_cast<QObject *>(oldRoot);
+            const QEvent::Type trigger =
+                cleanupInvalidation ? QEvent::ChildRemoved : QEvent::Hide;
+            if (invalidation == 1 || invalidation == 3) {
+              deletionTarget = stagedRoot;
+            }
+            eventFilter.callback = [&, trigger](QObject *, QEvent *event) {
+              if (invalidated || event->type() != trigger) {
+                return false;
+              }
+              invalidated = true;
+              if (invalidation == 0) {
+                delete rawWorkspace;
+              } else if (!deletionTarget.isNull()) {
+                delete deletionTarget.data();
+              }
+              return true;
+            };
+            watched->installEventFilter(&eventFilter);
+          });
+
+      const bool restored = rawWorkspace->restoreLayout(saved);
+      QVERIFY(installed);
+      QVERIFY(invalidated);
+      if (invalidation == 0) {
+        QVERIFY(workspace.isNull());
+        QVERIFY(!restored);
+        return;
+      }
+
+      QVERIFY(!workspace.isNull());
+      QVERIFY(!restored);
+      QVERIFY(!page.isNull());
+      QCOMPARE(rawWorkspace->groupIds(), beforeIds);
+      auto *const rolledBackTabs = rawWorkspace->tabWidget(targetId.value());
+      QVERIFY(rolledBackTabs != nullptr);
+      QCOMPARE(rolledBackTabs->indexOf(page), 0);
+      QCOMPARE(
+          rawWorkspace->pageLayoutKey(page),
+          QStringLiteral("commit-boundary:key"));
+      if (invalidation != 3) {
+        QCOMPARE(rolledBackTabs, originalTabs.data());
+      }
+      delete rawWorkspace;
+    }
+
+    void restoresRepeatedlyWithoutDeferredObjectGrowth() {
+      ZzFluentUI::ZzSplitWorkspace workspace;
+      const auto sourceId = workspace.groupIds().constFirst();
+      const auto targetId = workspace.splitGroup(
+          sourceId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+      QVERIFY(targetId.has_value());
+      auto *page = new QWidget;
+      workspace.tabWidget(sourceId)->addTab(page,
+                                            QStringLiteral("Repeated restore"));
+      QVERIFY(workspace.setPageLayoutKey(
+          page, QStringLiteral("repeated-restore:key")));
+      const QByteArray saved = workspace.saveLayout();
+
+      QVERIFY(workspace.restoreLayout(saved));
+      QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+      const qsizetype widgetCount = QApplication::allWidgets().size();
+      const qsizetype splitterCount =
+          workspace.findChildren<QSplitter *>().size();
+      const qsizetype tabWidgetCount =
+          workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size();
+
+      for (int iteration = 0; iteration < 24; ++iteration) {
+        QVERIFY(workspace.restoreLayout(saved));
+      }
+
+      QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+      QCOMPARE(workspace.findChildren<QSplitter *>().size(), splitterCount);
+      QCOMPARE(workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
+               tabWidgetCount);
     }
 
     void transfersTabsAndRollsBackEdgeDrops()
