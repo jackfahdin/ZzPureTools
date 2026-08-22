@@ -21,6 +21,30 @@ bool zzFocusBelongsTo(
         && (focused == tabs || tabs->isAncestorOf(focused));
 }
 
+QList<ZzFluentUI::ZzTabGroupId> zzCreateFourHorizontalGroups(
+    ZzFluentUI::ZzSplitWorkspace &workspace)
+{
+    const auto root = workspace.groupIds().constFirst();
+    for (int addedCount = 0; addedCount < 3; ++addedCount) {
+        if (!workspace.splitGroup(
+                root,
+                Qt::Horizontal,
+                ZzFluentUI::ZzSplitPlacement::After).has_value()) {
+            return {};
+        }
+    }
+    return workspace.groupIds();
+}
+
+void zzSetGroupCenter(
+    ZzFluentUI::ZzSplitWorkspace &workspace,
+    const ZzFluentUI::ZzTabGroupId &id,
+    const QPoint &center)
+{
+    workspace.tabWidget(id)->setGeometry(
+        center.x() - 20, center.y() - 20, 40, 40);
+}
+
 } // namespace
 
 class ZzSplitWorkspaceTest final : public QObject
@@ -278,6 +302,66 @@ private Q_SLOTS:
         QCOMPARE(workspace.activeGroupId(), physicalRight);
         QVERIFY(zzFocusBelongsTo(
             QApplication::focusWidget(), workspace.tabWidget(physicalRight)));
+    }
+
+    void adjacentFocusPrioritizesPrimaryAxisDistance()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto ids = zzCreateFourHorizontalGroups(workspace);
+        QCOMPARE(ids.size(), 4);
+        const auto active = ids.at(0);
+        const auto fartherPrimary = ids.at(1);
+        const auto nearestPrimary = ids.at(2);
+        const auto bestSecondaryOnly = ids.at(3);
+        QVERIFY(workspace.setActiveGroup(active));
+
+        zzSetGroupCenter(workspace, active, QPoint(100, 400));
+        zzSetGroupCenter(workspace, fartherPrimary, QPoint(400, 400));
+        zzSetGroupCenter(workspace, nearestPrimary, QPoint(300, 750));
+        zzSetGroupCenter(workspace, bestSecondaryOnly, QPoint(350, 400));
+
+        QVERIFY(workspace.focusAdjacentGroup(Qt::RightEdge));
+        QCOMPARE(workspace.activeGroupId(), nearestPrimary);
+    }
+
+    void adjacentFocusUsesSecondaryDistanceWhenPrimaryTies()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto ids = zzCreateFourHorizontalGroups(workspace);
+        QCOMPARE(ids.size(), 4);
+        const auto active = ids.at(0);
+        const auto fartherSecondary = ids.at(1);
+        const auto nearestSecondary = ids.at(2);
+        const auto fartherPrimary = ids.at(3);
+        QVERIFY(workspace.setActiveGroup(active));
+
+        zzSetGroupCenter(workspace, active, QPoint(100, 400));
+        zzSetGroupCenter(workspace, fartherSecondary, QPoint(300, 100));
+        zzSetGroupCenter(workspace, nearestSecondary, QPoint(300, 350));
+        zzSetGroupCenter(workspace, fartherPrimary, QPoint(350, 400));
+
+        QVERIFY(workspace.focusAdjacentGroup(Qt::RightEdge));
+        QCOMPARE(workspace.activeGroupId(), nearestSecondary);
+    }
+
+    void adjacentFocusUsesStableOrderWhenDistancesTie()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto ids = zzCreateFourHorizontalGroups(workspace);
+        QCOMPARE(ids.size(), 4);
+        const auto active = ids.at(0);
+        const auto firstStableCandidate = ids.at(1);
+        const auto secondStableCandidate = ids.at(2);
+        const auto fartherPrimary = ids.at(3);
+        QVERIFY(workspace.setActiveGroup(active));
+
+        zzSetGroupCenter(workspace, active, QPoint(100, 400));
+        zzSetGroupCenter(workspace, firstStableCandidate, QPoint(300, 350));
+        zzSetGroupCenter(workspace, secondStableCandidate, QPoint(300, 350));
+        zzSetGroupCenter(workspace, fartherPrimary, QPoint(350, 400));
+
+        QVERIFY(workspace.focusAdjacentGroup(Qt::RightEdge));
+        QCOMPARE(workspace.activeGroupId(), firstStableCandidate);
     }
 
     void survivesOneThousandSplitRemoveCyclesWithoutObjectGrowth()
