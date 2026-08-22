@@ -599,6 +599,21 @@ set_tests_properties(fluent.side-pane PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzPanelStackTest ZzPanelStackTest.cpp)
+target_link_libraries(ZzPanelStackTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzPanelStackTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPanelStackTest)
+zz_enable_sanitizers(ZzPanelStackTest)
+add_test(NAME fluent.panel-stack COMMAND ZzPanelStackTest)
+set_tests_properties(fluent.panel-stack PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzExplorerPaneTest ZzExplorerPaneTest.cpp)
 target_link_libraries(ZzExplorerPaneTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzExplorerPaneTest PROPERTIES AUTOMOC ON)
