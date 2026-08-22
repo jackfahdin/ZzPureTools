@@ -734,6 +734,21 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     zz_add_fluent_screenshot_test(200 2.0)
 endif()
 
+add_executable(ZzSplitWorkspaceTest ZzSplitWorkspaceTest.cpp)
+target_link_libraries(ZzSplitWorkspaceTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzSplitWorkspaceTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSplitWorkspaceTest)
+zz_enable_sanitizers(ZzSplitWorkspaceTest)
+add_test(NAME fluent.split-workspace COMMAND ZzSplitWorkspaceTest)
+set_tests_properties(fluent.split-workspace PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 if(ZZ_BUILD_BENCHMARKS)
     add_executable(ZzBasicControlsBenchmark ZzBasicControlsBenchmark.cpp)
     qt_add_resources(ZzBasicControlsBenchmark "zzfluent-benchmark-icons"
