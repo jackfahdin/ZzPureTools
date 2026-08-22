@@ -503,8 +503,20 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
         case ZzPanelKind::Bottom:
             break;
         case ZzPanelKind::Dock: {
-            auto *const dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
-                record.dockIdentity);
+            ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
+            if (record.removalInProgress && dock != nullptr) {
+                if (!cleanupDockPanel(dock)) {
+                    auto *const dockHost = qobject_cast<QMainWindow *>(
+                        dock->parentWidget());
+                    if (dockHost != nullptr
+                        && dockHost->layout() != nullptr) {
+                        dockHost->removeDockWidget(dock);
+                    }
+                    dock->hide();
+                    dock->setParent(nullptr);
+                }
+                break;
+            }
             auto *const dockHost = dock != nullptr
                 ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
             if (dockHost != nullptr && dockHost->layout() != nullptr) {
@@ -570,6 +582,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     record.activityArea = area;
     record.content = content;
     record.contentIdentity = content;
+    record.registrationGeneration = ++nextPanelRegistrationGeneration;
     record.registrationInProgress = true;
     panels.append(std::move(record));
     connectPanelContentDestroyed(id, content);
@@ -644,6 +657,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerBottomPanel(
     record.kind = ZzPanelKind::Bottom;
     record.content = content;
     record.contentIdentity = content;
+    record.registrationGeneration = ++nextPanelRegistrationGeneration;
     record.registrationInProgress = true;
     panels.append(std::move(record));
     connectPanelContentDestroyed(id, content);
@@ -712,6 +726,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
     record.dockArea = area;
     record.content = content;
     record.contentIdentity = content;
+    record.registrationGeneration = ++nextPanelRegistrationGeneration;
     record.dock = dock;
     record.dockIdentity = dock;
     record.registrationInProgress = true;
@@ -784,17 +799,31 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
             const int currentIndex = indexOf(id);
             if (currentIndex >= 0
                 && panels.at(currentIndex).contentIdentity
-                    == record.contentIdentity
-                && contentGuard != nullptr) {
-                panels[currentIndex].removalInProgress = false;
-                connectPanelContentDestroyed(id, contentGuard);
+                    == record.contentIdentity) {
+                if (contentGuard != nullptr) {
+                    panels[currentIndex].removalInProgress = false;
+                    connectPanelContentDestroyed(id, contentGuard);
+                } else {
+                    cleanupInterruptedPanelRemoval(
+                        id, record.contentIdentity,
+                        record.registrationGeneration);
+                }
             }
             return zzWorkspaceFailure<QWidget *>(
                 ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Workspace panel content is unavailable"),
                 id.value());
         }
-        static_cast<void>(zzActivityModel(activityModel)->remove(id));
+        if (content != contentGuard || contentGuard->parent() != nullptr
+            || activityModel == nullptr
+            || !zzActivityModel(activityModel)->remove(id)) {
+            cleanupInterruptedPanelRemoval(
+                id, record.contentIdentity, record.registrationGeneration);
+            return zzWorkspaceFailure<QWidget *>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Side panel removal was interrupted"),
+                id.value());
+        }
         break;
     }
     case ZzPanelKind::Bottom: {
@@ -817,7 +846,9 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
                     panels[currentIndex].removalInProgress = false;
                     connectPanelContentDestroyed(id, contentGuard);
                 } else {
-                    panels.removeAt(currentIndex);
+                    cleanupInterruptedPanelRemoval(
+                        id, record.contentIdentity,
+                        record.registrationGeneration);
                 }
             }
             return zzWorkspaceFailure<QWidget *>(
@@ -842,32 +873,64 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
             const int currentIndex = indexOf(id);
             if (currentIndex >= 0
                 && panels.at(currentIndex).contentIdentity
-                    == record.contentIdentity
-                && contentGuard != nullptr) {
-                panels[currentIndex].removalInProgress = false;
-                connectPanelContentDestroyed(id, contentGuard);
+                    == record.contentIdentity) {
+                if (contentGuard != nullptr) {
+                    panels[currentIndex].removalInProgress = false;
+                    connectPanelContentDestroyed(id, contentGuard);
+                } else {
+                    cleanupInterruptedPanelRemoval(
+                        id, record.contentIdentity,
+                        record.registrationGeneration);
+                }
             }
             return zzWorkspaceFailure<QWidget *>(
                 ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Workspace panel content is unavailable"),
                 id.value());
         }
-        if (host != nullptr && host->layout() != nullptr) {
-            host->removeDockWidget(record.dock);
+        if (content != contentGuard || contentGuard->parent() != nullptr
+            || record.dock == nullptr
+            || record.dock.data() != record.dockIdentity
+            || record.dock->widget() != nullptr) {
+            cleanupInterruptedPanelRemoval(
+                id, record.contentIdentity, record.registrationGeneration);
+            return zzWorkspaceFailure<QWidget *>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Dock panel removal was interrupted"),
+                id.value());
         }
-        if (host == nullptr || host->layout() != nullptr) {
-            delete record.dock;
+        if (!cleanupDockPanel(record.dockIdentity)) {
+            cleanupInterruptedPanelRemoval(
+                id, record.contentIdentity, record.registrationGeneration);
+            return zzWorkspaceFailure<QWidget *>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Dock panel removal was interrupted"),
+                id.value());
         }
         break;
     }
     }
-    const int currentIndex = indexOf(id);
-    if (currentIndex >= 0
-        && panels.at(currentIndex).contentIdentity == record.contentIdentity) {
-        panels.removeAt(currentIndex);
+    const int currentIndex = stablePanelIndex(record);
+    if (contentGuard == nullptr || content != contentGuard
+        || contentGuard->parent() != nullptr || currentIndex < 0
+        || !panels.at(currentIndex).removalInProgress) {
+        cleanupInterruptedPanelRemoval(
+            id, record.contentIdentity, record.registrationGeneration);
+        return zzWorkspaceFailure<QWidget *>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace panel removal was interrupted"),
+            id.value());
     }
+    panels.removeAt(currentIndex);
     if (record.kind == ZzPanelKind::Side) {
         syncSideEdgeVisibility();
+    }
+    if (contentGuard == nullptr || content != contentGuard
+        || contentGuard->parent() != nullptr) {
+        return zzWorkspaceFailure<QWidget *>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace panel ownership changed during removal"),
+            id.value());
     }
     return ZzCore::ZzResult<QWidget *>::success(content);
 }
@@ -883,6 +946,12 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
             QStringLiteral("Workspace panel is not registered"), id.value());
     }
     const ZzPanelRecord record = panels.at(panelIndex);
+    if (record.registrationInProgress || record.removalInProgress) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace panel transaction is in progress"),
+            id.value());
+    }
     switch (record.kind) {
     case ZzPanelKind::Dock:
         if (record.dock == nullptr) {
@@ -906,17 +975,32 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                 QStringLiteral("Bottom panel content is no longer registered"),
                 id.value());
         }
-        const int currentIndex = indexOf(id);
+        const int currentIndex = stablePanelIndex(record);
         if (paneGuard == nullptr || contentGuard == nullptr
             || currentIndex < 0
-            || panels.at(currentIndex).contentIdentity
-                != record.contentIdentity) {
+            || panels.at(currentIndex).registrationInProgress
+            || panels.at(currentIndex).removalInProgress
+            || !paneGuard->isAncestorOf(contentGuard)
+            || (visible && paneGuard->currentWidget() != contentGuard)) {
             return zzWorkspaceFailure<void>(
                 ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Bottom panel state changed during activation"),
                 id.value());
         }
         paneGuard->setCollapsed(!visible);
+        const int finalIndex = stablePanelIndex(record);
+        if (paneGuard == nullptr || contentGuard == nullptr
+            || finalIndex < 0
+            || panels.at(finalIndex).registrationInProgress
+            || panels.at(finalIndex).removalInProgress
+            || !paneGuard->isAncestorOf(contentGuard)
+            || paneGuard->isCollapsed() != !visible
+            || (visible && paneGuard->currentWidget() != contentGuard)) {
+            return zzWorkspaceFailure<void>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Bottom panel state changed during visibility update"),
+                id.value());
+        }
         return ZzCore::ZzResult<void>::success();
     }
     case ZzPanelKind::Side:
@@ -1216,9 +1300,8 @@ void ZzWorkspaceShellPrivate::handlePanelContentDestroyed(
     }
     }
 
-    panelIndex = indexOf(id);
-    if (panelIndex >= 0
-        && panels.at(panelIndex).contentIdentity == contentIdentity) {
+    panelIndex = stablePanelIndex(record);
+    if (panelIndex >= 0) {
         panels.removeAt(panelIndex);
     }
     if (record.kind == ZzPanelKind::Side) {
@@ -1262,27 +1345,126 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
         if (record.dock == nullptr) {
             break;
         }
-        if (record.content != nullptr
-            && record.dock->widget() == record.content) {
-            static_cast<void>(record.dock->takeContentWidget());
-        }
-        if (host != nullptr && host->layout() != nullptr) {
-            host->removeDockWidget(record.dock);
-        }
-        if (host == nullptr || host->layout() != nullptr) {
-            delete record.dock;
+        if (!cleanupDockPanel(record.dockIdentity)) {
+            scheduleInterruptedPanelRemovalCleanup(
+                id, contentIdentity, record.registrationGeneration);
+            return;
         }
         break;
     }
 
-    panelIndex = indexOf(id);
-    if (panelIndex >= 0
-        && panels.at(panelIndex).contentIdentity == contentIdentity) {
+    panelIndex = stablePanelIndex(record);
+    if (panelIndex >= 0) {
         panels.removeAt(panelIndex);
     }
     if (record.kind == ZzPanelKind::Side) {
         syncSideEdgeVisibility();
     }
+}
+
+void ZzWorkspaceShellPrivate::cleanupInterruptedPanelRemoval(
+    const ZzWorkspacePanelId &id,
+    QWidget *contentIdentity,
+    std::uint64_t registrationGeneration)
+{
+    int panelIndex = indexOf(id);
+    if (panelIndex < 0
+        || panels.at(panelIndex).contentIdentity != contentIdentity
+        || panels.at(panelIndex).registrationGeneration
+            != registrationGeneration) {
+        return;
+    }
+
+    QObject::disconnect(panels[panelIndex].contentDestroyedConnection);
+    const ZzPanelRecord record = panels.at(panelIndex);
+    switch (record.kind) {
+    case ZzPanelKind::Side:
+        if (activityModel != nullptr) {
+            static_cast<void>(zzActivityModel(activityModel)->remove(id));
+        }
+        break;
+    case ZzPanelKind::Bottom:
+        break;
+    case ZzPanelKind::Dock:
+        if (record.dock != nullptr
+            && !cleanupDockPanel(record.dockIdentity)) {
+            scheduleInterruptedPanelRemovalCleanup(
+                id, contentIdentity, registrationGeneration);
+            return;
+        }
+        break;
+    }
+
+    panelIndex = stablePanelIndex(record);
+    if (panelIndex >= 0) {
+        panels.removeAt(panelIndex);
+    }
+    if (record.kind == ZzPanelKind::Side) {
+        syncSideEdgeVisibility();
+    }
+}
+
+bool ZzWorkspaceShellPrivate::cleanupDockPanel(
+    ZzFluentUI::ZzDockPanel *dockIdentity)
+{
+    QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dockIdentity);
+    const auto preserveForRetry = [&dockGuard] {
+        if (dockGuard == nullptr) {
+            return;
+        }
+        auto *const dockHost = qobject_cast<QMainWindow *>(
+            dockGuard->parentWidget());
+        if (dockHost != nullptr && dockHost->layout() != nullptr) {
+            dockHost->removeDockWidget(dockGuard);
+        }
+        if (dockGuard != nullptr) {
+            dockGuard->hide();
+            dockGuard->setParent(nullptr);
+        }
+    };
+    if (dockGuard == nullptr) {
+        return true;
+    }
+    if (dockGuard->widget() != nullptr) {
+        static_cast<void>(dockGuard->takeContentWidget());
+    }
+    if (dockGuard == nullptr || dockGuard->widget() != nullptr) {
+        if (dockGuard != nullptr) {
+            preserveForRetry();
+            return false;
+        }
+        return true;
+    }
+    const QPointer<QMainWindow> dockHost(qobject_cast<QMainWindow *>(
+        dockGuard->parentWidget()));
+    if (dockHost != nullptr && dockHost->layout() != nullptr) {
+        dockHost->removeDockWidget(dockGuard);
+    }
+    if (dockGuard == nullptr || dockGuard->widget() != nullptr) {
+        if (dockGuard != nullptr) {
+            preserveForRetry();
+            return false;
+        }
+        return true;
+    }
+    if (dockHost == nullptr || dockHost->layout() != nullptr) {
+        delete dockGuard;
+    }
+    return true;
+}
+
+void ZzWorkspaceShellPrivate::scheduleInterruptedPanelRemovalCleanup(
+    const ZzWorkspacePanelId &id,
+    QWidget *contentIdentity,
+    std::uint64_t registrationGeneration)
+{
+    static_cast<void>(QMetaObject::invokeMethod(
+        q_ptr,
+        [this, id, contentIdentity, registrationGeneration] {
+            cleanupInterruptedPanelRemoval(
+                id, contentIdentity, registrationGeneration);
+        },
+        Qt::QueuedConnection));
 }
 
 void ZzWorkspaceShellPrivate::activateSidePanel(
@@ -1344,6 +1526,24 @@ int ZzWorkspaceShellPrivate::indexOf(
         }
     }
     return -1;
+}
+
+int ZzWorkspaceShellPrivate::stablePanelIndex(
+    const ZzPanelRecord &expected) const noexcept
+{
+    const int panelIndex = indexOf(expected.id);
+    if (panelIndex < 0) {
+        return -1;
+    }
+    const ZzPanelRecord &current = panels.at(panelIndex);
+    return current.kind == expected.kind
+            && current.registrationGeneration
+                == expected.registrationGeneration
+            && current.contentIdentity == expected.contentIdentity
+            && current.content == expected.content
+            && current.dockIdentity == expected.dockIdentity
+            && current.dock == expected.dock
+        ? panelIndex : -1;
 }
 
 ZzWorkspacePanelId ZzWorkspaceShellPrivate::currentSideId(

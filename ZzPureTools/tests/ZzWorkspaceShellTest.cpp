@@ -233,6 +233,23 @@ protected:
     }
 };
 
+class ZzParentRemovedWidget final : public QWidget
+{
+public:
+    std::function<void()> parentRemoved;
+
+protected:
+    bool event(QEvent *event) override
+    {
+        const bool handled = QWidget::event(event);
+        if (event != nullptr && event->type() == QEvent::ParentChange
+            && parentWidget() == nullptr && parentRemoved) {
+            parentRemoved();
+        }
+        return handled;
+    }
+};
+
 /** @brief 在销毁 QObject 子对象前模拟 QMainWindow 已释放内部布局的阶段。 */
 class ZzLayoutTornDownMainWindow final : public QMainWindow
 {
@@ -633,6 +650,564 @@ private Q_SLOTS:
             zzPanelId("bottom"), QStringLiteral("Replacement"), zzIcon(),
             replacement.get()));
         zzReleaseAfterAdoption(replacement);
+    }
+
+    void cleansSideIdWhenContentIsDestroyedDuringTakeSignals()
+    {
+        ZzShellFixture fixture;
+        auto *side = new QWidget;
+        QPointer<QWidget> sideGuard(side);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, side));
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        bool callbackEntered = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *) {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                delete side;
+            });
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("side"));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedTake);
+        QVERIFY(sideGuard.isNull());
+        QCOMPARE(model->rowCount(), 0);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Replacement"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void cleansDockIdWhenContentIsDestroyedDuringTakeSignals()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QPointer<QWidget> contentGuard(contentRaw);
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const dock = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        bool callbackEntered = false;
+        QObject::connect(
+            dock, &QObject::destroyed,
+            fixture.shell.get(), [&](QObject *) {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                delete contentRaw;
+            });
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedTake);
+        QVERIFY(contentGuard.isNull());
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Replacement"), zzIcon(),
+            Qt::BottomDockWidgetArea, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void dockTakePreservesContentInjectedDuringParentChange()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const contentRaw = content.get();
+        auto injected = std::make_unique<QWidget>();
+        QPointer<QWidget> injectedGuard(injected.get());
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const dock = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        bool callbackEntered = false;
+        contentRaw->parentRemoved = [&] {
+            if (callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            dock->setWidget(injected.get());
+            injected.release();
+        };
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedTake);
+        QVERIFY(injectedGuard != nullptr);
+        QCOMPARE(injectedGuard->parent(), nullptr);
+        std::unique_ptr<QWidget> preservedInjected(injectedGuard.data());
+        std::unique_ptr<QWidget> preservedContent(contentRaw);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Replacement"), zzIcon(),
+            Qt::BottomDockWidgetArea, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void dockCleanupRetainsIdUntilRepeatedInjectionIsDetached()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const contentRaw = content.get();
+        auto firstInjected = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const firstInjectedRaw = firstInjected.get();
+        QPointer<QWidget> firstInjectedGuard(firstInjectedRaw);
+        auto secondInjected = std::make_unique<QWidget>();
+        QPointer<QWidget> secondInjectedGuard(secondInjected.get());
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const dock = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
+        contentRaw->parentRemoved = [&] {
+            dock->setWidget(firstInjected.get());
+            firstInjected.release();
+        };
+        firstInjectedRaw->parentRemoved = [&] {
+            dock->setWidget(secondInjected.get());
+            secondInjected.release();
+        };
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
+
+        QVERIFY(!interruptedTake);
+        QVERIFY(firstInjectedGuard != nullptr);
+        QCOMPARE(firstInjectedGuard->parent(), nullptr);
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), dock);
+        auto duplicate = std::make_unique<QWidget>();
+        auto duplicateRegistration = fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Duplicate"), zzIcon(),
+            Qt::BottomDockWidgetArea, duplicate.get());
+        if (duplicateRegistration) {
+            duplicate.release();
+        }
+        QVERIFY(!duplicateRegistration);
+
+        QCoreApplication::processEvents();
+
+        QVERIFY(dockGuard.isNull());
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), nullptr);
+        std::unique_ptr<QWidget> preservedContent(contentRaw);
+        std::unique_ptr<QWidget> preservedFirst(firstInjectedGuard.data());
+        std::unique_ptr<QWidget> preservedSecond(secondInjectedGuard.data());
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Replacement"), zzIcon(),
+            Qt::BottomDockWidgetArea, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void shellDestructionPreservesContentWhileDockCleanupIsPending()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const contentRaw = content.get();
+        auto firstInjected = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const firstInjectedRaw = firstInjected.get();
+        QPointer<QWidget> firstInjectedGuard(firstInjectedRaw);
+        auto secondInjected = std::make_unique<QWidget>();
+        QPointer<QWidget> secondInjectedGuard(secondInjected.get());
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const dock = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
+        contentRaw->parentRemoved = [&] {
+            dock->setWidget(firstInjected.get());
+            firstInjected.release();
+        };
+        firstInjectedRaw->parentRemoved = [&] {
+            dock->setWidget(secondInjected.get());
+            secondInjected.release();
+        };
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
+        QVERIFY(!interruptedTake);
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), dock);
+
+        fixture.shell.reset();
+
+        QVERIFY(dockGuard.isNull());
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), nullptr);
+        std::unique_ptr<QWidget> preservedContent(contentRaw);
+        std::unique_ptr<QWidget> preservedFirst(firstInjectedGuard.data());
+        std::unique_ptr<QWidget> preservedSecond(secondInjectedGuard.data());
+    }
+
+    void hostDestructionPreservesContentWhileDockCleanupIsPending()
+    {
+        auto host = std::make_unique<QMainWindow>();
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto content = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const contentRaw = content.get();
+        auto firstInjected = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const firstInjectedRaw = firstInjected.get();
+        QPointer<QWidget> firstInjectedGuard(firstInjectedRaw);
+        auto secondInjected = std::make_unique<QWidget>();
+        QPointer<QWidget> secondInjectedGuard(secondInjected.get());
+        QVERIFY(shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const dock = host->findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
+        contentRaw->parentRemoved = [&] {
+            dock->setWidget(firstInjected.get());
+            firstInjected.release();
+        };
+        firstInjectedRaw->parentRemoved = [&] {
+            dock->setWidget(secondInjected.get());
+            secondInjected.release();
+        };
+        auto interruptedTake = shell->takePanel(zzPanelId("dock"));
+        QVERIFY(!interruptedTake);
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), dock);
+
+        host.reset();
+
+        QVERIFY(dockGuard != nullptr);
+        QCOMPARE(dockGuard->parent(), nullptr);
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), dockGuard.data());
+        shell.reset();
+        QVERIFY(dockGuard.isNull());
+        QVERIFY(secondInjectedGuard != nullptr);
+        QCOMPARE(secondInjectedGuard->parent(), nullptr);
+        std::unique_ptr<QWidget> preservedContent(contentRaw);
+        std::unique_ptr<QWidget> preservedFirst(firstInjectedGuard.data());
+        std::unique_ptr<QWidget> preservedSecond(secondInjectedGuard.data());
+    }
+
+    void sideTakeRejectsDestroyedContentAfterActivityRemovalSignals()
+    {
+        ZzShellFixture fixture;
+        auto *side = new QWidget;
+        QPointer<QWidget> sideGuard(side);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, side));
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        bool callbackEntered = false;
+        QObject::connect(
+            model, &QAbstractItemModel::rowsAboutToBeRemoved,
+            fixture.shell.get(), [&] {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                delete side;
+            });
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("side"));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedTake);
+        QVERIFY(sideGuard.isNull());
+        QCOMPARE(model->rowCount(), 0);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Replacement"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void sideTakeLeavesThirdPartyOwnerAfterActivityRemovalSignals()
+    {
+        ZzShellFixture fixture;
+        QWidget thirdPartyOwner;
+        auto side = std::make_unique<QWidget>();
+        QWidget *const sideRaw = side.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, side.get()));
+        zzReleaseAfterAdoption(side);
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        bool callbackEntered = false;
+        QObject::connect(
+            model, &QAbstractItemModel::rowsAboutToBeRemoved,
+            fixture.shell.get(), [&] {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                sideRaw->setParent(&thirdPartyOwner);
+            });
+
+        auto interruptedTake = fixture.shell->takePanel(zzPanelId("side"));
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedTake);
+        QCOMPARE(sideRaw->parentWidget(), &thirdPartyOwner);
+        QCOMPARE(model->rowCount(), 0);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Replacement"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void rejectsBottomShowDuringRegistrationTransaction()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        bool callbackEntered = false;
+        bool reentrantShowSucceeded = false;
+        QObject::connect(
+            fixture.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current != contentRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                reentrantShowSucceeded = static_cast<bool>(
+                    fixture.shell->showPanel(zzPanelId("bottom"), true));
+            });
+
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            content.get()));
+        zzReleaseAfterAdoption(content);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!reentrantShowSucceeded);
+    }
+
+    void rejectsBottomShowDuringRemovalTransaction()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            content.get()));
+        zzReleaseAfterAdoption(content);
+        bool callbackEntered = false;
+        bool reentrantShowSucceeded = false;
+        QObject::connect(
+            fixture.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current == contentRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                reentrantShowSucceeded = static_cast<bool>(
+                    fixture.shell->showPanel(zzPanelId("bottom"), true));
+            });
+
+        auto taken = fixture.shell->takePanel(zzPanelId("bottom"));
+
+        QVERIFY(taken);
+        std::unique_ptr<QWidget> returned(taken.value());
+        QCOMPARE(returned.get(), contentRaw);
+        QVERIFY(callbackEntered);
+        QVERIFY(!reentrantShowSucceeded);
+    }
+
+    void bottomShowDetectsSynchronousInvalidation_data()
+    {
+        QTest::addColumn<bool>("takeDuringSignal");
+        QTest::newRow("take") << true;
+        QTest::newRow("destroy") << false;
+    }
+
+    void bottomShowDetectsSynchronousInvalidation()
+    {
+        QFETCH(bool, takeDuringSignal);
+        ZzShellFixture fixture;
+        auto *content = new QWidget;
+        QPointer<QWidget> contentGuard(content);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(), content));
+        QVERIFY(fixture.shell->bottomPane()->isCollapsed());
+        bool callbackEntered = false;
+        bool nestedTakeSucceeded = false;
+        std::unique_ptr<QWidget> returned;
+        QObject::connect(
+            fixture.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::collapsedChanged,
+            fixture.shell.get(), [&](bool collapsed) {
+                if (callbackEntered || collapsed) {
+                    return;
+                }
+                callbackEntered = true;
+                if (takeDuringSignal) {
+                    auto nestedTake = fixture.shell->takePanel(
+                        zzPanelId("bottom"));
+                    nestedTakeSucceeded = static_cast<bool>(nestedTake);
+                    if (nestedTake) {
+                        returned.reset(nestedTake.value());
+                    }
+                } else {
+                    delete content;
+                }
+            });
+
+        const auto interruptedShow = fixture.shell->showPanel(
+            zzPanelId("bottom"), true);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!interruptedShow);
+        QCOMPARE(nestedTakeSucceeded, takeDuringSignal);
+        if (takeDuringSignal) {
+            QCOMPARE(returned.get(), content);
+            QCOMPARE(returned->parent(), nullptr);
+        } else {
+            QVERIFY(contentGuard.isNull());
+        }
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Replacement"), zzIcon(),
+            replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void bottomShowDetectsSameWidgetReregistrationDuringSignal()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            content.get()));
+        zzReleaseAfterAdoption(content);
+        QVERIFY(fixture.shell->bottomPane()->isCollapsed());
+        bool callbackEntered = false;
+        bool nestedTakeSucceeded = false;
+        bool nestedRegistrationSucceeded = false;
+        QObject::connect(
+            fixture.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::collapsedChanged,
+            fixture.shell.get(), [&](bool collapsed) {
+                if (callbackEntered || collapsed) {
+                    return;
+                }
+                callbackEntered = true;
+                auto nestedTake = fixture.shell->takePanel(
+                    zzPanelId("bottom"));
+                nestedTakeSucceeded = static_cast<bool>(nestedTake);
+                if (!nestedTake) {
+                    return;
+                }
+                std::unique_ptr<QWidget> returned(nestedTake.value());
+                auto nestedRegistration = fixture.shell->registerBottomPanel(
+                    zzPanelId("bottom"), QStringLiteral("Replacement"),
+                    zzIcon(), returned.get());
+                nestedRegistrationSucceeded =
+                    static_cast<bool>(nestedRegistration);
+                if (nestedRegistration) {
+                    returned.release();
+                }
+            });
+
+        const auto interruptedShow = fixture.shell->showPanel(
+            zzPanelId("bottom"), true);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(nestedTakeSucceeded);
+        QVERIFY(nestedRegistrationSucceeded);
+        QVERIFY(!interruptedShow);
+        auto replacementTake = fixture.shell->takePanel(zzPanelId("bottom"));
+        QVERIFY(replacementTake);
+        std::unique_ptr<QWidget> returned(replacementTake.value());
+        QCOMPARE(returned.get(), contentRaw);
+        QCOMPARE(returned->parent(), nullptr);
+    }
+
+    void bottomShowStopsBeforeCollapseAfterCurrentWidgetReregistration()
+    {
+        ZzShellFixture fixture;
+        auto target = std::make_unique<QWidget>();
+        QWidget *const targetRaw = target.get();
+        auto other = std::make_unique<QWidget>();
+        QWidget *const otherRaw = other.get();
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("target"), QStringLiteral("Target"), zzIcon(),
+            target.get()));
+        zzReleaseAfterAdoption(target);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("other"), QStringLiteral("Other"), zzIcon(),
+            other.get()));
+        zzReleaseAfterAdoption(other);
+        QCOMPARE(fixture.shell->bottomPane()->currentWidget(), otherRaw);
+        QVERIFY(fixture.shell->bottomPane()->isCollapsed());
+        bool callbackEntered = false;
+        bool nestedTakeSucceeded = false;
+        bool nestedRegistrationSucceeded = false;
+        QObject::connect(
+            fixture.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current != targetRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                auto nestedTake = fixture.shell->takePanel(
+                    zzPanelId("target"));
+                nestedTakeSucceeded = static_cast<bool>(nestedTake);
+                if (!nestedTake) {
+                    return;
+                }
+                std::unique_ptr<QWidget> returned(nestedTake.value());
+                auto nestedRegistration = fixture.shell->registerBottomPanel(
+                    zzPanelId("target"), QStringLiteral("Replacement"),
+                    zzIcon(), returned.get());
+                nestedRegistrationSucceeded =
+                    static_cast<bool>(nestedRegistration);
+                if (nestedRegistration) {
+                    returned.release();
+                }
+            });
+
+        const auto interruptedShow = fixture.shell->showPanel(
+            zzPanelId("target"), true);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(nestedTakeSucceeded);
+        QVERIFY(nestedRegistrationSucceeded);
+        QVERIFY(!interruptedShow);
+        QVERIFY(fixture.shell->bottomPane()->isCollapsed());
+        auto replacementTake = fixture.shell->takePanel(zzPanelId("target"));
+        QVERIFY(replacementTake);
+        std::unique_ptr<QWidget> returned(replacementTake.value());
+        QCOMPARE(returned.get(), targetRaw);
     }
 
     void failedTakePreservesRegisteredSideState()

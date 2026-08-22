@@ -56,6 +56,7 @@ public:
         Qt::DockWidgetArea dockArea = Qt::NoDockWidgetArea;
         QPointer<QWidget> content;
         QWidget *contentIdentity = nullptr;
+        std::uint64_t registrationGeneration = 0;
         QPointer<ZzFluentUI::ZzDockPanel> dock;
         ZzFluentUI::ZzDockPanel *dockIdentity = nullptr;
         QMetaObject::Connection contentDestroyedConnection;
@@ -149,6 +150,22 @@ public:
         const ZzWorkspacePanelId &id,
         QWidget *contentIdentity);
 
+    /** @brief 清理移除事务中已失效的注册，不夺回第三方内容。 */
+    void cleanupInterruptedPanelRemoval(
+        const ZzWorkspacePanelId &id,
+        QWidget *contentIdentity,
+        std::uint64_t registrationGeneration);
+
+    /** @brief 解除 Dock 当前内容，并只在容器稳定为空时销毁容器。 */
+    [[nodiscard]] bool cleanupDockPanel(
+        ZzFluentUI::ZzDockPanel *dockIdentity);
+
+    /** @brief 保留事务记录，并在当前同步回调退出后重试移除清理。 */
+    void scheduleInterruptedPanelRemovalCleanup(
+        const ZzWorkspacePanelId &id,
+        QWidget *contentIdentity,
+        std::uint64_t registrationGeneration);
+
     /** @brief 将 Activity 激活或折叠意图应用到对应 Side Panel。 */
     void activateSidePanel(const QModelIndex &sourceIndex, bool collapse);
 
@@ -156,6 +173,8 @@ public:
     void syncSideEdgeVisibility();
 
     [[nodiscard]] int indexOf(const ZzWorkspacePanelId &id) const noexcept;
+    [[nodiscard]] int stablePanelIndex(
+        const ZzPanelRecord &expected) const noexcept;
     [[nodiscard]] ZzWorkspacePanelId currentSideId(
         ZzFluentUI::ZzSidePane *pane) const;
     [[nodiscard]] ZzLayoutState captureLayoutState() const;
@@ -179,6 +198,7 @@ public:
     QString applicationTitle;
     QString customTitle;
     ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
+    std::uint64_t nextPanelRegistrationGeneration = 0;
     std::uint64_t titleRefreshGeneration = 0;
     QMetaObject::Connection activeTabChangedConnection;
     QMetaObject::Connection activeTabPresentationConnection;
