@@ -570,6 +570,150 @@ private Q_SLOTS:
         QCOMPARE(workspace.tabWidget(sourceId.value())->indexOf(page), 0);
     }
 
+    void replacementSourceWithSameIdIsNotRemoved()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto targetId = workspace.groupIds().constFirst();
+        const auto sourceId = workspace.splitGroup(
+            targetId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(sourceId.has_value());
+        QPointer<ZzFluentUI::ZzTabWidget> originalSource =
+            workspace.tabWidget(sourceId.value());
+        QPointer<ZzFluentUI::ZzTabWidget> replacementSource;
+        auto *page = new QWidget;
+        originalSource->addTab(page, QStringLiteral("Replacement source"));
+        const auto beforeIds = workspace.groupIds();
+        bool replacedSource = false;
+        connect(
+            originalSource,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                for (const auto &id : workspace.groupIds()) {
+                    if (beforeIds.contains(id)) {
+                        continue;
+                    }
+                    auto *temporary = workspace.tabWidget(id);
+                    connect(
+                        temporary,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&](ZzFluentUI::ZzTabWidget *, int, int, QWidget *) {
+                            if (replacedSource) {
+                                return;
+                            }
+                            if (!workspace.removeEmptyGroup(sourceId.value())) {
+                                return;
+                            }
+                            const auto replacementId = workspace.splitGroup(
+                                targetId,
+                                Qt::Horizontal,
+                                ZzFluentUI::ZzSplitPlacement::After,
+                                sourceId.value());
+                            if (!replacementId.has_value()) {
+                                return;
+                            }
+                            replacementSource =
+                                workspace.tabWidget(sourceId.value());
+                            replacedSource = !replacementSource.isNull();
+                        });
+                    return;
+                }
+            });
+
+        QVERIFY(workspace.moveTabToDropZone(
+            sourceId.value(),
+            0,
+            targetId,
+            ZzFluentUI::ZzWorkspaceDropZone::Bottom));
+
+        QVERIFY(replacedSource);
+        QVERIFY(originalSource.isNull());
+        QVERIFY(!replacementSource.isNull());
+        QCOMPARE(
+            workspace.tabWidget(sourceId.value()),
+            replacementSource.data());
+        QCOMPARE(
+            workspace.tabWidget(workspace.activeGroupId())->indexOf(page),
+            0);
+    }
+
+    void replacementTemporaryWithSameIdIsNotRemoved()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        ZzFluentUI::ZzTabWidget thirdParty;
+        const auto targetId = workspace.groupIds().constFirst();
+        const auto sourceId = workspace.splitGroup(
+            targetId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(sourceId.has_value());
+        auto *page = new QWidget;
+        workspace.tabWidget(sourceId.value())->addTab(
+            page, QStringLiteral("Replacement temporary"));
+        const auto beforeIds = workspace.groupIds();
+        ZzFluentUI::ZzTabGroupId temporaryId;
+        QPointer<ZzFluentUI::ZzTabWidget> originalTemporary;
+        QPointer<ZzFluentUI::ZzTabWidget> replacementTemporary;
+        bool replacedTemporary = false;
+        connect(
+            workspace.tabWidget(sourceId.value()),
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                for (const auto &id : workspace.groupIds()) {
+                    if (beforeIds.contains(id)) {
+                        continue;
+                    }
+                    temporaryId = id;
+                    originalTemporary = workspace.tabWidget(id);
+                    connect(
+                        originalTemporary,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&, temporary = originalTemporary](
+                            ZzFluentUI::ZzTabWidget *,
+                            int,
+                            int targetIndex,
+                            QWidget *) {
+                            if (replacedTemporary) {
+                                return;
+                            }
+                            if (!temporary->transferTabTo(
+                                    &thirdParty, targetIndex)
+                                || !workspace.removeEmptyGroup(temporaryId)) {
+                                return;
+                            }
+                            const auto replacementId = workspace.splitGroup(
+                                targetId,
+                                Qt::Vertical,
+                                ZzFluentUI::ZzSplitPlacement::After,
+                                temporaryId);
+                            if (!replacementId.has_value()) {
+                                return;
+                            }
+                            replacementTemporary =
+                                workspace.tabWidget(temporaryId);
+                            replacedTemporary =
+                                !replacementTemporary.isNull();
+                        });
+                    return;
+                }
+            });
+
+        QVERIFY(!workspace.moveTabToDropZone(
+            sourceId.value(),
+            0,
+            targetId,
+            ZzFluentUI::ZzWorkspaceDropZone::Bottom));
+
+        QVERIFY(replacedTemporary);
+        QVERIFY(originalTemporary.isNull());
+        QVERIFY(!replacementTemporary.isNull());
+        QCOMPARE(
+            workspace.tabWidget(temporaryId),
+            replacementTemporary.data());
+        QCOMPARE(thirdParty.indexOf(page), 0);
+    }
+
     void doesNotTakeBackPageClaimedByThirdParty()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;

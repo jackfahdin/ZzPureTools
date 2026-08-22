@@ -479,6 +479,21 @@ ZzWorkspaceTransferResult ZzSplitWorkspacePrivate::moveTabToDropZone(
         if (guardedWorkspace.isNull()) {
             return;
         }
+        ZzNode *const currentTemporaryNode = findLeaf(temporaryId.value());
+        const QPointer<ZzTabWidget> currentTemporaryTabs =
+            currentTemporaryNode != nullptr
+            ? std::get<ZzLeaf>(currentTemporaryNode->value).tabs
+            : QPointer<ZzTabWidget> {};
+        const bool sameTemporaryIdentity = currentTemporaryNode != nullptr
+            && (currentTemporaryTabs == temporaryTabs
+                || (currentTemporaryTabs.isNull()
+                    && temporaryTabs.isNull()));
+        if (!sameTemporaryIdentity) {
+            if (!temporaryTabs.isNull() && temporaryTabs->count() == 0) {
+                delete temporaryTabs.data();
+            }
+            return;
+        }
         if (removeEmptyGroup(temporaryId.value(), false)) {
             delete temporaryTabs.data();
             return;
@@ -547,7 +562,15 @@ ZzWorkspaceTransferResult ZzSplitWorkspacePrivate::moveTabToDropZone(
     }
 
     const ZzTabGroupId activeBeforeSourceRemoval = activeId;
-    if (findLeaf(source) != nullptr) {
+    ZzNode *const currentSourceNode = findLeaf(source);
+    const QPointer<ZzTabWidget> currentSourceTabs =
+        currentSourceNode != nullptr
+        ? std::get<ZzLeaf>(currentSourceNode->value).tabs
+        : QPointer<ZzTabWidget> {};
+    const bool sameSourceIdentity = currentSourceNode != nullptr
+        && (currentSourceTabs == sourceTabs
+            || (currentSourceTabs.isNull() && sourceTabs.isNull()));
+    if (sameSourceIdentity) {
         result.sourceRemoved = removeEmptyGroup(source);
         if (guardedWorkspace.isNull()) {
             result.committed = true;
