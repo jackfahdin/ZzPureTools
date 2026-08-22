@@ -968,11 +968,17 @@ private:
     return nullptr;
   }
 
-  [[nodiscard]] ZzTabGroupId stagedGroupForOwner(
+  [[nodiscard]] ZzTabGroupId transactionGroupForOwner(
       const ZzTabWidget *owner) const {
     for (auto it = m_stagedTabs.cbegin(); it != m_stagedTabs.cend(); ++it) {
       if (!it.value().isNull() && it.value() == owner) {
         return it.key();
+      }
+    }
+    for (const auto &group : m_originalGroups) {
+      if (!group.tabs.isNull() && group.tabs.data() == group.identity &&
+          group.tabs == owner) {
+        return group.id;
       }
     }
     return {};
@@ -1420,8 +1426,22 @@ private:
     if (m_publicWorkspace.isNull() || m_escrowTabs.isNull()) {
       return false;
     }
-    for (const QPointer<ZzTabWidget> &staged : m_stagedTabList) {
-      QPointer<ZzTabWidget> source = staged;
+    std::vector<QPointer<ZzTabWidget>> transactionOwners = m_stagedTabList;
+    transactionOwners.reserve(
+        transactionOwners.size() + m_originalGroups.size());
+    for (const auto &group : m_originalGroups) {
+      if (group.tabs.isNull() || group.tabs.data() != group.identity) {
+        continue;
+      }
+      const auto duplicate = std::find(
+          transactionOwners.cbegin(), transactionOwners.cend(), group.tabs);
+      if (duplicate == transactionOwners.cend()) {
+        transactionOwners.push_back(group.tabs);
+      }
+    }
+
+    for (const QPointer<ZzTabWidget> &owner : transactionOwners) {
+      QPointer<ZzTabWidget> source = owner;
       int index = 0;
       while (!source.isNull() && index < source->count()) {
         const QPointer<QWidget> page = source->widget(index);
@@ -1440,7 +1460,8 @@ private:
             });
         if (alreadyPreserved == m_preservedPages.cend()) {
           m_preservedPages.push_back(
-              {capturePage(source, index), stagedGroupForOwner(source)});
+              {capturePage(source, index),
+               transactionGroupForOwner(source)});
         }
 
         const QPointer<ZzTabWidget> escrow = m_escrowTabs;

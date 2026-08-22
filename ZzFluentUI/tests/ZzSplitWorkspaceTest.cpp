@@ -13,6 +13,7 @@
 #include <QtGui/QDragMoveEvent>
 #include <QtGui/QDropEvent>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
@@ -1423,6 +1424,124 @@ private Q_SLOTS:
         QCOMPARE(
             workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
             tabWidgetBudget);
+    }
+
+    void restoreCommitPreservesPageAddedToOriginalSource()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto groupId = workspace.groupIds().constFirst();
+        QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
+            workspace.tabWidget(groupId);
+        QPointer<QWidget> capturedPage = new QWidget;
+        QPointer<QWidget> addedPage;
+        originalTabs->addTab(capturedPage, QStringLiteral("Captured page"));
+        const QString capturedKey = QStringLiteral("source-add:captured");
+        const QString addedKey = QStringLiteral("source-add:new");
+        QVERIFY(workspace.setPageLayoutKey(capturedPage, capturedKey));
+        const QByteArray saved = workspace.saveLayout();
+        const qsizetype tabWidgetBudget = workspace.findChildren<
+            ZzFluentUI::ZzTabWidget *>().size();
+        const qsizetype widgetBudget =
+            workspace.findChildren<QWidget *>().size();
+        QPixmap addedPixmap(4, 4);
+        addedPixmap.fill(Qt::green);
+        const QIcon addedIcon(addedPixmap);
+
+        bool connectedStaging = false;
+        bool addedToSource = false;
+        bool addedKeySet = false;
+        connect(
+            originalTabs,
+            &QTabWidget::currentChanged,
+            &workspace,
+            [&](int) {
+                if (connectedStaging) {
+                    return;
+                }
+                connectedStaging = true;
+                const auto allTabs = workspace.findChildren<
+                    ZzFluentUI::ZzTabWidget *>();
+                for (ZzFluentUI::ZzTabWidget *tabs : allTabs) {
+                    if (tabs == originalTabs.data()) {
+                        continue;
+                    }
+                    connect(
+                        tabs,
+                        &ZzFluentUI::ZzTabWidget::tabTransferred,
+                        &workspace,
+                        [&](ZzFluentUI::ZzTabWidget *source,
+                            int,
+                            int,
+                            QWidget *transferredPage) {
+                            if (addedToSource
+                                || source != originalTabs.data()
+                                || transferredPage != capturedPage) {
+                                return;
+                            }
+                            addedToSource = true;
+                            addedPage = new QWidget;
+                            const int index = source->addTab(
+                                addedPage,
+                                addedIcon,
+                                QStringLiteral("Added source page"));
+                            source->setTabToolTip(
+                                index, QStringLiteral("Added tooltip"));
+                            source->setTabWhatsThis(
+                                index, QStringLiteral("Added help"));
+                            source->fluentTabBar()->setTabData(
+                                index, QStringLiteral("added-data"));
+                            source->fluentTabBar()->setTabTextColor(
+                                index, QColor(Qt::magenta));
+                            source->setTabEnabled(index, false);
+                            source->setTabPinned(index, true);
+                            const int pinnedIndex = source->indexOf(addedPage);
+                            source->setTabModified(pinnedIndex, true);
+                            source->setTabAttention(pinnedIndex, true);
+                            source->setTabCloseEnabled(pinnedIndex, false);
+                            addedKeySet = workspace.setPageLayoutKey(
+                                addedPage, addedKey);
+                        });
+                }
+            });
+
+        QVERIFY(workspace.restoreLayout(saved));
+        QVERIFY(connectedStaging);
+        QVERIFY(addedToSource);
+        QVERIFY(addedKeySet);
+        QVERIFY(originalTabs.isNull());
+        QVERIFY(!capturedPage.isNull());
+        QVERIFY(!addedPage.isNull());
+        auto *const restoredTabs = workspace.tabWidget(groupId);
+        QVERIFY(restoredTabs != nullptr);
+        QCOMPARE(restoredTabs->indexOf(addedPage), 0);
+        QCOMPARE(restoredTabs->indexOf(capturedPage), 1);
+        QCOMPARE(restoredTabs->currentWidget(), capturedPage.data());
+        QCOMPARE(
+            restoredTabs->tabText(0), QStringLiteral("Added source page"));
+        QCOMPARE(
+            restoredTabs->tabIcon(0).cacheKey(), addedIcon.cacheKey());
+        QCOMPARE(
+            restoredTabs->tabToolTip(0), QStringLiteral("Added tooltip"));
+        QCOMPARE(
+            restoredTabs->tabWhatsThis(0), QStringLiteral("Added help"));
+        QCOMPARE(
+            restoredTabs->fluentTabBar()->tabData(0),
+            QVariant(QStringLiteral("added-data")));
+        QCOMPARE(
+            restoredTabs->fluentTabBar()->tabTextColor(0),
+            QColor(Qt::magenta));
+        QVERIFY(!restoredTabs->isTabEnabled(0));
+        QVERIFY(restoredTabs->isTabPinned(0));
+        QVERIFY(restoredTabs->isTabModified(0));
+        QVERIFY(restoredTabs->hasTabAttention(0));
+        QVERIFY(!restoredTabs->isTabCloseEnabled(0));
+        QCOMPARE(workspace.pageLayoutKey(capturedPage), capturedKey);
+        QCOMPARE(workspace.pageLayoutKey(addedPage), addedKey);
+        QCOMPARE(
+            workspace.findChildren<ZzFluentUI::ZzTabWidget *>().size(),
+            tabWidgetBudget);
+        QCOMPARE(
+            workspace.findChildren<QWidget *>().size(), widgetBudget + 1);
     }
 
     void restoreCallbacksCanUpdateStagedPageLayoutKey()
