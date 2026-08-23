@@ -529,6 +529,41 @@ zzReadSplit(const QByteArray &encoded)
     return expected == actual;
 }
 
+[[nodiscard]] bool zzHasOnlyUnsetCurrentIndexes(
+    const ZzLayoutState::ZzSplitNode &node)
+{
+    if (node.currentIndex != -1) {
+        return false;
+    }
+    return std::all_of(node.children.cbegin(), node.children.cend(),
+        [](const ZzLayoutState::ZzSplitNode &child) {
+            return zzHasOnlyUnsetCurrentIndexes(child);
+        });
+}
+
+[[nodiscard]] bool zzValidateSourceSplit(
+    const ZzLayoutState::ZzLayoutRequest &request,
+    const ZzLayoutState::ZzSplitProjection &split)
+{
+    using ZzSourceSchema = ZzLayoutState::ZzLayoutRequest::ZzSourceSchema;
+    if (request.sourceSchema == ZzSourceSchema::VersionTwo) {
+        return zzHasOnlyUnsetCurrentIndexes(split.root);
+    }
+    if (request.sourceSchema != ZzSourceSchema::VersionOne) {
+        return false;
+    }
+    return split.root.leaf
+        && split.root.groupId == QStringLiteral("legacy-root")
+        && split.root.orientation == Qt::Horizontal
+        && split.root.children.isEmpty()
+        && split.root.sizes.isEmpty()
+        && split.root.currentIndex >= -1
+        && split.activeGroup == QStringLiteral("legacy-root")
+        && split.groupOrder
+            == QStringList({QStringLiteral("legacy-root")})
+        && split.savedPages.isEmpty();
+}
+
 void zzAppendAreaEntries(
     const QStringList &ids,
     ZzFluentUI::ZzActivityArea area,
@@ -672,7 +707,7 @@ void zzPopulateProjectionEntries(
         }
         stream >> area >> order;
         if (stream.status() != QDataStream::Ok || !zzIsAreaValue(area)
-            || order < 0 || order >= static_cast<qint32>(zzMaximumSideEntries)
+            || order < 0
             || ids.contains(entry.id)
             || orders.at(area).contains(order)) {
             return false;
@@ -848,6 +883,8 @@ void zzPopulateProjectionEntries(
     request->leftCurrent = projection.leftSide.current;
     request->rightCurrent = projection.rightSide.current;
     request->projection = std::move(projection);
+    request->sourceSchema =
+        ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionTwo;
     return true;
 }
 
@@ -864,10 +901,20 @@ void zzPopulateProjectionEntries(
     if (entries->size() >= zzMaximumSideEntries) {
         return false;
     }
-    int nextOrder = 0;
+    int maximumOrder = -1;
+    QSet<int> usedOrders;
     for (const ZzSideEntry &entry : std::as_const(*entries)) {
         if (entry.area == area) {
-            nextOrder = std::max(nextOrder, entry.order + 1);
+            maximumOrder = std::max(maximumOrder, entry.order);
+            usedOrders.insert(entry.order);
+        }
+    }
+    int nextOrder = 0;
+    if (maximumOrder < std::numeric_limits<qint32>::max()) {
+        nextOrder = maximumOrder + 1;
+    } else {
+        while (usedOrders.contains(nextOrder)) {
+            ++nextOrder;
         }
     }
     entries->append({current, area, nextOrder});
@@ -954,6 +1001,8 @@ void zzPopulateProjectionEntries(
     request->leftCurrent = projection.leftSide.current;
     request->rightCurrent = projection.rightSide.current;
     request->projection = std::move(projection);
+    request->sourceSchema =
+        ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
     return true;
 }
 
@@ -1000,6 +1049,7 @@ ZzWorkspaceLayoutCodecPrivate::encodeVersionTwo(
         || !zzBuildEntries(projection, &entries)
         || !zzValidateSideReferences(projection, entries)
         || !zzValidateDerivedSideState(request, projection)
+        || !zzValidateSourceSplit(request, projection.split)
         || projection.bottom.height <= 0
         || projection.bottom.height > zzMaximumLayoutSize
         || projection.bottom.current.trimmed().size() > zzMaximumIdLength

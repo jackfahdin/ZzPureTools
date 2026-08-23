@@ -1,6 +1,7 @@
 #include "../widgets/src/private/ZzWorkspaceLayoutCodecPrivate.h"
 
 #include <functional>
+#include <limits>
 #include <optional>
 #include <utility>
 
@@ -340,6 +341,8 @@ private slots:
         QVERIFY(decoded.value().projection.has_value());
         const auto &request = decoded.value();
         const auto &projection = *request.projection;
+        QCOMPARE(request.sourceSchema,
+            ZzState::ZzLayoutRequest::ZzSourceSchema::VersionOne);
         QCOMPARE(request.leftCurrent, QStringLiteral("explorer"));
         QCOMPARE(request.rightCurrent, QStringLiteral("terminal"));
         QCOMPARE(projection.dock.state, QByteArrayLiteral("qt-dock-v1"));
@@ -371,11 +374,155 @@ private slots:
         QVERIFY(migrated);
         const auto decodedAgain = ZzCodec::decode(migrated.value());
         QVERIFY(decodedAgain);
+        QCOMPARE(decodedAgain.value().sourceSchema,
+            ZzState::ZzLayoutRequest::ZzSourceSchema::VersionTwo);
         QCOMPARE(decodedAgain.value().projection->split.root.currentIndex, -1);
         const auto encodedAgain = ZzCodec::encodeVersionTwo(
             decodedAgain.value());
         QVERIFY(encodedAgain);
         QCOMPARE(encodedAgain.value(), migrated.value());
+    }
+
+    void decodesFullRangeSparseSideOrders_data()
+    {
+        QTest::addColumn<QByteArray>("encoded");
+        QTest::addColumn<QStringList>("expectedOrder");
+        QTest::addColumn<QByteArray>("expectedCanonical");
+
+        const QStringList expectedOrder = {
+            QStringLiteral("first"), QStringLiteral("sparse")};
+        const QList<qint32> sparseOrders = {
+            4096, std::numeric_limits<qint32>::max()};
+        for (const qint32 sparseOrder : sparseOrders) {
+            const QList<ZzTestSideEntry> sparseEntries = {
+                {QStringLiteral("sparse"),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary, sparseOrder},
+                {QStringLiteral("first"),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary, 0}};
+            const QList<ZzTestSideEntry> canonicalEntries = {
+                {QStringLiteral("first"),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+                {QStringLiteral("sparse"),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary, 1}};
+
+            auto versionOneCanonical = zzValidVersionTwoLayout();
+            versionOneCanonical.sideEntries = canonicalEntries;
+            versionOneCanonical.splitState = zzSplitLayout(
+                zzLeaf(QStringLiteral("legacy-root")),
+                QStringLiteral("legacy-root"));
+            QTest::newRow(qPrintable(
+                QStringLiteral("v1-order-%1").arg(sparseOrder)))
+                << zzVersionOneLayout({}, true, 280, true, 280, {}, {},
+                       sparseEntries, -1, 0)
+                << expectedOrder
+                << zzVersionTwoLayout(versionOneCanonical);
+
+            auto versionTwo = zzValidVersionTwoLayout();
+            versionTwo.sideEntries = sparseEntries;
+            auto versionTwoCanonical = versionTwo;
+            versionTwoCanonical.sideEntries = canonicalEntries;
+            QTest::newRow(qPrintable(
+                QStringLiteral("v2-order-%1").arg(sparseOrder)))
+                << zzVersionTwoLayout(versionTwo)
+                << expectedOrder
+                << zzVersionTwoLayout(versionTwoCanonical);
+        }
+    }
+
+    void decodesFullRangeSparseSideOrders()
+    {
+        QFETCH(QByteArray, encoded);
+        QFETCH(QStringList, expectedOrder);
+        QFETCH(QByteArray, expectedCanonical);
+
+        const auto decoded = ZzCodec::decode(encoded);
+        QVERIFY(decoded);
+        QCOMPARE(decoded.value().projection->activity.leftPrimary,
+            expectedOrder);
+        const auto canonical = ZzCodec::encodeVersionTwo(decoded.value());
+        QVERIFY(canonical);
+        QCOMPARE(canonical.value(), expectedCanonical);
+        const auto decodedAgain = ZzCodec::decode(canonical.value());
+        QVERIFY(decodedAgain);
+        const auto encodedAgain = ZzCodec::encodeVersionTwo(
+            decodedAgain.value());
+        QVERIFY(encodedAgain);
+        QCOMPARE(encodedAgain.value(), canonical.value());
+    }
+
+    void addsMissingLegacyCurrentWithoutOverflow()
+    {
+        const QByteArray encoded = zzVersionOneLayout(
+            {}, true, 280, true, 280, QStringLiteral("current"), {},
+            {{QStringLiteral("last"),
+                 ZzFluentUI::ZzActivityArea::LeftPrimary,
+                 std::numeric_limits<qint32>::max()}},
+            -1, 0);
+
+        const auto decoded = ZzCodec::decode(encoded);
+        QVERIFY(decoded);
+        QCOMPARE(decoded.value().projection->activity.leftPrimary,
+            QStringList({QStringLiteral("current"), QStringLiteral("last")}));
+
+        auto expected = zzValidVersionTwoLayout();
+        expected.leftCurrent = QStringLiteral("current");
+        expected.leftVisible = {QStringLiteral("current")};
+        expected.leftSizes = {1};
+        expected.sideEntries = {
+            {QStringLiteral("current"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+            {QStringLiteral("last"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 1}};
+        expected.splitState = zzSplitLayout(
+            zzLeaf(QStringLiteral("legacy-root")),
+            QStringLiteral("legacy-root"));
+        const auto canonical = ZzCodec::encodeVersionTwo(decoded.value());
+        QVERIFY(canonical);
+        QCOMPARE(canonical.value(), zzVersionTwoLayout(expected));
+        const auto decodedAgain = ZzCodec::decode(canonical.value());
+        QVERIFY(decodedAgain);
+        const auto encodedAgain = ZzCodec::encodeVersionTwo(
+            decodedAgain.value());
+        QVERIFY(encodedAgain);
+        QCOMPARE(encodedAgain.value(), canonical.value());
+    }
+
+    void rejectsSchemaTwoCurrentIndexInjection_data()
+    {
+        QTest::addColumn<QByteArray>("encoded");
+        QTest::addColumn<bool>("injectChild");
+
+        QTest::newRow("single-leaf")
+            << zzVersionTwoLayout(zzValidVersionTwoLayout()) << false;
+
+        ZzTestSplitNode root;
+        root.leaf = false;
+        root.orientation = Qt::Horizontal;
+        root.children = {
+            zzLeaf(QStringLiteral("first")),
+            zzLeaf(QStringLiteral("second"))};
+        root.sizes = {1, 1};
+        auto multiGroup = zzValidVersionTwoLayout();
+        multiGroup.splitState = zzSplitLayout(
+            root, QStringLiteral("first"));
+        QTest::newRow("multi-group")
+            << zzVersionTwoLayout(multiGroup) << true;
+    }
+
+    void rejectsSchemaTwoCurrentIndexInjection()
+    {
+        QFETCH(QByteArray, encoded);
+        QFETCH(bool, injectChild);
+
+        const auto decoded = ZzCodec::decode(encoded);
+        QVERIFY(decoded);
+        auto injected = decoded.value();
+        if (injectChild) {
+            injected.projection->split.root.children[0].currentIndex = 0;
+        } else {
+            injected.projection->split.root.currentIndex = 0;
+        }
+        QVERIFY(!ZzCodec::encodeVersionTwo(injected));
     }
 
     void roundTripsSchemaTwoWithoutChangingBytesContract()
@@ -421,6 +568,8 @@ private slots:
 
         const auto decoded = ZzCodec::decode(encoded);
         QVERIFY(decoded);
+        QCOMPARE(decoded.value().sourceSchema,
+            ZzState::ZzLayoutRequest::ZzSourceSchema::VersionTwo);
         const auto &projection = *decoded.value().projection;
         QCOMPARE(projection.split.groupOrder,
             QStringList({QStringLiteral("editor"), QStringLiteral("preview")}));
@@ -492,6 +641,11 @@ private slots:
         invalidRequest = valid.value();
         invalidRequest.projection->activity.leftActive.insert(
             QStringLiteral("injected"));
+        QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
+
+        invalidRequest = valid.value();
+        invalidRequest.sourceSchema =
+            ZzState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
         const QByteArray crossSideCurrent = zzVersionOneLayout(

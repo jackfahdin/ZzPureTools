@@ -219,9 +219,18 @@ public:
     /** @brief 保存解码布局中的可选目标和明确的 Side current 请求。 */
     struct ZzLayoutRequest final
     {
+        /** @brief 标记请求源自旧版首次迁移还是当前格式解码。 */
+        enum class ZzSourceSchema : unsigned char
+        {
+            VersionOne = 1,
+            VersionTwo = 2
+        };
+
         std::optional<ZzWorkspaceProjection> projection;
         QString leftCurrent;
         QString rightCurrent;
+        /** @brief 限制仅旧版解码请求可携带首次迁移的标签页索引。 */
+        ZzSourceSchema sourceSchema = ZzSourceSchema::VersionTwo;
     };
 
     /** @brief 保存一次 Activity 面板移动请求。 */
