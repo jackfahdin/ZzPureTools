@@ -4,10 +4,20 @@
 
 #include <QtCore/QByteArray>
 #include <QtCore/QList>
+#include <QtCore/QObject>
+#include <QtCore/QPointer>
+#include <QtCore/QSet>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
+#include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzActivityArea.h>
+
+namespace ZzFluentUI {
+
+class ZzDockPanel;
+
+} // namespace ZzFluentUI
 
 namespace ZzPureTools {
 
@@ -32,23 +42,53 @@ public:
         Custom
     };
 
-    /** @brief 保存不依赖 QWidget 的面板身份。 */
+    /** @brief 保存任意 QObject 子系统的受保护身份。 */
+    struct ZzSubsystemIdentity final
+    {
+        QPointer<QObject> object;
+        QObject *rawObject = nullptr;
+
+        [[nodiscard]] bool operator==(
+            const ZzSubsystemIdentity &) const = default;
+    };
+
+    /** @brief 保存已注册面板的运行时身份与注册代次。 */
     struct ZzPanelIdentity final
     {
         QString id;
         ZzPanelKind kind = ZzPanelKind::Side;
+        QPointer<QWidget> widget;
+        QWidget *rawWidget = nullptr;
+        quint64 registrationGeneration = 0;
+        QPointer<QObject> dock;
+        ZzFluentUI::ZzDockPanel *rawDock = nullptr;
 
         [[nodiscard]] bool operator==(const ZzPanelIdentity &) const = default;
+    };
+
+    /** @brief 记录内容所属 stack 及从 Pane 到 stack 的祖先身份要求。 */
+    struct ZzContentPlacement final
+    {
+        QString panelId;
+        ZzSubsystemIdentity stackIdentity;
+        QList<ZzSubsystemIdentity> ancestry;
+
+        [[nodiscard]] bool operator==(
+            const ZzContentPlacement &) const = default;
     };
 
     /** @brief 保存单个物理侧栏的目标状态。 */
     struct ZzSideProjection final
     {
+        ZzSubsystemIdentity paneIdentity;
+        ZzSubsystemIdentity stackIdentity;
         QStringList order;
         QStringList visible;
+        QList<int> sizes;
         QString current;
         bool collapsed = true;
         int width = 280;
+        QList<ZzContentPlacement> contents;
 
         [[nodiscard]] bool operator==(const ZzSideProjection &) const = default;
     };
@@ -56,30 +96,74 @@ public:
     /** @brief 保存中央底部面板的目标状态。 */
     struct ZzBottomProjection final
     {
+        ZzSubsystemIdentity paneIdentity;
+        ZzSubsystemIdentity stackIdentity;
         QStringList order;
         QStringList visible;
         QString current;
         bool collapsed = true;
         int height = 0;
+        QList<ZzContentPlacement> contents;
 
         [[nodiscard]] bool operator==(const ZzBottomProjection &) const = default;
     };
 
-    /** @brief 保存原生 Dock 的无 QWidget 布局投影。 */
+    /** @brief 保存一个 Dock、内容及其实际宿主的完整状态。 */
+    struct ZzDockPlacement final
+    {
+        ZzPanelIdentity panel;
+        Qt::DockWidgetArea area = Qt::NoDockWidgetArea;
+        bool floating = false;
+        bool visible = false;
+        ZzSubsystemIdentity actualOwnerIdentity;
+
+        [[nodiscard]] bool operator==(
+            const ZzDockPlacement &) const = default;
+    };
+
+    /** @brief 保存原生 Dock 的可序列化状态和运行时身份。 */
     struct ZzDockProjection final
     {
         QByteArray state;
         QStringList visible;
+        QList<ZzDockPlacement> docks;
 
         [[nodiscard]] bool operator==(const ZzDockProjection &) const = default;
     };
 
-    /** @brief 保存中央分屏中可见组及其 splitter 尺寸。 */
-    struct ZzSplitProjection final
+    /** @brief 保存规范化 Split 树中的一个 leaf 或 branch。 */
+    struct ZzSplitNode final
     {
-        QStringList visible;
+        bool leaf = true;
+        QString groupId;
+        Qt::Orientation orientation = Qt::Horizontal;
+        QList<ZzSplitNode> children;
         QList<int> sizes;
         int currentIndex = -1;
+
+        [[nodiscard]] bool operator==(const ZzSplitNode &) const = default;
+    };
+
+    /** @brief 保存 keyed Split 页面在目标组中的稳定位置。 */
+    struct ZzSplitSavedPage final
+    {
+        QString key;
+        QString groupId;
+        int order = 0;
+        bool current = false;
+
+        [[nodiscard]] bool operator==(
+            const ZzSplitSavedPage &) const = default;
+    };
+
+    /** @brief 保存 Split 递归树、页面映射与 canonical blob。 */
+    struct ZzSplitProjection final
+    {
+        ZzSplitNode root;
+        QString activeGroup;
+        QStringList groupOrder;
+        QList<ZzSplitSavedPage> savedPages;
+        QByteArray canonicalState;
 
         [[nodiscard]] bool operator==(const ZzSplitProjection &) const = default;
     };
@@ -87,12 +171,15 @@ public:
     /** @brief 保存四个 Activity 分组和由 Side 推导的当前项。 */
     struct ZzActivityProjection final
     {
+        ZzSubsystemIdentity modelIdentity;
         QStringList leftPrimary;
         QStringList leftSecondary;
         QStringList rightPrimary;
         QStringList rightSecondary;
         QString leftCurrent;
         QString rightCurrent;
+        QSet<QString> leftActive;
+        QSet<QString> rightActive;
 
         [[nodiscard]] bool operator==(const ZzActivityProjection &) const = default;
     };
@@ -103,6 +190,8 @@ public:
         ZzTitleMode mode = ZzTitleMode::Application;
         QString applicationTitle;
         QString customTitle;
+        QString hostTitle;
+        QString titleBarTitle;
 
         [[nodiscard]] bool operator==(const ZzTitleProjection &) const = default;
     };
@@ -110,6 +199,7 @@ public:
     /** @brief 描述一次布局应用所需的全部目标值。 */
     struct ZzWorkspaceProjection
     {
+        QList<ZzPanelIdentity> identities;
         ZzSideProjection leftSide;
         ZzSideProjection rightSide;
         ZzBottomProjection bottom;
@@ -124,7 +214,6 @@ public:
     /** @brief 记录规划开始时的投影和已注册面板身份。 */
     struct ZzWorkspaceSnapshot final : ZzWorkspaceProjection
     {
-        QList<ZzPanelIdentity> identities;
     };
 
     /** @brief 保存解码布局中的可选目标和明确的 Side current 请求。 */
