@@ -19,6 +19,212 @@ void zzUniqueNonEmpty(QStringList *ids)
     *ids = std::move(unique);
 }
 
+QStringList zzRegisteredSideIds(
+    const ZzLayoutState::ZzWorkspaceSnapshot &snapshot)
+{
+    QStringList ids;
+    for (const ZzLayoutState::ZzPanelIdentity &identity : snapshot.identities) {
+        if (identity.kind == ZzLayoutState::ZzPanelKind::Side
+            && !identity.id.isEmpty() && !ids.contains(identity.id)) {
+            ids.append(identity.id);
+        }
+    }
+    for (const QStringList *order : {
+             &snapshot.leftSide.order, &snapshot.rightSide.order}) {
+        for (const QString &id : *order) {
+            const auto matchingIdentity = std::find_if(
+                snapshot.identities.cbegin(), snapshot.identities.cend(),
+                [&id](const ZzLayoutState::ZzPanelIdentity &identity) {
+                    return identity.id == id;
+                });
+            if (!id.isEmpty() && !ids.contains(id)
+                && matchingIdentity == snapshot.identities.cend()) {
+                ids.append(id);
+            }
+        }
+    }
+    return ids;
+}
+
+void zzFilterRequestedSideOrder(
+    QStringList *order,
+    const QStringList &registeredIds,
+    QStringList *claimedIds)
+{
+    QStringList filtered;
+    filtered.reserve(order->size());
+    for (const QString &id : std::as_const(*order)) {
+        if (registeredIds.contains(id) && !claimedIds->contains(id)) {
+            filtered.append(id);
+            claimedIds->append(id);
+        }
+    }
+    *order = std::move(filtered);
+}
+
+void zzFilterRequestedSideVisibility(
+    ZzLayoutState::ZzSideProjection *side)
+{
+    QStringList visible;
+    QList<int> sizes;
+    visible.reserve(side->visible.size());
+    sizes.reserve(side->visible.size());
+    for (qsizetype index = 0; index < side->visible.size(); ++index) {
+        const QString &id = side->visible.at(index);
+        if (!side->order.contains(id) || visible.contains(id)) {
+            continue;
+        }
+        visible.append(id);
+        sizes.append(index < side->sizes.size()
+                ? side->sizes.at(index) : 1);
+    }
+    side->visible = std::move(visible);
+    side->sizes = std::move(sizes);
+}
+
+qsizetype zzSnapshotInsertionIndex(
+    const QStringList &targetOrder,
+    const QStringList &snapshotOrder,
+    const QString &id)
+{
+    const qsizetype snapshotIndex = snapshotOrder.indexOf(id);
+    for (qsizetype index = snapshotIndex + 1;
+         index < snapshotOrder.size(); ++index) {
+        const qsizetype targetIndex = targetOrder.indexOf(
+            snapshotOrder.at(index));
+        if (targetIndex >= 0) {
+            return targetIndex;
+        }
+    }
+    for (qsizetype index = snapshotIndex; index > 0; --index) {
+        const qsizetype targetIndex = targetOrder.indexOf(
+            snapshotOrder.at(index - 1));
+        if (targetIndex >= 0) {
+            return targetIndex + 1;
+        }
+    }
+    return targetOrder.size();
+}
+
+int zzSnapshotPanelSize(
+    const ZzLayoutState::ZzSideProjection &side,
+    const QString &id)
+{
+    const qsizetype index = side.visible.indexOf(id);
+    return index >= 0 && index < side.sizes.size()
+        ? side.sizes.at(index) : 1;
+}
+
+void zzRestoreOmittedSidePanels(
+    ZzLayoutState::ZzSideProjection *targetSide,
+    const ZzLayoutState::ZzSideProjection &snapshotSide,
+    const QStringList &registeredIds,
+    QStringList *claimedIds,
+    QStringList *omittedIds)
+{
+    for (const QString &id : snapshotSide.order) {
+        if (!registeredIds.contains(id) || claimedIds->contains(id)) {
+            continue;
+        }
+        const qsizetype orderIndex = zzSnapshotInsertionIndex(
+            targetSide->order, snapshotSide.order, id);
+        targetSide->order.insert(orderIndex, id);
+        claimedIds->append(id);
+        omittedIds->append(id);
+
+        if (!snapshotSide.visible.contains(id)) {
+            continue;
+        }
+        const qsizetype visibleIndex = zzSnapshotInsertionIndex(
+            targetSide->visible, snapshotSide.visible, id);
+        targetSide->visible.insert(visibleIndex, id);
+        targetSide->sizes.insert(
+            visibleIndex, zzSnapshotPanelSize(snapshotSide, id));
+    }
+}
+
+void zzFilterActivityRows(
+    QStringList *rows,
+    const QStringList &sideOrder,
+    QStringList *claimedIds)
+{
+    QStringList filtered;
+    filtered.reserve(rows->size());
+    for (const QString &id : std::as_const(*rows)) {
+        if (sideOrder.contains(id) && !claimedIds->contains(id)) {
+            filtered.append(id);
+            claimedIds->append(id);
+        }
+    }
+    *rows = std::move(filtered);
+}
+
+void zzRestoreOmittedActivityRow(
+    ZzLayoutState::ZzWorkspaceProjection *target,
+    const ZzLayoutState::ZzWorkspaceSnapshot &snapshot,
+    const QString &id,
+    QStringList *claimedIds)
+{
+    if (claimedIds->contains(id)) {
+        return;
+    }
+    QStringList *targetRows = nullptr;
+    const QStringList *snapshotRows = nullptr;
+    if (snapshot.activity.leftPrimary.contains(id)) {
+        targetRows = &target->activity.leftPrimary;
+        snapshotRows = &snapshot.activity.leftPrimary;
+    } else if (snapshot.activity.leftSecondary.contains(id)) {
+        targetRows = &target->activity.leftSecondary;
+        snapshotRows = &snapshot.activity.leftSecondary;
+    } else if (snapshot.activity.rightPrimary.contains(id)) {
+        targetRows = &target->activity.rightPrimary;
+        snapshotRows = &snapshot.activity.rightPrimary;
+    } else if (snapshot.activity.rightSecondary.contains(id)) {
+        targetRows = &target->activity.rightSecondary;
+        snapshotRows = &snapshot.activity.rightSecondary;
+    }
+    if (targetRows == nullptr || snapshotRows == nullptr) {
+        return;
+    }
+    targetRows->insert(
+        zzSnapshotInsertionIndex(*targetRows, *snapshotRows, id), id);
+    claimedIds->append(id);
+}
+
+void zzReconcileSerializedSideProjection(
+    ZzLayoutState::ZzWorkspaceProjection *target,
+    const ZzLayoutState::ZzWorkspaceSnapshot &snapshot)
+{
+    const QStringList registeredIds = zzRegisteredSideIds(snapshot);
+    QStringList claimedIds;
+    zzFilterRequestedSideOrder(
+        &target->leftSide.order, registeredIds, &claimedIds);
+    zzFilterRequestedSideOrder(
+        &target->rightSide.order, registeredIds, &claimedIds);
+    zzFilterRequestedSideVisibility(&target->leftSide);
+    zzFilterRequestedSideVisibility(&target->rightSide);
+
+    QStringList omittedIds;
+    zzRestoreOmittedSidePanels(&target->leftSide, snapshot.leftSide,
+        registeredIds, &claimedIds, &omittedIds);
+    zzRestoreOmittedSidePanels(&target->rightSide, snapshot.rightSide,
+        registeredIds, &claimedIds, &omittedIds);
+
+    QStringList claimedActivityIds;
+    zzFilterActivityRows(&target->activity.leftPrimary,
+        target->leftSide.order, &claimedActivityIds);
+    zzFilterActivityRows(&target->activity.leftSecondary,
+        target->leftSide.order, &claimedActivityIds);
+    zzFilterActivityRows(&target->activity.rightPrimary,
+        target->rightSide.order, &claimedActivityIds);
+    zzFilterActivityRows(&target->activity.rightSecondary,
+        target->rightSide.order, &claimedActivityIds);
+    for (const QString &id : std::as_const(omittedIds)) {
+        zzRestoreOmittedActivityRow(
+            target, snapshot, id, &claimedActivityIds);
+    }
+}
+
 void zzNormalizeSide(ZzLayoutState::ZzSideProjection *side)
 {
     zzUniqueNonEmpty(&side->order);
@@ -332,6 +538,9 @@ ZzWorkspaceLayoutStatePrivate::buildRestoreTarget(
 {
     ZzWorkspaceProjection target = request.projection.value_or(
         static_cast<const ZzWorkspaceProjection &>(snapshot));
+    if (request.projection.has_value()) {
+        zzReconcileSerializedSideProjection(&target, snapshot);
+    }
     const auto selectSideCurrent = [](ZzSideProjection *side,
                                        const QString &requestedCurrent,
                                        const QString &snapshotCurrent) {

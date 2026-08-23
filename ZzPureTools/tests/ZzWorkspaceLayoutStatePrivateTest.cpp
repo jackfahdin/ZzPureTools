@@ -212,6 +212,10 @@ private slots:
         auto changed = *target;
         changed.activity.leftActive.remove(QStringLiteral("search"));
         QVERIFY(!ZzLayoutState::equals(*target, changed));
+
+        changed = *target;
+        changed.activity.rightActive.remove(QStringLiteral("terminal"));
+        QVERIFY(!ZzLayoutState::equals(*target, changed));
     }
 
     void splitProjectionPreservesNormalizedTreeAndSavedPages()
@@ -488,6 +492,134 @@ private slots:
             quint64(5));
         QCOMPARE(target->leftSide.width, 280);
         QCOMPARE(target->leftSide.sizes, QList<int>({260}));
+    }
+
+    void serializedProjectionReconcilesRegisteredSidePanels()
+    {
+        using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
+
+        QObject leftPane;
+        QObject leftStack;
+        QObject rightPane;
+        QObject rightStack;
+        ZzLayoutState::ZzPanelIdentity explorer;
+        explorer.id = QStringLiteral("explorer");
+        explorer.kind = ZzLayoutState::ZzPanelKind::Side;
+        ZzLayoutState::ZzPanelIdentity search;
+        search.id = QStringLiteral("search");
+        search.kind = ZzLayoutState::ZzPanelKind::Side;
+        ZzLayoutState::ZzPanelIdentity terminal;
+        terminal.id = QStringLiteral("terminal");
+        terminal.kind = ZzLayoutState::ZzPanelKind::Side;
+
+        ZzLayoutState::ZzWorkspaceSnapshot snapshot;
+        snapshot.identities = {explorer, search, terminal};
+        snapshot.leftSide.paneIdentity = {&leftPane, &leftPane};
+        snapshot.leftSide.stackIdentity = {&leftStack, &leftStack};
+        snapshot.leftSide.order = {
+            QStringLiteral("explorer"), QStringLiteral("search")};
+        snapshot.leftSide.visible = {
+            QStringLiteral("explorer"), QStringLiteral("search")};
+        snapshot.leftSide.sizes = {240, 180};
+        snapshot.leftSide.current = QStringLiteral("explorer");
+        snapshot.leftSide.collapsed = false;
+        snapshot.leftSide.width = 300;
+        snapshot.leftSide.contents = {
+            {QStringLiteral("explorer"), {&leftStack, &leftStack},
+                {{&leftPane, &leftPane}, {&leftStack, &leftStack}}},
+            {QStringLiteral("search"), {&leftStack, &leftStack},
+                {{&leftPane, &leftPane}, {&leftStack, &leftStack}}}};
+        snapshot.rightSide.paneIdentity = {&rightPane, &rightPane};
+        snapshot.rightSide.stackIdentity = {&rightStack, &rightStack};
+        snapshot.rightSide.order = {QStringLiteral("terminal")};
+        snapshot.rightSide.visible = {QStringLiteral("terminal")};
+        snapshot.rightSide.sizes = {360};
+        snapshot.rightSide.current = QStringLiteral("terminal");
+        snapshot.rightSide.collapsed = false;
+        snapshot.rightSide.width = 380;
+        snapshot.rightSide.contents = {
+            {QStringLiteral("terminal"), {&rightStack, &rightStack},
+                {{&rightPane, &rightPane}, {&rightStack, &rightStack}}}};
+        snapshot.activity.leftPrimary = {
+            QStringLiteral("explorer"), QStringLiteral("search")};
+        snapshot.activity.rightPrimary = {QStringLiteral("terminal")};
+        snapshot.activity.leftCurrent = QStringLiteral("explorer");
+        snapshot.activity.rightCurrent = QStringLiteral("terminal");
+        snapshot.activity.leftActive = {
+            QStringLiteral("explorer"), QStringLiteral("search")};
+        snapshot.activity.rightActive = {QStringLiteral("terminal")};
+
+        ZzLayoutState::ZzLayoutRequest request;
+        request.projection.emplace();
+        request.projection->leftSide.order = {
+            QStringLiteral("search"), QStringLiteral("ghost")};
+        request.projection->leftSide.visible = {
+            QStringLiteral("search"), QStringLiteral("ghost")};
+        request.projection->leftSide.sizes = {190, 999};
+        request.projection->leftSide.current = QStringLiteral("ghost");
+        request.projection->leftSide.collapsed = false;
+        request.projection->leftSide.width = 320;
+        request.projection->leftSide.contents = {
+            {QStringLiteral("search"), {}, {}},
+            {QStringLiteral("ghost"), {}, {}}};
+        request.projection->rightSide.order = {
+            QStringLiteral("terminal"), QStringLiteral("ghost")};
+        request.projection->rightSide.visible = {
+            QStringLiteral("terminal"), QStringLiteral("ghost")};
+        request.projection->rightSide.sizes = {420, 998};
+        request.projection->rightSide.current = QStringLiteral("ghost");
+        request.projection->rightSide.collapsed = false;
+        request.projection->rightSide.width = 400;
+        request.projection->rightSide.contents = {
+            {QStringLiteral("terminal"), {}, {}},
+            {QStringLiteral("ghost"), {}, {}}};
+        request.projection->activity.leftPrimary = {
+            QStringLiteral("search"), QStringLiteral("ghost")};
+        request.projection->activity.rightPrimary = {
+            QStringLiteral("terminal"), QStringLiteral("ghost")};
+        request.projection->activity.leftCurrent = QStringLiteral("ghost");
+        request.projection->activity.rightCurrent = QStringLiteral("ghost");
+        request.projection->activity.leftActive = {
+            QStringLiteral("search"), QStringLiteral("ghost")};
+        request.projection->activity.rightActive = {
+            QStringLiteral("terminal"), QStringLiteral("ghost")};
+
+        const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.order,
+            QStringList({QStringLiteral("explorer"),
+                QStringLiteral("search")}));
+        QCOMPARE(target->leftSide.visible,
+            QStringList({QStringLiteral("explorer"),
+                QStringLiteral("search")}));
+        QCOMPARE(target->leftSide.sizes, QList<int>({240, 190}));
+        QCOMPARE(target->leftSide.current, QStringLiteral("explorer"));
+        QCOMPARE(target->leftSide.contents.size(), 2);
+        QCOMPARE(target->leftSide.contents.at(0).panelId,
+            QStringLiteral("explorer"));
+        QCOMPARE(target->leftSide.contents.at(1).panelId,
+            QStringLiteral("search"));
+        QCOMPARE(target->rightSide.order,
+            QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(target->rightSide.visible,
+            QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(target->rightSide.sizes, QList<int>({420}));
+        QCOMPARE(target->rightSide.current, QStringLiteral("terminal"));
+        QCOMPARE(target->rightSide.contents.size(), 1);
+        QCOMPARE(target->rightSide.contents.constFirst().panelId,
+            QStringLiteral("terminal"));
+        QCOMPARE(target->activity.leftPrimary,
+            QStringList({QStringLiteral("explorer"),
+                QStringLiteral("search")}));
+        QCOMPARE(target->activity.rightPrimary,
+            QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(target->activity.leftCurrent, QStringLiteral("explorer"));
+        QCOMPARE(target->activity.rightCurrent, QStringLiteral("terminal"));
+        QCOMPARE(target->activity.leftActive,
+            QSet<QString>({QStringLiteral("explorer"),
+                QStringLiteral("search")}));
+        QCOMPARE(target->activity.rightActive,
+            QSet<QString>({QStringLiteral("terminal")}));
     }
 
     void invalidMoveReturnsNullopt()
