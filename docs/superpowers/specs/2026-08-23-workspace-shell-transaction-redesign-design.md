@@ -198,9 +198,13 @@ Activity rows 和 title mode。模拟器和执行器必须使用同一组显式�
 5. 验证目标自身满足数量、唯一性、owner 和尺寸不变量；
 6. 设置 `layoutRestoreInProgress` RAII 门。
 
-所有 Shell panel mutation API，包括 Side/Bottom/Dock 注册、take/remove、show、Activity move
-和递归 restore，在门开启时返回 `InvalidState`。Badge、窗口置顶等不改变布局注册或 owner
-的入口是否允许，必须由实现计划逐项固定并测试，不能靠 switch 的 default 分支决定。
+所有返回 `ZzResult` 且会读取或修改布局的 Shell API，包括 Side/Bottom/Dock 注册、
+take/remove、show、badge、save 和递归 restore，在门开启时返回 `InvalidState`；内部
+Activity activate/move 意图在门开启时不执行 mutation。`setAlwaysOnTop()`、应用标题和
+自定义标题不属于持久化布局，可以在事务期间修改并保留。公开 `setTitleMode()` 是不能返回
+错误的既有 `void` API，因此同步回调中的外部调用允许执行，但最终 title mode 审计必须
+检测偏差并使外层恢复进入回滚；事务执行器设置目标 title mode 时直接使用 Private 入口，
+不能经过公开重入路径。
 
 ### 7.2 Commit
 
