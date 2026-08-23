@@ -61,6 +61,7 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzApplicationWindowPrivate.cpp
     widgets/src/ZzWorkspacePanelId.cpp
     widgets/src/ZzWorkspaceShell.cpp
+    widgets/src/private/ZzWorkspaceLayoutCodecPrivate.cpp
     widgets/src/private/ZzWorkspaceLayoutStatePrivate.cpp
     widgets/src/private/ZzWorkspaceShellPrivate.cpp
 )

@@ -73,6 +73,28 @@ set_tests_properties(puretools.workspace-layout-state-private PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzWorkspaceLayoutCodecPrivateTest
+    ZzWorkspaceLayoutCodecPrivateTest.cpp
+    ../widgets/src/private/ZzWorkspaceLayoutCodecPrivate.cpp
+    ../widgets/src/private/ZzWorkspaceLayoutStatePrivate.cpp
+)
+target_link_libraries(ZzWorkspaceLayoutCodecPrivateTest PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::Widgets
+    Zz::Core
+    Zz::FluentFoundation
+)
+set_target_properties(ZzWorkspaceLayoutCodecPrivateTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceLayoutCodecPrivateTest)
+zz_enable_sanitizers(ZzWorkspaceLayoutCodecPrivateTest)
+add_test(NAME puretools.workspace-layout-codec-private
+    COMMAND ZzWorkspaceLayoutCodecPrivateTest)
+set_tests_properties(puretools.workspace-layout-codec-private PROPERTIES
+    LABELS "unit;puretools;workspace"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzWorkspaceScreenshotTest ZzWorkspaceScreenshotTest.cpp)
 target_link_libraries(ZzWorkspaceScreenshotTest PRIVATE
     Qt6::Test
