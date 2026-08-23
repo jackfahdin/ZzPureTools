@@ -8,7 +8,6 @@
 #include <QtCore/QStringList>
 
 #include <ZzFluentUI/ZzActivityArea.h>
-#include <ZzPureTools/ZzWorkspaceTitleMode.h>
 
 namespace ZzPureTools {
 
@@ -22,6 +21,15 @@ public:
         Side,
         Bottom,
         Dock
+    };
+
+    /** @brief 指定标题投影使用的纯值组合策略。 */
+    enum class ZzTitleMode : unsigned char
+    {
+        Application,
+        CurrentTab,
+        CurrentTabAndApplication,
+        Custom
     };
 
     /** @brief 保存不依赖 QWidget 的面板身份。 */
@@ -92,7 +100,7 @@ public:
     /** @brief 保存标题策略及其纯值输入。 */
     struct ZzTitleProjection final
     {
-        ZzWorkspaceTitleMode mode = ZzWorkspaceTitleMode::Application;
+        ZzTitleMode mode = ZzTitleMode::Application;
         QString applicationTitle;
         QString customTitle;
 

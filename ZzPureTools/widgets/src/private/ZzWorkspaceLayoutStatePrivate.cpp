@@ -150,14 +150,22 @@ ZzWorkspaceLayoutStatePrivate::buildRestoreTarget(
 {
     ZzWorkspaceProjection target = request.projection.value_or(
         static_cast<const ZzWorkspaceProjection &>(snapshot));
-    if (!request.leftCurrent.isEmpty()
-        && target.leftSide.visible.contains(request.leftCurrent)) {
-        target.leftSide.current = request.leftCurrent;
-    }
-    if (!request.rightCurrent.isEmpty()
-        && target.rightSide.visible.contains(request.rightCurrent)) {
-        target.rightSide.current = request.rightCurrent;
-    }
+    const auto selectSideCurrent = [](ZzSideProjection *side,
+                                       const QString &requestedCurrent,
+                                       const QString &snapshotCurrent) {
+        if (!requestedCurrent.isEmpty()
+            && side->visible.contains(requestedCurrent)) {
+            side->current = requestedCurrent;
+        } else if (side->visible.contains(snapshotCurrent)) {
+            side->current = snapshotCurrent;
+        } else {
+            side->current.clear();
+        }
+    };
+    selectSideCurrent(
+        &target.leftSide, request.leftCurrent, snapshot.leftSide.current);
+    selectSideCurrent(
+        &target.rightSide, request.rightCurrent, snapshot.rightSide.current);
     zzNormalizeTarget(&target);
     return target;
 }

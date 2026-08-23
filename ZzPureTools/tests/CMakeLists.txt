@@ -63,9 +63,6 @@ target_link_libraries(ZzWorkspaceLayoutStatePrivateTest PRIVATE
     Qt6::Widgets
     Zz::FluentFoundation
 )
-target_include_directories(ZzWorkspaceLayoutStatePrivateTest PRIVATE
-    ../widgets/include
-)
 set_target_properties(ZzWorkspaceLayoutStatePrivateTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceLayoutStatePrivateTest)
 zz_enable_sanitizers(ZzWorkspaceLayoutStatePrivateTest)

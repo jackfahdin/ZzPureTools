@@ -49,6 +49,27 @@ private slots:
         QCOMPARE(target->leftSide.current, QStringLiteral("two"));
     }
 
+    void projectionFallbackUsesSnapshotPaneCurrent()
+    {
+        using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
+
+        ZzLayoutState::ZzWorkspaceSnapshot snapshot;
+        snapshot.leftSide.order = {QStringLiteral("one"), QStringLiteral("two")};
+        snapshot.leftSide.visible = {QStringLiteral("one"), QStringLiteral("two")};
+        snapshot.leftSide.current = QStringLiteral("two");
+        snapshot.activity.leftCurrent = QStringLiteral("activity-current");
+
+        ZzLayoutState::ZzLayoutRequest request;
+        request.projection = static_cast<ZzLayoutState::ZzWorkspaceProjection>(
+            snapshot);
+        request.projection->leftSide.current = QStringLiteral("one");
+        request.leftCurrent = QStringLiteral("unknown");
+
+        const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.current, QStringLiteral("two"));
+    }
+
     void moveTargetDoesNotChangeWhenObservedStateChanges()
     {
         using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
@@ -109,15 +130,14 @@ private slots:
     {
         using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
 
-        const auto snapshot = zzTwoSideSnapshot();
-        ZzLayoutState::ZzLayoutRequest request;
-        request.leftCurrent = QStringLiteral("explorer");
-        request.rightCurrent = QStringLiteral("terminal");
+        auto snapshot = zzTwoSideSnapshot();
+        snapshot.activity.leftCurrent = QStringLiteral("stale-left");
+        snapshot.activity.rightCurrent = QStringLiteral("stale-right");
 
-        const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
+        const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QCOMPARE(target->activity.leftCurrent, target->leftSide.current);
-        QCOMPARE(target->activity.rightCurrent, target->rightSide.current);
+        QCOMPARE(target->activity.leftCurrent, QStringLiteral("explorer"));
+        QCOMPARE(target->activity.rightCurrent, QStringLiteral("terminal"));
     }
 
     void invalidMoveReturnsNullopt()
