@@ -43,6 +43,7 @@ private:
         bool strict);
 
     ZzWorkspaceShellPrivate &shell_;
+    QString movedId_;
 };
 
 } // namespace ZzPureTools

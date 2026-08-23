@@ -4,8 +4,11 @@
 #include <utility>
 
 #include <QtCore/QAbstractListModel>
+#include <QtCore/QEvent>
+#include <QtCore/QHash>
 #include <QtCore/QModelIndex>
 #include <QtCore/QPointer>
+#include <QtCore/QSet>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzActivityBar.h>
@@ -21,6 +24,174 @@ using ZzLayoutState = ZzWorkspaceLayoutStatePrivate;
 using ZzProjection = ZzLayoutState::ZzWorkspaceProjection;
 using ZzSnapshot = ZzLayoutState::ZzWorkspaceSnapshot;
 using ZzSide = ZzLayoutState::ZzSideProjection;
+
+struct ZzAuditIndex final
+{
+    QHash<QString, int> recordRows;
+    QHash<QString, qsizetype> identityRows;
+    QHash<QWidget *, QString> idsByWidget;
+    QHash<QString, ZzFluentUI::ZzActivityArea> areas;
+    QHash<QString, int> modelRows;
+    QSet<QString> visibleIds;
+    QHash<QString, QPointer<QWidget>> frames;
+    QHash<QString, QWidget *> rawFrames;
+    bool valid = true;
+};
+
+class ZzMutationObserver final : public QObject
+{
+public:
+    explicit ZzMutationObserver(
+        ZzWorkspaceShellPrivate &shell,
+        const ZzProjection &projection)
+    {
+        watchedContents_.reserve(projection.identities.size());
+        for (const auto &identity : projection.identities) {
+            if (identity.widget == nullptr) {
+                continue;
+            }
+            watchedContents_.append(identity.widget);
+            identity.widget->installEventFilter(this);
+            QObject::connect(
+                identity.widget, &QObject::destroyed,
+                this, [this] { valid_ = false; });
+        }
+        watchStack(shell.leftSidePane != nullptr
+                ? shell.leftSidePane->panelStack() : nullptr);
+        watchStack(shell.rightSidePane != nullptr
+                ? shell.rightSidePane->panelStack() : nullptr);
+        if (shell.activityModel != nullptr) {
+            QObject::connect(
+                shell.activityModel, &QAbstractItemModel::modelReset,
+                this, [this] {
+                    if (allowedModelResets_ > 0) {
+                        --allowedModelResets_;
+                    } else {
+                        valid_ = false;
+                    }
+                });
+            const auto invalidate = [this] { valid_ = false; };
+            QObject::connect(
+                shell.activityModel, &QAbstractItemModel::rowsInserted,
+                this, invalidate);
+            QObject::connect(
+                shell.activityModel, &QAbstractItemModel::rowsRemoved,
+                this, invalidate);
+            QObject::connect(
+                shell.activityModel, &QAbstractItemModel::rowsMoved,
+                this, invalidate);
+            QObject::connect(
+                shell.activityModel, &QAbstractItemModel::layoutChanged,
+                this, invalidate);
+            QObject::connect(
+                shell.activityModel, &QAbstractItemModel::dataChanged,
+                this, invalidate);
+        }
+    }
+
+    ~ZzMutationObserver() override
+    {
+        for (const QPointer<QWidget> &content : std::as_const(watchedContents_)) {
+            if (content != nullptr) {
+                content->removeEventFilter(this);
+            }
+        }
+    }
+
+    void allowParentChange(QWidget *content) noexcept
+    {
+        allowedParentContent_ = content;
+        allowedParentChanges_ = 1;
+    }
+
+    void allowPanelMove(QWidget *content) noexcept
+    {
+        allowedMovedContent_ = content;
+        allowedPanelMoves_ = 1;
+    }
+
+    void allowVisibilityChange(QWidget *content) noexcept
+    {
+        allowedVisibilityContent_ = content;
+        allowedVisibilityChanges_ = 1;
+    }
+
+    void allowModelReset() noexcept
+    {
+        allowedModelResets_ = 1;
+    }
+
+    void finishMutation() noexcept
+    {
+        allowedParentContent_ = nullptr;
+        allowedMovedContent_ = nullptr;
+        allowedVisibilityContent_ = nullptr;
+        allowedParentChanges_ = 0;
+        allowedPanelMoves_ = 0;
+        allowedVisibilityChanges_ = 0;
+        allowedModelResets_ = 0;
+    }
+
+    [[nodiscard]] bool isValid() const noexcept
+    {
+        return valid_;
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event != nullptr && event->type() == QEvent::ParentChange) {
+            consume(
+                qobject_cast<QWidget *>(watched),
+                allowedParentContent_, allowedParentChanges_);
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    void watchStack(ZzFluentUI::ZzPanelStack *stack)
+    {
+        if (stack == nullptr) {
+            return;
+        }
+        QObject::connect(
+            stack, &ZzFluentUI::ZzPanelStack::panelMoved,
+            this, [this](QWidget *content, int) {
+                consume(
+                    content, allowedMovedContent_, allowedPanelMoves_);
+            });
+        QObject::connect(
+            stack, &ZzFluentUI::ZzPanelStack::panelVisibilityChanged,
+            this, [this](QWidget *content, bool) {
+                consume(
+                    content, allowedVisibilityContent_,
+                    allowedVisibilityChanges_);
+            });
+    }
+
+    void consume(
+        QWidget *actual,
+        const QPointer<QWidget> &expected,
+        int &remaining) noexcept
+    {
+        if (actual == nullptr || expected == nullptr
+            || actual != expected.data() || remaining <= 0) {
+            valid_ = false;
+            return;
+        }
+        --remaining;
+    }
+
+    QList<QPointer<QWidget>> watchedContents_;
+    QPointer<QWidget> allowedParentContent_;
+    QPointer<QWidget> allowedMovedContent_;
+    QPointer<QWidget> allowedVisibilityContent_;
+    int allowedParentChanges_ = 0;
+    int allowedPanelMoves_ = 0;
+    int allowedVisibilityChanges_ = 0;
+    int allowedModelResets_ = 0;
+    bool valid_ = true;
+};
 
 [[nodiscard]] const QStringList *zzActivityRows(
     const ZzLayoutState::ZzActivityProjection &activity,
@@ -57,33 +228,127 @@ using ZzSide = ZzLayoutState::ZzSideProjection;
     return false;
 }
 
-[[nodiscard]] ZzWorkspaceShellPrivate::ZzPanelRecord *zzRecord(
-    ZzWorkspaceShellPrivate &shell,
-    const QString &id)
+void zzInsertActivityRows(
+    ZzAuditIndex *index,
+    const QStringList &ids,
+    ZzFluentUI::ZzActivityArea area)
 {
-    const int index = shell.indexOf(ZzWorkspacePanelId(id));
-    return index >= 0 ? &shell.panels[index] : nullptr;
+    for (const QString &id : ids) {
+        if (index->areas.contains(id)) {
+            index->valid = false;
+            continue;
+        }
+        index->areas.insert(id, area);
+    }
+}
+
+[[nodiscard]] ZzAuditIndex zzBuildAuditIndex(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection)
+{
+    ZzAuditIndex result;
+    result.recordRows.reserve(shell.panels.size());
+    result.idsByWidget.reserve(shell.panels.size());
+    for (qsizetype row = 0; row < shell.panels.size(); ++row) {
+        const auto &record = shell.panels.at(row);
+        const QString id = record.id.value();
+        if (result.recordRows.contains(id)) {
+            result.valid = false;
+            continue;
+        }
+        result.recordRows.insert(id, static_cast<int>(row));
+        if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && record.content != nullptr
+            && record.content.data() == record.contentIdentity) {
+            result.idsByWidget.insert(record.contentIdentity, id);
+            result.frames.insert(id, record.content->parentWidget());
+            result.rawFrames.insert(
+                id, record.content->parentWidget());
+        }
+    }
+    result.identityRows.reserve(projection.identities.size());
+    for (qsizetype row = 0; row < projection.identities.size(); ++row) {
+        const QString &id = projection.identities.at(row).id;
+        if (result.identityRows.contains(id)) {
+            result.valid = false;
+            continue;
+        }
+        result.identityRows.insert(id, row);
+    }
+    zzInsertActivityRows(
+        &result, projection.activity.leftPrimary,
+        ZzFluentUI::ZzActivityArea::LeftPrimary);
+    zzInsertActivityRows(
+        &result, projection.activity.leftSecondary,
+        ZzFluentUI::ZzActivityArea::LeftSecondary);
+    zzInsertActivityRows(
+        &result, projection.activity.rightPrimary,
+        ZzFluentUI::ZzActivityArea::RightPrimary);
+    zzInsertActivityRows(
+        &result, projection.activity.rightSecondary,
+        ZzFluentUI::ZzActivityArea::RightSecondary);
+    result.visibleIds.reserve(
+        projection.leftSide.visible.size()
+        + projection.rightSide.visible.size());
+    for (const QString &id : projection.leftSide.visible) {
+        result.visibleIds.insert(id);
+    }
+    for (const QString &id : projection.rightSide.visible) {
+        result.visibleIds.insert(id);
+    }
+    const auto modelRows = shell.activityRows();
+    result.modelRows.reserve(modelRows.size());
+    for (const auto &row : modelRows) {
+        const QString id = row.id.value();
+        if (result.modelRows.contains(id)) {
+            result.valid = false;
+            continue;
+        }
+        result.modelRows.insert(id, row.order);
+    }
+    return result;
 }
 
 [[nodiscard]] const ZzWorkspaceShellPrivate::ZzPanelRecord *zzRecord(
     const ZzWorkspaceShellPrivate &shell,
+    const ZzAuditIndex &index,
     const QString &id)
 {
-    const int index = shell.indexOf(ZzWorkspacePanelId(id));
-    return index >= 0 ? &shell.panels.at(index) : nullptr;
+    const auto row = index.recordRows.constFind(id);
+    if (row == index.recordRows.cend()
+        || row.value() < 0 || row.value() >= shell.panels.size()
+        || shell.panels.at(row.value()).id.value() != id) {
+        return nullptr;
+    }
+    return &shell.panels.at(row.value());
+}
+
+[[nodiscard]] ZzWorkspaceShellPrivate::ZzPanelRecord *zzRecord(
+    ZzWorkspaceShellPrivate &shell,
+    const ZzAuditIndex &index,
+    const QString &id)
+{
+    return const_cast<ZzWorkspaceShellPrivate::ZzPanelRecord *>(
+        zzRecord(std::as_const(shell), index, id));
+}
+
+[[nodiscard]] const ZzLayoutState::ZzPanelIdentity *zzPanelIdentity(
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
+    const QString &id)
+{
+    const auto row = index.identityRows.constFind(id);
+    return row != index.identityRows.cend()
+            && row.value() >= 0
+            && row.value() < projection.identities.size()
+        ? &projection.identities.at(row.value()) : nullptr;
 }
 
 [[nodiscard]] QString zzIdForWidget(
-    const ZzWorkspaceShellPrivate &shell,
+    const ZzAuditIndex &index,
     QWidget *widget)
 {
-    for (const auto &record : shell.panels) {
-        if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
-            && record.content == widget) {
-            return record.id.value();
-        }
-    }
-    return {};
+    return index.idsByWidget.value(widget);
 }
 
 [[nodiscard]] ZzLayoutState::ZzSubsystemIdentity zzIdentity(
@@ -93,7 +358,7 @@ using ZzSide = ZzLayoutState::ZzSideProjection;
 }
 
 void zzCaptureSide(
-    const ZzWorkspaceShellPrivate &shell,
+    const QHash<QWidget *, QString> &idsByWidget,
     ZzFluentUI::ZzSidePane *pane,
     ZzSide *side)
 {
@@ -104,7 +369,7 @@ void zzCaptureSide(
     side->paneIdentity = zzIdentity(pane);
     side->stackIdentity = zzIdentity(stack);
     for (QWidget *const content : stack->panels()) {
-        const QString id = zzIdForWidget(shell, content);
+        const QString id = idsByWidget.value(content);
         if (!id.isEmpty()) {
             side->order.append(id);
             side->contents.append(
@@ -113,13 +378,13 @@ void zzCaptureSide(
         }
     }
     for (QWidget *const content : stack->visiblePanels()) {
-        const QString id = zzIdForWidget(shell, content);
+        const QString id = idsByWidget.value(content);
         if (!id.isEmpty()) {
             side->visible.append(id);
         }
     }
     side->sizes = stack->panelSizes();
-    side->current = zzIdForWidget(shell, pane->currentWidget());
+    side->current = idsByWidget.value(pane->currentWidget());
     side->collapsed = pane->isCollapsed();
     side->width = pane->paneWidth();
 }
@@ -128,8 +393,16 @@ void zzCaptureSide(
     const ZzWorkspaceShellPrivate &shell)
 {
     ZzSnapshot snapshot;
-    zzCaptureSide(shell, shell.leftSidePane, &snapshot.leftSide);
-    zzCaptureSide(shell, shell.rightSidePane, &snapshot.rightSide);
+    QHash<QWidget *, QString> idsByWidget;
+    idsByWidget.reserve(shell.panels.size());
+    for (const auto &record : shell.panels) {
+        if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && record.contentIdentity != nullptr) {
+            idsByWidget.insert(record.contentIdentity, record.id.value());
+        }
+    }
+    zzCaptureSide(idsByWidget, shell.leftSidePane, &snapshot.leftSide);
+    zzCaptureSide(idsByWidget, shell.rightSidePane, &snapshot.rightSide);
     snapshot.activity.modelIdentity = zzIdentity(shell.activityModel);
     for (const auto &record : shell.panels) {
         if (record.kind != ZzWorkspaceShellPrivate::ZzPanelKind::Side) {
@@ -186,10 +459,25 @@ void zzCaptureSide(
 {
     QStringList order = zzModelOrder(snapshotRows);
     const QStringList desired = *zzActivityRows(target.activity, targetArea);
+    QHash<QString, ZzFluentUI::ZzActivityArea> areas;
+    ZzAuditIndex areaIndex;
+    zzInsertActivityRows(
+        &areaIndex, target.activity.leftPrimary,
+        ZzFluentUI::ZzActivityArea::LeftPrimary);
+    zzInsertActivityRows(
+        &areaIndex, target.activity.leftSecondary,
+        ZzFluentUI::ZzActivityArea::LeftSecondary);
+    zzInsertActivityRows(
+        &areaIndex, target.activity.rightPrimary,
+        ZzFluentUI::ZzActivityArea::RightPrimary);
+    zzInsertActivityRows(
+        &areaIndex, target.activity.rightSecondary,
+        ZzFluentUI::ZzActivityArea::RightSecondary);
+    areas = std::move(areaIndex.areas);
     QStringList currentArea;
     for (const QString &id : std::as_const(order)) {
-        ZzFluentUI::ZzActivityArea area = targetArea;
-        if (zzAreaForId(target.activity, id, &area) && area == targetArea) {
+        const auto area = areas.constFind(id);
+        if (area != areas.cend() && area.value() == targetArea) {
             currentArea.append(id);
         }
     }
@@ -231,9 +519,10 @@ void zzCaptureSide(
 
 [[nodiscard]] bool zzSamePanel(
     const ZzWorkspaceShellPrivate &shell,
+    const ZzAuditIndex &index,
     const ZzLayoutState::ZzPanelIdentity &expected)
 {
-    const auto *const record = zzRecord(shell, expected.id);
+    const auto *const record = zzRecord(shell, index, expected.id);
     return record != nullptr
         && record->kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
         && record->registrationGeneration == expected.registrationGeneration
@@ -244,10 +533,9 @@ void zzCaptureSide(
         && expected.widget.data() == expected.rawWidget;
 }
 
-[[nodiscard]] bool zzStableRuntime(
+[[nodiscard]] bool zzStableSubsystems(
     const ZzWorkspaceShellPrivate &shell,
-    const ZzProjection &projection,
-    QWidget *transient = nullptr)
+    const ZzProjection &projection)
 {
     if (!zzSameIdentity(projection.activity.modelIdentity, shell.activityModel)
         || !zzSameIdentity(projection.leftSide.paneIdentity, shell.leftSidePane)
@@ -262,44 +550,105 @@ void zzCaptureSide(
             projection.rightSide.stackIdentity, rightPane->panelStack())) {
         return false;
     }
-    ZzFluentUI::ZzPanelStack *const leftStack = leftPane->panelStack();
-    ZzFluentUI::ZzPanelStack *const rightStack = rightPane->panelStack();
-    for (const auto &identity : projection.identities) {
-        if (!zzSamePanel(shell, identity)) {
-            return false;
-        }
-        QWidget *const content = identity.widget.data();
-        const bool inLeft = leftStack->panels().contains(content);
-        const bool inRight = rightStack->panels().contains(content);
-        if (inLeft == inRight) {
-            if (content != transient || content->parent() != nullptr) {
-                return false;
-            }
-            continue;
-        }
-        ZzFluentUI::ZzPanelStack *const stack = inLeft ? leftStack : rightStack;
-        ZzFluentUI::ZzSidePane *const pane = inLeft ? leftPane : rightPane;
-        if (!stack->isAncestorOf(content) || !pane->isAncestorOf(content)) {
-            return false;
-        }
-    }
     return true;
 }
 
-[[nodiscard]] QStringList zzIds(
+[[nodiscard]] bool zzBoundaryMatches(
     const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
+    const QString &id,
+    ZzFluentUI::ZzSidePane *pane,
+    bool transient = false,
+    bool requireAllSubsystems = true)
+{
+    if (!index.valid
+        || (requireAllSubsystems
+            && !zzStableSubsystems(shell, projection))) {
+        return false;
+    }
+    const auto *const identity = zzPanelIdentity(projection, index, id);
+    if (identity == nullptr || !zzSamePanel(shell, index, *identity)) {
+        return false;
+    }
+    QWidget *const content = identity->widget.data();
+    if (transient) {
+        return content != nullptr && content->parent() == nullptr;
+    }
+    const QPointer<QWidget> frame = index.frames.value(id);
+    return pane != nullptr && pane->panelStack() != nullptr
+        && frame != nullptr && frame.data() == index.rawFrames.value(id)
+        && content->parentWidget() == frame
+        && pane->isAncestorOf(content)
+        && pane->panelStack()->isAncestorOf(content);
+}
+
+[[nodiscard]] bool zzProjectedVisibilityMatches(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
+    const QString &id,
+    bool requireAllSubsystems = true)
+{
+    const auto area = index.areas.constFind(id);
+    const auto *const identity = zzPanelIdentity(projection, index, id);
+    if (area == index.areas.cend() || identity == nullptr) {
+        return false;
+    }
+    const bool left = area.value()
+            == ZzFluentUI::ZzActivityArea::LeftPrimary
+        || area.value() == ZzFluentUI::ZzActivityArea::LeftSecondary;
+    ZzFluentUI::ZzSidePane *const pane = left
+        ? shell.leftSidePane.data() : shell.rightSidePane.data();
+    const QPointer<QWidget> frame = index.frames.value(id);
+    return zzBoundaryMatches(
+               shell, projection, index, id, pane, false,
+               requireAllSubsystems)
+        && frame != nullptr
+        && (!frame->isHidden()) == index.visibleIds.contains(id);
+}
+
+[[nodiscard]] bool zzProjectedPanelStateMatches(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
+    const QString &id,
+    bool requireAllSubsystems = true)
+{
+    const auto area = index.areas.constFind(id);
+    if (area == index.areas.cend()
+        || !zzProjectedVisibilityMatches(
+            shell, projection, index, id, requireAllSubsystems)) {
+        return false;
+    }
+    const bool left = area.value()
+            == ZzFluentUI::ZzActivityArea::LeftPrimary
+        || area.value() == ZzFluentUI::ZzActivityArea::LeftSecondary;
+    ZzFluentUI::ZzSidePane *const pane = left
+        ? shell.leftSidePane.data() : shell.rightSidePane.data();
+    const QString &current = left
+        ? projection.leftSide.current : projection.rightSide.current;
+    const auto *const identity = zzPanelIdentity(projection, index, id);
+    return identity != nullptr
+        && (current != id || pane->currentWidget() == identity->widget);
+}
+
+[[nodiscard]] QStringList zzIds(
+    const ZzAuditIndex &index,
     const QList<QWidget *> &widgets)
 {
     QStringList result;
     result.reserve(widgets.size());
     for (QWidget *const widget : widgets) {
-        result.append(zzIdForWidget(shell, widget));
+        result.append(zzIdForWidget(index, widget));
     }
     return result;
 }
 
 [[nodiscard]] bool zzSideMatches(
     const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
     const ZzSide &side,
     bool includeSizes)
 {
@@ -310,24 +659,42 @@ void zzCaptureSide(
         side.paneIdentity.object.data());
     auto *const stack = pane != nullptr ? pane->panelStack() : nullptr;
     if (pane == nullptr || !zzSameIdentity(side.stackIdentity, stack)
-        || zzIds(shell, stack->panels()) != side.order
-        || zzIds(shell, stack->visiblePanels()) != side.visible
-        || zzIdForWidget(shell, pane->currentWidget()) != side.current
+        || zzIds(index, stack->panels()) != side.order
+        || zzIds(index, stack->visiblePanels()) != side.visible
+        || zzIdForWidget(index, pane->currentWidget()) != side.current
         || pane->isCollapsed() != side.collapsed
         || pane->paneWidth() != side.width
         || (includeSizes && stack->panelSizes() != side.sizes)) {
         return false;
     }
     for (const QString &id : side.order) {
-        const auto *const record = zzRecord(shell, id);
-        if (record == nullptr || record->content == nullptr
-            || !stack->panels().contains(record->content)
+        const auto *const record = zzRecord(shell, index, id);
+        const auto *const identity = zzPanelIdentity(projection, index, id);
+        if (record == nullptr || identity == nullptr
+            || !zzSamePanel(shell, index, *identity)
+            || record->content == nullptr
             || !stack->isAncestorOf(record->content)
             || !pane->isAncestorOf(record->content)) {
             return false;
         }
     }
     return true;
+}
+
+[[nodiscard]] bool zzProjectionMatches(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
+    bool includeSizes)
+{
+    return index.valid && zzStableSubsystems(shell, projection)
+        && projection.leftSide.order.size()
+                + projection.rightSide.order.size()
+            == projection.identities.size()
+        && zzSideMatches(
+            shell, projection, index, projection.leftSide, includeSizes)
+        && zzSideMatches(
+            shell, projection, index, projection.rightSide, includeSizes);
 }
 
 [[nodiscard]] ZzFluentUI::ZzSidePane *zzLivePane(
@@ -348,6 +715,7 @@ void zzCaptureSide(
 
 [[nodiscard]] QList<QModelIndex> zzIndexes(
     ZzWorkspaceShellPrivate &shell,
+    const ZzAuditIndex &index,
     const QStringList &ids)
 {
     QList<QModelIndex> result;
@@ -355,11 +723,9 @@ void zzCaptureSide(
         return result;
     }
     for (const QString &id : ids) {
-        for (const auto &row : shell.activityRows()) {
-            if (row.id.value() == id) {
-                result.append(shell.activityModel->index(row.order, 0));
-                break;
-            }
+        const auto row = index.modelRows.constFind(id);
+        if (row != index.modelRows.cend()) {
+            result.append(shell.activityModel->index(row.value(), 0));
         }
     }
     return result;
@@ -368,17 +734,16 @@ void zzCaptureSide(
 [[nodiscard]] QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry>
 zzRowsForProjection(
     const ZzWorkspaceShellPrivate &shell,
-    const ZzProjection &projection,
+    const ZzAuditIndex &index,
     const QStringList &modelOrder)
 {
     QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> rows;
     for (const QString &id : modelOrder) {
-        ZzFluentUI::ZzActivityArea area =
-            ZzFluentUI::ZzActivityArea::LeftPrimary;
-        if (zzRecord(shell, id) != nullptr
-            && zzAreaForId(projection.activity, id, &area)) {
+        const auto area = index.areas.constFind(id);
+        if (zzRecord(shell, index, id) != nullptr
+            && area != index.areas.cend()) {
             rows.append({
-                ZzWorkspacePanelId(id), area,
+                ZzWorkspacePanelId(id), area.value(),
                 static_cast<int>(rows.size())});
         }
     }
@@ -416,10 +781,15 @@ void zzCleanupInterruptedMove(
 [[nodiscard]] bool zzMovedRestored(
     const ZzWorkspaceShellPrivate &shell,
     const ZzProjection &snapshot,
+    const ZzAuditIndex &index,
     const ZzWorkspaceShellPrivate::ZzPanelRecord &expected)
 {
-    if (shell.stablePanelIndex(expected) < 0 || shell.activityModel == nullptr
-        || expected.content == nullptr) {
+    const auto *const record = zzRecord(shell, index, expected.id.value());
+    if (record == nullptr || record->registrationGeneration
+            != expected.registrationGeneration
+        || record->contentIdentity != expected.contentIdentity
+        || record->content != expected.content
+        || shell.activityModel == nullptr || expected.content == nullptr) {
         return false;
     }
     const ZzSide &side = snapshot.leftSide.order.contains(expected.id.value())
@@ -491,13 +861,16 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
     if (sourceIndex.row() >= snapshotRows.size()) {
         return false;
     }
+    const int sourcePanelRow = shell_.indexOf(
+        snapshotRows.at(sourceIndex.row()).id);
     const ZzWorkspaceShellPrivate::ZzPanelRecord *const sourceRecord =
-        zzRecord(shell_, snapshotRows.at(sourceIndex.row()).id.value());
+        sourcePanelRow >= 0 ? &shell_.panels.at(sourcePanelRow) : nullptr;
     if (sourceRecord == nullptr
         || sourceRecord->kind != ZzWorkspaceShellPrivate::ZzPanelKind::Side) {
         return false;
     }
     const ZzWorkspaceShellPrivate::ZzPanelRecord expected = *sourceRecord;
+    movedId_ = expected.id.value();
     const ZzSnapshot snapshot = zzCaptureSnapshot(shell_);
     const auto planned = ZzLayoutState::buildActivityMoveTarget(
         snapshot, expected.id.value(), targetArea, targetRow);
@@ -508,7 +881,8 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
     const QStringList snapshotOrder = zzModelOrder(snapshotRows);
     const QStringList targetOrder = zzBuildTargetModelOrder(
         snapshotRows, target, expected.id.value(), targetArea);
-    if (!zzStableRuntime(shell_, snapshot)) {
+    const ZzAuditIndex snapshotAudit = zzBuildAuditIndex(shell_, snapshot);
+    if (!zzProjectionMatches(shell_, snapshot, snapshotAudit, true)) {
         return false;
     }
 
@@ -517,7 +891,8 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
         return true;
     }
     static_cast<void>(applyProjection(snapshot, snapshotOrder, false));
-    if (!zzMovedRestored(shell_, snapshot, expected)) {
+    const ZzAuditIndex rollbackAudit = zzBuildAuditIndex(shell_, snapshot);
+    if (!zzMovedRestored(shell_, snapshot, rollbackAudit, expected)) {
         zzCleanupInterruptedMove(shell_, expected);
     }
     return false;
@@ -529,7 +904,10 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
     bool strict)
 {
     bool complete = true;
-    if (strict && !zzStableRuntime(shell_, projection)) {
+    ZzAuditIndex audit = zzBuildAuditIndex(shell_, projection);
+    ZzMutationObserver mutationObserver(shell_, projection);
+    if (strict
+        && (!audit.valid || !zzStableSubsystems(shell_, projection))) {
         return false;
     }
     const QPointer<ZzFluentUI::ZzSidePane> leftPane(
@@ -538,11 +916,13 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         zzLivePane(shell_, projection.rightSide));
     const auto paneForContent = [&leftPane, &rightPane](QWidget *content) {
         if (leftPane != nullptr
-            && leftPane->panelStack()->panels().contains(content)) {
+            && leftPane->isAncestorOf(content)
+            && leftPane->panelStack()->isAncestorOf(content)) {
             return leftPane.data();
         }
         if (rightPane != nullptr
-            && rightPane->panelStack()->panels().contains(content)) {
+            && rightPane->isAncestorOf(content)
+            && rightPane->panelStack()->isAncestorOf(content)) {
             return rightPane.data();
         }
         return static_cast<ZzFluentUI::ZzSidePane *>(nullptr);
@@ -552,7 +932,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                                ZzFluentUI::ZzSidePane *destination) {
         const QPointer<ZzFluentUI::ZzSidePane> destinationGuard(destination);
         for (const QString &id : side.order) {
-            auto *const record = zzRecord(shell_, id);
+            auto *const record = zzRecord(shell_, audit, id);
             if (record == nullptr || record->content == nullptr
                 || record->content.data() != record->contentIdentity) {
                 complete = false;
@@ -561,7 +941,6 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 }
                 continue;
             }
-            const ZzWorkspaceShellPrivate::ZzPanelRecord expected = *record;
             QWidget *const content = record->content.data();
             ZzFluentUI::ZzSidePane *const current = paneForContent(content);
             if (current != nullptr
@@ -583,7 +962,9 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             if (destinationGuard == nullptr) {
                 complete = false;
                 if (current != nullptr) {
+                    mutationObserver.allowParentChange(content);
                     static_cast<void>(current->takeWidget(content));
+                    mutationObserver.finishMutation();
                 }
                 if (strict) {
                     return false;
@@ -592,12 +973,14 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             }
             if (current != destinationGuard) {
                 if (current != nullptr) {
+                    mutationObserver.allowParentChange(content);
                     QWidget *const taken = current->takeWidget(content);
+                    mutationObserver.finishMutation();
                     if (taken != content
-                        || shell_.stablePanelIndex(expected) < 0
-                        || content->parent() != nullptr
-                        || (strict
-                            && !zzStableRuntime(shell_, projection, content))) {
+                        || !mutationObserver.isValid()
+                        || !zzBoundaryMatches(
+                            shell_, projection, audit, id, nullptr, true,
+                            strict)) {
                         complete = false;
                         if (strict) {
                             return false;
@@ -605,10 +988,21 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                         continue;
                     }
                 }
-                if (destinationGuard == nullptr
-                    || !destinationGuard->addWidget(content, record->title)
+                mutationObserver.allowParentChange(content);
+                const bool added = destinationGuard != nullptr
+                    && destinationGuard->addWidget(content, record->title);
+                mutationObserver.finishMutation();
+                if (added && destinationGuard != nullptr
+                    && destinationGuard->isAncestorOf(content)
+                    && destinationGuard->panelStack()->isAncestorOf(content)) {
+                    audit.frames.insert(id, content->parentWidget());
+                    audit.rawFrames.insert(id, content->parentWidget());
+                }
+                if (!added || !mutationObserver.isValid()
                     || destinationGuard == nullptr
-                    || (strict && !zzStableRuntime(shell_, projection))) {
+                    || !zzBoundaryMatches(
+                        shell_, projection, audit, id, destinationGuard,
+                        false, strict)) {
                     complete = false;
                     if (strict) {
                         return false;
@@ -625,20 +1019,27 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 complete = false;
                 return false;
             }
-            const auto *const record = zzRecord(shell_, side.order.at(index));
+            const QString &id = side.order.at(index);
+            const auto *const record = zzRecord(shell_, audit, id);
             if (record == nullptr || record->content == nullptr
-                || !destinationGuard->panelStack()->panels().contains(
-                    record->content)) {
+                || !zzBoundaryMatches(
+                    shell_, projection, audit, id, destinationGuard,
+                    false, strict)) {
                 complete = false;
                 if (strict) {
                     return false;
                 }
                 continue;
             }
-            if (!destinationGuard->panelStack()->movePanel(
-                    record->content, static_cast<int>(index))
+            mutationObserver.allowPanelMove(record->content);
+            const bool moved = destinationGuard->panelStack()->movePanel(
+                record->content, static_cast<int>(index));
+            mutationObserver.finishMutation();
+            if (!moved || !mutationObserver.isValid()
                 || destinationGuard == nullptr
-                || (strict && !zzStableRuntime(shell_, projection))) {
+                || !zzBoundaryMatches(
+                    shell_, projection, audit, id, destinationGuard,
+                    false, strict)) {
                 complete = false;
                 if (strict) {
                     return false;
@@ -660,7 +1061,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             return !strict;
         }
         for (const QString &id : side.order) {
-            const auto *const record = zzRecord(shell_, id);
+            const auto *const record = zzRecord(shell_, audit, id);
             if (record == nullptr || record->content == nullptr) {
                 complete = false;
                 if (strict) {
@@ -668,15 +1069,30 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 }
                 continue;
             }
-            const bool visible = side.visible.contains(id);
+            const bool visible = audit.visibleIds.contains(id);
+            const QPointer<QWidget> frame = audit.frames.value(id);
+            if (frame != nullptr && (!frame->isHidden()) == visible) {
+                if (!mutationObserver.isValid()
+                    || !zzProjectedVisibilityMatches(
+                        shell_, projection, audit, id, strict)) {
+                    complete = false;
+                    if (strict) {
+                        return false;
+                    }
+                }
+                continue;
+            }
+            mutationObserver.allowVisibilityChange(record->content);
             const bool visibilityApplied =
                 paneGuard->setWidgetVisible(record->content, visible);
+            mutationObserver.finishMutation();
             if (paneGuard == nullptr) {
                 complete = false;
                 return false;
             }
-            if (!visibilityApplied
-                || (strict && !zzStableRuntime(shell_, projection))) {
+            if (!visibilityApplied || !mutationObserver.isValid()
+                || !zzProjectedVisibilityMatches(
+                    shell_, projection, audit, id, strict)) {
                 complete = false;
                 if (strict) {
                     return false;
@@ -684,7 +1100,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             }
         }
         if (!side.current.isEmpty()) {
-            const auto *const current = zzRecord(shell_, side.current);
+            const auto *const current = zzRecord(shell_, audit, side.current);
             if (current == nullptr || current->content == nullptr) {
                 complete = false;
                 if (strict) {
@@ -697,8 +1113,9 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                     complete = false;
                     return false;
                 }
-                if (!currentApplied
-                    || (strict && !zzStableRuntime(shell_, projection))) {
+                if (!currentApplied || !mutationObserver.isValid()
+                    || !zzProjectedPanelStateMatches(
+                        shell_, projection, audit, side.current, strict)) {
                     complete = false;
                     if (strict) {
                         return false;
@@ -708,12 +1125,14 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         }
         paneGuard->setPaneWidth(side.width);
         if (paneGuard == nullptr
-            || (strict && !zzStableRuntime(shell_, projection))) {
+            || !mutationObserver.isValid()
+            || (strict && !zzStableSubsystems(shell_, projection))) {
             return false;
         }
         paneGuard->setCollapsed(side.collapsed);
         if (paneGuard == nullptr
-            || (strict && !zzStableRuntime(shell_, projection))) {
+            || !mutationObserver.isValid()
+            || (strict && !zzStableSubsystems(shell_, projection))) {
             return false;
         }
         return true;
@@ -727,25 +1146,34 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         if (record.kind != ZzWorkspaceShellPrivate::ZzPanelKind::Side) {
             continue;
         }
-        ZzFluentUI::ZzActivityArea area = record.activityArea;
-        if (zzAreaForId(projection.activity, record.id.value(), &area)) {
-            record.activityArea = area;
+        const auto area = audit.areas.constFind(record.id.value());
+        if (area != audit.areas.cend()) {
+            record.activityArea = area.value();
         }
     }
     const QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> rows =
-        zzRowsForProjection(shell_, projection, modelOrder);
-    if (shell_.activityModel == nullptr
-        || rows.size() != shell_.activityRows().size()
-        || !shell_.replaceActivityRows(rows)) {
+        zzRowsForProjection(shell_, audit, modelOrder);
+    mutationObserver.allowModelReset();
+    const bool rowsReplaced = shell_.activityModel != nullptr
+        && rows.size() == shell_.activityRows().size()
+        && shell_.replaceActivityRows(rows);
+    mutationObserver.finishMutation();
+    if (!rowsReplaced || !mutationObserver.isValid()) {
         complete = false;
         if (strict) {
             return false;
         }
+    } else {
+        audit.modelRows.clear();
+        audit.modelRows.reserve(rows.size());
+        for (const auto &row : rows) {
+            audit.modelRows.insert(row.id.value(), row.order);
+        }
     }
     if (strict
-        && (!zzStableRuntime(shell_, projection)
-            || !zzSideMatches(shell_, projection.leftSide, false)
-            || !zzSideMatches(shell_, projection.rightSide, false))) {
+        && (!zzStableSubsystems(shell_, projection)
+            || !zzProjectedPanelStateMatches(
+                shell_, projection, audit, movedId_))) {
         return false;
     }
 
@@ -753,11 +1181,12 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
     const QPointer<ZzFluentUI::ZzActivityBar> rightBar(shell_.rightActivityBar);
     const auto stableAfterActivity = [&] {
         return !strict || (leftBar != nullptr && rightBar != nullptr
+            && mutationObserver.isValid()
             && shell_.leftActivityBar == leftBar
             && shell_.rightActivityBar == rightBar
-            && zzStableRuntime(shell_, projection)
-            && zzSideMatches(shell_, projection.leftSide, false)
-            && zzSideMatches(shell_, projection.rightSide, false));
+            && zzStableSubsystems(shell_, projection)
+            && zzProjectedPanelStateMatches(
+                shell_, projection, audit, movedId_));
     };
     if (leftBar == nullptr || rightBar == nullptr
         || shell_.activityModel == nullptr) {
@@ -767,22 +1196,24 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         }
     } else {
         leftBar->setCurrentSourceIndex(
-            zzIndexes(shell_, {projection.leftSide.current}).value(0));
+            zzIndexes(
+                shell_, audit, {projection.leftSide.current}).value(0));
         if (!stableAfterActivity()) {
             return false;
         }
         rightBar->setCurrentSourceIndex(
-            zzIndexes(shell_, {projection.rightSide.current}).value(0));
+            zzIndexes(
+                shell_, audit, {projection.rightSide.current}).value(0));
         if (!stableAfterActivity()) {
             return false;
         }
         leftBar->setActiveSourceIndexes(
-            zzIndexes(shell_, projection.leftSide.visible));
+            zzIndexes(shell_, audit, projection.leftSide.visible));
         if (!stableAfterActivity()) {
             return false;
         }
         rightBar->setActiveSourceIndexes(
-            zzIndexes(shell_, projection.rightSide.visible));
+            zzIndexes(shell_, audit, projection.rightSide.visible));
         if (!stableAfterActivity()) {
             return false;
         }
@@ -802,8 +1233,11 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             complete = false;
             return !strict;
         }
-        if (strict && (!zzStableRuntime(shell_, projection)
-                || !zzSideMatches(shell_, side, true))) {
+        if (!mutationObserver.isValid()
+            || (strict && (!zzStableSubsystems(shell_, projection)
+                || !zzProjectedPanelStateMatches(
+                    shell_, projection, audit, movedId_)
+                || stackGuard->panelSizes() != side.sizes))) {
             return false;
         }
         return true;
@@ -813,9 +1247,8 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         return false;
     }
     if (strict) {
-        return zzStableRuntime(shell_, projection)
-            && zzSideMatches(shell_, projection.leftSide, true)
-            && zzSideMatches(shell_, projection.rightSide, true);
+        return mutationObserver.isValid()
+            && zzProjectionMatches(shell_, projection, audit, true);
     }
     return complete;
 }

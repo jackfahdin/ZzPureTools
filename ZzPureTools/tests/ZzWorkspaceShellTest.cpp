@@ -1730,6 +1730,115 @@ private Q_SLOTS:
         QVERIFY(rightActive.contains(model->index(3, 0)));
     }
 
+    void activityMoveAuditAvoidsCubicGrowth()
+    {
+        const auto measureMove = [](int panelCount) {
+            ZzShellFixture fixture;
+            for (int index = 0; index < panelCount; ++index) {
+                auto content = std::make_unique<QWidget>();
+                const auto id = ZzPureTools::ZzWorkspacePanelId(
+                    QStringLiteral("audit-%1").arg(index));
+                const auto registered = fixture.shell->registerSidePanel(
+                    id, id.value(), zzIcon(),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary, content.get());
+                if (!registered) {
+                    return qint64{-1};
+                }
+                zzReleaseAfterAdoption(content);
+            }
+
+            auto *const bar = fixture.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left);
+            QAbstractItemModel *const model = bar->model();
+            QList<qint64> samples;
+            for (int iteration = 0; iteration < 3; ++iteration) {
+                const QString movedTitle =
+                    model->index(0, 0).data().toString();
+                QElapsedTimer timer;
+                timer.start();
+                Q_EMIT bar->moveRequested(
+                    model->index(0, 0),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary,
+                    panelCount - 1);
+                samples.append(timer.nsecsElapsed());
+                if (model->index(panelCount - 1, 0).data().toString()
+                    != movedTitle) {
+                    return qint64{-1};
+                }
+            }
+            std::sort(samples.begin(), samples.end());
+            return samples.at(samples.size() / 2);
+        };
+
+        const qint64 small = measureMove(192);
+        const qint64 large = measureMove(384);
+        QVERIFY(small > 0);
+        QVERIFY(large > 0);
+        QVERIFY2(large * 4 < small * 17,
+            qPrintable(QStringLiteral(
+                "Doubling panel count grew Activity move from %1 ns to %2 ns")
+                    .arg(small)
+                    .arg(large)));
+    }
+
+    void activityMoveStopsWhenAnEarlierPanelIsReparented()
+    {
+        ZzShellFixture fixture;
+        QWidget thirdParty;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        auto third = std::make_unique<QWidget>();
+        QWidget *const secondRaw = second.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("third"), QStringLiteral("Third"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, third.get()));
+        zzReleaseAfterAdoption(third);
+
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        auto *const stack = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->panelStack();
+        int moveSignals = 0;
+        QList<QStringList> resetOrders;
+        QObject::connect(
+            stack, &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *, int) {
+                ++moveSignals;
+                if (moveSignals == 2) {
+                    secondRaw->setParent(&thirdParty);
+                }
+            });
+        QObject::connect(
+            model, &QAbstractItemModel::modelReset,
+            fixture.shell.get(), [&] {
+                QStringList order;
+                for (int row = 0; row < model->rowCount(); ++row) {
+                    order.append(model->index(row, 0).data().toString());
+                }
+                resetOrders.append(order);
+            });
+
+        Q_EMIT bar->moveRequested(
+            model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            2);
+
+        QVERIFY(moveSignals >= 2);
+        QCOMPARE(secondRaw->parentWidget(), &thirdParty);
+        QVERIFY(!resetOrders.contains(
+            {QStringLiteral("Second"), QStringLiteral("Third"),
+                QStringLiteral("First")}));
+    }
+
     void rollsBackActivityMoveWhenTargetIsDestroyedSynchronously()
     {
         ZzShellFixture fixture;

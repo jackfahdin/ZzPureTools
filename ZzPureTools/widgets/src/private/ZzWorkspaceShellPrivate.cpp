@@ -7,6 +7,7 @@
 #include <QtCore/QAbstractListModel>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QHash>
 #include <QtCore/QIODevice>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
@@ -275,18 +276,27 @@ public:
         if (rows.size() != rows_.size()) {
             return false;
         }
+        QHash<ZzWorkspacePanelId, int> sourceRows;
+        sourceRows.reserve(rows_.size());
+        for (qsizetype index = 0; index < rows_.size(); ++index) {
+            if (sourceRows.contains(rows_.at(index).id)) {
+                return false;
+            }
+            sourceRows.insert(
+                rows_.at(index).id, static_cast<int>(index));
+        }
+        QSet<ZzWorkspacePanelId> seen;
+        seen.reserve(rows.size());
         QVector<ZzActivityRow> replacement;
         replacement.reserve(rows_.size());
         for (const auto &placement : rows) {
-            const int row = indexOf(placement.id);
-            if (row < 0 || std::any_of(
-                    replacement.cbegin(), replacement.cend(),
-                    [&placement](const ZzActivityRow &candidate) {
-                        return candidate.id == placement.id;
-                    })) {
+            const auto source = sourceRows.constFind(placement.id);
+            if (source == sourceRows.cend()
+                || seen.contains(placement.id)) {
                 return false;
             }
-            ZzActivityRow item = rows_.at(row);
+            seen.insert(placement.id);
+            ZzActivityRow item = rows_.at(source.value());
             item.area = placement.area;
             replacement.append(std::move(item));
         }
