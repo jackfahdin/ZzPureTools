@@ -38,6 +38,13 @@ class ZzWorkspaceShell;
 class ZzWorkspaceShellPrivate final
 {
 public:
+    enum class ZzTransactionKind : std::uint8_t
+    {
+        None,
+        LayoutRestore,
+        ActivityMove
+    };
+
     enum class ZzPanelKind : std::uint8_t
     {
         Side,
@@ -173,6 +180,19 @@ public:
     /** @brief 将 Activity 激活或折叠意图应用到对应 Side Panel。 */
     void activateSidePanel(const QModelIndex &sourceIndex, bool collapse);
 
+    /** @brief 将 Activity 拖放意图交给不可变移动事务。 */
+    void moveSidePanel(
+        const QModelIndex &sourceIndex,
+        ZzFluentUI::ZzActivityArea targetArea,
+        int targetRow);
+
+    /** @brief 捕获当前 Activity model 的全局行顺序和区域。 */
+    [[nodiscard]] QVector<ZzSideLayoutEntry> activityRows() const;
+
+    /** @brief 以单次 model reset 替换完整 Activity 行投影。 */
+    [[nodiscard]] bool replaceActivityRows(
+        const QVector<ZzSideLayoutEntry> &rows);
+
     /** @brief 隐藏没有已注册内容的边缘，并收起其 Side Pane。 */
     void syncSideEdgeVisibility();
 
@@ -204,6 +224,7 @@ public:
     ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
     std::uint64_t nextPanelRegistrationGeneration = 0;
     std::uint64_t titleRefreshGeneration = 0;
+    ZzTransactionKind transactionKind = ZzTransactionKind::None;
     QMetaObject::Connection activeTabChangedConnection;
     QMetaObject::Connection activeTabPresentationConnection;
     QMetaObject::Connection currentTabTitleConnection;
