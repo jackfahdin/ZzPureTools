@@ -1,6 +1,6 @@
 # Task 9R order and planner linearization report
 
-报告 HEAD：`9535a8ce1ffaea5e1a9d5872a295b6bc91194a25`。早先 order/planner 性能门禁重跑日期为 2026-08-24，Linux / GCC 15.2 / Clang 20.1.8 / Qt 6.11.1；其 `91040df..bee5e5b` 审查证据和值保持不变。2026-08-25 的最终分支复审与控制者验证以 `8515520..9535a8c` 为静态 diff 范围；工作树干净，未触碰主工作树或 `temp_image/`。
+报告 HEAD：`8077bff826cd410ba8f364477a501536f1ffa907`。早先 order/planner 性能门禁重跑日期为 2026-08-24，Linux / GCC 15.2 / Clang 20.1.8 / Qt 6.11.1；其 `91040df..bee5e5b` 审查证据和值保持不变。2026-08-25 的最终分支复审与控制者验证先覆盖 `8515520..9535a8c`，随后以 `9535a8c..8077bff` 完成兼容性与静态分析收口；工作树干净，未触碰主工作树或 `temp_image/`。
 
 ## Commits
 
@@ -21,6 +21,12 @@
 - `bee5e5b 修复：原子终结侧栏托管框架`
 - `ff06fdf 修复：审计活动行移除后的侧栏重入`
 - `9535a8c 修复：重审失败回滚后的侧栏同步`
+- `083c79d 修复：统一分屏页面类型命名`
+- `c637204 测试：兼容 Clang 聚合投影初始化`
+- `47d29ff 修复：允许窄宿主压缩侧栏`
+- `1ab81bf 测试：同步工作区多面板截图基线`
+- `9eaed9f 修复：消除工作区析构期未定义行为`
+- `8077bff 修复：通过工作区事务全量静态分析`
 
 `91040df..bee5e5b` 还包含与这些实现对应的中文设计/计划提交。`git diff --stat` 为 17 files changed、4224 insertions、268 deletions；代码范围是 ActivityBar、WorkspaceShell、LayoutState、ActivityMoveTransaction、PanelStack 及其测试，另含计划列出的 docs。
 
@@ -159,13 +165,24 @@ Windows/MSVC：未运行。Qt SDK MinGW：未运行。macOS/AppleClang：未运�
 - Clang 20.1.8 Release 配置退出 0；单独 `ZzWorkspaceShellTest` 的生产与测试构建退出 0、运行 169/169，21.319 s。联合 Shell/state/codec 构建仍在 `ZzWorkspaceLayoutStatePrivateTest.cpp:678,754` 的两处既有 `optional::emplace()` 停止，不归因本分支。
 - 静态扫描确认 changed public include diff 为空，schema 1/2 与 Qt Dock state version 未改；namespace shorthand、Qt private header、stylesheet、compiler extension 均无匹配；`git diff --check 8515520..HEAD` clean。
 
-## Remaining parked findings
+## Final verification at 8077bff
+
+- GCC Debug、Clang ASan/UBSan、GCC Release、GCC static Release 和 Clang Release 的 7 项
+  工作区事务门禁均为 7/7。
+- GCC Debug 全量 CTest 为 148/148；旧的 4 个截图 DPR 基线与 `OrderedPage` 命名失败均已
+  关闭。
+- 完整 `ZzClangTidy` 检查 264 个一方源文件，通过；`8077bff` 涉及的 12 个源文件定向检查
+  12/12 通过。
+- preset matrix 通过，架构与平台合同 4/4；shared CTest 显式使用 Qt 6.11.1 与构建树
+  `LD_LIBRARY_PATH`，未修改项目链接策略。
+- 最终独立审查范围为 `9535a8c..8077bff`，未发现 Critical 或 Important。唯一 Minor 是最终
+  证据文档仍停在 `9535a8c`，已由本次文档收口关闭。审查者 fresh GCC Debug 验证 SidePane
+  12/12、SplitWorkspace 74/74、LayoutState 21/21、Codec 41/41、WorkspaceShell 169/169。
+
+## Remaining parked findings at 8077bff
 
 - private codec 测试尚未断言 InvalidArgument/InvalidState/Io error-code mapping（Minor）。
 - ParentChange 中销毁正在换父内容属于计划明确不支持的边界。
 - rollback-failed 路径仍有 Secondary area 被映射为 Primary 的风险。
-- Clang 20 private test 第 677、753 行 `optional::emplace()` 前序编译阻塞。
-- ASan Shell 基线资源测试第 2863 行悬空 `QWidget*` 比较/格式化崩溃。
-- 既有 4 个 workspace screenshot 目标和 `OrderedPage` 架构命名失败。
 - 初始独立审查的 Activity 性能门禁 Minor 仍延后：计时后没有逐次断言 `current`/`active`，不能表述为全部历史 Minor 已修。
-- Windows/MSVC、Qt SDK MinGW、macOS/AppleClang、ASan、clang-tidy 均未运行；只有源码静态可移植性检查，不宣称这些平台或工具已通过。
+- Windows/MSVC、Qt SDK MinGW 和 macOS/AppleClang 未在物理机运行；只有 preset、gate 脚本、架构合同与源码静态可移植性检查，不宣称这些平台已通过。

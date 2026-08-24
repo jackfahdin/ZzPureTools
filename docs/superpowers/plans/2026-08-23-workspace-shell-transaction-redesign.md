@@ -18,6 +18,11 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 **设计规格：**
 `docs/superpowers/specs/2026-08-23-workspace-shell-transaction-redesign-design.md`
 
+**执行状态（2026-08-25）：** 实现、Linux 验证和独立终审已经完成，最终代码 HEAD 为
+`8077bff`。终审未发现 Critical 或 Important；当前仅等待用户选择本地合并、推送并创建
+Pull Request，或保留分支。Windows MSVC、Windows MinGW 和 macOS 尚未在物理机运行，
+本计划只记录对应 preset 与平台合同的静态检查结果。
+
 ---
 
 ## 全局约束
@@ -129,7 +134,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 - 修改：`ZzPureTools/CMakeLists.txt`
 - 修改：`ZzPureTools/tests/CMakeLists.txt`
 
-- [ ] **步骤 1：新增 pure planner 失败测试。**
+- [x] **步骤 1：新增 pure planner 失败测试。**
 
   测试使用字符串 PanelId 和纯值 identity，不构造 Shell，不 mock QObject mutation。至少包含：
 
@@ -171,7 +176,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   另外覆盖空边缘强制折叠、unknown panel 保留快照状态、visible/sizes 对齐、Activity
   current/active 从 Side target 派生、invalid move 返回 `std::nullopt`。
 
-- [ ] **步骤 2：运行目标确认 RED。**
+- [x] **步骤 2：运行目标确认 RED。**
 
   ```bash
   cmake --build --preset linux-gcc-debug \
@@ -181,7 +186,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   预期：目标或 `ZzWorkspaceLayoutStatePrivate` 尚不存在，构建失败；失败原因必须是缺少目标
   API，不得是 include 路径或 CMake 拼写错误。
 
-- [ ] **步骤 3：实现只含值的状态与规划器。**
+- [x] **步骤 3：实现只含值的状态与规划器。**
 
   主类提供嵌套 `ZzPanelIdentity`、`ZzSideProjection`、`ZzBottomProjection`、
   `ZzDockProjection`、`ZzSplitProjection`、`ZzActivityProjection`、
@@ -211,7 +216,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   Planner 使用复制后的值状态模拟固定操作序列。所有 expected 在返回后按 `const` 对象保存；
   类中不提供从 observed 覆盖 target 的 setter。
 
-- [ ] **步骤 4：配置 private test。**
+- [x] **步骤 4：配置 private test。**
 
   `ZzWorkspaceLayoutStatePrivateTest` 直接编译 state private `.cpp`，链接：
 
@@ -225,7 +230,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   设置 `AUTOMOC ON`、项目 warnings、sanitizers 和 `QT_QPA_PLATFORM=offscreen`，CTest 名称为
   `puretools.workspace-layout-state-private`。
 
-- [ ] **步骤 5：验证 GREEN 与变异敏感性。**
+- [x] **步骤 5：验证 GREEN 与变异敏感性。**
 
   ```bash
   cmake --build --preset linux-gcc-debug \
@@ -237,7 +242,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   预期：全部通过、无 warning。临时将 Side fallback 改为 Activity current 时第一条测试必须
   失败；恢复实现后再次全绿。
 
-- [ ] **步骤 6：提交并审查。**
+- [x] **步骤 6：提交并审查。**
 
   ```bash
   git add \
@@ -263,7 +268,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 - 修改：`ZzPureTools/CMakeLists.txt`
 - 修改：`ZzPureTools/tests/CMakeLists.txt`
 
-- [ ] **步骤 1：编写 schema 和 Split codec 失败测试。**
+- [x] **步骤 1：编写 schema 和 Split codec 失败测试。**
 
   固定测试内的独立 v1/v2 encoder，覆盖：
 
@@ -280,7 +285,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   4096/4097、Split groups 64/65、depth 16/17、nodes 127/128、saved pages 4096/4097、
   ID/key 256/257、1 MiB 边界、截断、重复 ID/order、非法 enum、digest mutation。
 
-- [ ] **步骤 2：运行 RED。**
+- [x] **步骤 2：运行 RED。**
 
   ```bash
   cmake --build --preset linux-gcc-debug \
@@ -289,7 +294,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 
   预期：codec 类和测试目标不存在。
 
-- [ ] **步骤 3：实现 codec 最小接口。**
+- [x] **步骤 3：实现 codec 最小接口。**
 
   ```cpp
   class ZzWorkspaceLayoutCodecPrivate final
@@ -312,12 +317,12 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   decode 直接构造完整 request：原始根组结构、current tab index 和默认折叠 Bottom，不把迁移
   延迟到 QWidget mutation 阶段。
 
-- [ ] **步骤 4：配置独立 codec test。**
+- [x] **步骤 4：配置独立 codec test。**
 
   测试目标直接编译 codec/state 两个 private `.cpp`，链接 Qt6::Test、Qt6::Core、
   Qt6::Widgets、Zz::Core 和 Zz::FluentFoundation，不链接 Zz::PureTools。
 
-- [ ] **步骤 5：运行 codec GREEN 和旧格式证据。**
+- [x] **步骤 5：运行 codec GREEN 和旧格式证据。**
 
   ```bash
   cmake --build --preset linux-gcc-debug \
@@ -328,7 +333,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 
   预期：全部通过；writer-reader 对称，任何 reader 拒绝的 Split state 都不能被 writer 接受。
 
-- [ ] **步骤 6：提交并审查。**
+- [x] **步骤 6：提交并审查。**
 
   ```bash
   git add \
@@ -355,7 +360,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 - 修改：`ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.cpp`
 - 修改：`ZzPureTools/tests/ZzWorkspaceShellTest.cpp`
 
-- [ ] **步骤 1：从原型测试资产逐条重建 Activity RED。**
+- [x] **步骤 1：从原型测试资产逐条重建 Activity RED。**
 
   只迁移测试，不复制原型生产代码。新增并单跑：
 
@@ -378,7 +383,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   最后三条是第 5 轮阻塞发现的强制 RED：`panelSizesChanged` 回调分别隐藏 moved content、
   reparent 到第三方和删除 activity model。
 
-- [ ] **步骤 2：验证 RED 由未实现 move 合同触发。**
+- [x] **步骤 2：验证 RED 由未实现 move 合同触发。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -389,7 +394,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   预期：旧 task 8 Shell 没有提交 move 或错误保留污染状态；不得以测试崩溃作为最终 RED，
   生命周期用例若先崩溃应通过 QPointer fixture 收敛为可断言失败。
 
-- [ ] **步骤 3：统一 Shell 事务门。**
+- [x] **步骤 3：统一 Shell 事务门。**
 
   在 `ZzWorkspaceShellPrivate` 使用单一枚举替代两个松散 bool：
 
@@ -405,7 +410,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   Activity move 进入时用 RAII 设为 `ActivityMove`。所有布局敏感结果型 API 和内部 Activity
   activate/move 按全局约束拒绝重入；不得用多个 bool 形成非法组合。
 
-- [ ] **步骤 4：实现 Activity move 事务类。**
+- [x] **步骤 4：实现 Activity move 事务类。**
 
   ```cpp
   class ZzWorkspaceActivityMoveTransactionPrivate final
@@ -425,13 +430,13 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   QPointer 与 raw identity、record generation、stack membership 和 ancestry。最后一次
   `setPanelSizes()` 前已经持有固定 target；其信号返回后不得捕获 checkpoint。
 
-- [ ] **步骤 5：实现同一执行器回滚。**
+- [x] **步骤 5：实现同一执行器回滚。**
 
   正向和回滚都调用 `applyProjection(const ZzWorkspaceProjection&)`。第三方接管时不 reparent，
   返回 false 并调用 Shell 既有 interrupted removal cleanup 收敛注册表。modelReset 后重新要求
   `modelGuard == shell.activityModel`。
 
-- [ ] **步骤 6：验证 Activity 全套 GREEN。**
+- [x] **步骤 6：验证 Activity 全套 GREEN。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -448,7 +453,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 
   预期：每次 QtTest 包含 init/cleanup 均为 3 passed、0 failed；第三方 owner 保持第三方 parent。
 
-- [ ] **步骤 7：提交并审查。**
+- [x] **步骤 7：提交并审查。**
 
   ```bash
   git add \
@@ -476,7 +481,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 - 修改：`ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.cpp`
 - 修改：`ZzPureTools/tests/ZzWorkspaceShellTest.cpp`
 
-- [ ] **步骤 1：重建 schema、完整恢复和三条最终阻塞 RED。**
+- [x] **步骤 1：重建 schema、完整恢复和三条最终阻塞 RED。**
 
   从原型测试资产逐条迁移 v1/v2 encoder 与以下行为测试，不复制生产代码：
 
@@ -518,7 +523,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   不同，再恢复 unknown/empty current；第二条在 Split `layoutChanged` 中调用 `splitGroup()`；
   第三条证明 application/custom title 与 always-on-top 不被布局回滚覆盖。
 
-- [ ] **步骤 2：运行目标 RED。**
+- [x] **步骤 2：运行目标 RED。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -531,7 +536,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   预期：task 8 只支持 schema 1，或 Split/Side 污染未被固定 projection 检测；失败信息必须指向
   行为差异。
 
-- [ ] **步骤 3：实现事务入口和固定 prepare。**
+- [x] **步骤 3：实现事务入口和固定 prepare。**
 
   ```cpp
   class ZzWorkspaceLayoutTransactionPrivate final
@@ -548,13 +553,13 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   `restore()` 在 mutation 前依次完成 codec decode、subsystem/panel snapshot、shadow QMainWindow
   Dock target、Split canonical target 和纯 planner target，然后把 target 存为 const。
 
-- [ ] **步骤 4：实现 Qt Dock shadow target。**
+- [x] **步骤 4：实现 Qt Dock shadow target。**
 
   创建不 show 的局部 QMainWindow；为每个注册 Dock 创建同 objectName 的临时 QDockWidget，
   先应用 snapshot area/floating/visible，再 `restoreState(request.qtState, 1)`，捕获目标逻辑
   projection。shadow 不连接 Shell 信号，不接管业务 content，离开 prepare 时全部销毁。
 
-- [ ] **步骤 5：实现固定五阶段提交和阶段审计。**
+- [x] **步骤 5：实现固定五阶段提交和阶段审计。**
 
   顺序必须为：
 
@@ -566,7 +571,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   `equals(observed, expected)`。Split 终态对比 prepare 阶段 canonical blob；不得在
   `restoreLayout()` 返回后保存成 expected。Side fallback 使用 snapshot Side current。
 
-- [ ] **步骤 6：实现统一反向回滚。**
+- [x] **步骤 6：实现统一反向回滚。**
 
   失败顺序：
 
@@ -578,13 +583,13 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   kind；缺失 Bottom/Dock、membership/ancestry 分裂、generation replacement 或第三方 owner
   都必须产生包含 `rollback failed` 的 `InvalidState`。
 
-- [ ] **步骤 7：缩减 Shell Private。**
+- [x] **步骤 7：缩减 Shell Private。**
 
   `saveLayout()` 和 `restoreLayout()` 只构造事务对象并转发；删除 Shell Private 中 codec、
   Split parser、learned projection、阶段 apply 和重复 rollback 大块。保留生命周期、注册表、
   标题连接和事务所需的最小 friend/accessor。不得同时保留新旧两套实现。
 
-- [ ] **步骤 8：运行完整 WorkspaceShell GREEN。**
+- [x] **步骤 8：运行完整 WorkspaceShell GREEN。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -596,7 +601,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 
   预期：WorkspaceShell 全部用例通过、无 warning；相关组件测试全绿。
 
-- [ ] **步骤 9：提交并审查。**
+- [x] **步骤 9：提交并审查。**
 
   ```bash
   git add \
@@ -620,7 +625,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 - 修改：`ZzPureTools/tests/ZzWorkspaceShellTest.cpp`
 - 按失败证据修改：任务 1 至任务 4 的 private 实现文件
 
-- [ ] **步骤 1：增加对象和重复事务失败测试。**
+- [x] **步骤 1：增加对象和重复事务失败测试。**
 
   ```cpp
   void keepsObjectBudgetStableAcrossRepeatedTransactions()
@@ -644,7 +649,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   再增加 1000 次 Activity 同侧/跨侧往返、1000 次 Split/Side 信号污染导致的失败恢复，断言
   QObject、QTimer、QAbstractAnimation、Activity rows、panel registrations 和 owner 回到基线。
 
-- [ ] **步骤 2：先运行压力 RED。**
+- [x] **步骤 2：先运行压力 RED。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -655,12 +660,12 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   如果立即通过，执行变异检查：临时泄漏 shadow Dock 或跳过事务 guard 析构，确认测试失败；
   恢复生产代码后再继续。不得为了制造 RED 降低真实断言。
 
-- [ ] **步骤 3：只修复压力测试证明的资源问题。**
+- [x] **步骤 3：只修复压力测试证明的资源问题。**
 
   使用栈对象、RAII guard、预留容器和稳定连接；禁止加入 event-loop wait、timer、animation、
   processEvents 或无界重试。若没有资源问题，本步骤不修改生产代码。
 
-- [ ] **步骤 4：运行 fresh 构建和定向门禁。**
+- [x] **步骤 4：运行 fresh 构建和定向门禁。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target clean
@@ -675,7 +680,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   Architecture 若仍只因既有 `OrderedPage` 缺少 `Zz` 前缀失败，按账本记录，不混入本提交；
   新文件不得产生任何新增架构失败。
 
-- [ ] **步骤 5：运行 sanitizer 和静态分析。**
+- [x] **步骤 5：运行 sanitizer 和静态分析。**
 
   ```bash
   cmake --preset linux-clang-asan -DZZ_BUILD_TESTS=ON -DZZ_BUILD_EXAMPLES=ON
@@ -685,7 +690,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   cmake --preset linux-clang-tidy-release -DZZ_BUILD_TESTS=ON -DZZ_BUILD_EXAMPLES=ON
   cmake --build --preset linux-clang-tidy-release --target ZzClangTidy --parallel 2
 
-  cmake "-DZZ_SOURCE_DIR=${PWD}" \
+  cmake "-DZZ_PRESETS_FILE=${PWD}/CMakePresets.json" \
     -P tests/Platform/PresetMatrixContract.cmake
   ctest --preset linux-gcc-debug \
     -R '^(platform.gate-script-contract|architecture.workspace-boundaries-contract|architecture.puretools-boundaries-contract|architecture.puretools-boundaries)$' \
@@ -697,7 +702,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   `platform.gate-script-contract` 必须验证对应平台 gate 脚本仍包含这些 preset。当前主机不下载
   跨平台 Qt，不伪造 Windows/macOS 运行证据，真实物理机运行继续保留为人工验证项。
 
-- [ ] **步骤 6：运行完整 CTest 并区分既有失败。**
+- [x] **步骤 6：运行完整 CTest 并区分既有失败。**
 
   ```bash
   ctest --preset linux-gcc-debug --output-on-failure
@@ -706,7 +711,7 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
   只允许账本已有的 4 个 workspace screenshot 基线失败和 `OrderedPage` 架构命名失败；任何
   新失败都必须在提交前修复。
 
-- [ ] **步骤 7：提交压力证据并审查。**
+- [x] **步骤 7：提交压力证据并审查。**
 
   ```bash
   git add ZzPureTools/tests/ZzWorkspaceShellTest.cpp
@@ -725,6 +730,21 @@ QPointer/QScopeGuard、ZzCore::ZzResult、Qt QDataStream/SHA-256。
 ---
 
 ## 最终审查与原计划恢复
+
+最终实现范围为 `09d5005..8077bff`。收口验证取得以下证据：
+
+- 完整 `ZzClangTidy` 检查 264 个一方源文件，通过；本批提交涉及的 12 个源文件定向检查
+  12/12 通过。
+- GCC Debug、Clang ASan/UBSan、GCC Release、GCC static Release 和 Clang Release 的 7 项
+  工作区事务门禁均为 7/7。
+- GCC Debug 全量 CTest 为 148/148；preset matrix 通过，架构与平台合同为 4/4。
+- 旧 `optional::emplace()`、4 个截图 DPR 基线和 `OrderedPage` 命名阻塞均已关闭。
+- shared 构建树运行 CTest 时显式使用 Qt 6.11.1 与构建树库路径；这是本机关闭构建 RPATH
+  后的运行环境要求，不改变项目链接策略。
+- 最终独立审查范围 `9535a8c..8077bff` 未发现 Critical 或 Important；唯一 Minor 是最终证据
+  文档尚未覆盖 `8077bff`，已由本次文档收口修正。
+- Windows MSVC、Windows MinGW 和 macOS 仍只有 preset、gate 脚本与源码可移植性静态证据，
+  不宣称物理平台运行通过。
 
 1. 每个任务提交后使用 `review-package` 生成 exact diff，分派全新审查者，必须同时得到规格
    合规与任务质量通过；修复循环最多五轮。
