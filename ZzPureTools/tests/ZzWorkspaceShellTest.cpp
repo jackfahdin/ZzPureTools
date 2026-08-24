@@ -2330,6 +2330,7 @@ private Q_SLOTS:
                 model->index(0, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
             QVERIFY(fixture.shell->showPanel(zzPanelId("first"), false));
+            QVERIFY(pane->currentWidget() != expectedCurrent);
             bottomPane->setPaneHeight(240);
             bottomPane->setCollapsed(true);
             QVERIFY(bottomPane->setCurrentWidget(bottomFirstRaw));
