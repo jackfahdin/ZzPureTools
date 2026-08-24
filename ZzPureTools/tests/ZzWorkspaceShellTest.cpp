@@ -2100,7 +2100,7 @@ private Q_SLOTS:
         const int baselineRightRows = rightModel->rowCount();
         const auto activityTitles = [&] {
             QStringList titles;
-            for (QAbstractItemModel *const model : {leftModel, rightModel}) {
+            for (QAbstractItemModel *const model : {leftModel}) {
                 for (int row = 0; row < model->rowCount(); ++row) {
                     titles.append(model->index(row, 0).data().toString());
                 }
@@ -2109,6 +2109,86 @@ private Q_SLOTS:
             return titles;
         };
         const QStringList baselineActivityTitles = activityTitles();
+        const QHash<QString, QWidget *> activityContents{
+            {QStringLiteral("left-first"), leftFirstRaw},
+            {QStringLiteral("left-second"), leftSecondRaw},
+            {QStringLiteral("right"), rightRaw}};
+        const QHash<QString, QString> activityTitlesById{
+            {QStringLiteral("left-first"), QStringLiteral("Left first")},
+            {QStringLiteral("left-second"), QStringLiteral("Left second")},
+            {QStringLiteral("right"), QStringLiteral("Right")}};
+        const QHash<int, QString> activityIdsByBadge{
+            {101, QStringLiteral("left-first")},
+            {202, QStringLiteral("left-second")},
+            {303, QStringLiteral("right")}};
+        const QHash<QString, ZzFluentUI::ZzActivityArea> activityAreasById{
+            {QStringLiteral("left-first"),
+             ZzFluentUI::ZzActivityArea::LeftPrimary},
+            {QStringLiteral("left-second"),
+             ZzFluentUI::ZzActivityArea::LeftPrimary},
+            {QStringLiteral("right"),
+             ZzFluentUI::ZzActivityArea::RightPrimary}};
+        QVERIFY(fixture.shell->setPanelBadge(
+            zzPanelId("left-first"), 101));
+        QVERIFY(fixture.shell->setPanelBadge(
+            zzPanelId("left-second"), 202));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("right"), 303));
+        const auto assertActivityIdentity = [&] {
+            QSet<QString> seenIds;
+            for (QAbstractItemModel *const model : {leftModel}) {
+                for (int row = 0; row < model->rowCount(); ++row) {
+                    const QModelIndex index = model->index(row, 0);
+                    const auto id = activityIdsByBadge.constFind(
+                        index.data(static_cast<int>(
+                            ZzFluentUI::ZzActivityItemRole::Badge)).toInt());
+                    if (id == activityIdsByBadge.cend()
+                        || seenIds.contains(id.value())
+                        || index.data().toString()
+                            != activityTitlesById.value(id.value())
+                        || index.data(static_cast<int>(
+                               ZzFluentUI::ZzActivityItemRole::Area))
+                            .value<ZzFluentUI::ZzActivityArea>()
+                            != activityAreasById.value(id.value())
+                        || activityContents.value(id.value()) == nullptr) {
+                        return false;
+                    }
+                    seenIds.insert(id.value());
+                }
+            }
+            if (seenIds.size() != activityContents.size()
+                || !seenIds.contains(QStringLiteral("left-first"))
+                || !seenIds.contains(QStringLiteral("left-second"))
+                || !seenIds.contains(QStringLiteral("right"))) {
+                return false;
+            }
+            const auto assertStack = [&](ZzFluentUI::ZzSidePane *pane) {
+                if (pane == nullptr || pane->panelStack() == nullptr) {
+                    return false;
+                }
+                for (QWidget *const content : pane->panelStack()->panels()) {
+                    const QString id = activityContents.key(
+                        content, QString{});
+                    if (id.isEmpty() || !pane->isAncestorOf(content)
+                        || !pane->panelStack()->isAncestorOf(content)) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            QSet<QString> stackedIds;
+            for (ZzFluentUI::ZzSidePane *const pane : {leftPane, rightPane}) {
+                for (QWidget *const content : pane->panelStack()->panels()) {
+                    const QString id = activityContents.key(content, QString{});
+                    if (id.isEmpty() || stackedIds.contains(id)) {
+                        return false;
+                    }
+                    stackedIds.insert(id);
+                }
+            }
+            return assertStack(leftPane) && assertStack(rightPane)
+                && stackedIds == seenIds;
+        };
+        QVERIFY(assertActivityIdentity());
 
         for (int iteration = 0; iteration < 1000; ++iteration) {
             Q_EMIT leftBar->moveRequested(
@@ -2166,13 +2246,14 @@ private Q_SLOTS:
         QVERIFY(leftPane->isAncestorOf(leftFirstRaw));
         QVERIFY(leftPane->isAncestorOf(leftSecondRaw));
         QVERIFY(rightPane->isAncestorOf(rightRaw));
-        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-first"), 1));
-        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-second"), 2));
-        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("right"), 3));
-        QVERIFY(!fixture.shell->setPanelBadge(zzPanelId("ghost"), 1));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-first"), 101));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-second"), 202));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("right"), 303));
+        QVERIFY(!fixture.shell->setPanelBadge(zzPanelId("ghost"), 404));
         QVERIFY(fixture.shell->showPanel(zzPanelId("left-first"), true));
         QVERIFY(fixture.shell->showPanel(zzPanelId("left-second"), true));
         QVERIFY(fixture.shell->showPanel(zzPanelId("right"), true));
+        QVERIFY(assertActivityIdentity());
     }
 
     void keepsObjectBudgetStableAcrossRepeatedTransactions()
@@ -2180,8 +2261,12 @@ private Q_SLOTS:
         ZzShellFixture fixture;
         auto first = std::make_unique<QWidget>();
         auto second = std::make_unique<QWidget>();
+        auto bottomFirst = std::make_unique<QWidget>();
+        auto bottomSecond = std::make_unique<QWidget>();
         QWidget *const firstRaw = first.get();
         QWidget *const secondRaw = second.get();
+        QWidget *const bottomFirstRaw = bottomFirst.get();
+        QWidget *const bottomSecondRaw = bottomSecond.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("first"), QStringLiteral("First"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
@@ -2200,6 +2285,19 @@ private Q_SLOTS:
             model->index(1, 0),
             ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
         QVERIFY(fixture.shell->showPanel(zzPanelId("first"), true));
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom-first"), QStringLiteral("Bottom first"),
+            zzIcon(), bottomFirst.get()));
+        zzReleaseAfterAdoption(bottomFirst);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom-second"), QStringLiteral("Bottom second"),
+            zzIcon(), bottomSecond.get()));
+        zzReleaseAfterAdoption(bottomSecond);
+        auto *const bottomPane = fixture.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(420);
+        bottomPane->setCollapsed(false);
+        QVERIFY(bottomPane->setCurrentWidget(bottomSecondRaw));
         const auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
         const QList<QWidget *> expectedVisible{
@@ -2211,6 +2309,13 @@ private Q_SLOTS:
         QWidget *const expectedCurrent = pane->currentWidget();
         const QStringList expectedTitles{
             QStringLiteral("Second"), QStringLiteral("First")};
+        QStackedWidget *const bottomStack =
+            bottomPane->findChild<QStackedWidget *>();
+        QVERIFY(bottomStack != nullptr);
+        const QList<QWidget *> expectedBottomPanels{
+            bottomStack->widget(0), bottomStack->widget(1)};
+        const int expectedBottomHeight = bottomPane->paneHeight();
+        QWidget *const expectedBottomCurrent = bottomPane->currentWidget();
         const auto resources = [&fixture] {
             return std::tuple{
                 fixture.host.findChildren<QObject *>().size(),
@@ -2225,6 +2330,10 @@ private Q_SLOTS:
                 model->index(0, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
             QVERIFY(fixture.shell->showPanel(zzPanelId("first"), false));
+            bottomPane->setPaneHeight(240);
+            bottomPane->setCollapsed(true);
+            QVERIFY(bottomPane->setCurrentWidget(bottomFirstRaw));
+            QVERIFY(bottomPane->currentWidget() != expectedBottomCurrent);
             QCOMPARE(pane->paneWidth(), 211);
             QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({secondRaw}));
             QCOMPARE(pane->panelStack()->panels(), mutatedPanels);
@@ -2238,9 +2347,25 @@ private Q_SLOTS:
             QCOMPARE(model->index(1, 0).data().toString(), expectedTitles.at(1));
             QVERIFY(pane->isAncestorOf(firstRaw));
             QVERIFY(pane->isAncestorOf(secondRaw));
+            const auto missingBottom = fixture.shell->takePanel(
+                zzPanelId("bottom-ghost"));
+            QVERIFY(!missingBottom.hasValue());
+            QCOMPARE(bottomPane->paneHeight(), expectedBottomHeight);
+            QCOMPARE(bottomPane->currentWidget(), expectedBottomCurrent);
+            QVERIFY(!bottomPane->isCollapsed());
+            QCOMPARE(bottomPane->widgetCount(), 2);
+            QCOMPARE(bottomStack->count(), 2);
+            QCOMPARE(bottomStack->widget(0), expectedBottomPanels.at(0));
+            QCOMPARE(bottomStack->widget(1), expectedBottomPanels.at(1));
+            QVERIFY(bottomPane->isAncestorOf(bottomFirstRaw));
+            QVERIFY(bottomPane->isAncestorOf(bottomSecondRaw));
         }
 
         QCOMPARE(resources(), baselineResources);
+        QCOMPARE(bottomPane->widgetCount(), 2);
+        QCOMPARE(bottomStack->count(), 2);
+        QCOMPARE(bottomStack->widget(0), bottomFirstRaw);
+        QCOMPARE(bottomStack->widget(1), bottomSecondRaw);
     }
 
     void keepsRestoreFailureResourceBudgetStableAcrossSignalPollution()
@@ -2382,6 +2507,92 @@ private Q_SLOTS:
         QVERIFY(sideTarget.shell->setPanelBadge(zzPanelId("side"), 7));
         QVERIFY(!sideTarget.shell->setPanelBadge(zzPanelId("ghost"), 7));
         QVERIFY(sideTarget.shell->showPanel(zzPanelId("side"), true));
+
+        ZzShellFixture bottomSource;
+        auto sourceBottomFirst = std::make_unique<QWidget>();
+        auto sourceBottomSecond = std::make_unique<QWidget>();
+        QWidget *const sourceBottomSecondRaw = sourceBottomSecond.get();
+        QVERIFY(bottomSource.shell->registerBottomPanel(
+            zzPanelId("bottom-first"), QStringLiteral("Bottom first"),
+            zzIcon(), sourceBottomFirst.get()));
+        zzReleaseAfterAdoption(sourceBottomFirst);
+        QVERIFY(bottomSource.shell->registerBottomPanel(
+            zzPanelId("bottom-second"), QStringLiteral("Bottom second"),
+            zzIcon(), sourceBottomSecond.get()));
+        zzReleaseAfterAdoption(sourceBottomSecond);
+        bottomSource.shell->bottomPane()->setMaximumPaneHeight(800);
+        bottomSource.shell->bottomPane()->setPaneHeight(500);
+        bottomSource.shell->bottomPane()->setCollapsed(false);
+        QVERIFY(bottomSource.shell->bottomPane()->setCurrentWidget(
+            sourceBottomSecondRaw));
+        const auto bottomRequested = bottomSource.shell->saveLayout();
+        QVERIFY(bottomRequested);
+
+        ZzShellFixture bottomTarget;
+        auto targetBottomFirst = std::make_unique<QWidget>();
+        auto targetBottomSecond = std::make_unique<QWidget>();
+        QWidget *const targetBottomFirstRaw = targetBottomFirst.get();
+        QWidget *const targetBottomSecondRaw = targetBottomSecond.get();
+        QVERIFY(bottomTarget.shell->registerBottomPanel(
+            zzPanelId("bottom-first"), QStringLiteral("Bottom first"),
+            zzIcon(), targetBottomFirst.get()));
+        zzReleaseAfterAdoption(targetBottomFirst);
+        QVERIFY(bottomTarget.shell->registerBottomPanel(
+            zzPanelId("bottom-second"), QStringLiteral("Bottom second"),
+            zzIcon(), targetBottomSecond.get()));
+        zzReleaseAfterAdoption(targetBottomSecond);
+        auto *const bottomTargetPane = bottomTarget.shell->bottomPane();
+        bottomTargetPane->setMaximumPaneHeight(800);
+        bottomTargetPane->setPaneHeight(240);
+        bottomTargetPane->setCollapsed(true);
+        QVERIFY(bottomTargetPane->setCurrentWidget(targetBottomFirstRaw));
+        QStackedWidget *const bottomTargetStack =
+            bottomTargetPane->findChild<QStackedWidget *>();
+        QVERIFY(bottomTargetStack != nullptr);
+        const QList<QWidget *> bottomTargetPanels{
+            targetBottomFirstRaw, targetBottomSecondRaw};
+        const int bottomTargetHeight = bottomTargetPane->paneHeight();
+        const bool bottomTargetCollapsed = bottomTargetPane->isCollapsed();
+        QWidget *const bottomTargetCurrent = bottomTargetPane->currentWidget();
+        const auto bottomResources = [&bottomTarget] {
+            return std::tuple{
+                bottomTarget.host.findChildren<QObject *>().size(),
+                bottomTarget.host.findChildren<QTimer *>().size(),
+                bottomTarget.host.findChildren<QAbstractAnimation *>().size()};
+        };
+        const auto bottomBaselineResources = bottomResources();
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            bool armed = true;
+            const QMetaObject::Connection connection = QObject::connect(
+                bottomTargetPane,
+                &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+                bottomTarget.shell.get(), [&](int height) {
+                    if (!armed || height != 500) {
+                        return;
+                    }
+                    armed = false;
+                    bottomTargetPane->setPaneHeight(333);
+                });
+            const auto restored = bottomTarget.shell->restoreLayout(
+                bottomRequested.value());
+            QObject::disconnect(connection);
+            QVERIFY(!restored);
+            QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+            QVERIFY(!armed);
+            QCOMPARE(bottomTargetPane->paneHeight(), bottomTargetHeight);
+            QCOMPARE(bottomTargetPane->isCollapsed(), bottomTargetCollapsed);
+            QCOMPARE(bottomTargetPane->currentWidget(), bottomTargetCurrent);
+            QCOMPARE(bottomTargetPane->widgetCount(), 2);
+            QCOMPARE(bottomTargetStack->count(), 2);
+            QCOMPARE(bottomTargetStack->widget(0), bottomTargetPanels.at(0));
+            QCOMPARE(bottomTargetStack->widget(1), bottomTargetPanels.at(1));
+            QVERIFY(bottomTargetPane->isAncestorOf(targetBottomFirstRaw));
+            QVERIFY(bottomTargetPane->isAncestorOf(targetBottomSecondRaw));
+            const auto missingBottom = bottomTarget.shell->takePanel(
+                zzPanelId("bottom-ghost"));
+            QVERIFY(!missingBottom.hasValue());
+            QCOMPARE(bottomResources(), bottomBaselineResources);
+        }
     }
 
     void activityMoveStopsWhenAnEarlierPanelIsReparented()
