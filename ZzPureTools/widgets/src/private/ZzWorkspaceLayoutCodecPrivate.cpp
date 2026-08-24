@@ -633,17 +633,24 @@ void zzAppendAreaEntries(
         || (!current.isEmpty() && !side.visible.contains(current))) {
         return false;
     }
+    qsizetype physicalIndex = 0;
     for (qsizetype index = 0; index < side.visible.size(); ++index) {
         const QString id = side.visible.at(index).trimmed();
+        while (physicalIndex < side.order.size()
+               && side.order.at(physicalIndex) != id) {
+            ++physicalIndex;
+        }
         const auto found = std::find_if(entries.cbegin(), entries.cend(),
             [&id](const ZzSideEntry &entry) { return entry.id == id; });
         if (id.isEmpty() || id.size() > zzMaximumIdLength
             || visibleIds->contains(id) || side.sizes.at(index) <= 0
             || side.sizes.at(index) > zzMaximumLayoutSize
-            || found == entries.cend() || zzIsLeftArea(found->area) != left) {
+            || found == entries.cend() || zzIsLeftArea(found->area) != left
+            || physicalIndex >= side.order.size()) {
             return false;
         }
         visibleIds->insert(id);
+        ++physicalIndex;
     }
     return true;
 }

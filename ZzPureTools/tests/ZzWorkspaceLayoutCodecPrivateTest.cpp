@@ -9,6 +9,7 @@
 #include <QtCore/QDataStream>
 #include <QtTest/QTest>
 
+#include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 
 namespace {
@@ -655,6 +656,45 @@ private slots:
                 ZzFluentUI::ZzActivityArea::RightPrimary, 0}},
             -1, 0);
         QVERIFY(!ZzCodec::decode(crossSideCurrent));
+    }
+
+    void rejectsVisibleOrderOutsidePhysicalSubsequence()
+    {
+        auto layout = zzValidVersionTwoLayout();
+        layout.leftCollapsed = 0;
+        layout.leftCurrent = QStringLiteral("second");
+        layout.leftVisible = {
+            QStringLiteral("second"), QStringLiteral("first")};
+        layout.leftSizes = {222, 111};
+        layout.sideEntries = {
+            {QStringLiteral("first"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+            {QStringLiteral("second"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 1}};
+
+        const auto decoded = ZzCodec::decode(zzVersionTwoLayout(layout));
+        QVERIFY(!decoded);
+        QCOMPARE(decoded.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+
+        layout.leftVisible = {
+            QStringLiteral("first"), QStringLiteral("second")};
+        layout.leftSizes = {111, 222};
+        layout.leftCurrent = QStringLiteral("first");
+        const auto valid = ZzCodec::decode(zzVersionTwoLayout(layout));
+        QVERIFY(valid);
+
+        auto invalidRequest = valid.value();
+        invalidRequest.projection->leftSide.visible = {
+            QStringLiteral("second"), QStringLiteral("first")};
+        invalidRequest.projection->leftSide.sizes = {222, 111};
+        invalidRequest.projection->leftSide.current = QStringLiteral("second");
+        invalidRequest.projection->activity.leftCurrent =
+            QStringLiteral("second");
+        invalidRequest.leftCurrent = QStringLiteral("second");
+
+        const auto encoded = ZzCodec::encodeVersionTwo(invalidRequest);
+        QVERIFY(!encoded);
+        QCOMPARE(encoded.error().code(), ZzCore::ZzErrorCode::InvalidState);
     }
 
     void canonicalSplitTargetRejectsLayoutChangedInjection()

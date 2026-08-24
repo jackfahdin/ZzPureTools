@@ -5194,6 +5194,64 @@ private Q_SLOTS:
         }
     }
 
+    void restoreRejectsNonSubsequenceVisibleOrderBeforeMutation()
+    {
+        ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QWidget *const firstRaw = first.get();
+        QWidget *const secondRaw = second.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const stack = pane->panelStack();
+        pane->setMaximumPaneWidth(800);
+        pane->setPaneWidth(321);
+        QVERIFY(stack->setPanelSizes({111, 222}));
+        QCOMPARE(pane->currentWidget(), secondRaw);
+
+        ZzTestVersionTwoLayout layout;
+        layout.qtState = fixture.host.saveState(1);
+        layout.leftCollapsed = 0;
+        layout.leftWidth = 500;
+        layout.leftCurrent = QStringLiteral("second");
+        layout.leftVisible = {
+            QStringLiteral("second"), QStringLiteral("first")};
+        layout.leftSizes = {222, 111};
+        layout.sideEntries = {
+            {QStringLiteral("first"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+            {QStringLiteral("second"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 1}};
+        layout.splitState = fixture.shell->splitWorkspace()->saveLayout();
+        const QByteArray encoded = zzVersionTwoLayout(layout);
+        QVERIFY(!encoded.isEmpty());
+
+        QSignalSpy widthSpy(pane, &ZzFluentUI::ZzSidePane::paneWidthChanged);
+        QSignalSpy sizesSpy(stack, &ZzFluentUI::ZzPanelStack::panelSizesChanged);
+        QSignalSpy currentSpy(pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged);
+        const auto restored = fixture.shell->restoreLayout(encoded);
+
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+        QCOMPARE(widthSpy.count(), 0);
+        QCOMPARE(sizesSpy.count(), 0);
+        QCOMPARE(currentSpy.count(), 0);
+        QCOMPARE(pane->paneWidth(), 321);
+        QCOMPARE(stack->panels(), QList<QWidget *>({firstRaw, secondRaw}));
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({firstRaw, secondRaw}));
+        QCOMPARE(stack->panelSizes(), QList<int>({111, 222}));
+        QCOMPARE(pane->currentWidget(), secondRaw);
+    }
+
     void rejectsInvalidSplitStateWhenSavingWorkspaceLayout()
     {
         ZzShellFixture fixture;
