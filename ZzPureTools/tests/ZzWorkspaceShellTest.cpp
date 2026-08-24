@@ -22,6 +22,7 @@
 #include <QtWidgets/QDockWidget>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QStackedWidget>
+#include <QtWidgets/QTabBar>
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzCore/ZzErrorCode.h>
@@ -2312,6 +2313,8 @@ private Q_SLOTS:
         QStackedWidget *const bottomStack =
             bottomPane->findChild<QStackedWidget *>();
         QVERIFY(bottomStack != nullptr);
+        QTabBar *const bottomTabs = bottomPane->findChild<QTabBar *>();
+        QVERIFY(bottomTabs != nullptr);
         const QList<QWidget *> expectedBottomPanels{
             bottomStack->widget(0), bottomStack->widget(1)};
         const int expectedBottomHeight = bottomPane->paneHeight();
@@ -2356,6 +2359,8 @@ private Q_SLOTS:
             QVERIFY(!bottomPane->isCollapsed());
             QCOMPARE(bottomPane->widgetCount(), 2);
             QCOMPARE(bottomStack->count(), 2);
+            QCOMPARE(bottomTabs->tabText(0), QStringLiteral("Bottom first"));
+            QCOMPARE(bottomTabs->tabText(1), QStringLiteral("Bottom second"));
             QCOMPARE(bottomStack->widget(0), expectedBottomPanels.at(0));
             QCOMPARE(bottomStack->widget(1), expectedBottomPanels.at(1));
             QVERIFY(bottomPane->isAncestorOf(bottomFirstRaw));
@@ -2367,6 +2372,24 @@ private Q_SLOTS:
         QCOMPARE(bottomStack->count(), 2);
         QCOMPARE(bottomStack->widget(0), bottomFirstRaw);
         QCOMPARE(bottomStack->widget(1), bottomSecondRaw);
+        QCOMPARE(bottomTabs->tabText(0), QStringLiteral("Bottom first"));
+        QCOMPARE(bottomTabs->tabText(1), QStringLiteral("Bottom second"));
+        const auto takenBottomFirst = fixture.shell->takePanel(
+            zzPanelId("bottom-first"));
+        QVERIFY(takenBottomFirst.hasValue());
+        QCOMPARE(takenBottomFirst.value(), bottomFirstRaw);
+        QVERIFY(bottomFirstRaw->parent() == nullptr);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom-first"), QStringLiteral("Bottom first"),
+            zzIcon(), bottomFirstRaw));
+        const auto takenBottomSecond = fixture.shell->takePanel(
+            zzPanelId("bottom-second"));
+        QVERIFY(takenBottomSecond.hasValue());
+        QCOMPARE(takenBottomSecond.value(), bottomSecondRaw);
+        QVERIFY(bottomSecondRaw->parent() == nullptr);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom-second"), QStringLiteral("Bottom second"),
+            zzIcon(), bottomSecondRaw));
     }
 
     void keepsRestoreFailureResourceBudgetStableAcrossSignalPollution()
@@ -2512,6 +2535,7 @@ private Q_SLOTS:
         ZzShellFixture bottomSource;
         auto sourceBottomFirst = std::make_unique<QWidget>();
         auto sourceBottomSecond = std::make_unique<QWidget>();
+        auto sourceDockContent = std::make_unique<QWidget>();
         QWidget *const sourceBottomSecondRaw = sourceBottomSecond.get();
         QVERIFY(bottomSource.shell->registerBottomPanel(
             zzPanelId("bottom-first"), QStringLiteral("Bottom first"),
@@ -2521,6 +2545,10 @@ private Q_SLOTS:
             zzPanelId("bottom-second"), QStringLiteral("Bottom second"),
             zzIcon(), sourceBottomSecond.get()));
         zzReleaseAfterAdoption(sourceBottomSecond);
+        QVERIFY(bottomSource.shell->registerDockPanel(
+            zzPanelId("bottom-dock"), QStringLiteral("Bottom dock"),
+            zzIcon(), Qt::RightDockWidgetArea, sourceDockContent.get()));
+        zzReleaseAfterAdoption(sourceDockContent);
         bottomSource.shell->bottomPane()->setMaximumPaneHeight(800);
         bottomSource.shell->bottomPane()->setPaneHeight(500);
         bottomSource.shell->bottomPane()->setCollapsed(false);
@@ -2532,8 +2560,10 @@ private Q_SLOTS:
         ZzShellFixture bottomTarget;
         auto targetBottomFirst = std::make_unique<QWidget>();
         auto targetBottomSecond = std::make_unique<QWidget>();
+        auto targetDockContent = std::make_unique<QWidget>();
         QWidget *const targetBottomFirstRaw = targetBottomFirst.get();
         QWidget *const targetBottomSecondRaw = targetBottomSecond.get();
+        QWidget *const targetDockContentRaw = targetDockContent.get();
         QVERIFY(bottomTarget.shell->registerBottomPanel(
             zzPanelId("bottom-first"), QStringLiteral("Bottom first"),
             zzIcon(), targetBottomFirst.get()));
@@ -2542,6 +2572,10 @@ private Q_SLOTS:
             zzPanelId("bottom-second"), QStringLiteral("Bottom second"),
             zzIcon(), targetBottomSecond.get()));
         zzReleaseAfterAdoption(targetBottomSecond);
+        QVERIFY(bottomTarget.shell->registerDockPanel(
+            zzPanelId("bottom-dock"), QStringLiteral("Bottom dock"),
+            zzIcon(), Qt::LeftDockWidgetArea, targetDockContent.get()));
+        zzReleaseAfterAdoption(targetDockContent);
         auto *const bottomTargetPane = bottomTarget.shell->bottomPane();
         bottomTargetPane->setMaximumPaneHeight(800);
         bottomTargetPane->setPaneHeight(240);
@@ -2552,6 +2586,12 @@ private Q_SLOTS:
         QVERIFY(bottomTargetStack != nullptr);
         const QList<QWidget *> bottomTargetPanels{
             targetBottomFirstRaw, targetBottomSecondRaw};
+        auto *const targetDockPanel = bottomTarget.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:bottom-dock"));
+        QVERIFY(targetDockPanel != nullptr);
+        const QString targetDockObjectName = targetDockPanel->objectName();
+        const Qt::DockWidgetArea targetDockArea =
+            bottomTarget.host.dockWidgetArea(targetDockPanel);
         const int bottomTargetHeight = bottomTargetPane->paneHeight();
         const bool bottomTargetCollapsed = bottomTargetPane->isCollapsed();
         QWidget *const bottomTargetCurrent = bottomTargetPane->currentWidget();
@@ -2589,9 +2629,20 @@ private Q_SLOTS:
             QCOMPARE(bottomTargetStack->widget(1), bottomTargetPanels.at(1));
             QVERIFY(bottomTargetPane->isAncestorOf(targetBottomFirstRaw));
             QVERIFY(bottomTargetPane->isAncestorOf(targetBottomSecondRaw));
+            QCOMPARE(targetDockPanel->objectName(), targetDockObjectName);
+            QCOMPARE(targetDockPanel->widget(), targetDockContentRaw);
+            QCOMPARE(targetDockPanel->widget()->parentWidget(), targetDockPanel);
+            QCOMPARE(bottomTarget.host.dockWidgetArea(targetDockPanel), targetDockArea);
+            QVERIFY(!targetDockPanel->isFloating());
+            QVERIFY(!targetDockPanel->isHidden());
             const auto missingBottom = bottomTarget.shell->takePanel(
                 zzPanelId("bottom-ghost"));
             QVERIFY(!missingBottom.hasValue());
+            QVERIFY(!bottomTarget.shell->showPanel(zzPanelId("bottom-ghost"), true));
+            const auto missingDock = bottomTarget.shell->takePanel(
+                zzPanelId("dock-ghost"));
+            QVERIFY(!missingDock.hasValue());
+            QVERIFY(!bottomTarget.shell->showPanel(zzPanelId("dock-ghost"), true));
             QCOMPARE(bottomResources(), bottomBaselineResources);
         }
     }
