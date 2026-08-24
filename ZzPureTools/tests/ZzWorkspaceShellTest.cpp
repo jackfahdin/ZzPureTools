@@ -3324,6 +3324,59 @@ private Q_SLOTS:
         QCOMPARE(leftBar->activeSourceIndexes().size(), 2);
     }
 
+    void activityMoveRollbackDoesNotDetachNonMovedPanelFromLivePane()
+    {
+        ZzShellFixture fixture;
+        auto moved = std::make_unique<QWidget>();
+        auto nonMoved = std::make_unique<QWidget>();
+        QWidget *const nonMovedRaw = nonMoved.get();
+        QVERIFY(fixture.shell->registerSidePanel(zzPanelId("guard-moved"),
+            QStringLiteral("Moved"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        QVERIFY(fixture.shell->registerSidePanel(zzPanelId("guard-non-moved"),
+            QStringLiteral("Non moved"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, nonMoved.get()));
+        zzReleaseAfterAdoption(nonMoved);
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> owner;
+        QWidget *rawOwner = nullptr;
+        QPointer<ZzFluentUI::ZzSidePane> rightGuard(rightPane);
+        bool callbackEntered = false;
+        QObject::connect(rightPane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current == nullptr) {
+                    return;
+                }
+                callbackEntered = true;
+                QVERIFY(rightPane->takeWidget(nonMovedRaw) == nonMovedRaw);
+                QVERIFY(leftPane->addWidget(nonMovedRaw, QStringLiteral("Non moved")));
+                owner = nonMovedRaw->parentWidget();
+                rawOwner = owner.data();
+                delete rightGuard.data();
+            });
+
+        Q_EMIT bar->moveRequested(bar->model()->index(0, 0),
+            ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(rightGuard.isNull());
+        QVERIFY(nonMovedRaw != nullptr);
+        QVERIFY(owner != nullptr);
+        QCOMPARE(nonMovedRaw->parentWidget(), rawOwner);
+        QVERIFY(leftPane->panelStack()->panels().contains(nonMovedRaw));
+        QVERIFY(leftPane->isAncestorOf(nonMovedRaw));
+        QVERIFY(leftPane->panelStack()->isAncestorOf(nonMovedRaw));
+        QWidget *const taken = leftPane->takeWidget(nonMovedRaw);
+        QCOMPARE(taken, nonMovedRaw);
+        delete taken;
+    }
+
     void rollsBackActivityMoveWhenModelResetOverwritesPaneState()
     {
         ZzShellFixture fixture;
