@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <memory>
 
 #include <QtCore/QAbstractListModel>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QMimeData>
 #include <QtCore/QPointer>
 #include <QtGui/QColor>
@@ -155,6 +157,52 @@ void zzShow(QWidget *widget)
         }
     }
     return count;
+}
+
+/** @brief 承载活动源索引选择的测量结果。 */
+struct ZzActiveSelectionMeasurement final
+{
+    qint64 medianNanoseconds = 0;
+    qsizetype checksum = 0;
+};
+
+[[nodiscard]] QList<QModelIndex> zzSourceIndexes(
+    QAbstractItemModel *model)
+{
+    QList<QModelIndex> indexes;
+    if (model == nullptr) {
+        return indexes;
+    }
+    indexes.reserve(model->rowCount());
+    for (int row = 0; row < model->rowCount(); ++row) {
+        indexes.append(model->index(row, 0));
+    }
+    return indexes;
+}
+
+[[nodiscard]] ZzActiveSelectionMeasurement zzMeasureActiveSelection(
+    ZzFluentUI::ZzActivityBar *bar,
+    const QList<QModelIndex> &indexes,
+    int repetitions)
+{
+    ZzActiveSelectionMeasurement measurement;
+    if (bar == nullptr || repetitions <= 0) {
+        return measurement;
+    }
+    QList<qint64> samples;
+    samples.reserve(7);
+    for (int sample = 0; sample < 7; ++sample) {
+        QElapsedTimer timer;
+        timer.start();
+        for (int repetition = 0; repetition < repetitions; ++repetition) {
+            bar->setActiveSourceIndexes(indexes);
+            measurement.checksum += bar->activeSourceIndexes().size();
+        }
+        samples.append(timer.nsecsElapsed());
+    }
+    std::sort(samples.begin(), samples.end());
+    measurement.medianNanoseconds = samples.at(samples.size() / 2);
+    return measurement;
 }
 
 /** @brief 返回指定区域内接近目标颜色的实际像素边界。 */
@@ -421,6 +469,138 @@ private Q_SLOTS:
 
         QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>());
         QCOMPARE(activeSpy.count(), 1);
+    }
+
+    void keepsFirstActiveOccurrenceAndRebuildsAfterReset()
+    {
+        QStandardItemModel model(6, 2);
+        QStandardItemModel otherModel(1, 1);
+        for (int row = 0; row < model.rowCount(); ++row) {
+            for (int column = 0; column < model.columnCount(); ++column) {
+                model.setItem(row, column, new QStandardItem);
+            }
+        }
+        model.item(0, 0)->appendRow(new QStandardItem);
+        const auto setAreas = [](QStandardItemModel *target) {
+            const QList<ZzFluentUI::ZzActivityArea> areas = {
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                ZzFluentUI::ZzActivityArea::RightPrimary,
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                ZzFluentUI::ZzActivityArea::LeftSecondary,
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                ZzFluentUI::ZzActivityArea::LeftSecondary,
+            };
+            for (int row = 0; row < areas.size(); ++row) {
+                target->setData(
+                    target->index(row, 0),
+                    QVariant::fromValue(areas.at(row)),
+                    static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+            }
+        };
+        setAreas(&model);
+
+        ZzFluentUI::ZzActivityBar bar(ZzFluentUI::ZzSidePaneEdge::Left);
+        bar.setModel(&model);
+        bar.setMultiActiveEnabled(true);
+        const QModelIndex row0 = model.index(0, 0);
+        const QModelIndex row1 = model.index(1, 0);
+        const QModelIndex row2 = model.index(2, 0);
+        const QModelIndex row4 = model.index(4, 0);
+        const QModelIndex child = model.index(0, 0, row0);
+        const QList<QModelIndex> indexes = {
+            row4,
+            row0,
+            row4,
+            row1,
+            child,
+            model.index(0, 1),
+            otherModel.index(0, 0),
+            row2,
+            row0,
+        };
+
+        bar.setActiveSourceIndexes(indexes);
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({row4, row0, row2}));
+
+        QSignalSpy activeSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activeSourceIndexesChanged);
+        bar.setActiveSourceIndexes(indexes);
+        QCOMPARE(activeSpy.count(), 0);
+
+        model.clear();
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>());
+        QCOMPARE(activeSpy.count(), 1);
+
+        model.setRowCount(6);
+        model.setColumnCount(2);
+        for (int row = 0; row < model.rowCount(); ++row) {
+            for (int column = 0; column < model.columnCount(); ++column) {
+                model.setItem(row, column, new QStandardItem);
+            }
+        }
+        setAreas(&model);
+        const QModelIndex newRow0 = model.index(0, 0);
+        const QModelIndex newRow2 = model.index(2, 0);
+        const QModelIndex newRow3 = model.index(3, 0);
+        const QModelIndex newRow4 = model.index(4, 0);
+        bar.setActiveSourceIndexes({newRow3, newRow4, newRow3, newRow2, newRow0});
+
+        QCOMPARE(
+            zzActivityView(&bar, QStringLiteral("zzActivityPrimaryView"))
+                ->model()->rowCount(),
+            3);
+        QCOMPARE(
+            zzActivityView(&bar, QStringLiteral("zzActivitySecondaryView"))
+                ->model()->rowCount(),
+            2);
+        QCOMPARE(
+            bar.activeSourceIndexes(),
+            QList<QModelIndex>({newRow3, newRow4, newRow2, newRow0}));
+    }
+
+    void activeSourceSelectionScalesBelowQuadraticGrowth()
+    {
+        QStandardItemModel smallModel(128, 1);
+        QStandardItemModel largeModel(512, 1);
+        for (QStandardItemModel *model : {&smallModel, &largeModel}) {
+            for (int row = 0; row < model->rowCount(); ++row) {
+                model->setData(
+                    model->index(row, 0),
+                    QVariant::fromValue(
+                        ZzFluentUI::ZzActivityArea::LeftPrimary),
+                    static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+            }
+        }
+        ZzFluentUI::ZzActivityBar smallBar(ZzFluentUI::ZzSidePaneEdge::Left);
+        ZzFluentUI::ZzActivityBar largeBar(ZzFluentUI::ZzSidePaneEdge::Left);
+        smallBar.setModel(&smallModel);
+        largeBar.setModel(&largeModel);
+        smallBar.setMultiActiveEnabled(true);
+        largeBar.setMultiActiveEnabled(true);
+        const QList<QModelIndex> smallIndexes = zzSourceIndexes(&smallModel);
+        const QList<QModelIndex> largeIndexes = zzSourceIndexes(&largeModel);
+        smallBar.setActiveSourceIndexes(smallIndexes);
+        largeBar.setActiveSourceIndexes(largeIndexes);
+
+        const ZzActiveSelectionMeasurement small = zzMeasureActiveSelection(
+            &smallBar, smallIndexes, 3);
+        const ZzActiveSelectionMeasurement large = zzMeasureActiveSelection(
+            &largeBar, largeIndexes, 3);
+
+        QVERIFY(small.medianNanoseconds > 0);
+        QVERIFY(large.medianNanoseconds > 0);
+        QVERIFY(small.checksum > 0);
+        QVERIFY(large.checksum > 0);
+        QCOMPARE(smallBar.activeSourceIndexes(), smallIndexes);
+        QCOMPARE(largeBar.activeSourceIndexes(), largeIndexes);
+        const double ratio = static_cast<double>(large.medianNanoseconds)
+            / static_cast<double>(small.medianNanoseconds);
+        QVERIFY2(
+            large.medianNanoseconds < small.medianNanoseconds * 10,
+            qPrintable(QStringLiteral("small=%1ns large=%2ns ratio=%3x")
+                           .arg(small.medianNanoseconds)
+                           .arg(large.medianNanoseconds)
+                           .arg(ratio, 0, 'f', 2)));
     }
 
     void synchronizesSingleActiveIndexWithCurrentSourceIndex()

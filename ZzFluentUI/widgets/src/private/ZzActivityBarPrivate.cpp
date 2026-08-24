@@ -5,6 +5,7 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QItemSelectionModel>
 #include <QtCore/QMimeData>
+#include <QtCore/QSet>
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
@@ -351,8 +352,13 @@ public:
             || index.parent().isValid() || index.column() != 0) {
             return {};
         }
-        const int row = static_cast<int>(sourceRows_.indexOf(index.row()));
-        return row >= 0 ? this->index(row, 0) : QModelIndex();
+        const auto position = std::lower_bound(
+            sourceRows_.cbegin(), sourceRows_.cend(), index.row());
+        if (position == sourceRows_.cend() || *position != index.row()) {
+            return {};
+        }
+        return this->index(
+            static_cast<int>(position - sourceRows_.cbegin()), 0);
     }
 
     [[nodiscard]] int rowCount(const QModelIndex &parent = {}) const override
@@ -402,6 +408,7 @@ private:
                     static_cast<int>(ZzActivityItemRole::Area));
                 const auto area = areaData.value<ZzActivityArea>();
                 if (area == area_) {
+                    // 源 row 按递增顺序追加，保证二分反向映射成立。
                     sourceRows_.append(row);
                 }
             }
@@ -628,14 +635,17 @@ void ZzActivityBarPrivate::setActiveSourceIndexes(
         }
     } else {
         next.reserve(indexes.size());
+        QSet<int> seenRows;
+        seenRows.reserve(indexes.size());
         for (const QModelIndex &index : indexes) {
             if (!acceptsSourceIndex(index)) {
                 continue;
             }
-            const QPersistentModelIndex persistent(index);
-            if (!next.contains(persistent)) {
-                next.append(persistent);
+            if (seenRows.contains(index.row())) {
+                continue;
             }
+            seenRows.insert(index.row());
+            next.append(QPersistentModelIndex(index));
         }
     }
     if (activeSourceIndexes == next) {
