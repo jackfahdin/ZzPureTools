@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include <QtCore/QByteArray>
 #include <QtCore/QMetaObject>
@@ -79,6 +80,17 @@ public:
         ZzWorkspacePanelId id;
         ZzFluentUI::ZzActivityArea area =
             ZzFluentUI::ZzActivityArea::LeftPrimary;
+        int order = 0;
+    };
+
+    struct ZzActivityRowSnapshot final
+    {
+        ZzWorkspacePanelId id;
+        QString title;
+        ZzFluentUI::ZzIconDescriptor icon;
+        ZzFluentUI::ZzActivityArea area =
+            ZzFluentUI::ZzActivityArea::LeftPrimary;
+        int badge = 0;
         int order = 0;
     };
 
@@ -177,6 +189,22 @@ public:
 
     /** @brief 捕获当前 Activity model 的全局行顺序和区域。 */
     [[nodiscard]] QVector<ZzSideLayoutEntry> activityRows() const;
+
+    /** @brief 捕获一行完整 Activity 数据，供同步信号后原位恢复。 */
+    [[nodiscard]] std::optional<ZzActivityRowSnapshot> activityRowSnapshot(
+        const ZzWorkspacePanelId &id) const;
+
+    /** @brief 以标准结构信号移除指定 Activity 行。 */
+    [[nodiscard]] bool removeActivityRow(const ZzWorkspacePanelId &id);
+
+    /** @brief 以标准结构信号恢复完整 Activity 行。 */
+    [[nodiscard]] bool restoreActivityRow(
+        const ZzActivityRowSnapshot &snapshot);
+
+    /** @brief 更新 Activity 行区域并发出 dataChanged。 */
+    [[nodiscard]] bool setActivityRowArea(
+        const ZzWorkspacePanelId &id,
+        ZzFluentUI::ZzActivityArea area);
 
     /** @brief 以单次 model reset 替换完整 Activity 行投影。 */
     [[nodiscard]] bool replaceActivityRows(

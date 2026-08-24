@@ -1561,9 +1561,13 @@ void zzSynchronizeAfterFailedRollback(
         quint64 registrationGeneration = 0;
         ZzLayoutState::ZzPanelKind kind =
             ZzLayoutState::ZzPanelKind::Side;
+        std::optional<ZzWorkspaceShellPrivate::ZzActivityRowSnapshot>
+            activityRow;
+        int takeAttempts = 0;
     };
     struct ZzPhysicalSideState final
     {
+        bool auditable = false;
         qsizetype occurrences = 0;
         QVector<QPointer<ZzFluentUI::ZzSidePane>> containingPanes;
         QPointer<ZzFluentUI::ZzSidePane> validOwner;
@@ -1598,7 +1602,8 @@ void zzSynchronizeAfterFailedRollback(
             if (pane == nullptr) {
                 removals.append({
                     record.id, record.content, record.contentIdentity,
-                    record.registrationGeneration, identity.kind});
+                    record.registrationGeneration, identity.kind,
+                    std::nullopt, 0});
                 continue;
             }
             const bool secondary = record.activityArea
@@ -1620,19 +1625,52 @@ void zzSynchronizeAfterFailedRollback(
             if (stack == nullptr || !stack->isAncestorOf(record.content)) {
                 removals.append({
                     record.id, record.content, record.contentIdentity,
-                    record.registrationGeneration, identity.kind});
+                    record.registrationGeneration, identity.kind,
+                    std::nullopt, 0});
             }
         }
     }
-    const auto currentRowFor = [&shell](const ZzRemoval &removal) {
+    const QPointer<ZzFluentUI::ZzSidePane> leftPaneGuard =
+        shell.leftSidePane;
+    const QPointer<ZzFluentUI::ZzSidePane> rightPaneGuard =
+        shell.rightSidePane;
+    const QPointer<ZzFluentUI::ZzPanelStack> leftStackGuard =
+        leftPaneGuard != nullptr ? leftPaneGuard->panelStack() : nullptr;
+    const QPointer<ZzFluentUI::ZzPanelStack> rightStackGuard =
+        rightPaneGuard != nullptr ? rightPaneGuard->panelStack() : nullptr;
+    const QPointer<QAbstractListModel> activityModelGuard =
+        shell.activityModel;
+    const auto originalActivityRows = shell.activityRows();
+    QHash<QString, int> originalActivityOrders;
+    originalActivityOrders.reserve(originalActivityRows.size());
+    for (const auto &row : originalActivityRows) {
+        originalActivityOrders.insert(row.id.value(), row.order);
+    }
+    for (ZzRemoval &removal : removals) {
+        if (removal.kind == ZzLayoutState::ZzPanelKind::Side) {
+            removal.activityRow = shell.activityRowSnapshot(removal.id);
+        }
+    }
+    const auto activityModelStable = [&shell, &activityModelGuard] {
+        return activityModelGuard != nullptr
+            && shell.activityModel == activityModelGuard;
+    };
+    const auto identityRowFor = [&shell](const ZzRemoval &removal) {
         const int row = shell.indexOf(removal.id);
         if (row < 0
             || zzPanelKind(shell.panels.at(row).kind) != removal.kind
             || shell.panels.at(row).contentIdentity
                 != removal.contentIdentity
             || shell.panels.at(row).registrationGeneration
-                != removal.registrationGeneration
-            || shell.panels.at(row).content == nullptr
+                != removal.registrationGeneration) {
+            return -1;
+        }
+        return row;
+    };
+    const auto currentRowFor = [&shell, &identityRowFor](
+                                   const ZzRemoval &removal) {
+        const int row = identityRowFor(removal);
+        if (row < 0 || shell.panels.at(row).content == nullptr
             || shell.panels.at(row).content.data()
                 != removal.contentIdentity
             || removal.content == nullptr
@@ -1641,14 +1679,22 @@ void zzSynchronizeAfterFailedRollback(
         }
         return row;
     };
-    const auto inspectPhysicalSide = [&shell](const ZzRemoval &removal) {
+    const auto inspectPhysicalSide =
+        [&shell, &leftPaneGuard, &rightPaneGuard,
+            &leftStackGuard, &rightStackGuard](const ZzRemoval &removal) {
         ZzPhysicalSideState state;
+        if (leftPaneGuard == nullptr || rightPaneGuard == nullptr
+            || leftStackGuard == nullptr || rightStackGuard == nullptr
+            || shell.leftSidePane != leftPaneGuard
+            || shell.rightSidePane != rightPaneGuard
+            || leftPaneGuard->panelStack() != leftStackGuard
+            || rightPaneGuard->panelStack() != rightStackGuard) {
+            return state;
+        }
+        state.auditable = true;
         state.containingPanes.reserve(2);
         for (const QPointer<ZzFluentUI::ZzSidePane> &pane : {
-                 shell.leftSidePane, shell.rightSidePane}) {
-            if (pane == nullptr || pane->panelStack() == nullptr) {
-                continue;
-            }
+                 leftPaneGuard, rightPaneGuard}) {
             ZzFluentUI::ZzPanelStack *const stack = pane->panelStack();
             const qsizetype paneOccurrences =
                 stack->panels().count(removal.contentIdentity);
@@ -1669,7 +1715,8 @@ void zzSynchronizeAfterFailedRollback(
     const auto preservePhysicalSide =
         [&shell, &currentRowFor](const ZzRemoval &removal,
             const ZzPhysicalSideState &state) {
-            if (state.occurrences != 1 || state.validOwner == nullptr) {
+            if (!state.auditable || state.occurrences != 1
+                || state.validOwner == nullptr) {
                 return false;
             }
             const int row = currentRowFor(removal);
@@ -1696,89 +1743,190 @@ void zzSynchronizeAfterFailedRollback(
             return false;
         };
     for (const ZzRemoval &removal : std::as_const(removals)) {
-        if (currentRowFor(removal) < 0) {
-            continue;
+        if (removal.kind != ZzLayoutState::ZzPanelKind::Side
+            && currentRowFor(removal) >= 0) {
+            shell.cleanupInterruptedPanelRemoval(
+                removal.id, removal.contentIdentity,
+                removal.registrationGeneration);
         }
-        if (removal.kind == ZzLayoutState::ZzPanelKind::Side) {
-            bool registrationPreserved = false;
-            // Two passes over both panes bound callbacks that recreate records.
-            constexpr int maximumTakeAttempts = 4;
-            for (int attempt = 0; attempt < maximumTakeAttempts; ++attempt) {
-                const ZzPhysicalSideState before =
-                    inspectPhysicalSide(removal);
-                if (preservePhysicalSide(removal, before)) {
-                    registrationPreserved = true;
-                    break;
+    }
+    const auto insertionOrderFor =
+        [&shell, &originalActivityOrders](const ZzRemoval &removal) {
+            const int originalOrder = originalActivityOrders.value(
+                removal.id.value(),
+                removal.activityRow.has_value()
+                    ? removal.activityRow->order : 0);
+            int insertionOrder = 0;
+            for (const auto &row : shell.activityRows()) {
+                const auto currentOrder =
+                    originalActivityOrders.constFind(row.id.value());
+                if (currentOrder != originalActivityOrders.cend()
+                    && currentOrder.value() < originalOrder) {
+                    ++insertionOrder;
                 }
-                if (before.occurrences == 0
-                    || before.containingPanes.isEmpty()) {
-                    break;
+            }
+            return insertionOrder;
+        };
+    const auto eraseSettledSideRegistrations =
+        [&shell, &activityModelStable, &identityRowFor,
+            &inspectPhysicalSide](const QVector<ZzRemoval> &pending) {
+            if (!activityModelStable()) {
+                return;
+            }
+            for (const ZzRemoval &removal : pending) {
+                if (removal.kind != ZzLayoutState::ZzPanelKind::Side) {
+                    continue;
+                }
+                const int panelRow = identityRowFor(removal);
+                const ZzPhysicalSideState physical =
+                    inspectPhysicalSide(removal);
+                if (panelRow < 0 || !physical.auditable
+                    || physical.occurrences != 0
+                    || shell.activityRowSnapshot(removal.id).has_value()) {
+                    continue;
+                }
+                QObject::disconnect(
+                    shell.panels[panelRow].contentDestroyedConnection);
+                shell.panels.removeAt(panelRow);
+            }
+        };
+    constexpr int maximumTakeAttempts = 4;
+    constexpr int maximumReconciliationPasses = 8;
+    for (int pass = 0; pass < maximumReconciliationPasses; ++pass) {
+        bool crossedCallbackBoundary = false;
+        for (ZzRemoval &removal : removals) {
+            if (removal.kind != ZzLayoutState::ZzPanelKind::Side
+                || identityRowFor(removal) < 0) {
+                continue;
+            }
+            const ZzPhysicalSideState physical =
+                inspectPhysicalSide(removal);
+            if (!physical.auditable) {
+                continue;
+            }
+            if (preservePhysicalSide(removal, physical)) {
+                const int panelRow = currentRowFor(removal);
+                if (panelRow < 0 || !activityModelStable()) {
+                    continue;
+                }
+                const auto currentActivity =
+                    shell.activityRowSnapshot(removal.id);
+                if (currentActivity.has_value()) {
+                    if (!removal.activityRow.has_value()) {
+                        removal.activityRow = currentActivity;
+                    }
+                    if (currentActivity->area
+                        != shell.panels.at(panelRow).activityArea) {
+                        static_cast<void>(shell.setActivityRowArea(
+                            removal.id,
+                            shell.panels.at(panelRow).activityArea));
+                        crossedCallbackBoundary = true;
+                    }
+                } else if (removal.activityRow.has_value()) {
+                    auto restoredRow = *removal.activityRow;
+                    restoredRow.area =
+                        shell.panels.at(panelRow).activityArea;
+                    restoredRow.order = insertionOrderFor(removal);
+                    const bool wasRemovalInProgress =
+                        shell.panels.at(panelRow).removalInProgress;
+                    shell.panels[panelRow].removalInProgress = true;
+                    static_cast<void>(
+                        shell.restoreActivityRow(restoredRow));
+                    const int restoredPanelRow = identityRowFor(removal);
+                    if (restoredPanelRow >= 0) {
+                        shell.panels[restoredPanelRow].removalInProgress =
+                            wasRemovalInProgress;
+                    }
+                    crossedCallbackBoundary = true;
+                }
+                continue;
+            }
+            if (physical.occurrences != 0) {
+                if (removal.content == nullptr
+                    || removal.takeAttempts >= maximumTakeAttempts
+                    || physical.containingPanes.isEmpty()) {
+                    continue;
                 }
                 QPointer<ZzFluentUI::ZzSidePane> paneToTake;
                 for (const QPointer<ZzFluentUI::ZzSidePane> &pane :
-                     before.containingPanes) {
-                    if (before.validOwner == nullptr
-                        || pane != before.validOwner) {
+                     physical.containingPanes) {
+                    if (physical.validOwner == nullptr
+                        || pane != physical.validOwner) {
                         paneToTake = pane;
                         break;
                     }
                 }
                 if (paneToTake == nullptr) {
-                    paneToTake = before.containingPanes.constFirst();
+                    paneToTake = physical.containingPanes.constFirst();
                 }
+                ++removal.takeAttempts;
                 static_cast<void>(
                     paneToTake->takeWidget(removal.contentIdentity));
-                if (currentRowFor(removal) < 0) {
-                    break;
-                }
-                const ZzPhysicalSideState after =
-                    inspectPhysicalSide(removal);
-                if (preservePhysicalSide(removal, after)) {
-                    registrationPreserved = true;
-                    break;
-                }
-                if (after.occurrences == 0) {
-                    break;
-                }
-            }
-            if (registrationPreserved) {
+                crossedCallbackBoundary = true;
                 continue;
             }
-            const ZzPhysicalSideState finalState =
-                inspectPhysicalSide(removal);
-            if (preservePhysicalSide(removal, finalState)
-                || finalState.occurrences != 0) {
+            if (!activityModelStable()) {
                 continue;
+            }
+            const auto currentActivity =
+                shell.activityRowSnapshot(removal.id);
+            if (currentActivity.has_value()) {
+                if (!removal.activityRow.has_value()) {
+                    removal.activityRow = currentActivity;
+                }
+                const int panelRow = identityRowFor(removal);
+                if (panelRow < 0) {
+                    continue;
+                }
+                const bool wasRemovalInProgress =
+                    shell.panels.at(panelRow).removalInProgress;
+                shell.panels[panelRow].removalInProgress = true;
+                static_cast<void>(shell.removeActivityRow(removal.id));
+                const int removedPanelRow = identityRowFor(removal);
+                if (removedPanelRow >= 0) {
+                    shell.panels[removedPanelRow].removalInProgress =
+                        wasRemovalInProgress;
+                }
+                crossedCallbackBoundary = true;
             }
         }
-        if (currentRowFor(removal) < 0) {
+        if (activityModelStable()) {
+            QHash<QString, int> livePanelRows;
+            livePanelRows.reserve(shell.panels.size());
+            for (qsizetype row = 0; row < shell.panels.size(); ++row) {
+                livePanelRows.insert(
+                    shell.panels.at(row).id.value(),
+                    static_cast<int>(row));
+            }
+            const auto currentActivityRows = shell.activityRows();
+            for (const auto &activityRow : currentActivityRows) {
+                const int panelRow = livePanelRows.value(
+                    activityRow.id.value(), -1);
+                if (panelRow < 0 || panelRow >= shell.panels.size()
+                    || shell.panels.at(panelRow).id != activityRow.id
+                    || shell.panels.at(panelRow).kind
+                        != ZzWorkspaceShellPrivate::ZzPanelKind::Side
+                    || shell.panels.at(panelRow).content == nullptr
+                    || shell.panels.at(panelRow).content.data()
+                        != shell.panels.at(panelRow).contentIdentity
+                    || activityRow.area
+                        == shell.panels.at(panelRow).activityArea) {
+                    continue;
+                }
+                static_cast<void>(shell.setActivityRowArea(
+                    activityRow.id,
+                    shell.panels.at(panelRow).activityArea));
+                crossedCallbackBoundary = true;
+            }
+        }
+        if (crossedCallbackBoundary) {
             continue;
         }
-        shell.cleanupInterruptedPanelRemoval(
-            removal.id, removal.contentIdentity,
-            removal.registrationGeneration);
+        break;
     }
-    currentPanelRows.clear();
-    currentPanelRows.reserve(shell.panels.size());
-    for (qsizetype index = 0; index < shell.panels.size(); ++index) {
-        currentPanelRows.insert(
-            shell.panels.at(index).id.value(), static_cast<int>(index));
-    }
-    QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> rows =
-        shell.activityRows();
-    for (auto &row : rows) {
-        const int panelRow = currentPanelRows.value(row.id.value(), -1);
-        if (panelRow >= 0 && panelRow < shell.panels.size()
-            && shell.panels.at(panelRow).id == row.id
-            && shell.panels.at(panelRow).kind
-                == ZzWorkspaceShellPrivate::ZzPanelKind::Side
-            && shell.panels.at(panelRow).content != nullptr
-            && shell.panels.at(panelRow).content.data()
-                == shell.panels.at(panelRow).contentIdentity) {
-            row.area = shell.panels.at(panelRow).activityArea;
-        }
-    }
-    static_cast<void>(shell.replaceActivityRows(rows));
+    // Exhaustion is fail-closed: only a freshly audited zero/zero pair is
+    // erasable; any surviving physical or Activity record keeps the registry.
+    eraseSettledSideRegistrations(removals);
     shell.syncSideEdgeVisibility();
     const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     if (shell.leftActivityBar != nullptr && shell.leftSidePane != nullptr) {

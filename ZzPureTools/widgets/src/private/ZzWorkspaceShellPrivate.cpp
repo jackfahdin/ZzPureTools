@@ -261,6 +261,19 @@ public:
         endInsertRows();
     }
 
+    [[nodiscard]] bool insert(int rowIndex, ZzActivityRow row)
+    {
+        if (indexOf(row.id) >= 0) {
+            return false;
+        }
+        rowIndex = std::clamp(
+            rowIndex, 0, static_cast<int>(rows_.size()));
+        beginInsertRows({}, rowIndex, rowIndex);
+        rows_.insert(rowIndex, std::move(row));
+        endInsertRows();
+        return true;
+    }
+
     [[nodiscard]] bool remove(const ZzWorkspacePanelId &id)
     {
         const int row = indexOf(id);
@@ -291,18 +304,22 @@ public:
         return true;
     }
 
-    void setArea(
+    [[nodiscard]] bool setArea(
         const ZzWorkspacePanelId &id,
         ZzFluentUI::ZzActivityArea area)
     {
         const int row = indexOf(id);
-        if (row < 0 || rows_[row].area == area) {
-            return;
+        if (row < 0) {
+            return false;
+        }
+        if (rows_[row].area == area) {
+            return true;
         }
         rows_[row].area = area;
         Q_EMIT dataChanged(
             index(row, 0), index(row, 0),
             {static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area)});
+        return true;
     }
 
     void reorder(const QVector<ZzWorkspacePanelId> &orderedIds)
@@ -384,6 +401,12 @@ public:
     {
         return row >= 0 && row < static_cast<int>(rows_.size())
             ? rows_.at(row).id : ZzWorkspacePanelId{};
+    }
+
+    [[nodiscard]] const ZzActivityRow *rowAt(int row) const noexcept
+    {
+        return row >= 0 && row < static_cast<int>(rows_.size())
+            ? &rows_.at(row) : nullptr;
     }
 
     [[nodiscard]] QModelIndex indexFor(
@@ -1761,6 +1784,64 @@ ZzWorkspaceShellPrivate::activityRows() const
     return activityModel != nullptr
         ? zzActivityModel(activityModel)->placements()
         : QVector<ZzSideLayoutEntry>{};
+}
+
+std::optional<ZzWorkspaceShellPrivate::ZzActivityRowSnapshot>
+ZzWorkspaceShellPrivate::activityRowSnapshot(
+    const ZzWorkspacePanelId &id) const
+{
+    if (activityModel == nullptr) {
+        return std::nullopt;
+    }
+    const auto *const model = zzActivityModel(activityModel);
+    const QModelIndex index = model->indexFor(id);
+    const ZzActivityRow *const row = model->rowAt(index.row());
+    if (!index.isValid() || index.model() != activityModel || row == nullptr
+        || row->id != id) {
+        return std::nullopt;
+    }
+    return ZzActivityRowSnapshot{
+        row->id, row->title, row->icon, row->area, row->badge, index.row()};
+}
+
+bool ZzWorkspaceShellPrivate::removeActivityRow(
+    const ZzWorkspacePanelId &id)
+{
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    if (modelGuard == nullptr) {
+        return false;
+    }
+    const bool removed = zzActivityModel(modelGuard)->remove(id);
+    return removed && modelGuard != nullptr && activityModel == modelGuard
+        && !zzActivityModel(modelGuard)->indexFor(id).isValid();
+}
+
+bool ZzWorkspaceShellPrivate::restoreActivityRow(
+    const ZzActivityRowSnapshot &snapshot)
+{
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    if (modelGuard == nullptr || !snapshot.id.isValid()
+        || zzActivityModel(modelGuard)->indexFor(snapshot.id).isValid()) {
+        return false;
+    }
+    const bool inserted = zzActivityModel(modelGuard)->insert(
+        snapshot.order,
+        ZzActivityRow{snapshot.id, snapshot.title, snapshot.icon,
+            snapshot.area, snapshot.badge});
+    return inserted && modelGuard != nullptr && activityModel == modelGuard
+        && zzActivityModel(modelGuard)->indexFor(snapshot.id).isValid();
+}
+
+bool ZzWorkspaceShellPrivate::setActivityRowArea(
+    const ZzWorkspacePanelId &id,
+    ZzFluentUI::ZzActivityArea area)
+{
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    if (modelGuard == nullptr) {
+        return false;
+    }
+    const bool updated = zzActivityModel(modelGuard)->setArea(id, area);
+    return updated && modelGuard != nullptr && activityModel == modelGuard;
 }
 
 bool ZzWorkspaceShellPrivate::replaceActivityRows(
