@@ -53,7 +53,7 @@ public:
     /** @brief 按范围钳制宽度。 */
     [[nodiscard]] int clampWidth(int width) const noexcept;
 
-    /** @brief 将当前展开宽度写入 QWidget 固定宽度。 */
+    /** @brief 将展开宽度作为布局偏好，并允许窄宿主压缩到配置下限。 */
     void applyExpandedWidth();
 
     /** @brief 使用全局 x 坐标处理把手拖拽。 */

@@ -262,7 +262,10 @@ int ZzSidePanePrivate::clampWidth(int width) const noexcept
 
 void ZzSidePanePrivate::applyExpandedWidth()
 {
-    q_ptr->setFixedWidth(expandedWidth);
+    q_ptr->setMinimumWidth(minimumWidth);
+    q_ptr->setMaximumWidth(expandedWidth);
+    q_ptr->resize(expandedWidth, q_ptr->height());
+    q_ptr->updateGeometry();
 }
 
 bool ZzSidePanePrivate::handleResizeDrag(

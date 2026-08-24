@@ -48,6 +48,9 @@ public:
     /** @brief 销毁固定标题区、页面堆栈、把手及仍被接管的页面。 */
     ~ZzSidePane() override;
 
+    /** @brief 返回以配置展开宽度为横向首选值的布局建议尺寸。 */
+    [[nodiscard]] QSize sizeHint() const override;
+
     /** @brief 返回物理边缘。 */
     [[nodiscard]] ZzSidePaneEdge edge() const noexcept;
 

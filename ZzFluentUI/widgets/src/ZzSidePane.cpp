@@ -20,6 +20,13 @@ ZzSidePane::ZzSidePane(ZzSidePaneEdge edge, QWidget *parent)
 
 ZzSidePane::~ZzSidePane() = default;
 
+QSize ZzSidePane::sizeHint() const
+{
+    QSize preferred = QWidget::sizeHint();
+    preferred.setWidth(maximumWidth());
+    return preferred;
+}
+
 ZzSidePaneEdge ZzSidePane::edge() const noexcept
 {
     return d_ptr->edge;
@@ -152,6 +159,9 @@ void ZzSidePane::setMinimumPaneWidth(int width)
     d_ptr->minimumWidth = normalized;
     d_ptr->maximumWidth = std::max(d_ptr->maximumWidth, normalized);
     setPaneWidth(d_ptr->expandedWidth);
+    if (!d_ptr->collapsed) {
+        d_ptr->applyExpandedWidth();
+    }
     Q_EMIT minimumPaneWidthChanged(normalized);
     if (d_ptr->maximumWidth != previousMaximum) {
         Q_EMIT maximumPaneWidthChanged(d_ptr->maximumWidth);
@@ -175,6 +185,9 @@ void ZzSidePane::setMaximumPaneWidth(int width)
     }
     d_ptr->maximumWidth = normalized;
     setPaneWidth(d_ptr->expandedWidth);
+    if (!d_ptr->collapsed) {
+        d_ptr->applyExpandedWidth();
+    }
     Q_EMIT maximumPaneWidthChanged(normalized);
 }
 

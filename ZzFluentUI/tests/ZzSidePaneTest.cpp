@@ -4,6 +4,7 @@
 #include <QtCore/QPointer>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 
 #include <ZzFluentUI/ZzPanelStack.h>
@@ -107,6 +108,72 @@ private Q_SLOTS:
         pane.setEdge(ZzFluentUI::ZzSidePaneEdge::Right);
         QCoreApplication::processEvents();
         QCOMPARE(handle->x(), 0);
+    }
+
+    // 此测试捕获偏好宽度被实现成硬约束，导致窄宿主中的相邻工作区覆盖侧栏标题按钮。
+    void shrinksBelowPreferredWidthInsideAConstrainedHost()
+    {
+        QWidget host;
+        host.setFixedSize(300, 240);
+        auto *pane = new ZzFluentUI::ZzSidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left, &host);
+        pane->setMinimumPaneWidth(120);
+        pane->setPaneWidth(280);
+        QVERIFY(pane->addWidget(
+            new QLabel(QStringLiteral("Page")),
+            QStringLiteral("Explorer")));
+        auto *workspace = new QWidget(&host);
+        workspace->setMinimumWidth(180);
+        auto *layout = new QHBoxLayout(&host);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->addWidget(pane);
+        layout->addWidget(workspace, 1);
+
+        host.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(pane->paneWidth(), 280);
+        QVERIFY(pane->width() >= pane->minimumPaneWidth());
+        QVERIFY(pane->width() < pane->paneWidth());
+        QCOMPARE(workspace->x(), pane->width());
+        QVERIFY(workspace->geometry().right() < host.width());
+        auto *closeButton = pane->findChild<QWidget *>(
+            QStringLiteral("zzPanelStackCloseButton"));
+        QVERIFY(closeButton != nullptr);
+        if (closeButton == nullptr) {
+            return;
+        }
+        const QRect closeRect(
+            closeButton->mapTo(pane, QPoint{}), closeButton->size());
+        QVERIFY(pane->rect().contains(closeRect));
+    }
+
+    // 此测试捕获布局长期采用最小宽度，而不是用户配置的展开宽度作为首选值。
+    void usesPreferredWidthInsideARoomyHost()
+    {
+        QWidget host;
+        host.setFixedSize(600, 240);
+        auto *pane = new ZzFluentUI::ZzSidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left, &host);
+        pane->setMinimumPaneWidth(120);
+        pane->setPaneWidth(280);
+        QVERIFY(pane->addWidget(
+            new QLabel(QStringLiteral("Page")),
+            QStringLiteral("Explorer")));
+        auto *workspace = new QWidget(&host);
+        workspace->setMinimumWidth(180);
+        auto *layout = new QHBoxLayout(&host);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->addWidget(pane);
+        layout->addWidget(workspace, 1);
+
+        host.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(pane->width(), pane->paneWidth());
+        QCOMPARE(workspace->x(), pane->paneWidth());
     }
 
     // 页面可由外部 delete，面板只能丢弃观察状态，不能保留悬空指针。
