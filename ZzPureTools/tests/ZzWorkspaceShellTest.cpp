@@ -2488,6 +2488,7 @@ private Q_SLOTS:
         thirdPartyOwner->setParent(&outsideOwner);
         QVERIFY(reattachQueued);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
         QVERIFY(frameOwner != nullptr);
@@ -2501,6 +2502,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->saveLayout());
 
         thirdPartyOwner->setParent(&outsideOwner);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(frameOwner.isNull());
@@ -2567,6 +2569,7 @@ private Q_SLOTS:
 
         QWidget outsideOwner;
         thirdPartyOwner->setParent(&outsideOwner);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
