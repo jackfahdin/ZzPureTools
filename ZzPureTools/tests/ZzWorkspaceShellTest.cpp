@@ -2435,6 +2435,7 @@ private Q_SLOTS:
                     model->index(sourceRow, 0),
                     ZzFluentUI::ZzActivityArea::LeftPrimary,
                     targetRow);
+                const qint64 elapsed = timer.nsecsElapsed();
                 if (model->index(targetRow, 0).data().toString()
                         != movedTitle
                     || model->index(targetRow, 0).data(static_cast<int>(
@@ -2445,7 +2446,7 @@ private Q_SLOTS:
                         != movedPanel) {
                     return qint64{-1};
                 }
-                return timer.nsecsElapsed();
+                return elapsed;
             };
             if (move(0, panelCount - 1) <= 0
                 || move(panelCount - 1, 0) <= 0) {

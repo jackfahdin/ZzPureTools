@@ -1108,6 +1108,13 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 }
                 continue;
             }
+            if (current != destinationGuard && id != movedId_) {
+                complete = false;
+                if (strict) {
+                    return false;
+                }
+                continue;
+            }
             if (destinationGuard == nullptr) {
                 complete = false;
                 if (current != nullptr) {
@@ -1121,13 +1128,6 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 continue;
             }
             if (current != destinationGuard) {
-                if (id != movedId_) {
-                    complete = false;
-                    if (strict) {
-                        return false;
-                    }
-                    continue;
-                }
                 if (current != nullptr) {
                     mutationObserver.allowParentChange(content);
                     QWidget *const taken = current->takeWidget(content);

@@ -207,7 +207,22 @@ private slots:
             QCOMPARE(target->leftSide.visible, fixture->expectedOrder);
             QCOMPARE(target->leftSide.sizes, fixture->expectedSizes);
             QCOMPARE(target->leftSide.contents.size(), fixture->expectedOrder.size());
-            QCOMPARE(target->activity.leftPrimary, fixture->expectedOrder);
+            for (qsizetype index = 0; index < fixture->expectedOrder.size(); ++index) {
+                QCOMPARE(target->leftSide.contents.at(index).panelId,
+                    fixture->expectedOrder.at(index));
+                QCOMPARE(target->leftSide.contents.at(index).stackIdentity,
+                    target->leftSide.stackIdentity);
+                QCOMPARE(target->leftSide.contents.at(index).ancestry,
+                    QList<ZzLayoutState::ZzSubsystemIdentity>({
+                        target->leftSide.paneIdentity,
+                        target->leftSide.stackIdentity}));
+            }
+            auto expectedActivity = fixture->snapshot.activity;
+            expectedActivity.leftPrimary = fixture->expectedOrder;
+            expectedActivity.leftCurrent = fixture->request.leftCurrent;
+            expectedActivity.leftActive = QSet<QString>(
+                fixture->expectedOrder.cbegin(), fixture->expectedOrder.cend());
+            QCOMPARE(target->activity, expectedActivity);
         }
         QVERIFY2(large->medianNanoseconds < small->medianNanoseconds * 20,
             qPrintable(QStringLiteral(
