@@ -708,11 +708,11 @@ private:
     if (stack.isNull() || stack->count() != tabs->count()) {
       return false;
     }
-    struct OrderedPage final {
+    struct ZzOrderedPage final {
       QPointer<QWidget> page;
       bool pinned = false;
     };
-    std::vector<OrderedPage> orderedPages;
+    std::vector<ZzOrderedPage> orderedPages;
     orderedPages.reserve(static_cast<std::size_t>(stack->count()));
     for (int index = 0; index < stack->count(); ++index) {
       const QPointer<QWidget> page = stack->widget(index);
@@ -723,7 +723,7 @@ private:
     }
     std::stable_partition(
         orderedPages.begin(), orderedPages.end(),
-        [](const OrderedPage &entry) { return entry.pinned; });
+        [](const ZzOrderedPage &entry) { return entry.pinned; });
     for (std::size_t index = 0; index < orderedPages.size(); ++index) {
       const QPointer<QWidget> page = orderedPages[index].page;
       if (page.isNull() || tabs.isNull() || stack.isNull()) {
