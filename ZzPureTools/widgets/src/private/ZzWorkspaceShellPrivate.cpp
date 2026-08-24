@@ -106,7 +106,6 @@ template<typename ZzValue>
     return content != nullptr && owner != nullptr
         && owner.data() == ownerIdentity
         && content->parentWidget() == owner
-        && owner->objectName() == QStringLiteral("zzPanelStackFrame")
         && stack != nullptr && stack->isAncestorOf(owner);
 }
 

@@ -2166,6 +2166,58 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->saveLayout());
     }
 
+    void sideRegistrationKeepsFixedOwnerWhenFrameObjectNameChanges()
+    {
+        ZzShellFixture fixture;
+        auto secondary = std::make_unique<QWidget>();
+        auto primary = std::make_unique<QWidget>();
+        QWidget *const secondaryRaw = secondary.get();
+        QWidget *const primaryRaw = primary.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("secondary"), QStringLiteral("Secondary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, secondary.get()));
+        zzReleaseAfterAdoption(secondary);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> frameOwner;
+        int callbackCount = 0;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *moved, int) {
+                if (moved != primaryRaw) {
+                    return;
+                }
+                ++callbackCount;
+                frameOwner = primaryRaw->parentWidget();
+                QVERIFY(frameOwner != nullptr);
+                frameOwner->setObjectName(QStringLiteral("renamed-frame"));
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
+        const bool registrationSucceeded = static_cast<bool>(registered);
+        const QList<QWidget *> stackPanels = leftPane->panelStack()->panels();
+        const int modelRows = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount();
+        const bool layoutSaved = registrationSucceeded
+            && static_cast<bool>(fixture.shell->saveLayout());
+
+        if (registrationSucceeded) {
+            zzReleaseAfterAdoption(primary);
+        } else if (leftPane->panelStack()->panels().contains(primaryRaw)) {
+            QCOMPARE(leftPane->takeWidget(primaryRaw), primaryRaw);
+        }
+
+        QCOMPARE(callbackCount, 1);
+        QVERIFY(registrationSucceeded);
+        QCOMPARE(primaryRaw->parentWidget(), frameOwner.data());
+        QCOMPARE(stackPanels, QList<QWidget *>({primaryRaw, secondaryRaw}));
+        QCOMPARE(modelRows, 2);
+        QVERIFY(layoutSaved);
+    }
+
     void sideRegistrationRollsBackOnlyOuterAfterReentrantRegistration()
     {
         ZzShellFixture fixture;
