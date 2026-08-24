@@ -1340,8 +1340,10 @@ void zzSynchronizeAfterFailedRollback(
         }
     }
     for (const ZzWorkspacePanelId &id : removals) {
-        const int row = shell.indexOf(id);
-        if (row >= 0) {
+        const auto found = runtime.panelRows.constFind(id.value());
+        const int row = found != runtime.panelRows.cend() ? found.value() : -1;
+        if (row >= 0 && row < shell.panels.size()
+            && shell.panels.at(row).id == id) {
             shell.handlePanelContentDestroyed(
                 id, shell.panels.at(row).contentIdentity);
         }
@@ -1349,8 +1351,11 @@ void zzSynchronizeAfterFailedRollback(
     QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> rows =
         shell.activityRows();
     for (auto &row : rows) {
-        const int panelRow = shell.indexOf(row.id);
-        if (panelRow >= 0) {
+        const auto found = runtime.panelRows.constFind(row.id.value());
+        const int panelRow = found != runtime.panelRows.cend()
+            ? found.value() : -1;
+        if (panelRow >= 0 && panelRow < shell.panels.size()
+            && shell.panels.at(panelRow).id == row.id) {
             row.area = shell.panels.at(panelRow).activityArea;
         }
     }
