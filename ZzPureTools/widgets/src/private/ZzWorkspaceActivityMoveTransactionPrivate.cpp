@@ -451,13 +451,62 @@ void zzCaptureSide(
     return result;
 }
 
+/** @brief 按输入顺序移除指定面板 ID，不改变其余面板的相对顺序。 */
+[[nodiscard]] QStringList zzWithoutId(
+    const QStringList &ids,
+    const QString &removedId)
+{
+    QStringList result;
+    result.reserve(ids.size());
+    for (const QString &id : ids) {
+        if (id != removedId) {
+            result.append(id);
+        }
+    }
+    return result;
+}
+
+/** @brief 验证两个顺序仅允许指定面板发生位置变化。 */
+[[nodiscard]] bool zzHasSingleMovedIdOrder(
+    const QStringList &actual,
+    const QStringList &target,
+    const QString &movedId)
+{
+    if (movedId.isEmpty() || actual.size() != target.size()) {
+        return false;
+    }
+    QSet<QString> actualIds;
+    QSet<QString> targetIds;
+    actualIds.reserve(actual.size());
+    targetIds.reserve(target.size());
+    for (const QString &id : actual) {
+        if (id.isEmpty() || actualIds.contains(id)) {
+            return false;
+        }
+        actualIds.insert(id);
+    }
+    for (const QString &id : target) {
+        if (id.isEmpty() || targetIds.contains(id)) {
+            return false;
+        }
+        targetIds.insert(id);
+    }
+    const bool actualHasMoved = actualIds.contains(movedId);
+    if (actualHasMoved != targetIds.contains(movedId)) {
+        return false;
+    }
+    return actualHasMoved
+        ? zzWithoutId(actual, movedId) == zzWithoutId(target, movedId)
+        : actual == target;
+}
+
 [[nodiscard]] QStringList zzBuildTargetModelOrder(
     const QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> &snapshotRows,
     const ZzProjection &target,
     const QString &movedId,
     ZzFluentUI::ZzActivityArea targetArea)
 {
-    QStringList order = zzModelOrder(snapshotRows);
+    const QStringList snapshotOrder = zzModelOrder(snapshotRows);
     const QStringList desired = *zzActivityRows(target.activity, targetArea);
     QHash<QString, ZzFluentUI::ZzActivityArea> areas;
     ZzAuditIndex areaIndex;
@@ -475,31 +524,51 @@ void zzCaptureSide(
         ZzFluentUI::ZzActivityArea::RightSecondary);
     areas = std::move(areaIndex.areas);
     QStringList currentArea;
-    for (const QString &id : std::as_const(order)) {
+    for (const QString &id : std::as_const(snapshotOrder)) {
         const auto area = areas.constFind(id);
         if (area != areas.cend() && area.value() == targetArea) {
             currentArea.append(id);
         }
     }
     if (currentArea == desired) {
-        return order;
+        return snapshotOrder;
     }
 
-    order.removeAll(movedId);
-    const qsizetype desiredIndex = desired.indexOf(movedId);
+    QStringList order;
+    order.reserve(snapshotOrder.size());
+    for (const QString &id : snapshotOrder) {
+        if (id != movedId) {
+            order.append(id);
+        }
+    }
+    QHash<QString, qsizetype> orderPositions;
+    orderPositions.reserve(order.size());
+    for (qsizetype index = 0; index < order.size(); ++index) {
+        orderPositions.insert(order.at(index), index);
+    }
+    qsizetype desiredIndex = desired.size();
+    for (qsizetype index = 0; index < desired.size(); ++index) {
+        if (desired.at(index) == movedId) {
+            desiredIndex = index;
+            break;
+        }
+    }
+    if (desiredIndex == desired.size()) {
+        return order;
+    }
     qsizetype insertionIndex = order.size();
     for (qsizetype index = desiredIndex + 1; index < desired.size(); ++index) {
-        const qsizetype next = order.indexOf(desired.at(index));
-        if (next >= 0) {
-            insertionIndex = next;
+        const auto next = orderPositions.constFind(desired.at(index));
+        if (next != orderPositions.cend()) {
+            insertionIndex = next.value();
             break;
         }
     }
     if (insertionIndex == order.size()) {
         for (qsizetype index = desiredIndex; index > 0; --index) {
-            const qsizetype previous = order.indexOf(desired.at(index - 1));
-            if (previous >= 0) {
-                insertionIndex = previous + 1;
+            const auto previous = orderPositions.constFind(desired.at(index - 1));
+            if (previous != orderPositions.cend()) {
+                insertionIndex = previous.value() + 1;
                 break;
             }
         }
@@ -1052,6 +1121,13 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 continue;
             }
             if (current != destinationGuard) {
+                if (id != movedId_) {
+                    complete = false;
+                    if (strict) {
+                        return false;
+                    }
+                    continue;
+                }
                 if (current != nullptr) {
                     mutationObserver.allowParentChange(content);
                     QWidget *const taken = current->takeWidget(content);
@@ -1094,12 +1170,18 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         if (destinationGuard == nullptr) {
             return !strict;
         }
-        for (qsizetype index = 0; index < side.order.size(); ++index) {
-            if (destinationGuard == nullptr) {
-                complete = false;
-                return false;
-            }
-            const QString &id = side.order.at(index);
+        const QList<QWidget *> panels = destinationGuard->panelStack()->panels();
+        const QStringList actualOrder = zzIds(audit, panels);
+        const bool targetHasMovedId = side.order.contains(movedId_);
+        const bool actualHasMovedId = actualOrder.contains(movedId_);
+        if (actualOrder.size() != panels.size()
+            || ((targetHasMovedId || !actualHasMovedId)
+                && !zzHasSingleMovedIdOrder(
+                    actualOrder, side.order, movedId_))) {
+            complete = false;
+            return !strict;
+        }
+        for (const QString &id : side.order) {
             const auto *const record = zzRecord(shell_, audit, id);
             if (record == nullptr || record->content == nullptr
                 || !zzBoundaryMatches(
@@ -1111,20 +1193,41 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 }
                 continue;
             }
-            mutationObserver.allowPanelMove(record->content);
-            const bool moved = destinationGuard->panelStack()->movePanel(
-                record->content, static_cast<int>(index));
+        }
+        if (!targetHasMovedId && actualHasMovedId) {
+            return true;
+        }
+        const qsizetype actualIndex = actualOrder.indexOf(movedId_);
+        const qsizetype targetIndex = side.order.indexOf(movedId_);
+        if (actualIndex < 0 && targetIndex < 0) {
+            return true;
+        }
+        if (actualIndex < 0 || targetIndex < 0) {
+            complete = false;
+            return !strict;
+        }
+        const auto *const moved = zzRecord(shell_, audit, movedId_);
+        if (moved == nullptr || moved->content == nullptr) {
+            complete = false;
+            return !strict;
+        }
+        if (actualIndex != targetIndex) {
+            mutationObserver.allowPanelMove(moved->content);
+            const bool movedPanel = destinationGuard->panelStack()->movePanel(
+                moved->content, static_cast<int>(targetIndex));
             mutationObserver.finishMutation();
-            if (!moved || !mutationObserver.isValid()
+            if (!movedPanel || !mutationObserver.isValid()
                 || destinationGuard == nullptr
                 || !zzBoundaryMatches(
-                    shell_, projection, audit, id, destinationGuard,
+                    shell_, projection, audit, movedId_, destinationGuard,
                     false, strict)) {
                 complete = false;
-                if (strict) {
-                    return false;
-                }
+                return !strict;
             }
+        }
+        if (zzIds(audit, destinationGuard->panelStack()->panels()) != side.order) {
+            complete = false;
+            return !strict;
         }
         return true;
     };

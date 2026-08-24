@@ -2,61 +2,125 @@
 
 #include <algorithm>
 
+#include <QtCore/QHash>
+#include <QtCore/QSet>
+
 namespace ZzPureTools {
 namespace {
 
 using ZzLayoutState = ZzWorkspaceLayoutStatePrivate;
 
-void zzUniqueNonEmpty(QStringList *ids)
+struct ZzSnapshotIndex final
 {
-    QStringList unique;
-    unique.reserve(ids->size());
-    for (const QString &id : std::as_const(*ids)) {
-        if (!id.isEmpty() && !unique.contains(id)) {
-            unique.append(id);
-        }
-    }
-    *ids = std::move(unique);
-}
+    QHash<QString, const ZzLayoutState::ZzPanelIdentity *> identitiesById;
+    QSet<QString> registeredSideIds;
+    QHash<QString, ZzFluentUI::ZzActivityArea> activityAreas;
+};
 
-QStringList zzRegisteredSideIds(
+struct ZzSideIndex final
+{
+    QSet<QString> orderIds;
+    QSet<QString> visibleIds;
+    QHash<QString, int> sizesById;
+};
+
+/** @brief 单次建立快照身份、侧栏注册和 Activity 区域索引。 */
+[[nodiscard]] ZzSnapshotIndex zzBuildSnapshotIndex(
     const ZzLayoutState::ZzWorkspaceSnapshot &snapshot)
 {
-    QStringList ids;
+    ZzSnapshotIndex index;
+    index.identitiesById.reserve(snapshot.identities.size());
+    index.registeredSideIds.reserve(
+        snapshot.identities.size() + snapshot.leftSide.order.size()
+        + snapshot.rightSide.order.size());
     for (const ZzLayoutState::ZzPanelIdentity &identity : snapshot.identities) {
-        if (identity.kind == ZzLayoutState::ZzPanelKind::Side
-            && !identity.id.isEmpty() && !ids.contains(identity.id)) {
-            ids.append(identity.id);
+        if (identity.id.isEmpty() || index.identitiesById.contains(identity.id)) {
+            continue;
+        }
+        index.identitiesById.insert(identity.id, &identity);
+        if (identity.kind == ZzLayoutState::ZzPanelKind::Side) {
+            index.registeredSideIds.insert(identity.id);
         }
     }
     for (const QStringList *order : {
              &snapshot.leftSide.order, &snapshot.rightSide.order}) {
         for (const QString &id : *order) {
-            const auto matchingIdentity = std::find_if(
-                snapshot.identities.cbegin(), snapshot.identities.cend(),
-                [&id](const ZzLayoutState::ZzPanelIdentity &identity) {
-                    return identity.id == id;
-                });
-            if (!id.isEmpty() && !ids.contains(id)
-                && matchingIdentity == snapshot.identities.cend()) {
-                ids.append(id);
+            if (!id.isEmpty() && !index.identitiesById.contains(id)) {
+                index.registeredSideIds.insert(id);
             }
         }
     }
-    return ids;
+    const auto addActivityArea = [&index](const QStringList &rows,
+                                       ZzFluentUI::ZzActivityArea area) {
+        for (const QString &id : rows) {
+            if (!id.isEmpty() && !index.activityAreas.contains(id)) {
+                index.activityAreas.insert(id, area);
+            }
+        }
+    };
+    addActivityArea(snapshot.activity.leftPrimary,
+        ZzFluentUI::ZzActivityArea::LeftPrimary);
+    addActivityArea(snapshot.activity.leftSecondary,
+        ZzFluentUI::ZzActivityArea::LeftSecondary);
+    addActivityArea(snapshot.activity.rightPrimary,
+        ZzFluentUI::ZzActivityArea::RightPrimary);
+    addActivityArea(snapshot.activity.rightSecondary,
+        ZzFluentUI::ZzActivityArea::RightSecondary);
+    return index;
+}
+
+/** @brief 单次建立侧栏顺序、可见性和尺寸的按 ID 查询索引。 */
+[[nodiscard]] ZzSideIndex zzBuildSideIndex(
+    const ZzLayoutState::ZzSideProjection &side)
+{
+    ZzSideIndex index;
+    index.orderIds.reserve(side.order.size());
+    index.visibleIds.reserve(side.visible.size());
+    index.sizesById.reserve(side.visible.size());
+    for (const QString &id : side.order) {
+        if (!id.isEmpty()) {
+            index.orderIds.insert(id);
+        }
+    }
+    for (qsizetype position = 0; position < side.visible.size(); ++position) {
+        const QString &id = side.visible.at(position);
+        if (id.isEmpty() || index.visibleIds.contains(id)) {
+            continue;
+        }
+        index.visibleIds.insert(id);
+        const int size = position < side.sizes.size()
+            ? side.sizes.at(position) : 1;
+        index.sizesById.insert(id, std::max(size, 1));
+    }
+    return index;
+}
+
+void zzUniqueNonEmpty(QStringList *ids)
+{
+    QStringList unique;
+    QSet<QString> seen;
+    unique.reserve(ids->size());
+    seen.reserve(ids->size());
+    for (const QString &id : std::as_const(*ids)) {
+        if (!id.isEmpty() && !seen.contains(id)) {
+            unique.append(id);
+            seen.insert(id);
+        }
+    }
+    *ids = std::move(unique);
 }
 
 void zzFilterRequestedSideOrder(
     QStringList *order,
-    const QStringList &registeredIds,
-    QStringList *claimedIds)
+    const QSet<QString> &registeredIds,
+    QSet<QString> *claimedIds)
 {
     QStringList filtered;
     filtered.reserve(order->size());
     for (const QString &id : std::as_const(*order)) {
         if (registeredIds.contains(id) && !claimedIds->contains(id)) {
             filtered.append(id);
-            claimedIds->append(id);
+            claimedIds->insert(id);
         }
     }
     *order = std::move(filtered);
@@ -67,177 +131,203 @@ void zzFilterRequestedSideVisibility(
 {
     QStringList visible;
     QList<int> sizes;
+    const ZzSideIndex sideIndex = zzBuildSideIndex(*side);
+    QSet<QString> seen;
     visible.reserve(side->visible.size());
     sizes.reserve(side->visible.size());
     for (qsizetype index = 0; index < side->visible.size(); ++index) {
         const QString &id = side->visible.at(index);
-        if (!side->order.contains(id) || visible.contains(id)) {
+        if (!sideIndex.orderIds.contains(id) || seen.contains(id)) {
             continue;
         }
         visible.append(id);
+        seen.insert(id);
         sizes.append(index < side->sizes.size()
-                ? side->sizes.at(index) : 1);
+                ? std::max(side->sizes.at(index), 1) : 1);
     }
     side->visible = std::move(visible);
     side->sizes = std::move(sizes);
 }
 
-qsizetype zzSnapshotInsertionIndex(
-    const QStringList &targetOrder,
+struct ZzStableMergeResult final
+{
+    QStringList order;
+    QList<int> sizes;
+};
+
+[[nodiscard]] ZzStableMergeResult zzMergeOmittedBySnapshotAnchors(
+    const QStringList &requestedOrder,
+    const QList<int> &requestedSizes,
     const QStringList &snapshotOrder,
-    const QString &id)
+    const QList<int> &snapshotSizes,
+    const QSet<QString> &omittedIds)
 {
-    const qsizetype snapshotIndex = snapshotOrder.indexOf(id);
-    for (qsizetype index = snapshotIndex + 1;
-         index < snapshotOrder.size(); ++index) {
-        const qsizetype targetIndex = targetOrder.indexOf(
-            snapshotOrder.at(index));
-        if (targetIndex >= 0) {
-            return targetIndex;
+    const qsizetype targetCount = requestedOrder.size();
+    const qsizetype noTarget = targetCount;
+    QHash<QString, qsizetype> targetPositions;
+    targetPositions.reserve(targetCount);
+    for (qsizetype position = 0; position < targetCount; ++position) {
+        targetPositions.insert(requestedOrder.at(position), position);
+    }
+    QVector<qsizetype> successorPositions(snapshotOrder.size(), noTarget);
+    qsizetype nextTarget = noTarget;
+    for (qsizetype position = snapshotOrder.size(); position > 0; --position) {
+        const QString &id = snapshotOrder.at(position - 1);
+        successorPositions[position - 1] = nextTarget;
+        const auto targetPosition = targetPositions.constFind(id);
+        if (targetPosition != targetPositions.cend()) {
+            nextTarget = targetPosition.value();
         }
     }
-    for (qsizetype index = snapshotIndex; index > 0; --index) {
-        const qsizetype targetIndex = targetOrder.indexOf(
-            snapshotOrder.at(index - 1));
-        if (targetIndex >= 0) {
-            return targetIndex + 1;
-        }
-    }
-    return targetOrder.size();
-}
-
-int zzSnapshotPanelSize(
-    const ZzLayoutState::ZzSideProjection &side,
-    const QString &id)
-{
-    const qsizetype index = side.visible.indexOf(id);
-    return index >= 0 && index < side.sizes.size()
-        ? side.sizes.at(index) : 1;
-}
-
-void zzRestoreOmittedSidePanels(
-    ZzLayoutState::ZzSideProjection *targetSide,
-    const ZzLayoutState::ZzSideProjection &snapshotSide,
-    const QStringList &registeredIds,
-    QStringList *claimedIds,
-    QStringList *omittedIds)
-{
-    for (const QString &id : snapshotSide.order) {
-        if (!registeredIds.contains(id) || claimedIds->contains(id)) {
+    QVector<QStringList> before(targetCount);
+    QVector<QList<int>> beforeSizes(targetCount);
+    QVector<QStringList> after(targetCount);
+    QVector<QList<int>> afterSizes(targetCount);
+    QStringList tail;
+    QList<int> tailSizes;
+    qsizetype previousTarget = noTarget;
+    for (qsizetype position = 0; position < snapshotOrder.size(); ++position) {
+        const QString &id = snapshotOrder.at(position);
+        const auto targetPosition = targetPositions.constFind(id);
+        if (targetPosition != targetPositions.cend()) {
+            previousTarget = targetPosition.value();
             continue;
         }
-        const qsizetype orderIndex = zzSnapshotInsertionIndex(
-            targetSide->order, snapshotSide.order, id);
-        targetSide->order.insert(orderIndex, id);
-        claimedIds->append(id);
-        omittedIds->append(id);
-
-        if (!snapshotSide.visible.contains(id)) {
+        if (!omittedIds.contains(id)) {
             continue;
         }
-        const qsizetype visibleIndex = zzSnapshotInsertionIndex(
-            targetSide->visible, snapshotSide.visible, id);
-        targetSide->visible.insert(visibleIndex, id);
-        targetSide->sizes.insert(
-            visibleIndex, zzSnapshotPanelSize(snapshotSide, id));
+        const int size = position < snapshotSizes.size()
+            ? std::max(snapshotSizes.at(position), 1) : 1;
+        if (successorPositions.at(position) != noTarget) {
+            const qsizetype anchor = successorPositions.at(position);
+            before[anchor].append(id);
+            beforeSizes[anchor].append(size);
+        } else if (previousTarget != noTarget) {
+            after[previousTarget].append(id);
+            afterSizes[previousTarget].append(size);
+        } else {
+            tail.append(id);
+            tailSizes.append(size);
+        }
     }
+    ZzStableMergeResult result;
+    result.order.reserve(targetCount + omittedIds.size());
+    result.sizes.reserve(targetCount + omittedIds.size());
+    for (qsizetype position = 0; position < targetCount; ++position) {
+        result.order.append(before.at(position));
+        result.sizes.append(beforeSizes.at(position));
+        result.order.append(requestedOrder.at(position));
+        const int size = position < requestedSizes.size()
+            ? std::max(requestedSizes.at(position), 1) : 1;
+        result.sizes.append(size);
+        result.order.append(after.at(position));
+        result.sizes.append(afterSizes.at(position));
+    }
+    result.order.append(tail);
+    result.sizes.append(tailSizes);
+    return result;
 }
 
 void zzFilterActivityRows(
     QStringList *rows,
-    const QStringList &sideOrder,
-    QStringList *claimedIds)
+    const QSet<QString> &sideOrder,
+    QSet<QString> *claimedIds)
 {
     QStringList filtered;
     filtered.reserve(rows->size());
     for (const QString &id : std::as_const(*rows)) {
         if (sideOrder.contains(id) && !claimedIds->contains(id)) {
             filtered.append(id);
-            claimedIds->append(id);
+            claimedIds->insert(id);
         }
     }
     *rows = std::move(filtered);
-}
-
-void zzRestoreOmittedActivityRow(
-    ZzLayoutState::ZzWorkspaceProjection *target,
-    const ZzLayoutState::ZzWorkspaceSnapshot &snapshot,
-    const QString &id,
-    QStringList *claimedIds)
-{
-    if (claimedIds->contains(id)) {
-        return;
-    }
-    QStringList *targetRows = nullptr;
-    const QStringList *snapshotRows = nullptr;
-    if (snapshot.activity.leftPrimary.contains(id)) {
-        targetRows = &target->activity.leftPrimary;
-        snapshotRows = &snapshot.activity.leftPrimary;
-    } else if (snapshot.activity.leftSecondary.contains(id)) {
-        targetRows = &target->activity.leftSecondary;
-        snapshotRows = &snapshot.activity.leftSecondary;
-    } else if (snapshot.activity.rightPrimary.contains(id)) {
-        targetRows = &target->activity.rightPrimary;
-        snapshotRows = &snapshot.activity.rightPrimary;
-    } else if (snapshot.activity.rightSecondary.contains(id)) {
-        targetRows = &target->activity.rightSecondary;
-        snapshotRows = &snapshot.activity.rightSecondary;
-    }
-    if (targetRows == nullptr || snapshotRows == nullptr) {
-        return;
-    }
-    targetRows->insert(
-        zzSnapshotInsertionIndex(*targetRows, *snapshotRows, id), id);
-    claimedIds->append(id);
 }
 
 void zzReconcileSerializedSideProjection(
     ZzLayoutState::ZzWorkspaceProjection *target,
     const ZzLayoutState::ZzWorkspaceSnapshot &snapshot)
 {
-    const QStringList registeredIds = zzRegisteredSideIds(snapshot);
-    QStringList claimedIds;
+    const ZzSnapshotIndex snapshotIndex = zzBuildSnapshotIndex(snapshot);
+    QSet<QString> claimedIds;
     zzFilterRequestedSideOrder(
-        &target->leftSide.order, registeredIds, &claimedIds);
+        &target->leftSide.order, snapshotIndex.registeredSideIds, &claimedIds);
     zzFilterRequestedSideOrder(
-        &target->rightSide.order, registeredIds, &claimedIds);
+        &target->rightSide.order, snapshotIndex.registeredSideIds, &claimedIds);
     zzFilterRequestedSideVisibility(&target->leftSide);
     zzFilterRequestedSideVisibility(&target->rightSide);
 
-    QStringList omittedIds;
-    zzRestoreOmittedSidePanels(&target->leftSide, snapshot.leftSide,
-        registeredIds, &claimedIds, &omittedIds);
-    zzRestoreOmittedSidePanels(&target->rightSide, snapshot.rightSide,
-        registeredIds, &claimedIds, &omittedIds);
+    const auto mergeSide = [&claimedIds, &snapshotIndex](
+                               ZzLayoutState::ZzSideProjection *targetSide,
+                               const ZzLayoutState::ZzSideProjection &snapshotSide) {
+        QSet<QString> omittedIds;
+        omittedIds.reserve(snapshotSide.order.size());
+        for (const QString &id : snapshotSide.order) {
+            if (snapshotIndex.registeredSideIds.contains(id)
+                && !claimedIds.contains(id)) {
+                omittedIds.insert(id);
+                claimedIds.insert(id);
+            }
+        }
+        const ZzStableMergeResult order = zzMergeOmittedBySnapshotAnchors(
+            targetSide->order, {}, snapshotSide.order, {}, omittedIds);
+        targetSide->order = order.order;
+        const ZzStableMergeResult visible = zzMergeOmittedBySnapshotAnchors(
+            targetSide->visible, targetSide->sizes, snapshotSide.visible,
+            snapshotSide.sizes, omittedIds);
+        targetSide->visible = visible.order;
+        targetSide->sizes = visible.sizes;
+        return omittedIds;
+    };
+    const QSet<QString> leftOmitted = mergeSide(
+        &target->leftSide, snapshot.leftSide);
+    const QSet<QString> rightOmitted = mergeSide(
+        &target->rightSide, snapshot.rightSide);
 
-    QStringList claimedActivityIds;
+    QSet<QString> claimedActivityIds;
+    const ZzSideIndex leftSideIndex = zzBuildSideIndex(target->leftSide);
+    const ZzSideIndex rightSideIndex = zzBuildSideIndex(target->rightSide);
     zzFilterActivityRows(&target->activity.leftPrimary,
-        target->leftSide.order, &claimedActivityIds);
+        leftSideIndex.orderIds, &claimedActivityIds);
     zzFilterActivityRows(&target->activity.leftSecondary,
-        target->leftSide.order, &claimedActivityIds);
+        leftSideIndex.orderIds, &claimedActivityIds);
     zzFilterActivityRows(&target->activity.rightPrimary,
-        target->rightSide.order, &claimedActivityIds);
+        rightSideIndex.orderIds, &claimedActivityIds);
     zzFilterActivityRows(&target->activity.rightSecondary,
-        target->rightSide.order, &claimedActivityIds);
-    for (const QString &id : std::as_const(omittedIds)) {
-        zzRestoreOmittedActivityRow(
-            target, snapshot, id, &claimedActivityIds);
-    }
+        rightSideIndex.orderIds, &claimedActivityIds);
+    const auto mergeActivity = [](QStringList *targetRows,
+                                   const QStringList &snapshotRows,
+                                   const QSet<QString> &omittedIds) {
+        const ZzStableMergeResult rows = zzMergeOmittedBySnapshotAnchors(
+            *targetRows, {}, snapshotRows, {}, omittedIds);
+        *targetRows = rows.order;
+    };
+    mergeActivity(&target->activity.leftPrimary,
+        snapshot.activity.leftPrimary, leftOmitted);
+    mergeActivity(&target->activity.leftSecondary,
+        snapshot.activity.leftSecondary, leftOmitted);
+    mergeActivity(&target->activity.rightPrimary,
+        snapshot.activity.rightPrimary, rightOmitted);
+    mergeActivity(&target->activity.rightSecondary,
+        snapshot.activity.rightSecondary, rightOmitted);
 }
 
 void zzNormalizeSide(ZzLayoutState::ZzSideProjection *side)
 {
     zzUniqueNonEmpty(&side->order);
+    const ZzSideIndex sideIndex = zzBuildSideIndex(*side);
     QStringList visible;
     QList<int> sizes;
+    QSet<QString> seen;
     visible.reserve(side->visible.size());
     sizes.reserve(side->visible.size());
     for (qsizetype index = 0; index < side->visible.size(); ++index) {
         const QString &id = side->visible.at(index);
-        if (id.isEmpty() || !side->order.contains(id) || visible.contains(id)) {
+        if (!sideIndex.orderIds.contains(id) || seen.contains(id)) {
             continue;
         }
         visible.append(id);
+        seen.insert(id);
         const int size = index < side->sizes.size()
             ? side->sizes.at(index) : 1;
         sizes.append(std::max(size, 1));
@@ -249,7 +339,7 @@ void zzNormalizeSide(ZzLayoutState::ZzSideProjection *side)
         side->current.clear();
         return;
     }
-    if (!side->visible.contains(side->current)) {
+    if (!seen.contains(side->current)) {
         side->current = side->visible.front();
     }
 }
@@ -274,14 +364,21 @@ void zzNormalizeBottom(
 {
     zzUniqueNonEmpty(&bottom->order);
     zzUniqueNonEmpty(&bottom->visible);
-    bottom->visible.erase(
-        std::remove_if(bottom->visible.begin(), bottom->visible.end(),
-            [bottom](const QString &id) {
-                return !bottom->order.contains(id);
-            }),
-        bottom->visible.end());
-    if (!bottom->order.contains(bottom->current)) {
-        bottom->current = bottom->order.contains(snapshotBottom.current)
+    QSet<QString> orderIds;
+    orderIds.reserve(bottom->order.size());
+    for (const QString &id : bottom->order) {
+        orderIds.insert(id);
+    }
+    QStringList visible;
+    visible.reserve(bottom->visible.size());
+    for (const QString &id : std::as_const(bottom->visible)) {
+        if (orderIds.contains(id)) {
+            visible.append(id);
+        }
+    }
+    bottom->visible = std::move(visible);
+    if (!orderIds.contains(bottom->current)) {
+        bottom->current = orderIds.contains(snapshotBottom.current)
             ? snapshotBottom.current
             : bottom->order.value(0);
     }
@@ -316,16 +413,18 @@ void zzNormalizeSplitNode(ZzLayoutState::ZzSplitNode *node)
 
 void zzCollectSplitGroupOrder(
     const ZzLayoutState::ZzSplitNode &node,
-    QStringList *groups)
+    QStringList *groups,
+    QSet<QString> *seen)
 {
     if (node.leaf) {
-        if (!node.groupId.isEmpty() && !groups->contains(node.groupId)) {
+        if (!node.groupId.isEmpty() && !seen->contains(node.groupId)) {
             groups->append(node.groupId);
+            seen->insert(node.groupId);
         }
         return;
     }
     for (const ZzLayoutState::ZzSplitNode &child : node.children) {
-        zzCollectSplitGroupOrder(child, groups);
+        zzCollectSplitGroupOrder(child, groups, seen);
     }
 }
 
@@ -334,19 +433,27 @@ void zzNormalizeSplit(ZzLayoutState::ZzSplitProjection *split)
     zzNormalizeSplitNode(&split->root);
     zzUniqueNonEmpty(&split->groupOrder);
     QStringList treeGroups;
-    zzCollectSplitGroupOrder(split->root, &treeGroups);
-    split->groupOrder.erase(
-        std::remove_if(split->groupOrder.begin(), split->groupOrder.end(),
-            [&treeGroups](const QString &groupId) {
-                return !treeGroups.contains(groupId);
-            }),
-        split->groupOrder.end());
-    for (const QString &groupId : std::as_const(treeGroups)) {
-        if (!split->groupOrder.contains(groupId)) {
-            split->groupOrder.append(groupId);
+    QSet<QString> treeGroupIds;
+    zzCollectSplitGroupOrder(split->root, &treeGroups, &treeGroupIds);
+    QStringList requestedGroups;
+    requestedGroups.reserve(split->groupOrder.size());
+    QSet<QString> requestedGroupIds;
+    requestedGroupIds.reserve(split->groupOrder.size());
+    for (const QString &groupId : std::as_const(split->groupOrder)) {
+        if (treeGroupIds.contains(groupId)
+            && !requestedGroupIds.contains(groupId)) {
+            requestedGroups.append(groupId);
+            requestedGroupIds.insert(groupId);
         }
     }
-    if (!split->groupOrder.contains(split->activeGroup)) {
+    split->groupOrder = std::move(requestedGroups);
+    for (const QString &groupId : std::as_const(treeGroups)) {
+        if (!requestedGroupIds.contains(groupId)) {
+            split->groupOrder.append(groupId);
+            requestedGroupIds.insert(groupId);
+        }
+    }
+    if (!requestedGroupIds.contains(split->activeGroup)) {
         split->activeGroup = split->groupOrder.value(0);
     }
 }
@@ -415,26 +522,25 @@ void zzRestoreRuntimeIdentities(
         target->dock.docks = snapshot.dock.docks;
         return;
     }
+    QHash<QString, const ZzLayoutState::ZzDockPlacement *> docksById;
+    docksById.reserve(snapshot.dock.docks.size());
+    for (const ZzLayoutState::ZzDockPlacement &dock : snapshot.dock.docks) {
+        if (!dock.panel.id.isEmpty() && !docksById.contains(dock.panel.id)) {
+            docksById.insert(dock.panel.id, &dock);
+        }
+    }
+    const ZzSnapshotIndex snapshotIndex = zzBuildSnapshotIndex(snapshot);
     for (ZzLayoutState::ZzDockPlacement &dock : target->dock.docks) {
-        const auto matchingDock = std::find_if(
-            snapshot.dock.docks.cbegin(), snapshot.dock.docks.cend(),
-            [&dock](const ZzLayoutState::ZzDockPlacement &candidate) {
-                return !dock.panel.id.isEmpty()
-                    && candidate.panel.id == dock.panel.id;
-            });
-        if (matchingDock != snapshot.dock.docks.cend()) {
-            zzCopyPanelRuntimeIdentity(&dock.panel, matchingDock->panel);
-            dock.actualOwnerIdentity = matchingDock->actualOwnerIdentity;
+        const auto matchingDock = docksById.constFind(dock.panel.id);
+        if (matchingDock != docksById.cend()) {
+            zzCopyPanelRuntimeIdentity(&dock.panel, matchingDock.value()->panel);
+            dock.actualOwnerIdentity = matchingDock.value()->actualOwnerIdentity;
             continue;
         }
-        const auto matchingPanel = std::find_if(
-            snapshot.identities.cbegin(), snapshot.identities.cend(),
-            [&dock](const ZzLayoutState::ZzPanelIdentity &candidate) {
-                return !dock.panel.id.isEmpty()
-                    && candidate.id == dock.panel.id;
-            });
-        if (matchingPanel != snapshot.identities.cend()) {
-            zzCopyPanelRuntimeIdentity(&dock.panel, *matchingPanel);
+        const auto matchingPanel = snapshotIndex.identitiesById.constFind(
+            dock.panel.id);
+        if (matchingPanel != snapshotIndex.identitiesById.cend()) {
+            zzCopyPanelRuntimeIdentity(&dock.panel, *matchingPanel.value());
         }
     }
 }
@@ -488,13 +594,7 @@ bool zzIsKnownSidePanel(
     if (panelId.isEmpty()) {
         return false;
     }
-    for (const ZzLayoutState::ZzPanelIdentity &identity : snapshot.identities) {
-        if (identity.id == panelId) {
-            return identity.kind == ZzLayoutState::ZzPanelKind::Side;
-        }
-    }
-    return snapshot.leftSide.order.contains(panelId)
-        || snapshot.rightSide.order.contains(panelId);
+    return zzBuildSnapshotIndex(snapshot).registeredSideIds.contains(panelId);
 }
 
 void zzRemoveFromSides(
@@ -542,12 +642,17 @@ ZzWorkspaceLayoutStatePrivate::buildRestoreTarget(
         zzReconcileSerializedSideProjection(&target, snapshot);
     }
     const auto selectSideCurrent = [](ZzSideProjection *side,
-                                       const QString &requestedCurrent,
-                                       const QString &snapshotCurrent) {
+                                      const QString &requestedCurrent,
+                                      const QString &snapshotCurrent) {
+        QSet<QString> visibleIds;
+        visibleIds.reserve(side->visible.size());
+        for (const QString &id : side->visible) {
+            visibleIds.insert(id);
+        }
         if (!requestedCurrent.isEmpty()
-            && side->visible.contains(requestedCurrent)) {
+            && visibleIds.contains(requestedCurrent)) {
             side->current = requestedCurrent;
-        } else if (side->visible.contains(snapshotCurrent)) {
+        } else if (visibleIds.contains(snapshotCurrent)) {
             side->current = snapshotCurrent;
         } else {
             side->current.clear();

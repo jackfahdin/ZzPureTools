@@ -1,16 +1,101 @@
 #include "../widgets/src/private/ZzWorkspaceLayoutStatePrivate.h"
 
+#include <algorithm>
+#include <optional>
+
+#include <QtCore/QElapsedTimer>
 #include <QtTest/QTest>
 
 #include <ZzFluentUI/ZzActivityArea.h>
 
 namespace {
 
-ZzPureTools::ZzWorkspaceLayoutStatePrivate::ZzWorkspaceSnapshot
-zzTwoSideSnapshot()
-{
-    using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
+using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
 
+struct ZzPlannerFixture final
+{
+    ZzLayoutState::ZzWorkspaceSnapshot snapshot;
+    ZzLayoutState::ZzLayoutRequest request;
+    QStringList expectedOrder;
+    QList<int> expectedSizes;
+};
+
+struct ZzPlannerMeasurement final
+{
+    qint64 medianNanoseconds = 0;
+    quint64 checksum = 0;
+};
+
+[[nodiscard]] ZzLayoutState::ZzPanelIdentity zzSideIdentity(
+    const QString &id)
+{
+    ZzLayoutState::ZzPanelIdentity identity;
+    identity.id = id;
+    identity.kind = ZzLayoutState::ZzPanelKind::Side;
+    return identity;
+}
+
+[[nodiscard]] ZzPlannerFixture zzAlternatingPlannerFixture(int count)
+{
+    ZzPlannerFixture fixture;
+    fixture.snapshot.leftSide.order.reserve(count);
+    fixture.snapshot.leftSide.visible.reserve(count);
+    fixture.snapshot.leftSide.sizes.reserve(count);
+    fixture.snapshot.activity.leftPrimary.reserve(count);
+    fixture.snapshot.identities.reserve(count);
+    fixture.expectedOrder.reserve(count);
+    fixture.expectedSizes.reserve(count);
+
+    for (int index = 0; index < count; ++index) {
+        const QString id = QStringLiteral("side-%1")
+            .arg(index, 4, 10, QLatin1Char('0'));
+        fixture.snapshot.identities.append(zzSideIdentity(id));
+        fixture.snapshot.leftSide.order.append(id);
+        fixture.snapshot.leftSide.visible.append(id);
+        fixture.snapshot.leftSide.sizes.append(100 + index);
+        fixture.snapshot.activity.leftPrimary.append(id);
+        fixture.expectedOrder.append(id);
+        fixture.expectedSizes.append(index % 2 == 0
+                ? 2000 + index : 100 + index);
+    }
+
+    fixture.snapshot.leftSide.current = fixture.snapshot.leftSide.order.value(0);
+    fixture.request.projection = ZzLayoutState::ZzWorkspaceProjection{};
+    auto &projection = *fixture.request.projection;
+    for (int index = 0; index < count; index += 2) {
+        const QString &id = fixture.snapshot.leftSide.order.at(index);
+        projection.leftSide.order.append(id);
+        projection.leftSide.visible.append(id);
+        projection.leftSide.sizes.append(2000 + index);
+        projection.activity.leftPrimary.append(id);
+    }
+    fixture.request.leftCurrent = fixture.snapshot.leftSide.order.value(0);
+    return fixture;
+}
+
+[[nodiscard]] std::optional<ZzPlannerMeasurement> zzMeasurePlanner(
+    const ZzPlannerFixture &fixture,
+    int repetitions)
+{
+    QElapsedTimer timer;
+    timer.start();
+    quint64 checksum = 0;
+    for (int repetition = 0; repetition < repetitions; ++repetition) {
+        const auto target = ZzLayoutState::buildRestoreTarget(
+            fixture.snapshot, fixture.request);
+        if (!target.has_value()
+            || target->leftSide.order.size() != fixture.expectedOrder.size()
+            || target->leftSide.sizes.size() != fixture.expectedSizes.size()) {
+            return std::nullopt;
+        }
+        checksum += static_cast<quint64>(target->leftSide.sizes.front());
+        checksum += static_cast<quint64>(target->leftSide.sizes.back());
+    }
+    return ZzPlannerMeasurement{timer.nsecsElapsed(), checksum};
+}
+
+ZzLayoutState::ZzWorkspaceSnapshot zzTwoSideSnapshot()
+{
     ZzLayoutState::ZzWorkspaceSnapshot snapshot;
     snapshot.leftSide.order = {QStringLiteral("explorer")};
     snapshot.leftSide.visible = {QStringLiteral("explorer")};
@@ -33,6 +118,106 @@ class ZzWorkspaceLayoutStatePrivateTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void alternatingOmissionsKeepStableAnchorsAndSizes()
+    {
+        ZzLayoutState::ZzWorkspaceSnapshot snapshot;
+        snapshot.leftSide.order = {QStringLiteral("a"), QStringLiteral("b"),
+            QStringLiteral("c"), QStringLiteral("d"), QStringLiteral("e"),
+            QStringLiteral("f"), QStringLiteral("g")};
+        snapshot.leftSide.visible = snapshot.leftSide.order;
+        snapshot.leftSide.sizes = {101, 102, 103, 104, 105, 106, 107};
+        snapshot.leftSide.current = QStringLiteral("a");
+        snapshot.activity.leftPrimary = snapshot.leftSide.order;
+        for (const QString &id : std::as_const(snapshot.leftSide.order)) {
+            snapshot.identities.append(zzSideIdentity(id));
+        }
+
+        ZzLayoutState::ZzLayoutRequest request;
+        request.projection = ZzLayoutState::ZzWorkspaceProjection{};
+        request.projection->leftSide.order = {QStringLiteral("f"),
+            QStringLiteral("b"), QStringLiteral("d")};
+        request.projection->leftSide.visible = request.projection->leftSide.order;
+        request.projection->leftSide.sizes = {606, 202, 404};
+        request.projection->activity.leftPrimary =
+            request.projection->leftSide.order;
+        request.leftCurrent = QStringLiteral("f");
+
+        const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        const QStringList expectedOrder = {QStringLiteral("e"),
+            QStringLiteral("f"), QStringLiteral("g"), QStringLiteral("a"),
+            QStringLiteral("b"), QStringLiteral("c"), QStringLiteral("d")};
+        const QList<int> expectedSizes = {105, 606, 107, 101, 202, 103, 404};
+        QCOMPARE(target->leftSide.order, expectedOrder);
+        QCOMPARE(target->leftSide.visible, expectedOrder);
+        QCOMPARE(target->leftSide.sizes, expectedSizes);
+        QCOMPARE(target->leftSide.current, QStringLiteral("f"));
+        QCOMPARE(target->activity.leftActive,
+            QSet<QString>(expectedOrder.cbegin(), expectedOrder.cend()));
+        QCOMPARE(target->leftSide.contents.size(), expectedOrder.size());
+        for (qsizetype index = 0; index < expectedOrder.size(); ++index) {
+            QCOMPARE(target->leftSide.contents.at(index).panelId,
+                expectedOrder.at(index));
+        }
+        QCOMPARE(target->activity.leftPrimary, expectedOrder);
+    }
+
+    void restorePlannerScalesBelowQuadraticGrowth()
+    {
+        const ZzPlannerFixture smallFixture = zzAlternatingPlannerFixture(512);
+        const ZzPlannerFixture largeFixture = zzAlternatingPlannerFixture(4096);
+        QVERIFY(ZzLayoutState::buildRestoreTarget(
+                     smallFixture.snapshot, smallFixture.request)
+                     .has_value());
+        QVERIFY(ZzLayoutState::buildRestoreTarget(
+                     largeFixture.snapshot, largeFixture.request)
+                     .has_value());
+
+        const auto measure = [](const ZzPlannerFixture &fixture) {
+            QList<qint64> samples;
+            quint64 checksum = 0;
+            samples.reserve(7);
+            for (int sample = 0; sample < 7; ++sample) {
+                const auto measurement = zzMeasurePlanner(fixture, 3);
+                if (!measurement.has_value()) {
+                    return std::optional<ZzPlannerMeasurement>{};
+                }
+                samples.append(measurement->medianNanoseconds);
+                checksum += measurement->checksum;
+            }
+            std::sort(samples.begin(), samples.end());
+            return std::optional<ZzPlannerMeasurement>{ZzPlannerMeasurement{
+                samples.at(samples.size() / 2), checksum}};
+        };
+
+        const auto small = measure(smallFixture);
+        const auto large = measure(largeFixture);
+        QVERIFY(small.has_value());
+        QVERIFY(large.has_value());
+        QVERIFY(small->medianNanoseconds > 0);
+        QVERIFY(large->medianNanoseconds > 0);
+        QVERIFY(small->checksum > 0);
+        QVERIFY(large->checksum > 0);
+
+        for (const ZzPlannerFixture *fixture : {&smallFixture, &largeFixture}) {
+            const auto target = ZzLayoutState::buildRestoreTarget(
+                fixture->snapshot, fixture->request);
+            QVERIFY(target.has_value());
+            QCOMPARE(target->leftSide.order, fixture->expectedOrder);
+            QCOMPARE(target->leftSide.visible, fixture->expectedOrder);
+            QCOMPARE(target->leftSide.sizes, fixture->expectedSizes);
+            QCOMPARE(target->leftSide.contents.size(), fixture->expectedOrder.size());
+            QCOMPARE(target->activity.leftPrimary, fixture->expectedOrder);
+        }
+        QVERIFY2(large->medianNanoseconds < small->medianNanoseconds * 20,
+            qPrintable(QStringLiteral(
+                "Planner grew from %1 ns to %2 ns (%3x)")
+                    .arg(small->medianNanoseconds)
+                    .arg(large->medianNanoseconds)
+                    .arg(static_cast<double>(large->medianNanoseconds)
+                        / static_cast<double>(small->medianNanoseconds))));
+    }
+
     void sideFallbackUsesPaneCurrentInsteadOfActivityCurrent()
     {
         using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;

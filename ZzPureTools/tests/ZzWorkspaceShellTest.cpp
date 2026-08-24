@@ -2402,7 +2402,7 @@ private Q_SLOTS:
         QVERIFY(rightActive.contains(model->index(3, 0)));
     }
 
-    void activityMoveAuditAvoidsCubicGrowth()
+    void activityMoveAuditScalesBelowQuadraticGrowth()
     {
         const auto measureMove = [](int panelCount) {
             ZzShellFixture fixture;
@@ -2421,36 +2421,176 @@ private Q_SLOTS:
 
             auto *const bar = fixture.shell->activityBar(
                 ZzFluentUI::ZzSidePaneEdge::Left);
+            auto *const pane = fixture.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Left);
             QAbstractItemModel *const model = bar->model();
-            QList<qint64> samples;
-            for (int iteration = 0; iteration < 3; ++iteration) {
-                const QString movedTitle =
-                    model->index(0, 0).data().toString();
+            const auto move = [bar, model, pane](int sourceRow, int targetRow) {
+                const QString movedTitle = model->index(sourceRow, 0)
+                    .data().toString();
+                QWidget *const movedPanel = pane->panelStack()->panels().at(
+                    sourceRow);
                 QElapsedTimer timer;
                 timer.start();
                 Q_EMIT bar->moveRequested(
-                    model->index(0, 0),
+                    model->index(sourceRow, 0),
                     ZzFluentUI::ZzActivityArea::LeftPrimary,
-                    panelCount - 1);
-                samples.append(timer.nsecsElapsed());
-                if (model->index(panelCount - 1, 0).data().toString()
-                    != movedTitle) {
+                    targetRow);
+                if (model->index(targetRow, 0).data().toString()
+                        != movedTitle
+                    || model->index(targetRow, 0).data(static_cast<int>(
+                           ZzFluentUI::ZzActivityItemRole::Area))
+                           .value<ZzFluentUI::ZzActivityArea>()
+                        != ZzFluentUI::ZzActivityArea::LeftPrimary
+                    || pane->panelStack()->panels().at(targetRow)
+                        != movedPanel) {
                     return qint64{-1};
                 }
+                return timer.nsecsElapsed();
+            };
+            if (move(0, panelCount - 1) <= 0
+                || move(panelCount - 1, 0) <= 0) {
+                return qint64{-1};
+            }
+
+            QList<qint64> samples;
+            samples.reserve(5);
+            for (int iteration = 0; iteration < 5; ++iteration) {
+                const int sourceRow = iteration % 2 == 0 ? 0 : panelCount - 1;
+                const int targetRow = iteration % 2 == 0 ? panelCount - 1 : 0;
+                const qint64 elapsed = move(sourceRow, targetRow);
+                if (elapsed <= 0) {
+                    return qint64{-1};
+                }
+                samples.append(elapsed);
             }
             std::sort(samples.begin(), samples.end());
             return samples.at(samples.size() / 2);
         };
 
-        const qint64 small = measureMove(192);
-        const qint64 large = measureMove(384);
+        const qint64 small = measureMove(128);
+        const qint64 large = measureMove(512);
         QVERIFY(small > 0);
         QVERIFY(large > 0);
-        QVERIFY2(large * 4 < small * 17,
+        QVERIFY2(large < small * 10,
             qPrintable(QStringLiteral(
-                "Doubling panel count grew Activity move from %1 ns to %2 ns")
+                "Activity move grew from %1 ns to %2 ns")
                     .arg(small)
                     .arg(large)));
+    }
+
+    void activityMoveReordersOnlyRequestedPanel()
+    {
+        ZzShellFixture fixture;
+        QList<QWidget *> contents;
+        for (int index = 0; index < 6; ++index) {
+            auto content = std::make_unique<QWidget>();
+            QWidget *const rawContent = content.get();
+            const auto id = ZzPureTools::ZzWorkspacePanelId(
+                QStringLiteral("single-%1").arg(index));
+            QVERIFY(fixture.shell->registerSidePanel(
+                id, id.value(), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+            zzReleaseAfterAdoption(content);
+            contents.append(rawContent);
+        }
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        QVERIFY(pane->panelStack()->setPanelSizes({101, 202, 303, 404, 505, 606}));
+        QList<QPair<QWidget *, int>> moves;
+        QObject::connect(pane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&moves](QWidget *content, int index) {
+                moves.append({content, index});
+            });
+
+        Q_EMIT bar->moveRequested(model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, 5);
+        const QList<QPair<QWidget *, int>> movedToEnd = {{contents.at(0), 5}};
+        QCOMPARE(moves, movedToEnd);
+        QCOMPARE(pane->panelStack()->panels(), QList<QWidget *>({contents.at(1),
+            contents.at(2), contents.at(3), contents.at(4), contents.at(5),
+            contents.at(0)}));
+        QCOMPARE(pane->visibleWidgets(), pane->panelStack()->panels());
+        QCOMPARE(pane->panelStack()->panelSizes(),
+            QList<int>({202, 303, 404, 505, 606, 101}));
+        QCOMPARE(model->index(5, 0).data().toString(), QStringLiteral("single-0"));
+        QCOMPARE(model->index(5, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary);
+
+        moves.clear();
+        Q_EMIT bar->moveRequested(model->index(5, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+        const QList<QPair<QWidget *, int>> movedToStart = {{contents.at(0), 0}};
+        QCOMPARE(moves, movedToStart);
+        QCOMPARE(pane->panelStack()->panels(), contents);
+        QCOMPARE(pane->panelStack()->panelSizes(),
+            QList<int>({101, 202, 303, 404, 505, 606}));
+
+        moves.clear();
+        Q_EMIT bar->moveRequested(model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+        QVERIFY(moves.isEmpty());
+        QCOMPARE(pane->currentWidget(), contents.at(0));
+        QCOMPARE(bar->activeSourceIndexes().size(), 6);
+        QVERIFY(fixture.shell->saveLayout());
+    }
+
+    void activityMoveAcrossSidesReordersOnlyRequestedPanel()
+    {
+        ZzShellFixture fixture;
+        auto moved = std::make_unique<QWidget>();
+        auto rightOne = std::make_unique<QWidget>();
+        auto rightTwo = std::make_unique<QWidget>();
+        QWidget *const movedRaw = moved.get();
+        QWidget *const rightOneRaw = rightOne.get();
+        QWidget *const rightTwoRaw = rightTwo.get();
+        QVERIFY(fixture.shell->registerSidePanel(zzPanelId("cross-moved"),
+            QStringLiteral("Cross moved"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        QVERIFY(fixture.shell->registerSidePanel(zzPanelId("cross-right-one"),
+            QStringLiteral("Right one"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, rightOne.get()));
+        zzReleaseAfterAdoption(rightOne);
+        QVERIFY(fixture.shell->registerSidePanel(zzPanelId("cross-right-two"),
+            QStringLiteral("Right two"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, rightTwo.get()));
+        zzReleaseAfterAdoption(rightTwo);
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        QList<QPair<QWidget *, int>> leftMoves;
+        QList<QPair<QWidget *, int>> rightMoves;
+        QObject::connect(leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&leftMoves](QWidget *content, int index) {
+                leftMoves.append({content, index});
+            });
+        QObject::connect(rightPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&rightMoves](QWidget *content, int index) {
+                rightMoves.append({content, index});
+            });
+        Q_EMIT bar->moveRequested(model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::RightPrimary, 1);
+        QVERIFY(leftMoves.isEmpty());
+        const QList<QPair<QWidget *, int>> expectedMoves = {{movedRaw, 1}};
+        QCOMPARE(rightMoves, expectedMoves);
+        QVERIFY(leftPane->panelStack()->panels().isEmpty());
+        QCOMPARE(rightPane->panelStack()->panels(),
+            QList<QWidget *>({rightOneRaw, movedRaw, rightTwoRaw}));
+        QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("Cross moved"));
+        QCOMPARE(model->index(1, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightPrimary);
+        QCOMPARE(rightPane->currentWidget(), movedRaw);
+        QCOMPARE(rightPane->visibleWidgets().size(), 3);
+        QVERIFY(fixture.shell->saveLayout());
     }
 
     void keepsActivityMoveResourceBudgetStableAcrossRoundTrips()
@@ -3060,6 +3200,7 @@ private Q_SLOTS:
         auto first = std::make_unique<QWidget>();
         auto second = std::make_unique<QWidget>();
         auto third = std::make_unique<QWidget>();
+        QWidget *const firstRaw = first.get();
         QWidget *const secondRaw = second.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("first"), QStringLiteral("First"), zzIcon(),
@@ -3079,13 +3220,13 @@ private Q_SLOTS:
         QAbstractItemModel *const model = bar->model();
         auto *const stack = fixture.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->panelStack();
-        int moveSignals = 0;
+        QList<QPair<QWidget *, int>> moveSignals;
         QList<QStringList> resetOrders;
         QObject::connect(
             stack, &ZzFluentUI::ZzPanelStack::panelMoved,
-            fixture.shell.get(), [&](QWidget *, int) {
-                ++moveSignals;
-                if (moveSignals == 2) {
+            fixture.shell.get(), [&](QWidget *content, int index) {
+                moveSignals.append({content, index});
+                if (moveSignals.size() == 1 && content == firstRaw && index == 2) {
                     secondRaw->setParent(&thirdParty);
                 }
             });
@@ -3104,7 +3245,13 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary,
             2);
 
-        QVERIFY(moveSignals >= 2);
+        QVERIFY(!moveSignals.isEmpty());
+        const QPair<QWidget *, int> firstMove(firstRaw, 2);
+        QCOMPARE(moveSignals.constFirst(), firstMove);
+        for (const QPair<QWidget *, int> &move : moveSignals) {
+            QCOMPARE(move.first, firstRaw);
+            QVERIFY(move.second == 2 || move.second == 0);
+        }
         QCOMPARE(secondRaw->parentWidget(), &thirdParty);
         QVERIFY(!resetOrders.contains(
             {QStringLiteral("Second"), QStringLiteral("Third"),
