@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <utility>
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
 #include <QtGui/QIcon>
@@ -243,17 +244,31 @@ private:
         }
         retainedCleanupScheduled_ = true;
         const QPointer<ZzPanelFrame> frameGuard(this);
-        static_cast<void>(QMetaObject::invokeMethod(
-            this,
-            [frameGuard] {
-                if (frameGuard != nullptr) {
-                    frameGuard->cleanupRetainedFrame();
-                }
-            },
-            Qt::QueuedConnection));
+        const QPointer<QObject> cleanupContext(QCoreApplication::instance());
+        // 首跳让同次 ParentChange 排入的回挂先于最终 ancestry 检查落地。
+        if (cleanupContext == nullptr
+            || !QMetaObject::invokeMethod(
+                cleanupContext,
+                [frameGuard, cleanupContext] {
+                    if (frameGuard == nullptr || cleanupContext == nullptr) {
+                        return;
+                    }
+                    static_cast<void>(QMetaObject::invokeMethod(
+                        cleanupContext,
+                        [frameGuard] {
+                            if (frameGuard != nullptr
+                                && frameGuard->cleanupRetainedFrame()) {
+                                delete frameGuard.data();
+                            }
+                        },
+                        Qt::QueuedConnection));
+                },
+                Qt::QueuedConnection)) {
+            retainedCleanupScheduled_ = false;
+        }
     }
 
-    void cleanupRetainedFrame()
+    [[nodiscard]] bool cleanupRetainedFrame()
     {
         retainedCleanupScheduled_ = false;
         QWidget *const currentContentBranch = frameBranchFor(retainedContent_);
@@ -261,17 +276,17 @@ private:
             if (currentContentBranch != retainedForeignBranch_) {
                 observeRetainedBranch(currentContentBranch);
             }
-            return;
+            return false;
         }
         if (retainedForeignBranch_ != nullptr
             && frameBranchFor(retainedForeignBranch_) != nullptr) {
-            return;
+            return false;
         }
 
         QObject::disconnect(retainedBranchDestroyedConnection_);
         retainedContent_ = nullptr;
         retainedForeignBranch_ = nullptr;
-        deleteLater();
+        return true;
     }
 
     void refreshVisuals()
