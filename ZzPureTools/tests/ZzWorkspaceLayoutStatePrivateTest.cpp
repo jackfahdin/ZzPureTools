@@ -675,7 +675,7 @@ private slots:
         snapshot.identities = {identity};
 
         ZzLayoutState::ZzLayoutRequest request;
-        request.projection.emplace();
+        request.projection = ZzLayoutState::ZzWorkspaceProjection{};
         request.projection->leftSide.order = {QStringLiteral("explorer")};
         request.projection->leftSide.visible = {QStringLiteral("explorer")};
         request.projection->leftSide.sizes = {260};
@@ -751,7 +751,7 @@ private slots:
         snapshot.activity.rightActive = {QStringLiteral("terminal")};
 
         ZzLayoutState::ZzLayoutRequest request;
-        request.projection.emplace();
+        request.projection = ZzLayoutState::ZzWorkspaceProjection{};
         request.projection->leftSide.order = {
             QStringLiteral("search"), QStringLiteral("ghost")};
         request.projection->leftSide.visible = {
