@@ -33,6 +33,7 @@ class ZzTabWidget;
 namespace ZzPureTools {
 
 class ZzWorkspaceShell;
+class ZzWorkspaceLayoutTransactionPrivate;
 
 /** @brief 管理工作区稳定对象、面板注册表和布局恢复事务。 */
 class ZzWorkspaceShellPrivate final
@@ -77,20 +78,6 @@ public:
         ZzFluentUI::ZzActivityArea area =
             ZzFluentUI::ZzActivityArea::LeftPrimary;
         int order = 0;
-    };
-
-    struct ZzLayoutState final
-    {
-        QByteArray qtState;
-        bool leftCollapsed = false;
-        int leftWidth = 280;
-        bool rightCollapsed = false;
-        int rightWidth = 280;
-        ZzWorkspacePanelId leftCurrent;
-        ZzWorkspacePanelId rightCurrent;
-        QVector<ZzSideLayoutEntry> sideEntries;
-        int currentTabIndex = -1;
-        ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
     };
 
     /** @brief 创建固定工作区对象并连接同步信号。 */
@@ -201,9 +188,6 @@ public:
         const ZzPanelRecord &expected) const noexcept;
     [[nodiscard]] ZzWorkspacePanelId currentSideId(
         ZzFluentUI::ZzSidePane *pane) const;
-    [[nodiscard]] ZzLayoutState captureLayoutState() const;
-    [[nodiscard]] bool applyShellLayout(const ZzLayoutState &state);
-
     ZzWorkspaceShell *const q_ptr;
     QPointer<QMainWindow> host;
     QPointer<ZzFluentUI::ZzFluentTitleBar> titleBar;
@@ -228,6 +212,8 @@ public:
     QMetaObject::Connection activeTabChangedConnection;
     QMetaObject::Connection activeTabPresentationConnection;
     QMetaObject::Connection currentTabTitleConnection;
+
+    friend class ZzWorkspaceLayoutTransactionPrivate;
 };
 
 } // namespace ZzPureTools

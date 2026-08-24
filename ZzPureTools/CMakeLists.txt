@@ -64,6 +64,7 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzWorkspaceActivityMoveTransactionPrivate.cpp
     widgets/src/private/ZzWorkspaceLayoutCodecPrivate.cpp
     widgets/src/private/ZzWorkspaceLayoutStatePrivate.cpp
+    widgets/src/private/ZzWorkspaceLayoutTransactionPrivate.cpp
     widgets/src/private/ZzWorkspaceShellPrivate.cpp
 )
 set(zz_pure_tools_moc_headers

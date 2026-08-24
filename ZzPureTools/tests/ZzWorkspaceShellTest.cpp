@@ -15,7 +15,9 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLayout>
+#include <QtWidgets/QDockWidget>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzCore/ZzErrorCode.h>
@@ -40,6 +42,35 @@
 namespace {
 
 constexpr qsizetype zzWorkspaceMaximumLayoutSize = qsizetype{1024} * 1024;
+
+struct ZzTestSideLayoutEntry final
+{
+    QString id;
+    ZzFluentUI::ZzActivityArea area =
+        ZzFluentUI::ZzActivityArea::LeftPrimary;
+    qint32 order = 0;
+};
+
+struct ZzTestVersionTwoLayout final
+{
+    QByteArray qtState;
+    quint8 leftCollapsed = 0;
+    qint32 leftWidth = 280;
+    QString leftCurrent;
+    QStringList leftVisible;
+    QList<qint32> leftSizes;
+    quint8 rightCollapsed = 0;
+    qint32 rightWidth = 280;
+    QString rightCurrent;
+    QStringList rightVisible;
+    QList<qint32> rightSizes;
+    QVector<ZzTestSideLayoutEntry> sideEntries;
+    QByteArray splitState;
+    quint8 bottomCollapsed = 1;
+    qint32 bottomHeight = 240;
+    QString bottomCurrent;
+    quint8 titleMode = 0;
+};
 
 /** @brief 在组件接管对象后释放测试夹具持有的临时所有权。 */
 template <typename T>
@@ -72,6 +103,237 @@ struct ZzShellFixture final
 [[nodiscard]] ZzFluentUI::ZzIconDescriptor zzIcon()
 {
     return {};
+}
+
+[[nodiscard]] QByteArray zzTestWorkspaceEnvelope(
+    quint16 schemaVersion,
+    const QByteArray &payload)
+{
+    QByteArray result;
+    QDataStream stream(&result, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_6_8);
+    if (stream.writeRawData("ZZWS", 4) != 4) {
+        return {};
+    }
+    stream << schemaVersion
+           << static_cast<quint16>(QDataStream::Qt_6_8)
+           << static_cast<quint32>(payload.size());
+    if (stream.writeRawData(payload.constData(), payload.size())
+            != payload.size()
+        || stream.status() != QDataStream::Ok) {
+        return {};
+    }
+    result.append(QCryptographicHash::hash(
+        payload, QCryptographicHash::Sha256));
+    return result;
+}
+
+[[nodiscard]] QByteArray zzVersionOneLayout(
+    const QByteArray &qtState,
+    bool leftCollapsed,
+    qint32 leftWidth,
+    bool rightCollapsed,
+    qint32 rightWidth,
+    const QString &leftCurrent,
+    const QString &rightCurrent,
+    const QVector<ZzTestSideLayoutEntry> &sideEntries,
+    qint32 currentTabIndex,
+    ZzPureTools::ZzWorkspaceTitleMode titleMode)
+{
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_6_8);
+    stream << qtState << leftCollapsed << leftWidth
+           << rightCollapsed << rightWidth
+           << leftCurrent << rightCurrent
+           << static_cast<quint32>(sideEntries.size());
+    for (const ZzTestSideLayoutEntry &entry : sideEntries) {
+        stream << entry.id << static_cast<quint8>(entry.area) << entry.order;
+    }
+    stream << currentTabIndex << static_cast<quint8>(titleMode);
+    return stream.status() == QDataStream::Ok
+        ? zzTestWorkspaceEnvelope(1, payload) : QByteArray{};
+}
+
+void zzWriteTestWorkspaceString(QDataStream &stream, const QString &value)
+{
+    stream << static_cast<quint16>(value.size());
+    for (const QChar character : value) {
+        stream << character.unicode();
+    }
+}
+
+void zzWriteTestNestedSplitNode(
+    QDataStream &stream,
+    int depth,
+    int maximumDepth,
+    int *nextGroup)
+{
+    if (depth >= maximumDepth) {
+        stream << quint8(0);
+        zzWriteTestWorkspaceString(
+            stream, QStringLiteral("group-%1").arg((*nextGroup)++));
+        return;
+    }
+    const auto orientation = depth % 2 == 0
+        ? Qt::Vertical : Qt::Horizontal;
+    stream << quint8(1) << static_cast<quint8>(orientation) << quint16(2);
+    zzWriteTestNestedSplitNode(
+        stream, depth + 1, maximumDepth, nextGroup);
+    stream << quint8(0);
+    zzWriteTestWorkspaceString(
+        stream, QStringLiteral("group-%1").arg((*nextGroup)++));
+    stream << quint16(2) << qint32(1) << qint32(1);
+}
+
+[[nodiscard]] QByteArray zzTestSplitLayout(
+    int groupCount,
+    int maximumDepth = 0)
+{
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_6_8);
+    int nextGroup = 0;
+    if (maximumDepth > 0) {
+        zzWriteTestNestedSplitNode(stream, 1, maximumDepth, &nextGroup);
+    } else if (groupCount <= 1) {
+        stream << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        nextGroup = 1;
+    } else {
+        stream << quint8(1) << quint8(Qt::Horizontal)
+               << static_cast<quint16>(groupCount);
+        for (int index = 0; index < groupCount; ++index) {
+            stream << quint8(0);
+            zzWriteTestWorkspaceString(
+                stream, QStringLiteral("group-%1").arg(index));
+        }
+        stream << static_cast<quint16>(groupCount);
+        for (int index = 0; index < groupCount; ++index) {
+            stream << qint32(1);
+        }
+        nextGroup = groupCount;
+    }
+    Q_ASSERT(nextGroup > 0);
+    zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+    stream << quint16(0);
+
+    QByteArray result;
+    QDataStream envelope(&result, QIODevice::WriteOnly);
+    envelope.setVersion(QDataStream::Qt_6_8);
+    envelope.writeRawData("ZZSW", 4);
+    envelope << quint16(1)
+             << static_cast<quint16>(QDataStream::Qt_6_8)
+             << static_cast<quint32>(payload.size());
+    envelope.writeRawData(payload.constData(), payload.size());
+    result.append(QCryptographicHash::hash(
+        payload, QCryptographicHash::Sha256));
+    return result;
+}
+
+[[nodiscard]] QByteArray zzMalformedTestSplitLayout(const QString &mutation)
+{
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_6_8);
+    if (mutation == QStringLiteral("adjacent-orientation")) {
+        stream << quint8(1) << quint8(Qt::Horizontal) << quint16(2)
+               << quint8(1) << quint8(Qt::Horizontal) << quint16(2)
+               << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        stream << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-1"));
+        stream << quint16(2) << qint32(1) << qint32(1)
+               << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-2"));
+        stream << quint16(2) << qint32(1) << qint32(1);
+    } else if (mutation == QStringLiteral("trimmed-group")) {
+        stream << quint8(1) << quint8(Qt::Horizontal) << quint16(2)
+               << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group"));
+        stream << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral(" group "));
+        stream << quint16(2) << qint32(1) << qint32(1);
+    } else {
+        stream << quint8(0);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+    }
+    zzWriteTestWorkspaceString(
+        stream,
+        mutation == QStringLiteral("trimmed-group")
+            ? QStringLiteral("group") : QStringLiteral("group-0"));
+    if (mutation == QStringLiteral("empty-key")) {
+        stream << quint16(1);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("   "));
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        stream << qint32(0) << quint8(1);
+    } else if (mutation == QStringLiteral("trimmed-key")) {
+        stream << quint16(2);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("key"));
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        stream << qint32(0) << quint8(1);
+        zzWriteTestWorkspaceString(stream, QStringLiteral(" key "));
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        stream << qint32(1) << quint8(0);
+    } else if (mutation == QStringLiteral("duplicate-order")) {
+        stream << quint16(2);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("first"));
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        stream << qint32(0) << quint8(1);
+        zzWriteTestWorkspaceString(stream, QStringLiteral("second"));
+        zzWriteTestWorkspaceString(stream, QStringLiteral("group-0"));
+        stream << qint32(0) << quint8(0);
+    } else {
+        stream << quint16(0);
+    }
+
+    QByteArray result;
+    QDataStream envelope(&result, QIODevice::WriteOnly);
+    envelope.setVersion(QDataStream::Qt_6_8);
+    envelope.writeRawData("ZZSW", 4);
+    envelope << quint16(1)
+             << static_cast<quint16>(QDataStream::Qt_6_8)
+             << static_cast<quint32>(payload.size());
+    envelope.writeRawData(payload.constData(), payload.size());
+    result.append(QCryptographicHash::hash(
+        payload, QCryptographicHash::Sha256));
+    return result;
+}
+
+[[nodiscard]] QByteArray zzVersionTwoLayout(
+    const ZzTestVersionTwoLayout &layout)
+{
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_6_8);
+    stream << layout.qtState << layout.leftCollapsed << layout.leftWidth
+           << layout.leftCurrent
+           << static_cast<quint32>(layout.leftVisible.size());
+    for (const QString &id : layout.leftVisible) {
+        stream << id;
+    }
+    stream << static_cast<quint32>(layout.leftSizes.size());
+    for (const qint32 size : layout.leftSizes) {
+        stream << size;
+    }
+    stream << layout.rightCollapsed << layout.rightWidth
+           << layout.rightCurrent
+           << static_cast<quint32>(layout.rightVisible.size());
+    for (const QString &id : layout.rightVisible) {
+        stream << id;
+    }
+    stream << static_cast<quint32>(layout.rightSizes.size());
+    for (const qint32 size : layout.rightSizes) {
+        stream << size;
+    }
+    stream << static_cast<quint32>(layout.sideEntries.size());
+    for (const ZzTestSideLayoutEntry &entry : layout.sideEntries) {
+        stream << entry.id << static_cast<quint8>(entry.area) << entry.order;
+    }
+    stream << layout.splitState << layout.bottomCollapsed
+           << layout.bottomHeight << layout.bottomCurrent << layout.titleMode;
+    return stream.status() == QDataStream::Ok
+        ? zzTestWorkspaceEnvelope(2, payload) : QByteArray{};
 }
 
 [[nodiscard]] QByteArray zzReplaceQtState(
@@ -145,66 +407,65 @@ struct ZzShellFixture final
         return {};
     }
 
-    QByteArray qtState;
-    bool leftCollapsed = false;
-    bool rightCollapsed = false;
-    qint32 leftWidth = 0;
-    qint32 rightWidth = 0;
-    QString leftCurrent;
-    QString rightCurrent;
+    ZzTestVersionTwoLayout decoded;
     quint32 originalSideCount = 0;
-    qint32 currentTabIndex = -1;
-    quint8 titleMode = 0;
+    quint32 visibleCount = 0;
+    quint32 sizeCount = 0;
     QDataStream payloadIn(payload);
     payloadIn.setVersion(QDataStream::Qt_6_8);
-    payloadIn >> qtState >> leftCollapsed >> leftWidth >> rightCollapsed
-              >> rightWidth >> leftCurrent >> rightCurrent >> originalSideCount;
+    payloadIn >> decoded.qtState >> decoded.leftCollapsed >> decoded.leftWidth
+              >> decoded.leftCurrent >> visibleCount;
+    for (quint32 index = 0; index < visibleCount; ++index) {
+        QString id;
+        payloadIn >> id;
+        decoded.leftVisible.append(std::move(id));
+    }
+    payloadIn >> sizeCount;
+    for (quint32 index = 0; index < sizeCount; ++index) {
+        qint32 size = 0;
+        payloadIn >> size;
+        decoded.leftSizes.append(size);
+    }
+    payloadIn >> decoded.rightCollapsed >> decoded.rightWidth
+              >> decoded.rightCurrent >> visibleCount;
+    for (quint32 index = 0; index < visibleCount; ++index) {
+        QString id;
+        payloadIn >> id;
+        decoded.rightVisible.append(std::move(id));
+    }
+    payloadIn >> sizeCount;
+    for (quint32 index = 0; index < sizeCount; ++index) {
+        qint32 size = 0;
+        payloadIn >> size;
+        decoded.rightSizes.append(size);
+    }
+    payloadIn >> originalSideCount;
     for (quint32 index = 0; index < originalSideCount; ++index) {
         QString id;
         quint8 area = 0;
         qint32 order = 0;
         payloadIn >> id >> area >> order;
     }
-    payloadIn >> currentTabIndex >> titleMode;
+    payloadIn >> decoded.splitState >> decoded.bottomCollapsed
+              >> decoded.bottomHeight >> decoded.bottomCurrent
+              >> decoded.titleMode;
     if (payloadIn.status() != QDataStream::Ok || !payloadIn.atEnd()) {
         return {};
     }
 
-    QByteArray replacementPayload;
-    QDataStream payloadOut(&replacementPayload, QIODevice::WriteOnly);
-    payloadOut.setVersion(QDataStream::Qt_6_8);
-    payloadOut << qtState << leftCollapsed << leftWidth << rightCollapsed
-               << rightWidth << leftCurrent << rightCurrent << sideCount;
+    decoded.sideEntries.clear();
+    decoded.sideEntries.reserve(static_cast<qsizetype>(sideCount));
     for (quint32 index = 0; index < sideCount; ++index) {
         const QString id = index + 1 == sideCount && !tailDuplicateId.isEmpty()
             ? tailDuplicateId
             : QStringLiteral("side-%1").arg(index, 4, 10, QLatin1Char('0'));
-        payloadOut << id
-                   << static_cast<quint8>(
-                          ZzFluentUI::ZzActivityArea::LeftPrimary)
-                   << static_cast<qint32>(index);
+        decoded.sideEntries.append({
+            id, ZzFluentUI::ZzActivityArea::LeftPrimary,
+            static_cast<qint32>(index)});
     }
-    payloadOut << currentTabIndex << titleMode;
-    if (payloadOut.status() != QDataStream::Ok) {
-        return {};
-    }
-
-    QByteArray result;
-    QDataStream resultOut(&result, QIODevice::WriteOnly);
-    resultOut.setVersion(QDataStream::Qt_6_8);
-    if (resultOut.writeRawData("ZZWS", 4) != 4) {
-        return {};
-    }
-    resultOut << schemaVersion << streamVersion
-              << static_cast<quint32>(replacementPayload.size());
-    if (resultOut.writeRawData(
-            replacementPayload.constData(), replacementPayload.size())
-        != replacementPayload.size()) {
-        return {};
-    }
-    result.append(QCryptographicHash::hash(
-        replacementPayload, QCryptographicHash::Sha256));
-    return result;
+    return schemaVersion == 2
+            && streamVersion == static_cast<quint16>(QDataStream::Qt_6_8)
+        ? zzVersionTwoLayout(decoded) : QByteArray{};
 }
 
 [[nodiscard]] QByteArray zzMutatedByte(
@@ -2671,18 +2932,19 @@ private Q_SLOTS:
         QVERIFY(!fixture.titleBar.isAlwaysOnTop());
     }
 
-    void savesVersionedBoundedLayoutAndRestoresAllShellState()
+    void migratesVersionOneLayoutToVersionTwo()
     {
         ZzShellFixture fixture;
         auto leftOne = std::make_unique<QWidget>();
         auto leftTwo = std::make_unique<QWidget>();
         auto right = std::make_unique<QWidget>();
-        auto dock = std::make_unique<QWidget>();
+        auto bottom = std::make_unique<QWidget>();
+        QWidget *const leftTwoRaw = leftTwo.get();
+        QWidget *const rightRaw = right.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("left-one"), QStringLiteral("Left one"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, leftOne.get()));
         zzReleaseAfterAdoption(leftOne);
-        QWidget *const leftTwoRaw = leftTwo.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("left-two"), QStringLiteral("Left two"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftSecondary, leftTwo.get()));
@@ -2691,82 +2953,1433 @@ private Q_SLOTS:
             zzPanelId("right"), QStringLiteral("Right"), zzIcon(),
             ZzFluentUI::ZzActivityArea::RightPrimary, right.get()));
         zzReleaseAfterAdoption(right);
-        QVERIFY(fixture.shell->registerDockPanel(
-            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
-            Qt::LeftDockWidgetArea, dock.get()));
-        zzReleaseAfterAdoption(dock);
-        fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(333);
-        fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Left)->setCurrentWidget(leftTwoRaw);
-        fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Right)->setPaneWidth(444);
-        fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Right)->setCollapsed(true);
-        fixture.shell->setTitleMode(
-            ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
-        fixture.shell->tabWidget()->addTab(
-            new QWidget, QStringLiteral("First tab"));
-        fixture.shell->tabWidget()->addTab(
-            new QWidget, QStringLiteral("Second tab"));
-        fixture.shell->tabWidget()->setCurrentIndex(1);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            bottom.get()));
+        zzReleaseAfterAdoption(bottom);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("bottom"), true));
 
-        auto saved = fixture.shell->saveLayout();
-        QVERIFY(saved);
-        const QByteArray &state = saved.value();
-        QVERIFY(state.size() <= zzWorkspaceMaximumLayoutSize);
-        QCOMPARE(state.first(4), QByteArrayLiteral("ZZWS"));
-        QDataStream envelope(state);
+        auto *const rootTabs = fixture.shell->splitWorkspace()->tabWidget(
+            fixture.shell->splitWorkspace()->groupIds().constFirst());
+        rootTabs->addTab(new QWidget, QStringLiteral("First"));
+        rootTabs->addTab(new QWidget, QStringLiteral("Second"));
+        rootTabs->setCurrentIndex(0);
+        const QByteArray versionOne = zzVersionOneLayout(
+            fixture.host.saveState(1), false, 345, true, 456,
+            QStringLiteral("left-two"), QStringLiteral("right"),
+            {
+                {QStringLiteral("left-one"),
+                 ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+                {QStringLiteral("left-two"),
+                 ZzFluentUI::ZzActivityArea::LeftSecondary, 0},
+                {QStringLiteral("right"),
+                 ZzFluentUI::ZzActivityArea::RightPrimary, 0},
+            },
+            1, ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
+        QVERIFY(!versionOne.isEmpty());
+
+        QVERIFY(fixture.shell->restoreLayout(versionOne));
+        QCOMPARE(
+            fixture.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Left)->visibleWidgets(),
+            QList<QWidget *>({leftTwoRaw}));
+        QCOMPARE(
+            fixture.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Right)->visibleWidgets(),
+            QList<QWidget *>({rightRaw}));
+        QCOMPARE(rootTabs->currentIndex(), 1);
+        QVERIFY(fixture.shell->bottomPane()->isCollapsed());
+        QCOMPARE(
+            fixture.shell->titleMode(),
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
+
+        const auto savedAgain = fixture.shell->saveLayout();
+        QVERIFY(savedAgain);
+        QDataStream envelope(savedAgain.value());
         envelope.setVersion(QDataStream::Qt_6_8);
         char magic[4]{};
         quint16 schemaVersion = 0;
         quint16 streamVersion = 0;
         quint32 payloadLength = 0;
-        QVERIFY(envelope.readRawData(magic, 4) == 4);
+        QCOMPARE(envelope.readRawData(magic, 4), 4);
         envelope >> schemaVersion >> streamVersion >> payloadLength;
-        QCOMPARE(schemaVersion, quint16(1));
-        QCOMPARE(
-            streamVersion,
+        QCOMPARE(schemaVersion, quint16(2));
+        QCOMPARE(streamVersion,
             static_cast<quint16>(QDataStream::Qt_6_8));
-        QCOMPARE(
-            state.size(),
-            qsizetype(4 + 2 + 2 + 4 + payloadLength + 32));
-        const QByteArray payload = state.sliced(12, payloadLength);
-        QCOMPARE(
-            state.last(32),
-            QCryptographicHash::hash(payload, QCryptographicHash::Sha256));
+        QVERIFY(payloadLength > 0);
+    }
 
-        fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(180);
-        fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Right)->setCollapsed(false);
+    void boundsVersionOneLayoutDtos_data()
+    {
+        QTest::addColumn<QString>("mutation");
+        QTest::addColumn<bool>("accepted");
+
+        QTest::newRow("baseline") << QStringLiteral("baseline") << true;
+        QTest::newRow("current-id-256") << QStringLiteral("current-256") << true;
+        QTest::newRow("current-id-257") << QStringLiteral("current-257") << false;
+        QTest::newRow("entry-id-256") << QStringLiteral("entry-256") << true;
+        QTest::newRow("entry-id-257") << QStringLiteral("entry-257") << false;
+        QTest::newRow("order-4095") << QStringLiteral("order-4095") << true;
+        QTest::newRow("sparse-order-4096")
+            << QStringLiteral("sparse-order-4096") << true;
+    }
+
+    void boundsVersionOneLayoutDtos()
+    {
+        QFETCH(QString, mutation);
+        QFETCH(bool, accepted);
+        ZzShellFixture fixture;
+        QString leftCurrent;
+        QVector<ZzTestSideLayoutEntry> entries;
+        if (mutation == QStringLiteral("current-256")) {
+            leftCurrent = QString(256, QLatin1Char('c'));
+        } else if (mutation == QStringLiteral("current-257")) {
+            leftCurrent = QString(257, QLatin1Char('c'));
+        } else if (mutation == QStringLiteral("entry-256")) {
+            entries.append({
+                QString(256, QLatin1Char('e')),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0});
+        } else if (mutation == QStringLiteral("entry-257")) {
+            entries.append({
+                QString(257, QLatin1Char('e')),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0});
+        } else if (mutation == QStringLiteral("order-4095")) {
+            entries.append({
+                QStringLiteral("side"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 4095});
+        } else if (mutation == QStringLiteral("sparse-order-4096")) {
+            entries.append({
+                QStringLiteral("side"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 4096});
+        }
+        const QByteArray encoded = zzVersionOneLayout(
+            fixture.host.saveState(1), false, 280, false, 280,
+            leftCurrent, {}, entries, -1,
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        QVERIFY(!encoded.isEmpty());
+
+        const auto restored = fixture.shell->restoreLayout(encoded);
+        QCOMPARE(bool(restored), accepted);
+        if (!restored) {
+            QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+        }
+    }
+
+    void keepsQtMainWindowStateVersionIndependentFromEnvelopeVersion()
+    {
+        ZzShellFixture fixture;
+        const QByteArray before = fixture.host.saveState(1);
+        const QByteArray encoded = zzVersionOneLayout(
+            fixture.host.saveState(2), false, 280, false, 280,
+            {}, {}, {}, -1,
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        QVERIFY(!encoded.isEmpty());
+
+        const auto restored = fixture.shell->restoreLayout(encoded);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(fixture.host.saveState(1), before);
+    }
+
+    void restoresCompleteVersionTwoWorkspaceState()
+    {
+        ZzShellFixture fixture;
+        auto leftOne = std::make_unique<QWidget>();
+        auto leftTwo = std::make_unique<QWidget>();
+        auto right = std::make_unique<QWidget>();
+        auto bottomOne = std::make_unique<QWidget>();
+        auto bottomTwo = std::make_unique<QWidget>();
+        auto dock = std::make_unique<QWidget>();
+        QWidget *const leftOneRaw = leftOne.get();
+        QWidget *const leftTwoRaw = leftTwo.get();
+        QWidget *const bottomOneRaw = bottomOne.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-one"), QStringLiteral("Left one"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftOne.get()));
+        zzReleaseAfterAdoption(leftOne);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-two"), QStringLiteral("Left two"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, leftTwo.get()));
+        zzReleaseAfterAdoption(leftTwo);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right"), QStringLiteral("Right"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, right.get()));
+        zzReleaseAfterAdoption(right);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom-one"), QStringLiteral("Bottom one"), zzIcon(),
+            bottomOne.get()));
+        zzReleaseAfterAdoption(bottomOne);
+        QVERIFY(fixture.shell->registerBottomPanel(
+            zzPanelId("bottom-two"), QStringLiteral("Bottom two"), zzIcon(),
+            bottomTwo.get()));
+        zzReleaseAfterAdoption(bottomTwo);
+        QVERIFY(fixture.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::LeftDockWidgetArea, dock.get()));
+        zzReleaseAfterAdoption(dock);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QVERIFY(leftPane->panelStack()->setPanelSizes({150, 350}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({420}));
+        leftPane->setPaneWidth(345);
+        rightPane->setPaneWidth(456);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("bottom-one"), true));
+        fixture.shell->bottomPane()->setPaneHeight(360);
+        fixture.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+
+        auto *const workspace = fixture.shell->splitWorkspace();
+        const auto rootId = workspace->groupIds().constFirst();
+        const auto secondId = workspace->splitGroup(
+            rootId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("second")));
+        QVERIFY(secondId.has_value());
+        auto *const rootTabs = workspace->tabWidget(rootId);
+        auto *const secondTabs = workspace->tabWidget(secondId.value());
+        auto *const rootFirst = new QWidget;
+        auto *const rootSecond = new QWidget;
+        auto *const secondPage = new QWidget;
+        rootTabs->addTab(rootFirst, QStringLiteral("Root first"));
+        rootTabs->addTab(rootSecond, QStringLiteral("Root second"));
+        secondTabs->addTab(secondPage, QStringLiteral("Second"));
+        QVERIFY(workspace->setPageLayoutKey(
+            rootFirst, QStringLiteral("root-first")));
+        QVERIFY(workspace->setPageLayoutKey(
+            rootSecond, QStringLiteral("root-second")));
+        QVERIFY(workspace->setPageLayoutKey(
+            secondPage, QStringLiteral("second-page")));
+        rootTabs->setCurrentIndex(1);
+        secondTabs->setCurrentIndex(0);
+        QVERIFY(workspace->setActiveGroup(secondId.value()));
+        const QByteArray splitBefore = workspace->saveLayout();
+        QVERIFY(!splitBefore.isEmpty());
+        auto *const dockPanel = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dockPanel != nullptr);
+
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+
+        QVERIFY(fixture.shell->showPanel(zzPanelId("left-one"), false));
+        leftPane->setPaneWidth(210);
+        rightPane->setPaneWidth(220);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("bottom-two"), true));
+        fixture.shell->bottomPane()->setPaneHeight(210);
+        fixture.shell->bottomPane()->setCollapsed(true);
         fixture.shell->setTitleMode(
             ZzPureTools::ZzWorkspaceTitleMode::Application);
-        fixture.shell->tabWidget()->setCurrentIndex(0);
-        QVERIFY(fixture.shell->restoreLayout(state));
+        rootTabs->setCurrentIndex(0);
+        QVERIFY(workspace->setActiveGroup(rootId));
+        fixture.host.addDockWidget(Qt::RightDockWidgetArea, dockPanel);
+
+        QVERIFY(fixture.shell->restoreLayout(saved.value()));
         QCOMPARE(
-            fixture.shell->sidePane(
-                ZzFluentUI::ZzSidePaneEdge::Left)->paneWidth(),
-            333);
-        QCOMPARE(
-            fixture.shell->sidePane(
-                ZzFluentUI::ZzSidePaneEdge::Left)->currentWidget(),
-            leftTwoRaw);
-        QCOMPARE(
-            fixture.shell->activityBar(
-                ZzFluentUI::ZzSidePaneEdge::Left)
-                ->currentSourceIndex().data().toString(),
-            QStringLiteral("Left two"));
-        QCOMPARE(
-            fixture.shell->sidePane(
-                ZzFluentUI::ZzSidePaneEdge::Right)->paneWidth(),
-            444);
-        QVERIFY(fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Right)->isCollapsed());
+            leftPane->visibleWidgets(),
+            QList<QWidget *>({leftOneRaw, leftTwoRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({150, 350}));
+        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({420}));
+        QCOMPARE(leftPane->paneWidth(), 345);
+        QCOMPARE(rightPane->paneWidth(), 456);
+        QCOMPARE(workspace->groupIds().size(), 2);
+        QCOMPARE(workspace->activeGroupId(), secondId.value());
+        QCOMPARE(workspace->tabWidget(rootId)->currentIndex(), 1);
+        QCOMPARE(fixture.shell->bottomPane()->currentWidget(), bottomOneRaw);
+        QCOMPARE(fixture.shell->bottomPane()->paneHeight(), 360);
+        QVERIFY(!fixture.shell->bottomPane()->isCollapsed());
         QCOMPARE(
             fixture.shell->titleMode(),
             ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
-        QCOMPARE(fixture.shell->tabWidget()->currentIndex(), 1);
+        QCOMPARE(fixture.host.dockWidgetArea(dockPanel), Qt::LeftDockWidgetArea);
+    }
+
+    void boundsVersionTwoLayoutDtos_data()
+    {
+        QTest::addColumn<QString>("mutation");
+        QTest::addColumn<bool>("accepted");
+
+        QTest::newRow("baseline") << QStringLiteral("baseline") << true;
+        QTest::newRow("left-visible-32") << QStringLiteral("left-32") << true;
+        QTest::newRow("left-visible-33") << QStringLiteral("left-33") << false;
+        QTest::newRow("side-entries-4096") << QStringLiteral("side-4096") << true;
+        QTest::newRow("side-entries-4097") << QStringLiteral("side-4097") << false;
+        QTest::newRow("duplicate-side-id") << QStringLiteral("duplicate-side") << false;
+        QTest::newRow("duplicate-visible-id") << QStringLiteral("duplicate-visible") << false;
+        QTest::newRow("sizes-count-mismatch") << QStringLiteral("sizes-count") << false;
+        QTest::newRow("non-positive-size") << QStringLiteral("size-zero") << false;
+        QTest::newRow("oversize-panel-size") << QStringLiteral("size-large") << false;
+        QTest::newRow("invalid-area") << QStringLiteral("area") << false;
+        QTest::newRow("invalid-title-mode") << QStringLiteral("title") << false;
+        QTest::newRow("invalid-collapse-enum") << QStringLiteral("collapse") << false;
+        QTest::newRow("oversize-id") << QStringLiteral("id") << false;
+        QTest::newRow("split-digest") << QStringLiteral("split-digest") << false;
+        QTest::newRow("split-groups-64") << QStringLiteral("groups-64") << true;
+        QTest::newRow("split-groups-65") << QStringLiteral("groups-65") << false;
+        QTest::newRow("split-depth-16") << QStringLiteral("depth-16") << true;
+        QTest::newRow("split-depth-17") << QStringLiteral("depth-17") << false;
+        QTest::newRow("split-adjacent-orientation")
+            << QStringLiteral("split-adjacent-orientation") << false;
+        QTest::newRow("split-trimmed-group")
+            << QStringLiteral("split-trimmed-group") << false;
+        QTest::newRow("split-empty-key")
+            << QStringLiteral("split-empty-key") << false;
+        QTest::newRow("split-trimmed-key")
+            << QStringLiteral("split-trimmed-key") << false;
+        QTest::newRow("split-duplicate-order")
+            << QStringLiteral("split-duplicate-order") << false;
+        QTest::newRow("current-not-visible")
+            << QStringLiteral("current-not-visible") << false;
+        QTest::newRow("visible-without-entry")
+            << QStringLiteral("visible-without-entry") << false;
+        QTest::newRow("visible-on-wrong-edge")
+            << QStringLiteral("visible-on-wrong-edge") << false;
+    }
+
+    void boundsVersionTwoLayoutDtos()
+    {
+        QFETCH(QString, mutation);
+        QFETCH(bool, accepted);
+        ZzShellFixture fixture;
+        ZzTestVersionTwoLayout layout;
+        layout.qtState = fixture.host.saveState(1);
+        layout.splitState = fixture.shell->splitWorkspace()->saveLayout();
+
+        if (mutation == QStringLiteral("left-32")
+            || mutation == QStringLiteral("left-33")) {
+            const int count = mutation.endsWith(QStringLiteral("32")) ? 32 : 33;
+            for (int index = 0; index < count; ++index) {
+                const QString id = QStringLiteral("left-%1").arg(index);
+                layout.leftVisible.append(id);
+                layout.leftSizes.append(index + 1);
+                layout.sideEntries.append({
+                    id, ZzFluentUI::ZzActivityArea::LeftPrimary, index});
+            }
+        } else if (mutation == QStringLiteral("side-4096")
+                   || mutation == QStringLiteral("side-4097")) {
+            const int count = mutation.endsWith(QStringLiteral("4096"))
+                ? 4096 : 4097;
+            for (int index = 0; index < count; ++index) {
+                layout.sideEntries.append({
+                    QStringLiteral("side-%1").arg(index, 4, 10, QLatin1Char('0')),
+                    ZzFluentUI::ZzActivityArea::LeftPrimary,
+                    index});
+            }
+        } else if (mutation == QStringLiteral("duplicate-side")) {
+            layout.sideEntries = {
+                {QStringLiteral("same"),
+                 ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+                {QStringLiteral("same"),
+                 ZzFluentUI::ZzActivityArea::RightPrimary, 0},
+            };
+        } else if (mutation == QStringLiteral("duplicate-visible")) {
+            layout.leftVisible = {QStringLiteral("same"), QStringLiteral("same")};
+            layout.leftSizes = {1, 2};
+        } else if (mutation == QStringLiteral("sizes-count")) {
+            layout.leftVisible = {QStringLiteral("one")};
+        } else if (mutation == QStringLiteral("size-zero")) {
+            layout.leftVisible = {QStringLiteral("one")};
+            layout.leftSizes = {0};
+        } else if (mutation == QStringLiteral("size-large")) {
+            layout.leftVisible = {QStringLiteral("one")};
+            layout.leftSizes = {
+                static_cast<qint32>(zzWorkspaceMaximumLayoutSize + 1)};
+        } else if (mutation == QStringLiteral("area")) {
+            layout.sideEntries = {{
+                QStringLiteral("side"),
+                static_cast<ZzFluentUI::ZzActivityArea>(0xff), 0}};
+        } else if (mutation == QStringLiteral("title")) {
+            layout.titleMode = 0xff;
+        } else if (mutation == QStringLiteral("collapse")) {
+            layout.leftCollapsed = 2;
+        } else if (mutation == QStringLiteral("id")) {
+            layout.leftVisible = {QString(257, QLatin1Char('x'))};
+            layout.leftSizes = {1};
+        } else if (mutation == QStringLiteral("split-digest")) {
+            layout.splitState[layout.splitState.size() - 1] = static_cast<char>(
+                layout.splitState.back() ^ 0x5a);
+        } else if (mutation == QStringLiteral("groups-64")) {
+            layout.splitState = zzTestSplitLayout(64);
+        } else if (mutation == QStringLiteral("groups-65")) {
+            layout.splitState = zzTestSplitLayout(65);
+        } else if (mutation == QStringLiteral("depth-16")) {
+            layout.splitState = zzTestSplitLayout(0, 16);
+        } else if (mutation == QStringLiteral("depth-17")) {
+            layout.splitState = zzTestSplitLayout(0, 17);
+        } else if (mutation.startsWith(QStringLiteral("split-"))) {
+            layout.splitState = zzMalformedTestSplitLayout(
+                mutation.sliced(QStringLiteral("split-").size()));
+        } else if (mutation == QStringLiteral("current-not-visible")) {
+            layout.leftCurrent = QStringLiteral("side");
+            layout.sideEntries = {{
+                QStringLiteral("side"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0}};
+        } else if (mutation == QStringLiteral("visible-without-entry")) {
+            layout.leftVisible = {QStringLiteral("side")};
+            layout.leftSizes = {100};
+        } else if (mutation == QStringLiteral("visible-on-wrong-edge")) {
+            layout.leftVisible = {QStringLiteral("side")};
+            layout.leftSizes = {100};
+            layout.sideEntries = {{
+                QStringLiteral("side"),
+                ZzFluentUI::ZzActivityArea::RightPrimary, 0}};
+        }
+        const QByteArray encoded = zzVersionTwoLayout(layout);
+        QVERIFY(!encoded.isEmpty());
+
+        const auto restored = fixture.shell->restoreLayout(encoded);
+        QCOMPARE(bool(restored), accepted);
+        if (!restored) {
+            QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+        }
+    }
+
+    void boundsVersionTwoSideStateWhenSaving_data()
+    {
+        QTest::addColumn<int>("visibleCount");
+        QTest::addColumn<int>("idLength");
+        QTest::addColumn<bool>("accepted");
+
+        QTest::newRow("visible-32") << 32 << 16 << true;
+        QTest::newRow("visible-33") << 33 << 16 << false;
+        QTest::newRow("id-256") << 1 << 256 << true;
+        QTest::newRow("id-257") << 1 << 257 << false;
+    }
+
+    void boundsVersionTwoSideStateWhenSaving()
+    {
+        QFETCH(int, visibleCount);
+        QFETCH(int, idLength);
+        QFETCH(bool, accepted);
+        ZzShellFixture fixture;
+        for (int index = 0; index < visibleCount; ++index) {
+            const QString id = visibleCount == 1
+                ? QString(idLength, QLatin1Char('x'))
+                : QStringLiteral("side-%1").arg(index, 11, 10, QLatin1Char('0'));
+            auto content = std::make_unique<QWidget>();
+            QVERIFY(fixture.shell->registerSidePanel(
+                ZzPureTools::ZzWorkspacePanelId(id), id, zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+            zzReleaseAfterAdoption(content);
+        }
+
+        const auto saved = fixture.shell->saveLayout();
+        QCOMPARE(bool(saved), accepted);
+        if (saved) {
+            ZzShellFixture target;
+            QVERIFY(target.shell->restoreLayout(saved.value()));
+        } else {
+            QCOMPARE(saved.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        }
+    }
+
+    void rejectsInvalidSplitStateWhenSavingWorkspaceLayout()
+    {
+        ZzShellFixture fixture;
+        auto *const workspace = fixture.shell->splitWorkspace();
+        auto *const tabs = workspace->tabWidget(
+            workspace->groupIds().constFirst());
+        QVERIFY(tabs != nullptr);
+        for (int index = 0; index < 4097; ++index) {
+            auto *const page = new QWidget;
+            tabs->addTab(page, QString::number(index));
+            QVERIFY(workspace->setPageLayoutKey(
+                page, QStringLiteral("page:%1").arg(index)));
+        }
+        QVERIFY(workspace->saveLayout().isEmpty());
+
+        const auto saved = fixture.shell->saveLayout();
+
+        QVERIFY(!saved);
+        QCOMPARE(saved.error().code(), ZzCore::ZzErrorCode::InvalidState);
+    }
+
+    void restoreRejectsReentrantSideTransactions()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right)->setPaneWidth(411);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const leftBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        rightPane->setPaneWidth(223);
+        auto reentrantContent = std::make_unique<QWidget>();
+        QWidget thirdPartyOwner;
+        bool callbackEntered = false;
+        bool nestedRestoreAccepted = false;
+        bool registrationAccepted = false;
+        bool visibilityAccepted = false;
+        bool badgeAccepted = false;
+        bool removalAccepted = false;
+        QObject::connect(
+            rightPane, &ZzFluentUI::ZzSidePane::paneWidthChanged,
+            target.shell.get(), [&](int width) {
+                if (callbackEntered || width != 411) {
+                    return;
+                }
+                callbackEntered = true;
+                nestedRestoreAccepted = bool(
+                    target.shell->restoreLayout(requested.value()));
+                registrationAccepted = bool(target.shell->registerSidePanel(
+                    zzPanelId("reentrant"), QStringLiteral("Reentrant"),
+                    zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+                    reentrantContent.get()));
+                if (registrationAccepted) {
+                    zzReleaseAfterAdoption(reentrantContent);
+                }
+                visibilityAccepted = bool(
+                    target.shell->showPanel(zzPanelId("side"), false));
+                badgeAccepted = bool(
+                    target.shell->setPanelBadge(zzPanelId("side"), 7));
+                const QModelIndex sideIndex = leftBar->model()->index(0, 0);
+                leftBar->activationRequested(sideIndex);
+                leftBar->moveRequested(
+                    sideIndex, ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+                auto removed = target.shell->takePanel(zzPanelId("side"));
+                removalAccepted = bool(removed);
+                if (removed) {
+                    removed.value()->setParent(&thirdPartyOwner);
+                }
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(restored);
+        QVERIFY(!nestedRestoreAccepted);
+        QVERIFY(!registrationAccepted);
+        QVERIFY(!visibilityAccepted);
+        QVERIFY(!badgeAccepted);
+        QVERIFY(!removalAccepted);
+        QCOMPARE(reentrantContent->parentWidget(), nullptr);
+        QVERIFY(rightPane->isAncestorOf(targetContentRaw));
+        QVERIFY(rightPane->panelStack()->panels().contains(targetContentRaw));
+        QVERIFY(leftBar->isHidden());
+        QVERIFY(!target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right)->isHidden());
+        QCOMPARE(
+            leftBar->model()->index(0, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightPrimary);
+    }
+
+    void restoreRollsBackIndependentSideAndActivityOrder()
+    {
+        ZzShellFixture source;
+        auto sourceFirst = std::make_unique<QWidget>();
+        auto sourceSecond = std::make_unique<QWidget>();
+        auto sourceBottom = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceFirst.get()));
+        zzReleaseAfterAdoption(sourceFirst);
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceSecond.get()));
+        zzReleaseAfterAdoption(sourceSecond);
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            sourceBottom.get()));
+        zzReleaseAfterAdoption(sourceBottom);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetFirst = std::make_unique<QWidget>();
+        auto targetSecond = std::make_unique<QWidget>();
+        auto targetBottom = std::make_unique<QWidget>();
+        QWidget *const firstRaw = targetFirst.get();
+        QWidget *const secondRaw = targetSecond.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetFirst.get()));
+        zzReleaseAfterAdoption(targetFirst);
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetSecond.get()));
+        zzReleaseAfterAdoption(targetSecond);
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            targetBottom.get()));
+        zzReleaseAfterAdoption(targetBottom);
+        auto *const pane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QVERIFY(pane->panelStack()->movePanel(secondRaw, 0));
+        QCOMPARE(pane->panelStack()->panels(),
+            QList<QWidget *>({secondRaw, firstRaw}));
+        QVERIFY(!target.shell->saveLayout());
+        target.shell->bottomPane()->setMaximumPaneHeight(300);
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!restored);
+        QVERIFY(!restored.error().technicalMessage().contains(
+            QStringLiteral("rollback failed")));
+        QCOMPARE(pane->panelStack()->panels(),
+            QList<QWidget *>({secondRaw, firstRaw}));
+        auto *const model = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("First"));
+        QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("Second"));
+    }
+
+    void restoreRejectsMissingNonCurrentBottomMembership()
+    {
+        ZzShellFixture source;
+        auto sourceFirst = std::make_unique<QWidget>();
+        auto sourceSecond = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            sourceFirst.get()));
+        zzReleaseAfterAdoption(sourceFirst);
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            sourceSecond.get()));
+        zzReleaseAfterAdoption(sourceSecond);
+        QVERIFY(source.shell->showPanel(zzPanelId("first"), true));
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetFirst = std::make_unique<QWidget>();
+        auto targetSecond = std::make_unique<QWidget>();
+        QWidget *const firstRaw = targetFirst.get();
+        QWidget *const secondRaw = targetSecond.get();
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            targetFirst.get()));
+        zzReleaseAfterAdoption(targetFirst);
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            targetSecond.get()));
+        zzReleaseAfterAdoption(targetSecond);
+        QVERIFY(target.shell->showPanel(zzPanelId("first"), true));
+        auto *const pane = target.shell->bottomPane();
+        auto *const stack = pane->findChild<QStackedWidget *>();
+        QVERIFY(stack != nullptr);
+        pane->setMaximumPaneHeight(800);
+        pane->setPaneHeight(240);
+        bool callbackEntered = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                stack->removeWidget(secondRaw);
+                QCOMPARE(secondRaw->parentWidget(), stack);
+                QCOMPARE(stack->indexOf(secondRaw), -1);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QVERIFY(!restored.error().technicalMessage().contains(
+            QStringLiteral("rollback failed")));
+        QCOMPARE(pane->widgetCount(), 2);
+        QCOMPARE(stack->indexOf(firstRaw), 0);
+        QCOMPARE(stack->indexOf(secondRaw), 1);
+        QCOMPARE(pane->currentWidget(), firstRaw);
+    }
+
+    void migratesVersionOneCurrentInKeyedBranchedSplit()
+    {
+        ZzShellFixture fixture;
+        auto *const workspace = fixture.shell->splitWorkspace();
+        const auto initialGroup = workspace->groupIds().constFirst();
+        auto *const initialTabs = workspace->tabWidget(initialGroup);
+        QVERIFY(initialTabs != nullptr);
+        auto *const first = new QWidget;
+        auto *const second = new QWidget;
+        initialTabs->addTab(first, QStringLiteral("First"));
+        initialTabs->addTab(second, QStringLiteral("Second"));
+        QVERIFY(workspace->setPageLayoutKey(
+            first, QStringLiteral("page:first")));
+        QVERIFY(workspace->setPageLayoutKey(
+            second, QStringLiteral("page:second")));
+        initialTabs->setCurrentIndex(0);
+        QVERIFY(workspace->splitGroup(
+            initialGroup, Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("second-group")))
+                    .has_value());
+        const QByteArray versionOne = zzVersionOneLayout(
+            fixture.host.saveState(1), false, 280, false, 280,
+            {}, {}, {}, 1,
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        QVERIFY(!versionOne.isEmpty());
+
+        QVERIFY(fixture.shell->restoreLayout(versionOne));
+        QCOMPARE(workspace->tabWidget(initialGroup), initialTabs);
+        QCOMPARE(initialTabs->currentIndex(), 1);
+    }
+
+    void restoreRejectsDockOwnerReplacement()
+    {
+        ZzShellFixture source;
+        auto sourceDock = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::RightDockWidgetArea, sourceDock.get()));
+        zzReleaseAfterAdoption(sourceDock);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        QWidget thirdPartyOwner;
+        ZzShellFixture target;
+        auto targetDock = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::LeftDockWidgetArea, targetDock.get()));
+        zzReleaseAfterAdoption(targetDock);
+        auto *const dock = target.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dock != nullptr);
+        bool callbackEntered = false;
+        QObject::connect(
+            dock, &QDockWidget::dockLocationChanged,
+            target.shell.get(), [&](Qt::DockWidgetArea area) {
+                if (callbackEntered || area != Qt::RightDockWidgetArea) {
+                    return;
+                }
+                callbackEntered = true;
+                dock->setParent(&thirdPartyOwner);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QVERIFY(restored.error().technicalMessage().contains(
+            QStringLiteral("rollback failed")));
+        QCOMPARE(dock->parentWidget(), &thirdPartyOwner);
+        QCOMPARE(target.host.dockWidgetArea(dock), Qt::NoDockWidgetArea);
+    }
+
+    void restoreRejectsReentrantBottomAndDockTransactions()
+    {
+        ZzShellFixture source;
+        auto sourceBottom = std::make_unique<QWidget>();
+        auto sourceDock = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            sourceBottom.get()));
+        zzReleaseAfterAdoption(sourceBottom);
+        QVERIFY(source.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::RightDockWidgetArea, sourceDock.get()));
+        zzReleaseAfterAdoption(sourceDock);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetBottom = std::make_unique<QWidget>();
+        QWidget *const targetBottomRaw = targetBottom.get();
+        auto targetDock = std::make_unique<QWidget>();
+        QWidget *const targetDockRaw = targetDock.get();
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            targetBottom.get()));
+        zzReleaseAfterAdoption(targetBottom);
+        QVERIFY(target.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::LeftDockWidgetArea, targetDock.get()));
+        zzReleaseAfterAdoption(targetDock);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        auto extraBottom = std::make_unique<QWidget>();
+        auto extraDock = std::make_unique<QWidget>();
+        QWidget thirdPartyOwner;
+        bool callbackEntered = false;
+        bool bottomRegistrationAccepted = false;
+        bool dockRegistrationAccepted = false;
+        bool bottomVisibilityAccepted = false;
+        bool dockVisibilityAccepted = false;
+        bool bottomRemovalAccepted = false;
+        bool dockRemovalAccepted = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                bottomRegistrationAccepted = bool(
+                    target.shell->registerBottomPanel(
+                        zzPanelId("extra-bottom"),
+                        QStringLiteral("Extra bottom"), zzIcon(),
+                        extraBottom.get()));
+                if (bottomRegistrationAccepted) {
+                    zzReleaseAfterAdoption(extraBottom);
+                }
+                dockRegistrationAccepted = bool(
+                    target.shell->registerDockPanel(
+                        zzPanelId("extra-dock"),
+                        QStringLiteral("Extra dock"), zzIcon(),
+                        Qt::BottomDockWidgetArea, extraDock.get()));
+                if (dockRegistrationAccepted) {
+                    zzReleaseAfterAdoption(extraDock);
+                }
+                bottomVisibilityAccepted = bool(
+                    target.shell->showPanel(zzPanelId("bottom"), false));
+                dockVisibilityAccepted = bool(
+                    target.shell->showPanel(zzPanelId("dock"), false));
+                auto removedBottom = target.shell->takePanel(
+                    zzPanelId("bottom"));
+                bottomRemovalAccepted = bool(removedBottom);
+                if (removedBottom) {
+                    removedBottom.value()->setParent(&thirdPartyOwner);
+                }
+                auto removedDock = target.shell->takePanel(zzPanelId("dock"));
+                dockRemovalAccepted = bool(removedDock);
+                if (removedDock) {
+                    removedDock.value()->setParent(&thirdPartyOwner);
+                }
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(restored);
+        QVERIFY(!bottomRegistrationAccepted);
+        QVERIFY(!dockRegistrationAccepted);
+        QVERIFY(!bottomVisibilityAccepted);
+        QVERIFY(!dockVisibilityAccepted);
+        QVERIFY(!bottomRemovalAccepted);
+        QVERIFY(!dockRemovalAccepted);
+        QCOMPARE(extraBottom->parentWidget(), nullptr);
+        QCOMPARE(extraDock->parentWidget(), nullptr);
+        QVERIFY(bottomPane->isAncestorOf(targetBottomRaw));
+        auto *const dockPanel = target.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dockPanel != nullptr);
+        QCOMPARE(dockPanel->widget(), targetDockRaw);
+    }
+
+    void restoreRejectsDestroyedSubsystemBeforeSuccess()
+    {
+        ZzShellFixture source;
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        QPointer<ZzFluentUI::ZzSplitWorkspace> splitGuard(
+            target.shell->splitWorkspace());
+        bool callbackEntered = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                delete splitGuard.data();
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(splitGuard.isNull());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+    }
+
+    void restoreRejectsSideOwnershipLostAfterCommit()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget thirdPartyOwner;
+        auto targetContent = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        bool callbackEntered = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                targetContentRaw->setParent(&thirdPartyOwner);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(targetContentRaw->parentWidget(), &thirdPartyOwner);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Replacement"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void restoreRejectsBottomContentOutsideStack()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->bottomPane()->setCollapsed(false);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setCollapsed(true);
+        bool callbackEntered = false;
+        bool directTakeAccepted = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::collapsedChanged,
+            target.shell.get(), [&](bool collapsed) {
+                if (callbackEntered || collapsed) {
+                    return;
+                }
+                callbackEntered = true;
+                directTakeAccepted =
+                    bottomPane->takeWidget(targetContentRaw) == targetContentRaw;
+                if (directTakeAccepted) {
+                    targetContentRaw->setParent(bottomPane);
+                }
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(directTakeAccepted);
+        QCOMPARE(bottomPane->widgetCount(), 0);
+        QCOMPARE(targetContentRaw->parentWidget(), bottomPane);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+    }
+
+    void restoreRejectsBottomCurrentOverwrittenWithinCommit()
+    {
+        ZzShellFixture source;
+        auto sourceOne = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom-one"), QStringLiteral("Bottom one"), zzIcon(),
+            sourceOne.get()));
+        zzReleaseAfterAdoption(sourceOne);
+        auto sourceTwo = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom-two"), QStringLiteral("Bottom two"), zzIcon(),
+            sourceTwo.get()));
+        zzReleaseAfterAdoption(sourceTwo);
+        QVERIFY(source.shell->showPanel(zzPanelId("bottom-one"), true));
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetOne = std::make_unique<QWidget>();
+        QWidget *const targetOneRaw = targetOne.get();
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom-one"), QStringLiteral("Bottom one"), zzIcon(),
+            targetOne.get()));
+        zzReleaseAfterAdoption(targetOne);
+        auto targetTwo = std::make_unique<QWidget>();
+        QWidget *const targetTwoRaw = targetTwo.get();
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom-two"), QStringLiteral("Bottom two"), zzIcon(),
+            targetTwo.get()));
+        zzReleaseAfterAdoption(targetTwo);
+        auto *const bottomPane = target.shell->bottomPane();
+        QVERIFY(bottomPane->setCurrentWidget(targetOneRaw));
+        bottomPane->setCollapsed(true);
+        bool callbackEntered = false;
+        bool overwriteAccepted = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::collapsedChanged,
+            target.shell.get(), [&](bool collapsed) {
+                if (callbackEntered || collapsed) {
+                    return;
+                }
+                callbackEntered = true;
+                overwriteAccepted = bottomPane->setCurrentWidget(targetTwoRaw);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(overwriteAccepted);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(bottomPane->currentWidget(), targetOneRaw);
+    }
+
+    void restoreRejectsSideCurrentOverwrittenWithinCommit()
+    {
+        ZzShellFixture source;
+        auto sourceOne = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("left-one"), QStringLiteral("Left one"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceOne.get()));
+        zzReleaseAfterAdoption(sourceOne);
+        auto sourceTwo = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("left-two"), QStringLiteral("Left two"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, sourceTwo.get()));
+        zzReleaseAfterAdoption(sourceTwo);
+        auto sourceRight = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("right"), QStringLiteral("Right"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceRight.get()));
+        zzReleaseAfterAdoption(sourceRight);
+        auto *const sourceLeft = source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QVERIFY(sourceLeft->setCurrentWidget(
+            sourceLeft->panelStack()->panels().constFirst()));
+        sourceLeft->setPaneWidth(410);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetOne = std::make_unique<QWidget>();
+        QWidget *const targetOneRaw = targetOne.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("left-one"), QStringLiteral("Left one"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetOne.get()));
+        zzReleaseAfterAdoption(targetOne);
+        auto targetTwo = std::make_unique<QWidget>();
+        QWidget *const targetTwoRaw = targetTwo.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("left-two"), QStringLiteral("Left two"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, targetTwo.get()));
+        zzReleaseAfterAdoption(targetTwo);
+        auto targetRight = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("right"), QStringLiteral("Right"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, targetRight.get()));
+        zzReleaseAfterAdoption(targetRight);
+        auto *const targetLeft = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const targetRightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QVERIFY(targetLeft->setCurrentWidget(targetOneRaw));
+        targetLeft->setPaneWidth(230);
+        targetRightPane->setCollapsed(true);
+        bool callbackEntered = false;
+        bool overwriteAccepted = false;
+        QObject::connect(
+            targetRightPane, &ZzFluentUI::ZzSidePane::collapsedChanged,
+            target.shell.get(), [&](bool collapsed) {
+                if (callbackEntered || collapsed) {
+                    return;
+                }
+                callbackEntered = true;
+                overwriteAccepted = targetLeft->setCurrentWidget(targetTwoRaw);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(overwriteAccepted);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(targetLeft->currentWidget(), targetOneRaw);
+        QCOMPARE(targetLeft->paneWidth(), 230);
+        QVERIFY(targetRightPane->isCollapsed());
+    }
+
+    void restoreRejectsTitleModeOverwrittenWithinCommit()
+    {
+        ZzShellFixture source;
+        source.shell->setApplicationTitle(QStringLiteral("Application"));
+        source.shell->setCustomTitle(QStringLiteral("Source custom"));
+        source.shell->setTitleMode(ZzPureTools::ZzWorkspaceTitleMode::Custom);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        target.shell->setApplicationTitle(QStringLiteral("Application"));
+        target.shell->setCustomTitle(QStringLiteral("Target custom"));
+        target.shell->setTitleMode(ZzPureTools::ZzWorkspaceTitleMode::Application);
+        bool callbackEntered = false;
+        QObject::connect(
+            &target.host, &QWidget::windowTitleChanged,
+            target.shell.get(), [&](const QString &title) {
+                if (callbackEntered || title != QStringLiteral("Target custom")) {
+                    return;
+                }
+                callbackEntered = true;
+                target.shell->setTitleMode(
+                    ZzPureTools::ZzWorkspaceTitleMode::Application);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(
+            target.shell->titleMode(),
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        QCOMPARE(target.host.windowTitle(), QStringLiteral("Application"));
+    }
+
+    void rollbackReportsDeletedBottomContent()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<QWidget>();
+        QPointer<QWidget> targetContentGuard(targetContent.get());
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        bool callbackEntered = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                delete targetContentGuard.data();
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(targetContentGuard.isNull());
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
+    }
+
+    void restoreRejectsLaterOverwriteOfCommittedSideState()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        auto *const sourceSide = source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        sourceSide->setMaximumPaneWidth(800);
+        sourceSide->setPaneWidth(410);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const targetSide = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        targetSide->setMaximumPaneWidth(800);
+        targetSide->setPaneWidth(230);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        bool callbackEntered = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                targetSide->setPaneWidth(333);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(targetSide->paneWidth(), 230);
+    }
+
+    void commitsWorkspaceSubsystemsInDocumentedOrder()
+    {
+        ZzShellFixture source;
+        auto sourceSide = std::make_unique<QWidget>();
+        auto sourceBottom = std::make_unique<QWidget>();
+        auto sourceDock = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceSide.get()));
+        zzReleaseAfterAdoption(sourceSide);
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            sourceBottom.get()));
+        zzReleaseAfterAdoption(sourceBottom);
+        QVERIFY(source.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::RightDockWidgetArea, sourceDock.get()));
+        zzReleaseAfterAdoption(sourceDock);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(410);
+        QVERIFY(source.shell->showPanel(zzPanelId("side"), false));
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(390);
+        source.shell->bottomPane()->setCollapsed(false);
+        const auto sourceRoot = source.shell->splitWorkspace()->groupIds().constFirst();
+        QVERIFY(source.shell->splitWorkspace()->splitGroup(
+            sourceRoot, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("second"))).has_value());
+        source.host.setWindowTitle(QStringLiteral("Application"));
+        source.shell->setApplicationTitle(QStringLiteral("Application"));
+        source.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetSide = std::make_unique<QWidget>();
+        auto targetBottom = std::make_unique<QWidget>();
+        auto targetDock = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetSide.get()));
+        zzReleaseAfterAdoption(targetSide);
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            targetBottom.get()));
+        zzReleaseAfterAdoption(targetBottom);
+        QVERIFY(target.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::LeftDockWidgetArea, targetDock.get()));
+        zzReleaseAfterAdoption(targetDock);
+        target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(230);
+        target.shell->bottomPane()->setMaximumPaneHeight(800);
+        target.shell->bottomPane()->setPaneHeight(240);
+        target.host.setWindowTitle(QStringLiteral("Application"));
+        target.shell->setApplicationTitle(QStringLiteral("Application"));
+        target.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        auto *const dockPanel = target.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dockPanel != nullptr);
+
+        QStringList order;
+        QObject::connect(
+            dockPanel, &QDockWidget::dockLocationChanged,
+            target.shell.get(), [&](Qt::DockWidgetArea) {
+                if (!order.contains(QStringLiteral("qt"))) {
+                    order.append(QStringLiteral("qt"));
+                }
+            });
+        QObject::connect(
+            target.shell->splitWorkspace(),
+            &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
+            target.shell.get(), [&] {
+                if (!order.contains(QStringLiteral("split"))) {
+                    order.append(QStringLiteral("split"));
+                }
+            });
+        QObject::connect(
+            target.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left),
+            &ZzFluentUI::ZzSidePane::paneWidthChanged,
+            target.shell.get(), [&](int) {
+                if (!order.contains(QStringLiteral("side"))) {
+                    order.append(QStringLiteral("side"));
+                }
+            });
+        QObject::connect(
+            target.shell->bottomPane(),
+            &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int) {
+                if (!order.contains(QStringLiteral("bottom"))) {
+                    order.append(QStringLiteral("bottom"));
+                }
+            });
+        QObject::connect(
+            target.shell->activityBar(ZzFluentUI::ZzSidePaneEdge::Left),
+            &ZzFluentUI::ZzActivityBar::activeSourceIndexesChanged,
+            target.shell.get(), [&](const QList<QModelIndex> &) {
+                if (!order.contains(QStringLiteral("activity"))) {
+                    order.append(QStringLiteral("activity"));
+                }
+            });
+        QObject::connect(
+            &target.host, &QWidget::windowTitleChanged,
+            target.shell.get(), [&](const QString &) {
+                if (!order.contains(QStringLiteral("title"))) {
+                    order.append(QStringLiteral("title"));
+                }
+            });
+
+        QVERIFY(target.shell->restoreLayout(requested.value()));
+        const auto position = [&order](const char *name) {
+            return order.indexOf(QString::fromLatin1(name));
+        };
+        for (const char *name : {"qt", "split", "side", "bottom", "activity"}) {
+            QVERIFY2(position(name) >= 0, name);
+        }
+        QVERIFY(position("qt") < position("split"));
+        QVERIFY(position("split") < position("side"));
+        QVERIFY(position("side") < position("bottom"));
+        QVERIFY(position("bottom") < position("activity"));
+        if (position("title") >= 0) {
+            QVERIFY(position("activity") <= position("title"));
+        }
+    }
+
+    void rollsBackEveryCommittedSubsystemWhenBottomCommitFails()
+    {
+        ZzShellFixture source;
+        auto sourceSide = std::make_unique<QWidget>();
+        auto sourceBottom = std::make_unique<QWidget>();
+        auto sourceDock = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceSide.get()));
+        zzReleaseAfterAdoption(sourceSide);
+        QVERIFY(source.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            sourceBottom.get()));
+        zzReleaseAfterAdoption(sourceBottom);
+        QVERIFY(source.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::RightDockWidgetArea, sourceDock.get()));
+        zzReleaseAfterAdoption(sourceDock);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(420);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        source.shell->bottomPane()->setCollapsed(false);
+        const auto sourceRoot = source.shell->splitWorkspace()->groupIds().constFirst();
+        QVERIFY(source.shell->splitWorkspace()->splitGroup(
+            sourceRoot, Qt::Vertical, ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("requested-second")))
+                    .has_value());
+        source.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::Custom);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetSide = std::make_unique<QWidget>();
+        auto targetBottom = std::make_unique<QWidget>();
+        auto targetDock = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetSide.get()));
+        zzReleaseAfterAdoption(targetSide);
+        QVERIFY(target.shell->registerBottomPanel(
+            zzPanelId("bottom"), QStringLiteral("Bottom"), zzIcon(),
+            targetBottom.get()));
+        zzReleaseAfterAdoption(targetBottom);
+        QVERIFY(target.shell->registerDockPanel(
+            zzPanelId("dock"), QStringLiteral("Dock"), zzIcon(),
+            Qt::LeftDockWidgetArea, targetDock.get()));
+        zzReleaseAfterAdoption(targetDock);
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        leftPane->setPaneWidth(222);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setPaneHeight(240);
+        bottomPane->setMaximumPaneHeight(300);
+        bottomPane->setCollapsed(true);
+        target.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        const auto splitIdsBefore = target.shell->splitWorkspace()->groupIds();
+        const auto splitActiveBefore = target.shell->splitWorkspace()->activeGroupId();
+        auto *const dockPanel = target.host.findChild<ZzFluentUI::ZzDockPanel *>(
+            QStringLiteral("zzWorkspaceDock:dock"));
+        QVERIFY(dockPanel != nullptr);
+        const QByteArray qtBefore = target.host.saveState(1);
+        const auto leftActiveBefore = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->activeSourceIndexes();
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(!restored.error().technicalMessage().contains(
+            QStringLiteral("rollback failed")));
+        QCOMPARE(target.host.saveState(1), qtBefore);
+        QCOMPARE(target.host.dockWidgetArea(dockPanel), Qt::LeftDockWidgetArea);
+        QCOMPARE(target.shell->splitWorkspace()->groupIds(), splitIdsBefore);
+        QCOMPARE(target.shell->splitWorkspace()->activeGroupId(), splitActiveBefore);
+        QCOMPARE(leftPane->paneWidth(), 222);
+        QCOMPARE(bottomPane->paneHeight(), 240);
+        QVERIFY(bottomPane->isCollapsed());
+        QCOMPARE(
+            target.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->activeSourceIndexes(),
+            leftActiveBefore);
+        QCOMPARE(
+            target.shell->titleMode(),
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
     }
 
     void rejectsMagicVersionLengthDigestAndOversizeCorruption()
@@ -2779,7 +4392,7 @@ private Q_SLOTS:
         QVERIFY(!fixture.shell->restoreLayout(
             zzMutatedByte(valid, 0, 'X')));
         QVERIFY(!fixture.shell->restoreLayout(
-            zzMutatedByte(valid, 5, '\x02')));
+            zzMutatedByte(valid, 5, '\x03')));
         QVERIFY(!fixture.shell->restoreLayout(
             zzMutatedByte(valid, 11, '\x7f')));
         QVERIFY(!fixture.shell->restoreLayout(
@@ -2974,7 +4587,7 @@ private Q_SLOTS:
         auto sourceContent = std::make_unique<QWidget>();
         QVERIFY(source.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
-            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
         zzReleaseAfterAdoption(sourceContent);
         source.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(800);
@@ -3009,6 +4622,365 @@ private Q_SLOTS:
         QCOMPARE(
             restored.error().technicalMessage(),
             QStringLiteral("Workspace layout restore failed and rollback failed"));
+    }
+
+    void rollbackSynchronizesActivityAfterOwnershipAudit()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const rightBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        target.shell->bottomPane()->setPaneHeight(240);
+        target.shell->bottomPane()->setMaximumPaneHeight(300);
+        int parentRemovalCount = 0;
+        bool wrongPaneAccepted = false;
+        targetContentRaw->parentRemoved = [&] {
+            ++parentRemovalCount;
+            if (parentRemovalCount == 2) {
+                wrongPaneAccepted = rightPane->addWidget(
+                    targetContentRaw, QStringLiteral("Side"));
+            }
+        };
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
+        QCOMPARE(parentRemovalCount, 2);
+        QVERIFY(wrongPaneAccepted);
+        QVERIFY(rightPane->isAncestorOf(targetContentRaw));
+        QVERIFY(rightPane->visibleWidgets().contains(targetContentRaw));
+        const QModelIndex sideIndex = rightBar->model()->index(0, 0);
+        QCOMPARE(
+            sideIndex.data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightPrimary);
+        QVERIFY(rightBar->activeSourceIndexes().contains(sideIndex));
+    }
+
+    void restoreRejectsSourcePaneDestroyedByCurrentWidgetSignal()
+    {
+        ZzShellFixture source;
+        auto sourceFirst = std::make_unique<QWidget>();
+        auto sourceSecond = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceFirst.get()));
+        zzReleaseAfterAdoption(sourceFirst);
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceSecond.get()));
+        zzReleaseAfterAdoption(sourceSecond);
+        QVERIFY(source.shell->showPanel(zzPanelId("first"), true));
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetFirst = std::make_unique<QWidget>();
+        auto targetSecond = std::make_unique<QWidget>();
+        QPointer<QWidget> targetFirstGuard(targetFirst.get());
+        QPointer<QWidget> targetSecondGuard(targetSecond.get());
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetFirst.get()));
+        zzReleaseAfterAdoption(targetFirst);
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetSecond.get()));
+        zzReleaseAfterAdoption(targetSecond);
+        QPointer<ZzFluentUI::ZzSidePane> leftPaneGuard(
+            target.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left));
+        bool callbackEntered = false;
+        QObject::connect(
+            leftPaneGuard, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            target.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current != targetFirstGuard) {
+                    return;
+                }
+                callbackEntered = true;
+                delete leftPaneGuard.data();
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(leftPaneGuard.isNull());
+        QVERIFY(targetFirstGuard.isNull());
+        QVERIFY(targetSecondGuard.isNull());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+    }
+
+    void restoreRollsBackWhenTargetPaneIsDestroyedDuringTake()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        leftPane->setPaneWidth(337);
+        QVERIFY(leftPane->panelStack()->setPanelSizes({456}));
+        QPointer<ZzFluentUI::ZzSidePane> rightPaneGuard(
+            target.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Right));
+        bool armed = true;
+        targetContentRaw->parentRemoved = [&] {
+            if (!armed) {
+                return;
+            }
+            armed = false;
+            delete rightPaneGuard.data();
+        };
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!armed);
+        QVERIFY(rightPaneGuard.isNull());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(leftPane->isAncestorOf(targetContentRaw));
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({targetContentRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({456}));
+        QCOMPARE(leftPane->paneWidth(), 337);
+    }
+
+    void restoreCleansRegistrationWhenContentGetsThirdPartyOwner()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget thirdParty;
+        auto targetContent = std::make_unique<ZzParentRemovedWidget>();
+        ZzParentRemovedWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        bool armed = true;
+        targetContentRaw->parentRemoved = [&] {
+            if (!armed) {
+                return;
+            }
+            armed = false;
+            targetContentRaw->setParent(&thirdParty);
+        };
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!armed);
+        QVERIFY(!restored);
+        QCOMPARE(targetContentRaw->parentWidget(), &thirdParty);
+        QCOMPARE(
+            target.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(),
+            0);
+        auto replacement = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Replacement"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, replacement.get()));
+        zzReleaseAfterAdoption(replacement);
+    }
+
+    void restoreUsesPaneCurrentForUnknownCurrentFallback()
+    {
+        ZzShellFixture fixture;
+        auto two = std::make_unique<QWidget>();
+        auto one = std::make_unique<QWidget>();
+        QWidget *const twoRaw = two.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("two"), QStringLiteral("Two"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, two.get()));
+        zzReleaseAfterAdoption(two);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("one"), QStringLiteral("One"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, one.get()));
+        zzReleaseAfterAdoption(one);
+
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        for (const QString &requestedCurrent : {
+                 QStringLiteral("unknown"), QString{}}) {
+            QModelIndex oneIndex;
+            for (int row = 0; row < bar->model()->rowCount(); ++row) {
+                const QModelIndex candidate = bar->model()->index(row, 0);
+                if (candidate.data().toString() == QStringLiteral("One")) {
+                    oneIndex = candidate;
+                    break;
+                }
+            }
+            QVERIFY(oneIndex.isValid());
+            bar->setCurrentSourceIndex(oneIndex);
+            QVERIFY(pane->setCurrentWidget(twoRaw));
+            QCOMPARE(
+                bar->currentSourceIndex().data().toString(),
+                QStringLiteral("One"));
+
+            ZzTestVersionTwoLayout layout;
+            layout.qtState = fixture.host.saveState(1);
+            layout.leftCurrent = requestedCurrent;
+            layout.leftVisible = {
+                QStringLiteral("one"), QStringLiteral("two")};
+            layout.leftSizes = {120, 240};
+            layout.sideEntries = {
+                {QStringLiteral("one"),
+                 ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+                {QStringLiteral("two"),
+                 ZzFluentUI::ZzActivityArea::LeftPrimary, 1},
+            };
+            if (!requestedCurrent.isEmpty()) {
+                layout.leftVisible.append(requestedCurrent);
+                layout.leftSizes.append(360);
+                layout.sideEntries.append({
+                    requestedCurrent,
+                    ZzFluentUI::ZzActivityArea::LeftPrimary, 2});
+            }
+            layout.splitState =
+                fixture.shell->splitWorkspace()->saveLayout();
+            const QByteArray encoded = zzVersionTwoLayout(layout);
+            QVERIFY(!encoded.isEmpty());
+
+            QVERIFY(fixture.shell->restoreLayout(encoded));
+            QCOMPARE(pane->currentWidget(), twoRaw);
+            QCOMPARE(
+                bar->currentSourceIndex().data().toString(),
+                QStringLiteral("Two"));
+        }
+    }
+
+    void restoreRejectsSplitMutationFromLayoutChanged()
+    {
+        ZzShellFixture source;
+        auto *const sourceSplit = source.shell->splitWorkspace();
+        const auto sourceRoot = sourceSplit->activeGroupId();
+        const auto sourceSecond = sourceSplit->splitGroup(
+            sourceRoot, Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("requested")));
+        QVERIFY(sourceSecond.has_value());
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto *const targetSplit = target.shell->splitWorkspace();
+        const QByteArray splitBefore = targetSplit->saveLayout();
+        bool armed = true;
+        std::optional<ZzFluentUI::ZzTabGroupId> injected;
+        QObject::connect(
+            targetSplit, &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
+            target.shell.get(), [&] {
+                if (!armed) {
+                    return;
+                }
+                armed = false;
+                injected = targetSplit->splitGroup(
+                    targetSplit->groupIds().constFirst(), Qt::Vertical,
+                    ZzFluentUI::ZzSplitPlacement::After,
+                    ZzFluentUI::ZzTabGroupId(QStringLiteral("pollution")));
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!armed);
+        QVERIFY(injected.has_value());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(targetSplit->saveLayout(), splitBefore);
+    }
+
+    void restorePreservesIndependentTitleAndAlwaysOnTopChanges()
+    {
+        ZzShellFixture source;
+        auto *const sourceSplit = source.shell->splitWorkspace();
+        const auto sourceSecond = sourceSplit->splitGroup(
+            sourceSplit->activeGroupId(), Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("requested")));
+        QVERIFY(sourceSecond.has_value());
+        source.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        target.shell->setApplicationTitle(QStringLiteral("Before app"));
+        target.shell->setCustomTitle(QStringLiteral("Before custom"));
+        target.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        auto *const targetSplit = target.shell->splitWorkspace();
+        bool armed = true;
+        bool topChanged = false;
+        QObject::connect(
+            targetSplit, &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
+            target.shell.get(), [&] {
+                if (!armed) {
+                    return;
+                }
+                armed = false;
+                target.shell->setApplicationTitle(
+                    QStringLiteral("Changed app"));
+                target.shell->setCustomTitle(
+                    QStringLiteral("Changed custom"));
+                topChanged = bool(target.shell->setAlwaysOnTop(true));
+                static_cast<void>(targetSplit->splitGroup(
+                    targetSplit->groupIds().constFirst(), Qt::Vertical,
+                    ZzFluentUI::ZzSplitPlacement::After,
+                    ZzFluentUI::ZzTabGroupId(QStringLiteral("pollution"))));
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!armed);
+        QVERIFY(topChanged);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(target.shell->applicationTitle(), QStringLiteral("Changed app"));
+        QCOMPARE(target.shell->customTitle(), QStringLiteral("Changed custom"));
+        QVERIFY(target.shell->isAlwaysOnTop());
+        QCOMPARE(
+            target.shell->titleMode(),
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
     }
 
     void survivesHostDestructionBeforeShell()

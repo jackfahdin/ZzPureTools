@@ -1,14 +1,10 @@
 #include "ZzWorkspaceShellPrivate.h"
 
 #include <algorithm>
-#include <array>
 #include <utility>
 
 #include <QtCore/QAbstractListModel>
-#include <QtCore/QCryptographicHash>
-#include <QtCore/QDataStream>
 #include <QtCore/QHash>
-#include <QtCore/QIODevice>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
 #include <QtWidgets/QHBoxLayout>
@@ -32,18 +28,11 @@
 #include <ZzPureTools/ZzWorkspaceShell.h>
 
 #include "ZzWorkspaceActivityMoveTransactionPrivate.h"
+#include "ZzWorkspaceLayoutTransactionPrivate.h"
 
 namespace ZzPureTools {
 
 namespace {
-
-constexpr qsizetype zzMaximumLayoutSize = qsizetype{1024} * 1024;
-constexpr quint16 zzLayoutSchemaVersion = 1;
-constexpr auto zzLayoutStreamVersion = QDataStream::Qt_6_8;
-constexpr int zzLayoutDigestSize = 32;
-constexpr int zzLayoutHeaderSize = 12;
-// 现有基准覆盖 64 个侧面板；4096 保持足够兼容余量，同时拒绝异常布局。
-constexpr quint32 zzMaximumSideLayoutEntries = 4096;
 
 template<typename ZzValue>
 [[nodiscard]] ZzCore::ZzResult<ZzValue> zzWorkspaceFailure(
@@ -83,44 +72,11 @@ template<typename ZzValue>
         || area == Qt::BottomDockWidgetArea;
 }
 
-[[nodiscard]] bool zzIsTitleMode(ZzWorkspaceTitleMode mode) noexcept
-{
-    switch (mode) {
-    case ZzWorkspaceTitleMode::Application:
-    case ZzWorkspaceTitleMode::CurrentTab:
-    case ZzWorkspaceTitleMode::CurrentTabAndApplication:
-    case ZzWorkspaceTitleMode::Custom:
-        return true;
-    }
-    return false;
-}
-
 [[nodiscard]] bool zzIsCurrentThread(const QObject *object) noexcept
 {
     return object != nullptr
         && object->thread() == QThread::currentThread();
 }
-
-class ZzShellTransactionScope final
-{
-public:
-    ZzShellTransactionScope(
-        ZzWorkspaceShellPrivate::ZzTransactionKind &kind,
-        ZzWorkspaceShellPrivate::ZzTransactionKind requested) noexcept
-        : kind_(kind)
-    {
-        Q_ASSERT(kind_ == ZzWorkspaceShellPrivate::ZzTransactionKind::None);
-        kind_ = requested;
-    }
-
-    ~ZzShellTransactionScope()
-    {
-        kind_ = ZzWorkspaceShellPrivate::ZzTransactionKind::None;
-    }
-
-private:
-    ZzWorkspaceShellPrivate::ZzTransactionKind &kind_;
-};
 
 struct ZzActivityRow final
 {
@@ -337,143 +293,6 @@ private:
     QAbstractListModel *model) noexcept
 {
     return static_cast<ZzWorkspaceActivityModel *>(model);
-}
-
-[[nodiscard]] bool zzWritePayload(
-    const ZzWorkspaceShellPrivate::ZzLayoutState &state,
-    QByteArray *payload)
-{
-    Q_ASSERT(payload != nullptr);
-    payload->clear();
-    QDataStream stream(payload, QIODevice::WriteOnly);
-    stream.setVersion(zzLayoutStreamVersion);
-    stream << state.qtState
-           << state.leftCollapsed
-           << static_cast<qint32>(state.leftWidth)
-           << state.rightCollapsed
-           << static_cast<qint32>(state.rightWidth)
-           << state.leftCurrent.value()
-           << state.rightCurrent.value()
-           << static_cast<quint32>(state.sideEntries.size());
-    for (const auto &entry : state.sideEntries) {
-        stream << entry.id.value()
-               << static_cast<quint8>(entry.area)
-               << static_cast<qint32>(entry.order);
-    }
-    stream << static_cast<qint32>(state.currentTabIndex)
-           << static_cast<quint8>(state.titleMode);
-    return stream.status() == QDataStream::Ok;
-}
-
-[[nodiscard]] bool zzReadPayload(
-    const QByteArray &payload,
-    ZzWorkspaceShellPrivate::ZzLayoutState *state)
-{
-    Q_ASSERT(state != nullptr);
-    QDataStream stream(payload);
-    stream.setVersion(zzLayoutStreamVersion);
-    qint32 leftWidth = 0;
-    qint32 rightWidth = 0;
-    QString leftCurrent;
-    QString rightCurrent;
-    quint32 sideCount = 0;
-    stream >> state->qtState
-           >> state->leftCollapsed
-           >> leftWidth
-           >> state->rightCollapsed
-           >> rightWidth
-           >> leftCurrent
-           >> rightCurrent
-           >> sideCount;
-    if (stream.status() != QDataStream::Ok
-        || sideCount > zzMaximumSideLayoutEntries
-        || leftWidth <= 0 || rightWidth <= 0
-        || leftWidth > zzMaximumLayoutSize
-        || rightWidth > zzMaximumLayoutSize) {
-        return false;
-    }
-    state->leftWidth = leftWidth;
-    state->rightWidth = rightWidth;
-    state->leftCurrent = ZzWorkspacePanelId(std::move(leftCurrent));
-    state->rightCurrent = ZzWorkspacePanelId(std::move(rightCurrent));
-    state->sideEntries.clear();
-    state->sideEntries.reserve(static_cast<qsizetype>(sideCount));
-    QSet<QString> seenSideIds;
-    seenSideIds.reserve(static_cast<qsizetype>(sideCount));
-    for (quint32 index = 0; index < sideCount; ++index) {
-        QString idValue;
-        quint8 areaValue = 0;
-        qint32 order = 0;
-        stream >> idValue >> areaValue >> order;
-        ZzWorkspaceShellPrivate::ZzSideLayoutEntry entry{
-            ZzWorkspacePanelId(std::move(idValue)),
-            static_cast<ZzFluentUI::ZzActivityArea>(areaValue),
-            order};
-        if (stream.status() != QDataStream::Ok
-            || !entry.id.isValid()
-            || !zzIsSideArea(entry.area)
-            || entry.order < 0
-            || seenSideIds.contains(entry.id.value())) {
-            return false;
-        }
-        seenSideIds.insert(entry.id.value());
-        state->sideEntries.append(std::move(entry));
-    }
-    qint32 tabIndex = -1;
-    quint8 titleMode = 0;
-    stream >> tabIndex >> titleMode;
-    state->currentTabIndex = tabIndex;
-    state->titleMode = static_cast<ZzWorkspaceTitleMode>(titleMode);
-    return stream.status() == QDataStream::Ok
-        && stream.atEnd()
-        && tabIndex >= -1
-        && zzIsTitleMode(state->titleMode);
-}
-
-[[nodiscard]] bool zzDecodeLayout(
-    const QByteArray &encoded,
-    ZzWorkspaceShellPrivate::ZzLayoutState *state)
-{
-    if (encoded.size() < zzLayoutHeaderSize + zzLayoutDigestSize
-        || encoded.size() > zzMaximumLayoutSize) {
-        return false;
-    }
-    QDataStream stream(encoded);
-    stream.setVersion(zzLayoutStreamVersion);
-    char magic[4]{};
-    quint16 schemaVersion = 0;
-    quint16 streamVersion = 0;
-    quint32 payloadLength = 0;
-    if (stream.readRawData(magic, 4) != 4) {
-        return false;
-    }
-    stream >> schemaVersion >> streamVersion >> payloadLength;
-    if (QByteArrayView(magic, 4) != QByteArrayView("ZZWS", 4)
-        || schemaVersion != zzLayoutSchemaVersion
-        || streamVersion != static_cast<quint16>(zzLayoutStreamVersion)
-        || payloadLength
-            != static_cast<quint32>(
-                encoded.size() - zzLayoutHeaderSize - zzLayoutDigestSize)) {
-        return false;
-    }
-    QByteArray payload(static_cast<qsizetype>(payloadLength), Qt::Uninitialized);
-    if (stream.readRawData(
-            payload.data(), static_cast<int>(payloadLength))
-        != static_cast<int>(payloadLength)) {
-        return false;
-    }
-    QByteArray digest(zzLayoutDigestSize, Qt::Uninitialized);
-    if (stream.readRawData(digest.data(), zzLayoutDigestSize)
-            != zzLayoutDigestSize
-        || stream.status() != QDataStream::Ok
-        || !stream.atEnd()) {
-        return false;
-    }
-    if (digest != QCryptographicHash::hash(
-            payload, QCryptographicHash::Sha256)) {
-        return false;
-    }
-    return zzReadPayload(payload, state);
 }
 
 } // namespace
@@ -1307,93 +1126,16 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setAlwaysOnTop(
 
 ZzCore::ZzResult<QByteArray> ZzWorkspaceShellPrivate::saveLayout() const
 {
-    if (transactionKind != ZzTransactionKind::None) {
-        return zzWorkspaceFailure<QByteArray>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace panel transaction is in progress"));
-    }
-    if (host == nullptr || leftSidePane == nullptr
-        || rightSidePane == nullptr || splitWorkspace == nullptr
-        || activeTabs == nullptr) {
-        return zzWorkspaceFailure<QByteArray>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace host has been destroyed"));
-    }
-    QByteArray payload;
-    if (!zzWritePayload(captureLayoutState(), &payload)) {
-        return zzWorkspaceFailure<QByteArray>(
-            ZzCore::ZzErrorCode::Io,
-            QStringLiteral("Failed to serialize workspace payload"));
-    }
-    const qsizetype totalSize = zzLayoutHeaderSize
-        + payload.size() + zzLayoutDigestSize;
-    if (totalSize > zzMaximumLayoutSize) {
-        return zzWorkspaceFailure<QByteArray>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace layout exceeds 1 MiB"));
-    }
-    QByteArray encoded;
-    encoded.reserve(totalSize);
-    QDataStream stream(&encoded, QIODevice::WriteOnly);
-    stream.setVersion(zzLayoutStreamVersion);
-    if (stream.writeRawData("ZZWS", 4) != 4) {
-        return zzWorkspaceFailure<QByteArray>(
-            ZzCore::ZzErrorCode::Io,
-            QStringLiteral("Failed to write workspace magic"));
-    }
-    stream << zzLayoutSchemaVersion
-           << static_cast<quint16>(zzLayoutStreamVersion)
-           << static_cast<quint32>(payload.size());
-    if (stream.writeRawData(payload.constData(), payload.size())
-            != payload.size()
-        || stream.status() != QDataStream::Ok) {
-        return zzWorkspaceFailure<QByteArray>(
-            ZzCore::ZzErrorCode::Io,
-            QStringLiteral("Failed to write workspace payload"));
-    }
-    encoded.append(QCryptographicHash::hash(
-        payload, QCryptographicHash::Sha256));
-    return ZzCore::ZzResult<QByteArray>::success(std::move(encoded));
+    ZzWorkspaceLayoutTransactionPrivate transaction(*const_cast<
+        ZzWorkspaceShellPrivate *>(this));
+    return transaction.save();
 }
 
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::restoreLayout(
     const QByteArray &state)
 {
-    if (transactionKind != ZzTransactionKind::None) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace panel transaction is in progress"));
-    }
-    if (host == nullptr || leftSidePane == nullptr
-        || rightSidePane == nullptr || splitWorkspace == nullptr
-        || activeTabs == nullptr) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace host has been destroyed"));
-    }
-    ZzLayoutState requested;
-    if (!zzDecodeLayout(state, &requested)) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidArgument,
-            QStringLiteral("Workspace layout envelope is invalid"));
-    }
-    const ZzShellTransactionScope transaction(
-        transactionKind, ZzTransactionKind::LayoutRestore);
-    const ZzLayoutState snapshot = captureLayoutState();
-    const bool restoredQt = host->restoreState(
-        requested.qtState, zzLayoutSchemaVersion);
-    const bool appliedShell = restoredQt && applyShellLayout(requested);
-    if (!appliedShell) {
-        const bool restoredShellSnapshot = applyShellLayout(snapshot);
-        const bool restoredQtSnapshot = host->restoreState(
-            snapshot.qtState, zzLayoutSchemaVersion);
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            restoredShellSnapshot && restoredQtSnapshot
-                ? QStringLiteral("Workspace layout restore failed and was rolled back")
-                : QStringLiteral("Workspace layout restore failed and rollback failed"));
-    }
-    return ZzCore::ZzResult<void>::success();
+    ZzWorkspaceLayoutTransactionPrivate transaction(*this);
+    return transaction.restore(state);
 }
 
 void ZzWorkspaceShellPrivate::refreshTitle()
@@ -1851,169 +1593,6 @@ ZzWorkspacePanelId ZzWorkspaceShellPrivate::currentSideId(
         }
     }
     return {};
-}
-
-ZzWorkspaceShellPrivate::ZzLayoutState
-ZzWorkspaceShellPrivate::captureLayoutState() const
-{
-    ZzLayoutState state;
-    state.qtState = host != nullptr
-        ? host->saveState(zzLayoutSchemaVersion) : QByteArray{};
-    if (leftSidePane != nullptr) {
-        state.leftCollapsed = leftSidePane->isCollapsed();
-        state.leftWidth = leftSidePane->lastExpandedWidth();
-        state.leftCurrent = currentSideId(leftSidePane);
-    }
-    if (rightSidePane != nullptr) {
-        state.rightCollapsed = rightSidePane->isCollapsed();
-        state.rightWidth = rightSidePane->lastExpandedWidth();
-        state.rightCurrent = currentSideId(rightSidePane);
-    }
-    std::array<int, 4> orders{};
-    const auto *model = zzActivityModel(activityModel);
-    for (int row = 0; row < model->rowCount(); ++row) {
-        const int panelIndex = indexOf(model->idAt(row));
-        if (panelIndex < 0
-            || panels.at(panelIndex).kind != ZzPanelKind::Side) {
-            continue;
-        }
-        const ZzPanelRecord &record = panels.at(panelIndex);
-        const auto areaIndex = static_cast<std::size_t>(record.activityArea);
-        state.sideEntries.append(ZzSideLayoutEntry{
-            record.id, record.activityArea, orders.at(areaIndex)++});
-    }
-    state.currentTabIndex = activeTabs != nullptr
-        ? activeTabs->currentIndex() : -1;
-    state.titleMode = titleMode;
-    return state;
-}
-
-bool ZzWorkspaceShellPrivate::applyShellLayout(const ZzLayoutState &state)
-{
-    if (leftSidePane == nullptr || rightSidePane == nullptr
-        || splitWorkspace == nullptr || activeTabs == nullptr
-        || activityModel == nullptr) {
-        return false;
-    }
-    const ZzWorkspacePanelId oldLeftCurrent = currentSideId(leftSidePane);
-    const ZzWorkspacePanelId oldRightCurrent = currentSideId(rightSidePane);
-    QVector<ZzWorkspacePanelId> requestedOrder;
-    requestedOrder.reserve(state.sideEntries.size());
-    for (const ZzSideLayoutEntry &entry : state.sideEntries) {
-        const int panelIndex = indexOf(entry.id);
-        if (panelIndex < 0) {
-            continue;
-        }
-        ZzPanelRecord &record = panels[panelIndex];
-        if (record.kind != ZzPanelKind::Side) {
-            continue;
-        }
-        record.activityArea = entry.area;
-        zzActivityModel(activityModel)->setArea(entry.id, entry.area);
-        requestedOrder.append(entry.id);
-    }
-    zzActivityModel(activityModel)->reorder(requestedOrder);
-
-    for (const ZzPanelRecord &record : std::as_const(panels)) {
-        if (record.kind != ZzPanelKind::Side || record.content == nullptr) {
-            continue;
-        }
-        if (leftSidePane->takeWidget(record.content) == nullptr) {
-            static_cast<void>(rightSidePane->takeWidget(record.content));
-        }
-    }
-
-    auto addArea = [this, &state](ZzFluentUI::ZzActivityArea area) {
-        QVector<const ZzSideLayoutEntry *> requested;
-        for (const ZzSideLayoutEntry &entry : state.sideEntries) {
-            if (entry.area == area && indexOf(entry.id) >= 0) {
-                requested.append(&entry);
-            }
-        }
-        std::sort(
-            requested.begin(), requested.end(),
-            [](const ZzSideLayoutEntry *left, const ZzSideLayoutEntry *right) {
-                return left->order < right->order;
-            });
-        QVector<ZzWorkspacePanelId> added;
-        auto addRecord = [this, area, &added](ZzPanelRecord &record) {
-            if (record.kind != ZzPanelKind::Side
-                || record.activityArea != area
-                || record.content == nullptr
-                || added.contains(record.id)) {
-                return true;
-            }
-            ZzFluentUI::ZzSidePane *const pane = zzIsLeftArea(area)
-                ? leftSidePane.data() : rightSidePane.data();
-            if (pane == nullptr
-                || !pane->addWidget(record.content, record.title)) {
-                return false;
-            }
-            added.append(record.id);
-            return true;
-        };
-        for (const ZzSideLayoutEntry *entry : requested) {
-            ZzPanelRecord &record = panels[indexOf(entry->id)];
-            if (!addRecord(record)) {
-                return false;
-            }
-        }
-        for (ZzPanelRecord &record : panels) {
-            if (!addRecord(record)) {
-                return false;
-            }
-        }
-        return true;
-    };
-    for (const auto area : {
-             ZzFluentUI::ZzActivityArea::LeftPrimary,
-             ZzFluentUI::ZzActivityArea::LeftSecondary,
-             ZzFluentUI::ZzActivityArea::RightPrimary,
-             ZzFluentUI::ZzActivityArea::RightSecondary}) {
-        if (!addArea(area)) {
-            return false;
-        }
-    }
-
-    leftSidePane->setPaneWidth(state.leftWidth);
-    rightSidePane->setPaneWidth(state.rightWidth);
-    if (leftSidePane->paneWidth() != state.leftWidth
-        || rightSidePane->paneWidth() != state.rightWidth) {
-        return false;
-    }
-    const auto restoreCurrent = [this](
-                                    ZzFluentUI::ZzSidePane *pane,
-                                    const ZzWorkspacePanelId &requested,
-                                    const ZzWorkspacePanelId &fallback) {
-        for (const ZzWorkspacePanelId &candidate : {requested, fallback}) {
-            const int panelIndex = indexOf(candidate);
-            if (panelIndex >= 0
-                && panels.at(panelIndex).kind == ZzPanelKind::Side
-                && panels.at(panelIndex).content != nullptr
-                && pane->setCurrentWidget(panels.at(panelIndex).content)) {
-                return;
-            }
-        }
-    };
-    restoreCurrent(leftSidePane, state.leftCurrent, oldLeftCurrent);
-    restoreCurrent(rightSidePane, state.rightCurrent, oldRightCurrent);
-    leftActivityBar->setCurrentSourceIndex(
-        zzActivityModel(activityModel)->indexFor(
-            currentSideId(leftSidePane)));
-    rightActivityBar->setCurrentSourceIndex(
-        zzActivityModel(activityModel)->indexFor(
-            currentSideId(rightSidePane)));
-    leftSidePane->setCollapsed(state.leftCollapsed);
-    rightSidePane->setCollapsed(state.rightCollapsed);
-    syncSideEdgeVisibility();
-    const QPointer<ZzFluentUI::ZzTabWidget> tabsGuard(activeTabs);
-    if (tabsGuard != nullptr && state.currentTabIndex >= 0
-        && state.currentTabIndex < tabsGuard->count()) {
-        tabsGuard->setCurrentIndex(state.currentTabIndex);
-    }
-    titleMode = state.titleMode;
-    refreshCurrentTabConnection();
-    return true;
 }
 
 } // namespace ZzPureTools
