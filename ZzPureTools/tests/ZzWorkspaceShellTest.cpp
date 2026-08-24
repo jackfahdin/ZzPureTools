@@ -5843,6 +5843,17 @@ private Q_SLOTS:
         QVERIFY(!restored);
         QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
         QCOMPARE(targetContentRaw->parentWidget(), &thirdPartyOwner);
+        for (const auto edge : {
+                 ZzFluentUI::ZzSidePaneEdge::Left,
+                 ZzFluentUI::ZzSidePaneEdge::Right}) {
+            QVERIFY(!target.shell->sidePane(edge)->panelStack()->panels()
+                .contains(targetContentRaw));
+        }
+        QCOMPARE(
+            target.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(),
+            0);
+        QVERIFY(target.shell->saveLayout());
         auto replacement = std::make_unique<QWidget>();
         QVERIFY(target.shell->registerSidePanel(
             zzPanelId("side"), QStringLiteral("Replacement"), zzIcon(),
@@ -6791,6 +6802,73 @@ private Q_SLOTS:
             QStringLiteral("Workspace layout restore failed and rollback failed"));
     }
 
+    void rollbackFailurePreservesSecondaryActivityTier()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(800);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(700);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<ZzParentChangeWidget>();
+        ZzParentChangeWidget *const targetContentRaw = targetContent.get();
+        bool armed = false;
+        bool callbackEntered = false;
+        targetContent->parentChanged = [&] {
+            if (!armed || callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            target.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Left)->setMaximumPaneWidth(100);
+        };
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        leftPane->setPaneWidth(321);
+        armed = true;
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
+        const bool survivesOnLeft =
+            leftPane->panelStack()->panels().contains(targetContentRaw);
+        const bool survivesOnRight =
+            rightPane->panelStack()->panels().contains(targetContentRaw);
+        QVERIFY(survivesOnLeft != survivesOnRight);
+        const auto expectedArea = survivesOnLeft
+            ? ZzFluentUI::ZzActivityArea::LeftSecondary
+            : ZzFluentUI::ZzActivityArea::RightSecondary;
+        QAbstractItemModel *const model = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->rowCount(), 1);
+        QCOMPARE(
+            model->index(0, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            expectedArea);
+        QVERIFY(target.shell->saveLayout());
+    }
+
     void rollbackSynchronizesActivityAfterOwnershipAudit()
     {
         ZzShellFixture source;
@@ -7035,6 +7113,80 @@ private Q_SLOTS:
             target.shell->activityBar(
                 ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 0);
         for (const char *id : {"one", "two", "three"}) {
+            auto replacement = std::make_unique<QWidget>();
+            QVERIFY(target.shell->registerSidePanel(
+                zzPanelId(id), QString::fromLatin1(id), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                replacement.get()));
+            zzReleaseAfterAdoption(replacement);
+        }
+    }
+
+    void rollbackCleanupUsesCurrentRowsAfterEarlierDeletion()
+    {
+        ZzShellFixture source;
+        for (const char *id : {"a", "b"}) {
+            auto content = std::make_unique<QWidget>();
+            QVERIFY(source.shell->registerSidePanel(
+                zzPanelId(id), QString::fromLatin1(id), zzIcon(),
+                ZzFluentUI::ZzActivityArea::RightPrimary, content.get()));
+            zzReleaseAfterAdoption(content);
+        }
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget thirdPartyOwner;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QPointer<QWidget> firstGuard(first.get());
+        QWidget *const secondRaw = second.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("a"), QStringLiteral("a"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("b"), QStringLiteral("b"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        bool callbackEntered = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                delete firstGuard.data();
+                secondRaw->setParent(&thirdPartyOwner);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(firstGuard.isNull());
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
+        QCOMPARE(secondRaw->parentWidget(), &thirdPartyOwner);
+        for (const auto edge : {
+                 ZzFluentUI::ZzSidePaneEdge::Left,
+                 ZzFluentUI::ZzSidePaneEdge::Right}) {
+            QVERIFY(!target.shell->sidePane(edge)->panelStack()->panels()
+                .contains(secondRaw));
+        }
+        QCOMPARE(
+            target.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(),
+            0);
+        QVERIFY(target.shell->saveLayout());
+        for (const char *id : {"a", "b"}) {
             auto replacement = std::make_unique<QWidget>();
             QVERIFY(target.shell->registerSidePanel(
                 zzPanelId(id), QString::fromLatin1(id), zzIcon(),

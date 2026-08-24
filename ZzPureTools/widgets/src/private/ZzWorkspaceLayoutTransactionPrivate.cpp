@@ -1548,66 +1548,106 @@ zzRowsForTarget(const ZzProjection &target)
             || shell.titleBar->title() == zzEffectiveTitle(shell));
 }
 
-/** @brief 回滚后按实际合法 owner 修复 Activity；第三方 owner 只清注册。 */
+/** @brief 回滚后按实际合法 owner 修复 Activity；第三方 owner 只清托管。 */
 void zzSynchronizeAfterFailedRollback(
     ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime)
 {
     struct ZzRemoval final
     {
-        int capturedRow = -1;
         ZzWorkspacePanelId id;
+        QPointer<QWidget> content;
         QWidget *contentIdentity = nullptr;
         quint64 registrationGeneration = 0;
+        ZzLayoutState::ZzPanelKind kind =
+            ZzLayoutState::ZzPanelKind::Side;
     };
+    QHash<QString, int> currentPanelRows;
+    currentPanelRows.reserve(shell.panels.size());
+    for (qsizetype index = 0; index < shell.panels.size(); ++index) {
+        currentPanelRows.insert(
+            shell.panels.at(index).id.value(), static_cast<int>(index));
+    }
     QVector<ZzRemoval> removals;
     for (const auto &identity : runtime.projection.identities) {
-        const auto *const record = zzRecord(shell, runtime, identity.id);
-        if (record == nullptr || record->content == nullptr) {
+        const int row = currentPanelRows.value(identity.id, -1);
+        if (row < 0 || row >= shell.panels.size()) {
+            continue;
+        }
+        auto &record = shell.panels[row];
+        if (record.id.value() != identity.id
+            || zzPanelKind(record.kind) != identity.kind
+            || record.contentIdentity != identity.rawWidget
+            || record.registrationGeneration
+                != identity.registrationGeneration
+            || record.content == nullptr
+            || record.content.data() != identity.rawWidget
+            || identity.widget == nullptr
+            || identity.widget.data() != identity.rawWidget) {
             continue;
         }
         if (identity.kind == ZzLayoutState::ZzPanelKind::Side) {
             ZzFluentUI::ZzSidePane *const pane =
-                zzOwningSide(shell, record->content);
+                zzOwningSide(shell, record.content);
             if (pane == nullptr) {
                 removals.append({
-                    runtime.panelRows.value(identity.id, -1),
-                    record->id, record->contentIdentity,
-                    record->registrationGeneration});
+                    record.id, record.content, record.contentIdentity,
+                    record.registrationGeneration, identity.kind});
                 continue;
             }
-            auto *const mutableRecord = zzRecord(shell, runtime, identity.id);
-            mutableRecord->activityArea = pane == shell.leftSidePane
-                ? ZzFluentUI::ZzActivityArea::LeftPrimary
-                : ZzFluentUI::ZzActivityArea::RightPrimary;
+            const bool secondary = record.activityArea
+                    == ZzFluentUI::ZzActivityArea::LeftSecondary
+                || record.activityArea
+                    == ZzFluentUI::ZzActivityArea::RightSecondary;
+            if (pane == shell.leftSidePane) {
+                record.activityArea = secondary
+                    ? ZzFluentUI::ZzActivityArea::LeftSecondary
+                    : ZzFluentUI::ZzActivityArea::LeftPrimary;
+            } else {
+                record.activityArea = secondary
+                    ? ZzFluentUI::ZzActivityArea::RightSecondary
+                    : ZzFluentUI::ZzActivityArea::RightPrimary;
+            }
         } else if (identity.kind == ZzLayoutState::ZzPanelKind::Bottom) {
             auto *const stack = shell.bottomPane != nullptr
                 ? shell.bottomPane->findChild<QStackedWidget *>() : nullptr;
-            if (stack == nullptr || !stack->isAncestorOf(record->content)) {
+            if (stack == nullptr || !stack->isAncestorOf(record.content)) {
                 removals.append({
-                    runtime.panelRows.value(identity.id, -1),
-                    record->id, record->contentIdentity,
-                    record->registrationGeneration});
+                    record.id, record.content, record.contentIdentity,
+                    record.registrationGeneration, identity.kind});
             }
         }
     }
-    std::sort(removals.begin(), removals.end(),
-        [](const ZzRemoval &left, const ZzRemoval &right) {
-            return left.capturedRow > right.capturedRow;
-        });
     for (const ZzRemoval &removal : std::as_const(removals)) {
-        const int row = removal.capturedRow;
-        if (row >= 0 && row < shell.panels.size()
-            && shell.panels.at(row).id == removal.id
-            && shell.panels.at(row).contentIdentity
-                == removal.contentIdentity
-            && shell.panels.at(row).registrationGeneration
-                == removal.registrationGeneration) {
-            shell.handlePanelContentDestroyed(
-                removal.id, removal.contentIdentity);
+        const int row = shell.indexOf(removal.id);
+        if (row < 0
+            || shell.panels.at(row).contentIdentity
+                != removal.contentIdentity
+            || shell.panels.at(row).registrationGeneration
+                != removal.registrationGeneration
+            || shell.panels.at(row).content == nullptr
+            || shell.panels.at(row).content.data()
+                != removal.contentIdentity
+            || removal.content == nullptr
+            || removal.content.data() != removal.contentIdentity) {
+            continue;
         }
+        if (removal.kind == ZzLayoutState::ZzPanelKind::Side) {
+            for (const QPointer<ZzFluentUI::ZzSidePane> &pane : {
+                     shell.leftSidePane, shell.rightSidePane}) {
+                if (pane != nullptr && pane->panelStack() != nullptr
+                    && pane->panelStack()->panels().contains(
+                        removal.contentIdentity)) {
+                    static_cast<void>(
+                        pane->takeWidget(removal.contentIdentity));
+                }
+            }
+        }
+        shell.cleanupInterruptedPanelRemoval(
+            removal.id, removal.contentIdentity,
+            removal.registrationGeneration);
     }
-    QHash<QString, int> currentPanelRows;
+    currentPanelRows.clear();
     currentPanelRows.reserve(shell.panels.size());
     for (qsizetype index = 0; index < shell.panels.size(); ++index) {
         currentPanelRows.insert(
@@ -1618,11 +1658,17 @@ void zzSynchronizeAfterFailedRollback(
     for (auto &row : rows) {
         const int panelRow = currentPanelRows.value(row.id.value(), -1);
         if (panelRow >= 0 && panelRow < shell.panels.size()
-            && shell.panels.at(panelRow).id == row.id) {
+            && shell.panels.at(panelRow).id == row.id
+            && shell.panels.at(panelRow).kind
+                == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && shell.panels.at(panelRow).content != nullptr
+            && shell.panels.at(panelRow).content.data()
+                == shell.panels.at(panelRow).contentIdentity) {
             row.area = shell.panels.at(panelRow).activityArea;
         }
     }
     static_cast<void>(shell.replaceActivityRows(rows));
+    shell.syncSideEdgeVisibility();
     const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     if (shell.leftActivityBar != nullptr && shell.leftSidePane != nullptr) {
         shell.leftActivityBar->setCurrentSourceIndex(
