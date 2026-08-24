@@ -4822,6 +4822,62 @@ private Q_SLOTS:
         zzReleaseAfterAdoption(replacement);
     }
 
+    void rollbackCleansEveryInvalidPanelRegistration()
+    {
+        ZzShellFixture source;
+        for (const char *id : {"one", "two", "three"}) {
+            auto content = std::make_unique<QWidget>();
+            QVERIFY(source.shell->registerSidePanel(
+                zzPanelId(id), QString::fromLatin1(id), zzIcon(),
+                ZzFluentUI::ZzActivityArea::RightPrimary, content.get()));
+            zzReleaseAfterAdoption(content);
+        }
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget thirdParty;
+        QList<ZzParentRemovedWidget *> invalid;
+        for (const char *id : {"one", "two", "three"}) {
+            auto content = std::make_unique<ZzParentRemovedWidget>();
+            auto *const raw = content.get();
+            QVERIFY(target.shell->registerSidePanel(
+                zzPanelId(id), QString::fromLatin1(id), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+            invalid.append(raw);
+            zzReleaseAfterAdoption(content);
+        }
+        bool armed = true;
+        invalid.constFirst()->parentRemoved = [&] {
+            if (!armed) {
+                return;
+            }
+            armed = false;
+            for (ZzParentRemovedWidget *const content : invalid) {
+                content->setParent(&thirdParty);
+            }
+        };
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(!restored);
+        QVERIFY(!armed);
+        for (ZzParentRemovedWidget *const content : invalid) {
+            QCOMPARE(content->parentWidget(), &thirdParty);
+        }
+        QCOMPARE(
+            target.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 0);
+        for (const char *id : {"one", "two", "three"}) {
+            auto replacement = std::make_unique<QWidget>();
+            QVERIFY(target.shell->registerSidePanel(
+                zzPanelId(id), QString::fromLatin1(id), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                replacement.get()));
+            zzReleaseAfterAdoption(replacement);
+        }
+    }
+
     void restoreUsesPaneCurrentForUnknownCurrentFallback()
     {
         ZzShellFixture fixture;

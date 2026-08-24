@@ -1314,7 +1314,14 @@ void zzSynchronizeAfterFailedRollback(
     ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime)
 {
-    QVector<ZzWorkspacePanelId> removals;
+    struct ZzRemoval final
+    {
+        int capturedRow = -1;
+        ZzWorkspacePanelId id;
+        QWidget *contentIdentity = nullptr;
+        quint64 registrationGeneration = 0;
+    };
+    QVector<ZzRemoval> removals;
     for (const auto &identity : runtime.projection.identities) {
         const auto *const record = zzRecord(shell, runtime, identity.id);
         if (record == nullptr || record->content == nullptr) {
@@ -1324,7 +1331,10 @@ void zzSynchronizeAfterFailedRollback(
             ZzFluentUI::ZzSidePane *const pane =
                 zzOwningSide(shell, record->content);
             if (pane == nullptr) {
-                removals.append(record->id);
+                removals.append({
+                    runtime.panelRows.value(identity.id, -1),
+                    record->id, record->contentIdentity,
+                    record->registrationGeneration});
                 continue;
             }
             auto *const mutableRecord = zzRecord(shell, runtime, identity.id);
@@ -1335,25 +1345,39 @@ void zzSynchronizeAfterFailedRollback(
             auto *const stack = shell.bottomPane != nullptr
                 ? shell.bottomPane->findChild<QStackedWidget *>() : nullptr;
             if (stack == nullptr || !stack->isAncestorOf(record->content)) {
-                removals.append(record->id);
+                removals.append({
+                    runtime.panelRows.value(identity.id, -1),
+                    record->id, record->contentIdentity,
+                    record->registrationGeneration});
             }
         }
     }
-    for (const ZzWorkspacePanelId &id : removals) {
-        const auto found = runtime.panelRows.constFind(id.value());
-        const int row = found != runtime.panelRows.cend() ? found.value() : -1;
+    std::sort(removals.begin(), removals.end(),
+        [](const ZzRemoval &left, const ZzRemoval &right) {
+            return left.capturedRow > right.capturedRow;
+        });
+    for (const ZzRemoval &removal : std::as_const(removals)) {
+        const int row = removal.capturedRow;
         if (row >= 0 && row < shell.panels.size()
-            && shell.panels.at(row).id == id) {
+            && shell.panels.at(row).id == removal.id
+            && shell.panels.at(row).contentIdentity
+                == removal.contentIdentity
+            && shell.panels.at(row).registrationGeneration
+                == removal.registrationGeneration) {
             shell.handlePanelContentDestroyed(
-                id, shell.panels.at(row).contentIdentity);
+                removal.id, removal.contentIdentity);
         }
+    }
+    QHash<QString, int> currentPanelRows;
+    currentPanelRows.reserve(shell.panels.size());
+    for (qsizetype index = 0; index < shell.panels.size(); ++index) {
+        currentPanelRows.insert(
+            shell.panels.at(index).id.value(), static_cast<int>(index));
     }
     QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> rows =
         shell.activityRows();
     for (auto &row : rows) {
-        const auto found = runtime.panelRows.constFind(row.id.value());
-        const int panelRow = found != runtime.panelRows.cend()
-            ? found.value() : -1;
+        const int panelRow = currentPanelRows.value(row.id.value(), -1);
         if (panelRow >= 0 && panelRow < shell.panels.size()
             && shell.panels.at(panelRow).id == row.id) {
             row.area = shell.panels.at(panelRow).activityArea;
