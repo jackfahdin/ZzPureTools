@@ -31,5 +31,6 @@ Task 9R order Important: complete (commits 85ad3ef..d5a4150; Secondary-first/交
 Task 9R planner Important: complete (commits 1dfd34c..d8dddc8; planner 512/4096 从 58.03x 降至 8.00x，Activity 128/512 为 3.88x；锚点和 target-index 变异均被语义测试杀死)
 Task 9R Clang fix: complete (commit 90f6e71; 本批 16 个 -Wshadow 诊断清零，定向复审无新破坏；第 677/753 行 optional::emplace 仍为前序阻塞)
 Task 9R final gates: GCC Debug private 20/20、Shell 151/151；GCC Release 2/2；static 2/2；full Debug CTest 143/148，失败仅为 4 个既有 workspace screenshot 目标和既有 OrderedPage 架构命名
-Task 9R independent review: 等待控制者分派精确 diff 91040df..HEAD 的独立审查；本代理未以自审冒充
-Task 9R parked: 保留 codec error-code mapping Minor、ParentChange 销毁不支持边界、rollback-failed Secondary area 风险、Clang optional::emplace 前序编译阻塞、ASan 基线资源测试悬空 QWidget* 比较和既有 screenshot/OrderedPage 失败
+Task 9R independent review: complete（初始独立审查范围 91040df..8deed7a：0 Critical、2 Important、1 Minor；两个 Important 分别为 addWidget 同步 owner 误学习与 panelMoved 第三方接管后的 rollback ghost。修复链 756c392、3e6c21d、a421cc1、2844f7f、4309507、bee5e5b；4 轮定向复审后，第 4 轮原始 DeferredDelete TOCTOU 为 ADDRESSED，ChildRemoved-only 缺口亦补齐。最终范围 91040df..bee5e5b，无未解决 Critical/Important/Minor）
+Task 9R final owner verification: ownership/rollback/take 15/15、fluent panel-stack/side-pane 2/2、完整 WorkspaceShell 157/157、puretools.workspace-shell 1/1；静态扫描与 show --check clean。上述为实现者验证，独立审查结论另见上一行。
+Task 9R parked: 保留初始独立审查的 Activity 性能门禁 Minor（计时后未逐次断言 current/active），不能表述为全部历史 Minor 已修；另保留 codec error-code mapping Minor、ParentChange 销毁不支持边界、rollback-failed Secondary area 风险、Clang optional::emplace 前序编译阻塞、ASan 基线资源测试悬空 QWidget* 比较和既有 screenshot/OrderedPage 失败。Windows/MSVC、MinGW、macOS 未运行，仅有源码静态可移植性检查。

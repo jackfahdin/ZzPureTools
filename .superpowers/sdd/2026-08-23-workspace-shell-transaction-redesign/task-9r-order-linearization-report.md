@@ -1,6 +1,6 @@
 # Task 9R order and planner linearization report
 
-验证 HEAD：`90f6e71cc57b3f5e6e5feb0a646e4412cfa8ad8d`。最终重跑日期：2026-08-24，Linux / GCC 15.2 / Clang 20.1.8 / Qt 6.11.1。最终重跑前 `git status --short --branch`、`git diff --check 91040df..HEAD` 均退出 0；工作树干净，未触碰主工作树或 `temp_image/`。
+报告 HEAD：`bee5e5be8f8f4d1c861840fc86c2b8a9bbecffd4`。最终实现者重跑日期：2026-08-24，Linux / GCC 15.2 / Clang 20.1.8 / Qt 6.11.1。早先性能与门禁重跑前 `git status --short --branch`、`git diff --check 91040df..HEAD` 均退出 0；工作树干净，未触碰主工作树或 `temp_image/`。本报告最终审查范围与 diff 为 `91040df..bee5e5b`。
 
 ## Commits
 
@@ -13,8 +13,14 @@
 - `16a2682 测试：覆盖活动回滚污染面板`
 - `d8dddc8 测试：补全活动迁移状态合同`
 - `90f6e71 测试：修复规划器别名的 Clang shadow 回归`
+- `756c392 修复：拒绝侧栏同步所有权污染`
+- `3e6c21d 修复：保留框架内第三方侧栏内容`
+- `a421cc1 修复：以整帧托管保护侧栏内容所有权`
+- `2844f7f 测试：覆盖托管框架排队回挂窗口`
+- `4309507 测试：完整冲刷托管终结事件`
+- `bee5e5b 修复：原子终结侧栏托管框架`
 
-`91040df..HEAD` 还包含与这些实现对应的中文设计/计划提交。`git diff --stat` 为 14 files changed、3352 insertions、259 deletions；代码范围是 ActivityBar、WorkspaceShell、LayoutState、ActivityMoveTransaction 及其测试，另含计划列出的 docs。
+`91040df..bee5e5b` 还包含与这些实现对应的中文设计/计划提交。`git diff --stat` 为 17 files changed、4224 insertions、268 deletions；代码范围是 ActivityBar、WorkspaceShell、LayoutState、ActivityMoveTransaction、PanelStack 及其测试，另含计划列出的 docs。
 
 ## Secondary-first RED and GREEN
 
@@ -131,7 +137,11 @@ Windows/MSVC：未运行。Qt SDK MinGW：未运行。macOS/AppleClang：未运�
 
 ## Independent review
 
-等待控制者分派独立审查。审查范围应为精确 diff `91040df..HEAD`，本执行代理未以自审冒充独立审查。
+初始独立审查范围为 `91040df..8deed7a`，结论为 0 Critical、2 Important、1 Minor。两个 Important 是 `addWidget()` 同步边界后从 observed parent 误学习固定 owner，以及 `panelMoved` 第三方接管 content 后失败 rollback 遗留 PanelStack record/frame ghost。修复链为 `756c392`、`3e6c21d`、`a421cc1`、`2844f7f`、`4309507`、`bee5e5b`；完整四轮根因、RED/GREEN 和逐轮复审证据见被忽略的 `final-review-owner-fix-report.md`，本报告不重复其细节。
+
+四轮定向独立复审已完成。第 4 轮原始 DeferredDelete TOCTOU 已标记为 ADDRESSED，ChildRemoved-only 清理覆盖亦已补齐。最终独立审查范围为 `91040df..bee5e5b`，没有未解决的 Critical、Important 或 Minor。
+
+实现者最终验证（不替代独立审查）为：ownership/rollback/take 聚焦 15/15、`fluent.panel-stack`/`fluent.side-pane` 2/2、完整 `ZzWorkspaceShellTest` 157/157、`puretools.workspace-shell` 1/1；静态扫描及 `git show --check` clean。早先性能数值与 GCC Debug/Release/static 门禁证据保持如下，未因后续 owner/rollback 修复而重写。
 
 ## Remaining parked findings
 
@@ -141,4 +151,5 @@ Windows/MSVC：未运行。Qt SDK MinGW：未运行。macOS/AppleClang：未运�
 - Clang 20 private test 第 677、753 行 `optional::emplace()` 前序编译阻塞。
 - ASan Shell 基线资源测试第 2863 行悬空 `QWidget*` 比较/格式化崩溃。
 - 既有 4 个 workspace screenshot 目标和 `OrderedPage` 架构命名失败。
-- 最终独立审查尚未完成；在审查无未解决 Critical/Important 前，不宣称整个计划完全完成。
+- 初始独立审查的 Activity 性能门禁 Minor 仍延后：计时后没有逐次断言 `current`/`active`，不能表述为全部历史 Minor 已修。
+- Windows/MSVC、Qt SDK MinGW、macOS/AppleClang 均未运行；只有源码静态可移植性检查，不宣称这些平台或 ASan/UBSan 已通过。
