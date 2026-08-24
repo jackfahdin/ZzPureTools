@@ -89,12 +89,17 @@ Activity move 和 layout restore 已使用完整目标投影，它们必须输�
 
 ### 5.1 mutation 前规划
 
-`registerSidePanel()` 在接管 content 前，从当前稳定 Activity rows 计算目标物理索引：
+`registerSidePanel()` 在接管 content 前，从当前稳定 registry records 计算目标物理索引：
 
 - Primary：本侧现有 Primary 数量；
 - Secondary：本侧现有全部 Side panel 数量。
 
-计算只读取 mutation 前状态。后续同步信号不得让外层注册从 observed 状态重新学习目标。
+registry 顺序是注册发生顺序的事实源，并包含同步回调开始前已经预留但尚未进入 Activity model
+的 `registrationInProgress` 记录。因此嵌套注册可以为自己建立正确固定目标；外层仍以自己的
+mutation 前快照检测额外 panel 污染并只回滚自己的 generation。Activity rows 另行捕获，用于
+审计 model 的全局成功注册顺序。
+
+计算只读取各自 mutation 前状态。后续同步信号不得让任一层注册从 observed 状态重新学习目标。
 
 ### 5.2 固定提交步骤
 
@@ -115,11 +120,15 @@ Activity move 和 layout restore 已使用完整目标投影，它们必须输�
 - host、workspace root、目标 SidePane 和 PanelStack 的 `QPointer` 身份未替换或销毁；
 - registry 中仍存在同 ID、同 content identity、同 registration generation 的记录；
 - content 仍由目标 pane/stack 合法拥有，ancestry 与 membership 一致；
-- PanelStack 中 content 的最终索引等于固定目标索引；
+- PanelStack 完整身份顺序等于当前阶段的固定 append/canonical 目标，不只比较新 content 索引；
+- Activity model 追加后完整 rows 等于 mutation 前 rows 加本次成功 row；
 - 第三方没有接管 content。
 
 任一审计失败，注册返回 `InvalidState` 并执行既有 registration rollback。若 content 已由第三方
 接管，只清理 Shell 自身记录和连接，不得强制 reparent 或删除第三方对象。
+
+同步回调通过 Shell API 成功注册另一个合法 ID 时，外层完整顺序审计必须识别额外身份并失败；
+外层 rollback 只能移除自己的 ID/generation，嵌套成功 panel 必须继续合法可保存。
 
 ## 6. 线性规划架构
 
@@ -190,6 +199,7 @@ Bottom、Dock 或 Split 顺序，避免 Qt hash seed 改变序列化结果。
 - 注册成功后立即 `saveLayout()`；
 - round trip 后 content identity、owner、current、visible 和 sizes；
 - `panelMoved` 同步回调由第三方接管新 content，注册失败、Shell 记录清理、第三方 owner 保留。
+- `panelMoved` 同步回调成功注册另一个 ID，外层失败但嵌套 panel 保留并可保存。
 
 当前基线应至少因 Secondary-first 保存失败或物理顺序错误而 RED。失败原因必须来自目标合同，
 不能来自 fixture、权限或平台环境。
