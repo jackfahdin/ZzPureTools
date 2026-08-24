@@ -107,6 +107,35 @@ struct ZzRuntimeSnapshot final
     QHash<QString, int> panelRows;
 };
 
+struct ZzRuntimeIndexes final
+{
+    QHash<QWidget *, QString> widgetIds;
+    QHash<QString, int> activityRows;
+    QHash<int, QString> activityIds;
+};
+
+[[nodiscard]] ZzRuntimeIndexes zzBuildRuntimeIndexes(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzRuntimeSnapshot &runtime)
+{
+    ZzRuntimeIndexes indexes;
+    indexes.widgetIds.reserve(runtime.projection.identities.size());
+    for (const auto &identity : runtime.projection.identities) {
+        if (identity.rawWidget != nullptr) {
+            indexes.widgetIds.insert(identity.rawWidget, identity.id);
+        }
+    }
+    const auto rows = shell.activityRows();
+    indexes.activityRows.reserve(rows.size());
+    indexes.activityIds.reserve(rows.size());
+    for (qsizetype row = 0; row < rows.size(); ++row) {
+        const QString id = rows.at(row).id.value();
+        indexes.activityRows.insert(id, static_cast<int>(row));
+        indexes.activityIds.insert(static_cast<int>(row), id);
+    }
+    return indexes;
+}
+
 [[nodiscard]] QString zzIdForWidget(
     const QHash<QWidget *, QString> &ids,
     QWidget *widget)
@@ -404,23 +433,16 @@ void zzCaptureSideRuntime(
 
 [[nodiscard]] QStringList zzIds(
     const QList<QWidget *> &widgets,
-    const ZzWorkspaceShellPrivate &shell,
-    const ZzRuntimeSnapshot &runtime)
+    const ZzRuntimeIndexes &indexes)
 {
-    QHash<QWidget *, QString> ids;
-    ids.reserve(runtime.projection.identities.size());
-    for (const auto &identity : runtime.projection.identities) {
-        ids.insert(identity.rawWidget, identity.id);
-    }
     QStringList result;
     result.reserve(widgets.size());
     for (QWidget *const widget : widgets) {
-        const QString id = ids.value(widget);
+        const QString id = indexes.widgetIds.value(widget);
         if (!id.isEmpty()) {
             result.append(id);
         }
     }
-    static_cast<void>(shell);
     return result;
 }
 
@@ -428,7 +450,8 @@ void zzCaptureSideRuntime(
     const ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime,
     const ZzSide &expected,
-    ZzFluentUI::ZzSidePane *pane)
+    ZzFluentUI::ZzSidePane *pane,
+    const ZzRuntimeIndexes &indexes)
 {
     if (pane == nullptr || expected.paneIdentity.object == nullptr
         || expected.paneIdentity.object.data() != expected.paneIdentity.rawObject
@@ -439,12 +462,12 @@ void zzCaptureSideRuntime(
         return false;
     }
     const QStringList observedOrder = zzIds(
-        pane->panelStack()->panels(), shell, runtime);
+        pane->panelStack()->panels(), indexes);
     const QStringList observedVisible = zzIds(
-        pane->visibleWidgets(), shell, runtime);
+        pane->visibleWidgets(), indexes);
     const QList<int> observedSizes = pane->panelStack()->panelSizes();
     const QString observedCurrent = zzIds(
-        {pane->currentWidget()}, shell, runtime).value(0);
+        {pane->currentWidget()}, indexes).value(0);
     if (observedOrder != expected.order
         || observedVisible != expected.visible
         || observedSizes != expected.sizes
@@ -467,7 +490,8 @@ void zzCaptureSideRuntime(
 [[nodiscard]] bool zzAuditBottom(
     const ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime,
-    const ZzLayoutState::ZzBottomProjection &expected)
+    const ZzLayoutState::ZzBottomProjection &expected,
+    const ZzRuntimeIndexes &indexes)
 {
     auto *const pane = shell.bottomPane.data();
     auto *const stack = pane != nullptr
@@ -482,17 +506,17 @@ void zzCaptureSideRuntime(
         return false;
     }
     QStringList observedOrder;
-    observedOrder.reserve(stack->count());
+        observedOrder.reserve(stack->count());
     for (int index = 0; index < stack->count(); ++index) {
         observedOrder.append(zzIds(
-            {stack->widget(index)}, shell, runtime).value(0));
+            {stack->widget(index)}, indexes).value(0));
     }
     if (pane->widgetCount() != expected.order.size()
         || observedOrder != expected.order) {
         return false;
     }
     const QString current = zzIds(
-        {pane->currentWidget()}, shell, runtime).value(0);
+        {pane->currentWidget()}, indexes).value(0);
     if (!expected.current.isEmpty() && current != expected.current) {
         return false;
     }
@@ -573,32 +597,10 @@ void zzCaptureSideRuntime(
     return nullptr;
 }
 
-[[nodiscard]] QString zzIdAtIndex(
-    const ZzWorkspaceShellPrivate &shell,
-    const QModelIndex &index)
-{
-    const auto rows = shell.activityRows();
-    return index.isValid() && index.row() >= 0 && index.row() < rows.size()
-        ? rows.at(index.row()).id.value() : QString{};
-}
-
-[[nodiscard]] QSet<QString> zzIdsAtIndexes(
-    const ZzWorkspaceShellPrivate &shell,
-    const QList<QModelIndex> &indexes)
-{
-    QSet<QString> result;
-    for (const QModelIndex &index : indexes) {
-        const QString id = zzIdAtIndex(shell, index);
-        if (!id.isEmpty()) {
-            result.insert(id);
-        }
-    }
-    return result;
-}
-
 [[nodiscard]] bool zzAuditActivity(
     const ZzWorkspaceShellPrivate &shell,
-    const ZzLayoutState::ZzActivityProjection &expected)
+    const ZzLayoutState::ZzActivityProjection &expected,
+    const ZzRuntimeIndexes &indexes)
 {
     if (shell.activityModel == nullptr || shell.leftActivityBar == nullptr
         || shell.rightActivityBar == nullptr
@@ -610,6 +612,22 @@ void zzCaptureSideRuntime(
     for (const auto &row : shell.activityRows()) {
         actual.at(static_cast<std::size_t>(row.area)).append(row.id.value());
     }
+    const auto idAtIndex = [&indexes](const QModelIndex &index) {
+        return index.isValid()
+            ? indexes.activityIds.value(index.row()) : QString{};
+    };
+    const auto idsAtIndexes = [&indexes](const QList<QModelIndex> &items) {
+        QSet<QString> result;
+        for (const QModelIndex &index : items) {
+            if (index.isValid()) {
+                const QString id = indexes.activityIds.value(index.row());
+                if (!id.isEmpty()) {
+                    result.insert(id);
+                }
+            }
+        }
+        return result;
+    };
     const bool leftHasPanel = !expected.leftPrimary.isEmpty()
         || !expected.leftSecondary.isEmpty();
     const bool rightHasPanel = !expected.rightPrimary.isEmpty()
@@ -620,15 +638,13 @@ void zzCaptureSideRuntime(
         || actual.at(3) != expected.rightSecondary
         || shell.leftActivityBar->isHidden() == leftHasPanel
         || shell.rightActivityBar->isHidden() == rightHasPanel
-        || zzIdAtIndex(shell, shell.leftActivityBar->currentSourceIndex())
+        || idAtIndex(shell.leftActivityBar->currentSourceIndex())
             != expected.leftCurrent
-        || zzIdAtIndex(shell, shell.rightActivityBar->currentSourceIndex())
+        || idAtIndex(shell.rightActivityBar->currentSourceIndex())
             != expected.rightCurrent
-        || zzIdsAtIndexes(shell,
-               shell.leftActivityBar->activeSourceIndexes())
+        || idsAtIndexes(shell.leftActivityBar->activeSourceIndexes())
             != expected.leftActive
-        || zzIdsAtIndexes(shell,
-               shell.rightActivityBar->activeSourceIndexes())
+        || idsAtIndexes(shell.rightActivityBar->activeSourceIndexes())
             != expected.rightActive) {
         return false;
     }
@@ -642,15 +658,18 @@ void zzCaptureSideRuntime(
     const QString &migrationGroup = {},
     int migrationCurrent = -1)
 {
+    const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     return zzStableGuards(shell, runtime.guards)
         && zzStablePanels(shell, runtime)
         && zzAuditDock(shell, runtime, expected.dock)
         && zzAuditSplit(
             shell, expected.split, migrationGroup, migrationCurrent)
-        && zzAuditSide(shell, runtime, expected.leftSide, shell.leftSidePane)
-        && zzAuditSide(shell, runtime, expected.rightSide, shell.rightSidePane)
-        && zzAuditBottom(shell, runtime, expected.bottom)
-        && zzAuditActivity(shell, expected.activity)
+        && zzAuditSide(
+            shell, runtime, expected.leftSide, shell.leftSidePane, indexes)
+        && zzAuditSide(
+            shell, runtime, expected.rightSide, shell.rightSidePane, indexes)
+        && zzAuditBottom(shell, runtime, expected.bottom, indexes)
+        && zzAuditActivity(shell, expected.activity, indexes)
         && shell.titleMode == zzTitleMode(expected.title.mode);
 }
 
@@ -1088,9 +1107,12 @@ private:
     };
     static_cast<void>(place(target.leftSide, shell.leftSidePane));
     static_cast<void>(place(target.rightSide, shell.rightSidePane));
+    const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     const bool audited = zzStablePanels(shell, runtime)
-        && zzAuditSide(shell, runtime, target.leftSide, shell.leftSidePane)
-        && zzAuditSide(shell, runtime, target.rightSide, shell.rightSidePane);
+        && zzAuditSide(
+            shell, runtime, target.leftSide, shell.leftSidePane, indexes)
+        && zzAuditSide(
+            shell, runtime, target.rightSide, shell.rightSidePane, indexes);
     return complete && audited;
 }
 
@@ -1106,11 +1128,12 @@ private:
     if (pane == nullptr || stack == nullptr) {
         return false;
     }
+    const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     QStringList observedOrder;
     observedOrder.reserve(stack->count());
     for (int index = 0; index < stack->count(); ++index) {
         observedOrder.append(zzIds(
-            {stack->widget(index)}, shell, runtime).value(0));
+            {stack->widget(index)}, indexes).value(0));
     }
     if (observedOrder != target.order
         || pane->widgetCount() != target.order.size()) {
@@ -1184,7 +1207,7 @@ private:
     pane->setCollapsed(target.collapsed);
     return pane != nullptr && zzStableGuards(shell, runtime.guards)
         && zzStablePanels(shell, runtime)
-        && zzAuditBottom(shell, runtime, target);
+        && zzAuditBottom(shell, runtime, target, indexes);
 }
 
 [[nodiscard]] QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry>
@@ -1207,25 +1230,26 @@ zzRowsForTarget(const ZzProjection &target)
 
 [[nodiscard]] QModelIndex zzIndexForId(
     const ZzWorkspaceShellPrivate &shell,
+    const ZzRuntimeIndexes &indexes,
     const QString &id)
 {
-    const auto rows = shell.activityRows();
-    for (qsizetype row = 0; row < rows.size(); ++row) {
-        if (rows.at(row).id.value() == id && shell.activityModel != nullptr) {
-            return shell.activityModel->index(static_cast<int>(row), 0);
-        }
+    const auto found = indexes.activityRows.constFind(id);
+    if (found != indexes.activityRows.cend()
+        && shell.activityModel != nullptr) {
+        return shell.activityModel->index(found.value(), 0);
     }
     return {};
 }
 
 [[nodiscard]] QList<QModelIndex> zzIndexesForIds(
     const ZzWorkspaceShellPrivate &shell,
+    const ZzRuntimeIndexes &indexes,
     const QStringList &ids)
 {
     QList<QModelIndex> result;
     result.reserve(ids.size());
     for (const QString &id : ids) {
-        const QModelIndex index = zzIndexForId(shell, id);
+        const QModelIndex index = zzIndexForId(shell, indexes, id);
         if (index.isValid()) {
             result.append(index);
         }
@@ -1263,19 +1287,20 @@ zzRowsForTarget(const ZzProjection &target)
         || !zzStablePanels(shell, runtime)) {
         return false;
     }
+    const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     shell.leftActivityBar->setCurrentSourceIndex(
-        zzIndexForId(shell, target.activity.leftCurrent));
+        zzIndexForId(shell, indexes, target.activity.leftCurrent));
     if (!zzStableGuards(shell, runtime.guards)) return false;
     shell.rightActivityBar->setCurrentSourceIndex(
-        zzIndexForId(shell, target.activity.rightCurrent));
+        zzIndexForId(shell, indexes, target.activity.rightCurrent));
     if (!zzStableGuards(shell, runtime.guards)) return false;
     shell.leftActivityBar->setActiveSourceIndexes(
-        zzIndexesForIds(shell, target.leftSide.visible));
+        zzIndexesForIds(shell, indexes, target.leftSide.visible));
     if (!zzStableGuards(shell, runtime.guards)) return false;
     shell.rightActivityBar->setActiveSourceIndexes(
-        zzIndexesForIds(shell, target.rightSide.visible));
+        zzIndexesForIds(shell, indexes, target.rightSide.visible));
     if (!zzStableGuards(shell, runtime.guards)
-        || !zzAuditActivity(shell, target.activity)) {
+        || !zzAuditActivity(shell, target.activity, indexes)) {
         return false;
     }
     shell.titleMode = zzTitleMode(target.title.mode);
@@ -1330,21 +1355,22 @@ void zzSynchronizeAfterFailedRollback(
         }
     }
     static_cast<void>(shell.replaceActivityRows(rows));
+    const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
     if (shell.leftActivityBar != nullptr && shell.leftSidePane != nullptr) {
         shell.leftActivityBar->setCurrentSourceIndex(
-            zzIndexForId(shell, zzIds(
-                {shell.leftSidePane->currentWidget()}, shell, runtime).value(0)));
+            zzIndexForId(shell, indexes, zzIds(
+                {shell.leftSidePane->currentWidget()}, indexes).value(0)));
         shell.leftActivityBar->setActiveSourceIndexes(
-            zzIndexesForIds(shell, zzIds(
-                shell.leftSidePane->visibleWidgets(), shell, runtime)));
+            zzIndexesForIds(shell, indexes, zzIds(
+                shell.leftSidePane->visibleWidgets(), indexes)));
     }
     if (shell.rightActivityBar != nullptr && shell.rightSidePane != nullptr) {
         shell.rightActivityBar->setCurrentSourceIndex(
-            zzIndexForId(shell, zzIds(
-                {shell.rightSidePane->currentWidget()}, shell, runtime).value(0)));
+            zzIndexForId(shell, indexes, zzIds(
+                {shell.rightSidePane->currentWidget()}, indexes).value(0)));
         shell.rightActivityBar->setActiveSourceIndexes(
-            zzIndexesForIds(shell, zzIds(
-                shell.rightSidePane->visibleWidgets(), shell, runtime)));
+            zzIndexesForIds(shell, indexes, zzIds(
+                shell.rightSidePane->visibleWidgets(), indexes)));
     }
 }
 

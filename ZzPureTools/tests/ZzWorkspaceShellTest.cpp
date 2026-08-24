@@ -1,6 +1,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <thread>
 #include <utility>
 
@@ -4981,6 +4982,60 @@ private Q_SLOTS:
         QCOMPARE(
             target.shell->titleMode(),
             ZzPureTools::ZzWorkspaceTitleMode::Application);
+    }
+
+    void restoreScalesLinearlyForDenseBottomPanels()
+    {
+        const auto measureRestore = [](int panelCount)
+            -> std::optional<qint64> {
+            ZzShellFixture source;
+            for (int index = 0; index < panelCount; ++index) {
+                auto content = std::make_unique<QWidget>();
+                const QString id = QStringLiteral("bottom-%1").arg(index);
+                if (!source.shell->registerBottomPanel(
+                        ZzPureTools::ZzWorkspacePanelId(id), id, zzIcon(),
+                        content.get())) {
+                    return std::nullopt;
+                }
+                zzReleaseAfterAdoption(content);
+            }
+            const auto requested = source.shell->saveLayout();
+            if (!requested) {
+                return std::nullopt;
+            }
+
+            ZzShellFixture target;
+            for (int index = 0; index < panelCount; ++index) {
+                auto content = std::make_unique<QWidget>();
+                const QString id = QStringLiteral("bottom-%1").arg(index);
+                if (!target.shell->registerBottomPanel(
+                        ZzPureTools::ZzWorkspacePanelId(id), id, zzIcon(),
+                        content.get())) {
+                    return std::nullopt;
+                }
+                zzReleaseAfterAdoption(content);
+            }
+            QElapsedTimer timer;
+            timer.start();
+            for (int iteration = 0; iteration < 2; ++iteration) {
+                if (!target.shell->restoreLayout(requested.value())) {
+                    return std::nullopt;
+                }
+            }
+            return timer.elapsed();
+        };
+
+        const auto smallResult = measureRestore(128);
+        const auto largeResult = measureRestore(1024);
+        QVERIFY(smallResult.has_value());
+        QVERIFY(largeResult.has_value());
+        const qint64 small = *smallResult;
+        const qint64 large = *largeResult;
+        QVERIFY2(
+            large < small * 8 + 250,
+            qPrintable(QStringLiteral(
+                "dense bottom restore scaling exceeded bound: %1 ms vs %2 ms")
+                .arg(large).arg(small)));
     }
 
     void survivesHostDestructionBeforeShell()
