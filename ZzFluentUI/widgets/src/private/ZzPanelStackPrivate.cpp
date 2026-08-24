@@ -44,7 +44,21 @@ namespace {
         && first.customColor == second.customColor;
 }
 
+[[nodiscard]] QPointer<QWidget> zzUnownedWidget(
+    const QPointer<QWidget> &widget) noexcept
+{
+    return widget != nullptr && widget->parent() == nullptr
+        ? widget : QPointer<QWidget>{};
+}
+
 } // namespace
+
+/** @brief 描述内容是否已归还，以及固定 frame 是否满足安全删除后置条件。 */
+struct ZzPanelContentRelease final
+{
+    QPointer<QWidget> content;
+    bool frameCanBeDeleted = true;
+};
 
 /** @brief 固定持有标题、缓存图标、关闭按钮和单个内容页面。 */
 class ZzPanelFrame final : public QWidget
@@ -88,6 +102,11 @@ public:
         refreshVisuals();
     }
 
+    ~ZzPanelFrame() override
+    {
+        QObject::disconnect(retainedBranchDestroyedConnection_);
+    }
+
     [[nodiscard]] ZzIconButton *closeButton() const noexcept
     {
         return closeButton_;
@@ -108,33 +127,46 @@ public:
         refreshIcon();
     }
 
-    /** @brief 归还直接持有的内容，或脱离仍包含第三方 owner 的框架分支。 */
-    [[nodiscard]] QWidget *releaseContent()
+    /** @brief 归还直接持有的内容，并明确报告 frame 是否可安全删除。 */
+    [[nodiscard]] ZzPanelContentRelease releaseContent()
     {
         if (content_ == nullptr) {
-            return nullptr;
+            return {};
         }
+        QPointer<ZzPanelFrame> frameGuard(this);
         QPointer<QWidget> contentGuard(content_);
         content_ = nullptr;
-        if (contentGuard->parentWidget() != this) {
-            QWidget *foreignBranch = contentGuard->parentWidget();
-            if (foreignBranch != nullptr && isAncestorOf(foreignBranch)) {
-                while (foreignBranch->parentWidget() != this) {
-                    foreignBranch = foreignBranch->parentWidget();
-                }
-                foreignBranch->setParent(nullptr);
-            }
-            return nullptr;
+        if (contentGuard->parent() == this) {
+            layout()->removeWidget(contentGuard);
+            contentGuard->setParent(nullptr);
         }
-        layout()->removeWidget(contentGuard);
-        contentGuard->setParent(nullptr);
-        if (contentGuard == nullptr || contentGuard->parent() != nullptr) {
-            return nullptr;
+        if (frameGuard == nullptr) {
+            return {zzUnownedWidget(contentGuard), false};
         }
-        return contentGuard.data();
+        if (contentGuard == nullptr) {
+            return {};
+        }
+
+        QWidget *const foreignBranch = frameBranchFor(contentGuard);
+        if (foreignBranch == nullptr) {
+            return {zzUnownedWidget(contentGuard), true};
+        }
+
+        retainForeignBranch(foreignBranch, contentGuard);
+        return {{}, false};
     }
 
 protected:
+    void childEvent(QChildEvent *event) override
+    {
+        const bool retainedBranchRemoved = event != nullptr && event->removed()
+            && event->child() == retainedForeignBranch_.data();
+        QWidget::childEvent(event);
+        if (retainedBranchRemoved) {
+            scheduleRetainedFrameCleanup();
+        }
+    }
+
     void changeEvent(QEvent *event) override
     {
         QWidget::changeEvent(event);
@@ -157,6 +189,91 @@ protected:
     }
 
 private:
+    [[nodiscard]] QWidget *frameBranchFor(QWidget *widget) const noexcept
+    {
+        QWidget *branch = widget;
+        QObject *owner = widget != nullptr ? widget->parent() : nullptr;
+        while (owner != nullptr) {
+            if (owner == this) {
+                return branch;
+            }
+            auto *const widgetOwner = qobject_cast<QWidget *>(owner);
+            if (widgetOwner == nullptr) {
+                return nullptr;
+            }
+            branch = widgetOwner;
+            owner = widgetOwner->parent();
+        }
+        return nullptr;
+    }
+
+    void observeRetainedBranch(QWidget *branch)
+    {
+        QObject::disconnect(retainedBranchDestroyedConnection_);
+        retainedForeignBranch_ = branch;
+        retainedBranchDestroyedConnection_ = QObject::connect(
+            retainedForeignBranch_, &QObject::destroyed, this,
+            [this] { scheduleRetainedFrameCleanup(); });
+    }
+
+    void retainForeignBranch(QWidget *branch, QWidget *content)
+    {
+        retainedContent_ = content;
+        observeRetainedBranch(branch);
+
+        QPointer<ZzPanelFrame> frameGuard(this);
+        hide();
+        if (frameGuard == nullptr) {
+            return;
+        }
+        setParent(nullptr);
+        if (frameGuard == nullptr) {
+            return;
+        }
+        hide();
+        if (frameGuard == nullptr) {
+            return;
+        }
+    }
+
+    void scheduleRetainedFrameCleanup()
+    {
+        if (retainedCleanupScheduled_) {
+            return;
+        }
+        retainedCleanupScheduled_ = true;
+        const QPointer<ZzPanelFrame> frameGuard(this);
+        static_cast<void>(QMetaObject::invokeMethod(
+            this,
+            [frameGuard] {
+                if (frameGuard != nullptr) {
+                    frameGuard->cleanupRetainedFrame();
+                }
+            },
+            Qt::QueuedConnection));
+    }
+
+    void cleanupRetainedFrame()
+    {
+        retainedCleanupScheduled_ = false;
+        QWidget *const currentContentBranch = frameBranchFor(retainedContent_);
+        if (currentContentBranch != nullptr) {
+            if (currentContentBranch != retainedForeignBranch_) {
+                observeRetainedBranch(currentContentBranch);
+            }
+            return;
+        }
+        if (retainedForeignBranch_ != nullptr
+            && frameBranchFor(retainedForeignBranch_) != nullptr) {
+            return;
+        }
+
+        QObject::disconnect(retainedBranchDestroyedConnection_);
+        retainedContent_ = nullptr;
+        retainedForeignBranch_ = nullptr;
+        deleteLater();
+    }
+
     void refreshVisuals()
     {
         const std::shared_ptr<const ZzThemeSnapshot> snapshot =
@@ -218,6 +335,10 @@ private:
     ZzIconButton *closeButton_ = nullptr;
     ZzIconDescriptor icon_;
     ZzWidgetTheme theme_;
+    QPointer<QWidget> retainedContent_;
+    QPointer<QWidget> retainedForeignBranch_;
+    QMetaObject::Connection retainedBranchDestroyedConnection_;
+    bool retainedCleanupScheduled_ = false;
 };
 
 ZzPanelStackPrivate::ZzPanelStackPrivate(ZzPanelStack *publicObject)
@@ -320,26 +441,26 @@ QWidget *ZzPanelStackPrivate::takePanel(QWidget *content)
     QObject::disconnect(record.destroyedConnection);
     QPointer<ZzPanelStack> stackGuard(q_ptr);
     QPointer<ZzPanelFrame> frameGuard(record.frame);
-    QPointer<QWidget> releasedContent;
+    ZzPanelContentRelease release;
     if (frameGuard != nullptr) {
-        releasedContent = frameGuard->releaseContent();
+        release = frameGuard->releaseContent();
     }
     if (stackGuard == nullptr) {
-        return releasedContent.data();
+        return release.content.data();
     }
-    if (frameGuard != nullptr) {
+    if (frameGuard != nullptr && release.frameCanBeDeleted) {
         delete frameGuard.data();
     }
     if (stackGuard == nullptr) {
-        return releasedContent.data();
+        return release.content.data();
     }
     applyRememberedSizes();
     if (wasCurrent) {
         if (!updateCurrentPanel(firstVisiblePanel())) {
-            return releasedContent.data();
+            return release.content.data();
         }
     }
-    return releasedContent.data();
+    return release.content.data();
 }
 
 QList<QWidget *> ZzPanelStackPrivate::allPanels() const
