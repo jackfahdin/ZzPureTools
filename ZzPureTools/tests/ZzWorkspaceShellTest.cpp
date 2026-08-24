@@ -3243,6 +3243,99 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary);
     }
 
+    void activityMoveRejectsFinalSizesActivityStateOverride()
+    {
+        ZzShellFixture fixture;
+        auto moved = std::make_unique<QWidget>();
+        auto stayed = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("moved"), QStringLiteral("Moved"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("stayed"), QStringLiteral("Stayed"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, stayed.get()));
+        zzReleaseAfterAdoption(stayed);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QAbstractItemModel *const model = leftBar->model();
+        const QModelIndex originalRightCurrent =
+            rightBar->currentSourceIndex();
+        const QList<QModelIndex> originalRightActive =
+            rightBar->activeSourceIndexes();
+        QVERIFY(leftPane->panelStack()->setPanelSizes({123}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
+        bool callbackEntered = false;
+        QObject::connect(
+            rightPane->panelStack(),
+            &ZzFluentUI::ZzPanelStack::panelSizesChanged,
+            fixture.shell.get(), [&](const QList<int> &sizes) {
+                if (callbackEntered || sizes != QList<int>({123, 789})) {
+                    return;
+                }
+                callbackEntered = true;
+                rightBar->setCurrentSourceIndex(model->index(0, 0));
+                rightBar->setActiveSourceIndexes({model->index(0, 0)});
+            });
+
+        Q_EMIT leftBar->moveRequested(
+            model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            0);
+
+        QVERIFY(callbackEntered);
+        QCOMPARE(rightBar->currentSourceIndex(), originalRightCurrent);
+        QCOMPARE(rightBar->activeSourceIndexes(), originalRightActive);
+        QCOMPARE(
+            model->index(0, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary);
+    }
+
+    void activityMoveSynchronizesEdgeVisibilityBothDirections()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("only"), QStringLiteral("Only"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QAbstractItemModel *const model = leftBar->model();
+
+        QVERIFY(!leftBar->isHidden());
+        QVERIFY(rightBar->isHidden());
+        Q_EMIT leftBar->moveRequested(
+            model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            0);
+        QVERIFY(leftBar->isHidden());
+        QVERIFY(!rightBar->isHidden());
+
+        Q_EMIT rightBar->moveRequested(
+            model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            0);
+        QVERIFY(!leftBar->isHidden());
+        QVERIFY(rightBar->isHidden());
+        QCOMPARE(
+            fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                ->currentWidget(),
+            contentRaw);
+    }
+
     void activityMoveRejectsThirdPartyOwnerAfterFinalSizesSignal()
     {
         ZzShellFixture fixture;
@@ -4678,6 +4771,57 @@ private Q_SLOTS:
             target.shell->titleMode(),
             ZzPureTools::ZzWorkspaceTitleMode::Application);
         QCOMPARE(target.host.windowTitle(), QStringLiteral("Application"));
+    }
+
+    void restoreRejectsTitleSinksOverwrittenWithinCommit()
+    {
+        ZzShellFixture source;
+        source.shell->setApplicationTitle(QStringLiteral("Application"));
+        source.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::Custom);
+        source.shell->setCustomTitle(QStringLiteral("Requested"));
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        target.shell->setApplicationTitle(QStringLiteral("Before"));
+        target.shell->setCustomTitle(QStringLiteral("Before custom"));
+        target.shell->setTitleMode(
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+        bool callbackEntered = false;
+        QObject::connect(
+            &target.host, &QWidget::windowTitleChanged,
+            target.shell.get(), [&](const QString &) {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                target.host.setWindowTitle(QStringLiteral("Polluted host"));
+                target.titleBar.setTitle(QStringLiteral("Polluted bar"));
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(target.host.windowTitle(), QStringLiteral("Before"));
+        QCOMPARE(target.titleBar.title(), QStringLiteral("Before"));
+        QCOMPARE(
+            target.shell->titleMode(),
+            ZzPureTools::ZzWorkspaceTitleMode::Application);
+    }
+
+    void restoresLayoutWithoutOptionalTitleBar()
+    {
+        QMainWindow host;
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr);
+        QVERIFY(created);
+        std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell =
+            std::move(created).value();
+        const auto saved = shell->saveLayout();
+        QVERIFY(saved);
+        QVERIFY(shell->restoreLayout(saved.value()));
     }
 
     void rollbackReportsDeletedBottomContent()

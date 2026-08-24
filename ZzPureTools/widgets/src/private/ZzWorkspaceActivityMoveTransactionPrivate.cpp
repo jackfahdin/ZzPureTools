@@ -697,6 +697,86 @@ void zzCaptureSide(
             shell, projection, index, projection.rightSide, includeSizes);
 }
 
+[[nodiscard]] bool zzActivityProjectionMatches(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const QStringList &modelOrder)
+{
+    if (shell.activityModel == nullptr
+        || shell.leftActivityBar == nullptr
+        || shell.rightActivityBar == nullptr) {
+        return false;
+    }
+    const QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> rows =
+        shell.activityRows();
+    if (rows.size() != modelOrder.size()) {
+        return false;
+    }
+    QStringList actualOrder;
+    actualOrder.reserve(rows.size());
+    QHash<QString, ZzFluentUI::ZzActivityArea> actualAreas;
+    for (const auto &row : rows) {
+        const QString id = row.id.value();
+        if (id.isEmpty() || actualAreas.contains(id)) {
+            return false;
+        }
+        actualOrder.append(id);
+        actualAreas.insert(id, row.area);
+    }
+    if (actualOrder != modelOrder) {
+        return false;
+    }
+    const auto rowsForArea = [&actualAreas, &actualOrder](
+                                  ZzFluentUI::ZzActivityArea area) {
+        QStringList result;
+        for (const QString &id : actualOrder) {
+            if (actualAreas.value(id) == area) {
+                result.append(id);
+            }
+        }
+        return result;
+    };
+    if (rowsForArea(ZzFluentUI::ZzActivityArea::LeftPrimary)
+            != projection.activity.leftPrimary
+        || rowsForArea(ZzFluentUI::ZzActivityArea::LeftSecondary)
+            != projection.activity.leftSecondary
+        || rowsForArea(ZzFluentUI::ZzActivityArea::RightPrimary)
+            != projection.activity.rightPrimary
+        || rowsForArea(ZzFluentUI::ZzActivityArea::RightSecondary)
+            != projection.activity.rightSecondary) {
+        return false;
+    }
+    const auto idAt = [&rows, model = shell.activityModel](
+                          const QModelIndex &index) {
+        return index.isValid() && index.model() == model && index.row() >= 0
+                && index.row() < rows.size()
+            ? rows.at(index.row()).id.value() : QString{};
+    };
+    const auto activeIds = [&idAt](
+                               const QList<QModelIndex> &indexes,
+                               QSet<QString> *ids) {
+        ids->clear();
+        for (const QModelIndex &index : indexes) {
+            const QString id = idAt(index);
+            if (id.isEmpty()) {
+                return false;
+            }
+            ids->insert(id);
+        }
+        return true;
+    };
+    QSet<QString> leftActive;
+    QSet<QString> rightActive;
+    return idAt(shell.leftActivityBar->currentSourceIndex())
+            == projection.activity.leftCurrent
+        && idAt(shell.rightActivityBar->currentSourceIndex())
+            == projection.activity.rightCurrent
+        && activeIds(shell.leftActivityBar->activeSourceIndexes(), &leftActive)
+        && activeIds(shell.rightActivityBar->activeSourceIndexes(), &rightActive)
+        && leftActive == projection.activity.leftActive
+        && rightActive == projection.activity.rightActive;
+}
+
 [[nodiscard]] ZzFluentUI::ZzSidePane *zzLivePane(
     ZzWorkspaceShellPrivate &shell,
     const ZzSide &side)
@@ -1246,9 +1326,19 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         || !applySizes(projection.rightSide, rightPane.data())) {
         return false;
     }
+    shell_.syncSideEdgeVisibility();
     if (strict) {
         return mutationObserver.isValid()
-            && zzProjectionMatches(shell_, projection, audit, true);
+            && zzProjectionMatches(shell_, projection, audit, true)
+            && zzActivityProjectionMatches(shell_, projection, modelOrder)
+            && ((shell_.leftActivityBar != nullptr
+                    && !shell_.leftActivityBar->isHidden())
+                == (!projection.activity.leftPrimary.isEmpty()
+                    || !projection.activity.leftSecondary.isEmpty()))
+            && ((shell_.rightActivityBar != nullptr
+                    && !shell_.rightActivityBar->isHidden())
+                == (!projection.activity.rightPrimary.isEmpty()
+                    || !projection.activity.rightSecondary.isEmpty()));
     }
     return complete;
 }

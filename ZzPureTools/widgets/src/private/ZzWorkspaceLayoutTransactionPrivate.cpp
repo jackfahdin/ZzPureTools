@@ -82,6 +82,34 @@ template<typename ZzValue>
     return static_cast<ZzWorkspaceTitleMode>(mode);
 }
 
+[[nodiscard]] QString zzEffectiveTitle(
+    const ZzWorkspaceShellPrivate &shell)
+{
+    QString pageTitle;
+    if (shell.activeTabs != nullptr
+        && shell.activeTabs->currentWidget() != nullptr) {
+        pageTitle = shell.activeTabs->currentWidget()->windowTitle();
+        if (pageTitle.isEmpty()) {
+            pageTitle = shell.activeTabs->tabText(
+                shell.activeTabs->currentIndex());
+        }
+    }
+    switch (shell.titleMode) {
+    case ZzWorkspaceTitleMode::Application:
+        return shell.applicationTitle;
+    case ZzWorkspaceTitleMode::CurrentTab:
+        return pageTitle.isEmpty() ? shell.applicationTitle : pageTitle;
+    case ZzWorkspaceTitleMode::CurrentTabAndApplication:
+        if (pageTitle.isEmpty()) return shell.applicationTitle;
+        if (shell.applicationTitle.isEmpty()) return pageTitle;
+        return pageTitle + QStringLiteral(" - ") + shell.applicationTitle;
+    case ZzWorkspaceTitleMode::Custom:
+        return shell.customTitle.isEmpty()
+            ? shell.applicationTitle : shell.customTitle;
+    }
+    return {};
+}
+
 [[nodiscard]] ZzLayoutState::ZzSubsystemIdentity zzIdentity(
     QObject *object)
 {
@@ -98,6 +126,7 @@ struct ZzRuntimeGuards final
     QPointer<ZzFluentUI::ZzActivityBar> leftActivity;
     QPointer<ZzFluentUI::ZzActivityBar> rightActivity;
     QPointer<QAbstractListModel> activityModel;
+    QPointer<ZzFluentUI::ZzFluentTitleBar> titleBar;
 };
 
 struct ZzRuntimeSnapshot final
@@ -270,7 +299,7 @@ void zzCaptureSideRuntime(
     result.guards = {
         shell.host, shell.splitWorkspace, shell.leftSidePane,
         shell.rightSidePane, shell.bottomPane, shell.leftActivityBar,
-        shell.rightActivityBar, shell.activityModel};
+        shell.rightActivityBar, shell.activityModel, shell.titleBar};
 
     QHash<QWidget *, QString> ids;
     ids.reserve(shell.panels.size());
@@ -403,7 +432,8 @@ void zzCaptureSideRuntime(
         && guards.rightActivity != nullptr
         && guards.rightActivity == shell.rightActivityBar
         && guards.activityModel != nullptr
-        && guards.activityModel == shell.activityModel;
+        && guards.activityModel == shell.activityModel
+        && guards.titleBar == shell.titleBar;
 }
 
 [[nodiscard]] bool zzStablePanels(
@@ -670,7 +700,11 @@ void zzCaptureSideRuntime(
             shell, runtime, expected.rightSide, shell.rightSidePane, indexes)
         && zzAuditBottom(shell, runtime, expected.bottom, indexes)
         && zzAuditActivity(shell, expected.activity, indexes)
-        && shell.titleMode == zzTitleMode(expected.title.mode);
+        && shell.titleMode == zzTitleMode(expected.title.mode)
+        && shell.host != nullptr
+        && shell.host->windowTitle() == zzEffectiveTitle(shell)
+        && (shell.titleBar == nullptr
+            || shell.titleBar->title() == zzEffectiveTitle(shell));
 }
 
 [[nodiscard]] bool zzBuildDockTarget(
@@ -1306,7 +1340,11 @@ zzRowsForTarget(const ZzProjection &target)
     shell.titleMode = zzTitleMode(target.title.mode);
     shell.refreshCurrentTabConnection();
     return zzStableGuards(shell, runtime.guards)
-        && shell.titleMode == zzTitleMode(target.title.mode);
+        && shell.titleMode == zzTitleMode(target.title.mode)
+        && shell.host != nullptr
+        && shell.host->windowTitle() == zzEffectiveTitle(shell)
+        && (shell.titleBar == nullptr
+            || shell.titleBar->title() == zzEffectiveTitle(shell));
 }
 
 /** @brief 回滚后按实际合法 owner 修复 Activity；第三方 owner 只清注册。 */
@@ -1490,6 +1528,12 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     ZzLayoutState::ZzLayoutRequest request = std::move(decoded).value();
     const bool versionOne = request.sourceSchema
         == ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
+    if (versionOne && request.projection.has_value()) {
+        const ZzLayoutState::ZzTitleProjection requestedTitle =
+            request.projection->title;
+        request.projection->title = snapshot.projection.title;
+        request.projection->title.mode = requestedTitle.mode;
+    }
     const int migrationCurrent = versionOne
         ? request.projection->split.root.currentIndex : -1;
     const QString migrationGroup = versionOne
