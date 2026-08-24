@@ -128,6 +128,51 @@ private:
     bool *reattached_ = nullptr;
 };
 
+/** @brief 首次离开捕获 frame 时排队回挂，用于覆盖 DeferredDelete 前重入。 */
+class ZzQueuedReattachingOwner final : public QWidget
+{
+public:
+    ZzQueuedReattachingOwner(
+        QWidget *frame,
+        QObject *reattachContext,
+        bool *reattachQueued)
+        : QWidget(frame)
+        , frame_(frame)
+        , reattachContext_(reattachContext)
+        , reattachQueued_(reattachQueued)
+    {
+    }
+
+protected:
+    bool event(QEvent *event) override
+    {
+        const bool handled = QWidget::event(event);
+        if (event == nullptr || event->type() != QEvent::ParentChange
+            || parentWidget() == frame_ || frame_ == nullptr
+            || reattachContext_ == nullptr || reattachQueued_ == nullptr
+            || *reattachQueued_) {
+            return handled;
+        }
+
+        const QPointer<QWidget> ownerGuard(this);
+        const QPointer<QWidget> frameGuard(frame_);
+        *reattachQueued_ = QMetaObject::invokeMethod(
+            reattachContext_,
+            [ownerGuard, frameGuard] {
+                if (ownerGuard != nullptr && frameGuard != nullptr) {
+                    ownerGuard->setParent(frameGuard);
+                }
+            },
+            Qt::QueuedConnection);
+        return handled;
+    }
+
+private:
+    QPointer<QWidget> frame_;
+    QPointer<QObject> reattachContext_;
+    bool *reattachQueued_ = nullptr;
+};
+
 [[nodiscard]] ZzPureTools::ZzWorkspacePanelId zzPanelId(
     const char *value)
 {
@@ -2384,6 +2429,161 @@ private Q_SLOTS:
         delete thirdPartyOwner.data();
         primary.reset(survivingPrimary);
         QTRY_VERIFY(frameOwner.isNull());
+    }
+
+    void sideRegistrationEscrowSurvivesQueuedOwnerReattachment()
+    {
+        ZzShellFixture fixture;
+        auto secondary = std::make_unique<QWidget>();
+        auto primary = std::make_unique<QWidget>();
+        QWidget *const secondaryRaw = secondary.get();
+        QWidget *const primaryRaw = primary.get();
+        QPointer<QWidget> primaryGuard(primaryRaw);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("secondary"), QStringLiteral("Secondary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, secondary.get()));
+        zzReleaseAfterAdoption(secondary);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> frameOwner;
+        QPointer<ZzQueuedReattachingOwner> thirdPartyOwner;
+        bool reattachQueued = false;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *moved, int) {
+                if (moved != primaryRaw) {
+                    return;
+                }
+                frameOwner = primaryRaw->parentWidget();
+                if (frameOwner == nullptr) {
+                    return;
+                }
+                thirdPartyOwner = new ZzQueuedReattachingOwner(
+                    frameOwner, fixture.shell.get(), &reattachQueued);
+                primaryRaw->setParent(thirdPartyOwner);
+                static_cast<void>(primary.release());
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
+        if (primary != nullptr && primaryGuard != nullptr
+            && primaryGuard->parent() != nullptr) {
+            static_cast<void>(primary.release());
+        }
+
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(frameOwner != nullptr);
+        QVERIFY(thirdPartyOwner != nullptr);
+        QVERIFY(primaryGuard != nullptr);
+        QCOMPARE(primaryGuard->parentWidget(), thirdPartyOwner.data());
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QCOMPARE(fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 1);
+        QVERIFY(fixture.shell->saveLayout());
+
+        QWidget outsideOwner;
+        thirdPartyOwner->setParent(&outsideOwner);
+        QVERIFY(reattachQueued);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QVERIFY(frameOwner != nullptr);
+        QVERIFY(thirdPartyOwner != nullptr);
+        QVERIFY(primaryGuard != nullptr);
+        QCOMPARE(thirdPartyOwner->parentWidget(), frameOwner.data());
+        QCOMPARE(primaryGuard->parentWidget(), thirdPartyOwner.data());
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QCOMPARE(fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 1);
+        QVERIFY(fixture.shell->saveLayout());
+
+        thirdPartyOwner->setParent(&outsideOwner);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(frameOwner.isNull());
+        QVERIFY(thirdPartyOwner != nullptr);
+        QVERIFY(primaryGuard != nullptr);
+        QCOMPARE(thirdPartyOwner->parentWidget(), &outsideOwner);
+        QCOMPARE(primaryGuard->parentWidget(), thirdPartyOwner.data());
+
+        QWidget *const survivingPrimary = primaryGuard.data();
+        survivingPrimary->setParent(nullptr);
+        delete thirdPartyOwner.data();
+        primary.reset(survivingPrimary);
+    }
+
+    void sideRegistrationEscrowReclaimsFrameAfterOwnerLeaves()
+    {
+        ZzShellFixture fixture;
+        auto secondary = std::make_unique<QWidget>();
+        auto primary = std::make_unique<QWidget>();
+        QWidget *const secondaryRaw = secondary.get();
+        QWidget *const primaryRaw = primary.get();
+        QPointer<QWidget> primaryGuard(primaryRaw);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("secondary"), QStringLiteral("Secondary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, secondary.get()));
+        zzReleaseAfterAdoption(secondary);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> frameOwner;
+        QPointer<QWidget> thirdPartyOwner;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *moved, int) {
+                if (moved != primaryRaw) {
+                    return;
+                }
+                frameOwner = primaryRaw->parentWidget();
+                if (frameOwner == nullptr) {
+                    return;
+                }
+                thirdPartyOwner = new QWidget(frameOwner);
+                primaryRaw->setParent(thirdPartyOwner);
+                static_cast<void>(primary.release());
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
+        if (primary != nullptr && primaryGuard != nullptr
+            && primaryGuard->parent() != nullptr) {
+            static_cast<void>(primary.release());
+        }
+
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(frameOwner != nullptr);
+        QVERIFY(thirdPartyOwner != nullptr);
+        QVERIFY(primaryGuard != nullptr);
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QCOMPARE(fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 1);
+        QVERIFY(fixture.shell->saveLayout());
+
+        QWidget outsideOwner;
+        thirdPartyOwner->setParent(&outsideOwner);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::MetaCall);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QVERIFY(frameOwner.isNull());
+        QVERIFY(thirdPartyOwner != nullptr);
+        QVERIFY(primaryGuard != nullptr);
+        QCOMPARE(thirdPartyOwner->parentWidget(), &outsideOwner);
+        QCOMPARE(primaryGuard->parentWidget(), thirdPartyOwner.data());
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QCOMPARE(fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 1);
+        QVERIFY(fixture.shell->saveLayout());
+
+        QWidget *const survivingPrimary = primaryGuard.data();
+        survivingPrimary->setParent(nullptr);
+        delete thirdPartyOwner.data();
+        primary.reset(survivingPrimary);
     }
 
     void panelStackTakeDoesNotReturnContentWithQObjectOwner()
