@@ -1,6 +1,6 @@
 # Task 9R order and planner linearization report
 
-报告 HEAD：`bee5e5be8f8f4d1c861840fc86c2b8a9bbecffd4`。最终实现者重跑日期：2026-08-24，Linux / GCC 15.2 / Clang 20.1.8 / Qt 6.11.1。早先性能与门禁重跑前 `git status --short --branch`、`git diff --check 91040df..HEAD` 均退出 0；工作树干净，未触碰主工作树或 `temp_image/`。本报告最终审查范围与 diff 为 `91040df..bee5e5b`。
+报告 HEAD：`9535a8ce1ffaea5e1a9d5872a295b6bc91194a25`。早先 order/planner 性能门禁重跑日期为 2026-08-24，Linux / GCC 15.2 / Clang 20.1.8 / Qt 6.11.1；其 `91040df..bee5e5b` 审查证据和值保持不变。2026-08-25 的最终分支复审与控制者验证以 `8515520..9535a8c` 为静态 diff 范围；工作树干净，未触碰主工作树或 `temp_image/`。
 
 ## Commits
 
@@ -19,6 +19,8 @@
 - `2844f7f 测试：覆盖托管框架排队回挂窗口`
 - `4309507 测试：完整冲刷托管终结事件`
 - `bee5e5b 修复：原子终结侧栏托管框架`
+- `ff06fdf 修复：审计活动行移除后的侧栏重入`
+- `9535a8c 修复：重审失败回滚后的侧栏同步`
 
 `91040df..bee5e5b` 还包含与这些实现对应的中文设计/计划提交。`git diff --stat` 为 17 files changed、4224 insertions、268 deletions；代码范围是 ActivityBar、WorkspaceShell、LayoutState、ActivityMoveTransaction、PanelStack 及其测试，另含计划列出的 docs。
 
@@ -143,6 +145,20 @@ Windows/MSVC：未运行。Qt SDK MinGW：未运行。macOS/AppleClang：未运�
 
 实现者最终验证（不替代独立审查）为：ownership/rollback/take 聚焦 15/15、`fluent.panel-stack`/`fluent.side-pane` 2/2、完整 `ZzWorkspaceShellTest` 157/157、`puretools.workspace-shell` 1/1；静态扫描及 `git show --check` clean。早先性能数值与 GCC Debug/Release/static 门禁证据保持如下，未因后续 owner/rollback 修复而重写。
 
+## Final branch review closure
+
+第三波 `ff06fdf` 关闭了 `rowsRemoved` 精确重入缺口；其定向复审发现新的 Important：registry 在 edge visibility、current、active 同步前已被擦除。第四波 `9535a8c` 以逻辑待删候选、每轮一个 setter、每个 setter 返回后的全局重审及最终无 signal 的 erase 收口；`collapsedChanged` 和 `currentSourceIndexChanged` 两条真实 RED 均转 GREEN。
+
+原终审者对 `9535a8c` 独立复审：erase-after-sync 为 ADDRESSED；collapse/current/active setter 均发生在 erase 前，任一 setter 变异后会进入下一轮完整审计；24 轮耗尽时 fail-closed 且不 erase。复审没有新 Critical、Important 或 Minor，允许关闭全部 Final Important。`active` 没有单独的动态重入用例是范围外观察，生产路径与同类 setter 静态等价；这不改变审查结论。没有第五波代码修复。
+
+### 控制者最终验证（2026-08-25）
+
+- `linux-gcc-debug` 配置退出 0，全默认目标增量构建退出 0；完整 Debug Shell 为 169/169，25.406 s；Debug Shell/state/codec CTest 为 3/3，26.02 s。
+- GCC Release 配置/构建退出 0，Shell/state CTest 为 2/2，21.47 s；static Release 配置/构建退出 0，Shell/state CTest 为 2/2，21.39 s。
+- 全量 Debug CTest 为 127/132，172.63 s；仅既有 workspace screenshot DPR 100/125/150/200 四项和既有 `OrderedPage` 缺 `Zz` 前缀的架构审计失败。当前配置默认未构建 examples，故分母为 132，不沿用早先 148。
+- Clang 20.1.8 Release 配置退出 0；单独 `ZzWorkspaceShellTest` 的生产与测试构建退出 0、运行 169/169，21.319 s。联合 Shell/state/codec 构建仍在 `ZzWorkspaceLayoutStatePrivateTest.cpp:678,754` 的两处既有 `optional::emplace()` 停止，不归因本分支。
+- 静态扫描确认 changed public include diff 为空，schema 1/2 与 Qt Dock state version 未改；namespace shorthand、Qt private header、stylesheet、compiler extension 均无匹配；`git diff --check 8515520..HEAD` clean。
+
 ## Remaining parked findings
 
 - private codec 测试尚未断言 InvalidArgument/InvalidState/Io error-code mapping（Minor）。
@@ -152,4 +168,4 @@ Windows/MSVC：未运行。Qt SDK MinGW：未运行。macOS/AppleClang：未运�
 - ASan Shell 基线资源测试第 2863 行悬空 `QWidget*` 比较/格式化崩溃。
 - 既有 4 个 workspace screenshot 目标和 `OrderedPage` 架构命名失败。
 - 初始独立审查的 Activity 性能门禁 Minor 仍延后：计时后没有逐次断言 `current`/`active`，不能表述为全部历史 Minor 已修。
-- Windows/MSVC、Qt SDK MinGW、macOS/AppleClang 均未运行；只有源码静态可移植性检查，不宣称这些平台或 ASan/UBSan 已通过。
+- Windows/MSVC、Qt SDK MinGW、macOS/AppleClang、ASan、clang-tidy 均未运行；只有源码静态可移植性检查，不宣称这些平台或工具已通过。
