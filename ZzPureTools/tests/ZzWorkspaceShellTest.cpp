@@ -2089,26 +2089,66 @@ private Q_SLOTS:
         const auto baselineResources = resources();
         const QList<QWidget *> baselineLeft = leftPane->visibleWidgets();
         const QList<QWidget *> baselineRight = rightPane->visibleWidgets();
+        const QList<QWidget *> baselineLeftPanels =
+            leftPane->panelStack()->panels();
+        const QList<QWidget *> baselineRightPanels =
+            rightPane->panelStack()->panels();
         const QList<QWidget *> baselineParents{
             leftFirstRaw->parentWidget(), leftSecondRaw->parentWidget(),
             rightRaw->parentWidget()};
         const int baselineLeftRows = leftModel->rowCount();
         const int baselineRightRows = rightModel->rowCount();
+        const auto activityTitles = [&] {
+            QStringList titles;
+            for (QAbstractItemModel *const model : {leftModel, rightModel}) {
+                for (int row = 0; row < model->rowCount(); ++row) {
+                    titles.append(model->index(row, 0).data().toString());
+                }
+            }
+            std::sort(titles.begin(), titles.end());
+            return titles;
+        };
+        const QStringList baselineActivityTitles = activityTitles();
 
         for (int iteration = 0; iteration < 1000; ++iteration) {
             Q_EMIT leftBar->moveRequested(
                 leftModel->index(0, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
+            QCOMPARE(leftPane->visibleWidgets(),
+                QList<QWidget *>({leftSecondRaw, leftFirstRaw}));
+            QCOMPARE(leftPane->panelStack()->panels(),
+                QList<QWidget *>({leftSecondRaw, leftFirstRaw}));
+            QCOMPARE(rightPane->panelStack()->panels(), baselineRightPanels);
+            QVERIFY(leftPane->isAncestorOf(leftFirstRaw));
+            QVERIFY(leftPane->isAncestorOf(leftSecondRaw));
+            QVERIFY(rightPane->isAncestorOf(rightRaw));
             Q_EMIT leftBar->moveRequested(
                 leftModel->index(1, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+            QCOMPARE(leftPane->visibleWidgets(), baselineLeft);
+            QCOMPARE(leftPane->panelStack()->panels(), baselineLeftPanels);
             Q_EMIT leftBar->moveRequested(
                 leftModel->index(0, 0),
                 ZzFluentUI::ZzActivityArea::RightPrimary,
                 rightModel->rowCount());
+            QCOMPARE(leftPane->visibleWidgets(),
+                QList<QWidget *>({leftSecondRaw}));
+            QCOMPARE(rightPane->visibleWidgets(),
+                QList<QWidget *>({rightRaw, leftFirstRaw}));
+            QCOMPARE(leftPane->panelStack()->panels(),
+                QList<QWidget *>({leftSecondRaw}));
+            QCOMPARE(rightPane->panelStack()->panels(),
+                QList<QWidget *>({rightRaw, leftFirstRaw}));
+            QVERIFY(!leftPane->isAncestorOf(leftFirstRaw));
+            QVERIFY(rightPane->isAncestorOf(leftFirstRaw));
             Q_EMIT rightBar->moveRequested(
                 rightModel->index(rightModel->rowCount() - 1, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+            QCOMPARE(leftPane->visibleWidgets(), baselineLeft);
+            QCOMPARE(rightPane->visibleWidgets(), baselineRight);
+            QCOMPARE(leftPane->panelStack()->panels(), baselineLeftPanels);
+            QCOMPARE(rightPane->panelStack()->panels(), baselineRightPanels);
+            QCOMPARE(activityTitles(), baselineActivityTitles);
         }
 
         QCOMPARE(resources(), baselineResources);
@@ -2116,6 +2156,9 @@ private Q_SLOTS:
         QCOMPARE(rightPane->visibleWidgets(), baselineRight);
         QCOMPARE(leftModel->rowCount(), baselineLeftRows);
         QCOMPARE(rightModel->rowCount(), baselineRightRows);
+        QCOMPARE(leftPane->panelStack()->panels(), baselineLeftPanels);
+        QCOMPARE(rightPane->panelStack()->panels(), baselineRightPanels);
+        QCOMPARE(activityTitles(), baselineActivityTitles);
         const QList<QWidget *> currentParents{
             leftFirstRaw->parentWidget(), leftSecondRaw->parentWidget(),
             rightRaw->parentWidget()};
@@ -2126,6 +2169,7 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-first"), 1));
         QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-second"), 2));
         QVERIFY(fixture.shell->setPanelBadge(zzPanelId("right"), 3));
+        QVERIFY(!fixture.shell->setPanelBadge(zzPanelId("ghost"), 1));
         QVERIFY(fixture.shell->showPanel(zzPanelId("left-first"), true));
         QVERIFY(fixture.shell->showPanel(zzPanelId("left-second"), true));
         QVERIFY(fixture.shell->showPanel(zzPanelId("right"), true));
@@ -2134,8 +2178,39 @@ private Q_SLOTS:
     void keepsObjectBudgetStableAcrossRepeatedTransactions()
     {
         ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QWidget *const firstRaw = first.get();
+        QWidget *const secondRaw = second.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        pane->setPaneWidth(347);
+        Q_EMIT bar->moveRequested(
+            model->index(1, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("first"), true));
         const auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
+        const QList<QWidget *> expectedVisible{
+            secondRaw, firstRaw};
+        const QList<QWidget *> expectedPanels = pane->panelStack()->panels();
+        const QList<QWidget *> mutatedPanels{
+            firstRaw, secondRaw};
+        const int expectedWidth = pane->paneWidth();
+        QWidget *const expectedCurrent = pane->currentWidget();
+        const QStringList expectedTitles{
+            QStringLiteral("Second"), QStringLiteral("First")};
         const auto resources = [&fixture] {
             return std::tuple{
                 fixture.host.findChildren<QObject *>().size(),
@@ -2145,7 +2220,24 @@ private Q_SLOTS:
         const auto baselineResources = resources();
 
         for (int iteration = 0; iteration < 1000; ++iteration) {
+            pane->setPaneWidth(211);
+            Q_EMIT bar->moveRequested(
+                model->index(0, 0),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
+            QVERIFY(fixture.shell->showPanel(zzPanelId("first"), false));
+            QCOMPARE(pane->paneWidth(), 211);
+            QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({secondRaw}));
+            QCOMPARE(pane->panelStack()->panels(), mutatedPanels);
             QVERIFY(fixture.shell->restoreLayout(saved.value()));
+            QCOMPARE(pane->paneWidth(), expectedWidth);
+            QCOMPARE(pane->visibleWidgets(), expectedVisible);
+            QCOMPARE(pane->panelStack()->panels(), expectedPanels);
+            QCOMPARE(pane->currentWidget(), expectedCurrent);
+            QCOMPARE(model->rowCount(), 2);
+            QCOMPARE(model->index(0, 0).data().toString(), expectedTitles.at(0));
+            QCOMPARE(model->index(1, 0).data().toString(), expectedTitles.at(1));
+            QVERIFY(pane->isAncestorOf(firstRaw));
+            QVERIFY(pane->isAncestorOf(secondRaw));
         }
 
         QCOMPARE(resources(), baselineResources);
@@ -2165,6 +2257,21 @@ private Q_SLOTS:
 
         ZzShellFixture splitTarget;
         auto *const targetSplit = splitTarget.shell->splitWorkspace();
+        auto splitSentinel = std::make_unique<QWidget>();
+        QWidget *const splitSentinelRaw = splitSentinel.get();
+        QVERIFY(splitTarget.shell->registerSidePanel(
+            zzPanelId("split-sentinel"), QStringLiteral("Split sentinel"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+            splitSentinel.get()));
+        zzReleaseAfterAdoption(splitSentinel);
+        auto *const splitPane = splitTarget.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const splitBar = splitTarget.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        const QList<QWidget *> splitBaselinePanels =
+            splitPane->panelStack()->panels();
+        const QStringList splitBaselineTitles{
+            QStringLiteral("Split sentinel")};
         const QByteArray splitBefore = targetSplit->saveLayout();
         const auto splitResources = [&splitTarget] {
             return std::tuple{
@@ -2195,9 +2302,18 @@ private Q_SLOTS:
             QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
             QVERIFY(!armed);
             QCOMPARE(targetSplit->saveLayout(), splitBefore);
+            QCOMPARE(splitPane->panelStack()->panels(), splitBaselinePanels);
+            QCOMPARE(splitBar->model()->rowCount(), 1);
+            QCOMPARE(splitBar->model()->index(0, 0).data().toString(),
+                splitBaselineTitles.constFirst());
+            QVERIFY(splitPane->isAncestorOf(splitSentinelRaw));
             QCOMPARE(splitResources(), splitBaselineResources);
         }
         QCOMPARE(targetSplit->groupIds().size(), 1);
+        QVERIFY(splitTarget.shell->setPanelBadge(
+            zzPanelId("split-sentinel"), 11));
+        QVERIFY(!splitTarget.shell->setPanelBadge(
+            zzPanelId("split-ghost"), 11));
 
         ZzShellFixture sideSource;
         auto sourceSide = std::make_unique<QWidget>();
@@ -2222,6 +2338,10 @@ private Q_SLOTS:
         auto *const targetSideBar = sideTarget.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         const int sideRows = targetSideBar->model()->rowCount();
+        const QList<QWidget *> sideBaselinePanels =
+            targetSidePane->panelStack()->panels();
+        const QString sideBaselineTitle =
+            targetSideBar->model()->index(0, 0).data().toString();
         const auto sideResources = [&sideTarget] {
             return std::tuple{
                 sideTarget.host.findChildren<QObject *>().size(),
@@ -2252,10 +2372,15 @@ private Q_SLOTS:
                 ZzFluentUI::ZzSidePaneEdge::Left)->visibleWidgets(),
                 QList<QWidget *>({targetSideRaw}));
             QCOMPARE(targetSideBar->model()->rowCount(), sideRows);
+            QCOMPARE(targetSideBar->model()->index(0, 0).data().toString(),
+                sideBaselineTitle);
+            QCOMPARE(targetSidePane->panelStack()->panels(),
+                sideBaselinePanels);
             QVERIFY(targetSidePane->isAncestorOf(targetSideRaw));
             QCOMPARE(sideResources(), sideBaselineResources);
         }
         QVERIFY(sideTarget.shell->setPanelBadge(zzPanelId("side"), 7));
+        QVERIFY(!sideTarget.shell->setPanelBadge(zzPanelId("ghost"), 7));
         QVERIFY(sideTarget.shell->showPanel(zzPanelId("side"), true));
     }
 
