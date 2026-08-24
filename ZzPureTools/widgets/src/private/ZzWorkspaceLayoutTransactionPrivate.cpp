@@ -1562,6 +1562,12 @@ void zzSynchronizeAfterFailedRollback(
         ZzLayoutState::ZzPanelKind kind =
             ZzLayoutState::ZzPanelKind::Side;
     };
+    struct ZzPhysicalSideState final
+    {
+        qsizetype occurrences = 0;
+        QVector<QPointer<ZzFluentUI::ZzSidePane>> containingPanes;
+        QPointer<ZzFluentUI::ZzSidePane> validOwner;
+    };
     QHash<QString, int> currentPanelRows;
     currentPanelRows.reserve(shell.panels.size());
     for (qsizetype index = 0; index < shell.panels.size(); ++index) {
@@ -1618,9 +1624,10 @@ void zzSynchronizeAfterFailedRollback(
             }
         }
     }
-    for (const ZzRemoval &removal : std::as_const(removals)) {
+    const auto currentRowFor = [&shell](const ZzRemoval &removal) {
         const int row = shell.indexOf(removal.id);
         if (row < 0
+            || zzPanelKind(shell.panels.at(row).kind) != removal.kind
             || shell.panels.at(row).contentIdentity
                 != removal.contentIdentity
             || shell.panels.at(row).registrationGeneration
@@ -1630,18 +1637,122 @@ void zzSynchronizeAfterFailedRollback(
                 != removal.contentIdentity
             || removal.content == nullptr
             || removal.content.data() != removal.contentIdentity) {
+            return -1;
+        }
+        return row;
+    };
+    const auto inspectPhysicalSide = [&shell](const ZzRemoval &removal) {
+        ZzPhysicalSideState state;
+        state.containingPanes.reserve(2);
+        for (const QPointer<ZzFluentUI::ZzSidePane> &pane : {
+                 shell.leftSidePane, shell.rightSidePane}) {
+            if (pane == nullptr || pane->panelStack() == nullptr) {
+                continue;
+            }
+            ZzFluentUI::ZzPanelStack *const stack = pane->panelStack();
+            const qsizetype paneOccurrences =
+                stack->panels().count(removal.contentIdentity);
+            state.occurrences += paneOccurrences;
+            if (paneOccurrences <= 0) {
+                continue;
+            }
+            state.containingPanes.append(pane);
+            if (removal.content != nullptr
+                && removal.content.data() == removal.contentIdentity
+                && pane->isAncestorOf(removal.content)
+                && stack->isAncestorOf(removal.content)) {
+                state.validOwner = pane;
+            }
+        }
+        return state;
+    };
+    const auto preservePhysicalSide =
+        [&shell, &currentRowFor](const ZzRemoval &removal,
+            const ZzPhysicalSideState &state) {
+            if (state.occurrences != 1 || state.validOwner == nullptr) {
+                return false;
+            }
+            const int row = currentRowFor(removal);
+            if (row < 0) {
+                return false;
+            }
+            auto &record = shell.panels[row];
+            const bool secondary = record.activityArea
+                    == ZzFluentUI::ZzActivityArea::LeftSecondary
+                || record.activityArea
+                    == ZzFluentUI::ZzActivityArea::RightSecondary;
+            if (state.validOwner == shell.leftSidePane) {
+                record.activityArea = secondary
+                    ? ZzFluentUI::ZzActivityArea::LeftSecondary
+                    : ZzFluentUI::ZzActivityArea::LeftPrimary;
+                return true;
+            }
+            if (state.validOwner == shell.rightSidePane) {
+                record.activityArea = secondary
+                    ? ZzFluentUI::ZzActivityArea::RightSecondary
+                    : ZzFluentUI::ZzActivityArea::RightPrimary;
+                return true;
+            }
+            return false;
+        };
+    for (const ZzRemoval &removal : std::as_const(removals)) {
+        if (currentRowFor(removal) < 0) {
             continue;
         }
         if (removal.kind == ZzLayoutState::ZzPanelKind::Side) {
-            for (const QPointer<ZzFluentUI::ZzSidePane> &pane : {
-                     shell.leftSidePane, shell.rightSidePane}) {
-                if (pane != nullptr && pane->panelStack() != nullptr
-                    && pane->panelStack()->panels().contains(
-                        removal.contentIdentity)) {
-                    static_cast<void>(
-                        pane->takeWidget(removal.contentIdentity));
+            bool registrationPreserved = false;
+            // Two passes over both panes bound callbacks that recreate records.
+            constexpr int maximumTakeAttempts = 4;
+            for (int attempt = 0; attempt < maximumTakeAttempts; ++attempt) {
+                const ZzPhysicalSideState before =
+                    inspectPhysicalSide(removal);
+                if (preservePhysicalSide(removal, before)) {
+                    registrationPreserved = true;
+                    break;
+                }
+                if (before.occurrences == 0
+                    || before.containingPanes.isEmpty()) {
+                    break;
+                }
+                QPointer<ZzFluentUI::ZzSidePane> paneToTake;
+                for (const QPointer<ZzFluentUI::ZzSidePane> &pane :
+                     before.containingPanes) {
+                    if (before.validOwner == nullptr
+                        || pane != before.validOwner) {
+                        paneToTake = pane;
+                        break;
+                    }
+                }
+                if (paneToTake == nullptr) {
+                    paneToTake = before.containingPanes.constFirst();
+                }
+                static_cast<void>(
+                    paneToTake->takeWidget(removal.contentIdentity));
+                if (currentRowFor(removal) < 0) {
+                    break;
+                }
+                const ZzPhysicalSideState after =
+                    inspectPhysicalSide(removal);
+                if (preservePhysicalSide(removal, after)) {
+                    registrationPreserved = true;
+                    break;
+                }
+                if (after.occurrences == 0) {
+                    break;
                 }
             }
+            if (registrationPreserved) {
+                continue;
+            }
+            const ZzPhysicalSideState finalState =
+                inspectPhysicalSide(removal);
+            if (preservePhysicalSide(removal, finalState)
+                || finalState.occurrences != 0) {
+                continue;
+            }
+        }
+        if (currentRowFor(removal) < 0) {
+            continue;
         }
         shell.cleanupInterruptedPanelRemoval(
             removal.id, removal.contentIdentity,
