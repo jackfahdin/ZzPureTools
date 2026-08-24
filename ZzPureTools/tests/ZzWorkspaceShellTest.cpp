@@ -7417,6 +7417,274 @@ private Q_SLOTS:
         std::unique_ptr<QWidget> reclaimedContent(reclaimed.value());
     }
 
+    void rollbackCleanupPreservesRegistrationWhenCollapsedReaddsContent()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget thirdPartyOwner;
+        auto targetContent = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QPointer<QWidget> targetContentGuard(targetContentRaw);
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QPointer<ZzFluentUI::ZzSidePane> leftPaneGuard(leftPane);
+        QPointer<ZzFluentUI::ZzSidePane> rightPaneGuard(rightPane);
+        auto *const model = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        bool cleanupArmed = false;
+        int collapsedCallbackCount = 0;
+        bool readdAccepted = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (cleanupArmed || height != 500
+                    || targetContentGuard == nullptr) {
+                    return;
+                }
+                targetContentGuard->setParent(&thirdPartyOwner);
+                cleanupArmed = true;
+            });
+        QObject::connect(
+            leftPane, &ZzFluentUI::ZzSidePane::collapsedChanged,
+            target.shell.get(), [&](bool collapsed) {
+                if (!cleanupArmed || !collapsed
+                    || collapsedCallbackCount != 0) {
+                    return;
+                }
+                ++collapsedCallbackCount;
+                if (targetContentGuard == nullptr
+                    || rightPaneGuard == nullptr) {
+                    return;
+                }
+                targetContentGuard->setParent(nullptr);
+                readdAccepted = rightPaneGuard->addWidget(
+                    targetContentGuard, QStringLiteral("Side"));
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(cleanupArmed);
+        QCOMPARE(collapsedCallbackCount, 1);
+        QVERIFY(!targetContentGuard.isNull());
+        QVERIFY(!leftPaneGuard.isNull());
+        QVERIFY(!rightPaneGuard.isNull());
+        QVERIFY(readdAccepted);
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
+        const bool survivesOnLeft =
+            leftPane->panelStack()->panels().contains(targetContentRaw);
+        const bool survivesOnRight =
+            rightPane->panelStack()->panels().contains(targetContentRaw);
+        const int physicalOccurrences = int(survivesOnLeft)
+            + int(survivesOnRight);
+        const int modelRows = model->rowCount();
+        const auto saved = target.shell->saveLayout();
+        const QString diagnostic = QStringLiteral(
+            "physical occurrences=%1, activity rows=%2, save accepted=%3")
+                                       .arg(physicalOccurrences)
+                                       .arg(modelRows)
+                                       .arg(bool(saved));
+        QVERIFY2(
+            physicalOccurrences == 1 && modelRows == 1 && saved,
+            qPrintable(diagnostic));
+        QVERIFY(!survivesOnLeft);
+        QVERIFY(survivesOnRight);
+        const QModelIndex sideIndex = model->index(0, 0);
+        QCOMPARE(
+            sideIndex.data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightPrimary);
+        QCOMPARE(rightPane->currentWidget(), targetContentRaw);
+        QCOMPARE(
+            rightPane->visibleWidgets(), QList<QWidget *>({targetContentRaw}));
+        auto *const leftBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QVERIFY(!leftBar->currentSourceIndex().isValid());
+        QVERIFY(leftBar->activeSourceIndexes().isEmpty());
+        QCOMPARE(rightBar->currentSourceIndex(), sideIndex);
+        QCOMPARE(rightBar->activeSourceIndexes(), QList<QModelIndex>({sideIndex}));
+
+        auto reclaimed = target.shell->takePanel(zzPanelId("side"));
+        QVERIFY(reclaimed);
+        QCOMPARE(reclaimed.value(), targetContentRaw);
+        std::unique_ptr<QWidget> reclaimedContent(reclaimed.value());
+    }
+
+    void rollbackCleanupPreservesRegistrationWhenCurrentSyncReaddsContent()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        auto sourceAnchor = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("anchor"), QStringLiteral("Anchor"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceAnchor.get()));
+        zzReleaseAfterAdoption(sourceAnchor);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget thirdPartyOwner;
+        auto targetContent = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QPointer<QWidget> targetContentGuard(targetContentRaw);
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto targetAnchor = std::make_unique<QWidget>();
+        QWidget *const targetAnchorRaw = targetAnchor.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("anchor"), QStringLiteral("Anchor"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetAnchor.get()));
+        zzReleaseAfterAdoption(targetAnchor);
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QPointer<ZzFluentUI::ZzSidePane> rightPaneGuard(rightPane);
+        auto *const leftBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const model = leftBar->model();
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        bool cleanupArmed = false;
+        bool currentReaddArmed = false;
+        int currentCallbackCount = 0;
+        bool readdAccepted = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (cleanupArmed || height != 500
+                    || targetContentGuard == nullptr) {
+                    return;
+                }
+                targetContentGuard->setParent(&thirdPartyOwner);
+                cleanupArmed = true;
+            });
+        QObject::connect(
+            leftBar, &ZzFluentUI::ZzActivityBar::currentSourceIndexChanged,
+            target.shell.get(), [&](const QModelIndex &current) {
+                if (!currentReaddArmed || !current.isValid()
+                    || currentCallbackCount != 0) {
+                    return;
+                }
+                ++currentCallbackCount;
+                if (targetContentGuard == nullptr
+                    || rightPaneGuard == nullptr) {
+                    return;
+                }
+                targetContentGuard->setParent(nullptr);
+                readdAccepted = rightPaneGuard->addWidget(
+                    targetContentGuard, QStringLiteral("Side"));
+            });
+        QObject::connect(
+            model, &QAbstractItemModel::rowsRemoved,
+            target.shell.get(),
+            [&](const QModelIndex &, int, int) {
+                if (!cleanupArmed || currentReaddArmed) {
+                    return;
+                }
+                leftBar->setCurrentSourceIndex({});
+                currentReaddArmed = true;
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        const QString restoreDiagnostic = restored
+            ? QStringLiteral("restore accepted before cleanup callback")
+            : restored.error().technicalMessage();
+        QVERIFY2(cleanupArmed, qPrintable(restoreDiagnostic));
+        QVERIFY(currentReaddArmed);
+        QCOMPARE(currentCallbackCount, 1);
+        QVERIFY(!targetContentGuard.isNull());
+        QVERIFY(!rightPaneGuard.isNull());
+        QVERIFY(readdAccepted);
+        QVERIFY(!restored);
+        QCOMPARE(
+            restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and rollback failed"));
+        const bool survivesOnLeft =
+            leftPane->panelStack()->panels().contains(targetContentRaw);
+        const bool survivesOnRight =
+            rightPane->panelStack()->panels().contains(targetContentRaw);
+        const int physicalOccurrences = int(survivesOnLeft)
+            + int(survivesOnRight);
+        const int modelRows = model->rowCount();
+        const auto saved = target.shell->saveLayout();
+        const QString diagnostic = QStringLiteral(
+            "physical occurrences=%1, activity rows=%2, save accepted=%3")
+                                       .arg(physicalOccurrences)
+                                       .arg(modelRows)
+                                       .arg(bool(saved));
+        QVERIFY2(
+            physicalOccurrences == 1 && modelRows == 2 && saved,
+            qPrintable(diagnostic));
+        QVERIFY(!survivesOnLeft);
+        QVERIFY(survivesOnRight);
+        QModelIndex sideIndex;
+        QModelIndex anchorIndex;
+        for (int row = 0; row < modelRows; ++row) {
+            const QModelIndex candidate = model->index(row, 0);
+            if (candidate.data().toString() == QStringLiteral("Side")) {
+                sideIndex = candidate;
+            } else if (candidate.data().toString()
+                       == QStringLiteral("Anchor")) {
+                anchorIndex = candidate;
+            }
+        }
+        QVERIFY(sideIndex.isValid());
+        QVERIFY(anchorIndex.isValid());
+        QCOMPARE(
+            sideIndex.data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightPrimary);
+        QCOMPARE(leftPane->currentWidget(), targetAnchorRaw);
+        QCOMPARE(rightPane->currentWidget(), targetContentRaw);
+        QCOMPARE(leftBar->currentSourceIndex(), anchorIndex);
+        QCOMPARE(leftBar->activeSourceIndexes(), QList<QModelIndex>({anchorIndex}));
+        QCOMPARE(rightBar->currentSourceIndex(), sideIndex);
+        QCOMPARE(rightBar->activeSourceIndexes(), QList<QModelIndex>({sideIndex}));
+
+        auto reclaimed = target.shell->takePanel(zzPanelId("side"));
+        QVERIFY(reclaimed);
+        QCOMPARE(reclaimed.value(), targetContentRaw);
+        std::unique_ptr<QWidget> reclaimedContent(reclaimed.value());
+    }
+
     void restoreUsesPaneCurrentForUnknownCurrentFallback()
     {
         ZzShellFixture fixture;

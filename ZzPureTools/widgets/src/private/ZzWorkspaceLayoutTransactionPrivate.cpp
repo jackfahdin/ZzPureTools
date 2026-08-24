@@ -1767,14 +1767,45 @@ void zzSynchronizeAfterFailedRollback(
             }
             return insertionOrder;
         };
+    const auto settledSideRemovalIds =
+        [&shell, &activityModelStable, &identityRowFor,
+            &inspectPhysicalSide](const QVector<ZzRemoval> &pending)
+            -> std::optional<QSet<QString>> {
+            if (!activityModelStable()) {
+                return std::nullopt;
+            }
+            QSet<QString> result;
+            result.reserve(pending.size());
+            for (const ZzRemoval &removal : pending) {
+                if (removal.kind != ZzLayoutState::ZzPanelKind::Side) {
+                    continue;
+                }
+                const int panelRow = identityRowFor(removal);
+                const ZzPhysicalSideState physical =
+                    inspectPhysicalSide(removal);
+                if (panelRow < 0) {
+                    continue;
+                }
+                if (!physical.auditable) {
+                    return std::nullopt;
+                }
+                if (physical.occurrences == 0
+                    && !shell.activityRowSnapshot(removal.id).has_value()) {
+                    result.insert(removal.id.value());
+                }
+            }
+            return result;
+        };
     const auto eraseSettledSideRegistrations =
         [&shell, &activityModelStable, &identityRowFor,
-            &inspectPhysicalSide](const QVector<ZzRemoval> &pending) {
+            &inspectPhysicalSide](const QVector<ZzRemoval> &pending,
+                const QSet<QString> &logicallyRemoved) {
             if (!activityModelStable()) {
                 return;
             }
             for (const ZzRemoval &removal : pending) {
-                if (removal.kind != ZzLayoutState::ZzPanelKind::Side) {
+                if (removal.kind != ZzLayoutState::ZzPanelKind::Side
+                    || !logicallyRemoved.contains(removal.id.value())) {
                     continue;
                 }
                 const int panelRow = identityRowFor(removal);
@@ -1790,8 +1821,118 @@ void zzSynchronizeAfterFailedRollback(
                 shell.panels.removeAt(panelRow);
             }
         };
+    enum class ZzSideUiStep : unsigned char
+    {
+        Unavailable,
+        Mutated,
+        Stable
+    };
+    const auto sideUiAvailable = [&shell, &runtime, &activityModelStable,
+                                     &leftPaneGuard, &rightPaneGuard,
+                                     &leftStackGuard, &rightStackGuard] {
+        return activityModelStable()
+            && zzStableGuards(shell, runtime.guards)
+            && leftPaneGuard != nullptr && rightPaneGuard != nullptr
+            && leftStackGuard != nullptr && rightStackGuard != nullptr
+            && leftPaneGuard->panelStack() == leftStackGuard
+            && rightPaneGuard->panelStack() == rightStackGuard;
+    };
+    const auto synchronizeOneSideUiStep =
+        [&shell, &runtime, &sideUiAvailable, &leftPaneGuard,
+            &rightPaneGuard](const QSet<QString> &logicallyRemoved) {
+            if (!sideUiAvailable()) {
+                return ZzSideUiStep::Unavailable;
+            }
+            const auto hasPanelForEdge =
+                [&shell, &logicallyRemoved](bool left) {
+                    return std::any_of(
+                        shell.panels.cbegin(), shell.panels.cend(),
+                        [&logicallyRemoved, left](const auto &record) {
+                            return record.kind
+                                    == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+                                && record.content != nullptr
+                                && !logicallyRemoved.contains(record.id.value())
+                                && (record.activityArea
+                                            == ZzFluentUI::ZzActivityArea::LeftPrimary
+                                        || record.activityArea
+                                            == ZzFluentUI::ZzActivityArea::LeftSecondary)
+                                    == left;
+                        });
+                };
+            const auto synchronizeEdge =
+                [&hasPanelForEdge](ZzFluentUI::ZzSidePane *pane,
+                    ZzFluentUI::ZzActivityBar *bar, bool left) {
+                    if (pane == nullptr || bar == nullptr) {
+                        return ZzSideUiStep::Unavailable;
+                    }
+                    const bool hasPanel = hasPanelForEdge(left);
+                    if (bar->isHidden() == hasPanel) {
+                        bar->setVisible(hasPanel);
+                        return ZzSideUiStep::Mutated;
+                    }
+                    if (!hasPanel
+                        && bar->currentSourceIndex().isValid()) {
+                        bar->setCurrentSourceIndex({});
+                        return ZzSideUiStep::Mutated;
+                    }
+                    if (!hasPanel && !pane->isCollapsed()) {
+                        pane->setCollapsed(true);
+                        return ZzSideUiStep::Mutated;
+                    }
+                    return ZzSideUiStep::Stable;
+                };
+            ZzSideUiStep step = synchronizeEdge(
+                leftPaneGuard, shell.leftActivityBar, true);
+            if (step != ZzSideUiStep::Stable) {
+                return step;
+            }
+            step = synchronizeEdge(
+                rightPaneGuard, shell.rightActivityBar, false);
+            if (step != ZzSideUiStep::Stable || !sideUiAvailable()) {
+                return step == ZzSideUiStep::Stable
+                    ? ZzSideUiStep::Unavailable : step;
+            }
+
+            const ZzRuntimeIndexes indexes =
+                zzBuildRuntimeIndexes(shell, runtime);
+            const auto desiredCurrent =
+                [&shell, &indexes](ZzFluentUI::ZzSidePane *pane) {
+                    return zzIndexForId(shell, indexes, zzIds(
+                        {pane->currentWidget()}, indexes).value(0));
+                };
+            const auto desiredActive =
+                [&shell, &indexes](ZzFluentUI::ZzSidePane *pane) {
+                    return zzIndexesForIds(shell, indexes, zzIds(
+                        pane->visibleWidgets(), indexes));
+                };
+            const QModelIndex leftCurrent =
+                desiredCurrent(leftPaneGuard);
+            if (shell.leftActivityBar->currentSourceIndex() != leftCurrent) {
+                shell.leftActivityBar->setCurrentSourceIndex(leftCurrent);
+                return ZzSideUiStep::Mutated;
+            }
+            const QList<QModelIndex> leftActive =
+                desiredActive(leftPaneGuard);
+            if (shell.leftActivityBar->activeSourceIndexes() != leftActive) {
+                shell.leftActivityBar->setActiveSourceIndexes(leftActive);
+                return ZzSideUiStep::Mutated;
+            }
+            const QModelIndex rightCurrent =
+                desiredCurrent(rightPaneGuard);
+            if (shell.rightActivityBar->currentSourceIndex() != rightCurrent) {
+                shell.rightActivityBar->setCurrentSourceIndex(rightCurrent);
+                return ZzSideUiStep::Mutated;
+            }
+            const QList<QModelIndex> rightActive =
+                desiredActive(rightPaneGuard);
+            if (shell.rightActivityBar->activeSourceIndexes() != rightActive) {
+                shell.rightActivityBar->setActiveSourceIndexes(rightActive);
+                return ZzSideUiStep::Mutated;
+            }
+            return ZzSideUiStep::Stable;
+        };
     constexpr int maximumTakeAttempts = 4;
-    constexpr int maximumReconciliationPasses = 8;
+    constexpr int maximumReconciliationPasses = 24;
     for (int pass = 0; pass < maximumReconciliationPasses; ++pass) {
         bool crossedCallbackBoundary = false;
         for (ZzRemoval &removal : removals) {
@@ -1922,29 +2063,26 @@ void zzSynchronizeAfterFailedRollback(
         if (crossedCallbackBoundary) {
             continue;
         }
-        break;
+        const auto logicallyRemoved =
+            settledSideRemovalIds(removals);
+        if (!logicallyRemoved.has_value()) {
+            break;
+        }
+        const ZzSideUiStep uiStep =
+            synchronizeOneSideUiStep(*logicallyRemoved);
+        if (uiStep == ZzSideUiStep::Mutated) {
+            continue;
+        }
+        if (uiStep == ZzSideUiStep::Unavailable) {
+            break;
+        }
+        // No callback-producing work remains. Re-audit immediately before
+        // the signal-free registry erase, then perform no further UI writes.
+        eraseSettledSideRegistrations(removals, *logicallyRemoved);
+        return;
     }
-    // Exhaustion is fail-closed: only a freshly audited zero/zero pair is
-    // erasable; any surviving physical or Activity record keeps the registry.
-    eraseSettledSideRegistrations(removals);
-    shell.syncSideEdgeVisibility();
-    const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
-    if (shell.leftActivityBar != nullptr && shell.leftSidePane != nullptr) {
-        shell.leftActivityBar->setCurrentSourceIndex(
-            zzIndexForId(shell, indexes, zzIds(
-                {shell.leftSidePane->currentWidget()}, indexes).value(0)));
-        shell.leftActivityBar->setActiveSourceIndexes(
-            zzIndexesForIds(shell, indexes, zzIds(
-                shell.leftSidePane->visibleWidgets(), indexes)));
-    }
-    if (shell.rightActivityBar != nullptr && shell.rightSidePane != nullptr) {
-        shell.rightActivityBar->setCurrentSourceIndex(
-            zzIndexForId(shell, indexes, zzIds(
-                {shell.rightSidePane->currentWidget()}, indexes).value(0)));
-        shell.rightActivityBar->setActiveSourceIndexes(
-            zzIndexesForIds(shell, indexes, zzIds(
-                shell.rightSidePane->visibleWidgets(), indexes)));
-    }
+    // Exhaustion and destroyed subsystem guards are fail-closed: without a
+    // signal-free final audit, both registry and any surviving UI state stay.
 }
 
 [[nodiscard]] bool zzRollback(
