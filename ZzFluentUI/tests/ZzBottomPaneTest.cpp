@@ -26,8 +26,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzBottomPane pane;
         auto *terminal = new QWidget;
-        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(terminal, QStringLiteral("Terminal")));
+        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(problems, QStringLiteral("Problems")));
         QVERIFY(pane.setCurrentWidget(terminal));
         pane.setPaneHeight(260);
@@ -146,8 +146,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzBottomPane pane;
         auto *terminal = new QWidget;
-        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(terminal, QStringLiteral("Terminal")));
+        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(problems, QStringLiteral("Problems")));
         QVERIFY(pane.setCurrentWidget(terminal));
         QSignalSpy closeSpy(
@@ -209,10 +209,10 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzBottomPane pane;
         auto *terminal = new QWidget;
-        auto *problems = new QWidget;
-        auto *output = new QWidget;
         QVERIFY(pane.addWidget(terminal, QStringLiteral("Terminal")));
+        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(problems, QStringLiteral("Problems")));
+        auto *output = new QWidget;
         QVERIFY(pane.addWidget(output, QStringLiteral("Output")));
         QVERIFY(pane.setCurrentWidget(output));
         QPointer<QWidget> guard(problems);
@@ -238,8 +238,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzBottomPane pane;
         auto *terminal = new QWidget;
-        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(terminal, QStringLiteral("Terminal")));
+        auto *problems = new QWidget;
         QVERIFY(pane.addWidget(problems, QStringLiteral("Problems")));
         pane.resize(640, 240);
         pane.show();

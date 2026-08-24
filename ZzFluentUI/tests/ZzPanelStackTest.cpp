@@ -23,9 +23,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzPanelStack stack;
         auto *first = new QWidget;
-        auto *second = new QWidget;
-
         QVERIFY(stack.addPanel(first, QStringLiteral("Sessions")));
+        auto *second = new QWidget;
         QVERIFY(stack.addPanel(second, QStringLiteral("Files")));
         QCOMPARE(stack.panelCount(), 2);
         QCOMPARE(stack.panels(), QList<QWidget *>({first, second}));
@@ -71,10 +70,10 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzPanelStack stack;
         auto *first = new QWidget;
-        auto *second = new QWidget;
-        auto *third = new QWidget;
         QVERIFY(stack.addPanel(first, QStringLiteral("First")));
+        auto *second = new QWidget;
         QVERIFY(stack.addPanel(second, QStringLiteral("Second")));
+        auto *third = new QWidget;
         QVERIFY(stack.addPanel(third, QStringLiteral("Third")));
         QSignalSpy movedSpy(
             &stack, &ZzFluentUI::ZzPanelStack::panelMoved);
@@ -125,8 +124,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzPanelStack stack;
         auto *first = new QWidget;
-        auto *second = new QWidget;
         QVERIFY(stack.addPanel(first, QStringLiteral("First")));
+        auto *second = new QWidget;
         QVERIFY(stack.addPanel(second, QStringLiteral("Second")));
         QCOMPARE(stack.currentPanel(), second);
         QSignalSpy currentSpy(
@@ -147,8 +146,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzPanelStack stack;
         auto *first = new QWidget;
-        auto *second = new QWidget;
         QVERIFY(stack.addPanel(first, QStringLiteral("First")));
+        auto *second = new QWidget;
         QVERIFY(stack.addPanel(second, QStringLiteral("Second")));
         QPointer<QWidget> firstGuard(first);
         QObject::connect(
@@ -180,8 +179,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzPanelStack stack;
         auto *first = new QWidget;
-        auto *second = new QWidget;
         QVERIFY(stack.addPanel(first, QStringLiteral("First")));
+        auto *second = new QWidget;
         QVERIFY(stack.addPanel(second, QStringLiteral("Second")));
         QVERIFY(stack.setPanelSizes({180, 320}));
         QSignalSpy sizesSpy(
@@ -255,8 +254,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzPanelStack stack;
         auto *first = new QWidget;
-        auto *second = new QWidget;
         QVERIFY(stack.addPanel(first, QStringLiteral("First")));
+        auto *second = new QWidget;
         QVERIFY(stack.addPanel(second, QStringLiteral("Second")));
         const qsizetype descendants =
             stack.findChildren<QObject *>().size();

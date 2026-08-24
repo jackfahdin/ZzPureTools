@@ -506,7 +506,7 @@ void zzCaptureSide(
     const QString &movedId,
     ZzFluentUI::ZzActivityArea targetArea)
 {
-    const QStringList snapshotOrder = zzModelOrder(snapshotRows);
+    QStringList snapshotOrder = zzModelOrder(snapshotRows);
     const QStringList desired = *zzActivityRows(target.activity, targetArea);
     QHash<QString, ZzFluentUI::ZzActivityArea> areas;
     ZzAuditIndex areaIndex;
@@ -1026,7 +1026,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
     if (!planned.has_value()) {
         return false;
     }
-    const ZzProjection target = *planned;
+    const ZzProjection &target = *planned;
     const QStringList snapshotOrder = zzModelOrder(snapshotRows);
     const QStringList targetOrder = zzBuildTargetModelOrder(
         snapshotRows, target, expected.id.value(), targetArea);

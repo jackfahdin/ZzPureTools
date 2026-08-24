@@ -45,11 +45,62 @@ constexpr quint16 zzWorkspaceLayoutSchemaVersion = 1;
 constexpr auto zzWorkspaceLayoutStreamVersion = QDataStream::Qt_6_8;
 constexpr qsizetype zzWorkspaceLayoutDigestSize = 32;
 constexpr qsizetype zzWorkspaceLayoutHeaderSize = 12;
-constexpr qsizetype zzWorkspaceMaximumPayloadSize = 1024 * 1024;
+constexpr qsizetype zzWorkspaceMaximumPayloadSize =
+    qsizetype{1024} * qsizetype{1024};
 constexpr int zzWorkspaceMaximumNodeCount = 127;
 constexpr int zzWorkspaceMaximumStringLength = 256;
 constexpr int zzWorkspaceMaximumSavedPageCount = 4096;
 constexpr int zzWorkspaceMaximumPageOrder = 65535;
+
+/** @brief 在有界分割树中按稳定标识执行无分配深度优先查找。 */
+[[nodiscard]] ZzNode *zzFindLeafById(
+    ZzNode *node,
+    const ZzTabGroupId &id) noexcept
+{
+  if (node == nullptr) {
+    return nullptr;
+  }
+  if (const auto *leaf = std::get_if<ZzLeaf>(&node->value);
+      leaf != nullptr) {
+    return leaf->id == id ? node : nullptr;
+  }
+  auto *const branch = std::get_if<ZzBranch>(&node->value);
+  if (branch == nullptr) {
+    return nullptr;
+  }
+  for (const auto &child : branch->children) {
+    if (ZzNode *const found = zzFindLeafById(child.get(), id);
+        found != nullptr) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
+/** @brief 在有界分割树中按标签容器身份执行无分配深度优先查找。 */
+[[nodiscard]] ZzNode *zzFindLeafByTabs(
+    ZzNode *node,
+    const ZzTabWidget *tabs) noexcept
+{
+  if (node == nullptr) {
+    return nullptr;
+  }
+  if (const auto *leaf = std::get_if<ZzLeaf>(&node->value);
+      leaf != nullptr) {
+    return leaf->tabs == tabs ? node : nullptr;
+  }
+  auto *const branch = std::get_if<ZzBranch>(&node->value);
+  if (branch == nullptr) {
+    return nullptr;
+  }
+  for (const auto &child : branch->children) {
+    if (ZzNode *const found = zzFindLeafByTabs(child.get(), tabs);
+        found != nullptr) {
+      return found;
+    }
+  }
+  return nullptr;
+}
 
 struct ZzWorkspaceLivePage final
 {
@@ -488,43 +539,53 @@ zzWorkspaceContainsPage(const ZzSplitWorkspacePrivate *workspace,
     }
 
     guardedTabs->setTabText(index, snapshot.text);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabIcon(index, snapshot.icon);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabToolTip(index, snapshot.toolTip);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabWhatsThis(index, snapshot.whatsThis);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabEnabled(index, snapshot.enabled);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->fluentTabBar()->setTabData(index, snapshot.data);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->fluentTabBar()->setTabTextColor(index, snapshot.textColor);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabPinned(index, snapshot.pinned);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabModified(index, snapshot.modified);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabAttention(index, snapshot.attention);
-    if ((index = resolveOrRebuildIndex()) < 0) {
+    index = resolveOrRebuildIndex();
+    if (index < 0) {
       return false;
     }
     guardedTabs->setTabCloseEnabled(index, snapshot.closeEnabled);
@@ -596,7 +657,8 @@ public:
         m_publicWorkspace(workspace != nullptr ? workspace->q_ptr : nullptr),
         m_state(std::move(state)) {}
 
-  ~ZzWorkspaceRestoreTransaction() {
+  // Qt 对象析构期只执行无业务异常的 best-effort 所有权收敛。
+  ~ZzWorkspaceRestoreTransaction() { // NOLINT(bugprone-exception-escape)
     if (!m_publicWorkspace.isNull()) {
       m_workspace->restoreTransactionOwners.clear();
       m_workspace->restoreTransactionKeyChanges.clear();
@@ -951,7 +1013,7 @@ private:
     for (auto currentIt = desiredCurrentPages.cbegin();
          currentIt != desiredCurrentPages.cend(); ++currentIt) {
       QPointer<ZzTabWidget> target = m_stagedTabs.value(currentIt.key());
-      const QPointer<QWidget> page = currentIt.value();
+      const QPointer<QWidget> &page = currentIt.value();
       if (target.isNull() || page.isNull() || target->indexOf(page) < 0) {
         return false;
       }
@@ -1324,18 +1386,16 @@ private:
     reconcileSavedPagesWithLiveKeys();
     restoreOldView();
     const bool publicTargetsReady = ensurePublicLeafTabs();
-    const bool remainingPagesRestored = publicTargetsReady &&
-                                        restoreRemainingCapturedPages();
-    const bool preservedPagesRestored = restorePreservedPages();
-    const bool unknownPagesRestored = restoreUnknownEscrowPages();
+    if (publicTargetsReady) {
+      static_cast<void>(restoreRemainingCapturedPages());
+    }
+    static_cast<void>(restorePreservedPages());
+    static_cast<void>(restoreUnknownEscrowPages());
     cleanupStaging();
     if (m_publicWorkspace.isNull()) {
       return false;
     }
-    const bool currentPagesRestored = restoreOriginalCurrentPages();
-    pagesRestored = pagesRestored && remainingPagesRestored &&
-                    preservedPagesRestored && unknownPagesRestored &&
-                    currentPagesRestored;
+    static_cast<void>(restoreOriginalCurrentPages());
     return false;
   }
 
@@ -2132,15 +2192,7 @@ ZzNode *ZzSplitWorkspacePrivate::findLeaf(
     if (!id.isValid()) {
         return nullptr;
     }
-    std::vector<ZzNode *> leaves;
-    collectLeaves(root.get(), leaves);
-    const auto found = std::find_if(
-        leaves.cbegin(),
-        leaves.cend(),
-        [&id](const ZzNode *node) {
-            return std::get<ZzLeaf>(node->value).id == id;
-        });
-    return found != leaves.cend() ? *found : nullptr;
+    return zzFindLeafById(root.get(), id);
 }
 
 ZzNode *ZzSplitWorkspacePrivate::findLeaf(
@@ -2149,15 +2201,7 @@ ZzNode *ZzSplitWorkspacePrivate::findLeaf(
     if (tabs == nullptr) {
         return nullptr;
     }
-    std::vector<ZzNode *> leaves;
-    collectLeaves(root.get(), leaves);
-    const auto found = std::find_if(
-        leaves.cbegin(),
-        leaves.cend(),
-        [tabs](const ZzNode *node) {
-            return std::get<ZzLeaf>(node->value).tabs == tabs;
-        });
-    return found != leaves.cend() ? *found : nullptr;
+    return zzFindLeafByTabs(root.get(), tabs);
 }
 
 std::optional<ZzTabGroupId> ZzSplitWorkspacePrivate::splitGroup(
@@ -2177,7 +2221,7 @@ std::optional<ZzTabGroupId> ZzSplitWorkspacePrivate::splitGroup(
         return std::nullopt;
     }
 
-    const ZzTabGroupId newId = requestedId.isValid()
+    ZzTabGroupId newId = requestedId.isValid()
         ? requestedId
         : createGroupId();
     if (std::find(ids.cbegin(), ids.cend(), newId) != ids.cend()) {
@@ -2983,7 +3027,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         return true;
     }
     const ZzWorkspaceDropZone zone = dropZoneAt(target, position);
-    const ZzWorkspaceDragRecord stableRecord = record.value();
+    const ZzWorkspaceDragRecord &stableRecord = record.value();
     discardDragTokens();
     hideDropOverlay();
     const bool committed = q_ptr->moveTabToDropZone(

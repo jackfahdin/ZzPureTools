@@ -12,6 +12,18 @@ namespace {
 
 using ZzPlannerLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
 
+[[nodiscard]] const ZzPlannerLayoutState::ZzWorkspaceProjection &
+zzProjectionOrDefault(
+    const std::optional<ZzPlannerLayoutState::ZzWorkspaceProjection>
+        &projection)
+{
+    static const ZzPlannerLayoutState::ZzWorkspaceProjection emptyProjection;
+    if (!projection.has_value()) {
+        return emptyProjection;
+    }
+    return *projection;
+}
+
 struct ZzPlannerFixture final
 {
     ZzPlannerLayoutState::ZzWorkspaceSnapshot snapshot;
@@ -83,10 +95,10 @@ struct ZzPlannerMeasurement final
     for (int repetition = 0; repetition < repetitions; ++repetition) {
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(
             fixture.snapshot, fixture.request);
-        if (!target.has_value()
-            || target->leftSide.order.size() != fixture.expectedOrder.size()
-            || target->leftSide.sizes.size() != fixture.expectedSizes.size()) {
-            return std::nullopt;
+        if (!target.has_value() ||
+            target->leftSide.order.size() != fixture.expectedOrder.size() ||
+            target->leftSide.sizes.size() != fixture.expectedSizes.size()) {
+          return std::nullopt;
         }
         checksum += static_cast<quint64>(target->leftSide.sizes.front());
         checksum += static_cast<quint64>(target->leftSide.sizes.back());
@@ -145,22 +157,23 @@ private slots:
 
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
+        const auto &targetValue = zzProjectionOrDefault(target);
         const QStringList expectedOrder = {QStringLiteral("e"),
             QStringLiteral("f"), QStringLiteral("g"), QStringLiteral("a"),
             QStringLiteral("b"), QStringLiteral("c"), QStringLiteral("d")};
         const QList<int> expectedSizes = {105, 606, 107, 101, 202, 103, 404};
-        QCOMPARE(target->leftSide.order, expectedOrder);
-        QCOMPARE(target->leftSide.visible, expectedOrder);
-        QCOMPARE(target->leftSide.sizes, expectedSizes);
-        QCOMPARE(target->leftSide.current, QStringLiteral("f"));
-        QCOMPARE(target->activity.leftActive,
-            QSet<QString>(expectedOrder.cbegin(), expectedOrder.cend()));
-        QCOMPARE(target->leftSide.contents.size(), expectedOrder.size());
+        QCOMPARE(targetValue.leftSide.order, expectedOrder);
+        QCOMPARE(targetValue.leftSide.visible, expectedOrder);
+        QCOMPARE(targetValue.leftSide.sizes, expectedSizes);
+        QCOMPARE(targetValue.leftSide.current, QStringLiteral("f"));
+        QCOMPARE(targetValue.activity.leftActive,
+                 QSet<QString>(expectedOrder.cbegin(), expectedOrder.cend()));
+        QCOMPARE(targetValue.leftSide.contents.size(), expectedOrder.size());
         for (qsizetype index = 0; index < expectedOrder.size(); ++index) {
-            QCOMPARE(target->leftSide.contents.at(index).panelId,
-                expectedOrder.at(index));
+          QCOMPARE(targetValue.leftSide.contents.at(index).panelId,
+                   expectedOrder.at(index));
         }
-        QCOMPARE(target->activity.leftPrimary, expectedOrder);
+        QCOMPARE(targetValue.activity.leftPrimary, expectedOrder);
     }
 
     void restorePlannerScalesBelowQuadraticGrowth()
@@ -195,43 +208,50 @@ private slots:
         const auto large = measure(largeFixture);
         QVERIFY(small.has_value());
         QVERIFY(large.has_value());
-        QVERIFY(small->medianNanoseconds > 0);
-        QVERIFY(large->medianNanoseconds > 0);
-        QVERIFY(small->checksum > 0);
-        QVERIFY(large->checksum > 0);
+        const ZzPlannerMeasurement smallValue =
+            small.value_or(ZzPlannerMeasurement{});
+        const ZzPlannerMeasurement largeValue =
+            large.value_or(ZzPlannerMeasurement{});
+        QVERIFY(smallValue.medianNanoseconds > 0);
+        QVERIFY(largeValue.medianNanoseconds > 0);
+        QVERIFY(smallValue.checksum > 0);
+        QVERIFY(largeValue.checksum > 0);
 
         for (const ZzPlannerFixture *fixture : {&smallFixture, &largeFixture}) {
             const auto target = ZzPlannerLayoutState::buildRestoreTarget(
                 fixture->snapshot, fixture->request);
             QVERIFY(target.has_value());
-            QCOMPARE(target->leftSide.order, fixture->expectedOrder);
-            QCOMPARE(target->leftSide.visible, fixture->expectedOrder);
-            QCOMPARE(target->leftSide.sizes, fixture->expectedSizes);
-            QCOMPARE(target->leftSide.contents.size(), fixture->expectedOrder.size());
+            const auto &targetValue = zzProjectionOrDefault(target);
+            QCOMPARE(targetValue.leftSide.order, fixture->expectedOrder);
+            QCOMPARE(targetValue.leftSide.visible, fixture->expectedOrder);
+            QCOMPARE(targetValue.leftSide.sizes, fixture->expectedSizes);
+            QCOMPARE(targetValue.leftSide.contents.size(),
+                     fixture->expectedOrder.size());
             for (qsizetype index = 0; index < fixture->expectedOrder.size(); ++index) {
-                QCOMPARE(target->leftSide.contents.at(index).panelId,
-                    fixture->expectedOrder.at(index));
-                QCOMPARE(target->leftSide.contents.at(index).stackIdentity,
-                    target->leftSide.stackIdentity);
-                QCOMPARE(target->leftSide.contents.at(index).ancestry,
-                    QList<ZzPlannerLayoutState::ZzSubsystemIdentity>({
-                        target->leftSide.paneIdentity,
-                        target->leftSide.stackIdentity}));
+              QCOMPARE(targetValue.leftSide.contents.at(index).panelId,
+                       fixture->expectedOrder.at(index));
+              QCOMPARE(targetValue.leftSide.contents.at(index).stackIdentity,
+                       targetValue.leftSide.stackIdentity);
+              QCOMPARE(targetValue.leftSide.contents.at(index).ancestry,
+                       QList<ZzPlannerLayoutState::ZzSubsystemIdentity>(
+                           {targetValue.leftSide.paneIdentity,
+                            targetValue.leftSide.stackIdentity}));
             }
             auto expectedActivity = fixture->snapshot.activity;
             expectedActivity.leftPrimary = fixture->expectedOrder;
             expectedActivity.leftCurrent = fixture->request.leftCurrent;
             expectedActivity.leftActive = QSet<QString>(
                 fixture->expectedOrder.cbegin(), fixture->expectedOrder.cend());
-            QCOMPARE(target->activity, expectedActivity);
+            QCOMPARE(targetValue.activity, expectedActivity);
         }
-        QVERIFY2(large->medianNanoseconds < small->medianNanoseconds * 20,
-            qPrintable(QStringLiteral(
-                "Planner grew from %1 ns to %2 ns (%3x)")
-                    .arg(small->medianNanoseconds)
-                    .arg(large->medianNanoseconds)
-                    .arg(static_cast<double>(large->medianNanoseconds)
-                        / static_cast<double>(small->medianNanoseconds))));
+        QVERIFY2(
+            largeValue.medianNanoseconds < smallValue.medianNanoseconds * 20,
+            qPrintable(
+                QStringLiteral("Planner grew from %1 ns to %2 ns (%3x)")
+                    .arg(smallValue.medianNanoseconds)
+                    .arg(largeValue.medianNanoseconds)
+                    .arg(static_cast<double>(largeValue.medianNanoseconds) /
+                         static_cast<double>(smallValue.medianNanoseconds))));
     }
 
     void sideFallbackUsesPaneCurrentInsteadOfActivityCurrent()
@@ -249,7 +269,8 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
-        QCOMPARE(target->leftSide.current, QStringLiteral("two"));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.leftSide.current, QStringLiteral("two"));
     }
 
     void projectionFallbackUsesSnapshotPaneCurrent()
@@ -270,7 +291,8 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
-        QCOMPARE(target->leftSide.current, QStringLiteral("two"));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.leftSide.current, QStringLiteral("two"));
     }
 
     void moveTargetDoesNotChangeWhenObservedStateChanges()
@@ -283,9 +305,12 @@ private slots:
             ZzFluentUI::ZzActivityArea::RightPrimary, 0);
         QVERIFY(target.has_value());
 
+        const auto &targetValue = zzProjectionOrDefault(target);
+
         auto observed = snapshot;
         observed.rightSide.visible.clear();
-        QCOMPARE(target->rightSide.visible, QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(targetValue.rightSide.visible,
+                 QStringList({QStringLiteral("terminal")}));
     }
 
     void emptySideForcesCollapse()
@@ -298,8 +323,9 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QVERIFY(target->leftSide.collapsed);
-        QVERIFY(target->leftSide.current.isEmpty());
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QVERIFY(targetValue.leftSide.collapsed);
+        QVERIFY(targetValue.leftSide.current.isEmpty());
     }
 
     void unknownPanelKeepsSnapshotSideState()
@@ -312,8 +338,10 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
-        QCOMPARE(target->rightSide.current, QStringLiteral("terminal"));
-        QCOMPARE(target->rightSide.visible, QStringList({QStringLiteral("terminal")}));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.rightSide.current, QStringLiteral("terminal"));
+        QCOMPARE(targetValue.rightSide.visible,
+                 QStringList({QStringLiteral("terminal")}));
     }
 
     void sideVisibleAndSizesStayAttachedToPanelIds()
@@ -330,9 +358,11 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QCOMPARE(target->leftSide.visible,
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(
+            targetValue.leftSide.visible,
             QStringList({QStringLiteral("right"), QStringLiteral("left")}));
-        QCOMPARE(target->leftSide.sizes, QList<int>({320, 240}));
+        QCOMPARE(targetValue.leftSide.sizes, QList<int>({320, 240}));
     }
 
     void activityMoveKeepsSizeAttachedToPanelId()
@@ -358,23 +388,27 @@ private slots:
             snapshot, QStringLiteral("terminal"),
             ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
         QVERIFY(target.has_value());
-        QCOMPARE(target->leftSide.visible,
-            QStringList({QStringLiteral("terminal"),
-                QStringLiteral("explorer")}));
-        QCOMPARE(target->leftSide.sizes, QList<int>({360, 240}));
-        QVERIFY(target->rightSide.visible.isEmpty());
-        QVERIFY(target->rightSide.sizes.isEmpty());
-        QCOMPARE(target->leftSide.contents.size(), 2);
-        QCOMPARE(target->leftSide.contents.at(0).panelId,
-            QStringLiteral("terminal"));
-        QCOMPARE(target->leftSide.contents.at(0).stackIdentity.object.data(),
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.leftSide.visible,
+                 QStringList(
+                     {QStringLiteral("terminal"), QStringLiteral("explorer")}));
+        QCOMPARE(targetValue.leftSide.sizes, QList<int>({360, 240}));
+        QVERIFY(targetValue.rightSide.visible.isEmpty());
+        QVERIFY(targetValue.rightSide.sizes.isEmpty());
+        QCOMPARE(targetValue.leftSide.contents.size(), 2);
+        QCOMPARE(targetValue.leftSide.contents.at(0).panelId,
+                 QStringLiteral("terminal"));
+        QCOMPARE(
+            targetValue.leftSide.contents.at(0).stackIdentity.object.data(),
             &leftStack);
-        QCOMPARE(target->leftSide.contents.at(0).ancestry.size(), 2);
-        QCOMPARE(target->leftSide.contents.at(0).ancestry.at(0).object.data(),
+        QCOMPARE(targetValue.leftSide.contents.at(0).ancestry.size(), 2);
+        QCOMPARE(
+            targetValue.leftSide.contents.at(0).ancestry.at(0).object.data(),
             &leftPane);
-        QCOMPARE(target->leftSide.contents.at(0).ancestry.at(1).object.data(),
+        QCOMPARE(
+            targetValue.leftSide.contents.at(0).ancestry.at(1).object.data(),
             &leftStack);
-        QVERIFY(target->rightSide.contents.isEmpty());
+        QVERIFY(targetValue.rightSide.contents.isEmpty());
     }
 
     void activityCurrentIsDerivedFromSideTarget()
@@ -387,8 +421,9 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QCOMPARE(target->activity.leftCurrent, QStringLiteral("explorer"));
-        QCOMPARE(target->activity.rightCurrent, QStringLiteral("terminal"));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.activity.leftCurrent, QStringLiteral("explorer"));
+        QCOMPARE(targetValue.activity.rightCurrent, QStringLiteral("terminal"));
     }
 
     void activityActiveSetsAreDerivedFromSideVisibility()
@@ -404,19 +439,20 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QCOMPARE(target->activity.leftActive,
-            QSet<QString>({QStringLiteral("explorer"),
-                QStringLiteral("search")}));
-        QCOMPARE(target->activity.rightActive,
-            QSet<QString>({QStringLiteral("terminal")}));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.activity.leftActive,
+                 QSet<QString>(
+                     {QStringLiteral("explorer"), QStringLiteral("search")}));
+        QCOMPARE(targetValue.activity.rightActive,
+                 QSet<QString>({QStringLiteral("terminal")}));
 
-        auto changed = *target;
+        auto changed = targetValue;
         changed.activity.leftActive.remove(QStringLiteral("search"));
-        QVERIFY(!ZzLayoutState::equals(*target, changed));
+        QVERIFY(!ZzLayoutState::equals(targetValue, changed));
 
-        changed = *target;
+        changed = targetValue;
         changed.activity.rightActive.remove(QStringLiteral("terminal"));
-        QVERIFY(!ZzLayoutState::equals(*target, changed));
+        QVERIFY(!ZzLayoutState::equals(targetValue, changed));
     }
 
     void splitProjectionPreservesNormalizedTreeAndSavedPages()
@@ -454,36 +490,39 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QVERIFY(!target->split.root.leaf);
-        QCOMPARE(target->split.root.orientation, Qt::Horizontal);
-        QCOMPARE(target->split.root.sizes, QList<int>({640, 1}));
-        QCOMPARE(target->split.root.children.size(), 2);
-        QCOMPARE(target->split.root.children.at(0).groupId,
-            QStringLiteral("editor"));
-        QCOMPARE(target->split.root.children.at(0).currentIndex, 2);
-        QVERIFY(!target->split.root.children.at(1).leaf);
-        QCOMPARE(target->split.root.children.at(1).orientation, Qt::Vertical);
-        QCOMPARE(target->split.root.children.at(1).sizes,
-            QList<int>({300, 1}));
-        QCOMPARE(target->split.activeGroup, QStringLiteral("terminal"));
-        QCOMPARE(target->split.groupOrder,
-            QStringList({QStringLiteral("terminal"),
-                QStringLiteral("editor"), QStringLiteral("outline")}));
-        QCOMPARE(target->split.savedPages.size(), 2);
-        QCOMPARE(target->split.savedPages.at(0).key,
-            QStringLiteral("page:editor"));
-        QCOMPARE(target->split.savedPages.at(0).groupId,
-            QStringLiteral("editor"));
-        QCOMPARE(target->split.savedPages.at(0).order, 0);
-        QVERIFY(!target->split.savedPages.at(0).current);
-        QCOMPARE(target->split.savedPages.at(1).key,
-            QStringLiteral("page:terminal"));
-        QCOMPARE(target->split.savedPages.at(1).groupId,
-            QStringLiteral("terminal"));
-        QCOMPARE(target->split.savedPages.at(1).order, 1);
-        QVERIFY(target->split.savedPages.at(1).current);
-        QCOMPARE(target->split.canonicalState,
-            QByteArray::fromHex("0201020304"));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QVERIFY(!targetValue.split.root.leaf);
+        QCOMPARE(targetValue.split.root.orientation, Qt::Horizontal);
+        QCOMPARE(targetValue.split.root.sizes, QList<int>({640, 1}));
+        QCOMPARE(targetValue.split.root.children.size(), 2);
+        QCOMPARE(targetValue.split.root.children.at(0).groupId,
+                 QStringLiteral("editor"));
+        QCOMPARE(targetValue.split.root.children.at(0).currentIndex, 2);
+        QVERIFY(!targetValue.split.root.children.at(1).leaf);
+        QCOMPARE(targetValue.split.root.children.at(1).orientation,
+                 Qt::Vertical);
+        QCOMPARE(targetValue.split.root.children.at(1).sizes,
+                 QList<int>({300, 1}));
+        QCOMPARE(targetValue.split.activeGroup, QStringLiteral("terminal"));
+        QCOMPARE(
+            targetValue.split.groupOrder,
+            QStringList({QStringLiteral("terminal"), QStringLiteral("editor"),
+                         QStringLiteral("outline")}));
+        QCOMPARE(targetValue.split.savedPages.size(), 2);
+        QCOMPARE(targetValue.split.savedPages.at(0).key,
+                 QStringLiteral("page:editor"));
+        QCOMPARE(targetValue.split.savedPages.at(0).groupId,
+                 QStringLiteral("editor"));
+        QCOMPARE(targetValue.split.savedPages.at(0).order, 0);
+        QVERIFY(!targetValue.split.savedPages.at(0).current);
+        QCOMPARE(targetValue.split.savedPages.at(1).key,
+                 QStringLiteral("page:terminal"));
+        QCOMPARE(targetValue.split.savedPages.at(1).groupId,
+                 QStringLiteral("terminal"));
+        QCOMPARE(targetValue.split.savedPages.at(1).order, 1);
+        QVERIFY(targetValue.split.savedPages.at(1).current);
+        QCOMPARE(targetValue.split.canonicalState,
+                 QByteArray::fromHex("0201020304"));
     }
 
     void splitProjectionRepresentsSchemaOneRootCurrentIndex()
@@ -499,14 +538,15 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QVERIFY(target->split.root.leaf);
-        QCOMPARE(target->split.root.groupId,
-            QStringLiteral("schema-one-root"));
-        QCOMPARE(target->split.root.currentIndex, 3);
-        QCOMPARE(target->split.activeGroup,
-            QStringLiteral("schema-one-root"));
-        QCOMPARE(target->split.canonicalState,
-            QByteArray::fromHex("01030a0b"));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QVERIFY(targetValue.split.root.leaf);
+        QCOMPARE(targetValue.split.root.groupId,
+                 QStringLiteral("schema-one-root"));
+        QCOMPARE(targetValue.split.root.currentIndex, 3);
+        QCOMPARE(targetValue.split.activeGroup,
+                 QStringLiteral("schema-one-root"));
+        QCOMPARE(targetValue.split.canonicalState,
+                 QByteArray::fromHex("01030a0b"));
     }
 
     void plannerPreservesRuntimeIdentityAndSubsystemContracts()
@@ -553,8 +593,8 @@ private slots:
         dockPanel.rawWidget = &panelWidget;
         dockPanel.registrationGeneration = 7;
         dockPanel.dock = &dockObject;
-        dockPanel.rawDock = reinterpret_cast<ZzFluentUI::ZzDockPanel *>(
-            quintptr(0x1234));
+        dockPanel.rawDock =
+            reinterpret_cast<ZzFluentUI::ZzDockPanel *>(&dockObject);
         snapshot.identities = {dockPanel};
         snapshot.dock.state = QByteArray::fromHex("d0c0");
         snapshot.dock.docks = {{dockPanel, Qt::RightDockWidgetArea, true, true,
@@ -562,45 +602,48 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, {});
         QVERIFY(target.has_value());
-        QCOMPARE(target->identities.size(), 1);
-        QCOMPARE(target->identities.constFirst().widget.data(), &panelWidget);
-        QCOMPARE(target->identities.constFirst().rawWidget, &panelWidget);
-        QCOMPARE(target->identities.constFirst().registrationGeneration,
-            quint64(7));
-        QCOMPARE(target->identities.constFirst().dock.data(), &dockObject);
-        QCOMPARE(target->identities.constFirst().rawDock,
-            reinterpret_cast<ZzFluentUI::ZzDockPanel *>(quintptr(0x1234)));
-        QCOMPARE(target->leftSide.paneIdentity.object.data(), &pane);
-        QCOMPARE(target->leftSide.stackIdentity.object.data(), &stack);
-        QCOMPARE(target->leftSide.contents.size(), 1);
-        QCOMPARE(target->bottom.order,
-            QStringList({QStringLiteral("problems")}));
-        QCOMPARE(target->bottom.current, QStringLiteral("problems"));
-        QVERIFY(!target->bottom.collapsed);
-        QCOMPARE(target->bottom.height, 190);
-        QCOMPARE(target->bottom.paneIdentity.object.data(), &pane);
-        QCOMPARE(target->bottom.stackIdentity.object.data(), &stack);
-        QCOMPARE(target->bottom.contents.size(), 1);
-        QCOMPARE(target->activity.modelIdentity.object.data(), &model);
-        QCOMPARE(target->activity.leftPrimary,
-            QStringList({QStringLiteral("explorer")}));
-        QCOMPARE(target->activity.leftSecondary,
-            QStringList({QStringLiteral("search")}));
-        QCOMPARE(target->activity.rightPrimary,
-            QStringList({QStringLiteral("source-control")}));
-        QCOMPARE(target->activity.rightSecondary,
-            QStringList({QStringLiteral("outline")}));
-        QCOMPARE(target->dock.state, QByteArray::fromHex("d0c0"));
-        QCOMPARE(target->dock.docks.size(), 1);
-        QCOMPARE(target->dock.docks.constFirst().area,
-            Qt::RightDockWidgetArea);
-        QVERIFY(target->dock.docks.constFirst().floating);
-        QVERIFY(target->dock.docks.constFirst().visible);
-        QCOMPARE(target->dock.docks.constFirst().actualOwnerIdentity.object.data(),
-            &dockOwner);
-        QCOMPARE(target->title.hostTitle, QStringLiteral("Host title"));
-        QCOMPARE(target->title.titleBarTitle,
-            QStringLiteral("Title bar title"));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.identities.size(), 1);
+        QCOMPARE(targetValue.identities.constFirst().widget.data(),
+                 &panelWidget);
+        QCOMPARE(targetValue.identities.constFirst().rawWidget, &panelWidget);
+        QCOMPARE(targetValue.identities.constFirst().registrationGeneration,
+                 quint64(7));
+        QCOMPARE(targetValue.identities.constFirst().dock.data(), &dockObject);
+        QCOMPARE(targetValue.identities.constFirst().rawDock,
+                 reinterpret_cast<ZzFluentUI::ZzDockPanel *>(&dockObject));
+        QCOMPARE(targetValue.leftSide.paneIdentity.object.data(), &pane);
+        QCOMPARE(targetValue.leftSide.stackIdentity.object.data(), &stack);
+        QCOMPARE(targetValue.leftSide.contents.size(), 1);
+        QCOMPARE(targetValue.bottom.order,
+                 QStringList({QStringLiteral("problems")}));
+        QCOMPARE(targetValue.bottom.current, QStringLiteral("problems"));
+        QVERIFY(!targetValue.bottom.collapsed);
+        QCOMPARE(targetValue.bottom.height, 190);
+        QCOMPARE(targetValue.bottom.paneIdentity.object.data(), &pane);
+        QCOMPARE(targetValue.bottom.stackIdentity.object.data(), &stack);
+        QCOMPARE(targetValue.bottom.contents.size(), 1);
+        QCOMPARE(targetValue.activity.modelIdentity.object.data(), &model);
+        QCOMPARE(targetValue.activity.leftPrimary,
+                 QStringList({QStringLiteral("explorer")}));
+        QCOMPARE(targetValue.activity.leftSecondary,
+                 QStringList({QStringLiteral("search")}));
+        QCOMPARE(targetValue.activity.rightPrimary,
+                 QStringList({QStringLiteral("source-control")}));
+        QCOMPARE(targetValue.activity.rightSecondary,
+                 QStringList({QStringLiteral("outline")}));
+        QCOMPARE(targetValue.dock.state, QByteArray::fromHex("d0c0"));
+        QCOMPARE(targetValue.dock.docks.size(), 1);
+        QCOMPARE(targetValue.dock.docks.constFirst().area,
+                 Qt::RightDockWidgetArea);
+        QVERIFY(targetValue.dock.docks.constFirst().floating);
+        QVERIFY(targetValue.dock.docks.constFirst().visible);
+        QCOMPARE(targetValue.dock.docks.constFirst()
+                     .actualOwnerIdentity.object.data(),
+                 &dockOwner);
+        QCOMPARE(targetValue.title.hostTitle, QStringLiteral("Host title"));
+        QCOMPARE(targetValue.title.titleBarTitle,
+                 QStringLiteral("Title bar title"));
     }
 
     void equalsIncludesRuntimeRawIdentityAndRegistrationGeneration()
@@ -621,8 +664,7 @@ private slots:
         identity.rawWidget = &widget;
         identity.registrationGeneration = 11;
         identity.dock = &dock;
-        identity.rawDock = reinterpret_cast<ZzFluentUI::ZzDockPanel *>(
-            quintptr(0x1000));
+        identity.rawDock = reinterpret_cast<ZzFluentUI::ZzDockPanel *>(&dock);
         baseline.identities = {identity};
 
         auto changed = baseline;
@@ -643,7 +685,7 @@ private slots:
 
         changed = baseline;
         changed.identities[0].rawDock =
-            reinterpret_cast<ZzFluentUI::ZzDockPanel *>(quintptr(0x2000));
+            reinterpret_cast<ZzFluentUI::ZzDockPanel *>(&replacementDock);
         QVERIFY(!ZzLayoutState::equals(baseline, changed));
 
         changed = baseline;
@@ -683,16 +725,17 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
-        QCOMPARE(target->leftSide.paneIdentity.object.data(), &pane);
-        QCOMPARE(target->leftSide.paneIdentity.rawObject, &pane);
-        QCOMPARE(target->leftSide.stackIdentity.object.data(), &stack);
-        QCOMPARE(target->activity.modelIdentity.object.data(), &model);
-        QCOMPARE(target->identities.size(), 1);
-        QCOMPARE(target->identities.constFirst().widget.data(), &widget);
-        QCOMPARE(target->identities.constFirst().registrationGeneration,
-            quint64(5));
-        QCOMPARE(target->leftSide.width, 280);
-        QCOMPARE(target->leftSide.sizes, QList<int>({260}));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.leftSide.paneIdentity.object.data(), &pane);
+        QCOMPARE(targetValue.leftSide.paneIdentity.rawObject, &pane);
+        QCOMPARE(targetValue.leftSide.stackIdentity.object.data(), &stack);
+        QCOMPARE(targetValue.activity.modelIdentity.object.data(), &model);
+        QCOMPARE(targetValue.identities.size(), 1);
+        QCOMPARE(targetValue.identities.constFirst().widget.data(), &widget);
+        QCOMPARE(targetValue.identities.constFirst().registrationGeneration,
+                 quint64(5));
+        QCOMPARE(targetValue.leftSide.width, 280);
+        QCOMPARE(targetValue.leftSide.sizes, QList<int>({260}));
     }
 
     void serializedProjectionReconcilesRegisteredSidePanels()
@@ -787,40 +830,41 @@ private slots:
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
-        QCOMPARE(target->leftSide.order,
-            QStringList({QStringLiteral("explorer"),
-                QStringLiteral("search")}));
-        QCOMPARE(target->leftSide.visible,
-            QStringList({QStringLiteral("explorer"),
-                QStringLiteral("search")}));
-        QCOMPARE(target->leftSide.sizes, QList<int>({240, 190}));
-        QCOMPARE(target->leftSide.current, QStringLiteral("explorer"));
-        QCOMPARE(target->leftSide.contents.size(), 2);
-        QCOMPARE(target->leftSide.contents.at(0).panelId,
-            QStringLiteral("explorer"));
-        QCOMPARE(target->leftSide.contents.at(1).panelId,
-            QStringLiteral("search"));
-        QCOMPARE(target->rightSide.order,
-            QStringList({QStringLiteral("terminal")}));
-        QCOMPARE(target->rightSide.visible,
-            QStringList({QStringLiteral("terminal")}));
-        QCOMPARE(target->rightSide.sizes, QList<int>({420}));
-        QCOMPARE(target->rightSide.current, QStringLiteral("terminal"));
-        QCOMPARE(target->rightSide.contents.size(), 1);
-        QCOMPARE(target->rightSide.contents.constFirst().panelId,
-            QStringLiteral("terminal"));
-        QCOMPARE(target->activity.leftPrimary,
-            QStringList({QStringLiteral("explorer"),
-                QStringLiteral("search")}));
-        QCOMPARE(target->activity.rightPrimary,
-            QStringList({QStringLiteral("terminal")}));
-        QCOMPARE(target->activity.leftCurrent, QStringLiteral("explorer"));
-        QCOMPARE(target->activity.rightCurrent, QStringLiteral("terminal"));
-        QCOMPARE(target->activity.leftActive,
-            QSet<QString>({QStringLiteral("explorer"),
-                QStringLiteral("search")}));
-        QCOMPARE(target->activity.rightActive,
-            QSet<QString>({QStringLiteral("terminal")}));
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.leftSide.order,
+                 QStringList(
+                     {QStringLiteral("explorer"), QStringLiteral("search")}));
+        QCOMPARE(targetValue.leftSide.visible,
+                 QStringList(
+                     {QStringLiteral("explorer"), QStringLiteral("search")}));
+        QCOMPARE(targetValue.leftSide.sizes, QList<int>({240, 190}));
+        QCOMPARE(targetValue.leftSide.current, QStringLiteral("explorer"));
+        QCOMPARE(targetValue.leftSide.contents.size(), 2);
+        QCOMPARE(targetValue.leftSide.contents.at(0).panelId,
+                 QStringLiteral("explorer"));
+        QCOMPARE(targetValue.leftSide.contents.at(1).panelId,
+                 QStringLiteral("search"));
+        QCOMPARE(targetValue.rightSide.order,
+                 QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(targetValue.rightSide.visible,
+                 QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(targetValue.rightSide.sizes, QList<int>({420}));
+        QCOMPARE(targetValue.rightSide.current, QStringLiteral("terminal"));
+        QCOMPARE(targetValue.rightSide.contents.size(), 1);
+        QCOMPARE(targetValue.rightSide.contents.constFirst().panelId,
+                 QStringLiteral("terminal"));
+        QCOMPARE(targetValue.activity.leftPrimary,
+                 QStringList(
+                     {QStringLiteral("explorer"), QStringLiteral("search")}));
+        QCOMPARE(targetValue.activity.rightPrimary,
+                 QStringList({QStringLiteral("terminal")}));
+        QCOMPARE(targetValue.activity.leftCurrent, QStringLiteral("explorer"));
+        QCOMPARE(targetValue.activity.rightCurrent, QStringLiteral("terminal"));
+        QCOMPARE(targetValue.activity.leftActive,
+                 QSet<QString>(
+                     {QStringLiteral("explorer"), QStringLiteral("search")}));
+        QCOMPARE(targetValue.activity.rightActive,
+                 QSet<QString>({QStringLiteral("terminal")}));
     }
 
     void activityMoveTargetRebuildsPhysicalSideStateFromAreaRows()
@@ -855,28 +899,29 @@ private slots:
             ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
 
         QVERIFY(target.has_value());
-        QCOMPARE(target->activity.leftPrimary,
-            QStringList({QStringLiteral("primary-visible"),
-                QStringLiteral("primary-hidden")}));
-        QCOMPARE(target->activity.leftSecondary,
-            QStringList({QStringLiteral("moved"),
-                QStringLiteral("secondary-hidden"),
-                QStringLiteral("secondary-visible")}));
-        QCOMPARE(target->leftSide.order,
-            QStringList({QStringLiteral("primary-visible"),
-                QStringLiteral("primary-hidden"),
-                QStringLiteral("moved"),
-                QStringLiteral("secondary-hidden"),
-                QStringLiteral("secondary-visible")}));
-        QCOMPARE(target->leftSide.visible,
-            QStringList({QStringLiteral("primary-visible"),
-                QStringLiteral("moved"),
-                QStringLiteral("secondary-visible")}));
-        QCOMPARE(target->leftSide.sizes, QList<int>({101, 303, 202}));
-        QCOMPARE(target->leftSide.current, QStringLiteral("moved"));
-        QVERIFY(target->rightSide.order.isEmpty());
-        QVERIFY(target->rightSide.visible.isEmpty());
-        QVERIFY(target->rightSide.sizes.isEmpty());
+        const auto &targetValue = zzProjectionOrDefault(target);
+        QCOMPARE(targetValue.activity.leftPrimary,
+                 QStringList({QStringLiteral("primary-visible"),
+                              QStringLiteral("primary-hidden")}));
+        QCOMPARE(targetValue.activity.leftSecondary,
+                 QStringList({QStringLiteral("moved"),
+                              QStringLiteral("secondary-hidden"),
+                              QStringLiteral("secondary-visible")}));
+        QCOMPARE(targetValue.leftSide.order,
+                 QStringList({QStringLiteral("primary-visible"),
+                              QStringLiteral("primary-hidden"),
+                              QStringLiteral("moved"),
+                              QStringLiteral("secondary-hidden"),
+                              QStringLiteral("secondary-visible")}));
+        QCOMPARE(targetValue.leftSide.visible,
+                 QStringList({QStringLiteral("primary-visible"),
+                              QStringLiteral("moved"),
+                              QStringLiteral("secondary-visible")}));
+        QCOMPARE(targetValue.leftSide.sizes, QList<int>({101, 303, 202}));
+        QCOMPARE(targetValue.leftSide.current, QStringLiteral("moved"));
+        QVERIFY(targetValue.rightSide.order.isEmpty());
+        QVERIFY(targetValue.rightSide.visible.isEmpty());
+        QVERIFY(targetValue.rightSide.sizes.isEmpty());
     }
 
     void invalidMoveReturnsNullopt()

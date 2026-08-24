@@ -807,7 +807,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerBottomPanel(
     const ZzWorkspacePanelId &id,
     const QString &title,
-    ZzFluentUI::ZzIconDescriptor icon,
+    const ZzFluentUI::ZzIconDescriptor &icon,
     QWidget *content)
 {
     if (transactionKind != ZzTransactionKind::None) {
@@ -1731,8 +1731,9 @@ bool ZzWorkspaceShellPrivate::cleanupDockPanel(
     return true;
 }
 
+// 清理会修改 panels；按值保存身份快照，避免循环中的引用失效。
 void ZzWorkspaceShellPrivate::cleanupPendingDockPanelForDestruction(
-    ZzPanelRecord expected)
+    ZzPanelRecord expected) // NOLINT(performance-unnecessary-value-param)
 {
     while (true) {
         const int panelIndex = stablePanelIndex(expected);

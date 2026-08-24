@@ -42,8 +42,8 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzSidePane pane;
         auto *first = new QLabel(QStringLiteral("First"));
-        auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(first, QStringLiteral("First")));
+        auto *second = new QLabel(QStringLiteral("Second"));
         QVERIFY(pane.addWidget(second, QStringLiteral("Second")));
 
         QCOMPARE(pane.mode(), ZzFluentUI::ZzSidePaneMode::Single);

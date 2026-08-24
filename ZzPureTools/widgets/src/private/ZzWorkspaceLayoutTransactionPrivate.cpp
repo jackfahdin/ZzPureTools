@@ -432,13 +432,17 @@ void zzWriteSide(
         return std::nullopt;
     }
     auto decoded = ZzWorkspaceLayoutCodecPrivate::decode(observed);
-    if (!decoded || !decoded.value().projection.has_value()) {
+    if (!decoded) {
+        return std::nullopt;
+    }
+    auto decodedRequest = std::move(decoded).value();
+    if (!decodedRequest.projection.has_value()) {
         return std::nullopt;
     }
 
     ZzRuntimeSnapshot result;
     static_cast<ZzProjection &>(result.projection) =
-        std::move(*decoded.value().projection);
+        std::move(decodedRequest.projection).value();
     result.guards = {
         shell.host, shell.splitWorkspace, shell.leftSidePane,
         shell.rightSidePane, shell.bottomPane, shell.leftActivityBar,
@@ -1418,7 +1422,7 @@ private:
         for (qsizetype index = 0; index < target.order.size(); ++index) {
             const auto *const record = zzRecord(
                 shell, runtime, target.order.at(index));
-            const QPointer<QWidget> content = contents.at(index);
+            const QPointer<QWidget> &content = contents.at(index);
             if (record == nullptr || content == nullptr
                 || !pane->addWidget(content, record->title, record->icon)
                 || pane == nullptr || stack == nullptr || content == nullptr
@@ -2171,22 +2175,27 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             QStringLiteral("Workspace layout envelope is invalid"));
     }
     const auto captured = zzCaptureSnapshot(shell_);
-    if (!captured.has_value() || !decoded.value().projection.has_value()) {
+    if (!captured.has_value()) {
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace host has been destroyed"));
     }
-    const ZzRuntimeSnapshot snapshot = *captured;
+    const ZzRuntimeSnapshot &snapshot = *captured;
     ZzLayoutState::ZzLayoutRequest request = std::move(decoded).value();
+    if (!request.projection.has_value()) {
+        return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace host has been destroyed"));
+    }
+    ZzProjection &requestProjection = request.projection.value();
     const bool versionOne = request.sourceSchema
         == ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
-    if (versionOne && request.projection.has_value()) {
+    if (versionOne) {
         const ZzLayoutState::ZzTitleProjection requestedTitle =
-            request.projection->title;
-        request.projection->title = snapshot.projection.title;
-        request.projection->title.mode = requestedTitle.mode;
+            requestProjection.title;
+        requestProjection.title = snapshot.projection.title;
+        requestProjection.title.mode = requestedTitle.mode;
     }
     const int migrationCurrent = versionOne
-        ? request.projection->split.root.currentIndex : -1;
+        ? requestProjection.split.root.currentIndex : -1;
     const QString migrationGroup = versionOne
         ? snapshot.projection.split.groupOrder.value(0) : QString{};
     auto *const snapshotMigrationTabs = !migrationGroup.isEmpty()
@@ -2200,14 +2209,14 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Workspace split projection is invalid"));
         }
-        request.projection->split = snapshot.projection.split;
+        requestProjection.split = snapshot.projection.split;
     }
-    request.projection->bottom.order = snapshot.projection.bottom.order;
+    requestProjection.bottom.order = snapshot.projection.bottom.order;
     const bool dockTargetReady = zzBuildDockTarget(
-        snapshot, &request.projection->dock);
+        snapshot, &requestProjection.dock);
     const bool splitTargetReady = dockTargetReady
         && zzCanonicalizeSplitTarget(
-            shell_.splitWorkspace, &request.projection->split,
+            shell_.splitWorkspace, &requestProjection.split,
             migrationGroup, migrationCurrent);
     const auto planned = splitTargetReady
         ? ZzLayoutState::buildRestoreTarget(snapshot.projection, request)
@@ -2215,7 +2224,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     const ZzLayoutTransactionScope transaction(shell_);
     bool committed = planned.has_value();
     if (committed) {
-        const ZzProjection target = *planned;
+        const ZzProjection &target = *planned;
         ZzSideOwnerIndex targetOwners = snapshot.sideOwners;
         ZzSideOwnerObserver ownerObserver(target, &targetOwners);
         committed = zzApplyDock(shell_, snapshot, target.dock);

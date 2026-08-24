@@ -17,6 +17,25 @@ namespace {
 using ZzCodec = ZzPureTools::ZzWorkspaceLayoutCodecPrivate;
 using ZzState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
 
+[[nodiscard]] const ZzState::ZzWorkspaceProjection &
+zzProjectionOrDefault(const ZzState::ZzLayoutRequest &request)
+{
+    static const ZzState::ZzWorkspaceProjection emptyProjection;
+    if (!request.projection.has_value()) {
+        return emptyProjection;
+    }
+    return *request.projection;
+}
+
+[[nodiscard]] ZzState::ZzWorkspaceProjection &
+zzMutableProjection(ZzState::ZzLayoutRequest &request)
+{
+    if (!request.projection.has_value()) {
+        request.projection = ZzState::ZzWorkspaceProjection{};
+    }
+    return *request.projection;
+}
+
 constexpr qsizetype zzMaximumLayoutSize = qsizetype{1024} * 1024;
 
 struct ZzTestSideEntry final
@@ -341,7 +360,7 @@ private slots:
         QVERIFY(decoded);
         QVERIFY(decoded.value().projection.has_value());
         const auto &request = decoded.value();
-        const auto &projection = *request.projection;
+        const auto &projection = zzProjectionOrDefault(request);
         QCOMPARE(request.sourceSchema,
             ZzState::ZzLayoutRequest::ZzSourceSchema::VersionOne);
         QCOMPARE(request.leftCurrent, QStringLiteral("explorer"));
@@ -375,9 +394,12 @@ private slots:
         QVERIFY(migrated);
         const auto decodedAgain = ZzCodec::decode(migrated.value());
         QVERIFY(decodedAgain);
+        QVERIFY(decodedAgain.value().projection.has_value());
         QCOMPARE(decodedAgain.value().sourceSchema,
             ZzState::ZzLayoutRequest::ZzSourceSchema::VersionTwo);
-        QCOMPARE(decodedAgain.value().projection->split.root.currentIndex, -1);
+        QCOMPARE(
+            zzProjectionOrDefault(decodedAgain.value()).split.root.currentIndex,
+            -1);
         const auto encodedAgain = ZzCodec::encodeVersionTwo(
             decodedAgain.value());
         QVERIFY(encodedAgain);
@@ -438,8 +460,8 @@ private slots:
 
         const auto decoded = ZzCodec::decode(encoded);
         QVERIFY(decoded);
-        QCOMPARE(decoded.value().projection->activity.leftPrimary,
-            expectedOrder);
+        QCOMPARE(zzProjectionOrDefault(decoded.value()).activity.leftPrimary,
+                 expectedOrder);
         const auto canonical = ZzCodec::encodeVersionTwo(decoded.value());
         QVERIFY(canonical);
         QCOMPARE(canonical.value(), expectedCanonical);
@@ -462,7 +484,8 @@ private slots:
 
         const auto decoded = ZzCodec::decode(encoded);
         QVERIFY(decoded);
-        QCOMPARE(decoded.value().projection->activity.leftPrimary,
+        QCOMPARE(
+            zzProjectionOrDefault(decoded.value()).activity.leftPrimary,
             QStringList({QStringLiteral("current"), QStringLiteral("last")}));
 
         auto expected = zzValidVersionTwoLayout();
@@ -518,10 +541,11 @@ private slots:
         const auto decoded = ZzCodec::decode(encoded);
         QVERIFY(decoded);
         auto injected = decoded.value();
+        QVERIFY(injected.projection.has_value());
         if (injectChild) {
-            injected.projection->split.root.children[0].currentIndex = 0;
+          zzMutableProjection(injected).split.root.children[0].currentIndex = 0;
         } else {
-            injected.projection->split.root.currentIndex = 0;
+          zzMutableProjection(injected).split.root.currentIndex = 0;
         }
         QVERIFY(!ZzCodec::encodeVersionTwo(injected));
     }
@@ -571,7 +595,7 @@ private slots:
         QVERIFY(decoded);
         QCOMPARE(decoded.value().sourceSchema,
             ZzState::ZzLayoutRequest::ZzSourceSchema::VersionTwo);
-        const auto &projection = *decoded.value().projection;
+        const auto &projection = zzProjectionOrDefault(decoded.value());
         QCOMPARE(projection.split.groupOrder,
             QStringList({QStringLiteral("editor"), QStringLiteral("preview")}));
         QCOMPARE(projection.split.savedPages.size(), 2);
@@ -590,7 +614,8 @@ private slots:
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 7}};
         const auto sparseDecoded = ZzCodec::decode(zzVersionTwoLayout(sparse));
         QVERIFY(sparseDecoded);
-        QCOMPARE(sparseDecoded.value().projection->activity.leftPrimary,
+        QCOMPARE(
+            zzProjectionOrDefault(sparseDecoded.value()).activity.leftPrimary,
             QStringList({QStringLiteral("first"), QStringLiteral("second")}));
         sparse.sideEntries[1].order = 1;
         const auto sparseCanonical = ZzCodec::encodeVersionTwo(
@@ -617,16 +642,19 @@ private slots:
         const auto valid = ZzCodec::decode(
             zzVersionTwoLayout(zzValidVersionTwoLayout()));
         QVERIFY(valid);
+        QVERIFY(valid.value().projection.has_value());
         auto invalidRequest = valid.value();
-        invalidRequest.projection->split.canonicalState = invalidSplit;
+        zzMutableProjection(invalidRequest).split.canonicalState = invalidSplit;
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
         invalidRequest = valid.value();
-        invalidRequest.projection->leftSide.sizes = {1};
+        zzMutableProjection(invalidRequest).leftSide.sizes = {1};
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
         invalidRequest = valid.value();
-        invalidRequest.projection->title.mode =
+        // 故意模拟反序列化产生的越界枚举，验证 writer 的输入防线。
+        zzMutableProjection(invalidRequest).title.mode =
+            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
             static_cast<ZzState::ZzTitleMode>(255);
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
@@ -635,13 +663,13 @@ private slots:
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
         invalidRequest = valid.value();
-        invalidRequest.projection->activity.leftCurrent =
+        zzMutableProjection(invalidRequest).activity.leftCurrent =
             QStringLiteral("injected");
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
         invalidRequest = valid.value();
-        invalidRequest.projection->activity.leftActive.insert(
-            QStringLiteral("injected"));
+        zzMutableProjection(invalidRequest)
+            .activity.leftActive.insert(QStringLiteral("injected"));
         QVERIFY(!ZzCodec::encodeVersionTwo(invalidRequest));
 
         invalidRequest = valid.value();
@@ -682,13 +710,15 @@ private slots:
         layout.leftCurrent = QStringLiteral("first");
         const auto valid = ZzCodec::decode(zzVersionTwoLayout(layout));
         QVERIFY(valid);
+        QVERIFY(valid.value().projection.has_value());
 
         auto invalidRequest = valid.value();
-        invalidRequest.projection->leftSide.visible = {
+        zzMutableProjection(invalidRequest).leftSide.visible = {
             QStringLiteral("second"), QStringLiteral("first")};
-        invalidRequest.projection->leftSide.sizes = {222, 111};
-        invalidRequest.projection->leftSide.current = QStringLiteral("second");
-        invalidRequest.projection->activity.leftCurrent =
+        zzMutableProjection(invalidRequest).leftSide.sizes = {222, 111};
+        zzMutableProjection(invalidRequest).leftSide.current =
+            QStringLiteral("second");
+        zzMutableProjection(invalidRequest).activity.leftCurrent =
             QStringLiteral("second");
         invalidRequest.leftCurrent = QStringLiteral("second");
 
@@ -710,16 +740,17 @@ private slots:
             original, QStringLiteral("left"));
         const auto decoded = ZzCodec::decode(zzVersionTwoLayout(layout));
         QVERIFY(decoded);
+        QVERIFY(decoded.value().projection.has_value());
 
         auto injected = decoded.value();
-        injected.projection->split.canonicalState = zzSplitLayout(
+        zzMutableProjection(injected).split.canonicalState = zzSplitLayout(
             zzLeaf(QStringLiteral("injected")), QStringLiteral("injected"));
         QVERIFY(ZzCodec::canonicalizeSplit(
-            injected.projection->split.canonicalState));
+            zzMutableProjection(injected).split.canonicalState));
         QVERIFY(!ZzCodec::encodeVersionTwo(injected));
 
         injected = decoded.value();
-        injected.projection->split.root.sizes = {1, 2};
+        zzMutableProjection(injected).split.root.sizes = {1, 2};
         QVERIFY(!ZzCodec::encodeVersionTwo(injected));
 
         const QByteArray nonCanonical = zzSplitLayout(

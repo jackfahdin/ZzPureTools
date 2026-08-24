@@ -210,7 +210,8 @@ ZzCore::ZzResult<void> ZzWorkspaceShell::registerDockPanel(
 ZzCore::ZzResult<void> ZzWorkspaceShell::registerBottomPanel(
     const ZzWorkspacePanelId &id,
     const QString &title,
-    ZzFluentUI::ZzIconDescriptor icon,
+    // 公开接口保持既有按值签名，私有实现只在本次调用期间借用图标。
+    ZzFluentUI::ZzIconDescriptor icon, // NOLINT(performance-unnecessary-value-param)
     QWidget *content)
 {
     Q_ASSERT(zzIsShellThread(this));
@@ -219,8 +220,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShell::registerBottomPanel(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace operation requires its GUI thread"));
     }
-    return d_ptr->registerBottomPanel(
-        id, title, std::move(icon), content);
+    return d_ptr->registerBottomPanel(id, title, icon, content);
 }
 
 ZzCore::ZzResult<QWidget *> ZzWorkspaceShell::takePanel(

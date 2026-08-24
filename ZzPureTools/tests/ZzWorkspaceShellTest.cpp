@@ -50,9 +50,29 @@ constexpr qsizetype zzWorkspaceMaximumLayoutSize = qsizetype{1024} * 1024;
 
 struct ZzTestSideLayoutEntry final
 {
+    ZzTestSideLayoutEntry(
+        QString entryId,
+        ZzFluentUI::ZzActivityArea entryArea,
+        qint32 entryOrder)
+        : id(std::move(entryId))
+        , area(static_cast<quint8>(entryArea))
+        , order(entryOrder)
+    {
+    }
+
+    ZzTestSideLayoutEntry(
+        QString entryId,
+        quint8 encodedArea,
+        qint32 entryOrder)
+        : id(std::move(entryId))
+        , area(encodedArea)
+        , order(entryOrder)
+    {
+    }
+
     QString id;
-    ZzFluentUI::ZzActivityArea area =
-        ZzFluentUI::ZzActivityArea::LeftPrimary;
+    quint8 area = static_cast<quint8>(
+        ZzFluentUI::ZzActivityArea::LeftPrimary);
     qint32 order = 0;
 };
 
@@ -227,7 +247,7 @@ private:
            << leftCurrent << rightCurrent
            << static_cast<quint32>(sideEntries.size());
     for (const ZzTestSideLayoutEntry &entry : sideEntries) {
-        stream << entry.id << static_cast<quint8>(entry.area) << entry.order;
+        stream << entry.id << entry.area << entry.order;
     }
     stream << currentTabIndex << static_cast<quint8>(titleMode);
     return stream.status() == QDataStream::Ok
@@ -407,7 +427,7 @@ void zzWriteTestNestedSplitNode(
     }
     stream << static_cast<quint32>(layout.sideEntries.size());
     for (const ZzTestSideLayoutEntry &entry : layout.sideEntries) {
-        stream << entry.id << static_cast<quint8>(entry.area) << entry.order;
+        stream << entry.id << entry.area << entry.order;
     }
     stream << layout.splitState << layout.bottomCollapsed
            << layout.bottomHeight << layout.bottomCurrent << layout.titleMode;
@@ -1086,7 +1106,7 @@ private Q_SLOTS:
             }
             callbackEntered = true;
             dock->setWidget(injected.get());
-            injected.release();
+            zzReleaseAfterAdoption(injected);
         };
 
         auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
@@ -1124,11 +1144,11 @@ private Q_SLOTS:
         QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
         contentRaw->parentRemoved = [&] {
             dock->setWidget(firstInjected.get());
-            firstInjected.release();
+            zzReleaseAfterAdoption(firstInjected);
         };
         firstInjectedRaw->parentRemoved = [&] {
             dock->setWidget(secondInjected.get());
-            secondInjected.release();
+            zzReleaseAfterAdoption(secondInjected);
         };
 
         auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
@@ -1143,7 +1163,7 @@ private Q_SLOTS:
             zzPanelId("dock"), QStringLiteral("Duplicate"), zzIcon(),
             Qt::BottomDockWidgetArea, duplicate.get());
         if (duplicateRegistration) {
-            duplicate.release();
+            zzReleaseAfterAdoption(duplicate);
         }
         QVERIFY(!duplicateRegistration);
 
@@ -1182,11 +1202,11 @@ private Q_SLOTS:
         QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
         contentRaw->parentRemoved = [&] {
             dock->setWidget(firstInjected.get());
-            firstInjected.release();
+            zzReleaseAfterAdoption(firstInjected);
         };
         firstInjectedRaw->parentRemoved = [&] {
             dock->setWidget(secondInjected.get());
-            secondInjected.release();
+            zzReleaseAfterAdoption(secondInjected);
         };
         auto interruptedTake = fixture.shell->takePanel(zzPanelId("dock"));
         QVERIFY(!interruptedTake);
@@ -1226,11 +1246,11 @@ private Q_SLOTS:
         QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
         contentRaw->parentRemoved = [&] {
             dock->setWidget(firstInjected.get());
-            firstInjected.release();
+            zzReleaseAfterAdoption(firstInjected);
         };
         firstInjectedRaw->parentRemoved = [&] {
             dock->setWidget(secondInjected.get());
-            secondInjected.release();
+            zzReleaseAfterAdoption(secondInjected);
         };
         auto interruptedTake = shell->takePanel(zzPanelId("dock"));
         QVERIFY(!interruptedTake);
@@ -1287,15 +1307,15 @@ private Q_SLOTS:
         QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
         contentRaw->parentRemoved = [&] {
             dock->setWidget(firstInjected.get());
-            firstInjected.release();
+            zzReleaseAfterAdoption(firstInjected);
         };
         firstInjectedRaw->parentRemoved = [&] {
             dock->setWidget(secondInjected.get());
-            secondInjected.release();
+            zzReleaseAfterAdoption(secondInjected);
         };
         secondInjectedRaw->parentRemoved = [&] {
             dock->setWidget(thirdInjected.get());
-            thirdInjected.release();
+            zzReleaseAfterAdoption(thirdInjected);
         };
         auto interruptedTake = shell->takePanel(zzPanelId("dock"));
         QVERIFY(!interruptedTake);
@@ -1359,12 +1379,12 @@ private Q_SLOTS:
         QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
         contentRaw->parentRemoved = [&] {
             dock->setWidget(injected.front().get());
-            injected.front().release();
+            zzReleaseAfterAdoption(injected.front());
         };
         for (std::size_t index = 1; index < injectionCount; ++index) {
             injected[index - 1]->parentRemoved = [&, index] {
                 dock->setWidget(injected[index].get());
-                injected[index].release();
+                zzReleaseAfterAdoption(injected[index]);
             };
         }
 
@@ -1622,7 +1642,7 @@ private Q_SLOTS:
                 nestedRegistrationSucceeded =
                     static_cast<bool>(nestedRegistration);
                 if (nestedRegistration) {
-                    returned.release();
+                    zzReleaseAfterAdoption(returned);
                 }
             });
 
@@ -1681,7 +1701,7 @@ private Q_SLOTS:
                 nestedRegistrationSucceeded =
                     static_cast<bool>(nestedRegistration);
                 if (nestedRegistration) {
-                    returned.release();
+                    zzReleaseAfterAdoption(returned);
                 }
             });
 
@@ -2176,7 +2196,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
         registrationReturned = true;
         if (primaryRaw->parentWidget() == &thirdPartyOwner) {
-            static_cast<void>(primary.release());
+            zzReleaseAfterAdoption(primary);
         }
 
         QCOMPARE(callbackCount, 1);
@@ -2274,7 +2294,7 @@ private Q_SLOTS:
             zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
         if (primaryRaw->parentWidget() == &thirdPartyOwner) {
-            static_cast<void>(primary.release());
+            zzReleaseAfterAdoption(primary);
         }
 
         QCOMPARE(callbackCount, 1);
@@ -2326,7 +2346,7 @@ private Q_SLOTS:
                 }
                 thirdPartyOwner = new QWidget(frameOwner);
                 primaryRaw->setParent(thirdPartyOwner);
-                static_cast<void>(primary.release());
+                zzReleaseAfterAdoption(primary);
             });
 
         const auto registered = fixture.shell->registerSidePanel(
@@ -2334,7 +2354,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
         if (primary != nullptr && primaryGuard != nullptr
             && primaryGuard->parent() != nullptr) {
-            static_cast<void>(primary.release());
+            zzReleaseAfterAdoption(primary);
         }
 
         QCOMPARE(callbackCount, 1);
@@ -2396,7 +2416,7 @@ private Q_SLOTS:
                 thirdPartyOwner = new ZzReattachingOwner(
                     frameOwner, &reattached);
                 primaryRaw->setParent(thirdPartyOwner);
-                static_cast<void>(primary.release());
+                zzReleaseAfterAdoption(primary);
             });
 
         const auto registered = fixture.shell->registerSidePanel(
@@ -2404,7 +2424,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
         if (primary != nullptr && primaryGuard != nullptr
             && primaryGuard->parent() != nullptr) {
-            static_cast<void>(primary.release());
+            zzReleaseAfterAdoption(primary);
         }
 
         QCOMPARE(callbackCount, 1);
@@ -2462,7 +2482,7 @@ private Q_SLOTS:
                 thirdPartyOwner = new ZzQueuedReattachingOwner(
                     frameOwner, fixture.shell.get(), &reattachQueued);
                 primaryRaw->setParent(thirdPartyOwner);
-                static_cast<void>(primary.release());
+                zzReleaseAfterAdoption(primary);
             });
 
         const auto registered = fixture.shell->registerSidePanel(
@@ -2470,7 +2490,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
         if (primary != nullptr && primaryGuard != nullptr
             && primaryGuard->parent() != nullptr) {
-            static_cast<void>(primary.release());
+            zzReleaseAfterAdoption(primary);
         }
 
         QVERIFY(!registered);
@@ -2546,7 +2566,7 @@ private Q_SLOTS:
                 }
                 thirdPartyOwner = new QWidget(frameOwner);
                 primaryRaw->setParent(thirdPartyOwner);
-                static_cast<void>(primary.release());
+                zzReleaseAfterAdoption(primary);
             });
 
         const auto registered = fixture.shell->registerSidePanel(
@@ -2554,7 +2574,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
         if (primary != nullptr && primaryGuard != nullptr
             && primaryGuard->parent() != nullptr) {
-            static_cast<void>(primary.release());
+            zzReleaseAfterAdoption(primary);
         }
 
         QVERIFY(!registered);
@@ -4747,7 +4767,9 @@ private Q_SLOTS:
             firstGroup, Qt::Horizontal,
             ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(secondGroup.has_value());
-        auto *const secondTabs = splitWorkspace->tabWidget(*secondGroup);
+        const ZzFluentUI::ZzTabGroupId secondGroupId = secondGroup.value_or(
+            ZzFluentUI::ZzTabGroupId{});
+        auto *const secondTabs = splitWorkspace->tabWidget(secondGroupId);
         auto secondWindowPage = std::make_unique<QWidget>();
         QWidget *const secondWindowRaw = secondWindowPage.get();
         secondWindowPage->setWindowTitle(QStringLiteral("Second Window"));
@@ -4761,7 +4783,7 @@ private Q_SLOTS:
         fixture.shell->setApplicationTitle(QStringLiteral("Pure Tools"));
         fixture.shell->setTitleMode(
             ZzPureTools::ZzWorkspaceTitleMode::CurrentTab);
-        QVERIFY(splitWorkspace->setActiveGroup(*secondGroup));
+        QVERIFY(splitWorkspace->setActiveGroup(secondGroupId));
         QCOMPARE(fixture.shell->tabWidget(), secondTabs);
         secondTabs->setCurrentWidget(secondWindowRaw);
         QCOMPARE(fixture.host.windowTitle(), QStringLiteral("Second Window"));
@@ -4798,9 +4820,11 @@ private Q_SLOTS:
             firstGroup, Qt::Horizontal,
             ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(secondGroup.has_value());
+        const ZzFluentUI::ZzTabGroupId secondGroupId = secondGroup.value_or(
+            ZzFluentUI::ZzTabGroupId{});
         auto secondPage = std::make_unique<QWidget>();
         secondPage->setWindowTitle(QStringLiteral("Second"));
-        splitWorkspace->tabWidget(*secondGroup)->addTab(
+        splitWorkspace->tabWidget(secondGroupId)->addTab(
             secondPage.release(), QStringLiteral("Second"));
         QVERIFY(splitWorkspace->setActiveGroup(firstGroup));
         fixture.shell->setTitleMode(
@@ -4820,7 +4844,7 @@ private Q_SLOTS:
                     splitWorkspace->setActiveGroup(firstGroup);
             });
 
-        QVERIFY(splitWorkspace->setActiveGroup(*secondGroup));
+        QVERIFY(splitWorkspace->setActiveGroup(secondGroupId));
 
         QVERIFY(callbackEntered);
         QVERIFY(reactivatedFirstGroup);
@@ -5058,8 +5082,10 @@ private Q_SLOTS:
             rootId, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After,
             ZzFluentUI::ZzTabGroupId(QStringLiteral("second")));
         QVERIFY(secondId.has_value());
+        const ZzFluentUI::ZzTabGroupId secondGroupId = secondId.value_or(
+            ZzFluentUI::ZzTabGroupId{});
         auto *const rootTabs = workspace->tabWidget(rootId);
-        auto *const secondTabs = workspace->tabWidget(secondId.value());
+        auto *const secondTabs = workspace->tabWidget(secondGroupId);
         auto *const rootFirst = new QWidget;
         auto *const rootSecond = new QWidget;
         auto *const secondPage = new QWidget;
@@ -5074,7 +5100,7 @@ private Q_SLOTS:
             secondPage, QStringLiteral("second-page")));
         rootTabs->setCurrentIndex(1);
         secondTabs->setCurrentIndex(0);
-        QVERIFY(workspace->setActiveGroup(secondId.value()));
+        QVERIFY(workspace->setActiveGroup(secondGroupId));
         const QByteArray splitBefore = workspace->saveLayout();
         QVERIFY(!splitBefore.isEmpty());
         auto *const dockPanel = fixture.host.findChild<ZzFluentUI::ZzDockPanel *>(
@@ -5105,7 +5131,7 @@ private Q_SLOTS:
         QCOMPARE(leftPane->paneWidth(), 345);
         QCOMPARE(rightPane->paneWidth(), 456);
         QCOMPARE(workspace->groupIds().size(), 2);
-        QCOMPARE(workspace->activeGroupId(), secondId.value());
+        QCOMPARE(workspace->activeGroupId(), secondGroupId);
         QCOMPARE(workspace->tabWidget(rootId)->currentIndex(), 1);
         QCOMPARE(fixture.shell->bottomPane()->currentWidget(), bottomOneRaw);
         QCOMPARE(fixture.shell->bottomPane()->paneHeight(), 360);
@@ -5209,7 +5235,7 @@ private Q_SLOTS:
         } else if (mutation == QStringLiteral("area")) {
             layout.sideEntries = {{
                 QStringLiteral("side"),
-                static_cast<ZzFluentUI::ZzActivityArea>(0xff), 0}};
+                quint8{0xff}, 0}};
         } else if (mutation == QStringLiteral("title")) {
             layout.titleMode = 0xff;
         } else if (mutation == QStringLiteral("collapse")) {
@@ -7885,8 +7911,8 @@ private Q_SLOTS:
         const auto largeResult = measureRestore(1024);
         QVERIFY(smallResult.has_value());
         QVERIFY(largeResult.has_value());
-        const qint64 small = *smallResult;
-        const qint64 large = *largeResult;
+        const qint64 small = smallResult.value_or(qint64{-1});
+        const qint64 large = largeResult.value_or(qint64{-1});
         QVERIFY2(
             large < small * 8 + 250,
             qPrintable(QStringLiteral(

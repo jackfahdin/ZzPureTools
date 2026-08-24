@@ -119,7 +119,7 @@ public:
     [[nodiscard]] ZzCore::ZzResult<void> registerBottomPanel(
         const ZzWorkspacePanelId &id,
         const QString &title,
-        ZzFluentUI::ZzIconDescriptor icon,
+        const ZzFluentUI::ZzIconDescriptor &icon,
         QWidget *content);
     [[nodiscard]] ZzCore::ZzResult<QWidget *> takePanel(
         const ZzWorkspacePanelId &id);
