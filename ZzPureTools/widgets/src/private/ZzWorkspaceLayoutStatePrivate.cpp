@@ -683,25 +683,49 @@ ZzWorkspaceLayoutStatePrivate::buildActivityMoveTarget(
     }
     ZzWorkspaceProjection target = *restored;
     const int panelSize = zzVisiblePanelSize(target, panelId);
+    QSet<QString> visibleIds;
+    QHash<QString, int> sizesById;
+    for (const ZzSideProjection *const existingSide : {
+             &target.leftSide, &target.rightSide}) {
+        for (qsizetype index = 0; index < existingSide->visible.size(); ++index) {
+            const QString &id = existingSide->visible.at(index);
+            visibleIds.insert(id);
+            sizesById.insert(id, index < existingSide->sizes.size()
+                    ? std::max(existingSide->sizes.at(index), 1) : 1);
+        }
+    }
+    visibleIds.insert(panelId);
+    sizesById.insert(panelId, panelSize);
     zzRemoveFromSides(&target, panelId);
     zzRemoveFromActivity(&target.activity, panelId);
-
-    ZzSideProjection &side = zzIsLeftArea(targetArea)
-        ? target.leftSide : target.rightSide;
-    const qsizetype insertionIndex = std::min<qsizetype>(
-        targetRow, side.order.size());
-    side.order.insert(insertionIndex, panelId);
-    const qsizetype visibleIndex = std::min<qsizetype>(
-        targetRow, side.visible.size());
-    side.visible.insert(visibleIndex, panelId);
-    side.sizes.insert(visibleIndex, panelSize);
-    side.current = panelId;
 
     QStringList *const activity = zzActivityList(&target.activity, targetArea);
     if (activity == nullptr) {
         return std::nullopt;
     }
     activity->insert(std::min<qsizetype>(targetRow, activity->size()), panelId);
+    const auto rebuildSide = [&visibleIds, &sizesById](
+                                 ZzSideProjection *side,
+                                 const QStringList &primary,
+                                 const QStringList &secondary) {
+        side->order = primary + secondary;
+        side->visible.clear();
+        side->sizes.clear();
+        for (const QString &id : std::as_const(side->order)) {
+            if (!visibleIds.contains(id)) {
+                continue;
+            }
+            side->visible.append(id);
+            side->sizes.append(std::max(sizesById.value(id, 1), 1));
+        }
+    };
+    rebuildSide(&target.leftSide,
+        target.activity.leftPrimary, target.activity.leftSecondary);
+    rebuildSide(&target.rightSide,
+        target.activity.rightPrimary, target.activity.rightSecondary);
+    ZzSideProjection &destinationSide = zzIsLeftArea(targetArea)
+        ? target.leftSide : target.rightSide;
+    destinationSide.current = panelId;
     zzNormalizeTarget(&target, snapshot);
     return target;
 }

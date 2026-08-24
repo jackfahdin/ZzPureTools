@@ -105,6 +105,7 @@ ZzPlannerLayoutState::ZzWorkspaceSnapshot zzTwoSideSnapshot()
     snapshot.rightSide.visible = {QStringLiteral("terminal")};
     snapshot.rightSide.sizes = {360};
     snapshot.rightSide.current = QStringLiteral("terminal");
+    snapshot.activity.leftPrimary = {QStringLiteral("explorer")};
     snapshot.activity.rightPrimary = {QStringLiteral("terminal")};
     snapshot.activity.leftCurrent = QStringLiteral("explorer");
     snapshot.activity.rightCurrent = QStringLiteral("terminal");
@@ -820,6 +821,62 @@ private slots:
                 QStringLiteral("search")}));
         QCOMPARE(target->activity.rightActive,
             QSet<QString>({QStringLiteral("terminal")}));
+    }
+
+    void activityMoveTargetRebuildsPhysicalSideStateFromAreaRows()
+    {
+        using ZzLayoutState = ZzPureTools::ZzWorkspaceLayoutStatePrivate;
+
+        ZzLayoutState::ZzWorkspaceSnapshot snapshot;
+        snapshot.leftSide.order = {
+            QStringLiteral("primary-visible"),
+            QStringLiteral("primary-hidden"),
+            QStringLiteral("secondary-hidden"),
+            QStringLiteral("secondary-visible")};
+        snapshot.leftSide.visible = {
+            QStringLiteral("primary-visible"),
+            QStringLiteral("secondary-visible")};
+        snapshot.leftSide.sizes = {101, 202};
+        snapshot.leftSide.current = QStringLiteral("secondary-visible");
+        snapshot.activity.leftPrimary = {
+            QStringLiteral("primary-visible"),
+            QStringLiteral("primary-hidden")};
+        snapshot.activity.leftSecondary = {
+            QStringLiteral("secondary-hidden"),
+            QStringLiteral("secondary-visible")};
+        snapshot.rightSide.order = {QStringLiteral("moved")};
+        snapshot.rightSide.visible = {QStringLiteral("moved")};
+        snapshot.rightSide.sizes = {303};
+        snapshot.rightSide.current = QStringLiteral("moved");
+        snapshot.activity.rightPrimary = {QStringLiteral("moved")};
+
+        const auto target = ZzLayoutState::buildActivityMoveTarget(
+            snapshot, QStringLiteral("moved"),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
+
+        QVERIFY(target.has_value());
+        QCOMPARE(target->activity.leftPrimary,
+            QStringList({QStringLiteral("primary-visible"),
+                QStringLiteral("primary-hidden")}));
+        QCOMPARE(target->activity.leftSecondary,
+            QStringList({QStringLiteral("moved"),
+                QStringLiteral("secondary-hidden"),
+                QStringLiteral("secondary-visible")}));
+        QCOMPARE(target->leftSide.order,
+            QStringList({QStringLiteral("primary-visible"),
+                QStringLiteral("primary-hidden"),
+                QStringLiteral("moved"),
+                QStringLiteral("secondary-hidden"),
+                QStringLiteral("secondary-visible")}));
+        QCOMPARE(target->leftSide.visible,
+            QStringList({QStringLiteral("primary-visible"),
+                QStringLiteral("moved"),
+                QStringLiteral("secondary-visible")}));
+        QCOMPARE(target->leftSide.sizes, QList<int>({101, 303, 202}));
+        QCOMPARE(target->leftSide.current, QStringLiteral("moved"));
+        QVERIFY(target->rightSide.order.isEmpty());
+        QVERIFY(target->rightSide.visible.isEmpty());
+        QVERIFY(target->rightSide.sizes.isEmpty());
     }
 
     void invalidMoveReturnsNullopt()

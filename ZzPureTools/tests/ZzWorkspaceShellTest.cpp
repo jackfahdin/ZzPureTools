@@ -3109,6 +3109,114 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->saveLayout());
     }
 
+    void activityMoveUsesAreaLocalRowWithinSecondary()
+    {
+        ZzShellFixture fixture;
+        QList<QWidget *> contents;
+        const std::array<ZzFluentUI::ZzActivityArea, 4> areas = {
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            ZzFluentUI::ZzActivityArea::LeftSecondary};
+        for (int index = 0; index < 4; ++index) {
+            auto content = std::make_unique<QWidget>();
+            QWidget *const raw = content.get();
+            const QString id = QStringLiteral("local-%1").arg(index);
+            QVERIFY(fixture.shell->registerSidePanel(
+                ZzPureTools::ZzWorkspacePanelId(id), id, zzIcon(),
+                areas.at(static_cast<std::size_t>(index)), content.get()));
+            zzReleaseAfterAdoption(content);
+            contents.append(raw);
+        }
+        QVERIFY(fixture.shell->showPanel(zzPanelId("local-1"), false));
+        QVERIFY(fixture.shell->showPanel(zzPanelId("local-2"), false));
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const model = bar->model();
+        QVERIFY(pane->panelStack()->setPanelSizes({101, 202}));
+
+        Q_EMIT bar->moveRequested(model->index(3, 0),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
+
+        QCOMPARE(pane->panelStack()->panels(),
+            QList<QWidget *>({contents.at(0), contents.at(1),
+                contents.at(3), contents.at(2)}));
+        QCOMPARE(pane->visibleWidgets(),
+            QList<QWidget *>({contents.at(0), contents.at(3)}));
+        QCOMPARE(pane->panelStack()->panelSizes(), QList<int>({101, 202}));
+        QCOMPARE(pane->currentWidget(), contents.at(3));
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+    }
+
+    void activityMoveUsesAreaLocalRowAcrossSides()
+    {
+        ZzShellFixture fixture;
+        QList<QWidget *> leftContents;
+        const std::array<ZzFluentUI::ZzActivityArea, 4> leftAreas = {
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            ZzFluentUI::ZzActivityArea::LeftSecondary};
+        for (int index = 0; index < 4; ++index) {
+            auto content = std::make_unique<QWidget>();
+            QWidget *const raw = content.get();
+            const QString id = QStringLiteral("cross-local-%1").arg(index);
+            QVERIFY(fixture.shell->registerSidePanel(
+                ZzPureTools::ZzWorkspacePanelId(id), id, zzIcon(),
+                leftAreas.at(static_cast<std::size_t>(index)), content.get()));
+            zzReleaseAfterAdoption(content);
+            leftContents.append(raw);
+        }
+        auto moved = std::make_unique<QWidget>();
+        QWidget *const movedRaw = moved.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("cross-local-moved"), QStringLiteral("Moved"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("cross-local-1"), false));
+        QVERIFY(fixture.shell->showPanel(zzPanelId("cross-local-2"), false));
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const model = rightBar->model();
+        QVERIFY(leftPane->panelStack()->setPanelSizes({101, 202}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({303}));
+
+        Q_EMIT rightBar->moveRequested(model->index(4, 0),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
+
+        QCOMPARE(leftPane->panelStack()->panels(),
+            QList<QWidget *>({leftContents.at(0), leftContents.at(1), movedRaw,
+                leftContents.at(2), leftContents.at(3)}));
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({leftContents.at(0), movedRaw, leftContents.at(3)}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(),
+            QList<int>({101, 303, 202}));
+        QCOMPARE(leftPane->currentWidget(), movedRaw);
+        QVERIFY(rightPane->panelStack()->panels().isEmpty());
+        QVERIFY(rightPane->visibleWidgets().isEmpty());
+        QVERIFY(rightPane->panelStack()->panelSizes().isEmpty());
+        int movedRow = -1;
+        for (int row = 0; row < model->rowCount(); ++row) {
+            if (model->index(row, 0).data().toString() == QStringLiteral("Moved")) {
+                movedRow = row;
+                break;
+            }
+        }
+        QVERIFY(movedRow >= 0);
+        QCOMPARE(model->index(movedRow, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary);
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+    }
+
     void keepsActivityMoveResourceBudgetStableAcrossRoundTrips()
     {
         ZzShellFixture fixture;
