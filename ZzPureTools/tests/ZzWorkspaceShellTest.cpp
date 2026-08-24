@@ -2114,6 +2114,58 @@ private Q_SLOTS:
         primaryRaw->setParent(nullptr);
     }
 
+    void sideRegistrationDoesNotReclaimNestedThirdPartyContentAfterPanelMove()
+    {
+        ZzShellFixture fixture;
+        auto secondary = std::make_unique<QWidget>();
+        auto primary = std::make_unique<QWidget>();
+        QWidget *const secondaryRaw = secondary.get();
+        QWidget *const primaryRaw = primary.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("secondary"), QStringLiteral("Secondary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, secondary.get()));
+        zzReleaseAfterAdoption(secondary);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QWidget thirdPartyOwner(leftPane->panelStack());
+        int callbackCount = 0;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *moved, int) {
+                if (moved != primaryRaw) {
+                    return;
+                }
+                ++callbackCount;
+                primaryRaw->setParent(&thirdPartyOwner);
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
+        const bool hasInvalidState = !registered
+            && registered.error().code() == ZzCore::ZzErrorCode::InvalidState;
+        const bool parentPreserved = primaryRaw->parentWidget()
+            == &thirdPartyOwner;
+        const bool primaryNotFound = !registered
+            && !fixture.shell->takePanel(zzPanelId("primary"));
+        const int modelRows = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount();
+
+        primaryRaw->setParent(nullptr);
+        if (leftPane->panelStack()->panels().contains(primaryRaw)) {
+            QCOMPARE(leftPane->takeWidget(primaryRaw), primaryRaw);
+        }
+
+        QCOMPARE(callbackCount, 1);
+        QVERIFY(hasInvalidState);
+        QVERIFY(parentPreserved);
+        QVERIFY(primaryNotFound);
+        QCOMPARE(modelRows, 1);
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QVERIFY(fixture.shell->saveLayout());
+    }
+
     void sideRegistrationRollsBackOnlyOuterAfterReentrantRegistration()
     {
         ZzShellFixture fixture;

@@ -64,6 +64,8 @@ public:
         Qt::DockWidgetArea dockArea = Qt::NoDockWidgetArea;
         QPointer<QWidget> content;
         QWidget *contentIdentity = nullptr;
+        QPointer<QWidget> contentOwner;
+        QWidget *contentOwnerIdentity = nullptr;
         std::uint64_t registrationGeneration = 0;
         QPointer<ZzFluentUI::ZzDockPanel> dock;
         ZzFluentUI::ZzDockPanel *dockIdentity = nullptr;
