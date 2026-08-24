@@ -3,9 +3,11 @@
 #include <memory>
 #include <optional>
 #include <thread>
+#include <tuple>
 #include <utility>
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QAbstractAnimation>
 #include <QtCore/QBuffer>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
@@ -13,6 +15,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
+#include <QtCore/QTimer>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLayout>
@@ -2041,6 +2044,219 @@ private Q_SLOTS:
                 "Doubling panel count grew Activity move from %1 ns to %2 ns")
                     .arg(small)
                     .arg(large)));
+    }
+
+    void keepsActivityMoveResourceBudgetStableAcrossRoundTrips()
+    {
+        ZzShellFixture fixture;
+        auto leftFirst = std::make_unique<QWidget>();
+        auto leftSecond = std::make_unique<QWidget>();
+        auto right = std::make_unique<QWidget>();
+        QWidget *const leftFirstRaw = leftFirst.get();
+        QWidget *const leftSecondRaw = leftSecond.get();
+        QWidget *const rightRaw = right.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-first"), QStringLiteral("Left first"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftFirst.get()));
+        zzReleaseAfterAdoption(leftFirst);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-second"), QStringLiteral("Left second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftSecond.get()));
+        zzReleaseAfterAdoption(leftSecond);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right"), QStringLiteral("Right"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, right.get()));
+        zzReleaseAfterAdoption(right);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QAbstractItemModel *const leftModel = leftBar->model();
+        QAbstractItemModel *const rightModel = rightBar->model();
+        QVERIFY(leftModel != nullptr);
+        QVERIFY(rightModel != nullptr);
+        const auto resources = [&fixture] {
+            return std::tuple{
+                fixture.host.findChildren<QObject *>().size(),
+                fixture.host.findChildren<QTimer *>().size(),
+                fixture.host.findChildren<QAbstractAnimation *>().size()};
+        };
+        const auto baselineResources = resources();
+        const QList<QWidget *> baselineLeft = leftPane->visibleWidgets();
+        const QList<QWidget *> baselineRight = rightPane->visibleWidgets();
+        const QList<QWidget *> baselineParents{
+            leftFirstRaw->parentWidget(), leftSecondRaw->parentWidget(),
+            rightRaw->parentWidget()};
+        const int baselineLeftRows = leftModel->rowCount();
+        const int baselineRightRows = rightModel->rowCount();
+
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            Q_EMIT leftBar->moveRequested(
+                leftModel->index(0, 0),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
+            Q_EMIT leftBar->moveRequested(
+                leftModel->index(1, 0),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+            Q_EMIT leftBar->moveRequested(
+                leftModel->index(0, 0),
+                ZzFluentUI::ZzActivityArea::RightPrimary,
+                rightModel->rowCount());
+            Q_EMIT rightBar->moveRequested(
+                rightModel->index(rightModel->rowCount() - 1, 0),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+        }
+
+        QCOMPARE(resources(), baselineResources);
+        QCOMPARE(leftPane->visibleWidgets(), baselineLeft);
+        QCOMPARE(rightPane->visibleWidgets(), baselineRight);
+        QCOMPARE(leftModel->rowCount(), baselineLeftRows);
+        QCOMPARE(rightModel->rowCount(), baselineRightRows);
+        const QList<QWidget *> currentParents{
+            leftFirstRaw->parentWidget(), leftSecondRaw->parentWidget(),
+            rightRaw->parentWidget()};
+        QCOMPARE(currentParents, baselineParents);
+        QVERIFY(leftPane->isAncestorOf(leftFirstRaw));
+        QVERIFY(leftPane->isAncestorOf(leftSecondRaw));
+        QVERIFY(rightPane->isAncestorOf(rightRaw));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-first"), 1));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("left-second"), 2));
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("right"), 3));
+        QVERIFY(fixture.shell->showPanel(zzPanelId("left-first"), true));
+        QVERIFY(fixture.shell->showPanel(zzPanelId("left-second"), true));
+        QVERIFY(fixture.shell->showPanel(zzPanelId("right"), true));
+    }
+
+    void keepsObjectBudgetStableAcrossRepeatedTransactions()
+    {
+        ZzShellFixture fixture;
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+        const auto resources = [&fixture] {
+            return std::tuple{
+                fixture.host.findChildren<QObject *>().size(),
+                fixture.host.findChildren<QTimer *>().size(),
+                fixture.host.findChildren<QAbstractAnimation *>().size()};
+        };
+        const auto baselineResources = resources();
+
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            QVERIFY(fixture.shell->restoreLayout(saved.value()));
+        }
+
+        QCOMPARE(resources(), baselineResources);
+    }
+
+    void keepsRestoreFailureResourceBudgetStableAcrossSignalPollution()
+    {
+        ZzShellFixture splitSource;
+        auto *const sourceSplit = splitSource.shell->splitWorkspace();
+        QVERIFY(sourceSplit->splitGroup(
+            sourceSplit->activeGroupId(), Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After,
+            ZzFluentUI::ZzTabGroupId(QStringLiteral("requested")))
+                    .has_value());
+        const auto splitRequested = splitSource.shell->saveLayout();
+        QVERIFY(splitRequested);
+
+        ZzShellFixture splitTarget;
+        auto *const targetSplit = splitTarget.shell->splitWorkspace();
+        const QByteArray splitBefore = targetSplit->saveLayout();
+        const auto splitResources = [&splitTarget] {
+            return std::tuple{
+                splitTarget.host.findChildren<QObject *>().size(),
+                splitTarget.host.findChildren<QTimer *>().size(),
+                splitTarget.host.findChildren<QAbstractAnimation *>().size()};
+        };
+        const auto splitBaselineResources = splitResources();
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            bool armed = true;
+            const QMetaObject::Connection connection = QObject::connect(
+                targetSplit, &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
+                splitTarget.shell.get(), [&] {
+                    if (!armed) {
+                        return;
+                    }
+                    armed = false;
+                    static_cast<void>(targetSplit->splitGroup(
+                        targetSplit->groupIds().constFirst(), Qt::Vertical,
+                        ZzFluentUI::ZzSplitPlacement::After,
+                        ZzFluentUI::ZzTabGroupId(
+                            QStringLiteral("pollution"))));
+                });
+            const auto restored = splitTarget.shell->restoreLayout(
+                splitRequested.value());
+            QObject::disconnect(connection);
+            QVERIFY(!restored);
+            QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+            QVERIFY(!armed);
+            QCOMPARE(targetSplit->saveLayout(), splitBefore);
+            QCOMPARE(splitResources(), splitBaselineResources);
+        }
+        QCOMPARE(targetSplit->groupIds().size(), 1);
+
+        ZzShellFixture sideSource;
+        auto sourceSide = std::make_unique<QWidget>();
+        QVERIFY(sideSource.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceSide.get()));
+        zzReleaseAfterAdoption(sourceSide);
+        sideSource.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(411);
+        const auto sideRequested = sideSource.shell->saveLayout();
+        QVERIFY(sideRequested);
+
+        ZzShellFixture sideTarget;
+        auto targetSide = std::make_unique<QWidget>();
+        QWidget *const targetSideRaw = targetSide.get();
+        QVERIFY(sideTarget.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetSide.get()));
+        zzReleaseAfterAdoption(targetSide);
+        auto *const targetSidePane = sideTarget.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const targetSideBar = sideTarget.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        const int sideRows = targetSideBar->model()->rowCount();
+        const auto sideResources = [&sideTarget] {
+            return std::tuple{
+                sideTarget.host.findChildren<QObject *>().size(),
+                sideTarget.host.findChildren<QTimer *>().size(),
+                sideTarget.host.findChildren<QAbstractAnimation *>().size()};
+        };
+        const auto sideBaselineResources = sideResources();
+        const int baselineWidth = targetSidePane->paneWidth();
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            bool armed = true;
+            const QMetaObject::Connection connection = QObject::connect(
+                targetSidePane, &ZzFluentUI::ZzSidePane::paneWidthChanged,
+                sideTarget.shell.get(), [&](int width) {
+                    if (!armed || width != 411) {
+                        return;
+                    }
+                    armed = false;
+                    targetSidePane->setPaneWidth(333);
+                });
+            const auto restored = sideTarget.shell->restoreLayout(
+                sideRequested.value());
+            QObject::disconnect(connection);
+            QVERIFY(!restored);
+            QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+            QVERIFY(!armed);
+            QCOMPARE(targetSidePane->paneWidth(), baselineWidth);
+            QCOMPARE(sideTarget.shell->sidePane(
+                ZzFluentUI::ZzSidePaneEdge::Left)->visibleWidgets(),
+                QList<QWidget *>({targetSideRaw}));
+            QCOMPARE(targetSideBar->model()->rowCount(), sideRows);
+            QVERIFY(targetSidePane->isAncestorOf(targetSideRaw));
+            QCOMPARE(sideResources(), sideBaselineResources);
+        }
+        QVERIFY(sideTarget.shell->setPanelBadge(zzPanelId("side"), 7));
+        QVERIFY(sideTarget.shell->showPanel(zzPanelId("side"), true));
     }
 
     void activityMoveStopsWhenAnEarlierPanelIsReparented()
