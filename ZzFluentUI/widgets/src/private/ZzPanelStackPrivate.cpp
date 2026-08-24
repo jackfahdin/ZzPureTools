@@ -108,7 +108,7 @@ public:
         refreshIcon();
     }
 
-    /** @brief 仅在本框架仍直接持有内容时解除父对象并归还所有权。 */
+    /** @brief 归还直接持有的内容，或脱离仍包含第三方 owner 的框架分支。 */
     [[nodiscard]] QWidget *releaseContent()
     {
         if (content_ == nullptr) {
@@ -117,6 +117,13 @@ public:
         QPointer<QWidget> contentGuard(content_);
         content_ = nullptr;
         if (contentGuard->parentWidget() != this) {
+            QWidget *foreignBranch = contentGuard->parentWidget();
+            if (foreignBranch != nullptr && isAncestorOf(foreignBranch)) {
+                while (foreignBranch->parentWidget() != this) {
+                    foreignBranch = foreignBranch->parentWidget();
+                }
+                foreignBranch->setParent(nullptr);
+            }
             return nullptr;
         }
         layout()->removeWidget(contentGuard);
