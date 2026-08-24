@@ -5850,6 +5850,136 @@ private Q_SLOTS:
         zzReleaseAfterAdoption(replacement);
     }
 
+    void restoreRejectsOwnerPollutionInsideSideFrame()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->bottomPane()->setMaximumPaneHeight(800);
+        source.shell->bottomPane()->setPaneHeight(500);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        QWidget *const frameOwner = targetContentRaw->parentWidget();
+        QVERIFY(frameOwner != nullptr);
+        auto *const bottomPane = target.shell->bottomPane();
+        bottomPane->setMaximumPaneHeight(800);
+        bottomPane->setPaneHeight(240);
+        QPointer<QWidget> thirdPartyOwner;
+        bool callbackEntered = false;
+        QObject::connect(
+            bottomPane, &ZzFluentUI::ZzBottomPane::paneHeightChanged,
+            target.shell.get(), [&](int height) {
+                if (callbackEntered || height != 500) {
+                    return;
+                }
+                callbackEntered = true;
+                thirdPartyOwner = new QWidget(frameOwner);
+                targetContentRaw->setParent(thirdPartyOwner);
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(thirdPartyOwner != nullptr);
+        QCOMPARE(targetContentRaw->parentWidget(), thirdPartyOwner.data());
+        QVERIFY(frameOwner->isAncestorOf(targetContentRaw));
+    }
+
+    void restoreRejectsUnknownPhysicalSidePanel()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        auto *const sourcePane = source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        sourcePane->setMaximumPaneWidth(800);
+        sourcePane->setPaneWidth(410);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto targetContent = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const targetPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        targetPane->setMaximumPaneWidth(800);
+        targetPane->setPaneWidth(230);
+        auto unknown = std::make_unique<QWidget>();
+        QWidget *const unknownRaw = unknown.get();
+        bool callbackEntered = false;
+        bool injectionAccepted = false;
+        bool hidden = false;
+        QObject::connect(
+            targetPane, &ZzFluentUI::ZzSidePane::paneWidthChanged,
+            target.shell.get(), [&](int width) {
+                if (callbackEntered || width != 410) {
+                    return;
+                }
+                callbackEntered = true;
+                injectionAccepted = targetPane->addWidget(
+                    unknownRaw, QStringLiteral("Unknown"));
+                if (injectionAccepted) {
+                    zzReleaseAfterAdoption(unknown);
+                    hidden = targetPane->setWidgetVisible(unknownRaw, false);
+                }
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(injectionAccepted);
+        QVERIFY(hidden);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        std::unique_ptr<QWidget> reclaimed(targetPane->takeWidget(unknownRaw));
+        QCOMPARE(reclaimed.get(), unknownRaw);
+        QVERIFY(target.shell->saveLayout());
+    }
+
+    void saveRejectsUnknownPhysicalSidePanel()
+    {
+        ZzShellFixture fixture;
+        auto registered = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, registered.get()));
+        zzReleaseAfterAdoption(registered);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto unknown = std::make_unique<QWidget>();
+        QWidget *const unknownRaw = unknown.get();
+        QVERIFY(pane->addWidget(unknownRaw, QStringLiteral("Unknown")));
+        zzReleaseAfterAdoption(unknown);
+        QVERIFY(pane->setWidgetVisible(unknownRaw, false));
+
+        const auto saved = fixture.shell->saveLayout();
+
+        QVERIFY(!saved);
+        QCOMPARE(saved.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        std::unique_ptr<QWidget> reclaimed(pane->takeWidget(unknownRaw));
+        QCOMPARE(reclaimed.get(), unknownRaw);
+        QVERIFY(fixture.shell->saveLayout());
+    }
+
     void restoreRejectsBottomContentOutsideStack()
     {
         ZzShellFixture source;

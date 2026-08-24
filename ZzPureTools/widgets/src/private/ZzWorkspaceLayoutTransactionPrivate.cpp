@@ -9,6 +9,7 @@
 #include <QtCore/QBuffer>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QEvent>
 #include <QtCore/QHash>
 #include <QtCore/QIODevice>
 #include <QtCore/QModelIndex>
@@ -129,11 +130,20 @@ struct ZzRuntimeGuards final
     QPointer<ZzFluentUI::ZzFluentTitleBar> titleBar;
 };
 
+struct ZzSideOwnerIdentity final
+{
+    QPointer<QWidget> object;
+    QWidget *rawObject = nullptr;
+};
+
+using ZzSideOwnerIndex = QHash<QString, ZzSideOwnerIdentity>;
+
 struct ZzRuntimeSnapshot final
 {
     ZzSnapshot projection;
     ZzRuntimeGuards guards;
     QHash<QString, int> panelRows;
+    ZzSideOwnerIndex sideOwners;
 };
 
 struct ZzRuntimeIndexes final
@@ -141,6 +151,131 @@ struct ZzRuntimeIndexes final
     QHash<QWidget *, QString> widgetIds;
     QHash<QString, int> activityRows;
     QHash<int, QString> activityIds;
+};
+
+/** @brief 仅允许事务声明的 Side 内容换父，并在合法 attach 事件内固定新 frame。 */
+class ZzSideOwnerObserver final : public QObject
+{
+public:
+    ZzSideOwnerObserver(
+        const ZzProjection &projection,
+        ZzSideOwnerIndex *owners)
+        : owners_(owners)
+    {
+        for (const auto &identity : projection.identities) {
+            if (identity.kind != ZzLayoutState::ZzPanelKind::Side
+                || identity.widget == nullptr) {
+                continue;
+            }
+            watchedContents_.append(identity.widget);
+            identity.widget->installEventFilter(this);
+        }
+    }
+
+    ~ZzSideOwnerObserver() override
+    {
+        for (const QPointer<QWidget> &content : std::as_const(watchedContents_)) {
+            if (content != nullptr) {
+                content->removeEventFilter(this);
+            }
+        }
+    }
+
+    void beginDetach(const QString &id, QWidget *content) noexcept
+    {
+        beginMutation(ZzMutation::Detach, id, content, nullptr);
+    }
+
+    void beginAttach(
+        const QString &id,
+        QWidget *content,
+        ZzFluentUI::ZzPanelStack *stack) noexcept
+    {
+        beginMutation(ZzMutation::Attach, id, content, stack);
+    }
+
+    void finishMutation() noexcept
+    {
+        if (mutation_ != ZzMutation::None && !consumed_) {
+            valid_ = false;
+        }
+        mutation_ = ZzMutation::None;
+        expectedId_.clear();
+        expectedContent_ = nullptr;
+        expectedStack_ = nullptr;
+        consumed_ = false;
+    }
+
+    [[nodiscard]] bool isValid() const noexcept
+    {
+        return valid_;
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event == nullptr || event->type() != QEvent::ParentChange) {
+            return QObject::eventFilter(watched, event);
+        }
+        QWidget *const content = qobject_cast<QWidget *>(watched);
+        if (mutation_ == ZzMutation::None || consumed_
+            || content == nullptr || content != expectedContent_) {
+            valid_ = false;
+            return QObject::eventFilter(watched, event);
+        }
+        consumed_ = true;
+        if (mutation_ == ZzMutation::Detach) {
+            if (content->parent() != nullptr) {
+                valid_ = false;
+            } else if (owners_ != nullptr) {
+                owners_->insert(expectedId_, {});
+            }
+        } else {
+            QWidget *const owner = content->parentWidget();
+            if (owner == nullptr || expectedStack_ == nullptr
+                || !expectedStack_->isAncestorOf(owner)) {
+                valid_ = false;
+            } else if (owners_ != nullptr) {
+                owners_->insert(expectedId_, {owner, owner});
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    enum class ZzMutation : unsigned char
+    {
+        None,
+        Detach,
+        Attach
+    };
+
+    void beginMutation(
+        ZzMutation mutation,
+        const QString &id,
+        QWidget *content,
+        ZzFluentUI::ZzPanelStack *stack) noexcept
+    {
+        if (mutation_ != ZzMutation::None || content == nullptr
+            || id.isEmpty()) {
+            valid_ = false;
+            return;
+        }
+        mutation_ = mutation;
+        expectedId_ = id;
+        expectedContent_ = content;
+        expectedStack_ = stack;
+        consumed_ = false;
+    }
+
+    QList<QPointer<QWidget>> watchedContents_;
+    ZzSideOwnerIndex *owners_ = nullptr;
+    QString expectedId_;
+    QPointer<QWidget> expectedContent_;
+    QPointer<ZzFluentUI::ZzPanelStack> expectedStack_;
+    ZzMutation mutation_ = ZzMutation::None;
+    bool consumed_ = false;
+    bool valid_ = true;
 };
 
 [[nodiscard]] ZzRuntimeIndexes zzBuildRuntimeIndexes(
@@ -258,27 +393,35 @@ void zzWriteSide(
     return encoded.size() <= zzMaximumLayoutSize ? encoded : QByteArray{};
 }
 
-void zzCaptureSideRuntime(
+[[nodiscard]] bool zzCaptureSideRuntime(
     const QHash<QWidget *, QString> &ids,
     ZzFluentUI::ZzSidePane *pane,
-    ZzSide *side)
+    ZzSide *side,
+    ZzSideOwnerIndex *owners)
 {
     if (pane == nullptr || pane->panelStack() == nullptr) {
-        return;
+        return false;
     }
+    ZzFluentUI::ZzPanelStack *const stack = pane->panelStack();
     side->paneIdentity = zzIdentity(pane);
-    side->stackIdentity = zzIdentity(pane->panelStack());
+    side->stackIdentity = zzIdentity(stack);
     side->order.clear();
     side->contents.clear();
-    for (QWidget *const content : pane->panelStack()->panels()) {
+    for (QWidget *const content : stack->panels()) {
         const QString id = ids.value(content);
-        if (!id.isEmpty()) {
-            side->order.append(id);
-            side->contents.append({
-                id, side->stackIdentity,
-                {side->paneIdentity, side->stackIdentity}});
+        QWidget *const owner = content != nullptr
+            ? content->parentWidget() : nullptr;
+        if (id.isEmpty() || owner == nullptr || owners->contains(id)
+            || !stack->isAncestorOf(owner)) {
+            return false;
         }
+        owners->insert(id, {owner, owner});
+        side->order.append(id);
+        side->contents.append({
+            id, side->stackIdentity,
+            {side->paneIdentity, side->stackIdentity}});
     }
+    return true;
 }
 
 [[nodiscard]] std::optional<ZzRuntimeSnapshot> zzCaptureSnapshot(
@@ -338,10 +481,24 @@ void zzCaptureSideRuntime(
             }
         }
     }
-    zzCaptureSideRuntime(
-        ids, shell.leftSidePane, &result.projection.leftSide);
-    zzCaptureSideRuntime(
-        ids, shell.rightSidePane, &result.projection.rightSide);
+    result.sideOwners.reserve(shell.panels.size());
+    if (!zzCaptureSideRuntime(
+            ids, shell.leftSidePane, &result.projection.leftSide,
+            &result.sideOwners)
+        || !zzCaptureSideRuntime(
+            ids, shell.rightSidePane, &result.projection.rightSide,
+            &result.sideOwners)) {
+        return std::nullopt;
+    }
+    const qsizetype registeredSideCount = std::count_if(
+        shell.panels.cbegin(), shell.panels.cend(), [](const auto &record) {
+            return record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side;
+        });
+    if (result.projection.leftSide.order.size()
+            + result.projection.rightSide.order.size()
+        != registeredSideCount) {
+        return std::nullopt;
+    }
 
     result.projection.bottom.paneIdentity = zzIdentity(shell.bottomPane);
     auto *const bottomStack = shell.bottomPane != nullptr
@@ -476,12 +633,27 @@ void zzCaptureSideRuntime(
     return result;
 }
 
+[[nodiscard]] bool zzSideOwnerMatches(
+    const ZzSideOwnerIndex &owners,
+    const QString &id,
+    QWidget *content,
+    ZzFluentUI::ZzPanelStack *stack)
+{
+    const auto owner = owners.constFind(id);
+    return owner != owners.cend() && content != nullptr && stack != nullptr
+        && owner->object != nullptr
+        && owner->object.data() == owner->rawObject
+        && content->parentWidget() == owner->rawObject
+        && stack->isAncestorOf(owner->object.data());
+}
+
 [[nodiscard]] bool zzAuditSide(
     const ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime,
     const ZzSide &expected,
     ZzFluentUI::ZzSidePane *pane,
-    const ZzRuntimeIndexes &indexes)
+    const ZzRuntimeIndexes &indexes,
+    const ZzSideOwnerIndex &owners)
 {
     if (pane == nullptr || expected.paneIdentity.object == nullptr
         || expected.paneIdentity.object.data() != expected.paneIdentity.rawObject
@@ -491,10 +663,14 @@ void zzCaptureSideRuntime(
         || pane->panelStack() != expected.stackIdentity.rawObject) {
         return false;
     }
-    const QStringList observedOrder = zzIds(
-        pane->panelStack()->panels(), indexes);
-    const QStringList observedVisible = zzIds(
-        pane->visibleWidgets(), indexes);
+    const QList<QWidget *> physicalPanels = pane->panelStack()->panels();
+    const QList<QWidget *> physicalVisible = pane->visibleWidgets();
+    if (physicalPanels.size() != expected.order.size()
+        || physicalVisible.size() != expected.visible.size()) {
+        return false;
+    }
+    const QStringList observedOrder = zzIds(physicalPanels, indexes);
+    const QStringList observedVisible = zzIds(physicalVisible, indexes);
     const QList<int> observedSizes = pane->panelStack()->panelSizes();
     const QString observedCurrent = zzIds(
         {pane->currentWidget()}, indexes).value(0);
@@ -509,6 +685,8 @@ void zzCaptureSideRuntime(
     for (const QString &id : expected.order) {
         const auto *const record = zzRecord(shell, runtime, id);
         if (record == nullptr || record->content == nullptr
+            || !zzSideOwnerMatches(
+                owners, id, record->content, pane->panelStack())
             || !pane->isAncestorOf(record->content)
             || !pane->panelStack()->isAncestorOf(record->content)) {
             return false;
@@ -685,6 +863,7 @@ void zzCaptureSideRuntime(
     const ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime,
     const ZzProjection &expected,
+    const ZzSideOwnerIndex &owners,
     const QString &migrationGroup = {},
     int migrationCurrent = -1)
 {
@@ -695,9 +874,11 @@ void zzCaptureSideRuntime(
         && zzAuditSplit(
             shell, expected.split, migrationGroup, migrationCurrent)
         && zzAuditSide(
-            shell, runtime, expected.leftSide, shell.leftSidePane, indexes)
+            shell, runtime, expected.leftSide, shell.leftSidePane, indexes,
+            owners)
         && zzAuditSide(
-            shell, runtime, expected.rightSide, shell.rightSidePane, indexes)
+            shell, runtime, expected.rightSide, shell.rightSidePane, indexes,
+            owners)
         && zzAuditBottom(shell, runtime, expected.bottom, indexes)
         && zzAuditActivity(shell, expected.activity, indexes)
         && shell.titleMode == zzTitleMode(expected.title.mode)
@@ -1036,9 +1217,15 @@ private:
     ZzWorkspaceShellPrivate &shell,
     const ZzRuntimeSnapshot &runtime,
     const ZzProjection &target,
-    bool strict)
+    bool strict,
+    ZzSideOwnerObserver &ownerObserver,
+    const ZzSideOwnerIndex &owners)
 {
     bool complete = true;
+    const auto stableBoundary = [&] {
+        return ownerObserver.isValid()
+            && zzStableGuards(shell, runtime.guards);
+    };
     const auto place = [&](const ZzSide &side,
                            ZzFluentUI::ZzSidePane *destination) {
         const QPointer<ZzFluentUI::ZzSidePane> destinationGuard(destination);
@@ -1060,21 +1247,32 @@ private:
             }
             if (owner != destinationGuard) {
                 if (owner != nullptr) {
+                    ownerObserver.beginDetach(id, content);
                     QWidget *const taken = owner->takeWidget(content);
+                    ownerObserver.finishMutation();
                     if (taken != content || content == nullptr
                         || content->parent() != nullptr
-                        || !zzStableGuards(shell, runtime.guards)) {
+                        || !stableBoundary()) {
                         complete = false;
                         if (strict) return false;
                         continue;
                     }
                 }
-                if (destinationGuard == nullptr || content == nullptr
-                    || !destinationGuard->addWidget(content, record->title)
+                ownerObserver.beginAttach(
+                    id, content,
+                    destinationGuard != nullptr
+                        ? destinationGuard->panelStack() : nullptr);
+                const bool added = destinationGuard != nullptr
+                    && content != nullptr
+                    && destinationGuard->addWidget(content, record->title);
+                ownerObserver.finishMutation();
+                if (!added
                     || destinationGuard == nullptr || content == nullptr
+                    || !zzSideOwnerMatches(
+                        owners, id, content, destinationGuard->panelStack())
                     || !destinationGuard->isAncestorOf(content)
                     || !destinationGuard->panelStack()->isAncestorOf(content)
-                    || !zzStableGuards(shell, runtime.guards)) {
+                    || !stableBoundary()) {
                     complete = false;
                     if (strict) return false;
                     continue;
@@ -1091,7 +1289,7 @@ private:
                 || !destinationGuard->panelStack()->movePanel(
                     record->content, static_cast<int>(index))
                 || destinationGuard == nullptr
-                || !zzStableGuards(shell, runtime.guards)) {
+                || !stableBoundary()) {
                 complete = false;
                 if (strict) return false;
             }
@@ -1102,7 +1300,7 @@ private:
                 || !destinationGuard->setWidgetVisible(
                     record->content, side.visible.contains(id))
                 || destinationGuard == nullptr
-                || !zzStableGuards(shell, runtime.guards)) {
+                || !stableBoundary()) {
                 complete = false;
                 if (strict) return false;
             }
@@ -1112,7 +1310,7 @@ private:
             if (current == nullptr || current->content == nullptr
                 || !destinationGuard->setCurrentWidget(current->content)
                 || destinationGuard == nullptr
-                || !zzStableGuards(shell, runtime.guards)) {
+                || !stableBoundary()) {
                 complete = false;
                 if (strict) return false;
             }
@@ -1121,19 +1319,19 @@ private:
             ? true
             : destinationGuard->panelStack()->setPanelSizes(side.sizes);
         if (!sizesApplied || destinationGuard == nullptr
-            || !zzStableGuards(shell, runtime.guards)) {
+            || !stableBoundary()) {
             complete = false;
             if (strict) return false;
         }
         destinationGuard->setPaneWidth(side.width);
         if (destinationGuard == nullptr
-            || !zzStableGuards(shell, runtime.guards)) {
+            || !stableBoundary()) {
             complete = false;
             if (strict) return false;
         }
         destinationGuard->setCollapsed(side.collapsed);
         if (destinationGuard == nullptr
-            || !zzStableGuards(shell, runtime.guards)) {
+            || !stableBoundary()) {
             complete = false;
             if (strict) return false;
         }
@@ -1142,11 +1340,14 @@ private:
     static_cast<void>(place(target.leftSide, shell.leftSidePane));
     static_cast<void>(place(target.rightSide, shell.rightSidePane));
     const ZzRuntimeIndexes indexes = zzBuildRuntimeIndexes(shell, runtime);
-    const bool audited = zzStablePanels(shell, runtime)
+    const bool audited = ownerObserver.isValid()
+        && zzStablePanels(shell, runtime)
         && zzAuditSide(
-            shell, runtime, target.leftSide, shell.leftSidePane, indexes)
+            shell, runtime, target.leftSide, shell.leftSidePane, indexes,
+            owners)
         && zzAuditSide(
-            shell, runtime, target.rightSide, shell.rightSidePane, indexes);
+            shell, runtime, target.rightSide, shell.rightSidePane, indexes,
+            owners);
     return complete && audited;
 }
 
@@ -1448,12 +1649,15 @@ void zzSynchronizeAfterFailedRollback(
     int migrationCurrent,
     const QByteArray &alternateSplitCanonical)
 {
+    ZzSideOwnerIndex owners = runtime.sideOwners;
+    ZzSideOwnerObserver ownerObserver(runtime.projection, &owners);
     bool complete = zzApplyActivityAndTitle(
         shell, runtime, runtime.projection);
     complete = zzApplyBottom(
         shell, runtime, runtime.projection.bottom, true)
         && complete;
-    complete = zzApplySide(shell, runtime, runtime.projection, false)
+    complete = zzApplySide(
+        shell, runtime, runtime.projection, false, ownerObserver, owners)
         && complete;
     complete = zzApplySplit(
         shell, runtime, runtime.projection.split,
@@ -1461,7 +1665,8 @@ void zzSynchronizeAfterFailedRollback(
         alternateSplitCanonical) && complete;
     complete = zzApplyDock(shell, runtime, runtime.projection.dock)
         && complete;
-    if (!complete || !zzAuditAll(shell, runtime, runtime.projection)) {
+    if (!complete || !ownerObserver.isValid()
+        || !zzAuditAll(shell, runtime, runtime.projection, owners)) {
         zzSynchronizeAfterFailedRollback(shell, runtime);
         return false;
     }
@@ -1565,6 +1770,8 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     bool committed = planned.has_value();
     if (committed) {
         const ZzProjection target = *planned;
+        ZzSideOwnerIndex targetOwners = snapshot.sideOwners;
+        ZzSideOwnerObserver ownerObserver(target, &targetOwners);
         committed = zzApplyDock(shell_, snapshot, target.dock);
         if (committed) {
             committed = zzApplySplit(
@@ -1573,7 +1780,9 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
                 snapshot.projection.split.canonicalState);
         }
         if (committed) {
-            committed = zzApplySide(shell_, snapshot, target, true);
+            committed = zzApplySide(
+                shell_, snapshot, target, true,
+                ownerObserver, targetOwners);
         }
         if (committed) {
             committed = zzApplyBottom(shell_, snapshot, target.bottom);
@@ -1582,9 +1791,10 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             committed = zzApplyActivityAndTitle(shell_, snapshot, target);
         }
         if (committed) {
-            committed = zzAuditAll(
-                shell_, snapshot, target,
-                migrationGroup, migrationCurrent);
+            committed = ownerObserver.isValid()
+                && zzAuditAll(
+                    shell_, snapshot, target, targetOwners,
+                    migrationGroup, migrationCurrent);
         }
     }
     if (committed) {
