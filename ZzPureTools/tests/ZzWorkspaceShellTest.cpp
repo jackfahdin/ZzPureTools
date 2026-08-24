@@ -2499,7 +2499,17 @@ private Q_SLOTS:
         auto *const bar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         QAbstractItemModel *const model = bar->model();
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
         QVERIFY(pane->panelStack()->setPanelSizes({101, 202, 303, 404, 505, 606}));
+        QList<QPointer<QWidget>> owners;
+        QList<QWidget *> rawOwners;
+        for (QWidget *content : contents) {
+            owners.append(content->parentWidget());
+            rawOwners.append(content->parentWidget());
+        }
         QList<QPair<QWidget *, int>> moves;
         QObject::connect(pane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
             fixture.shell.get(), [&moves](QWidget *content, int index) {
@@ -2520,6 +2530,28 @@ private Q_SLOTS:
         QCOMPARE(model->index(5, 0).data(static_cast<int>(
             ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
             ZzFluentUI::ZzActivityArea::LeftPrimary);
+        for (int row = 0; row < 6; ++row) {
+            QCOMPARE(model->index(row, 0).data().toString(),
+                QStringLiteral("single-%1").arg((row + 1) % 6));
+            QCOMPARE(model->index(row, 0).data(static_cast<int>(
+                ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary);
+        }
+        QCOMPARE(pane->currentWidget(), contents.at(0));
+        QCOMPARE(bar->currentSourceIndex().data().toString(), QStringLiteral("single-0"));
+        QCOMPARE(bar->activeSourceIndexes().size(), 6);
+        QVERIFY(rightPane->panelStack()->panels().isEmpty());
+        QVERIFY(rightPane->visibleWidgets().isEmpty());
+        QVERIFY(rightPane->panelStack()->panelSizes().isEmpty());
+        QVERIFY(rightPane->currentWidget() == nullptr);
+        QVERIFY(!rightBar->currentSourceIndex().isValid());
+        QVERIFY(rightBar->activeSourceIndexes().isEmpty());
+        for (qsizetype index = 0; index < contents.size(); ++index) {
+            QCOMPARE(contents.at(index)->parentWidget(), rawOwners.at(index));
+            QVERIFY(owners.at(index) != nullptr);
+            QVERIFY(pane->panelStack()->isAncestorOf(contents.at(index)));
+            QVERIFY(pane->isAncestorOf(contents.at(index)));
+        }
 
         moves.clear();
         Q_EMIT bar->moveRequested(model->index(5, 0),
@@ -2529,6 +2561,10 @@ private Q_SLOTS:
         QCOMPARE(pane->panelStack()->panels(), contents);
         QCOMPARE(pane->panelStack()->panelSizes(),
             QList<int>({101, 202, 303, 404, 505, 606}));
+        for (int row = 0; row < 6; ++row) {
+            QCOMPARE(model->index(row, 0).data().toString(),
+                QStringLiteral("single-%1").arg(row));
+        }
 
         moves.clear();
         Q_EMIT bar->moveRequested(model->index(0, 0),
@@ -2567,6 +2603,14 @@ private Q_SLOTS:
         auto *const bar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         QAbstractItemModel *const model = bar->model();
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QVERIFY(leftPane->panelStack()->setPanelSizes({111}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({222, 333}));
+        QPointer<QWidget> rightOneOwner = rightOneRaw->parentWidget();
+        QPointer<QWidget> rightTwoOwner = rightTwoRaw->parentWidget();
+        QWidget *const rawRightOneOwner = rightOneRaw->parentWidget();
+        QWidget *const rawRightTwoOwner = rightTwoRaw->parentWidget();
         QList<QPair<QWidget *, int>> leftMoves;
         QList<QPair<QWidget *, int>> rightMoves;
         QObject::connect(leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
@@ -2585,12 +2629,38 @@ private Q_SLOTS:
         QVERIFY(leftPane->panelStack()->panels().isEmpty());
         QCOMPARE(rightPane->panelStack()->panels(),
             QList<QWidget *>({rightOneRaw, movedRaw, rightTwoRaw}));
+        QCOMPARE(rightPane->visibleWidgets(),
+            QList<QWidget *>({rightOneRaw, movedRaw, rightTwoRaw}));
+        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({222, 111, 333}));
         QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("Cross moved"));
         QCOMPARE(model->index(1, 0).data(static_cast<int>(
             ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
             ZzFluentUI::ZzActivityArea::RightPrimary);
         QCOMPARE(rightPane->currentWidget(), movedRaw);
-        QCOMPARE(rightPane->visibleWidgets().size(), 3);
+        QVERIFY(leftPane->visibleWidgets().isEmpty());
+        QVERIFY(leftPane->panelStack()->panelSizes().isEmpty());
+        QVERIFY(leftPane->currentWidget() == nullptr);
+        QVERIFY(!bar->currentSourceIndex().isValid());
+        QVERIFY(bar->activeSourceIndexes().isEmpty());
+        QCOMPARE(rightBar->currentSourceIndex().data().toString(),
+            QStringLiteral("Cross moved"));
+        QCOMPARE(rightBar->activeSourceIndexes().size(), 3);
+        const QStringList titles = {QStringLiteral("Right one"),
+            QStringLiteral("Cross moved"), QStringLiteral("Right two")};
+        for (int row = 0; row < titles.size(); ++row) {
+            QCOMPARE(model->index(row, 0).data().toString(), titles.at(row));
+            QCOMPARE(model->index(row, 0).data(static_cast<int>(
+                ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
+                ZzFluentUI::ZzActivityArea::RightPrimary);
+        }
+        QCOMPARE(rightOneRaw->parentWidget(), rawRightOneOwner);
+        QCOMPARE(rightTwoRaw->parentWidget(), rawRightTwoOwner);
+        QVERIFY(rightOneOwner != nullptr && rightTwoOwner != nullptr);
+        for (QWidget *content : {rightOneRaw, movedRaw, rightTwoRaw}) {
+            QVERIFY(content->parentWidget() != nullptr);
+            QVERIFY(rightPane->panelStack()->isAncestorOf(content));
+            QVERIFY(rightPane->isAncestorOf(content));
+        }
         QVERIFY(fixture.shell->saveLayout());
     }
 
