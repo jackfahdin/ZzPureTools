@@ -108,14 +108,23 @@ public:
         refreshIcon();
     }
 
-    void releaseContent()
+    /** @brief 仅在本框架仍直接持有内容时解除父对象并归还所有权。 */
+    [[nodiscard]] QWidget *releaseContent()
     {
         if (content_ == nullptr) {
-            return;
+            return nullptr;
         }
-        layout()->removeWidget(content_);
-        content_->setParent(nullptr);
+        QPointer<QWidget> contentGuard(content_);
         content_ = nullptr;
+        if (contentGuard->parentWidget() != this) {
+            return nullptr;
+        }
+        layout()->removeWidget(contentGuard);
+        contentGuard->setParent(nullptr);
+        if (contentGuard == nullptr || contentGuard->parent() != nullptr) {
+            return nullptr;
+        }
+        return contentGuard.data();
     }
 
 protected:
@@ -302,16 +311,28 @@ QWidget *ZzPanelStackPrivate::takePanel(QWidget *content)
     const bool wasCurrent = currentPanel.data() == content;
     ZzPanelRecord record = panels.takeAt(index);
     QObject::disconnect(record.destroyedConnection);
-    QPointer<QWidget> contentGuard(content);
-    record.frame->releaseContent();
-    delete record.frame;
+    QPointer<ZzPanelStack> stackGuard(q_ptr);
+    QPointer<ZzPanelFrame> frameGuard(record.frame);
+    QPointer<QWidget> releasedContent;
+    if (frameGuard != nullptr) {
+        releasedContent = frameGuard->releaseContent();
+    }
+    if (stackGuard == nullptr) {
+        return releasedContent.data();
+    }
+    if (frameGuard != nullptr) {
+        delete frameGuard.data();
+    }
+    if (stackGuard == nullptr) {
+        return releasedContent.data();
+    }
     applyRememberedSizes();
     if (wasCurrent) {
         if (!updateCurrentPanel(firstVisiblePanel())) {
-            return contentGuard.data();
+            return releasedContent.data();
         }
     }
-    return contentGuard.data();
+    return releasedContent.data();
 }
 
 QList<QWidget *> ZzPanelStackPrivate::allPanels() const

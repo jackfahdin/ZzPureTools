@@ -4,6 +4,7 @@
 #include <utility>
 
 #include <QtCore/QAbstractListModel>
+#include <QtCore/QEvent>
 #include <QtCore/QHash>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
@@ -108,6 +109,78 @@ template<typename ZzValue>
         && content->parentWidget() == owner
         && stack != nullptr && stack->isAncestorOf(owner);
 }
+
+/** @brief 在一次 Side 注册期间固定首次合法框架 owner，并记录后续换父污染。 */
+class ZzPanelOwnerObserver final : public QObject
+{
+public:
+    ZzPanelOwnerObserver(
+        QWidget *content,
+        ZzFluentUI::ZzPanelStack *stack)
+        : content_(content)
+        , stack_(stack)
+    {
+        if (content_ != nullptr) {
+            content_->installEventFilter(this);
+        }
+    }
+
+    ~ZzPanelOwnerObserver() override
+    {
+        if (content_ != nullptr) {
+            content_->removeEventFilter(this);
+        }
+    }
+
+    [[nodiscard]] QPointer<QWidget> owner() const noexcept
+    {
+        return owner_;
+    }
+
+    [[nodiscard]] QWidget *ownerIdentity() const noexcept
+    {
+        return ownerIdentity_;
+    }
+
+    [[nodiscard]] bool hasCapturedOwner() const noexcept
+    {
+        return ownerIdentity_ != nullptr;
+    }
+
+    [[nodiscard]] bool isPolluted() const noexcept
+    {
+        return polluted_;
+    }
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched == content_.data() && event != nullptr
+            && event->type() == QEvent::ParentChange) {
+            QWidget *const currentOwner = content_ != nullptr
+                ? content_->parentWidget() : nullptr;
+            if (ownerIdentity_ == nullptr) {
+                if (currentOwner != nullptr && stack_ != nullptr
+                    && stack_->isAncestorOf(currentOwner)) {
+                    owner_ = currentOwner;
+                    ownerIdentity_ = currentOwner;
+                } else {
+                    polluted_ = true;
+                }
+            } else {
+                polluted_ = true;
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    QPointer<QWidget> content_;
+    QPointer<ZzFluentUI::ZzPanelStack> stack_;
+    QPointer<QWidget> owner_;
+    QWidget *ownerIdentity_ = nullptr;
+    bool polluted_ = false;
+};
 
 [[nodiscard]] bool zzIsDockArea(Qt::DockWidgetArea area) noexcept
 {
@@ -559,6 +632,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     panels.append(std::move(record));
     connectPanelContentDestroyed(id, content);
     const ZzPanelRecord expectedRecord = panels.constLast();
+    ZzPanelOwnerObserver ownerObserver(contentGuard, stackGuard);
     QPointer<QWidget> contentOwnerGuard;
     QWidget *contentOwnerIdentity = nullptr;
     const auto sameRows = [](const QVector<ZzSideLayoutEntry> &actual,
@@ -577,7 +651,8 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     };
     const auto audit = [this, &expectedRecord, &hostGuard, &rootGuard,
                         &paneGuard, &stackGuard, &contentGuard,
-                        &contentOwnerGuard, &contentOwnerIdentity, &sameRows](
+                        &contentOwnerGuard, &contentOwnerIdentity,
+                        &ownerObserver, &sameRows](
                            const QList<QPointer<QWidget>> &expectedOrder,
                            const QVector<ZzSideLayoutEntry> &expectedRows,
                            bool registrationInProgress) {
@@ -589,6 +664,8 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
                     ? leftSidePane : rightSidePane)
             || stackGuard == nullptr || stackGuard != paneGuard->panelStack()
             || contentGuard == nullptr
+            || !ownerObserver.hasCapturedOwner()
+            || ownerObserver.isPolluted()
             || panelIndex < 0
             || panels.at(panelIndex).contentIdentity != contentGuard
             || panels.at(panelIndex).content != contentGuard
@@ -627,10 +704,8 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
 
     const bool added = paneGuard->addWidget(contentGuard, normalizedTitle);
     const int panelIndexAfterAdd = stablePanelIndex(expectedRecord);
-    if (contentGuard != nullptr) {
-        contentOwnerGuard = contentGuard->parentWidget();
-        contentOwnerIdentity = contentOwnerGuard.data();
-    }
+    contentOwnerGuard = ownerObserver.owner();
+    contentOwnerIdentity = ownerObserver.ownerIdentity();
     if (panelIndexAfterAdd >= 0) {
         panels[panelIndexAfterAdd].contentOwner = contentOwnerGuard;
         panels[panelIndexAfterAdd].contentOwnerIdentity = contentOwnerIdentity;
@@ -1480,9 +1555,9 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
             ? leftSidePane.data() : rightSidePane.data();
         const QPointer<ZzFluentUI::ZzPanelStack> stackGuard = pane != nullptr
             ? pane->panelStack() : nullptr;
-        if (pane != nullptr && zzHasExpectedPanelStackContentOwner(
-                record.content, record.contentOwner,
-                record.contentOwnerIdentity, stackGuard)) {
+        if (pane != nullptr && stackGuard != nullptr
+            && record.content != nullptr
+            && stackGuard->panels().contains(record.content.data())) {
             static_cast<void>(pane->takeWidget(record.content));
         }
         if (activityModel != nullptr) {

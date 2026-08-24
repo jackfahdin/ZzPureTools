@@ -2068,6 +2068,62 @@ private Q_SLOTS:
         QVERIFY(target.shell->restoreLayout(resaved.value()));
     }
 
+    void sideRegistrationRejectsNestedThirdPartyOwnerDuringAddWidget()
+    {
+        ZzShellFixture fixture;
+        auto secondary = std::make_unique<QWidget>();
+        auto primary = std::make_unique<QWidget>();
+        QWidget *const secondaryRaw = secondary.get();
+        QWidget *const primaryRaw = primary.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("secondary"), QStringLiteral("Secondary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, secondary.get()));
+        zzReleaseAfterAdoption(secondary);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QWidget thirdPartyOwner(leftPane->panelStack());
+        bool registrationReturned = false;
+        bool callbackBeforeRegistrationReturned = false;
+        int callbackCount = 0;
+        QObject::connect(
+            leftPane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (current != primaryRaw) {
+                    return;
+                }
+                ++callbackCount;
+                callbackBeforeRegistrationReturned = !registrationReturned;
+                primaryRaw->setParent(&thirdPartyOwner);
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
+        registrationReturned = true;
+        if (primaryRaw->parentWidget() == &thirdPartyOwner) {
+            static_cast<void>(primary.release());
+        }
+
+        QCOMPARE(callbackCount, 1);
+        QVERIFY(callbackBeforeRegistrationReturned);
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(primaryRaw->parentWidget(), &thirdPartyOwner);
+        const auto taken = fixture.shell->takePanel(zzPanelId("primary"));
+        QVERIFY(!taken);
+        QCOMPARE(taken.error().code(), ZzCore::ZzErrorCode::NotFound);
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->rowCount(), 1);
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("Secondary"));
+        QVERIFY(fixture.shell->saveLayout());
+
+        primaryRaw->setParent(nullptr);
+        primary.reset(primaryRaw);
+    }
+
     void sideRegistrationDoesNotReclaimThirdPartyContentAfterPanelMove()
     {
         ZzShellFixture fixture;
@@ -2143,27 +2199,26 @@ private Q_SLOTS:
         const auto registered = fixture.shell->registerSidePanel(
             zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
-        const bool hasInvalidState = !registered
-            && registered.error().code() == ZzCore::ZzErrorCode::InvalidState;
-        const bool parentPreserved = primaryRaw->parentWidget()
-            == &thirdPartyOwner;
-        const bool primaryNotFound = !registered
-            && !fixture.shell->takePanel(zzPanelId("primary"));
-        const int modelRows = fixture.shell->activityBar(
-            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount();
-
-        primaryRaw->setParent(nullptr);
-        if (leftPane->panelStack()->panels().contains(primaryRaw)) {
-            QCOMPARE(leftPane->takeWidget(primaryRaw), primaryRaw);
+        if (primaryRaw->parentWidget() == &thirdPartyOwner) {
+            static_cast<void>(primary.release());
         }
 
         QCOMPARE(callbackCount, 1);
-        QVERIFY(hasInvalidState);
-        QVERIFY(parentPreserved);
-        QVERIFY(primaryNotFound);
-        QCOMPARE(modelRows, 1);
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(primaryRaw->parentWidget(), &thirdPartyOwner);
+        const auto taken = fixture.shell->takePanel(zzPanelId("primary"));
+        QVERIFY(!taken);
+        QCOMPARE(taken.error().code(), ZzCore::ZzErrorCode::NotFound);
         QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->rowCount(), 1);
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("Secondary"));
         QVERIFY(fixture.shell->saveLayout());
+
+        primaryRaw->setParent(nullptr);
+        primary.reset(primaryRaw);
     }
 
     void sideRegistrationKeepsFixedOwnerWhenFrameObjectNameChanges()
