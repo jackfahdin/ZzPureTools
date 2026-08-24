@@ -466,7 +466,8 @@ void zzWriteSide(
             record.dock, record.dockIdentity};
         result.projection.identities.append(identity);
         if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Dock) {
-            auto *const dock = record.dock.data();
+            auto *const dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
+                record.dock.data());
             ZzLayoutState::ZzDockPlacement placement;
             placement.panel = identity;
             placement.area = dock != nullptr
@@ -751,7 +752,9 @@ void zzWriteSide(
     }
     for (const auto &placement : expected.docks) {
         const auto *const record = zzRecord(shell, runtime, placement.panel.id);
-        auto *const dock = record != nullptr ? record->dock.data() : nullptr;
+        auto *const dock = record != nullptr
+            ? qobject_cast<ZzFluentUI::ZzDockPanel *>(record->dock.data())
+            : nullptr;
         if (record == nullptr || dock == nullptr
             || record->dockIdentity != placement.panel.rawDock
             || shell.host->dockWidgetArea(dock) != placement.area

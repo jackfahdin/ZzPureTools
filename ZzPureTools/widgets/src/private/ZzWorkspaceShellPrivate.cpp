@@ -110,6 +110,15 @@ template<typename ZzValue>
         && stack != nullptr && stack->isAncestorOf(owner);
 }
 
+/** @brief 仅在 Dock 派生对象仍完整存活且身份未变化时返回面板。 */
+[[nodiscard]] ZzFluentUI::ZzDockPanel *zzLiveDockPanel(
+    const ZzWorkspaceShellPrivate::ZzPanelRecord &record) noexcept
+{
+    auto *const dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
+        record.dock.data());
+    return dock == record.dockIdentity ? dock : nullptr;
+}
+
 /** @brief 在一次 Side 注册期间固定首次合法框架 owner，并记录后续换父污染。 */
 class ZzPanelOwnerObserver final : public QObject
 {
@@ -554,7 +563,7 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
                 cleanupPendingDockPanelForDestruction(record);
                 break;
             }
-            ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
+            ZzFluentUI::ZzDockPanel *const dock = zzLiveDockPanel(record);
             auto *const dockHost = dock != nullptr
                 ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
             if (dockHost != nullptr && dockHost->layout() != nullptr) {
@@ -920,27 +929,31 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
     panels.append(std::move(record));
     connectPanelContentDestroyed(id, content);
 
-    QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dock);
+    const QPointer<QObject> dockGuard(dock);
     dock->setWidget(content);
     int panelIndex = indexOf(id);
-    if (dockGuard == nullptr || host == nullptr || panelIndex < 0
+    ZzFluentUI::ZzDockPanel *registeredDock = panelIndex >= 0
+        ? zzLiveDockPanel(panels.at(panelIndex)) : nullptr;
+    if (dockGuard == nullptr || host == nullptr || registeredDock == nullptr
         || panels.at(panelIndex).contentIdentity != content
         || panels.at(panelIndex).content != content
-        || panels.at(panelIndex).dock != dockGuard
-        || dockGuard->widget() != content) {
+        || registeredDock != dock
+        || registeredDock->widget() != content) {
         rollbackPanelRegistration(id, content);
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Dock panel registration was interrupted"),
             id.value());
     }
-    host->addDockWidget(area, dockGuard);
+    host->addDockWidget(area, registeredDock);
     panelIndex = indexOf(id);
-    if (dockGuard == nullptr || host == nullptr || panelIndex < 0
+    registeredDock = panelIndex >= 0
+        ? zzLiveDockPanel(panels.at(panelIndex)) : nullptr;
+    if (dockGuard == nullptr || host == nullptr || registeredDock == nullptr
         || panels.at(panelIndex).contentIdentity != content
         || panels.at(panelIndex).content != content
-        || panels.at(panelIndex).dock != dockGuard
-        || dockGuard->widget() != content) {
+        || registeredDock != dock
+        || registeredDock->widget() != content) {
         rollbackPanelRegistration(id, content);
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -1052,8 +1065,9 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
         break;
     }
     case ZzPanelKind::Dock: {
-        if (record.dock == nullptr || contentGuard == nullptr
-            || record.dock->widget() != contentGuard) {
+        ZzFluentUI::ZzDockPanel *const dock = zzLiveDockPanel(record);
+        if (dock == nullptr || contentGuard == nullptr
+            || dock->widget() != contentGuard) {
             return zzWorkspaceFailure<QWidget *>(
                 ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Workspace panel content is unavailable"),
@@ -1061,7 +1075,7 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
         }
         panels[panelIndex].removalInProgress = true;
         QObject::disconnect(panels[panelIndex].contentDestroyedConnection);
-        content = record.dock->takeContentWidget();
+        content = dock->takeContentWidget();
         if (content == nullptr || contentGuard == nullptr) {
             const int currentIndex = indexOf(id);
             if (currentIndex >= 0
@@ -1082,9 +1096,8 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
                 id.value());
         }
         if (content != contentGuard || contentGuard->parent() != nullptr
-            || record.dock == nullptr
-            || record.dock.data() != record.dockIdentity
-            || record.dock->widget() != nullptr) {
+            || zzLiveDockPanel(record) != dock
+            || dock->widget() != nullptr) {
             cleanupInterruptedPanelRemoval(
                 id, record.contentIdentity, record.registrationGeneration);
             return zzWorkspaceFailure<QWidget *>(
@@ -1154,12 +1167,14 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
     }
     switch (record.kind) {
     case ZzPanelKind::Dock:
-        if (record.dock == nullptr) {
+        if (ZzFluentUI::ZzDockPanel *const dock = zzLiveDockPanel(record);
+            dock == nullptr) {
             return zzWorkspaceFailure<void>(
                 ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Dock panel has been destroyed"), id.value());
+        } else {
+            dock->setVisible(visible);
         }
-        record.dock->setVisible(visible);
         return ZzCore::ZzResult<void>::success();
     case ZzPanelKind::Bottom: {
         const QPointer<ZzFluentUI::ZzBottomPane> paneGuard(bottomPane);
@@ -1534,7 +1549,7 @@ void ZzWorkspaceShellPrivate::handlePanelContentDestroyed(
     case ZzPanelKind::Bottom:
         break;
     case ZzPanelKind::Dock: {
-        ZzFluentUI::ZzDockPanel *const dock = record.dock.data();
+        ZzFluentUI::ZzDockPanel *const dock = zzLiveDockPanel(record);
         auto *const dockHost = dock != nullptr
             ? qobject_cast<QMainWindow *>(dock->parentWidget()) : nullptr;
         if (dockHost != nullptr && dockHost->layout() != nullptr) {
@@ -1594,7 +1609,7 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
         }
         break;
     case ZzPanelKind::Dock:
-        if (record.dock == nullptr) {
+        if (zzLiveDockPanel(record) == nullptr) {
             break;
         }
         if (!cleanupDockPanel(record.dockIdentity)) {
@@ -1638,7 +1653,7 @@ void ZzWorkspaceShellPrivate::cleanupInterruptedPanelRemoval(
     case ZzPanelKind::Bottom:
         break;
     case ZzPanelKind::Dock:
-        if (record.dock != nullptr
+        if (zzLiveDockPanel(record) != nullptr
             && !cleanupDockPanel(record.dockIdentity)) {
             scheduleInterruptedPanelRemovalCleanup(
                 id, contentIdentity, registrationGeneration);
@@ -1659,48 +1674,59 @@ void ZzWorkspaceShellPrivate::cleanupInterruptedPanelRemoval(
 bool ZzWorkspaceShellPrivate::cleanupDockPanel(
     ZzFluentUI::ZzDockPanel *dockIdentity)
 {
-    QPointer<ZzFluentUI::ZzDockPanel> dockGuard(dockIdentity);
+    const QPointer<QObject> dockGuard(dockIdentity);
+    const auto liveDock = [&dockGuard, dockIdentity] {
+        auto *dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
+            dockGuard.data());
+        return dock == dockIdentity ? dock : nullptr;
+    };
     const auto preserveForRetry = [&dockGuard] {
-        if (dockGuard == nullptr) {
+        auto *dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(
+            dockGuard.data());
+        if (dock == nullptr) {
             return;
         }
         auto *const dockHost = qobject_cast<QMainWindow *>(
-            dockGuard->parentWidget());
+            dock->parentWidget());
         if (dockHost != nullptr && dockHost->layout() != nullptr) {
-            dockHost->removeDockWidget(dockGuard);
+            dockHost->removeDockWidget(dock);
         }
-        if (dockGuard != nullptr) {
-            dockGuard->hide();
-            dockGuard->setParent(nullptr);
+        dock = qobject_cast<ZzFluentUI::ZzDockPanel *>(dockGuard.data());
+        if (dock != nullptr) {
+            dock->hide();
+            dock->setParent(nullptr);
         }
     };
-    if (dockGuard == nullptr) {
+    ZzFluentUI::ZzDockPanel *dock = liveDock();
+    if (dock == nullptr) {
         return true;
     }
-    if (dockGuard->widget() != nullptr) {
-        static_cast<void>(dockGuard->takeContentWidget());
+    if (dock->widget() != nullptr) {
+        static_cast<void>(dock->takeContentWidget());
     }
-    if (dockGuard == nullptr || dockGuard->widget() != nullptr) {
-        if (dockGuard != nullptr) {
+    dock = liveDock();
+    if (dock == nullptr || dock->widget() != nullptr) {
+        if (dock != nullptr) {
             preserveForRetry();
             return false;
         }
         return true;
     }
     const QPointer<QMainWindow> dockHost(qobject_cast<QMainWindow *>(
-        dockGuard->parentWidget()));
+        dock->parentWidget()));
     if (dockHost != nullptr && dockHost->layout() != nullptr) {
-        dockHost->removeDockWidget(dockGuard);
+        dockHost->removeDockWidget(dock);
     }
-    if (dockGuard == nullptr || dockGuard->widget() != nullptr) {
-        if (dockGuard != nullptr) {
+    dock = liveDock();
+    if (dock == nullptr || dock->widget() != nullptr) {
+        if (dock != nullptr) {
             preserveForRetry();
             return false;
         }
         return true;
     }
     if (dockHost == nullptr || dockHost->layout() != nullptr) {
-        delete dockGuard;
+        delete dock;
     }
     return true;
 }
@@ -1714,7 +1740,7 @@ void ZzWorkspaceShellPrivate::cleanupPendingDockPanelForDestruction(
             return;
         }
         ZzFluentUI::ZzDockPanel *const dock =
-            panels.at(panelIndex).dock.data();
+            zzLiveDockPanel(panels.at(panelIndex));
         QWidget *const content = dock != nullptr ? dock->widget() : nullptr;
         if (dock == nullptr || dock != expected.dockIdentity
             || (content != nullptr && content->parentWidget() != dock)) {

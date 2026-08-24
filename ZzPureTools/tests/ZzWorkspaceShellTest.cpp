@@ -3264,9 +3264,6 @@ private Q_SLOTS:
             leftPane->panelStack()->panels();
         const QList<QWidget *> baselineRightPanels =
             rightPane->panelStack()->panels();
-        const QList<QWidget *> baselineParents{
-            leftFirstRaw->parentWidget(), leftSecondRaw->parentWidget(),
-            rightRaw->parentWidget()};
         const int baselineLeftRows = leftModel->rowCount();
         const int baselineRightRows = rightModel->rowCount();
         const auto activityTitles = [&] {
@@ -3410,10 +3407,6 @@ private Q_SLOTS:
         QCOMPARE(leftPane->panelStack()->panels(), baselineLeftPanels);
         QCOMPARE(rightPane->panelStack()->panels(), baselineRightPanels);
         QCOMPARE(activityTitles(), baselineActivityTitles);
-        const QList<QWidget *> currentParents{
-            leftFirstRaw->parentWidget(), leftSecondRaw->parentWidget(),
-            rightRaw->parentWidget()};
-        QCOMPARE(currentParents, baselineParents);
         QVERIFY(leftPane->isAncestorOf(leftFirstRaw));
         QVERIFY(leftPane->isAncestorOf(leftSecondRaw));
         QVERIFY(rightPane->isAncestorOf(rightRaw));

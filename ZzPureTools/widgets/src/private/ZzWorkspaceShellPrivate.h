@@ -68,7 +68,7 @@ public:
         QPointer<QWidget> contentOwner;
         QWidget *contentOwnerIdentity = nullptr;
         std::uint64_t registrationGeneration = 0;
-        QPointer<ZzFluentUI::ZzDockPanel> dock;
+        QPointer<QObject> dock;
         ZzFluentUI::ZzDockPanel *dockIdentity = nullptr;
         QMetaObject::Connection contentDestroyedConnection;
         bool registrationInProgress = false;
