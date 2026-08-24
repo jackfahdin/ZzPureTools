@@ -1874,6 +1874,308 @@ private Q_SLOTS:
         QVERIFY(!fixture.shell->setPanelBadge(zzPanelId("one"), -1));
     }
 
+    void secondaryFirstRegistrationUsesCanonicalSideOrderAndRoundTrips()
+    {
+        ZzShellFixture fixture;
+        auto leftSecondaryOne = std::make_unique<QWidget>();
+        auto rightSecondaryOne = std::make_unique<QWidget>();
+        auto leftPrimaryOne = std::make_unique<QWidget>();
+        auto rightPrimaryOne = std::make_unique<QWidget>();
+        auto leftPrimaryTwo = std::make_unique<QWidget>();
+        auto leftSecondaryTwo = std::make_unique<QWidget>();
+        QWidget *const leftSecondaryOneRaw = leftSecondaryOne.get();
+        QWidget *const rightSecondaryOneRaw = rightSecondaryOne.get();
+        QWidget *const leftPrimaryOneRaw = leftPrimaryOne.get();
+        QWidget *const rightPrimaryOneRaw = rightPrimaryOne.get();
+        QWidget *const leftPrimaryTwoRaw = leftPrimaryTwo.get();
+        QWidget *const leftSecondaryTwoRaw = leftSecondaryTwo.get();
+
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-secondary-one"), QStringLiteral("Left secondary one"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            leftSecondaryOne.get()));
+        zzReleaseAfterAdoption(leftSecondaryOne);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right-secondary-one"), QStringLiteral("Right secondary one"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::RightSecondary,
+            rightSecondaryOne.get()));
+        zzReleaseAfterAdoption(rightSecondaryOne);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-primary-one"), QStringLiteral("Left primary one"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+            leftPrimaryOne.get()));
+        zzReleaseAfterAdoption(leftPrimaryOne);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right-primary-one"), QStringLiteral("Right primary one"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::RightPrimary,
+            rightPrimaryOne.get()));
+        zzReleaseAfterAdoption(rightPrimaryOne);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-primary-two"), QStringLiteral("Left primary two"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+            leftPrimaryTwo.get()));
+        zzReleaseAfterAdoption(leftPrimaryTwo);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-secondary-two"), QStringLiteral("Left secondary two"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            leftSecondaryTwo.get()));
+        zzReleaseAfterAdoption(leftSecondaryTwo);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QCOMPARE(leftPane->panelStack()->panels(),
+            QList<QWidget *>({leftPrimaryOneRaw, leftPrimaryTwoRaw,
+                leftSecondaryOneRaw, leftSecondaryTwoRaw}));
+        QCOMPARE(rightPane->panelStack()->panels(),
+            QList<QWidget *>({rightPrimaryOneRaw, rightSecondaryOneRaw}));
+
+        QAbstractItemModel *const model = leftBar->model();
+        QVERIFY(model != nullptr);
+        QCOMPARE(model, rightBar->model());
+        const QList<QString> titles{
+            QStringLiteral("Left secondary one"),
+            QStringLiteral("Right secondary one"),
+            QStringLiteral("Left primary one"),
+            QStringLiteral("Right primary one"),
+            QStringLiteral("Left primary two"),
+            QStringLiteral("Left secondary two")};
+        const QList<ZzFluentUI::ZzActivityArea> areas{
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::LeftSecondary};
+        QCOMPARE(model->rowCount(), titles.size());
+        for (int row = 0; row < titles.size(); ++row) {
+            QCOMPARE(model->index(row, 0).data().toString(), titles.at(row));
+            QCOMPARE(model->index(row, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(), areas.at(row));
+        }
+
+        QVERIFY(leftPane->panelStack()->setPanelSizes({111, 222, 333, 444}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({555, 666}));
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({leftPrimaryOneRaw, leftPrimaryTwoRaw,
+                leftSecondaryOneRaw, leftSecondaryTwoRaw}));
+        QCOMPARE(rightPane->visibleWidgets(),
+            QList<QWidget *>({rightPrimaryOneRaw, rightSecondaryOneRaw}));
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+
+        ZzShellFixture target;
+        auto targetLeftPrimaryOne = std::make_unique<QWidget>();
+        auto targetRightPrimaryOne = std::make_unique<QWidget>();
+        auto targetLeftPrimaryTwo = std::make_unique<QWidget>();
+        auto targetLeftSecondaryOne = std::make_unique<QWidget>();
+        auto targetRightSecondaryOne = std::make_unique<QWidget>();
+        auto targetLeftSecondaryTwo = std::make_unique<QWidget>();
+        QWidget *const targetLeftPrimaryOneRaw = targetLeftPrimaryOne.get();
+        QWidget *const targetRightPrimaryOneRaw = targetRightPrimaryOne.get();
+        QWidget *const targetLeftPrimaryTwoRaw = targetLeftPrimaryTwo.get();
+        QWidget *const targetLeftSecondaryOneRaw = targetLeftSecondaryOne.get();
+        QWidget *const targetRightSecondaryOneRaw = targetRightSecondaryOne.get();
+        QWidget *const targetLeftSecondaryTwoRaw = targetLeftSecondaryTwo.get();
+        const auto registerTarget = [&target](
+                                        const char *id,
+                                        const QString &title,
+                                        ZzFluentUI::ZzActivityArea area,
+                                        std::unique_ptr<QWidget> &content) {
+            const bool registered = static_cast<bool>(
+                target.shell->registerSidePanel(
+                    zzPanelId(id), title, zzIcon(), area, content.get()));
+            if (registered) {
+                zzReleaseAfterAdoption(content);
+            }
+            return registered;
+        };
+        QVERIFY(registerTarget("left-primary-one", QStringLiteral("Left primary one"),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetLeftPrimaryOne));
+        QVERIFY(registerTarget("right-primary-one", QStringLiteral("Right primary one"),
+            ZzFluentUI::ZzActivityArea::RightPrimary, targetRightPrimaryOne));
+        QVERIFY(registerTarget("left-primary-two", QStringLiteral("Left primary two"),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetLeftPrimaryTwo));
+        QVERIFY(registerTarget("left-secondary-one", QStringLiteral("Left secondary one"),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, targetLeftSecondaryOne));
+        QVERIFY(registerTarget("right-secondary-one", QStringLiteral("Right secondary one"),
+            ZzFluentUI::ZzActivityArea::RightSecondary, targetRightSecondaryOne));
+        QVERIFY(registerTarget("left-secondary-two", QStringLiteral("Left secondary two"),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, targetLeftSecondaryTwo));
+
+        QVERIFY(target.shell->restoreLayout(saved.value()));
+        auto *const targetLeftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const targetRightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const targetLeftBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const targetRightBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QCOMPARE(targetLeftPane->panelStack()->panels(),
+            QList<QWidget *>({targetLeftPrimaryOneRaw, targetLeftPrimaryTwoRaw,
+                targetLeftSecondaryOneRaw, targetLeftSecondaryTwoRaw}));
+        QCOMPARE(targetRightPane->panelStack()->panels(),
+            QList<QWidget *>({targetRightPrimaryOneRaw,
+                targetRightSecondaryOneRaw}));
+        QCOMPARE(targetLeftPane->panelStack()->panelSizes(),
+            QList<int>({111, 222, 333, 444}));
+        QCOMPARE(targetRightPane->panelStack()->panelSizes(),
+            QList<int>({555, 666}));
+        QCOMPARE(targetLeftPane->visibleWidgets(),
+            QList<QWidget *>({targetLeftPrimaryOneRaw, targetLeftPrimaryTwoRaw,
+                targetLeftSecondaryOneRaw, targetLeftSecondaryTwoRaw}));
+        QCOMPARE(targetRightPane->visibleWidgets(),
+            QList<QWidget *>({targetRightPrimaryOneRaw,
+                targetRightSecondaryOneRaw}));
+        QCOMPARE(leftPane->currentWidget(), leftSecondaryTwoRaw);
+        QCOMPARE(rightPane->currentWidget(), rightPrimaryOneRaw);
+        QCOMPARE(targetLeftPane->currentWidget(), targetLeftSecondaryTwoRaw);
+        QCOMPARE(targetRightPane->currentWidget(), targetRightPrimaryOneRaw);
+        QCOMPARE(targetLeftBar->currentSourceIndex().data().toString(),
+            QStringLiteral("Left secondary two"));
+        QCOMPARE(targetRightBar->currentSourceIndex().data().toString(),
+            QStringLiteral("Right primary one"));
+        const auto targetActiveTitles = [](ZzFluentUI::ZzActivityBar *bar) {
+            QList<QString> activeTitles;
+            for (const QModelIndex &index : bar->activeSourceIndexes()) {
+                activeTitles.append(index.data().toString());
+            }
+            return activeTitles;
+        };
+        QCOMPARE(targetActiveTitles(targetLeftBar),
+            QList<QString>({QStringLiteral("Left primary one"),
+                QStringLiteral("Left primary two"),
+                QStringLiteral("Left secondary one"),
+                QStringLiteral("Left secondary two")}));
+        QCOMPARE(targetActiveTitles(targetRightBar),
+            QList<QString>({QStringLiteral("Right primary one"),
+                QStringLiteral("Right secondary one")}));
+        for (QWidget *const content : targetLeftPane->panelStack()->panels()) {
+            QVERIFY(targetLeftPane->isAncestorOf(content));
+        }
+        for (QWidget *const content : targetRightPane->panelStack()->panels()) {
+            QVERIFY(targetRightPane->isAncestorOf(content));
+        }
+        const auto resaved = target.shell->saveLayout();
+        QVERIFY(resaved);
+        QVERIFY(target.shell->restoreLayout(resaved.value()));
+    }
+
+    void sideRegistrationDoesNotReclaimThirdPartyContentAfterPanelMove()
+    {
+        ZzShellFixture fixture;
+        auto secondary = std::make_unique<QWidget>();
+        QWidget *const secondaryRaw = secondary.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("secondary"), QStringLiteral("Secondary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, secondary.get()));
+        zzReleaseAfterAdoption(secondary);
+
+        auto primary = std::make_unique<QWidget>();
+        QWidget *const primaryRaw = primary.get();
+        QWidget thirdPartyOwner;
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        int callbackCount = 0;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *moved, int) {
+                if (moved != primaryRaw) {
+                    return;
+                }
+                ++callbackCount;
+                QCOMPARE(leftPane->takeWidget(primaryRaw), primaryRaw);
+                primaryRaw->setParent(&thirdPartyOwner);
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("primary"), QStringLiteral("Primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, primary.get());
+
+        QCOMPARE(callbackCount, 1);
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(primaryRaw->parentWidget(), &thirdPartyOwner);
+        const auto taken = fixture.shell->takePanel(zzPanelId("primary"));
+        QVERIFY(!taken);
+        QCOMPARE(taken.error().code(), ZzCore::ZzErrorCode::NotFound);
+        QCOMPARE(leftPane->panelStack()->panels(), QList<QWidget *>({secondaryRaw}));
+        QCOMPARE(fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount(), 1);
+        QVERIFY(fixture.shell->saveLayout());
+
+        primaryRaw->setParent(nullptr);
+    }
+
+    void sideRegistrationRollsBackOnlyOuterAfterReentrantRegistration()
+    {
+        ZzShellFixture fixture;
+        auto originalSecondary = std::make_unique<QWidget>();
+        auto outerPrimary = std::make_unique<QWidget>();
+        auto nestedSecondary = std::make_unique<QWidget>();
+        QWidget *const originalSecondaryRaw = originalSecondary.get();
+        QWidget *const outerPrimaryRaw = outerPrimary.get();
+        QWidget *const nestedSecondaryRaw = nestedSecondary.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("original-secondary"), QStringLiteral("Original secondary"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            originalSecondary.get()));
+        zzReleaseAfterAdoption(originalSecondary);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        bool callbackEntered = false;
+        bool nestedRegistered = false;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            fixture.shell.get(), [&](QWidget *moved, int) {
+                if (callbackEntered || moved != outerPrimaryRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                nestedRegistered = static_cast<bool>(
+                    fixture.shell->registerSidePanel(
+                        zzPanelId("nested-secondary"),
+                        QStringLiteral("Nested secondary"), zzIcon(),
+                        ZzFluentUI::ZzActivityArea::LeftSecondary,
+                        nestedSecondary.get()));
+                if (nestedRegistered) {
+                    zzReleaseAfterAdoption(nestedSecondary);
+                }
+            });
+
+        const auto outerRegistered = fixture.shell->registerSidePanel(
+            zzPanelId("outer-primary"), QStringLiteral("Outer primary"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, outerPrimary.get());
+
+        QVERIFY(callbackEntered);
+        QVERIFY(nestedRegistered);
+        QVERIFY(!outerRegistered);
+        QCOMPARE(outerRegistered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        const auto outerTaken = fixture.shell->takePanel(zzPanelId("outer-primary"));
+        QVERIFY(!outerTaken);
+        QCOMPARE(outerTaken.error().code(), ZzCore::ZzErrorCode::NotFound);
+        QCOMPARE(leftPane->panelStack()->panels(),
+            QList<QWidget *>({originalSecondaryRaw, nestedSecondaryRaw}));
+        QVERIFY(leftPane->isAncestorOf(originalSecondaryRaw));
+        QVERIFY(leftPane->isAncestorOf(nestedSecondaryRaw));
+        QAbstractItemModel *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(model->rowCount(), 2);
+        QCOMPARE(model->index(0, 0).data().toString(),
+            QStringLiteral("Original secondary"));
+        QCOMPARE(model->index(1, 0).data().toString(),
+            QStringLiteral("Nested secondary"));
+        QVERIFY(fixture.shell->saveLayout());
+    }
+
     void showsSideAndDockPanelsThroughOneApi()
     {
         ZzShellFixture fixture;

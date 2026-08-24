@@ -64,6 +64,38 @@ template<typename ZzValue>
         || area == ZzFluentUI::ZzActivityArea::LeftSecondary;
 }
 
+/** @brief 判断 Side Area 是否属于物理栈中应优先排列的 Primary 行。 */
+[[nodiscard]] bool zzIsPrimaryArea(
+    ZzFluentUI::ZzActivityArea area) noexcept
+{
+    return area == ZzFluentUI::ZzActivityArea::LeftPrimary
+        || area == ZzFluentUI::ZzActivityArea::RightPrimary;
+}
+
+/** @brief 按注册表快照计算新 Side 内容在所属物理栈中的固定位置。 */
+[[nodiscard]] int zzSideRegistrationTargetIndex(
+    const QVector<ZzWorkspaceShellPrivate::ZzPanelRecord> &panels,
+    ZzFluentUI::ZzActivityArea area) noexcept
+{
+    const bool left = zzIsLeftArea(area);
+    int primaryCount = 0;
+    int sideCount = 0;
+    for (const ZzWorkspaceShellPrivate::ZzPanelRecord &record : panels) {
+        if (record.kind != ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            || record.contentIdentity == nullptr || record.content == nullptr
+            || record.content.data() != record.contentIdentity
+            || record.removalInProgress
+            || zzIsLeftArea(record.activityArea) != left) {
+            continue;
+        }
+        ++sideCount;
+        if (zzIsPrimaryArea(record.activityArea)) {
+            ++primaryCount;
+        }
+    }
+    return zzIsPrimaryArea(area) ? primaryCount : sideCount;
+}
+
 [[nodiscard]] bool zzIsDockArea(Qt::DockWidgetArea area) noexcept
 {
     return area == Qt::LeftDockWidgetArea
@@ -477,6 +509,30 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
             QStringLiteral("Side panel rejected content"), id.value());
     }
 
+    const QVector<ZzSideLayoutEntry> rowsBefore = activityRows();
+    const int targetStackIndex = zzSideRegistrationTargetIndex(panels, area);
+    const QPointer<QMainWindow> hostGuard(host);
+    const QPointer<QWidget> rootGuard(workspaceRoot);
+    const QPointer<ZzFluentUI::ZzSidePane> paneGuard(pane);
+    const QPointer<ZzFluentUI::ZzPanelStack> stackGuard(pane->panelStack());
+    const QPointer<QWidget> contentGuard(content);
+    if (stackGuard == nullptr || targetStackIndex < 0
+        || targetStackIndex > stackGuard->panels().size()) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Side panel rejected content"), id.value());
+    }
+    QList<QPointer<QWidget>> appendOrder;
+    const QList<QWidget *> panelsBefore = stackGuard->panels();
+    appendOrder.reserve(panelsBefore.size() + 1);
+    for (QWidget *const panel : panelsBefore) {
+        appendOrder.append(panel);
+    }
+    appendOrder.append(contentGuard);
+    QList<QPointer<QWidget>> canonicalOrder = appendOrder;
+    canonicalOrder.removeLast();
+    canonicalOrder.insert(targetStackIndex, contentGuard);
+
     ZzPanelRecord record;
     record.id = id;
     record.title = normalizedTitle;
@@ -489,42 +545,123 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     record.registrationInProgress = true;
     panels.append(std::move(record));
     connectPanelContentDestroyed(id, content);
-
-    const bool accepted = pane->addWidget(content, normalizedTitle)
-        && pane->setCurrentWidget(content);
-    int panelIndex = indexOf(id);
-    if (!accepted || panelIndex < 0
-        || panels.at(panelIndex).contentIdentity != content
-        || panels.at(panelIndex).content != content) {
+    const ZzPanelRecord expectedRecord = panels.constLast();
+    const auto sameRows = [](const QVector<ZzSideLayoutEntry> &actual,
+                             const QVector<ZzSideLayoutEntry> &expected) {
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+        for (qsizetype index = 0; index < actual.size(); ++index) {
+            if (actual.at(index).id != expected.at(index).id
+                || actual.at(index).area != expected.at(index).area
+                || actual.at(index).order != expected.at(index).order) {
+                return false;
+            }
+        }
+        return true;
+    };
+    const auto audit = [this, &expectedRecord, &hostGuard, &rootGuard,
+                        &paneGuard, &stackGuard, &contentGuard, &sameRows](
+                           const QList<QPointer<QWidget>> &expectedOrder,
+                           const QVector<ZzSideLayoutEntry> &expectedRows,
+                           bool registrationInProgress) {
+        const int panelIndex = stablePanelIndex(expectedRecord);
+        if (hostGuard == nullptr || hostGuard != host
+            || rootGuard == nullptr || rootGuard != workspaceRoot
+            || paneGuard == nullptr
+            || paneGuard != (zzIsLeftArea(expectedRecord.activityArea)
+                    ? leftSidePane : rightSidePane)
+            || stackGuard == nullptr || stackGuard != paneGuard->panelStack()
+            || contentGuard == nullptr
+            || panelIndex < 0
+            || panels.at(panelIndex).contentIdentity != contentGuard
+            || panels.at(panelIndex).content != contentGuard
+            || panels.at(panelIndex).registrationGeneration
+                != expectedRecord.registrationGeneration
+            || panels.at(panelIndex).registrationInProgress
+                != registrationInProgress
+            || panels.at(panelIndex).removalInProgress) {
+            return false;
+        }
+        const QList<QWidget *> actualOrder = stackGuard->panels();
+        if (actualOrder.size() != expectedOrder.size()) {
+            return false;
+        }
+        for (qsizetype index = 0; index < actualOrder.size(); ++index) {
+            if (actualOrder.at(index) != expectedOrder.at(index)) {
+                return false;
+            }
+        }
+        return paneGuard->isAncestorOf(contentGuard)
+            && stackGuard->isAncestorOf(contentGuard)
+            && sameRows(activityRows(), expectedRows);
+    };
+    const auto reject = [this, &id, content] {
         rollbackPanelRegistration(id, content);
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Side panel rejected content"), id.value());
+            QStringLiteral("Side panel registration was interrupted"), id.value());
+    };
+
+    if (!paneGuard->addWidget(contentGuard, normalizedTitle)
+        || !audit(appendOrder, rowsBefore, true)) {
+        return reject();
+    }
+    if (!paneGuard->setCurrentWidget(contentGuard)
+        || !audit(appendOrder, rowsBefore, true)) {
+        return reject();
+    }
+    if (targetStackIndex != appendOrder.size() - 1
+        && !stackGuard->movePanel(contentGuard, targetStackIndex)) {
+        return reject();
+    }
+    if (!audit(canonicalOrder, rowsBefore, true)) {
+        return reject();
     }
     zzActivityModel(activityModel)->append(
         ZzActivityRow{id, normalizedTitle, std::move(icon), area, 0});
+    QVector<ZzSideLayoutEntry> rowsAfter = rowsBefore;
+    rowsAfter.append({id, area, static_cast<int>(rowsAfter.size())});
+    if (!audit(canonicalOrder, rowsAfter, true)) {
+        return reject();
+    }
     const QModelIndex sourceIndex =
         zzActivityModel(activityModel)->indexFor(id);
+    if (!sourceIndex.isValid() || sourceIndex.model() != activityModel) {
+        return reject();
+    }
     leftActivityBar->setCurrentSourceIndex(sourceIndex);
+    if (!audit(canonicalOrder, rowsAfter, true)) {
+        return reject();
+    }
     rightActivityBar->setCurrentSourceIndex(sourceIndex);
+    if (!audit(canonicalOrder, rowsAfter, true)) {
+        return reject();
+    }
     ZzFluentUI::ZzActivityBar *const owningBar = zzIsLeftArea(area)
         ? leftActivityBar.data() : rightActivityBar.data();
     QList<QModelIndex> activeIndexes = owningBar->activeSourceIndexes();
     activeIndexes.append(sourceIndex);
     owningBar->setActiveSourceIndexes(activeIndexes);
-    pane->setCollapsed(false);
-    panelIndex = indexOf(id);
-    if (panelIndex < 0
-        || panels.at(panelIndex).contentIdentity != content
-        || panels.at(panelIndex).content != content) {
-        rollbackPanelRegistration(id, content);
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Side panel registration was interrupted"),
-            id.value());
+    if (!audit(canonicalOrder, rowsAfter, true)) {
+        return reject();
+    }
+    paneGuard->setCollapsed(false);
+    if (!audit(canonicalOrder, rowsAfter, true)) {
+        return reject();
+    }
+    syncSideEdgeVisibility();
+    if (!audit(canonicalOrder, rowsAfter, true)) {
+        return reject();
+    }
+    const int panelIndex = stablePanelIndex(expectedRecord);
+    if (panelIndex < 0) {
+        return reject();
     }
     panels[panelIndex].registrationInProgress = false;
-    syncSideEdgeVisibility();
+    if (!audit(canonicalOrder, rowsAfter, false)) {
+        return reject();
+    }
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -1309,7 +1446,8 @@ void ZzWorkspaceShellPrivate::rollbackPanelRegistration(
         ZzFluentUI::ZzSidePane *const pane =
             zzIsLeftArea(record.activityArea)
             ? leftSidePane.data() : rightSidePane.data();
-        if (pane != nullptr && record.content != nullptr) {
+        if (pane != nullptr && record.content != nullptr
+            && pane->isAncestorOf(record.content)) {
             static_cast<void>(pane->takeWidget(record.content));
         }
         if (activityModel != nullptr) {
