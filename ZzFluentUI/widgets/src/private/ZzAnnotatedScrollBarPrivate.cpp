@@ -168,11 +168,16 @@ void ZzAnnotatedScrollBarPrivate::rebuildMarkerCache()
 void ZzAnnotatedScrollBarPrivate::rebuildPixelBuckets()
 {
     pixelBuckets.clear();
+    const QRect groove = grooveRect();
+    pixelBucketGroove = groove;
+    pixelBucketOrientation = q_ptr->orientation();
+    pixelBucketLayoutDirection = q_ptr->layoutDirection();
+    pixelBucketInvertedAppearance = q_ptr->invertedAppearance();
+    pixelBucketsCurrent = true;
     if (markers.isEmpty()) {
         return;
     }
 
-    const QRect groove = grooveRect();
     const int firstPixel = q_ptr->orientation() == Qt::Vertical
         ? groove.top()
         : groove.left();
@@ -212,6 +217,17 @@ void ZzAnnotatedScrollBarPrivate::rebuildPixelBuckets()
                 firstPixel + localPixel,
                 winners.at(localPixel)});
         }
+    }
+}
+
+void ZzAnnotatedScrollBarPrivate::ensurePixelBuckets()
+{
+    const QRect groove = grooveRect();
+    if (!pixelBucketsCurrent || pixelBucketGroove != groove
+        || pixelBucketOrientation != q_ptr->orientation()
+        || pixelBucketLayoutDirection != q_ptr->layoutDirection()
+        || pixelBucketInvertedAppearance != q_ptr->invertedAppearance()) {
+        rebuildPixelBuckets();
     }
 }
 
@@ -280,6 +296,7 @@ void ZzAnnotatedScrollBarPrivate::handleModelDestroyed()
     modelConnections.clear();
     markers.clear();
     pixelBuckets.clear();
+    pixelBucketsCurrent = false;
     q_ptr->update();
     Q_EMIT q_ptr->markerModelChanged(nullptr);
 }

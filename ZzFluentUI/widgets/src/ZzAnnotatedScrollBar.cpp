@@ -52,15 +52,6 @@ void ZzAnnotatedScrollBar::setMarkersInteractive(bool interactive)
     d_ptr->interactive = interactive;
 }
 
-void ZzAnnotatedScrollBar::setInvertedAppearance(bool invertedAppearance)
-{
-    if (invertedAppearance == ZzScrollBar::invertedAppearance()) {
-        return;
-    }
-    ZzScrollBar::setInvertedAppearance(invertedAppearance);
-    d_ptr->rebuildPixelBuckets();
-}
-
 void ZzAnnotatedScrollBar::initMarkerStyleOption(
     QStyleOptionSlider *option) const
 {
@@ -70,6 +61,7 @@ void ZzAnnotatedScrollBar::initMarkerStyleOption(
 
 QModelIndex ZzAnnotatedScrollBar::markerAt(const QPoint &point) const
 {
+    d_ptr->ensurePixelBuckets();
     const QRect groove = d_ptr->grooveRect();
     if (!groove.contains(point)) {
         return {};
@@ -100,6 +92,7 @@ QModelIndex ZzAnnotatedScrollBar::markerAt(const QPoint &point) const
 void ZzAnnotatedScrollBar::paintEvent(QPaintEvent *event)
 {
     ZzScrollBar::paintEvent(event);
+    d_ptr->ensurePixelBuckets();
     if (d_ptr->pixelBuckets.isEmpty()) {
         return;
     }

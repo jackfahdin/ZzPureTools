@@ -238,7 +238,7 @@ private Q_SLOTS:
             model.index(0, 0));
     }
 
-    void rebuildsBucketsForRuntimeOrientationAndInvertedAppearance()
+    void rebuildsBucketsForRuntimeOrientationAndInheritedAppearanceChanges()
     {
         QStandardItemModel model(1, 1);
         zzSetMarker(model, 0, 0.25);
@@ -251,7 +251,13 @@ private Q_SLOTS:
             bar.markerAt(zzMarkerPointFor(bar, 0.25)),
             model.index(0, 0));
 
-        bar.setInvertedAppearance(true);
+        QScrollBar *const baseBar = &bar;
+        baseBar->setInvertedAppearance(true);
+        QCOMPARE(
+            bar.markerAt(zzMarkerPointFor(bar, 0.25)),
+            model.index(0, 0));
+
+        QVERIFY(bar.setProperty("invertedAppearance", false));
         QCOMPARE(
             bar.markerAt(zzMarkerPointFor(bar, 0.25)),
             model.index(0, 0));

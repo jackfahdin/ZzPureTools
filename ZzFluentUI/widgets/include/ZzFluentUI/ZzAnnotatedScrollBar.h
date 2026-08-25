@@ -72,9 +72,6 @@ public:
     /** @brief 启用或关闭标记点击；关闭时完整委托 QScrollBar。 */
     void setMarkersInteractive(bool interactive);
 
-    /** @brief 设置反转外观并同步标记像素桶方向。 */
-    void setInvertedAppearance(bool invertedAppearance);
-
     /**
      * @brief 返回命中点对应的源模型索引。
      * @return 未命中、模型销毁或缓存为空时返回无效索引。

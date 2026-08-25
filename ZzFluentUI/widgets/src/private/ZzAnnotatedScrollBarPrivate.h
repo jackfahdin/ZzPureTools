@@ -3,13 +3,13 @@
 #include <QtCore/QMetaObject>
 #include <QtCore/QPersistentModelIndex>
 #include <QtCore/QPointer>
+#include <QtCore/QRect>
 #include <QtCore/QVector>
 #include <QtGui/QColor>
 
 #include "ZzWidgetTheme.h"
 
 class QAbstractItemModel;
-class QRect;
 
 namespace ZzFluentUI {
 
@@ -52,6 +52,9 @@ public:
     /** @brief 从标记缓存构造数量不超过可用像素数的绘制桶。 */
     void rebuildPixelBuckets();
 
+    /** @brief 在未通知的继承属性变化后按缓存键同步像素桶。 */
+    void ensurePixelBuckets();
+
     /** @brief 返回当前滚动条实际绘制轨道。 */
     [[nodiscard]] QRect grooveRect() const;
 
@@ -72,6 +75,11 @@ public:
     QVector<QMetaObject::Connection> modelConnections;
     QVector<ZzMarker> markers;
     QVector<ZzPixelBucket> pixelBuckets;
+    QRect pixelBucketGroove;
+    Qt::Orientation pixelBucketOrientation = Qt::Vertical;
+    Qt::LayoutDirection pixelBucketLayoutDirection = Qt::LeftToRight;
+    bool pixelBucketInvertedAppearance = false;
+    bool pixelBucketsCurrent = false;
     bool interactive = false;
 };
 
