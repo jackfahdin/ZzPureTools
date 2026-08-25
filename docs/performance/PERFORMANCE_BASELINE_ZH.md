@@ -25,7 +25,7 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 | 字段 | 固定值 |
 |---|---|
 | CPU | Intel Core i7-14700，1 socket，20 core，28 logical CPU |
-| RAM | 32,708,886,528 bytes |
+| RAM 指纹 | 32,682,016,768 bytes；`MemTotal` 按 64 MiB 向下归一化 |
 | 主机 GPU | Intel UHD Graphics 770，i915，当前不参与 Xvfb 绘制 |
 | benchmark renderer | Mesa llvmpipe，LLVM 21.1.8，Mesa 26.0.3 |
 | 显示 | Xvfb 21.1.22，xcb，1920×1080×24，60 Hz，DPR 1.0 |
@@ -39,6 +39,14 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 | benchmark CPU 亲和性 | 逻辑 CPU 10，P-core 5 |
 | 测试并行度 | 1 |
 
+Linux `/proc/meminfo` 的 `MemTotal` 会随重启时内核和固件保留内存发生少量变化，
+不能作为逐字节稳定的硬件身份。Reporter 因此先执行
+`floor(MemTotal / 64 MiB) * 64 MiB`，再写入 `environment.memoryBytes`；活动档案同时
+记录 `memoryFingerprintBucketBytes=67108864`。本次原始值 32,709,496,832 bytes
+归一为 32,682,016,768 bytes，历史原始值 32,708,886,528 bytes 也落入同一容量桶。
+比较器没有放宽：归一后的 `memoryBytes` 仍要求完全相等，跨一个或更多 64 MiB 桶的
+runner 必须失败关闭。
+
 本机物理环境没有 immutable container image。为保持可审计身份，`environment.runnerImageDigest` 固定为 `local-release-xvfb.json` 原始字节的 SHA-256：
 
 ```bash
@@ -49,12 +57,15 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 
 ## 当前活动基线
 
-本机活动基线于 2026-08-10 更新，十二份报告均逐字来自同一次固定环境采集。该次运行同时生成七个组件场景与五个完整 `ZzPureToolsExample` 场景，不允许把其他 commit 或其他环境的结果拼入本基线：
+本机活动基线指标于 2026-08-10 建立，十二份报告来自同一次固定环境采集。2026-08-25
+只把十二份报告的 `memoryBytes` 迁移到 64 MiB 归一值，并同步活动档案摘要；
+`build.commit` 和全部 metric 保持原值，不把新采样静默提升为基线。原采集同时生成
+七个组件场景与五个完整 `ZzPureToolsExample` 场景：
 
 | 身份字段 | 固定值 |
 |---|---|
 | 被测源码 HEAD | `a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4` |
-| runner 档案 SHA-256 | `f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41` |
+| runner 档案 SHA-256 | `0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295` |
 | renderer identity | `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` |
 | reference CTest | 37/37 通过，包含 12 个报告生产者与 15 项绝对门禁 |
 | Clang ASan/UBSan | `linux-clang-asan-benchmarks` 构建通过；窗口生命周期与导航面板场景 2/2 通过，保持 LeakSanitizer 开启 |
@@ -78,7 +89,12 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 | 综合示例空闲 CPU | 0.033327% | 严格 < 0.5% | 通过 |
 | 综合示例空闲 RSS | 64,344,064 增至 64,475,136 bytes，增长 0.203705% | ≤ 10% | 通过 |
 
-该结果解除 `local-release-xvfb` 档案的性能参考机发布阻断。后续同档案报告只有在完整环境指纹一致时才能与本基线执行相对回归比较；档案变化、环境不匹配或任一报告缺失都必须失败关闭。
+该历史结果建立 `local-release-xvfb` 活动基线。提交
+`35362b90715c2c1a76ffe9c2adfcd39606f203cb` 的 2026-08-25 候选运行通过 benchmark
+标签 41/41 与全部绝对门禁，但相对比较首次运行有 7/12 场景失败；静置后三轮复测仍
+稳定复现综合示例启动和 RSS 回归，因此候选没有解除当前发布阻断，也没有覆盖本表
+metric。后续同档案报告只有在完整环境指纹一致时才能与本基线执行相对回归比较；
+档案变化、环境不匹配或任一报告缺失都必须失败关闭。
 
 ## 测量与文件映射
 
@@ -169,49 +185,57 @@ cmake \
 
 ## 工作区组件 Observe 记录
 
-2026-08-22 在源码 `76e0a3e38cfbe08bb209ef9aa8d611492301c4c3` 完成
-`benchmark.workspace-components` 最终三轮观测。该版本已经包含 ActivityBar
-字体/SVG 图标缓存路径、徽标几何和运行时 Linux 页大小换算。原始 reporter JSON
-已入库，分别为：
+2026-08-25 在源码 `35362b90715c2c1a76ffe9c2adfcd39606f203cb` 完成
+`benchmark.workspace-components` 最终三轮观测。场景固定创建 32 个可见侧面板、
+4/32 个 tab group、三个 Bottom 工具、40 个 CommandBar action 和 20/100000
+标记模型；原始 reporter JSON 已入库，分别为：
 
 | 轮次 | 证据文件 | SHA-256 |
 |---|---|---|
-| 1 | `docs/performance/evidence/workspace-components/2026-08-22/round-1.json` | `b57c0fd9e06bd07efcaf1bde5be51f104f1702dc42423a7a65486fd5366d8105` |
-| 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `83c8b8fda5787b2d0cd3a90ee1abe2b85ad3556f336fe1a0e96e49fea7b7de34` |
-| 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `ffcff1c38de27bf0fc625cbd2d84368c69b832bdb15845994f68305b8f947ea4` |
+| 1 | `docs/performance/evidence/workspace-components/2026-08-22/round-1.json` | `2d9ca8186783def77c73a926125b4e9f0bea620d3b6c3c2f3bef7457c660ca5c` |
+| 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `053e714aacb3d902fb6cd24c4a554ec1fc6d67a11823faaa2c962651b484acd7` |
+| 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `47f0e0e564f2e87a9e633133ed44f0fa7ea024f646ca278f39d6a68ef95840b2` |
 
-三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、`offscreen`、DPR 1、
-Release/shared/LTO、`linux-gcc-benchmarks`、runner digest
-`sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41` 和
-`Qt offscreen raster` renderer identity。
+三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、Xvfb/`xcb`、DPR 1、
+Release/shared/LTO、`linux-gcc-reference`、归一内存指纹 32,682,016,768 bytes、
+runner digest
+`sha256:0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295` 和
+`Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` renderer identity。
 
 每项每轮采集 80 个样本，单位为 ms。下表记录三轮 P50/P95/max 的最小至最大范围：
 
 | 指标 | P50 | P95 | max |
 |---|---:|---:|---:|
-| `title-menu-switch-time` | 0.116087 - 0.119096 | 3.441872 - 3.591353 | 3.686668 - 4.594709 |
-| `activity-activation-time` | 0.065685 - 0.066090 | 0.076441 - 0.081234 | 0.104004 - 0.140346 |
-| `explorer-filter-time` | 28.199478 - 28.616623 | 32.653955 - 32.891535 | 33.246381 - 34.207847 |
-| `tab-state-time` | 0.003234 - 0.003501 | 0.017648 - 0.018113 | 0.019928 - 0.028082 |
-| `command-filter-time` | 5.423675 - 5.450993 | 5.679983 - 5.724316 | 5.828154 - 9.339494 |
-| `layout-save-time` | 0.049774 - 0.050007 | 0.054094 - 0.054336 | 0.055323 - 0.074344 |
-| `layout-restore-time` | 5.085562 - 5.099732 | 5.433852 - 5.487374 | 5.545569 - 6.495334 |
-| `workspace-render-time` | 7.000703 - 7.060388 | 7.554810 - 7.654332 | 7.958773 - 8.916797 |
+| `title-menu-switch-time` | 3.456206 - 3.549224 | 5.110094 - 5.161792 | 5.187261 - 5.300977 |
+| `activity-activation-time` | 0.044299 - 0.044791 | 0.050399 - 0.051077 | 0.057691 - 0.085722 |
+| `explorer-filter-time` | 25.398221 - 25.877739 | 25.823473 - 26.569252 | 26.039432 - 37.217056 |
+| `tab-state-time` | 0.003277 - 0.003985 | 0.016416 - 0.017295 | 0.017933 - 0.018848 |
+| `command-filter-time` | 3.491700 - 3.522537 | 3.821119 - 3.923982 | 3.958076 - 4.246578 |
+| `layout-save-time` | 0.200372 - 0.205567 | 0.214200 - 0.219453 | 0.225242 - 0.235361 |
+| `layout-restore-time` | 0.562210 - 0.568667 | 0.595294 - 0.609863 | 0.606812 - 0.635428 |
+| `panel-toggle-time` | 1.503692 - 1.526540 | 2.545897 - 2.603316 | 2.879055 - 3.044102 |
+| `group-structure-time` | 0.124183 - 0.128273 | 0.154028 - 0.161067 | 0.170125 - 0.358123 |
+| `workspace-paint-4-groups-time` | 1.694801 - 1.719628 | 1.782327 - 1.801279 | 1.865767 - 3.384817 |
+| `workspace-paint-32-groups-time` | 1.661402 - 1.682010 | 1.757802 - 1.780972 | 1.803596 - 3.322220 |
+| `workspace-render-time` | 3.102547 - 3.119896 | 3.630767 - 3.706411 | 3.729879 - 3.785111 |
+| `marker-paint-20-time` | 0.026675 - 0.027165 | 0.032541 - 0.034894 | 0.035218 - 0.052503 |
+| `marker-paint-100000-time` | 0.017228 - 0.017428 | 0.018083 - 0.018329 | 0.018967 - 0.043203 |
 
-三轮 P95 噪声最高为 `activity-activation-time` 的 6.27%；max 噪声仍有明显调度尖峰，
-`command-filter-time`、`tab-state-time`、`activity-activation-time`、
-`layout-save-time`、`title-menu-switch-time`、`layout-restore-time` 和
-`workspace-render-time` 分别为 60.25%、40.92%、34.94%、34.38%、24.63%、
-17.13% 和 12.04%。因此八项工作区耗时指标维持 `observe`，没有新增或修改正式
-性能阈值。
+三轮 P95 噪声最高为 `marker-paint-20-time` 的 7.23%，全部耗时 P95 均在 10%
+以内；max 仍有明显调度尖峰，其中 100000 标记、组结构、32/4 组绘制、20 标记、
+Activity 激活和 Explorer 筛选的 max 噪声分别为 127.78%、110.51%、84.20%、
+81.42%、49.08%、48.59% 和 42.93%。这些工作区指标继续作为独立 observe 证据，
+不据单轮 max 扩大正式相对阈值；进程内仍对结构操作 P95 16.7 ms、render P95
+12 ms，以及两组规模 P95 比值 2.0 失败关闭。本次最坏 32/4 组绘制 P95 比值为
+0.989，100000/20 标记绘制 P95 比值为 0.563。
 
-三轮结构观测完全一致：QObject 为 866、结果视图 QWidget 为 5、timer 为 3、
-animation 为 34、图标样式缓存为 16360 bytes；Linux RSS 为
-197169152 - 197365760 bytes。缓存值包含字体和 SVG ActivityBar 图标，基准在采样前
+三轮结构观测完全一致：QObject 为 1088、结果视图 QWidget 为 5、timer 为 3、
+animation 为 3、图标样式缓存为 9296 bytes；Linux RSS 为
+181805056 - 188084224 bytes。缓存值包含字体和 SVG ActivityBar 图标，基准在采样前
 分别验证两类描述符都会填充缓存。基准同时失败关闭：重复操作的 QObject 增长、结果
-列表超过 8 个 QWidget、字体/SVG 缓存路径未生效、失败布局恢复未回滚、全透明绘制，
-以及 1000 次状态切换后的 timer/animation 增长。2026-08-21 的三份 JSON 仅保留为
-历史记录，不再作为当前工作区组件验收证据。
+列表超过 8 个 QWidget、字体/SVG 缓存路径未生效、失败布局恢复未回滚、全透明绘制、
+隐藏页后台唤醒，以及 1000 次显隐/分割/合并/主题切换后的 timer/animation 增长。
+2026-08-21 的三份 JSON 仅保留为历史记录，不再作为当前工作区组件验收证据。
 
 ## 原 CI 参考档案
 

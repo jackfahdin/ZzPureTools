@@ -12,6 +12,11 @@ Qt/工具链:
 
 本清单分别用于 Windows 10 22H2 和 Windows 11。MSVC 与 Qt 官方 MinGW 包必须各自执行并记录，不能共用一次结果。开始前保存 `build/gate-evidence/windows-native.log`，并确认被测包摘要与本页“构建产物摘要”一致。
 
+截至 2026-08-25，Task 15 只在 Linux 核对了 Windows MSVC/MinGW preset、CI 结构、
+公开头和 Qt 公共 API 静态合同；没有 Windows 原生 SDK 构建日志、二进制检查或真机
+交互证据。因此本清单和平台矩阵继续保持“未执行”，不得把 Linux 静态合同登记为
+Windows“静态验证通过”。
+
 | 检查项 | 预期行为 | 实际结果 | 截图/日志路径 | 问题链接 |
 |---|---|---|---|---|
 | [ ] Windows 10 22H2 / MSVC shared | 应用启动、退出和基础导航正常，加载 MSVC ABI 包 |  |  |  |

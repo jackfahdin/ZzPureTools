@@ -12,11 +12,11 @@
         "cpu": "Intel(R) Core(TM) i7-14700",
         "dpr": 1,
         "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24",
-        "memoryBytes": 32708886528,
+        "memoryBytes": 32682016768,
         "os": "Ubuntu 26.04 LTS",
         "qtVersion": "6.11.1",
         "refreshRateHz": 60,
-        "runnerImageDigest": "sha256:f3b3982a44212a5f9b2c15c034290d920439fc3712b8361c5a11aecf19899e41",
+        "runnerImageDigest": "sha256:0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295",
         "windowSystem": "xcb"
     },
     "metrics": {

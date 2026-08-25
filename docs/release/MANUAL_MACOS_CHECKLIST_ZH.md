@@ -12,6 +12,10 @@ Qt/工具链:
 
 本清单至少在 macOS 13.3+ 最低兼容环境和当前发布版 macOS 执行。arm64 与 x86_64 使用各自架构匹配的 Qt SDK 和产物；Rosetta 只能用于运行验证，不能代替 x86_64 Qt SDK 构建证据。开始前保存 `build/gate-evidence/macos-native.log` 和每个产物的 `lipo` 结果。
 
+截至 2026-08-25，Task 15 只在 Linux 核对了 AppleClang preset、CI 结构、公开头和
+Qt 公共 API 静态合同；没有 macOS 对应架构的 SDK 构建、`lipo`、运行或真机交互
+证据。因此本清单和平台矩阵继续保持“未执行”。
+
 | 检查项 | 预期行为 | 实际结果 | 截图/日志路径 | 问题链接 |
 |---|---|---|---|---|
 | [ ] macOS 13.3+ / arm64 shared | 原生启动、退出和基础导航正常，产物只有 arm64 架构 |  |  |  |

@@ -193,6 +193,12 @@ pwsh -NoProfile -File scripts/ci/run-windows-gates.ps1
 
 当前 Linux runner 直接在活动本机参考环境运行 GCC shared/static/LTO、Clang 检查、sanitizer、四示例编译与 offscreen 冒烟，以及性能比较。Windows 和 macOS runner 在每个 shared/static 组合中编译四个示例，但不将自动构建记录为真机交互结果。只有设置合法 `ZZ_UBUNTU2204_BUILD_IMAGE` 时才追加 `scripts/ci/run-ubuntu2204-release-gates.sh`；原 Ubuntu 22.04 档案与本机档案不得混用。
 
+Linux runner 的编译器下限负向合同仅在主机存在 `g++-12` 时执行，并验证配置明确
+拒绝旧编译器。主机没有 `g++-12` 时输出 `compiler capabilities contract not
+executed`，结论是“跳过”，不是“通过”。同理，未设置 `ZZ_UBUNTU2204_BUILD_IMAGE`
+时 runner 可以完成活动本机档案，但 `ubuntu2204-github-ci` 必须继续登记为
+`pending-user-validation`，不能由本机 Ubuntu 26.04 结果替代。
+
 ## GitHub Actions CI
 
 `.github/workflows/ci.yml` 使用固定版本的 Ubuntu、Windows、macOS arm64 和 macOS Intel runner 执行跨平台矩阵。它复用本文件定义的 CMake Preset，但不执行本机性能基线、不创建发布包，也不替代真机验收。工作流结构、Action 固定摘要、ABI 隔离方法和远端运行处理流程见 `docs/development/GITHUB_ACTIONS_ZH.md`。

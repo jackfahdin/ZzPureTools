@@ -55,6 +55,12 @@ Qt 6.11.1、Release/shared/LTO。它覆盖四档 DPR 截图、公开头编译、
 ArchitectureAudit 与 `ZzWorkspaceShell` 的布局/所有权测试；该结果仅证明 Qt
 公共 API 和软件渲染路径，不提升任一真实桌面会话状态。
 
+2026-08-25 的 Task 15 本机运行来自远程 TTY（`Remote=yes`、`Type=tty`）和专用
+Xvfb。它补充 GCC/Clang、shared/static/LTO、ASan/UBSan、clang-tidy 和工作区性能
+证据，但不满足本地活动桌面与物理输出要求。Linux 五种交互行、真实 tab 拖放五区
+Overlay 截图、IME 与重启恢复仍为“未执行”；Ubuntu 22.04 兼容档案也继续等待独立
+immutable image 验证。
+
 Windows MSVC、Windows MinGW 和 macOS 对工作区组件均为“未执行”：没有在对应
 SDK、ABI 或原生窗口系统上配置、构建或运行消费者。现有 preset、公共头和
 ArchitectureAudit 只提供源码/静态合同，不能替代这些原生记录。
