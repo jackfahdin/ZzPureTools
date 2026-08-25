@@ -378,6 +378,33 @@ set_tests_properties(fluent.scroll-controls PROPERTIES
     LABELS "fluent;unit;component;accessibility"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+if(UNIX AND NOT APPLE)
+    set_tests_properties(fluent.scroll-controls PROPERTIES
+        ENVIRONMENT_MODIFICATION
+            "LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>;LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>;LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+endif()
+
+add_executable(ZzAnnotatedScrollBarTest ZzAnnotatedScrollBarTest.cpp)
+target_link_libraries(ZzAnnotatedScrollBarTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzAnnotatedScrollBarTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzAnnotatedScrollBarTest)
+zz_enable_sanitizers(ZzAnnotatedScrollBarTest)
+add_test(NAME fluent.annotated-scroll-bar COMMAND ZzAnnotatedScrollBarTest)
+set_tests_properties(fluent.annotated-scroll-bar PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+if(UNIX AND NOT APPLE)
+    set_tests_properties(fluent.annotated-scroll-bar PROPERTIES
+        ENVIRONMENT_MODIFICATION
+            "LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>;LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>;LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+endif()
 
 add_executable(ZzSpinBoxControlsTest ZzSpinBoxControlsTest.cpp)
 target_link_libraries(ZzSpinBoxControlsTest PRIVATE

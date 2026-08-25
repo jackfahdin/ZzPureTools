@@ -21,7 +21,7 @@ class ZzScrollBarPrivate;
  * 本类只增加不改变布局的悬停呈现动画。范围、值、步长、滚轮、
  * 触控板、键盘、拖动、上下文菜单和辅助技术行为均由 QScrollBar 提供。
  */
-class ZZ_FLUENT_UI_EXPORT ZzScrollBar final : public QScrollBar
+class ZZ_FLUENT_UI_EXPORT ZzScrollBar : public QScrollBar
 {
     Q_OBJECT
     Q_DISABLE_COPY_MOVE(ZzScrollBar)

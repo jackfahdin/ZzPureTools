@@ -64,6 +64,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzProgressRingPrivate.cpp
     widgets/src/ZzScrollBar.cpp
     widgets/src/private/ZzScrollBarPrivate.cpp
+    widgets/src/ZzAnnotatedScrollBar.cpp
+    widgets/src/private/ZzAnnotatedScrollBarPrivate.cpp
     widgets/src/ZzScrollArea.cpp
     widgets/src/ZzFlowLayout.cpp
     widgets/src/private/ZzFlowLayoutPrivate.cpp
@@ -152,6 +154,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzToggleSwitch.h
     widgets/include/ZzFluentUI/ZzProgressRing.h
     widgets/include/ZzFluentUI/ZzScrollBar.h
+    widgets/include/ZzFluentUI/ZzAnnotatedScrollBar.h
     widgets/include/ZzFluentUI/ZzScrollArea.h
     widgets/include/ZzFluentUI/ZzFlowLayout.h
     widgets/include/ZzFluentUI/ZzSpinBox.h
