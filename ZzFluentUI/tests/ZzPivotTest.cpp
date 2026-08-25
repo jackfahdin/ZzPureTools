@@ -262,6 +262,73 @@ private Q_SLOTS:
             accent));
     }
 
+    void partiallyVisibleOverflowTabsKeepNativeHorizontalGeometry_data()
+    {
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+        QTest::newRow("ltr") << Qt::LeftToRight;
+        QTest::newRow("rtl") << Qt::RightToLeft;
+    }
+
+    void partiallyVisibleOverflowTabsKeepNativeHorizontalGeometry()
+    {
+        QFETCH(Qt::LayoutDirection, direction);
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        auto *recordingStyle = new ZzTabLabelRecordingStyle(
+            QStyleFactory::create(QStringLiteral("Fusion")));
+        ZzFluentUI::ZzFluentStyle style(&controller, recordingStyle);
+        ZzFluentUI::ZzPivot pivot;
+        pivot.setStyle(&style);
+        pivot.setLayoutDirection(direction);
+        for (int index = 0; index < 12; ++index) {
+            pivot.addItem(
+                zzTestIcon(QColor(20 + index, 80 + index, 140 + index)),
+                QStringLiteral("Overflow destination %1").arg(index));
+        }
+        showPivot(&pivot, 220);
+        pivot.setCurrentIndex(pivot.count() - 1);
+        QCoreApplication::processEvents();
+        recordingStyle->labelOptions.clear();
+
+        QImage image(pivot.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(pivot.palette().color(QPalette::Window));
+        QPainter painter(&image);
+        pivot.render(&painter);
+        painter.end();
+
+        bool foundPartiallyVisible = false;
+        for (const QStyleOptionTab &option
+             : std::as_const(recordingStyle->labelOptions)) {
+            const int index = [&pivot, &option]() {
+                for (int candidate = 0;
+                     candidate < pivot.count();
+                     ++candidate) {
+                    if (pivot.itemIcon(candidate).cacheKey()
+                        == option.icon.cacheKey()) {
+                        return candidate;
+                    }
+                }
+                return -1;
+            }();
+            if (index < 0) {
+                continue;
+            }
+            const QRect tab = pivot.tabRect(index);
+            if (!tab.intersects(pivot.rect())
+                || pivot.rect().contains(tab)) {
+                continue;
+            }
+            foundPartiallyVisible = true;
+            QCOMPARE(option.rect.x(), tab.x());
+            QCOMPARE(option.rect.width(), tab.width());
+            QVERIFY(option.rect.height() >= 0);
+            QVERIFY(option.rect.isEmpty()
+                    || (option.rect.top() >= pivot.rect().top()
+                        && option.rect.bottom() <= pivot.rect().bottom()));
+        }
+        QVERIFY(foundPartiallyVisible);
+    }
+
     void animatedIndicatorFramesAlignToPhysicalPixels_data()
     {
         QTest::addColumn<qreal>("devicePixelRatio");

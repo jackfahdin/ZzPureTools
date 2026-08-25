@@ -198,7 +198,16 @@ void ZzPivotPrivate::initLabelStyleOption(
 {
     Q_ASSERT(option != nullptr);
     q_ptr->initStyleOption(option, index);
-    option->rect = option->rect.intersected(q_ptr->rect());
+    const int visibleTop = std::max(
+        option->rect.top(),
+        q_ptr->rect().top());
+    const int visibleBottom = std::min(
+        option->rect.bottom(),
+        q_ptr->rect().bottom());
+    option->rect.setY(visibleTop);
+    option->rect.setHeight(std::max(
+        0,
+        visibleBottom - visibleTop + 1));
     const auto snapshot = theme.snapshot();
     if (snapshot == nullptr) {
         return;
