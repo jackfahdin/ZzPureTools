@@ -170,7 +170,8 @@ public:
         QString titleBarTitle = {},
         bool denseWorkbench = false,
         bool collapseBottom = false,
-        bool twoGroupWorkbench = false)
+        bool twoGroupWorkbench = false,
+        bool forceInvalidPanelSetup = false)
         : titleBar(&window)
     {
         window.setObjectName(QStringLiteral("zzWorkspaceScreenshotSurface"));
@@ -182,30 +183,53 @@ public:
         titleBar.menuBar()->addMenu(QStringLiteral("View"));
         window.setMenuWidget(&titleBar);
         auto result = ZzPureTools::ZzWorkspaceShell::create(&window, &titleBar);
-        Q_ASSERT(result);
+        if (!requireResult(result, QStringLiteral("failed to create workspace shell"))) {
+            return;
+        }
         shell = std::move(result).value();
         window.setCentralWidget(shell->workspaceWidget());
-        auto *explorer = new ZzFluentUI::ZzExplorerPane;
+        auto explorer = std::make_unique<ZzFluentUI::ZzExplorerPane>();
         explorerModel.appendRow(new QStandardItem(QStringLiteral("src")));
         explorerModel.appendRow(new QStandardItem(QStringLiteral("README.md")));
         explorer->setModel(&explorerModel);
         const auto sideResult = shell->registerSidePanel(
-            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("explorer")),
+            ZzPureTools::ZzWorkspacePanelId(forceInvalidPanelSetup
+                    ? QString() : QStringLiteral("explorer")),
             QStringLiteral("Explorer"), {},
-            ZzFluentUI::ZzActivityArea::LeftPrimary, explorer);
-        Q_ASSERT(sideResult);
+            ZzFluentUI::ZzActivityArea::LeftPrimary, explorer.get());
+        if (!requireResult(sideResult,
+                QStringLiteral("failed to register explorer side panel"))) {
+            return;
+        }
+        static_cast<void>(explorer.release());
+        auto dockContent = std::make_unique<QWidget>();
         const auto dockResult = shell->registerDockPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
             QStringLiteral("Terminal"), {}, Qt::BottomDockWidgetArea,
-            new QWidget);
-        Q_ASSERT(dockResult);
+            dockContent.get());
+        if (!requireResult(dockResult,
+                QStringLiteral("failed to register terminal dock panel"))) {
+            return;
+        }
+        static_cast<void>(dockContent.release());
         shell->tabWidget()->addTab(new QWidget, QStringLiteral("main.cpp"));
         shell->tabWidget()->addTab(new QWidget, QStringLiteral("Preview"));
         commandModel.appendRow(new QStandardItem(QStringLiteral("Build workspace")));
         shell->commandPalette()->setModel(&commandModel);
         if (denseWorkbench) {
-            configureDenseWorkbench(collapseBottom, twoGroupWorkbench);
+            static_cast<void>(configureDenseWorkbench(
+                collapseBottom, twoGroupWorkbench));
         }
+    }
+
+    [[nodiscard]] bool isValid() const noexcept
+    {
+        return setupError_.isEmpty();
+    }
+
+    [[nodiscard]] const QString &setupError() const noexcept
+    {
+        return setupError_;
     }
 
     void polish()
@@ -227,89 +251,154 @@ public:
     QStandardItemModel commandModel;
 
 private:
-    void configureDenseWorkbench(bool collapseBottom, bool twoGroupWorkbench)
+    template<typename ZzValue>
+    [[nodiscard]] bool requireResult(
+        const ZzValue &result,
+        QString failure)
+    {
+        if (result) {
+            return true;
+        }
+        setupError_ = std::move(failure);
+        const QString technicalMessage = result.error().technicalMessage();
+        if (!technicalMessage.isEmpty()) {
+            setupError_ += QStringLiteral(": ") + technicalMessage;
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool requireCondition(bool condition, QString failure)
+    {
+        if (condition) {
+            return true;
+        }
+        setupError_ = std::move(failure);
+        return false;
+    }
+
+    [[nodiscard]] bool configureDenseWorkbench(
+        bool collapseBottom,
+        bool twoGroupWorkbench)
     {
         auto registerSide = [this](const char *id, const QString &title,
                                 ZzFluentUI::ZzActivityArea area) {
-            auto *panel = new QLabel(title);
+            auto panel = std::make_unique<QLabel>(title);
             panel->setAlignment(Qt::AlignCenter);
             const auto result = shell->registerSidePanel(
                 ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(id)),
-                title, {}, area, panel);
-            Q_ASSERT(result);
+                title, {}, area, panel.get());
+            if (!requireResult(result,
+                    QStringLiteral("failed to register %1 side panel")
+                        .arg(title))) {
+                return false;
+            }
+            static_cast<void>(panel.release());
+            return true;
         };
-        registerSide("search", QStringLiteral("Search"),
-            ZzFluentUI::ZzActivityArea::LeftSecondary);
-        registerSide("properties", QStringLiteral("Properties"),
-            ZzFluentUI::ZzActivityArea::RightPrimary);
-        registerSide("tasks", QStringLiteral("Tasks"),
-            ZzFluentUI::ZzActivityArea::RightSecondary);
+        if (!registerSide("search", QStringLiteral("Search"),
+                ZzFluentUI::ZzActivityArea::LeftSecondary)
+            || !registerSide("properties", QStringLiteral("Properties"),
+                ZzFluentUI::ZzActivityArea::RightPrimary)
+            || !registerSide("tasks", QStringLiteral("Tasks"),
+                ZzFluentUI::ZzActivityArea::RightSecondary)) {
+            return false;
+        }
 
-        auto *terminal = new QPlainTextEdit;
+        auto terminal = std::make_unique<QPlainTextEdit>();
         terminal->setPlainText(QStringLiteral("$ build\nBuild completed\n$ _"));
         terminal->setReadOnly(true);
-        Q_ASSERT(shell->registerBottomPanel(
+        const auto terminalResult = shell->registerBottomPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-terminal")),
-            QStringLiteral("Terminal"), {}, terminal));
-        auto *problems = new QLabel(QStringLiteral("0 errors   1 warning"));
+            QStringLiteral("Terminal"), {}, terminal.get());
+        if (!requireResult(terminalResult,
+                QStringLiteral("failed to register terminal bottom panel"))) {
+            return false;
+        }
+        static_cast<void>(terminal.release());
+        auto problems = std::make_unique<QLabel>(
+            QStringLiteral("0 errors   1 warning"));
         problems->setAlignment(Qt::AlignCenter);
-        Q_ASSERT(shell->registerBottomPanel(
+        const auto problemsResult = shell->registerBottomPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-problems")),
-            QStringLiteral("Problems"), {}, problems));
-        auto *commands = new QWidget;
-        auto *commandLayout = new QVBoxLayout(commands);
+            QStringLiteral("Problems"), {}, problems.get());
+        if (!requireResult(problemsResult,
+                QStringLiteral("failed to register problems bottom panel"))) {
+            return false;
+        }
+        static_cast<void>(problems.release());
+        auto commands = std::make_unique<QWidget>();
+        auto *commandLayout = new QVBoxLayout(commands.get());
         commandLayout->setContentsMargins(6, 4, 6, 4);
-        const auto addPrimary = [](ZzFluentUI::ZzCommandBar *bar,
+        const auto addPrimary = [this](ZzFluentUI::ZzCommandBar *bar,
                                     QStyle::StandardPixmap icon,
                                     const QString &text) {
-            Q_ASSERT(bar->addPrimaryAction(
-                bar->style()->standardIcon(icon), text) != nullptr);
+            return requireCondition(bar->addPrimaryAction(
+                bar->style()->standardIcon(icon), text) != nullptr,
+                QStringLiteral("failed to add %1 primary action").arg(text));
         };
-        const auto addSecondary = [](ZzFluentUI::ZzCommandBar *bar,
+        const auto addSecondary = [this](ZzFluentUI::ZzCommandBar *bar,
                                       QStyle::StandardPixmap icon,
                                       const QString &text) {
-            Q_ASSERT(bar->addSecondaryAction(
-                bar->style()->standardIcon(icon), text) != nullptr);
+            return requireCondition(bar->addSecondaryAction(
+                bar->style()->standardIcon(icon), text) != nullptr,
+                QStringLiteral("failed to add %1 secondary action").arg(text));
         };
-        auto *expanded = new ZzFluentUI::ZzCommandBar(commands);
+        auto *expanded = new ZzFluentUI::ZzCommandBar(commands.get());
         expanded->setObjectName(QStringLiteral("zzDenseExpandedCommandBar"));
         expanded->setFixedWidth(300);
         expanded->setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Expanded);
-        addPrimary(expanded, QStyle::SP_ComputerIcon, QStringLiteral("Build"));
-        addPrimary(expanded, QStyle::SP_DialogApplyButton,
-            QStringLiteral("Test"));
-        addSecondary(expanded, QStyle::SP_FileDialogDetailedView,
-            QStringLiteral("Artifacts"));
+        if (!addPrimary(expanded, QStyle::SP_ComputerIcon,
+                QStringLiteral("Build"))
+            || !addPrimary(expanded, QStyle::SP_DialogApplyButton,
+                QStringLiteral("Test"))
+            || !addSecondary(expanded, QStyle::SP_FileDialogDetailedView,
+                QStringLiteral("Artifacts"))) {
+            return false;
+        }
         commandLayout->addWidget(expanded, 0, Qt::AlignLeft);
 
-        auto *compact = new ZzFluentUI::ZzCommandBar(commands);
+        auto *compact = new ZzFluentUI::ZzCommandBar(commands.get());
         compact->setObjectName(QStringLiteral("zzDenseCompactCommandBar"));
         compact->setFixedWidth(180);
         compact->setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Compact);
-        addPrimary(compact, QStyle::SP_MediaPlay, QStringLiteral("Run"));
-        addPrimary(compact, QStyle::SP_BrowserReload,
-            QStringLiteral("Restart"));
-        addPrimary(compact, QStyle::SP_MediaStop, QStringLiteral("Stop"));
+        if (!addPrimary(compact, QStyle::SP_MediaPlay, QStringLiteral("Run"))
+            || !addPrimary(compact, QStyle::SP_BrowserReload,
+                QStringLiteral("Restart"))
+            || !addPrimary(compact, QStyle::SP_MediaStop,
+                QStringLiteral("Stop"))) {
+            return false;
+        }
         commandLayout->addWidget(compact, 0, Qt::AlignLeft);
 
-        auto *automatic = new ZzFluentUI::ZzCommandBar(commands);
+        auto *automatic = new ZzFluentUI::ZzCommandBar(commands.get());
         automatic->setObjectName(QStringLiteral("zzDenseAutoCommandBar"));
         automatic->setFixedWidth(230);
         automatic->setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Auto);
-        addPrimary(automatic, QStyle::SP_ArrowForward,
-            QStringLiteral("Publish"));
-        addPrimary(automatic, QStyle::SP_DialogSaveButton,
-            QStringLiteral("Snapshot"));
-        addSecondary(automatic, QStyle::SP_FileDialogContentsView,
-            QStringLiteral("Logs"));
-        addSecondary(automatic, QStyle::SP_FileDialogInfoView,
-            QStringLiteral("Details"));
+        if (!addPrimary(automatic, QStyle::SP_ArrowForward,
+                QStringLiteral("Publish"))
+            || !addPrimary(automatic, QStyle::SP_DialogSaveButton,
+                QStringLiteral("Snapshot"))
+            || !addSecondary(automatic, QStyle::SP_FileDialogContentsView,
+                QStringLiteral("Logs"))
+            || !addSecondary(automatic, QStyle::SP_FileDialogInfoView,
+                QStringLiteral("Details"))) {
+            return false;
+        }
         commandLayout->addWidget(automatic, 0, Qt::AlignLeft);
-        Q_ASSERT(shell->registerBottomPanel(
+        const auto commandsResult = shell->registerBottomPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands")),
-            QStringLiteral("Commands"), {}, commands));
-        Q_ASSERT(shell->showPanel(
-            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands"))));
+            QStringLiteral("Commands"), {}, commands.get());
+        if (!requireResult(commandsResult,
+                QStringLiteral("failed to register commands bottom panel"))) {
+            return false;
+        }
+        static_cast<void>(commands.release());
+        const auto showCommandsResult = shell->showPanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands")));
+        if (!requireResult(showCommandsResult,
+                QStringLiteral("failed to show commands bottom panel"))) {
+            return false;
+        }
         shell->bottomPane()->setPaneHeight(210);
         shell->bottomPane()->setCollapsed(collapseBottom);
 
@@ -347,19 +436,29 @@ private:
             QStringLiteral("Trace"));
         const auto root = shell->splitWorkspace()->groupIds().constFirst();
         if (twoGroupWorkbench) {
-            Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
-                root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Top));
-            Q_ASSERT(shell->splitWorkspace()->groupIds().size() == 2);
-            return;
+            return requireCondition(
+                shell->splitWorkspace()->moveTabToDropZone(
+                    root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Top),
+                QStringLiteral("failed to create top workspace group"))
+                && requireCondition(
+                    shell->splitWorkspace()->groupIds().size() == 2,
+                    QStringLiteral("two-group workspace has unexpected group count"));
         }
-        Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
-            root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Right));
-        Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
-            root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Bottom));
-        Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
-            root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Left));
-        Q_ASSERT(shell->splitWorkspace()->groupIds().size() == 4);
+        return requireCondition(shell->splitWorkspace()->moveTabToDropZone(
+                root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Right),
+                QStringLiteral("failed to create right workspace group"))
+            && requireCondition(shell->splitWorkspace()->moveTabToDropZone(
+                root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Bottom),
+                QStringLiteral("failed to create bottom workspace group"))
+            && requireCondition(shell->splitWorkspace()->moveTabToDropZone(
+                root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Left),
+                QStringLiteral("failed to create left workspace group"))
+            && requireCondition(
+                shell->splitWorkspace()->groupIds().size() == 4,
+                QStringLiteral("dense workspace has unexpected group count"));
     }
+
+    QString setupError_;
 };
 
 [[nodiscard]] QImage zzRenderWorkspaceSurface(
@@ -502,6 +601,7 @@ private Q_SLOTS:
         QFETCH(QString, fileStem);
         controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
         ZzWorkspaceScreenshotSurface surface;
+        QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         QCOMPARE(actual.size(), QSize(qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
@@ -530,6 +630,7 @@ private Q_SLOTS:
         controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
         ZzWorkspaceScreenshotSurface surface(zzNarrowWorkspaceSurfaceSize,
             QStringLiteral("Narrow workspace title"));
+        QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
         zzVerifyNarrowWorkspaceGeometry(surface);
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
@@ -573,6 +674,7 @@ private Q_SLOTS:
         ZzWorkspaceScreenshotSurface surface(
             zzLogicalSurfaceSize, QStringLiteral("Dense workspace"), true,
             collapseBottom);
+        QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         surface.hide();
@@ -602,10 +704,22 @@ private Q_SLOTS:
         ZzWorkspaceScreenshotSurface surface(
             zzLogicalSurfaceSize, QStringLiteral("Two group workspace"), true,
             false, true);
+        QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         surface.hide();
         verifyScreenshot(fileStem, actual);
+    }
+
+    void reportsWorkspaceSetupFailure()
+    {
+        ZzWorkspaceScreenshotSurface surface(
+            zzLogicalSurfaceSize, {}, false, false, false, true);
+
+        QVERIFY(!surface.isValid());
+        QCOMPARE(surface.setupError(), QStringLiteral(
+            "failed to register explorer side panel: "
+            "Invalid side panel registration"));
     }
 
     void cleanupTestCase()
