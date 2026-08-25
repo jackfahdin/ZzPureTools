@@ -54,11 +54,8 @@ public:
     mutable QList<QStyleOptionTab> labelOptions;
 };
 
-/** @brief 返回图像中精确颜色像素映射到逻辑坐标后的区域。 */
-QRegion zzLogicalColorRegion(
-    const QImage &image,
-    const QColor &color,
-    qreal devicePixelRatio)
+/** @brief 返回图像中精确颜色像素组成的物理像素区域。 */
+QRegion zzPhysicalColorRegion(const QImage &image, const QColor &color)
 {
     QRegion region;
     for (int y = 0; y < image.height(); ++y) {
@@ -66,14 +63,45 @@ QRegion zzLogicalColorRegion(
             if (image.pixelColor(x, y) != color) {
                 continue;
             }
-            region += QRect(
-                QPoint(
-                    qFloor(static_cast<qreal>(x) / devicePixelRatio),
-                    qFloor(static_cast<qreal>(y) / devicePixelRatio)),
-                QSize(1, 1));
+            region += QRect(QPoint(x, y), QSize(1, 1));
         }
     }
     return region;
+}
+
+/** @brief 把逻辑矩形外包到所有可能覆盖的物理像素。 */
+QRect zzPhysicalCoverageRect(const QRect &logical, qreal devicePixelRatio)
+{
+    const int left = qFloor(logical.left() * devicePixelRatio);
+    const int top = qFloor(logical.top() * devicePixelRatio);
+    const int right = qCeil(
+        (logical.right() + 1) * devicePixelRatio) - 1;
+    const int bottom = qCeil(
+        (logical.bottom() + 1) * devicePixelRatio) - 1;
+    return QRect(QPoint(left, top), QPoint(right, bottom));
+}
+
+/** @brief 检查胶囊指示条中央顶部直边没有物理混合像素。 */
+bool zzHasCrispCentralEdges(
+    const QImage &image,
+    const QRect &indicator,
+    const QColor &accent)
+{
+    if (indicator.width() < 3 || indicator.height() < 1) {
+        return false;
+    }
+    const int centerX = indicator.center().x();
+    const auto hasColor = [&image](const QPoint &point, const QColor &color) {
+        return image.rect().contains(point)
+            && image.pixelColor(point) == color;
+    };
+    const QPoint backgroundPoint(centerX, indicator.top() - 2);
+    if (!image.rect().contains(backgroundPoint)) {
+        return false;
+    }
+    const QColor background = image.pixelColor(backgroundPoint);
+    return hasColor(QPoint(centerX, indicator.top()), accent)
+        && hasColor(QPoint(centerX, indicator.top() - 1), background);
 }
 
 /** @brief 创建颜色唯一且无透明边缘的图标供像素安全区断言。 */
@@ -93,9 +121,14 @@ class ZzPivotTest final : public QObject
 
 private:
     /** @brief 显示固定尺寸 Pivot 并完成布局。 */
-    static void showPivot(ZzFluentUI::ZzPivot *pivot, int width = 520)
+    static void showPivot(
+        ZzFluentUI::ZzPivot *pivot,
+        int width = 520,
+        int height = -1)
     {
-        pivot->resize(width, pivot->sizeHint().height());
+        pivot->resize(
+            width,
+            height >= 0 ? height : pivot->sizeHint().height());
         pivot->show();
         QCoreApplication::processEvents();
     }
@@ -210,16 +243,144 @@ private Q_SLOTS:
             &pivot).intersected(tab);
         const QColor accent = controller.snapshot()->color(
             ZzFluentUI::ZzColorToken::Accent);
-        const QRegion indicatorRegion = zzLogicalColorRegion(
-            image, accent, devicePixelRatio).intersected(tab);
-        const QRegion iconRegion = zzLogicalColorRegion(
-            image, iconColor, devicePixelRatio).intersected(tab);
+        const QRect physicalTab = zzPhysicalCoverageRect(
+            tab.intersected(pivot.rect()), devicePixelRatio);
+        const QRect physicalTextArea = zzPhysicalCoverageRect(
+            textArea, devicePixelRatio);
+        const QRegion indicatorRegion = zzPhysicalColorRegion(
+            image, accent).intersected(physicalTab);
+        const QRegion iconRegion = zzPhysicalColorRegion(
+            image, iconColor).intersected(physicalTab);
 
         QVERIFY(!indicatorRegion.isEmpty());
         QVERIFY(!iconRegion.isEmpty());
-        QVERIFY(indicatorRegion.intersected(textArea).isEmpty());
+        QVERIFY(indicatorRegion.intersected(physicalTextArea).isEmpty());
         QVERIFY(indicatorRegion.intersected(iconRegion).isEmpty());
-        QCOMPARE(indicatorRegion.boundingRect().bottom(), tab.bottom());
+        QVERIFY(zzHasCrispCentralEdges(
+            image,
+            indicatorRegion.boundingRect(),
+            accent));
+    }
+
+    void animatedIndicatorFramesAlignToPhysicalPixels_data()
+    {
+        QTest::addColumn<qreal>("devicePixelRatio");
+        QTest::newRow("dpr-1.25") << 1.25;
+        QTest::newRow("dpr-1.5") << 1.5;
+        QTest::newRow("dpr-2") << 2.0;
+    }
+
+    void animatedIndicatorFramesAlignToPhysicalPixels()
+    {
+        QFETCH(qreal, devicePixelRatio);
+        ZzFluentUI::ZzThemeController controller;
+        std::unique_ptr<QStyle> fusion(
+            QStyleFactory::create(QStringLiteral("Fusion")));
+        QVERIFY(fusion != nullptr);
+        ZzFluentUI::ZzFluentStyle style(&controller, fusion.release());
+        ZzFluentUI::ZzPivot pivot;
+        pivot.setStyle(&style);
+        pivot.addItem(QStringLiteral("Overview"));
+        pivot.addItem(QStringLiteral("Build output"));
+        showPivot(&pivot, 360);
+        pivot.clearFocus();
+        auto *animation = pivot.findChild<QVariantAnimation *>();
+        QVERIFY(animation != nullptr);
+        pivot.setCurrentIndex(1);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        animation->setCurrentTime(animation->duration() / 2);
+
+        const QSize physicalSize(
+            qCeil(pivot.width() * devicePixelRatio),
+            qCeil(pivot.height() * devicePixelRatio));
+        QImage image(
+            physicalSize,
+            QImage::Format_ARGB32_Premultiplied);
+        image.setDevicePixelRatio(devicePixelRatio);
+        const QColor background = pivot.palette().color(QPalette::Window);
+        image.fill(background);
+        QPainter painter(&image);
+        pivot.render(&painter);
+        painter.end();
+
+        const QColor accent = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent);
+        const QRegion indicatorRegion = zzPhysicalColorRegion(image, accent);
+        QVERIFY(!indicatorRegion.isEmpty());
+        QVERIFY(zzHasCrispCentralEdges(
+            image,
+            indicatorRegion.boundingRect(),
+            accent));
+    }
+
+    void smallHeightsKeepStyleOptionsInsideTheVisibleGutter_data()
+    {
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+        QTest::addColumn<bool>("iconOnly");
+        QTest::addColumn<int>("height");
+        QTest::addColumn<qreal>("devicePixelRatio");
+
+        QTest::newRow("minimal-height")
+            << Qt::LeftToRight << false << 2 << 1.25;
+        QTest::newRow("below-gutter")
+            << Qt::LeftToRight << false << 1 << 1.5;
+        QTest::newRow("rtl-icon-only-below-gutter")
+            << Qt::RightToLeft << true << 1 << 2.0;
+    }
+
+    void smallHeightsKeepStyleOptionsInsideTheVisibleGutter()
+    {
+        QFETCH(Qt::LayoutDirection, direction);
+        QFETCH(bool, iconOnly);
+        QFETCH(int, height);
+        QFETCH(qreal, devicePixelRatio);
+        ZzFluentUI::ZzThemeController controller;
+        auto *recordingStyle = new ZzTabLabelRecordingStyle(
+            QStyleFactory::create(QStringLiteral("Fusion")));
+        ZzFluentUI::ZzFluentStyle style(&controller, recordingStyle);
+        ZzFluentUI::ZzPivot pivot;
+        pivot.setStyle(&style);
+        pivot.setLayoutDirection(direction);
+        const QColor iconColor(17, 231, 109);
+        pivot.addItem(
+            zzTestIcon(iconColor),
+            iconOnly ? QString() : QStringLiteral("Session"));
+        showPivot(&pivot, 180, height);
+        pivot.clearFocus();
+        recordingStyle->labelOptions.clear();
+
+        const QSize physicalSize(
+            qCeil(pivot.width() * devicePixelRatio),
+            qCeil(pivot.height() * devicePixelRatio));
+        QImage image(
+            physicalSize,
+            QImage::Format_ARGB32_Premultiplied);
+        image.setDevicePixelRatio(devicePixelRatio);
+        image.fill(pivot.palette().color(QPalette::Window));
+        QPainter painter(&image);
+        pivot.render(&painter);
+        painter.end();
+
+        const auto selected = std::find_if(
+            recordingStyle->labelOptions.cbegin(),
+            recordingStyle->labelOptions.cend(),
+            [](const QStyleOptionTab &option) {
+                return option.state.testFlag(QStyle::State_Selected);
+            });
+        QVERIFY(selected != recordingStyle->labelOptions.cend());
+        QVERIFY(selected->rect.height() >= 0);
+        QVERIFY(selected->rect.isEmpty()
+                || pivot.rect().contains(selected->rect));
+
+        const QColor accent = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent);
+        const QRegion indicatorRegion = zzPhysicalColorRegion(image, accent);
+        const QRect physicalVisibleTab = zzPhysicalCoverageRect(
+            pivot.tabRect(0).intersected(pivot.rect()),
+            devicePixelRatio);
+        QVERIFY(indicatorRegion.isEmpty()
+                || physicalVisibleTab.contains(
+                    indicatorRegion.boundingRect()));
     }
 
     void managesItemsAndEmitsCountOnlyForEffectiveChanges()

@@ -1,6 +1,7 @@
 #include "ZzPivotPrivate.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QEasingCurve>
@@ -19,6 +20,32 @@
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
 namespace ZzFluentUI {
+
+namespace {
+
+/** @brief 把逻辑矩形四边内缩到实际绘制设备的物理像素边界。 */
+QRectF zzAlignedIndicatorRect(
+    const QRectF &rect,
+    qreal devicePixelRatio)
+{
+    if (rect.isEmpty()) {
+        return {};
+    }
+    const qreal ratio = std::isfinite(devicePixelRatio)
+            && devicePixelRatio > 0.0
+        ? devicePixelRatio
+        : 1.0;
+    const qreal left = std::ceil(rect.left() * ratio) / ratio;
+    const qreal top = std::ceil(rect.top() * ratio) / ratio;
+    const qreal right = std::floor(rect.right() * ratio) / ratio;
+    const qreal bottom = std::floor(rect.bottom() * ratio) / ratio;
+    if (right <= left || bottom <= top) {
+        return {};
+    }
+    return QRectF(QPointF(left, top), QPointF(right, bottom));
+}
+
+} // namespace
 
 ZzPivotPrivate::ZzPivotPrivate(ZzPivot *q)
     : q_ptr(q)
@@ -94,15 +121,24 @@ void ZzPivotPrivate::paint(QPainter *painter)
             q_ptr);
     }
 
-    if (!currentIndicatorRect.isEmpty()) {
+    const qreal devicePixelRatio = painter->device() != nullptr
+        ? painter->device()->devicePixelRatioF()
+        : 1.0;
+    const QRectF paintIndicatorRect = zzAlignedIndicatorRect(
+        currentIndicatorRect,
+        devicePixelRatio);
+    if (!paintIndicatorRect.isEmpty()) {
         painter->save();
+        painter->setClipRect(
+            paintIndicatorRect,
+            Qt::IntersectClip);
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
         painter->setBrush(snapshot->color(ZzColorToken::Accent));
         const qreal radius = std::min(
-            currentIndicatorRect.width(),
-            currentIndicatorRect.height()) / 2.0;
-        painter->drawRoundedRect(currentIndicatorRect, radius, radius);
+            paintIndicatorRect.width(),
+            paintIndicatorRect.height()) / 2.0;
+        painter->drawRoundedRect(paintIndicatorRect, radius, radius);
         painter->restore();
     }
 
@@ -162,6 +198,7 @@ void ZzPivotPrivate::initLabelStyleOption(
 {
     Q_ASSERT(option != nullptr);
     q_ptr->initStyleOption(option, index);
+    option->rect = option->rect.intersected(q_ptr->rect());
     const auto snapshot = theme.snapshot();
     if (snapshot == nullptr) {
         return;
