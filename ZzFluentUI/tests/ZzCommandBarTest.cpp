@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPointer>
 #include <QtGui/QAccessible>
@@ -148,6 +150,107 @@ private Q_SLOTS:
         QCOMPARE(zzToolBar(&bar)->toolButtonStyle(), Qt::ToolButtonIconOnly);
     }
 
+    /** @brief 捕捉宽屏时次命令错误进入工具栏的破坏。 */
+    void keepsSecondaryActionsInMoreMenuAtWideWidth()
+    {
+        ZzFluentUI::ZzCommandBar bar;
+        QAction *build = zzInsertPrimary(&bar, 0, QStringLiteral("Build"));
+        QPixmap pixmap(16, 16);
+        pixmap.fill(Qt::black);
+        QAction *deploy = bar.insertSecondaryAction(
+            0,
+            QIcon(pixmap),
+            QStringLiteral("Deploy"));
+        bar.resize(600, 40);
+        bar.show();
+        zzFlushEvents();
+
+        QToolButton *more = zzMoreButton(&bar);
+        QVERIFY(more != nullptr);
+        QVERIFY(more->isVisible());
+        QCOMPARE(zzToolBar(&bar)->actions().size(), 1);
+        QVERIFY(zzToolBar(&bar)->actions().contains(build));
+        QVERIFY(!zzToolBar(&bar)->actions().contains(deploy));
+        QVERIFY(more->menu()->actions().contains(deploy));
+    }
+
+    /** @brief 捕捉 Auto 未依次选择展开、紧凑和溢出的破坏。 */
+    void selectsDeterministicAutoPresentationThresholds()
+    {
+        ZzFluentUI::ZzCommandBar bar;
+        QAction *build = zzInsertPrimary(
+            &bar, 0, QStringLiteral("Compile project"));
+        QAction *test = zzInsertPrimary(
+            &bar, 1, QStringLiteral("Deploy workspace"));
+        QPixmap pixmap(16, 16);
+        pixmap.fill(Qt::black);
+        QAction *secondary = bar.insertSecondaryAction(
+            0,
+            QIcon(pixmap),
+            QStringLiteral("Secondary"));
+        QVERIFY(build != nullptr);
+        QVERIFY(test != nullptr);
+        QVERIFY(secondary != nullptr);
+
+        bar.resize(600, 40);
+        bar.show();
+        zzFlushEvents();
+        QCOMPARE(
+            zzToolBar(&bar)->toolButtonStyle(),
+            Qt::ToolButtonTextBesideIcon);
+        QCOMPARE(zzToolBar(&bar)->actions().size(), 2);
+        QVERIFY(zzToolBar(&bar)->actions().contains(build));
+        QVERIFY(zzToolBar(&bar)->actions().contains(test));
+        QVERIFY(zzMoreButton(&bar)->menu()->actions().contains(secondary));
+
+        bar.resize(120, 40);
+        zzFlushEvents();
+        QCOMPARE(zzToolBar(&bar)->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QCOMPARE(zzToolBar(&bar)->actions().size(), 2);
+        QVERIFY(zzToolBar(&bar)->actions().contains(build));
+        QVERIFY(zzToolBar(&bar)->actions().contains(test));
+        QVERIFY(zzMoreButton(&bar)->menu()->actions().contains(secondary));
+
+        bar.resize(40, 40);
+        zzFlushEvents();
+        QCOMPARE(zzToolBar(&bar)->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QVERIFY(zzToolBar(&bar)->actions().size() < 2);
+        QVERIFY(!zzToolBar(&bar)->actions().contains(test));
+        QVERIFY(zzMoreButton(&bar)->menu()->actions().contains(test));
+        QVERIFY(zzMoreButton(&bar)->menu()->actions().contains(secondary));
+    }
+
+    /** @brief 捕捉带子菜单 action 漏算箭头区域而错误留在工具栏的破坏。 */
+    void accountsForMenuButtonExtentAtCriticalWidth()
+    {
+        QPixmap pixmap(16, 16);
+        pixmap.fill(Qt::black);
+        QAction plain(QIcon(pixmap), QStringLiteral("Deploy"), nullptr);
+        QAction menuAction(QIcon(pixmap), QStringLiteral("Deploy"), nullptr);
+        QMenu menu;
+        menuAction.setMenu(&menu);
+        QToolButton plainButton;
+        plainButton.setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        plainButton.setDefaultAction(&plain);
+        QToolButton menuButton;
+        menuButton.setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        menuButton.setDefaultAction(&menuAction);
+        QVERIFY(menuButton.sizeHint().width() > plainButton.sizeHint().width());
+
+        ZzFluentUI::ZzCommandBar bar;
+        QVERIFY(bar.insertPrimaryAction(0, &menuAction));
+        bar.setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Expanded);
+        bar.resize(plainButton.sizeHint().width(), 40);
+        bar.show();
+        zzFlushEvents();
+
+        QToolButton *more = zzMoreButton(&bar);
+        QVERIFY(more != nullptr);
+        QVERIFY(more->isVisible());
+        QVERIFY(more->menu()->actions().contains(&menuAction));
+        QVERIFY(!zzToolBar(&bar)->actions().contains(&menuAction));
+    }
+
     /** @brief 捕捉 Auto 模式未把逻辑尾部 action 迁移到更多菜单的破坏。 */
     void movesLogicalTailToOverflowInAutoMode()
     {
@@ -272,21 +375,46 @@ private Q_SLOTS:
         QAction *build = zzInsertPrimary(&bar, 0, QStringLiteral("Build"));
         zzInsertPrimary(&bar, 1, QStringLiteral("Test"));
         zzInsertPrimary(&bar, 2, QStringLiteral("Deploy"));
+        QPixmap pixmap(16, 16);
+        pixmap.fill(Qt::black);
+        QAction *secondary = bar.insertSecondaryAction(
+            0,
+            QIcon(pixmap),
+            QStringLiteral("Secondary"));
         QSignalSpy triggered(build, &QAction::triggered);
-        bar.resize(300, 40);
+        bar.resize(40, 40);
         bar.show();
         zzFlushEvents();
         const qsizetype actionCount = bar.findChildren<QAction *>().size();
         const qsizetype menuCount = bar.findChildren<QMenu *>().size();
+        QToolButton *more = zzMoreButton(&bar);
+        QVERIFY(more != nullptr);
+        QVERIFY(more->menu()->actions().contains(build));
+        QVERIFY(more->menu()->actions().contains(secondary));
+        const qsizetype separatorCount = std::count_if(
+            more->menu()->actions().cbegin(),
+            more->menu()->actions().cend(),
+            [](QAction *action) {
+                return action->isSeparator();
+            });
+        QCOMPARE(separatorCount, 1);
 
         for (int index = 0; index < 1000; ++index) {
-            bar.resize((index % 2 == 0) ? 40 : 300, 40);
+            bar.resize((index % 2 == 0) ? 300 : 40, 40);
             zzFlushEvents();
         }
         build->trigger();
 
         QCOMPARE(bar.findChildren<QAction *>().size(), actionCount);
         QCOMPARE(bar.findChildren<QMenu *>().size(), menuCount);
+        QCOMPARE(
+            std::count_if(
+                more->menu()->actions().cbegin(),
+                more->menu()->actions().cend(),
+                [](QAction *action) {
+                    return action->isSeparator();
+                }),
+            separatorCount);
         QCOMPARE(triggered.count(), 1);
     }
 };

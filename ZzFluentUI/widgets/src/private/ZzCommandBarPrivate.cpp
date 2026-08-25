@@ -4,6 +4,7 @@
 
 #include <QtCore/QObject>
 #include <QtGui/QAction>
+#include <QtGui/QFontMetrics>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOptionToolButton>
@@ -220,22 +221,21 @@ ZzCommandBarPrivate::calculatePresentation(int width)
     const QList<QAction *> primary = actions(primaryRecords);
     const QList<QAction *> secondary = actions(secondaryRecords);
     const int availableWidth = std::max(0, width);
-    const auto totalWidth = [this, &primary, &secondary](bool compact) {
+    const bool secondaryRequiresMoreMenu = !secondary.isEmpty();
+    const int moreExtent = moreButton->sizeHint().width();
+    const int primaryAvailableWidth = std::max(
+        0,
+        availableWidth - (secondaryRequiresMoreMenu ? moreExtent : 0));
+    const auto primaryWidth = [this, &primary](bool compact) {
         int result = 0;
         for (QAction *action : primary) {
-            result += actionWidth(action, compact);
-        }
-        if (!primary.isEmpty() && !secondary.isEmpty()) {
-            result += separatorWidth();
-        }
-        for (QAction *action : secondary) {
             result += actionWidth(action, compact);
         }
         return result;
     };
 
-    const bool canExpand = totalWidth(false) <= availableWidth;
-    const bool canCompact = totalWidth(true) <= availableWidth;
+    const bool canExpand = primaryWidth(false) <= primaryAvailableWidth;
+    const bool canCompact = primaryWidth(true) <= primaryAvailableWidth;
     bool compact = displayMode == ZzCommandBarDisplayMode::Compact;
     if (displayMode == ZzCommandBarDisplayMode::Auto) {
         compact = !canExpand;
@@ -244,35 +244,26 @@ ZzCommandBarPrivate::calculatePresentation(int width)
         compact = false;
     }
     if (displayMode == ZzCommandBarDisplayMode::Auto && canCompact) {
-        return {compact, false, static_cast<int>(primary.size()),
-                static_cast<int>(secondary.size())};
+        return {compact, secondaryRequiresMoreMenu,
+                static_cast<int>(primary.size())};
     }
     if (displayMode == ZzCommandBarDisplayMode::Expanded && canExpand) {
-        return {false, false, static_cast<int>(primary.size()),
-                static_cast<int>(secondary.size())};
+        return {false, secondaryRequiresMoreMenu,
+                static_cast<int>(primary.size())};
     }
     if (displayMode == ZzCommandBarDisplayMode::Compact && canCompact) {
-        return {true, false, static_cast<int>(primary.size()),
-                static_cast<int>(secondary.size())};
+        return {true, secondaryRequiresMoreMenu,
+                static_cast<int>(primary.size())};
     }
 
-    const int menuExtent = moreButton->sizeHint().width();
-    int remaining = std::max(0, availableWidth - menuExtent);
+    int remaining = std::max(0, availableWidth - moreExtent);
     int primaryCount = zzFittingActionCount(
         primaryRecords, remaining, compact, this);
     for (int index = 0; index < primaryCount; ++index) {
         remaining -= actionWidth(primary.at(index), compact);
     }
 
-    int secondaryCount = 0;
-    if (primaryCount == primary.size() && !secondary.isEmpty()) {
-        remaining -= separatorWidth();
-        if (remaining >= 0) {
-            secondaryCount = zzFittingActionCount(
-                secondaryRecords, remaining, compact, this);
-        }
-    }
-    return {compact, true, primaryCount, secondaryCount};
+    return {compact, true, primaryCount};
 }
 
 void ZzCommandBarPrivate::moveActionsWithoutCloning(
@@ -290,7 +281,6 @@ void ZzCommandBarPrivate::moveActionsWithoutCloning(
             moreMenu->removeAction(action);
         }
     }
-    toolBar->removeAction(separatorAction);
     moreMenu->removeAction(overflowSeparatorAction);
 
     const QList<QAction *> primary = actions(primaryRecords);
@@ -304,42 +294,15 @@ void ZzCommandBarPrivate::moveActionsWithoutCloning(
         }
     }
     const bool primaryOverflows = presentation.visiblePrimaryCount < primary.size();
-    const bool secondaryOverflows =
-        presentation.visibleSecondaryCount < secondary.size();
-    if (presentation.visibleSecondaryCount > 0) {
-        if (presentation.visiblePrimaryCount > 0) {
-            if (separatorAction == nullptr) {
-                separatorAction = toolBar->addSeparator();
-            } else {
-                toolBar->addAction(separatorAction);
-            }
+    if (primaryOverflows && !secondary.isEmpty()) {
+        if (overflowSeparatorAction == nullptr) {
+            overflowSeparatorAction = moreMenu->addSeparator();
+        } else {
+            moreMenu->addAction(overflowSeparatorAction);
         }
-        for (int index = 0; index < secondary.size(); ++index) {
-            QAction *action = secondary.at(index);
-            if (index < presentation.visibleSecondaryCount) {
-                toolBar->addAction(action);
-            } else {
-                if (primaryOverflows && index == presentation.visibleSecondaryCount) {
-                    if (overflowSeparatorAction == nullptr) {
-                        overflowSeparatorAction = moreMenu->addSeparator();
-                    } else {
-                        moreMenu->addAction(overflowSeparatorAction);
-                    }
-                }
-                moreMenu->addAction(action);
-            }
-        }
-    } else {
-        if (primaryOverflows && secondaryOverflows) {
-            if (overflowSeparatorAction == nullptr) {
-                overflowSeparatorAction = moreMenu->addSeparator();
-            } else {
-                moreMenu->addAction(overflowSeparatorAction);
-            }
-        }
-        for (QAction *action : secondary) {
-            moreMenu->addAction(action);
-        }
+    }
+    for (QAction *action : secondary) {
+        moreMenu->addAction(action);
     }
 }
 
@@ -385,14 +348,43 @@ int ZzCommandBarPrivate::actionWidth(QAction *action, bool compact)
     option.initFrom(q_ptr);
     option.text = action->text();
     option.icon = action->icon();
-    option.iconSize = toolBar->iconSize();
+    const int iconExtent = q_ptr->style()->pixelMetric(
+        QStyle::PM_ToolBarIconSize,
+        nullptr,
+        toolBar);
+    option.iconSize = QSize(iconExtent, iconExtent);
+    option.features = action->menu() != nullptr
+        ? QStyleOptionToolButton::Menu
+        : QStyleOptionToolButton::None;
     option.toolButtonStyle = compact
         ? Qt::ToolButtonIconOnly
         : Qt::ToolButtonTextBesideIcon;
+    QSize contents;
+    if (!action->icon().isNull()) {
+        contents = option.iconSize;
+    }
+    if (!compact && !action->text().isEmpty()) {
+        const QFontMetrics metrics(q_ptr->font());
+        const int textWidth = metrics.horizontalAdvance(action->text());
+        if (!contents.isEmpty()) {
+            contents.rwidth() += q_ptr->style()->pixelMetric(
+                QStyle::PM_ToolBarItemSpacing,
+                nullptr,
+                toolBar);
+        }
+        contents.rwidth() += textWidth;
+        contents.rheight() = std::max(contents.height(), metrics.height());
+    }
+    if (action->menu() != nullptr) {
+        contents.rwidth() += q_ptr->style()->pixelMetric(
+            QStyle::PM_MenuButtonIndicator,
+            &option,
+            toolBar);
+    }
     const QSize size = q_ptr->style()->sizeFromContents(
         QStyle::CT_ToolButton,
         &option,
-        QSize(),
+        contents,
         toolBar);
     cached = QSize(std::max(zzMinimumCommandExtent, size.width()), size.height());
     return cached.width();
@@ -409,11 +401,6 @@ bool ZzCommandBarPrivate::containsAction(const QAction *action) const
             });
     };
     return contains(primaryRecords) || contains(secondaryRecords);
-}
-
-int ZzCommandBarPrivate::separatorWidth() const
-{
-    return q_ptr->style()->pixelMetric(QStyle::PM_ToolBarSeparatorExtent, nullptr, toolBar);
 }
 
 } // namespace ZzFluentUI

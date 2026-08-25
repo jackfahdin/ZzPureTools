@@ -57,7 +57,6 @@ public:
         bool compact = false;
         bool hasOverflow = false;
         int visiblePrimaryCount = 0;
-        int visibleSecondaryCount = 0;
     };
 
     /** @brief 返回当前宽度与策略对应的展示结果。 */
@@ -78,14 +77,10 @@ public:
     /** @brief 返回当前两个逻辑组是否已包含 action。 */
     [[nodiscard]] bool containsAction(const QAction *action) const;
 
-    /** @brief 返回当前工具栏分隔线的逻辑宽度。 */
-    [[nodiscard]] int separatorWidth() const;
-
     ZzCommandBar *const q_ptr;
     QToolBar *toolBar = nullptr;
     QToolButton *moreButton = nullptr;
     QMenu *moreMenu = nullptr;
-    QAction *separatorAction = nullptr;
     QAction *overflowSeparatorAction = nullptr;
     QList<ZzCommandBarActionRecord> primaryRecords;
     QList<ZzCommandBarActionRecord> secondaryRecords;
