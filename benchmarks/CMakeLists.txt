@@ -118,8 +118,6 @@ zz_add_benchmark(ZzWorkspaceComponentsBenchmark
 target_link_libraries(ZzWorkspaceComponentsBenchmark PRIVATE
     Zz::PureTools
     Zz::FluentUI)
-set_tests_properties(benchmark.workspace-components PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_executable(ZzFluentStandardSurfacesBenchmark
     ZzFluentStandardSurfacesBenchmark.cpp)
 qt_add_resources(ZzFluentStandardSurfacesBenchmark
@@ -251,6 +249,8 @@ if(ZZ_PERFORMANCE_REFERENCE)
         MAX_VALUE 1.5 STRICT_MAX)
     zz_add_reference_gate(navigation-pane-reset benchmark.navigation-pane
         navigation-pane reset-time MAX_P95 80)
+    zz_add_reference_gate(workspace-components benchmark.workspace-components
+        workspace-components workspace-render-time MAX_P95 12)
     if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         zz_add_reference_gate(idle-cpu benchmark.idle-cpu
             idle average-cpu-percent MAX_VALUE 0.5 STRICT_MAX)
