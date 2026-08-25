@@ -693,12 +693,18 @@
 
 ### 任务 9：实现 WorkspaceShell 多面板事务与布局版本 2
 
+**状态（2026-08-25）：** 本任务已由
+`docs/superpowers/plans/2026-08-23-workspace-shell-transaction-redesign.md` 的任务 9R
+取代并完成。最终实现以不可变目标投影、有界 codec、统一 Activity move/布局事务和反向回滚
+替代本节原定的两阶段原型方案；`feature/workspace-shell-transaction-redesign` 已在本地合并到
+`master`，最终代码与验收文档收口提交为 `7acd165`。
+
 **文件：**
 - 修改：`ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.h`
 - 修改：`ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.cpp`
 - 修改：`ZzPureTools/tests/ZzWorkspaceShellTest.cpp`
 
-- [ ] **步骤 1：写 Activity 重排、跨侧迁移和多可见同步测试。** 注册左侧三个面板和右侧一个面板，直接发出 `moveRequested`，验证同组重排、跨组、跨侧、可见状态、高度和 active index 集合：
+- [x] **步骤 1：写 Activity 重排、跨侧迁移和多可见同步测试。** 注册左侧三个面板和右侧一个面板，直接发出 `moveRequested`，验证同组重排、跨组、跨侧、可见状态、高度和 active index 集合：
 
   ```cpp
   leftBar->moveRequested(
@@ -713,9 +719,9 @@
 
   在 SidePane `addWidget()` 的同步 ParentChange 信号中销毁目标、来源或第三方接管 content，断言迁移失败时来源 Area、顺序、父对象、显隐和尺寸全部回滚。
 
-- [ ] **步骤 2：写版本 1 迁移和版本 2 有界解码测试。** 保留测试内的版本 1 encoder，断言旧 `leftCurrent/rightCurrent/currentTabIndex` 迁移为每侧唯一可见面板、根组当前标签和默认折叠 Bottom。版本 2 测试覆盖每侧 32 可见面板、4096 side entries、64 组、16 深度、重复 ID、sizes 数量错误、非法枚举、摘要错误、1 MiB 上限和 Qt Dock state 版本分离。
+- [x] **步骤 2：写版本 1 迁移和版本 2 有界解码测试。** 保留测试内的版本 1 encoder，断言旧 `leftCurrent/rightCurrent/currentTabIndex` 迁移为每侧唯一可见面板、根组当前标签和默认折叠 Bottom。版本 2 测试覆盖每侧 32 可见面板、4096 side entries、64 组、16 深度、重复 ID、sizes 数量错误、非法枚举、摘要错误、1 MiB 上限和 Qt Dock state 版本分离。
 
-- [ ] **步骤 3：运行目标测试确认失败。**
+- [x] **步骤 3：运行目标测试确认失败。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -724,9 +730,9 @@
 
   预期：当前 decoder 只接受 schema 1，且 Activity move 仍未提交。
 
-- [ ] **步骤 4：实现 Activity move 两阶段事务。** 先把源面板记录、Activity 行顺序、来源/目标 PanelStack sizes 和显隐集合复制为值快照；同侧只改模型 Area/order；跨侧先 `takeWidget()`，再 `addWidget()`，最后更新模型。目标接管失败时重新插入来源原索引并恢复所有快照；成功后统一调用 `syncActivityState()`，避免逐入口发中间状态。
+- [x] **步骤 4：实现 Activity move 两阶段事务。** 先把源面板记录、Activity 行顺序、来源/目标 PanelStack sizes 和显隐集合复制为值快照；同侧只改模型 Area/order；跨侧先 `takeWidget()`，再 `addWidget()`，最后更新模型。目标接管失败时重新插入来源原索引并恢复所有快照；成功后统一调用 `syncActivityState()`，避免逐入口发中间状态。
 
-- [ ] **步骤 5：拆分布局版本常量并实现双 decoder。** 使用以下常量，任何 `saveState/restoreState` 调用只传 Qt state version：
+- [x] **步骤 5：拆分布局版本常量并实现双 decoder。** 使用以下常量，任何 `saveState/restoreState` 调用只传 Qt state version：
 
   ```cpp
   constexpr quint16 zzWorkspaceEnvelopeVersion = 2;
@@ -737,9 +743,9 @@
 
   `zzDecodeLayout()` 只校验 envelope 并返回 schema；`zzReadVersionOnePayload()` 填充迁移后的 DTO；`zzReadVersionTwoPayload()` 读取 left/right visible IDs 与 sizes、side entries、SplitWorkspace blob、Bottom 状态和 title mode。读取阶段不得调用 QWidget。
 
-- [ ] **步骤 6：实现完整反向回滚。** 提交前捕获 Qt Dock state、左右 PanelStack、SplitWorkspace、BottomPane 和标题快照；按 Qt Dock、Split、Side、Bottom、Activity/Title 顺序提交，失败按反向顺序恢复。若任一回滚步骤失败，返回 `InvalidState` 且技术消息包含 `rollback failed`。
+- [x] **步骤 6：实现完整反向回滚。** 提交前捕获 Qt Dock state、左右 PanelStack、SplitWorkspace、BottomPane 和标题快照；按 Qt Dock、Split、Side、Bottom、Activity/Title 顺序提交，失败按反向顺序恢复。若任一回滚步骤失败，返回 `InvalidState` 且技术消息包含 `rollback failed`。
 
-- [ ] **步骤 7：运行 WorkspaceShell 完整测试。**
+- [x] **步骤 7：运行 WorkspaceShell 完整测试。**
 
   ```bash
   ctest --preset linux-gcc-debug -R '^puretools.workspace-shell$' --output-on-failure
@@ -747,7 +753,7 @@
 
   预期：v1 迁移、v2 round trip、跨侧迁移、同步销毁和回滚失败路径通过；再次保存只写 schema 2。
 
-- [ ] **步骤 8：提交。**
+- [x] **步骤 8：提交。**
 
   ```bash
   git add ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.h ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.cpp ZzPureTools/tests/ZzWorkspaceShellTest.cpp
