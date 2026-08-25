@@ -774,7 +774,7 @@
 - 修改：`ZzFluentUI/CMakeLists.txt`
 - 修改：`ZzFluentUI/tests/CMakeLists.txt`
 
-- [ ] **步骤 1：写 QAction 身份、所有权和 overflow 失败测试。**
+- [x] **步骤 1：写 QAction 身份、所有权和 overflow 失败测试。**
 
   ```cpp
   void keepsOneActionIdentityAcrossOverflow()
@@ -798,7 +798,7 @@
 
   增加同一 QAction 重复/跨组插入拒绝、便利重载 action 由 CommandBar 拥有、外部 action 销毁清理一次、Auto/Compact/Expanded 阈值、RTL 视觉尾部、checked/enabled/shortcut/menu 在 overflow 中保持、键盘与 accessibleName 测试。
 
-- [ ] **步骤 2：运行测试验证失败。**
+- [x] **步骤 2：运行测试验证失败。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzCommandBarTest --parallel 2
@@ -806,9 +806,9 @@
 
   预期：类和测试目标尚不存在。
 
-- [ ] **步骤 3：实现固定组合和非拥有 action 记录。** Private 固定拥有一个不可移动/浮动的 `QToolBar`、一个 `QToolButton`、一个 `QMenu` 和两个 `QPointer<QAction>` 有序列表。便利重载使用 `new QAction(icon, text, q_ptr)`；指针重载不设置父对象。每个 action 只连接一个 destroyed 和一个 changed 观察，移除时断开。
+- [x] **步骤 3：实现固定组合和非拥有 action 记录。** Private 固定拥有一个不可移动/浮动的 `QToolBar`、一个 `QToolButton`、一个 `QMenu` 和两个 `QPointer<QAction>` 有序列表。便利重载使用 `new QAction(icon, text, q_ptr)`；指针重载不设置父对象。每个 action 只连接一个 destroyed 和一个 changed 观察，移除时断开。
 
-- [ ] **步骤 4：实现布局缓存与 overflow。** 缓存每个 action 在 Expanded/Compact 下的逻辑宽度，只在 width/font/style/palette/layoutDirection/action changed 时置 dirty。Auto 依次尝试 Expanded、Compact，再从逻辑尾部移入 overflow；secondary 固定在分隔线后。使用同一 QAction 在 toolbar/menu 间 add/remove，不复制 QAction，不在 `paintEvent` 中计算布局。
+- [x] **步骤 4：实现布局缓存与 overflow。** 缓存每个 action 在 Expanded/Compact 下的逻辑宽度，只在 width/font/style/palette/layoutDirection/action changed 时置 dirty。Auto 依次尝试 Expanded、Compact，再从逻辑尾部移入 overflow；secondary 固定在分隔线后。使用同一 QAction 在 toolbar/menu 间 add/remove，不复制 QAction，不在 `paintEvent` 中计算布局。
 
   ```cpp
   enum class ZzCommandBarDisplayMode : std::uint8_t {
@@ -824,7 +824,7 @@
   }
   ```
 
-- [ ] **步骤 5：验证定向和对象预算。**
+- [x] **步骤 5：验证定向和对象预算。**
 
   ```bash
   ctest --preset linux-gcc-debug -R '^fluent.command-bar$' --output-on-failure
@@ -832,7 +832,7 @@
 
   预期：1000 次宽度切换后 QAction 数、QMenu 数和自定义 QObject 观察连接稳定；触发始终命中原 QAction。
 
-- [ ] **步骤 6：提交。**
+- [x] **步骤 6：提交。**
 
   ```bash
   git add \
