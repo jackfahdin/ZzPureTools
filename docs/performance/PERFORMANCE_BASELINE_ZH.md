@@ -185,16 +185,16 @@ cmake \
 
 ## 工作区组件 Observe 记录
 
-2026-08-25 在源码 `35362b90715c2c1a76ffe9c2adfcd39606f203cb` 完成
+2026-08-26 在源码 `3aaae72697d8e1676ff4b91eb2ff4890d4bd5bff` 完成
 `benchmark.workspace-components` 最终三轮观测。场景固定创建 32 个可见侧面板、
 4/32 个 tab group、三个 Bottom 工具、40 个 CommandBar action 和 20/100000
 标记模型；原始 reporter JSON 已入库，分别为：
 
 | 轮次 | 证据文件 | SHA-256 |
 |---|---|---|
-| 1 | `docs/performance/evidence/workspace-components/2026-08-22/round-1.json` | `2d9ca8186783def77c73a926125b4e9f0bea620d3b6c3c2f3bef7457c660ca5c` |
-| 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `053e714aacb3d902fb6cd24c4a554ec1fc6d67a11823faaa2c962651b484acd7` |
-| 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `47f0e0e564f2e87a9e633133ed44f0fa7ea024f646ca278f39d6a68ef95840b2` |
+| 1 | `docs/performance/evidence/workspace-components/2026-08-22/round-1.json` | `df62a0480b16c1aa6e1b978742eb2eb859e00f69ca557d251df7257371cdb87a` |
+| 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `65180443edf80fa107325b95af93477643980a57ddb430e9cc111894b0f4712e` |
+| 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `14398ef639dba0ec85be1cd5140cdff9c5634bfd9fe83d3794eca29367530369` |
 
 三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、Xvfb/`xcb`、DPR 1、
 Release/shared/LTO、`linux-gcc-reference`、归一内存指纹 32,682,016,768 bytes、
