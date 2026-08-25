@@ -94,7 +94,10 @@ public:
      * @param text 可本地化的命令文本。
      * @return 新 action；越界时返回 nullptr。
      */
-    QAction *insertPrimaryAction(int index, const QIcon &icon, QString text);
+    QAction *insertPrimaryAction(
+        int index,
+        const QIcon &icon,
+        const QString &text);
 
     /**
      * @brief 将外部拥有的 action 插入次要命令组。
@@ -111,7 +114,10 @@ public:
      * @param text 可本地化的命令文本。
      * @return 新 action；越界时返回 nullptr。
      */
-    QAction *insertSecondaryAction(int index, const QIcon &icon, QString text);
+    QAction *insertSecondaryAction(
+        int index,
+        const QIcon &icon,
+        const QString &text);
 
     /**
      * @brief 从所在命令组移除 action，但不删除外部拥有的对象。

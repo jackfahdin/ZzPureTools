@@ -79,9 +79,9 @@ bool ZzCommandBar::insertPrimaryAction(int index, QAction *action)
 QAction *ZzCommandBar::insertPrimaryAction(
     int index,
     const QIcon &icon,
-    QString text)
+    const QString &text)
 {
-    auto *action = new QAction(icon, std::move(text), this);
+    auto *action = new QAction(icon, text, this);
     if (insertPrimaryAction(index, action)) {
         return action;
     }
@@ -97,9 +97,9 @@ bool ZzCommandBar::insertSecondaryAction(int index, QAction *action)
 QAction *ZzCommandBar::insertSecondaryAction(
     int index,
     const QIcon &icon,
-    QString text)
+    const QString &text)
 {
-    auto *action = new QAction(icon, std::move(text), this);
+    auto *action = new QAction(icon, text, this);
     if (insertSecondaryAction(index, action)) {
         return action;
     }

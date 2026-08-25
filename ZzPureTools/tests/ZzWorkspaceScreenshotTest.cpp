@@ -201,7 +201,7 @@ public:
                 QStringLiteral("failed to register explorer side panel"))) {
             return;
         }
-        static_cast<void>(explorer.release());
+        [[maybe_unused]] auto *ownedExplorer = explorer.release();
         auto dockContent = std::make_unique<QWidget>();
         const auto dockResult = shell->registerDockPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
@@ -211,7 +211,7 @@ public:
                 QStringLiteral("failed to register terminal dock panel"))) {
             return;
         }
-        static_cast<void>(dockContent.release());
+        [[maybe_unused]] auto *ownedDockContent = dockContent.release();
         shell->tabWidget()->addTab(new QWidget, QStringLiteral("main.cpp"));
         shell->tabWidget()->addTab(new QWidget, QStringLiteral("Preview"));
         commandModel.appendRow(new QStandardItem(QStringLiteral("Build workspace")));
@@ -292,7 +292,7 @@ private:
                         .arg(title))) {
                 return false;
             }
-            static_cast<void>(panel.release());
+            [[maybe_unused]] auto *ownedPanel = panel.release();
             return true;
         };
         if (!registerSide("search", QStringLiteral("Search"),
@@ -314,7 +314,7 @@ private:
                 QStringLiteral("failed to register terminal bottom panel"))) {
             return false;
         }
-        static_cast<void>(terminal.release());
+        [[maybe_unused]] auto *ownedTerminal = terminal.release();
         auto problems = std::make_unique<QLabel>(
             QStringLiteral("0 errors   1 warning"));
         problems->setAlignment(Qt::AlignCenter);
@@ -325,7 +325,7 @@ private:
                 QStringLiteral("failed to register problems bottom panel"))) {
             return false;
         }
-        static_cast<void>(problems.release());
+        [[maybe_unused]] auto *ownedProblems = problems.release();
         auto commands = std::make_unique<QWidget>();
         auto *commandLayout = new QVBoxLayout(commands.get());
         commandLayout->setContentsMargins(6, 4, 6, 4);
@@ -392,7 +392,7 @@ private:
                 QStringLiteral("failed to register commands bottom panel"))) {
             return false;
         }
-        static_cast<void>(commands.release());
+        [[maybe_unused]] auto *ownedCommands = commands.release();
         const auto showCommandsResult = shell->showPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands")));
         if (!requireResult(showCommandsResult,

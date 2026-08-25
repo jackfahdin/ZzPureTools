@@ -305,7 +305,9 @@ private Q_SLOTS:
         zzFlushEvents();
 
         QToolButton *more = zzMoreButton(&bar);
-        QVERIFY(more != nullptr);
+        if (more == nullptr) {
+            QFAIL("命令栏缺少更多按钮");
+        }
         QVERIFY(more->isVisible());
         QCOMPARE(zzToolBar(&bar)->actions().size(), 1);
         QVERIFY(zzToolBar(&bar)->actions().contains(build));
@@ -384,7 +386,9 @@ private Q_SLOTS:
         zzFlushEvents();
 
         QToolButton *more = zzMoreButton(&bar);
-        QVERIFY(more != nullptr);
+        if (more == nullptr) {
+            QFAIL("命令栏缺少更多按钮");
+        }
         QVERIFY(more->isVisible());
         QVERIFY(more->menu()->actions().contains(&menuAction));
         QVERIFY(!zzToolBar(&bar)->actions().contains(&menuAction));
@@ -406,7 +410,9 @@ private Q_SLOTS:
 
         QCOMPARE(bar.width(), 40);
         QToolButton *more = zzMoreButton(&bar);
-        QVERIFY(more != nullptr);
+        if (more == nullptr) {
+            QFAIL("命令栏缺少更多按钮");
+        }
         QVERIFY(more->isVisible());
         QVERIFY(more->menu()->actions().contains(deploy));
         QVERIFY(!zzToolBar(&bar)->actions().contains(deploy));
@@ -430,7 +436,9 @@ private Q_SLOTS:
 
         QVERIFY(build != nullptr);
         QToolButton *more = zzMoreButton(&bar);
-        QVERIFY(more != nullptr);
+        if (more == nullptr) {
+            QFAIL("命令栏缺少更多按钮");
+        }
         QVERIFY(more->menu()->actions().contains(deploy));
         QVERIFY(deploy->isChecked());
         QVERIFY(!deploy->isEnabled());
@@ -475,7 +483,9 @@ private Q_SLOTS:
         zzFlushEvents();
 
         QToolButton *more = zzMoreButton(&bar);
-        QVERIFY(more != nullptr);
+        if (more == nullptr) {
+            QFAIL("命令栏缺少更多按钮");
+        }
         QVERIFY(more->isVisible());
         QVERIFY(more->geometry().center().x() < bar.width() / 2);
     }
