@@ -19,6 +19,16 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleWorkspaceContent.h
 )
 
+qt_add_resources(ZzExampleWorkspaceSmokeTest "zz_example_workspace_test_icons"
+    PREFIX "/ZzPureToolsExample/workspace-icons"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/../resources"
+    FILES
+        ../resources/Sessions.svg
+        ../resources/Files.svg
+        ../resources/Properties.svg
+        ../resources/Tasks.svg
+)
+
 target_include_directories(ZzExampleWorkspaceSmokeTest PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(ZzExampleWorkspaceSmokeTest PRIVATE

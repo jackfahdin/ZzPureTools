@@ -2,6 +2,7 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QFile>
 #include <QtCore/QStandardPaths>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -81,7 +82,8 @@ namespace {
         value.value<ZzFluentUI::ZzIconDescriptor>();
     return descriptor.source == ZzFluentUI::ZzIconSource::FontGlyph
         ? descriptor.fontIcon != ZzFluentUI::ZzFontIcon::None
-        : !descriptor.resourceId.trimmed().isEmpty();
+        : descriptor.resourceId.startsWith(QStringLiteral(":/"))
+            && QFile::exists(descriptor.resourceId);
 }
 
 [[nodiscard]] ZzPureTools::ZzWorkspacePanelId zzPanelId(const char *value)
@@ -224,6 +226,11 @@ private Q_SLOTS:
                     qPrintable(QStringLiteral(
                         "Activity Bar row has no renderable icon: %1")
                                    .arg(index.data().toString())));
+                QCOMPARE(
+                    index.data(Qt::DecorationRole)
+                        .value<ZzFluentUI::ZzIconDescriptor>()
+                        .source,
+                    ZzFluentUI::ZzIconSource::SvgResource);
                 ++activityRows;
             }
         }

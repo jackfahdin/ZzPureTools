@@ -23,7 +23,6 @@
 #include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
-#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -157,8 +156,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto side = workspace->registerSidePanelFactory(
         zzPanelId("sessions"),
         QCoreApplication::translate("ZzPureToolsExample", "会话"),
-        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
-            ZzFluentUI::ZzFontIcon::Server),
+        ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+            QStringLiteral(
+                ":/ZzPureToolsExample/workspace-icons/Sessions.svg")),
         ZzFluentUI::ZzActivityArea::LeftPrimary,
         [sessionModel = sessions.get()] {
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
@@ -171,8 +171,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto files = workspace->registerSidePanelFactory(
         zzPanelId("files"),
         QCoreApplication::translate("ZzPureToolsExample", "文件"),
-        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
-            ZzFluentUI::ZzFontIcon::FolderTree),
+        ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+            QStringLiteral(
+                ":/ZzPureToolsExample/workspace-icons/Files.svg")),
         ZzFluentUI::ZzActivityArea::LeftSecondary, [] {
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
                 ZzExampleWorkspaceContent::createSftpPanel());
@@ -184,8 +185,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto properties = workspace->registerSidePanelFactory(
         zzPanelId("properties"),
         QCoreApplication::translate("ZzPureToolsExample", "属性"),
-        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
-            ZzFluentUI::ZzFontIcon::Sliders),
+        ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+            QStringLiteral(
+                ":/ZzPureToolsExample/workspace-icons/Properties.svg")),
         ZzFluentUI::ZzActivityArea::RightPrimary, [] {
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
                 ZzExampleWorkspaceContent::createPropertiesPanel());
@@ -197,8 +199,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto tasks = workspace->registerSidePanelFactory(
         zzPanelId("tasks"),
         QCoreApplication::translate("ZzPureToolsExample", "任务"),
-        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
-            ZzFluentUI::ZzFontIcon::ListCheck),
+        ZzFluentUI::ZzIconDescriptor::fromSvgResource(
+            QStringLiteral(
+                ":/ZzPureToolsExample/workspace-icons/Tasks.svg")),
         ZzFluentUI::ZzActivityArea::RightSecondary, [] {
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
                 ZzExampleWorkspaceContent::createTasksPanel());

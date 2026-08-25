@@ -40,6 +40,13 @@ endif()
 
 add_executable(ZzPureToolsExample ${zz_pure_tools_example_sources})
 
+set(zz_example_workspace_icons
+    resources/Sessions.svg
+    resources/Files.svg
+    resources/Properties.svg
+    resources/Tasks.svg
+)
+
 set(ZZ_EXAMPLE_LOCAL_ASSET_DIR "" CACHE PATH
     "Optional untracked directory containing ZzPureToolsExample preview images")
 mark_as_advanced(ZZ_EXAMPLE_LOCAL_ASSET_DIR)
@@ -89,10 +96,20 @@ list(GET zz_pure_tools_example_qm_files 0
     zz_pure_tools_example_english_qm)
 set_source_files_properties(
     "${zz_pure_tools_example_english_qm}"
-    PROPERTIES QT_RESOURCE_ALIAS "ZzPureToolsExample_en.qm")
-qt_add_resources(ZzPureToolsExample "zz_example_translations"
-    PREFIX "/translations"
-    FILES "${zz_pure_tools_example_english_qm}"
+    PROPERTIES QT_RESOURCE_ALIAS "translations/ZzPureToolsExample_en.qm")
+foreach(zz_example_workspace_icon IN LISTS zz_example_workspace_icons)
+    get_filename_component(zz_example_workspace_icon_name
+        "${zz_example_workspace_icon}" NAME)
+    set_source_files_properties(
+        "${zz_example_workspace_icon}"
+        PROPERTIES QT_RESOURCE_ALIAS
+            "ZzPureToolsExample/workspace-icons/${zz_example_workspace_icon_name}")
+endforeach()
+qt_add_resources(ZzPureToolsExample "zz_example_resources"
+    PREFIX "/"
+    FILES
+        "${zz_pure_tools_example_english_qm}"
+        ${zz_example_workspace_icons}
 )
 
 target_link_libraries(ZzPureToolsExample PRIVATE
