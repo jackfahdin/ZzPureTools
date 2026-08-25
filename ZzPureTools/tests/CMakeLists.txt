@@ -127,6 +127,23 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     zz_add_workspace_screenshot_test(125 1.25)
     zz_add_workspace_screenshot_test(150 1.5)
     zz_add_workspace_screenshot_test(200 2.0)
+    set(zz_workspace_screenshot_library_path_variable LD_LIBRARY_PATH)
+    if(APPLE)
+        set(zz_workspace_screenshot_library_path_variable DYLD_LIBRARY_PATH)
+    elseif(WIN32)
+        set(zz_workspace_screenshot_library_path_variable PATH)
+    endif()
+    foreach(zz_workspace_screenshot_suffix IN ITEMS 100 125 150 200)
+        set_property(TEST "puretools.workspace-screenshot-${zz_workspace_screenshot_suffix}"
+            APPEND PROPERTY ENVIRONMENT_MODIFICATION
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>"
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentFoundation>"
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>"
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzPureTools>"
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzWindowKit>"
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzLog>"
+                "${zz_workspace_screenshot_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+    endforeach()
 endif()
 
 add_executable(ZzApplicationBuilderTest ZzApplicationBuilderTest.cpp)

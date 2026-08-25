@@ -138,6 +138,21 @@ ZzExampleWorkspaceContent::createActivityLogPanel(
     return std::make_unique<ZzActivityLogView>(activities);
 }
 
+std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createProblemsPanel()
+{
+    return zzCreateLabelPanel(
+        QStringLiteral("zzExampleProblemsPanel"),
+        zzTranslate("未发现本地演示问题"));
+}
+
+std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createOutputPanel(
+    QAbstractItemModel *activities)
+{
+    auto output = createActivityLogPanel(activities);
+    output->setObjectName(QStringLiteral("zzExampleOutputPanel"));
+    return output;
+}
+
 std::unique_ptr<QWidget>
 ZzExampleWorkspaceContent::createPropertiesPanel()
 {

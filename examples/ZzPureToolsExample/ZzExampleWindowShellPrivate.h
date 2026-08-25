@@ -15,10 +15,6 @@ namespace ZzCore {
 class ZzError;
 }
 
-namespace ZzFluentUI {
-class ZzDockPanel;
-}
-
 namespace ZzPureTools {
 class ZzApplicationWindow;
 class ZzNavigationController;
@@ -75,10 +71,10 @@ public:
     /** @brief 同步返回与前进命令的启用状态。 */
     void syncHistoryActions(bool canGoBack, bool canGoForward) noexcept;
 
-    /** @brief 返回活动日志 Dock 当前可见性。 */
+    /** @brief 返回活动输出工具当前可见性。 */
     [[nodiscard]] bool isActivityDockVisible() const noexcept;
 
-    /** @brief 通过公开 Shell 设置活动日志 Dock 可见性。 */
+    /** @brief 通过公开 Shell 设置活动输出工具可见性。 */
     void setActivityDockVisible(bool visible);
 
     /** @brief 处理当前窗口的取消、最小化或确认关闭选择。 */
@@ -93,7 +89,6 @@ public:
     std::unique_ptr<ZzExampleSessionModel> sessions;
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
-    ZzFluentUI::ZzDockPanel *activityDock = nullptr;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;

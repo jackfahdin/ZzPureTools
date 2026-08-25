@@ -31,6 +31,13 @@ public:
     [[nodiscard]] static std::unique_ptr<QWidget> createActivityLogPanel(
         QAbstractItemModel *activities);
 
+    /** @brief 创建固定本地诊断样例的无父问题页面。 */
+    [[nodiscard]] static std::unique_ptr<QWidget> createProblemsPanel();
+
+    /** @brief 创建跟随活动模型尾部的无父输出页面。 */
+    [[nodiscard]] static std::unique_ptr<QWidget> createOutputPanel(
+        QAbstractItemModel *activities);
+
     /** @brief 创建固定会话属性的无父页面。 */
     [[nodiscard]] static std::unique_ptr<QWidget> createPropertiesPanel();
 

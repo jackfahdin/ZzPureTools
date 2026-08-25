@@ -112,6 +112,25 @@ zz_configure_first_party_target(ZzPureToolsExample
 
 if(ZZ_BUILD_TESTS)
     add_subdirectory(tests)
+    set(zz_example_workspace_smoke_library_path_variable
+        LD_LIBRARY_PATH)
+    if(APPLE)
+        set(zz_example_workspace_smoke_library_path_variable
+            DYLD_LIBRARY_PATH)
+    elseif(WIN32)
+        set(zz_example_workspace_smoke_library_path_variable PATH)
+    endif()
+    set_property(TEST example.workspace-smoke
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests"
+        APPEND PROPERTY
+        ENVIRONMENT_MODIFICATION
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>"
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentFoundation>"
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>"
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzPureTools>"
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzWindowKit>"
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzLog>"
+            "${zz_example_workspace_smoke_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 
     add_executable(ZzExampleActivityModelTest
         tests/ZzExampleActivityModelTest.cpp

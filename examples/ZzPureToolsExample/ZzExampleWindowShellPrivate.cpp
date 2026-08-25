@@ -1,8 +1,7 @@
 #include "ZzExampleWindowShellPrivate.h"
 
+#include <array>
 #include <utility>
-#include <vector>
-
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
 #include <QtCore/QEvent>
@@ -20,7 +19,7 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
-#include <ZzFluentUI/ZzDockPanel.h>
+#include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
@@ -143,6 +142,67 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     [[maybe_unused]] QWidget *const adoptedSessionPanel =
         sessionPanel.release();
 
+    auto filesPanel = ZzExampleWorkspaceContent::createSftpPanel();
+    auto files = workspace->registerSidePanel(
+        zzPanelId("files"),
+        QCoreApplication::translate("ZzPureToolsExample", "文件"), {},
+        ZzFluentUI::ZzActivityArea::LeftSecondary, filesPanel.get());
+    if (!files) {
+        return files;
+    }
+    [[maybe_unused]] QWidget *const adoptedFilesPanel = filesPanel.release();
+
+    auto propertiesPanel =
+        ZzExampleWorkspaceContent::createPropertiesPanel();
+    auto properties = workspace->registerSidePanel(
+        zzPanelId("properties"),
+        QCoreApplication::translate("ZzPureToolsExample", "属性"), {},
+        ZzFluentUI::ZzActivityArea::RightPrimary, propertiesPanel.get());
+    if (!properties) {
+        return properties;
+    }
+    [[maybe_unused]] QWidget *const adoptedPropertiesPanel =
+        propertiesPanel.release();
+
+    auto tasksPanel = ZzExampleWorkspaceContent::createTasksPanel();
+    auto tasks = workspace->registerSidePanel(
+        zzPanelId("tasks"),
+        QCoreApplication::translate("ZzPureToolsExample", "任务"), {},
+        ZzFluentUI::ZzActivityArea::RightSecondary, tasksPanel.get());
+    if (!tasks) {
+        return tasks;
+    }
+    [[maybe_unused]] QWidget *const adoptedTasksPanel = tasksPanel.release();
+
+    struct ZzBottomRegistration final
+    {
+        ZzPureTools::ZzWorkspacePanelId id;
+        QString title;
+        std::unique_ptr<QWidget> content;
+    };
+    std::array<ZzBottomRegistration, 3> bottomPanels{{
+        {zzPanelId("terminal"),
+         QCoreApplication::translate("ZzPureToolsExample", "终端"),
+         ZzExampleWorkspaceContent::createTerminalPage(
+             QStringLiteral("dev-local"))},
+        {zzPanelId("problems"),
+         QCoreApplication::translate("ZzPureToolsExample", "问题"),
+         ZzExampleWorkspaceContent::createProblemsPanel()},
+        {zzPanelId("activity-log"),
+         QCoreApplication::translate("ZzPureToolsExample", "输出"),
+         ZzExampleWorkspaceContent::createOutputPanel(
+             &context->activityModel())},
+    }};
+    for (ZzBottomRegistration &panel : bottomPanels) {
+        auto result = workspace->registerBottomPanel(
+            panel.id, panel.title, {}, panel.content.get());
+        if (!result) {
+            return result;
+        }
+        [[maybe_unused]] QWidget *const adoptedBottomPanel =
+            panel.content.release();
+    }
+
     const int navigationIndex = workspace->tabWidget()->addTab(
         navigationContent,
         QCoreApplication::translate("ZzPureToolsExample", "组件示例"));
@@ -151,52 +211,11 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     createTerminalTab();
     workspace->tabWidget()->setCurrentIndex(navigationIndex);
 
-    struct ZzDockRegistration final
-    {
-        ZzPureTools::ZzWorkspacePanelId id;
-        QString title;
-        Qt::DockWidgetArea area;
-        std::unique_ptr<QWidget> content;
-    };
-    std::vector<ZzDockRegistration> docks;
-    docks.emplace_back(ZzDockRegistration{
-        zzPanelId("sftp"), QStringLiteral("SFTP"),
-        Qt::LeftDockWidgetArea,
-        ZzExampleWorkspaceContent::createSftpPanel()});
-    docks.emplace_back(ZzDockRegistration{
-        zzPanelId("activity-log"),
-        QCoreApplication::translate("ZzPureToolsExample", "日志"),
-        Qt::BottomDockWidgetArea,
-        ZzExampleWorkspaceContent::createActivityLogPanel(
-            &context->activityModel())});
-    docks.emplace_back(ZzDockRegistration{
-        zzPanelId("properties"),
-        QCoreApplication::translate("ZzPureToolsExample", "属性"),
-        Qt::RightDockWidgetArea,
-        ZzExampleWorkspaceContent::createPropertiesPanel()});
-    docks.emplace_back(ZzDockRegistration{
-        zzPanelId("tasks"),
-        QCoreApplication::translate("ZzPureToolsExample", "任务"),
-        Qt::BottomDockWidgetArea,
-        ZzExampleWorkspaceContent::createTasksPanel()});
-    for (ZzDockRegistration &dock : docks) {
-        auto result = workspace->registerDockPanel(
-            dock.id, dock.title, {}, dock.area, dock.content.get());
-        if (!result) {
-            return result;
-        }
-        [[maybe_unused]] QWidget *const adoptedDockContent =
-            dock.content.release();
-    }
-    activityDock = window->findChild<ZzFluentUI::ZzDockPanel *>(
-        QStringLiteral("zzWorkspaceDock:activity-log"));
-    if (activityDock == nullptr) {
-        return zzInvalidState(
-            QStringLiteral("workspace activity log dock was not created"));
-    }
     QObject::connect(
-        activityDock, &ZzFluentUI::ZzDockPanel::visibilityChanged,
-        q_ptr, &ZzExampleWindowShell::activityDockVisibilityChanged);
+        workspace->bottomPane(), &ZzFluentUI::ZzBottomPane::collapsedChanged,
+        q_ptr, [this](bool collapsed) {
+            Q_EMIT q_ptr->activityDockVisibilityChanged(!collapsed);
+        });
 
     backAction = new QAction(q_ptr);
     backAction->setObjectName(QStringLiteral("zzExampleBackAction"));
@@ -446,7 +465,8 @@ void ZzExampleWindowShellPrivate::syncHistoryActions(
 
 bool ZzExampleWindowShellPrivate::isActivityDockVisible() const noexcept
 {
-    return activityDock != nullptr && !activityDock->isHidden();
+    return workspace != nullptr && workspace->bottomPane() != nullptr
+        && !workspace->bottomPane()->isCollapsed();
 }
 
 void ZzExampleWindowShellPrivate::setActivityDockVisible(bool visible)
@@ -454,8 +474,7 @@ void ZzExampleWindowShellPrivate::setActivityDockVisible(bool visible)
     if (workspace == nullptr) {
         return;
     }
-    auto result = workspace->showPanel(
-        zzPanelId("activity-log"), visible);
+    auto result = workspace->showPanel(zzPanelId("activity-log"), visible);
     if (!result) {
         reportFailure(result.error());
     }

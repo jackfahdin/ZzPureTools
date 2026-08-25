@@ -10,10 +10,12 @@
 #include <QtWidgets/QMainWindow>
 
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzSidePane.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
@@ -75,44 +77,113 @@ private Q_SLOTS:
         [[maybe_unused]] QWidget *const adoptedSessionPanel =
             sessionPanel.release();
 
-        auto terminal =
+        auto filesPanel =
+            ZzExample::ZzExampleWorkspaceContent::createSftpPanel();
+        QVERIFY(filesPanel != nullptr);
+        QWidget *const filesPanelRaw = filesPanel.get();
+        QVERIFY(shell->registerSidePanel(
+            zzPanelId("files"), QStringLiteral("文件"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            filesPanel.get()));
+        [[maybe_unused]] QWidget *const adoptedFilesPanel =
+            filesPanel.release();
+
+        auto propertiesPanel =
+            ZzExample::ZzExampleWorkspaceContent::createPropertiesPanel();
+        QVERIFY(propertiesPanel != nullptr);
+        QWidget *const propertiesPanelRaw = propertiesPanel.get();
+        QVERIFY(shell->registerSidePanel(
+            zzPanelId("properties"), QStringLiteral("属性"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            propertiesPanel.get()));
+        [[maybe_unused]] QWidget *const adoptedPropertiesPanel =
+            propertiesPanel.release();
+
+        auto tasksPanel =
+            ZzExample::ZzExampleWorkspaceContent::createTasksPanel();
+        QVERIFY(tasksPanel != nullptr);
+        QWidget *const tasksPanelRaw = tasksPanel.get();
+        QVERIFY(shell->registerSidePanel(
+            zzPanelId("tasks"), QStringLiteral("任务"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            tasksPanel.get()));
+        [[maybe_unused]] QWidget *const adoptedTasksPanel =
+            tasksPanel.release();
+
+        auto terminalTool =
             ZzExample::ZzExampleWorkspaceContent::createTerminalPage(
                 QStringLiteral("本地终端"));
-        QVERIFY(terminal != nullptr);
-        QWidget *const terminalRaw = terminal.get();
-        QCOMPARE(
-            shell->tabWidget()->addTab(
-                terminal.release(), QStringLiteral("本地终端")),
-            0);
+        QVERIFY(terminalTool != nullptr);
+        QWidget *const terminalToolRaw = terminalTool.get();
+        QVERIFY(shell->registerBottomPanel(
+            zzPanelId("terminal"), QStringLiteral("终端"), zzIcon(),
+            terminalTool.get()));
+        [[maybe_unused]] QWidget *const adoptedTerminalTool =
+            terminalTool.release();
 
-        struct ZzDockFixture final
-        {
-            const char *id;
-            QString title;
-            std::unique_ptr<QWidget> content;
-        };
-        std::vector<ZzDockFixture> docks;
-        docks.emplace_back(ZzDockFixture{
-            "sftp", QStringLiteral("SFTP"),
-            ZzExample::ZzExampleWorkspaceContent::createSftpPanel()});
-        docks.emplace_back(ZzDockFixture{
-            "log", QStringLiteral("日志"),
-            ZzExample::ZzExampleWorkspaceContent::createActivityLogPanel(
-                &activities)});
-        docks.emplace_back(ZzDockFixture{
-            "properties", QStringLiteral("属性"),
-            ZzExample::ZzExampleWorkspaceContent::createPropertiesPanel()});
-        docks.emplace_back(ZzDockFixture{
-            "tasks", QStringLiteral("任务"),
-            ZzExample::ZzExampleWorkspaceContent::createTasksPanel()});
-        for (auto &dock : docks) {
-            QVERIFY(dock.content != nullptr);
-            QVERIFY(shell->registerDockPanel(
-                zzPanelId(dock.id), dock.title, zzIcon(),
-                Qt::BottomDockWidgetArea, dock.content.get()));
-            [[maybe_unused]] QWidget *const adoptedDockContent =
-                dock.content.release();
-        }
+        auto problemsTool =
+            ZzExample::ZzExampleWorkspaceContent::createProblemsPanel();
+        QVERIFY(problemsTool != nullptr);
+        QVERIFY(shell->registerBottomPanel(
+            zzPanelId("problems"), QStringLiteral("问题"), zzIcon(),
+            problemsTool.get()));
+        [[maybe_unused]] QWidget *const adoptedProblemsTool =
+            problemsTool.release();
+
+        auto outputTool =
+            ZzExample::ZzExampleWorkspaceContent::createOutputPanel(
+                &activities);
+        QVERIFY(outputTool != nullptr);
+        QVERIFY(shell->registerBottomPanel(
+            zzPanelId("output"), QStringLiteral("输出"), zzIcon(),
+            outputTool.get()));
+        [[maybe_unused]] QWidget *const adoptedOutputTool =
+            outputTool.release();
+
+        auto terminalPage =
+            ZzExample::ZzExampleWorkspaceContent::createTerminalPage(
+                QStringLiteral("编辑终端"));
+        QVERIFY(terminalPage != nullptr);
+        QWidget *const terminalPageRaw = terminalPage.get();
+        QCOMPARE(shell->tabWidget()->addTab(
+            terminalPage.release(), QStringLiteral("编辑终端")), 0);
+        auto sftpPage =
+            ZzExample::ZzExampleWorkspaceContent::createSftpPanel();
+        QVERIFY(sftpPage != nullptr);
+        QWidget *const sftpPageRaw = sftpPage.get();
+        QCOMPARE(shell->tabWidget()->addTab(
+            sftpPage.release(), QStringLiteral("SFTP")), 1);
+        QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
+            terminalPageRaw, QStringLiteral("example-terminal")));
+        QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
+            sftpPageRaw, QStringLiteral("example-sftp")));
+
+        const auto firstGroup = shell->splitWorkspace()->groupIds().constFirst();
+        QVERIFY(shell->splitWorkspace()->moveTabToDropZone(
+            firstGroup, 0, firstGroup, ZzFluentUI::ZzWorkspaceDropZone::Right));
+        QCOMPARE(shell->splitWorkspace()->groupIds().size(), 2);
+        const auto terminalGroup = [&shell, &firstGroup, terminalPageRaw] {
+            for (const auto &group : shell->splitWorkspace()->groupIds()) {
+                auto *const tabs = shell->splitWorkspace()->tabWidget(group);
+                if (tabs != nullptr && tabs->indexOf(terminalPageRaw) >= 0) {
+                    return group;
+                }
+            }
+            return decltype(firstGroup){};
+        }();
+        QVERIFY(terminalGroup.isValid());
+        shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+            ->setPaneWidth(360);
+        shell->bottomPane()->setPaneHeight(260);
+        const auto savedLayout = shell->saveLayout();
+        QVERIFY(savedLayout);
+        shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+            ->setPaneWidth(220);
+        shell->bottomPane()->setPaneHeight(180);
+        QVERIFY(shell->restoreLayout(savedLayout.value()));
+        QCOMPARE(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                     ->paneWidth(), 360);
+        QCOMPARE(shell->bottomPane()->paneHeight(), 260);
 
         host.show();
         QVERIFY(QTest::qWaitForWindowExposed(&host));
@@ -132,6 +203,28 @@ private Q_SLOTS:
             sessionPanelRaw);
         QVERIFY(!shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
                      ->isCollapsed());
+        QCOMPARE(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                     ->visibleWidgets().size(), 2);
+        QCOMPARE(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Right)
+                     ->visibleWidgets().size(), 2);
+        QCOMPARE(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                     ->visibleWidgets(),
+            QList<QWidget *>({sessionPanelRaw, filesPanelRaw}));
+        QCOMPARE(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Right)
+                     ->visibleWidgets(),
+            QList<QWidget *>({propertiesPanelRaw, tasksPanelRaw}));
+        QTest::mouseClick(
+            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            activityView->visualRect(
+                activityView->model()->index(0, 0)).center());
+        QVERIFY(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                     ->isCollapsed());
+
+        QVERIFY(shell->showPanel(zzPanelId("terminal")));
+        QCOMPARE(shell->bottomPane()->currentWidget(), terminalToolRaw);
+        QVERIFY(!shell->bottomPane()->isCollapsed());
+        shell->bottomPane()->setCollapsed(true);
+        QVERIFY(shell->bottomPane()->isCollapsed());
 
         QSignalSpy commandSpy(
             shell->commandPalette(),
@@ -173,34 +266,19 @@ private Q_SLOTS:
         delete closedPage;
         QCOMPARE(shell->tabWidget()->count(), 1);
 
-        auto *sftpDock = host.findChild<ZzFluentUI::ZzDockPanel *>(
-            QStringLiteral("zzWorkspaceDock:sftp"));
-        QVERIFY(sftpDock != nullptr);
-        sftpDock->setFloating(true);
-        QVERIFY(sftpDock->isFloating());
-
         shell->setApplicationTitle(QStringLiteral("ZzPureToolsExample"));
         shell->setTitleMode(
             ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+        const auto otherGroup = terminalGroup == firstGroup
+            ? shell->splitWorkspace()->groupIds().constLast() : firstGroup;
+        QVERIFY(shell->splitWorkspace()->setActiveGroup(otherGroup));
+        QVERIFY(shell->splitWorkspace()->setActiveGroup(terminalGroup));
+        QCOMPARE(shell->tabWidget()->currentWidget(), terminalPageRaw);
         shell->tabWidget()->setPageTitle(
-            terminalRaw, QStringLiteral("已连接"));
+            terminalPageRaw, QStringLiteral("已连接"));
         QCOMPARE(
             host.windowTitle(),
             QStringLiteral("已连接 - ZzPureToolsExample"));
-
-        shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
-            ->setPaneWidth(360);
-        auto saved = shell->saveLayout();
-        QVERIFY(saved);
-        shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
-            ->setPaneWidth(220);
-        sftpDock->setFloating(false);
-        QVERIFY(shell->restoreLayout(saved.value()));
-        QCOMPARE(
-            shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
-                ->paneWidth(),
-            360);
-        QVERIFY(sftpDock->isFloating());
 
         auto missingPanel = shell->showPanel(
             zzPanelId("not-registered"));

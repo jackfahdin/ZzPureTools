@@ -19,20 +19,26 @@
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QToolButton>
+#include <QtWidgets/QVBoxLayout>
 
+#include <ZzFluentUI/ZzAnnotatedScrollBar.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzBottomPane.h>
+#include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzExplorerPane.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
@@ -160,7 +166,9 @@ class ZzWorkspaceScreenshotSurface final
 public:
     explicit ZzWorkspaceScreenshotSurface(
         QSize surfaceSize = zzLogicalSurfaceSize,
-        QString titleBarTitle = {})
+        QString titleBarTitle = {},
+        bool denseWorkbench = false,
+        bool collapseBottom = false)
         : titleBar(&window)
     {
         window.setObjectName(QStringLiteral("zzWorkspaceScreenshotSurface"));
@@ -193,6 +201,9 @@ public:
         shell->tabWidget()->addTab(new QWidget, QStringLiteral("Preview"));
         commandModel.appendRow(new QStandardItem(QStringLiteral("Build workspace")));
         shell->commandPalette()->setModel(&commandModel);
+        if (denseWorkbench) {
+            configureDenseWorkbench(collapseBottom);
+        }
     }
 
     void polish()
@@ -212,6 +223,91 @@ public:
     std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
     QStandardItemModel explorerModel;
     QStandardItemModel commandModel;
+
+private:
+    void configureDenseWorkbench(bool collapseBottom)
+    {
+        auto registerSide = [this](const char *id, const QString &title,
+                                ZzFluentUI::ZzActivityArea area) {
+            auto *panel = new QLabel(title);
+            panel->setAlignment(Qt::AlignCenter);
+            const auto result = shell->registerSidePanel(
+                ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(id)),
+                title, {}, area, panel);
+            Q_ASSERT(result);
+        };
+        registerSide("search", QStringLiteral("Search"),
+            ZzFluentUI::ZzActivityArea::LeftSecondary);
+        registerSide("properties", QStringLiteral("Properties"),
+            ZzFluentUI::ZzActivityArea::RightPrimary);
+        registerSide("tasks", QStringLiteral("Tasks"),
+            ZzFluentUI::ZzActivityArea::RightSecondary);
+
+        auto *terminal = new QPlainTextEdit;
+        terminal->setPlainText(QStringLiteral("$ build\nBuild completed\n$ _"));
+        terminal->setReadOnly(true);
+        Q_ASSERT(shell->registerBottomPanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-terminal")),
+            QStringLiteral("Terminal"), {}, terminal));
+        auto *problems = new QLabel(QStringLiteral("0 errors   1 warning"));
+        problems->setAlignment(Qt::AlignCenter);
+        Q_ASSERT(shell->registerBottomPanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-problems")),
+            QStringLiteral("Problems"), {}, problems));
+        auto *commands = new QWidget;
+        auto *commandLayout = new QVBoxLayout(commands);
+        commandLayout->setContentsMargins(6, 4, 6, 4);
+        for (const auto mode : {ZzFluentUI::ZzCommandBarDisplayMode::Expanded,
+                 ZzFluentUI::ZzCommandBarDisplayMode::Compact,
+                 ZzFluentUI::ZzCommandBarDisplayMode::Auto}) {
+            auto *bar = new ZzFluentUI::ZzCommandBar(commands);
+            auto *run = new QAction(QStringLiteral("Run"), bar);
+            auto *stop = new QAction(QStringLiteral("Stop"), bar);
+            bar->addPrimaryAction(run);
+            bar->addSecondaryAction(stop);
+            bar->setDisplayMode(mode);
+            commandLayout->addWidget(bar);
+        }
+        Q_ASSERT(shell->registerBottomPanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands")),
+            QStringLiteral("Commands"), {}, commands));
+        Q_ASSERT(shell->showPanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands"))));
+        shell->bottomPane()->setPaneHeight(210);
+        shell->bottomPane()->setCollapsed(collapseBottom);
+
+        auto *editor = new QPlainTextEdit;
+        editor->setPlainText(QStringLiteral("int main()\n{\n    return 0;\n}\n"));
+        auto *markers = new QStandardItemModel(editor);
+        for (const auto &[position, kind] : std::array<std::pair<qreal,
+                 ZzFluentUI::ZzScrollMarkerKind>, 3>{{
+                 {0.2, ZzFluentUI::ZzScrollMarkerKind::Information},
+                 {0.5, ZzFluentUI::ZzScrollMarkerKind::Warning},
+                 {0.8, ZzFluentUI::ZzScrollMarkerKind::Error}}}) {
+            auto *item = new QStandardItem;
+            item->setData(position,
+                static_cast<int>(ZzFluentUI::ZzScrollMarkerRole::Position));
+            item->setData(static_cast<int>(kind),
+                static_cast<int>(ZzFluentUI::ZzScrollMarkerRole::Kind));
+            markers->appendRow(item);
+        }
+        auto *scroll = new ZzFluentUI::ZzAnnotatedScrollBar(editor);
+        scroll->setMarkerModel(markers);
+        editor->setVerticalScrollBar(scroll);
+        shell->tabWidget()->addTab(editor, QStringLiteral("main.cpp"));
+        shell->tabWidget()->addTab(new QLabel(QStringLiteral("Preview")),
+            QStringLiteral("Preview"));
+        shell->tabWidget()->addTab(new QLabel(QStringLiteral("Trace")),
+            QStringLiteral("Trace"));
+        const auto root = shell->splitWorkspace()->groupIds().constFirst();
+        Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
+            root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Right));
+        Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
+            root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Bottom));
+        Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
+            root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Left));
+        Q_ASSERT(shell->splitWorkspace()->groupIds().size() == 4);
+    }
 };
 
 [[nodiscard]] QImage zzRenderWorkspaceSurface(
@@ -387,6 +483,46 @@ private Q_SLOTS:
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         QCOMPARE(actual.size(), QSize(qRound(zzNarrowWorkspaceSurfaceSize.width() * expectedDpr_),
                                       qRound(zzNarrowWorkspaceSurfaceSize.height() * expectedDpr_)));
+        surface.hide();
+        verifyScreenshot(fileStem, actual);
+    }
+
+    void rendersDenseWorkbenchThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::addColumn<bool>("collapseBottom");
+        QTest::newRow("workspace-dense-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("workspace-dense-light") << false;
+        QTest::newRow("workspace-dense-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("workspace-dense-dark") << false;
+        QTest::newRow("workspace-dense-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("workspace-dense-high-contrast") << false;
+        QTest::newRow("workspace-dense-collapsed-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("workspace-dense-collapsed-light") << true;
+        QTest::newRow("workspace-dense-collapsed-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("workspace-dense-collapsed-dark") << true;
+        QTest::newRow("workspace-dense-collapsed-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("workspace-dense-collapsed-high-contrast") << true;
+    }
+
+    void rendersDenseWorkbenchThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        QFETCH(bool, collapseBottom);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzWorkspaceScreenshotSurface surface(
+            zzLogicalSurfaceSize, QStringLiteral("Dense workspace"), true,
+            collapseBottom);
+        surface.polish();
+        const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         surface.hide();
         verifyScreenshot(fileStem, actual);
     }
