@@ -945,7 +945,7 @@
 - 修改：`ZzFluentUI/tests/ZzSplitButtonTest.cpp`
 - 修改：`ZzFluentUI/tests/ZzPivotTest.cpp`
 
-- [ ] **步骤 1：写 SplitButton 主区切换与菜单区隔离测试。**
+- [x] **步骤 1：写 SplitButton 主区切换与菜单区隔离测试。**
 
   ```cpp
   button.setCheckable(true);
@@ -961,7 +961,7 @@
 
   对 Standard/Accent/Subtle、disabled、RTL、Enter/Return、外部菜单销毁重复上述合同；断言只使用 QPushButton 的 `toggled(bool)`，不新增重复 checked 信号。
 
-- [ ] **步骤 2：写 Pivot 图标项和指示条安全区域测试。**
+- [x] **步骤 2：写 Pivot 图标项和指示条安全区域测试。**
 
   ```cpp
   const QIcon icon = style.standardIcon(QStyle::SP_ComputerIcon);
@@ -973,7 +973,7 @@
 
   在 LTR/RTL、长文字、icon-only、overflow、DPR 1.25/1.5/2.0 下渲染，断言指示条像素只位于 tab 底部 gutter，不进入 `QStyle::SE_TabBarTabText` 与图标区域。
 
-- [ ] **步骤 3：运行测试确认失败。**
+- [x] **步骤 3：运行测试确认失败。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzSplitButtonTest ZzPivotTest --parallel 2
@@ -981,9 +981,9 @@
 
   预期：Pivot 图标便利 API 缺失；SplitButton 的新增边界断言暴露原生状态机或绘制差异。
 
-- [ ] **步骤 4：实现最小合同。** SplitButton 主区仍把 press/release/Space/Enter 交给 `QPushButton`，菜单区始终拦截并只调用 `showMenu()`；绘制时用 `QStyle::State_On` 表示 checked，但 checked 不等同于 Accent appearance。Pivot 便利 API直接委托 `addTab/insertTab/tabIcon/setTabIcon`；`targetIndicatorRect()` 使用 style 提供的 label/text 子区域和底部 gutter 计算，不再只按文字中心估算。
+- [x] **步骤 4：实现最小合同。** SplitButton 主区仍把 press/release/Space/Enter 交给 `QPushButton`，菜单区始终拦截并只调用 `showMenu()`；绘制时用 `QStyle::State_On` 表示 checked，但 checked 不等同于 Accent appearance。Pivot 便利 API直接委托 `addTab/insertTab/tabIcon/setTabIcon`；`targetIndicatorRect()` 使用 style 提供的 label/text 子区域和底部 gutter 计算，不再只按文字中心估算。
 
-- [ ] **步骤 5：运行回归测试。**
+- [x] **步骤 5：运行回归测试。**
 
   ```bash
   ctest --preset linux-gcc-debug -R '^(fluent.split-button|fluent.pivot|fluent.bottom-pane)$' --output-on-failure
@@ -991,7 +991,7 @@
 
   预期：鼠标与键盘切换只发生在主区；菜单操作不改变 checked；图标、文字和指示条在四个 DPR 下不重叠。
 
-- [ ] **步骤 6：提交。**
+- [x] **步骤 6：提交。**
 
   ```bash
   git add \
