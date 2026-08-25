@@ -148,9 +148,7 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createProblemsPanel()
 std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createOutputPanel(
     QAbstractItemModel *activities)
 {
-    auto output = createActivityLogPanel(activities);
-    output->setObjectName(QStringLiteral("zzExampleOutputPanel"));
-    return output;
+    return createActivityLogPanel(activities);
 }
 
 std::unique_ptr<QWidget>

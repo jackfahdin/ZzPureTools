@@ -18,6 +18,7 @@
 #include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityArea.h>
+#include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzSidePane.h>
@@ -62,6 +63,18 @@ namespace {
 {
     return bar->findChild<QListView *>(
         QStringLiteral("zzActivityPrimaryView"));
+}
+
+[[nodiscard]] bool zzHasRenderableActivityIcon(const QVariant &value)
+{
+    if (!value.canConvert<ZzFluentUI::ZzIconDescriptor>()) {
+        return false;
+    }
+    const auto descriptor =
+        value.value<ZzFluentUI::ZzIconDescriptor>();
+    return descriptor.source == ZzFluentUI::ZzIconSource::FontGlyph
+        ? descriptor.fontIcon != ZzFluentUI::ZzFontIcon::None
+        : !descriptor.resourceId.trimmed().isEmpty();
 }
 
 [[nodiscard]] ZzPureTools::ZzWorkspacePanelId zzPanelId(const char *value)
@@ -159,13 +172,49 @@ private Q_SLOTS:
             }
         }
         QVERIFY(leftPane != nullptr);
+        const auto activityBars =
+            window->findChildren<ZzFluentUI::ZzActivityBar *>();
+        QCOMPARE(activityBars.size(), 2);
         ZzFluentUI::ZzActivityBar *leftActivityBar = nullptr;
-        for (auto *bar : window->findChildren<ZzFluentUI::ZzActivityBar *>()) {
+        int activityRows = 0;
+        for (auto *bar : activityBars) {
             if (bar->edge() == ZzFluentUI::ZzSidePaneEdge::Left) {
                 leftActivityBar = bar;
-                break;
+            }
+            for (auto *view : bar->findChildren<QListView *>()) {
+                ZzFluentUI::ZzActivityArea expectedArea;
+                if (view->objectName()
+                    == QStringLiteral("zzActivityPrimaryView")) {
+                    expectedArea = bar->edge()
+                            == ZzFluentUI::ZzSidePaneEdge::Left
+                        ? ZzFluentUI::ZzActivityArea::LeftPrimary
+                        : ZzFluentUI::ZzActivityArea::RightPrimary;
+                } else if (view->objectName()
+                           == QStringLiteral("zzActivitySecondaryView")) {
+                    expectedArea = bar->edge()
+                            == ZzFluentUI::ZzSidePaneEdge::Left
+                        ? ZzFluentUI::ZzActivityArea::LeftSecondary
+                        : ZzFluentUI::ZzActivityArea::RightSecondary;
+                } else {
+                    continue;
+                }
+                QVERIFY(view->model() != nullptr);
+                QCOMPARE(view->model()->rowCount(), 1);
+                const QModelIndex index = view->model()->index(0, 0);
+                QCOMPARE(index.data(static_cast<int>(
+                                     ZzFluentUI::ZzActivityItemRole::Area))
+                             .value<ZzFluentUI::ZzActivityArea>(),
+                    expectedArea);
+                QVERIFY2(
+                    zzHasRenderableActivityIcon(index.data(
+                        Qt::DecorationRole)),
+                    qPrintable(QStringLiteral(
+                        "Activity Bar row has no renderable icon: %1")
+                                   .arg(index.data().toString())));
+                ++activityRows;
             }
         }
+        QCOMPARE(activityRows, 4);
         QVERIFY(leftActivityBar != nullptr);
         auto *filesPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSftpPanel"));

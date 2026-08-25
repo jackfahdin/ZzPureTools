@@ -172,7 +172,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto filesPanel = ZzExampleWorkspaceContent::createSftpPanel();
     auto files = workspace->registerSidePanel(
         zzPanelId("files"),
-        QCoreApplication::translate("ZzPureToolsExample", "文件"), {},
+        QCoreApplication::translate("ZzPureToolsExample", "文件"),
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::FolderTree),
         ZzFluentUI::ZzActivityArea::LeftSecondary, filesPanel.get());
     if (!files) {
         return files;
@@ -183,7 +185,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         ZzExampleWorkspaceContent::createPropertiesPanel();
     auto properties = workspace->registerSidePanel(
         zzPanelId("properties"),
-        QCoreApplication::translate("ZzPureToolsExample", "属性"), {},
+        QCoreApplication::translate("ZzPureToolsExample", "属性"),
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::Sliders),
         ZzFluentUI::ZzActivityArea::RightPrimary, propertiesPanel.get());
     if (!properties) {
         return properties;
@@ -194,7 +198,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     auto tasksPanel = ZzExampleWorkspaceContent::createTasksPanel();
     auto tasks = workspace->registerSidePanel(
         zzPanelId("tasks"),
-        QCoreApplication::translate("ZzPureToolsExample", "任务"), {},
+        QCoreApplication::translate("ZzPureToolsExample", "任务"),
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::ListCheck),
         ZzFluentUI::ZzActivityArea::RightSecondary, tasksPanel.get());
     if (!tasks) {
         return tasks;
