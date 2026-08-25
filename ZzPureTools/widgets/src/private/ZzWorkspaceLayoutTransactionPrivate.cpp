@@ -843,7 +843,7 @@ struct ZzRestoreMaterialization final
         || contentGuard->thread() != shell.host->thread()
         || contentGuard->isVisible()) {
         restorePending();
-        if (contentDestroyed || contentParented) {
+        if (contentDestroyed) {
             static_cast<void>(content.release());
         } else if (wrongThread) {
             QWidget *const foreignContent = content.release();

@@ -182,6 +182,29 @@ public:
     }
 };
 
+class ZzReparentOnHideWidget final : public QWidget
+{
+public:
+    explicit ZzReparentOnHideWidget(QWidget *targetParent)
+        : targetParent_(targetParent)
+    {
+    }
+
+    void setVisible(bool visible) override
+    {
+        if (!visible && !reparented_ && parentWidget() == nullptr
+            && targetParent_ != nullptr) {
+            reparented_ = true;
+            setParent(targetParent_);
+        }
+        QWidget::setVisible(visible);
+    }
+
+private:
+    QPointer<QWidget> targetParent_;
+    bool reparented_ = false;
+};
+
 /** @brief 首次被移出捕获 frame 时同步重新挂回，用于覆盖 ParentChange 重入。 */
 class ZzReattachingOwner final : public QWidget
 {
@@ -2013,6 +2036,66 @@ private Q_SLOTS:
             ZzFluentUI::ZzSidePaneEdge::Left);
         QVERIFY(pane->panelStack()->panels().isEmpty());
         QVERIFY(pane->isCollapsed());
+        const auto layoutAfter = target.shell->saveLayout();
+        QVERIFY(layoutAfter);
+        QCOMPARE(layoutAfter.value(), layoutBefore.value());
+
+        QVERIFY(target.shell->showPanel(zzPanelId("deferred"), true));
+        QCOMPARE(calls, 2);
+        QVERIFY(retryContent != nullptr);
+        QCOMPARE(pane->panelStack()->panels(),
+            QList<QWidget *>({retryContent}));
+    }
+
+    void destroysFactoryContentReparentedDuringRestoreHide()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        QWidget reparentOwner(&target.host);
+        int calls = 0;
+        QPointer<QWidget> firstCreated;
+        QWidget *retryContent = nullptr;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [attempt = 0, &calls, &firstCreated, &retryContent,
+             &reparentOwner]() mutable {
+                ++attempt;
+                ++calls;
+                if (attempt == 1) {
+                    auto content = std::make_unique<ZzReparentOnHideWidget>(
+                        &reparentOwner);
+                    content->show();
+                    firstCreated = content.get();
+                    return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                        std::move(content));
+                }
+                auto content = std::make_unique<QWidget>();
+                retryContent = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        const auto layoutBefore = target.shell->saveLayout();
+        QVERIFY(layoutBefore);
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(calls, 1);
+        QVERIFY(firstCreated == nullptr);
+        QVERIFY(reparentOwner.findChildren<QWidget *>(
+            QString{}, Qt::FindDirectChildrenOnly).isEmpty());
+        auto *const pane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QVERIFY(pane->panelStack()->panels().isEmpty());
         const auto layoutAfter = target.shell->saveLayout();
         QVERIFY(layoutAfter);
         QCOMPARE(layoutAfter.value(), layoutBefore.value());
