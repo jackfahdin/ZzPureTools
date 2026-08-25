@@ -24,6 +24,7 @@ public:
         QPointer<QAction> action;
         QMetaObject::Connection destroyedConnection;
         QMetaObject::Connection changedConnection;
+        QMetaObject::Connection triggeredConnection;
     };
 
     /** @brief 创建固定工具栏、更多按钮和菜单。 */
@@ -89,6 +90,7 @@ public:
     ZzCommandBarDisplayMode displayMode = ZzCommandBarDisplayMode::Auto;
     bool widthsDirty = true;
     bool rebuilding = false;
+    int visiblePrimaryActionCount = 0;
 };
 
 } // namespace ZzFluentUI

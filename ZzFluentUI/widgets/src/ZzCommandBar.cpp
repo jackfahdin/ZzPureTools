@@ -39,6 +39,38 @@ ZzCommandBarDisplayMode ZzCommandBar::displayMode() const noexcept
     return d_ptr->displayMode;
 }
 
+void ZzCommandBar::addPrimaryAction(QAction *action)
+{
+    insertPrimaryAction(static_cast<int>(d_ptr->primaryRecords.size()), action);
+}
+
+void ZzCommandBar::addSecondaryAction(QAction *action)
+{
+    insertSecondaryAction(
+        static_cast<int>(d_ptr->secondaryRecords.size()), action);
+}
+
+QAction *ZzCommandBar::addPrimaryAction(
+    const QIcon &icon,
+    const QString &text)
+{
+    return insertPrimaryAction(
+        static_cast<int>(d_ptr->primaryRecords.size()), icon, text);
+}
+
+QAction *ZzCommandBar::addSecondaryAction(
+    const QIcon &icon,
+    const QString &text)
+{
+    return insertSecondaryAction(
+        static_cast<int>(d_ptr->secondaryRecords.size()), icon, text);
+}
+
+int ZzCommandBar::visiblePrimaryActionCount() const noexcept
+{
+    return d_ptr->visiblePrimaryActionCount;
+}
+
 bool ZzCommandBar::insertPrimaryAction(int index, QAction *action)
 {
     return d_ptr->insertAction(&d_ptr->primaryRecords, index, action);
@@ -88,6 +120,15 @@ void ZzCommandBar::setDisplayMode(ZzCommandBarDisplayMode mode)
     d_ptr->displayMode = mode;
     d_ptr->rebuildPresentation();
     Q_EMIT displayModeChanged(mode);
+}
+
+void ZzCommandBar::setVisiblePrimaryActionCount(int count)
+{
+    if (d_ptr->visiblePrimaryActionCount == count) {
+        return;
+    }
+    d_ptr->visiblePrimaryActionCount = count;
+    Q_EMIT visiblePrimaryActionCountChanged(count);
 }
 
 void ZzCommandBar::resizeEvent(QResizeEvent *event)

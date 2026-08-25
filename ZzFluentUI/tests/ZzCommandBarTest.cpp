@@ -110,6 +110,145 @@ private Q_SLOTS:
         QCOMPARE(bar.primaryActions(), QList<QAction *>({action}));
     }
 
+    /** @brief 捕捉追加重载破坏逻辑顺序、所有权或分组排他性的破坏。 */
+    void appendsPrimaryAndSecondaryActionsThroughPublicOverloads()
+    {
+        ZzFluentUI::ZzCommandBar bar;
+        QAction externalPrimary(QStringLiteral("External primary"), nullptr);
+        QAction externalSecondary(QStringLiteral("External secondary"), nullptr);
+        QPixmap pixmap(16, 16);
+        pixmap.fill(Qt::black);
+
+        bar.addPrimaryAction(nullptr);
+        bar.addPrimaryAction(&externalPrimary);
+        bar.addPrimaryAction(&externalPrimary);
+        bar.addSecondaryAction(&externalPrimary);
+        bar.addSecondaryAction(&externalSecondary);
+        bar.addSecondaryAction(&externalSecondary);
+        bar.addPrimaryAction(&externalSecondary);
+        QAction *ownedPrimary = bar.addPrimaryAction(
+            QIcon(pixmap), QStringLiteral("Owned primary"));
+        QAction *ownedSecondary = bar.addSecondaryAction(
+            QIcon(pixmap), QStringLiteral("Owned secondary"));
+
+        QCOMPARE(
+            bar.primaryActions(),
+            QList<QAction *>({&externalPrimary, ownedPrimary}));
+        QCOMPARE(
+            bar.secondaryActions(),
+            QList<QAction *>({&externalSecondary, ownedSecondary}));
+        QCOMPARE(externalPrimary.parent(), nullptr);
+        QCOMPARE(externalSecondary.parent(), nullptr);
+        QCOMPARE(ownedPrimary->parent(), &bar);
+        QCOMPARE(ownedSecondary->parent(), &bar);
+    }
+
+    /** @brief 捕捉原 action 触发时遗漏、重复或移除后继续通知的破坏。 */
+    void forwardsOriginalActionTriggerExactlyOnceAcrossPresentationChanges()
+    {
+        ZzFluentUI::ZzCommandBar bar;
+        QAction primary(QStringLiteral("Build"), nullptr);
+        QAction secondary(QStringLiteral("Deploy"), nullptr);
+        QSignalSpy triggered(&bar, &ZzFluentUI::ZzCommandBar::actionTriggered);
+        QVERIFY(bar.insertPrimaryAction(0, &primary));
+        QVERIFY(bar.insertSecondaryAction(0, &secondary));
+        bar.resize(600, 40);
+        bar.show();
+        zzFlushEvents();
+
+        primary.trigger();
+        QCOMPARE(triggered.count(), 1);
+        QCOMPARE(triggered.at(0).at(0).value<QAction *>(), &primary);
+
+        bar.resize(40, 40);
+        zzFlushEvents();
+        QVERIFY(zzMoreButton(&bar)->menu()->actions().contains(&primary));
+        primary.trigger();
+        QCOMPARE(triggered.count(), 2);
+        QCOMPARE(triggered.at(1).at(0).value<QAction *>(), &primary);
+
+        QVERIFY(bar.removeAction(&primary));
+        primary.trigger();
+        QCOMPARE(triggered.count(), 2);
+    }
+
+    /** @brief 捕捉可见主命令计数与真实工具栏或去重通知不一致的破坏。 */
+    void reportsVisiblePrimaryActionCountAfterEachRealPresentationChange()
+    {
+        ZzFluentUI::ZzCommandBar bar;
+        zzInsertPrimary(&bar, 0, QStringLiteral("Build"));
+        zzInsertPrimary(&bar, 1, QStringLiteral("Test"));
+        zzInsertPrimary(&bar, 2, QStringLiteral("Deploy"));
+        bar.resize(600, 40);
+        bar.show();
+        zzFlushEvents();
+
+        QCOMPARE(bar.visiblePrimaryActionCount(), 3);
+        QCOMPARE(
+            bar.visiblePrimaryActionCount(),
+            zzToolBar(&bar)->actions().size());
+        QSignalSpy changed(
+            &bar,
+            &ZzFluentUI::ZzCommandBar::visiblePrimaryActionCountChanged);
+        QList<int> valuesVisibleToSlots;
+        QObject::connect(
+            &bar,
+            &ZzFluentUI::ZzCommandBar::visiblePrimaryActionCountChanged,
+            &bar,
+            [&bar, &valuesVisibleToSlots](int) {
+                valuesVisibleToSlots.append(bar.visiblePrimaryActionCount());
+            });
+
+        bar.setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Compact);
+        zzFlushEvents();
+        QCOMPARE(bar.visiblePrimaryActionCount(), 3);
+        QCOMPARE(bar.visiblePrimaryActionCount(), zzToolBar(&bar)->actions().size());
+        QCOMPARE(changed.count(), 0);
+
+        bar.setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Auto);
+        zzFlushEvents();
+        QCOMPARE(changed.count(), 0);
+
+        bar.resize(40, 40);
+        zzFlushEvents();
+        const int overflowCount = bar.visiblePrimaryActionCount();
+        QVERIFY(overflowCount < 3);
+        QCOMPARE(overflowCount, zzToolBar(&bar)->actions().size());
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(changed.at(0).at(0).toInt(), overflowCount);
+        QCOMPARE(valuesVisibleToSlots, QList<int>({overflowCount}));
+
+        bar.resize(40, 40);
+        zzFlushEvents();
+        QCOMPARE(changed.count(), 1);
+
+        bar.resize(600, 40);
+        zzFlushEvents();
+        QCOMPARE(bar.visiblePrimaryActionCount(), 3);
+        QCOMPARE(changed.count(), 2);
+        QCOMPARE(valuesVisibleToSlots, QList<int>({overflowCount, 3}));
+
+        QAction external(QStringLiteral("External"), nullptr);
+        bar.addPrimaryAction(&external);
+        QCOMPARE(bar.visiblePrimaryActionCount(), 4);
+        QCOMPARE(changed.count(), 3);
+        QVERIFY(bar.removeAction(&external));
+        QCOMPARE(bar.visiblePrimaryActionCount(), 3);
+        QCOMPARE(changed.count(), 4);
+
+        QAction *destroyed = new QAction(QStringLiteral("Destroyed"), nullptr);
+        bar.addPrimaryAction(destroyed);
+        QCOMPARE(bar.visiblePrimaryActionCount(), 4);
+        QCOMPARE(changed.count(), 5);
+        delete destroyed;
+        zzFlushEvents();
+        QCOMPARE(bar.visiblePrimaryActionCount(), 3);
+        QCOMPARE(changed.count(), 6);
+        QCOMPARE(
+            valuesVisibleToSlots,
+            QList<int>({overflowCount, 3, 4, 3, 4, 3}));
+    }
+
     /** @brief 捕捉外部 action 析构后遗留悬空记录的破坏。 */
     void removesDestroyedExternalAction()
     {
@@ -381,7 +520,7 @@ private Q_SLOTS:
             0,
             QIcon(pixmap),
             QStringLiteral("Secondary"));
-        QSignalSpy triggered(build, &QAction::triggered);
+        QSignalSpy triggered(&bar, &ZzFluentUI::ZzCommandBar::actionTriggered);
         bar.resize(40, 40);
         bar.show();
         zzFlushEvents();
@@ -416,6 +555,7 @@ private Q_SLOTS:
                 }),
             separatorCount);
         QCOMPARE(triggered.count(), 1);
+        QCOMPARE(triggered.at(0).at(0).value<QAction *>(), build);
     }
 };
 

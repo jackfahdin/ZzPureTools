@@ -75,6 +75,7 @@ ZzCommandBarPrivate::~ZzCommandBarPrivate()
         for (const ZzCommandBarActionRecord &record : *records) {
             QObject::disconnect(record.destroyedConnection);
             QObject::disconnect(record.changedConnection);
+            QObject::disconnect(record.triggeredConnection);
         }
     };
     disconnectRecords(&primaryRecords);
@@ -107,6 +108,13 @@ bool ZzCommandBarPrivate::insertAction(
         [this] {
             invalidateWidths();
         });
+    record.triggeredConnection = QObject::connect(
+        action,
+        &QAction::triggered,
+        q_ptr,
+        [this, action](bool) {
+            Q_EMIT q_ptr->actionTriggered(action);
+        });
     group->insert(index, record);
     invalidateWidths();
     return true;
@@ -124,6 +132,7 @@ bool ZzCommandBarPrivate::removeAction(QAction *action)
             }
             QObject::disconnect(iterator->destroyedConnection);
             QObject::disconnect(iterator->changedConnection);
+            QObject::disconnect(iterator->triggeredConnection);
             group->erase(iterator);
             return true;
         }
@@ -188,6 +197,7 @@ void ZzCommandBarPrivate::rebuildPresentation()
     moreButton->setGeometry(QStyle::visualRect(
         q_ptr->layoutDirection(), bounds, logicalMore));
     rebuilding = false;
+    q_ptr->setVisiblePrimaryActionCount(presentation.visiblePrimaryCount);
 }
 
 void ZzCommandBarPrivate::removeDestroyedAction(QObject *object)
@@ -205,6 +215,7 @@ void ZzCommandBarPrivate::removeDestroyedAction(QObject *object)
             }
             QObject::disconnect(iterator->destroyedConnection);
             QObject::disconnect(iterator->changedConnection);
+            QObject::disconnect(iterator->triggeredConnection);
             iterator = group->erase(iterator);
             changed = true;
         }

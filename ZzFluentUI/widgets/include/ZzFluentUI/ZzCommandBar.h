@@ -60,6 +60,25 @@ public:
     /** @brief 返回当前按宽度选择的展示策略。 */
     [[nodiscard]] ZzCommandBarDisplayMode displayMode() const noexcept;
 
+    /** @brief 将外部拥有的 action 追加到主命令组。 */
+    void addPrimaryAction(QAction *action);
+
+    /** @brief 将外部拥有的 action 追加到次要命令组。 */
+    void addSecondaryAction(QAction *action);
+
+    /** @brief 创建由命令栏拥有的主命令并追加到主命令组。 */
+    [[nodiscard]] QAction *addPrimaryAction(
+        const QIcon &icon,
+        const QString &text);
+
+    /** @brief 创建由命令栏拥有的次要命令并追加到次要命令组。 */
+    [[nodiscard]] QAction *addSecondaryAction(
+        const QIcon &icon,
+        const QString &text);
+
+    /** @brief 返回当前实际展示在工具栏中的主命令数量。 */
+    [[nodiscard]] int visiblePrimaryActionCount() const noexcept;
+
     /**
      * @brief 将外部拥有的 action 插入主命令组。
      * @param index 逻辑插入位置，范围为 0 到 primaryActions().size()。
@@ -109,6 +128,12 @@ Q_SIGNALS:
     /** @brief 展示策略实际变化后发出。 */
     void displayModeChanged(ZzCommandBarDisplayMode mode);
 
+    /** @brief 工具栏中实际展示的主命令数量变化后发出。 */
+    void visiblePrimaryActionCountChanged(int count);
+
+    /** @brief 任一仍属于命令栏的原 action 被触发时发出。 */
+    void actionTriggered(QAction *action);
+
 protected:
     /** @brief 尺寸变化时复用缓存宽度重新选择 overflow。 */
     void resizeEvent(QResizeEvent *event) override;
@@ -117,6 +142,11 @@ protected:
     void changeEvent(QEvent *event) override;
 
 private:
+    friend class ZzCommandBarPrivate;
+
+    /** @brief 更新可见主命令数量并在值变化后通知。 */
+    void setVisiblePrimaryActionCount(int count);
+
     std::unique_ptr<ZzCommandBarPrivate> d_ptr;
 };
 
