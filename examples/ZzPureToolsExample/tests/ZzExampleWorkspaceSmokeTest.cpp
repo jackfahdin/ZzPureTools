@@ -65,6 +65,13 @@ namespace {
         QStringLiteral("zzActivityPrimaryView"));
 }
 
+[[nodiscard]] QListView *zzSecondaryActivityView(
+    ZzFluentUI::ZzActivityBar *bar)
+{
+    return bar->findChild<QListView *>(
+        QStringLiteral("zzActivitySecondaryView"));
+}
+
 [[nodiscard]] bool zzHasRenderableActivityIcon(const QVariant &value)
 {
     if (!value.canConvert<ZzFluentUI::ZzIconDescriptor>()) {
@@ -165,21 +172,27 @@ private Q_SLOTS:
         auto *splitWorkspace = window->findChild<ZzFluentUI::ZzSplitWorkspace *>();
         QVERIFY(splitWorkspace != nullptr);
         ZzFluentUI::ZzSidePane *leftPane = nullptr;
+        ZzFluentUI::ZzSidePane *rightPane = nullptr;
         for (auto *pane : window->findChildren<ZzFluentUI::ZzSidePane *>()) {
             if (pane->edge() == ZzFluentUI::ZzSidePaneEdge::Left) {
                 leftPane = pane;
-                break;
+            } else if (pane->edge() == ZzFluentUI::ZzSidePaneEdge::Right) {
+                rightPane = pane;
             }
         }
         QVERIFY(leftPane != nullptr);
+        QVERIFY(rightPane != nullptr);
         const auto activityBars =
             window->findChildren<ZzFluentUI::ZzActivityBar *>();
         QCOMPARE(activityBars.size(), 2);
         ZzFluentUI::ZzActivityBar *leftActivityBar = nullptr;
+        ZzFluentUI::ZzActivityBar *rightActivityBar = nullptr;
         int activityRows = 0;
         for (auto *bar : activityBars) {
             if (bar->edge() == ZzFluentUI::ZzSidePaneEdge::Left) {
                 leftActivityBar = bar;
+            } else if (bar->edge() == ZzFluentUI::ZzSidePaneEdge::Right) {
+                rightActivityBar = bar;
             }
             for (auto *view : bar->findChildren<QListView *>()) {
                 ZzFluentUI::ZzActivityArea expectedArea;
@@ -216,40 +229,79 @@ private Q_SLOTS:
         }
         QCOMPARE(activityRows, 4);
         QVERIFY(leftActivityBar != nullptr);
-        auto *filesPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleSftpPanel"));
-        QVERIFY(filesPanel != nullptr);
+        QVERIFY(rightActivityBar != nullptr);
+        QCOMPARE(window->findChild<QWidget *>(
+                     QStringLiteral("zzExampleSessionPanel")), nullptr);
+        QCOMPARE(window->findChild<QWidget *>(
+                     QStringLiteral("zzExampleSftpPanel")), nullptr);
+        QCOMPARE(window->findChild<QWidget *>(
+                     QStringLiteral("zzExamplePropertiesPanel")), nullptr);
+        QCOMPARE(window->findChild<QWidget *>(
+                     QStringLiteral("zzExampleTasksPanel")), nullptr);
+        QVERIFY(leftPane->isCollapsed());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(leftPane->visibleWidgets().isEmpty());
+        QVERIFY(rightPane->visibleWidgets().isEmpty());
+
+        auto *activityView = zzPrimaryActivityView(leftActivityBar);
+        auto *filesActivityView = zzSecondaryActivityView(leftActivityBar);
+        auto *propertiesActivityView = zzPrimaryActivityView(rightActivityBar);
+        auto *tasksActivityView = zzSecondaryActivityView(rightActivityBar);
+        QVERIFY(activityView != nullptr);
+        QVERIFY(filesActivityView != nullptr);
+        QVERIFY(propertiesActivityView != nullptr);
+        QVERIFY(tasksActivityView != nullptr);
+        window->show();
+        QCoreApplication::processEvents();
+        QTest::mouseClick(
+            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            activityView->visualRect(
+                activityView->model()->index(0, 0)).center());
         auto *sessionsPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSessionPanel"));
         QVERIFY(sessionsPanel != nullptr);
-        QVERIFY(leftPane->setCurrentWidget(sessionsPanel));
-        QCOMPARE(leftPane->currentWidget(), sessionsPanel);
-
-        auto *activityView = zzPrimaryActivityView(leftActivityBar);
-        QVERIFY(activityView != nullptr);
-        window->show();
-        QCoreApplication::processEvents();
-        leftPane->setCollapsed(true);
-        QTest::mouseClick(
-            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
-            activityView->visualRect(
-                activityView->model()->index(0, 0)).center());
         QVERIFY(!leftPane->isCollapsed());
         QCOMPARE(leftPane->currentWidget(), sessionsPanel);
-        QCOMPARE(leftPane->visibleWidgets(),
-            QList<QWidget *>({sessionsPanel, filesPanel}));
+        QCOMPARE(window->findChildren<QWidget *>(
+                     QStringLiteral("zzExampleSessionPanel")).size(), 1);
         QTest::mouseClick(
-            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
-            activityView->visualRect(
-                activityView->model()->index(0, 0)).center());
-        QVERIFY(leftPane->isCollapsed());
-
-        palette->open();
-        palette->setQuery(QStringLiteral("显示 SFTP"));
-        QVERIFY(palette->activateCurrent());
-
+            filesActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            filesActivityView->visualRect(
+                filesActivityView->model()->index(0, 0)).center());
+        auto *filesPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSftpPanel"));
+        QVERIFY(filesPanel != nullptr);
         QCOMPARE(leftPane->currentWidget(), filesPanel);
         QVERIFY(!leftPane->isCollapsed());
+        QCOMPARE(window->findChildren<QWidget *>(
+                     QStringLiteral("zzExampleSftpPanel")).size(), 1);
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({sessionsPanel, filesPanel}));
+
+        QTest::mouseClick(
+            propertiesActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            propertiesActivityView->visualRect(
+                propertiesActivityView->model()->index(0, 0)).center());
+        auto *propertiesPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExamplePropertiesPanel"));
+        QVERIFY(propertiesPanel != nullptr);
+        QVERIFY(!rightPane->isCollapsed());
+        QCOMPARE(rightPane->currentWidget(), propertiesPanel);
+        QCOMPARE(window->findChildren<QWidget *>(
+                     QStringLiteral("zzExamplePropertiesPanel")).size(), 1);
+
+        QTest::mouseClick(
+            tasksActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            tasksActivityView->visualRect(
+                tasksActivityView->model()->index(0, 0)).center());
+        auto *tasksPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleTasksPanel"));
+        QVERIFY(tasksPanel != nullptr);
+        QCOMPARE(rightPane->currentWidget(), tasksPanel);
+        QCOMPARE(window->findChildren<QWidget *>(
+                     QStringLiteral("zzExampleTasksPanel")).size(), 1);
+        QCOMPARE(rightPane->visibleWidgets(),
+            QList<QWidget *>({propertiesPanel, tasksPanel}));
 
         const auto rootGroup = splitWorkspace->groupIds().constFirst();
         auto *rootTabs = splitWorkspace->tabWidget(rootGroup);

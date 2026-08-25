@@ -154,58 +154,58 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     searchEdit->setAccessibleName(QCoreApplication::translate(
         "ZzPureToolsExample", "命令搜索"));
 
-    auto sessionPanel = ZzExampleWorkspaceContent::createSessionPanel(
-        sessions.get());
-    auto side = workspace->registerSidePanel(
+    auto side = workspace->registerSidePanelFactory(
         zzPanelId("sessions"),
         QCoreApplication::translate("ZzPureToolsExample", "会话"),
         ZzFluentUI::ZzIconDescriptor::fromFontIcon(
             ZzFluentUI::ZzFontIcon::Server),
         ZzFluentUI::ZzActivityArea::LeftPrimary,
-        sessionPanel.get());
+        [sessionModel = sessions.get()] {
+            return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                ZzExampleWorkspaceContent::createSessionPanel(sessionModel));
+        });
     if (!side) {
         return side;
     }
-    [[maybe_unused]] QWidget *const adoptedSessionPanel =
-        sessionPanel.release();
 
-    auto filesPanel = ZzExampleWorkspaceContent::createSftpPanel();
-    auto files = workspace->registerSidePanel(
+    auto files = workspace->registerSidePanelFactory(
         zzPanelId("files"),
         QCoreApplication::translate("ZzPureToolsExample", "文件"),
         ZzFluentUI::ZzIconDescriptor::fromFontIcon(
             ZzFluentUI::ZzFontIcon::FolderTree),
-        ZzFluentUI::ZzActivityArea::LeftSecondary, filesPanel.get());
+        ZzFluentUI::ZzActivityArea::LeftSecondary, [] {
+            return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                ZzExampleWorkspaceContent::createSftpPanel());
+        });
     if (!files) {
         return files;
     }
-    [[maybe_unused]] QWidget *const adoptedFilesPanel = filesPanel.release();
 
-    auto propertiesPanel =
-        ZzExampleWorkspaceContent::createPropertiesPanel();
-    auto properties = workspace->registerSidePanel(
+    auto properties = workspace->registerSidePanelFactory(
         zzPanelId("properties"),
         QCoreApplication::translate("ZzPureToolsExample", "属性"),
         ZzFluentUI::ZzIconDescriptor::fromFontIcon(
             ZzFluentUI::ZzFontIcon::Sliders),
-        ZzFluentUI::ZzActivityArea::RightPrimary, propertiesPanel.get());
+        ZzFluentUI::ZzActivityArea::RightPrimary, [] {
+            return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                ZzExampleWorkspaceContent::createPropertiesPanel());
+        });
     if (!properties) {
         return properties;
     }
-    [[maybe_unused]] QWidget *const adoptedPropertiesPanel =
-        propertiesPanel.release();
 
-    auto tasksPanel = ZzExampleWorkspaceContent::createTasksPanel();
-    auto tasks = workspace->registerSidePanel(
+    auto tasks = workspace->registerSidePanelFactory(
         zzPanelId("tasks"),
         QCoreApplication::translate("ZzPureToolsExample", "任务"),
         ZzFluentUI::ZzIconDescriptor::fromFontIcon(
             ZzFluentUI::ZzFontIcon::ListCheck),
-        ZzFluentUI::ZzActivityArea::RightSecondary, tasksPanel.get());
+        ZzFluentUI::ZzActivityArea::RightSecondary, [] {
+            return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                ZzExampleWorkspaceContent::createTasksPanel());
+        });
     if (!tasks) {
         return tasks;
     }
-    [[maybe_unused]] QWidget *const adoptedTasksPanel = tasksPanel.release();
 
     struct ZzBottomRegistration final
     {
