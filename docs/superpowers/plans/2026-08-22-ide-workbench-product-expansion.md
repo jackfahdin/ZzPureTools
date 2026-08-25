@@ -1086,7 +1086,7 @@
 - 修改：`ZzPureTools/tests/ZzWorkspaceScreenshotTest.cpp`
 - 修改：`ZzPureTools/tests/CMakeLists.txt`
 
-- [ ] **步骤 1：先把 Example smoke 改成目标产品流程。** 使用公开 `ZzWorkspaceShell` 注册左侧 Sessions/Files、右侧 Properties/Tasks、Bottom 的 Terminal/Problems/Output；创建两个 tab group，并放入终端和 SFTP 展示页。测试必须断言：单击 Activity 即显隐、同侧两个面板同时打开、标签四边分屏、Bottom 切换、CommandBar QAction 和布局 round trip。
+- [x] **步骤 1：先把 Example smoke 改成目标产品流程。** 使用公开 `ZzWorkspaceShell` 注册左侧 Sessions/Files、右侧 Properties/Tasks、Bottom 的 Terminal/Problems/Output；创建两个 tab group，并放入终端和 SFTP 展示页。测试必须断言：单击 Activity 即显隐、同侧两个面板同时打开、标签四边分屏、Bottom 切换、CommandBar QAction 和布局 round trip。
 
   ```cpp
   QCOMPARE(shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
@@ -1097,7 +1097,7 @@
   QCOMPARE(shell->bottomPane()->currentWidget(), terminalTool);
   ```
 
-- [ ] **步骤 2：运行 smoke 验证失败。**
+- [x] **步骤 2：运行 smoke 验证失败。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzExampleWorkspaceSmokeTest --parallel 2
@@ -1106,11 +1106,11 @@
 
   预期：Example 尚未注册完整多面板/分屏/Bottom/CommandBar 场景，断言失败。
 
-- [ ] **步骤 3：只用公开组件升级 Example。** `ZzExampleWindowShellPrivate` 仍只保存业务 QAction、模型和观察值；不得创建 QSplitter、重排 Activity model 或自行编码布局。`ZzExampleWorkspaceContent` 只增加纯本地展示页和标记模型数据，不包含连接、凭据、网络或传输逻辑。将原 Activity Dock 内容迁入 BottomPane，DockPanel 继续展示真正需要浮动的工具。
+- [x] **步骤 3：只用公开组件升级 Example。** `ZzExampleWindowShellPrivate` 仍只保存业务 QAction、模型和观察值；不得创建 QSplitter、重排 Activity model 或自行编码布局。`ZzExampleWorkspaceContent` 只增加纯本地展示页和标记模型数据，不包含连接、凭据、网络或传输逻辑。将原 Activity Dock 内容迁入 BottomPane，DockPanel 继续展示真正需要浮动的工具。
 
-- [ ] **步骤 4：扩展截图矩阵。** 在现有 100/125/150/200 DPR 基线中增加双侧多面板、两组/四组分屏、五区 overlay、Bottom 展开/折叠、CommandBar 三模式和 AnnotatedScrollBar 语义标记。每个场景分别运行 Light、Dark、HighContrast；截图用固定窗口尺寸和 Reduced Motion，禁止依赖本机字体以外的临时资源。
+- [x] **步骤 4：扩展截图矩阵。** 在现有 100/125/150/200 DPR 基线中增加双侧多面板、两组/四组分屏、Bottom 展开/折叠、CommandBar 三模式和 AnnotatedScrollBar 语义标记。每个场景分别运行 Light、Dark、HighContrast；截图用固定窗口尺寸和 Reduced Motion，禁止依赖本机字体以外的临时资源。五区 overlay 无法在 offscreen 下经公开输入稳定保留可见态；按用户裁定不新增测试 API、不引用 private 实现，其真实拖放与截图证据转入任务 15 Linux 物理桌面验收。
 
-- [ ] **步骤 5：运行 Example 与截图测试。**
+- [x] **步骤 5：运行 Example 与截图测试。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzPureToolsExample ZzExampleWorkspaceSmokeTest ZzWorkspaceScreenshotTest --parallel 2
@@ -1119,7 +1119,7 @@
 
   预期：Example smoke 通过；截图报告没有空白、裁切、指示条重叠或主题裸色差异。只有在人工检查差异后才更新受版本控制的基线。
 
-- [ ] **步骤 6：提交。**
+- [x] **步骤 6：提交。**
 
   ```bash
   git add \
@@ -1214,7 +1214,7 @@
 
   预期：GCC shared/release/static、Clang、ASan/UBSan 和 clang-tidy 全部通过。命令失败时保存真实日志，不跳过测试、不删除构建证据。
 
-- [ ] **步骤 5：完成 Linux 物理桌面人工验收并如实记录其他平台。** Linux 检查鼠标拖放、键盘、IME、DPR、主题、标题栏、静态 Example 启动和布局重启恢复。Windows 文档只记录 MSVC/MinGW 静态合同以及“物理机待验证”；macOS 只记录 AppleClang 公共 Qt API 静态合同以及“运行待验证”。
+- [ ] **步骤 5：完成 Linux 物理桌面人工验收并如实记录其他平台。** Linux 检查鼠标拖放、键盘、IME、DPR、主题、标题栏、静态 Example 启动和布局重启恢复；必须通过真实 tab 拖拽显示五区 overlay，并保存其可见态截图证据。Windows 文档只记录 MSVC/MinGW 静态合同以及“物理机待验证”；macOS 只记录 AppleClang 公共 Qt API 静态合同以及“运行待验证”。
 
 - [ ] **步骤 6：提交最终证据。**
 
