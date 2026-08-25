@@ -13,6 +13,7 @@
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
 
 class QAbstractListModel;
@@ -54,6 +55,14 @@ public:
         Dock
     };
 
+    /** @brief 描述延迟 Side 内容尚未创建、创建中或已被接管。 */
+    enum class ZzMaterializationState : std::uint8_t
+    {
+        Pending,
+        Materializing,
+        Ready
+    };
+
     struct ZzPanelRecord final
     {
         ZzWorkspacePanelId id;
@@ -67,6 +76,9 @@ public:
         QWidget *contentIdentity = nullptr;
         QPointer<QWidget> contentOwner;
         QWidget *contentOwnerIdentity = nullptr;
+        ZzWorkspacePanelFactory factory;
+        ZzMaterializationState materialization =
+            ZzMaterializationState::Ready;
         std::uint64_t registrationGeneration = 0;
         QPointer<QObject> dock;
         ZzFluentUI::ZzDockPanel *dockIdentity = nullptr;
@@ -109,6 +121,23 @@ public:
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
         QWidget *content);
+    [[nodiscard]] ZzCore::ZzResult<void> registerSidePanelFactory(
+        const ZzWorkspacePanelId &id,
+        const QString &title,
+        ZzFluentUI::ZzIconDescriptor icon,
+        ZzFluentUI::ZzActivityArea area,
+        ZzWorkspacePanelFactory factory);
+    /** @brief 将已创建的无父 Side 内容事务接管到其逻辑区域。 */
+    [[nodiscard]] ZzCore::ZzResult<void> adoptSidePanelContent(
+        const ZzWorkspacePanelId &id,
+        std::uint64_t registrationGeneration,
+        QWidget *content,
+        bool activate);
+    [[nodiscard]] ZzCore::ZzResult<std::unique_ptr<QWidget>>
+    createPendingSidePanelContent(const ZzWorkspacePanelId &id);
+    /** @brief 调用 Pending factory 并在失败时恢复可重试状态。 */
+    [[nodiscard]] ZzCore::ZzResult<void> materializeSidePanel(
+        const ZzWorkspacePanelId &id);
     [[nodiscard]] ZzCore::ZzResult<void> registerDockPanel(
         const ZzWorkspacePanelId &id,
         const QString &title,

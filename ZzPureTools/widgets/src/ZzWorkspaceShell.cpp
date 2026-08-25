@@ -190,6 +190,23 @@ ZzCore::ZzResult<void> ZzWorkspaceShell::registerSidePanel(
         id, title, std::move(icon), area, content);
 }
 
+ZzCore::ZzResult<void> ZzWorkspaceShell::registerSidePanelFactory(
+    const ZzWorkspacePanelId &id,
+    const QString &title,
+    ZzFluentUI::ZzIconDescriptor icon,
+    ZzFluentUI::ZzActivityArea area,
+    ZzWorkspacePanelFactory factory)
+{
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return zzWorkspaceCreateFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace operation requires its GUI thread"));
+    }
+    return d_ptr->registerSidePanelFactory(
+        id, title, std::move(icon), area, std::move(factory));
+}
+
 ZzCore::ZzResult<void> ZzWorkspaceShell::registerDockPanel(
     const ZzWorkspacePanelId &id,
     const QString &title,

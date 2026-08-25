@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include <QtCore/QByteArray>
@@ -31,6 +32,11 @@ class ZzTabWidget;
 namespace ZzPureTools {
 
 class ZzWorkspaceShellPrivate;
+
+/** @brief 延迟创建一个无父对象的工作区面板内容。 */
+using ZzWorkspacePanelFactory =
+    std::function<ZzCore::ZzResult<std::unique_ptr<QWidget>>()>
+;
 
 /**
  * @brief 协调宿主窗口中的 Fluent 工作区组件、面板、标题和布局。
@@ -90,6 +96,20 @@ public:
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
         QWidget *content);
+
+    /**
+     * @brief 注册初始未激活的 Side Panel，并在首次显示时创建内容。
+     *
+     * factory 只在首次显示、Activity 激活或移除 Pending 面板时调用。
+     * factory 必须在 Shell GUI 线程创建并返回无父 QWidget。
+     * 创建失败不会改变面板注册与界面状态，后续调用可以重试。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> registerSidePanelFactory(
+        const ZzWorkspacePanelId &id,
+        const QString &title,
+        ZzFluentUI::ZzIconDescriptor icon,
+        ZzFluentUI::ZzActivityArea area,
+        ZzWorkspacePanelFactory factory);
 
     /** @brief 校验后接管无父对象内容，并注册到中央底部工具区。 */
     [[nodiscard]] ZzCore::ZzResult<void> registerBottomPanel(
