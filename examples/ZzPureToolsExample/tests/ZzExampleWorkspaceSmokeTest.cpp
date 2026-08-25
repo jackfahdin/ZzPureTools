@@ -1,10 +1,13 @@
 #include <memory>
 
+#include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QStandardPaths>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMainWindow>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
@@ -13,7 +16,10 @@
 
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzCommandBar.h>
+#include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzBottomPane.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
@@ -26,6 +32,8 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleWindowShell.h"
 
@@ -49,6 +57,18 @@ namespace {
     return registration;
 }
 
+[[nodiscard]] QListView *zzPrimaryActivityView(
+    ZzFluentUI::ZzActivityBar *bar)
+{
+    return bar->findChild<QListView *>(
+        QStringLiteral("zzActivityPrimaryView"));
+}
+
+[[nodiscard]] ZzPureTools::ZzWorkspacePanelId zzPanelId(const char *value)
+{
+    return ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(value));
+}
+
 } // namespace
 
 class ZzExampleWorkspaceSmokeTest final : public QObject
@@ -56,6 +76,42 @@ class ZzExampleWorkspaceSmokeTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void publicWorkspaceRestoresPaneSizes()
+    {
+        QMainWindow host;
+        host.resize(1100, 720);
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(&host);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        host.setCentralWidget(shell->workspaceWidget());
+
+        auto *leftPanel = new QWidget;
+        QVERIFY(shell->registerSidePanel(
+            zzPanelId("workspace-smoke-left"), QStringLiteral("Left"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftPanel));
+        auto *bottomPanel = new QWidget;
+        QVERIFY(shell->registerBottomPanel(
+            zzPanelId("workspace-smoke-bottom"), QStringLiteral("Bottom"), {},
+            bottomPanel));
+        auto *page = new QWidget;
+        QCOMPARE(shell->tabWidget()->addTab(page, QStringLiteral("Page")), 0);
+        QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
+            page, QStringLiteral("workspace-smoke-layout-page")));
+
+        auto *leftPane = shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *bottomPane = shell->bottomPane();
+        leftPane->setPaneWidth(360);
+        bottomPane->setPaneHeight(260);
+        const auto saved = shell->saveLayout();
+        QVERIFY(saved);
+
+        leftPane->setPaneWidth(220);
+        bottomPane->setPaneHeight(180);
+        QVERIFY(shell->restoreLayout(saved.value()));
+        QCOMPARE(leftPane->paneWidth(), 360);
+        QCOMPARE(bottomPane->paneHeight(), 260);
+    }
+
     void actualWindowShellShowsRegisteredFilesPanelForSftpCommand()
     {
         auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
@@ -103,6 +159,14 @@ private Q_SLOTS:
             }
         }
         QVERIFY(leftPane != nullptr);
+        ZzFluentUI::ZzActivityBar *leftActivityBar = nullptr;
+        for (auto *bar : window->findChildren<ZzFluentUI::ZzActivityBar *>()) {
+            if (bar->edge() == ZzFluentUI::ZzSidePaneEdge::Left) {
+                leftActivityBar = bar;
+                break;
+            }
+        }
+        QVERIFY(leftActivityBar != nullptr);
         auto *filesPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSftpPanel"));
         QVERIFY(filesPanel != nullptr);
@@ -111,6 +175,25 @@ private Q_SLOTS:
         QVERIFY(sessionsPanel != nullptr);
         QVERIFY(leftPane->setCurrentWidget(sessionsPanel));
         QCOMPARE(leftPane->currentWidget(), sessionsPanel);
+
+        auto *activityView = zzPrimaryActivityView(leftActivityBar);
+        QVERIFY(activityView != nullptr);
+        window->show();
+        QCoreApplication::processEvents();
+        leftPane->setCollapsed(true);
+        QTest::mouseClick(
+            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            activityView->visualRect(
+                activityView->model()->index(0, 0)).center());
+        QVERIFY(!leftPane->isCollapsed());
+        QCOMPARE(leftPane->currentWidget(), sessionsPanel);
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({sessionsPanel, filesPanel}));
+        QTest::mouseClick(
+            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            activityView->visualRect(
+                activityView->model()->index(0, 0)).center());
+        QVERIFY(leftPane->isCollapsed());
 
         palette->open();
         palette->setQuery(QStringLiteral("显示 SFTP"));
@@ -131,8 +214,6 @@ private Q_SLOTS:
         auto *newTerminalButton = qobject_cast<QToolButton *>(
             commandToolBar->widgetForAction(newTerminalAction));
         QVERIFY(newTerminalButton != nullptr);
-        window->show();
-        QCoreApplication::processEvents();
         QTest::mouseClick(newTerminalButton, Qt::LeftButton);
         QCOMPARE(commandTriggered.count(), 1);
         QCOMPARE(commandTriggered.first().at(0).value<QAction *>(),
