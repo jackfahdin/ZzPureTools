@@ -109,6 +109,27 @@ set_tests_properties(fluent.command-status-surfaces PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzCommandBarTest ZzCommandBarTest.cpp)
+target_link_libraries(ZzCommandBarTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzCommandBarTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzCommandBarTest)
+zz_enable_sanitizers(ZzCommandBarTest)
+add_test(NAME fluent.command-bar COMMAND ZzCommandBarTest)
+set_tests_properties(fluent.command-bar PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+if(UNIX AND NOT APPLE)
+    set_tests_properties(fluent.command-bar PROPERTIES
+        ENVIRONMENT_MODIFICATION
+            "LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>;LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>;LD_LIBRARY_PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+endif()
+
 add_executable(ZzPopupSurfacesTest ZzPopupSurfacesTest.cpp)
 target_link_libraries(ZzPopupSurfacesTest PRIVATE
     Qt6::Test
