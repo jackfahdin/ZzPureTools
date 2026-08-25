@@ -135,6 +135,16 @@ foreach(base_contract IN ITEMS
     endif()
 endforeach()
 
+foreach(windows_base IN ITEMS windows-msvc-base windows-mingw-base)
+    zz_find_configure_preset_index(windows_base_index "${windows_base}")
+    string(JSON windows_tests GET "${presets_json}"
+        configurePresets ${windows_base_index} cacheVariables ZZ_BUILD_TESTS)
+    if(NOT windows_tests)
+        message(FATAL_ERROR
+            "${windows_base} must keep ZZ_BUILD_TESTS enabled")
+    endif()
+endforeach()
+
 foreach(compile_database_base IN ITEMS
         windows-mingw-base
         macos-clang-base)

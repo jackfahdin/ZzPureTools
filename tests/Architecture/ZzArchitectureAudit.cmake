@@ -8,6 +8,23 @@ endforeach()
 
 list(PREPEND CMAKE_MODULE_PATH "${ZZ_SOURCE_DIR}/cmake")
 include("${ZZ_SOURCE_DIR}/cmake/ZzArchitectureChecks.cmake")
+
+set(zz_required_workbench_public_headers
+    ZzFluentUI/foundation/include/ZzFluentUI/ZzTabGroupId.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzAnnotatedScrollBar.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzBottomPane.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzCommandBar.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzPanelStack.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzPivot.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzSplitButton.h
+    ZzFluentUI/widgets/include/ZzFluentUI/ZzSplitWorkspace.h)
+foreach(required_header IN LISTS zz_required_workbench_public_headers)
+    if(NOT EXISTS "${ZZ_SOURCE_DIR}/${required_header}")
+        message(FATAL_ERROR
+            "Required workbench public header is missing: ${required_header}")
+    endif()
+endforeach()
+
 zz_run_complete_architecture_audit(
     "${ZZ_SOURCE_DIR}" "${ZZ_TARGET_MANIFEST}")
 

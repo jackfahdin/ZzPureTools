@@ -41,13 +41,21 @@ set(required_workspace_headers
     ZzFluentUI/ZzActivityArea.h
     ZzFluentUI/ZzActivityBar.h
     ZzFluentUI/ZzActivityItemRole.h
+    ZzFluentUI/ZzAnnotatedScrollBar.h
+    ZzFluentUI/ZzBottomPane.h
+    ZzFluentUI/ZzCommandBar.h
     ZzFluentUI/ZzCommandItemRole.h
     ZzFluentUI/ZzCommandPalette.h
     ZzFluentUI/ZzDockPanel.h
     ZzFluentUI/ZzExplorerPane.h
     ZzFluentUI/ZzFluentTitleBar.h
+    ZzFluentUI/ZzPanelStack.h
+    ZzFluentUI/ZzPivot.h
     ZzFluentUI/ZzSidePane.h
     ZzFluentUI/ZzSidePaneEdge.h
+    ZzFluentUI/ZzSplitButton.h
+    ZzFluentUI/ZzSplitWorkspace.h
+    ZzFluentUI/ZzTabGroupId.h
     ZzFluentUI/ZzTitleBarMenuDisplayMode.h
     ZzPureTools/ZzWorkspacePanelId.h
     ZzPureTools/ZzWorkspaceShell.h

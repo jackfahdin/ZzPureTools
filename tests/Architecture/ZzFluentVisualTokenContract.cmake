@@ -18,6 +18,14 @@ file(WRITE "${widget_root}/ZzGood.cpp" [=[
 const char *text = "setStyleSheet QColor(1, 2, 3) 0x112233";
 widget->setFixedWidth(controlWidth);
 painter->drawRoundedRect(rect, radius, radius);
+widget->setFixedHeight(qCeil(
+    snapshot->metric(ZzMetricToken::CommandBarHeight)));
+widget->setMinimumWidth(qCeil(
+    snapshot->metric(ZzMetricToken::CommandBarMoreExtent)));
+widget->setMaximumWidth(qCeil(
+    snapshot->metric(ZzMetricToken::AnnotatedScrollBarExtent)));
+layout->setSpacing(qCeil(
+    snapshot->metric(ZzMetricToken::ScrollMarkerThickness)));
 ]=])
 file(WRITE "${ZZ_TEST_ROOT}/empty.txt" "")
 execute_process(

@@ -36,12 +36,14 @@
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
+#include <ZzFluentUI/ZzAnnotatedScrollBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzCommandItemRole.h>
+#include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
@@ -72,6 +74,7 @@
 #include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzSplitButton.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
@@ -226,6 +229,9 @@ int main(int argc, char *argv[]) {
   workspaceWindow.setMenuWidget(workspaceTitleBar);
   QStandardItemModel workspaceExplorerModel;
   workspaceExplorerModel.appendRow(new QStandardItem(QStringLiteral("src")));
+  QStandardItemModel workspaceOutlineModel;
+  workspaceOutlineModel.appendRow(
+      new QStandardItem(QStringLiteral("main.cpp")));
   QStandardItemModel workspaceCommandModel;
   workspaceCommandModel.appendRow(
       new QStandardItem(QStringLiteral("Open installed workspace")));
@@ -244,16 +250,42 @@ int main(int argc, char *argv[]) {
       ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
   auto *explorerPane = new ZzFluentUI::ZzExplorerPane;
   explorerPane->setModel(&workspaceExplorerModel);
+  auto *outlinePane = new ZzFluentUI::ZzExplorerPane;
+  outlinePane->setModel(&workspaceOutlineModel);
   const auto registeredExplorer = workspaceShell->registerSidePanel(
       ZzPureTools::ZzWorkspacePanelId(QStringLiteral("explorer")),
       QStringLiteral("Explorer"), {},
       ZzFluentUI::ZzActivityArea::LeftPrimary, explorerPane);
-  const auto registeredDock = workspaceShell->registerDockPanel(
+  const auto registeredOutline = workspaceShell->registerSidePanel(
+      ZzPureTools::ZzWorkspacePanelId(QStringLiteral("outline")),
+      QStringLiteral("Outline"), {},
+      ZzFluentUI::ZzActivityArea::LeftPrimary, outlinePane);
+  const auto registeredBottomTool = workspaceShell->registerBottomPanel(
       ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
-      QStringLiteral("Terminal"), {}, Qt::BottomDockWidgetArea, new QWidget);
+      QStringLiteral("Terminal"), {}, new QWidget);
   workspaceShell->commandPalette()->setModel(&workspaceCommandModel);
   workspaceShell->tabWidget()->addTab(
       new QWidget, QStringLiteral("Overview"));
+  auto secondGroup = workspaceShell->splitWorkspace()->splitGroup(
+      workspaceShell->splitWorkspace()->activeGroupId(),
+      Qt::Horizontal,
+      ZzFluentUI::ZzSplitPlacement::After);
+  if (!secondGroup.has_value()) {
+    return 41;
+  }
+  workspaceShell->splitWorkspace()->tabWidget(*secondGroup)->addTab(
+      new QWidget, QStringLiteral("Details"));
+  ZzFluentUI::ZzCommandBar commandBar;
+  commandBar.addPrimaryAction(QIcon(), QStringLiteral("Connect"));
+  QStandardItemModel markerModel;
+  markerModel.appendRow(new QStandardItem(QStringLiteral("Warning")));
+  markerModel.item(0)->setData(
+      0.5, static_cast<int>(ZzFluentUI::ZzScrollMarkerRole::Position));
+  markerModel.item(0)->setData(
+      static_cast<int>(ZzFluentUI::ZzScrollMarkerKind::Warning),
+      static_cast<int>(ZzFluentUI::ZzScrollMarkerRole::Kind));
+  ZzFluentUI::ZzAnnotatedScrollBar markers(Qt::Vertical);
+  markers.setMarkerModel(&markerModel);
   workspaceWindow.show();
   QCoreApplication::processEvents();
   ZzFluentUI::ZzCalendar calendar;
@@ -651,13 +683,23 @@ int main(int argc, char *argv[]) {
       sourceTabs.fluentTabBar() == nullptr ||
       !sourceTabs.transferTabTo(&targetTabs, 0) || sourceTabs.count() != 0 ||
       targetTabs.widget(0) != tabPage || !registeredExplorer ||
-      !registeredDock || workspaceShell->activityBar(
+      !registeredOutline || !registeredBottomTool ||
+      workspaceShell->activityBar(
           ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
       workspaceShell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
       workspaceShell->commandPalette()->model() != &workspaceCommandModel ||
       workspaceShell->tabWidget()->count() != 1 ||
       workspaceShell->tabWidget()->tabText(0) != QStringLiteral("Overview") ||
       explorerPane->model() != &workspaceExplorerModel ||
+      outlinePane->model() != &workspaceOutlineModel ||
+      workspaceShell->splitWorkspace()->groupIds().size() != 2 ||
+      workspaceShell->splitWorkspace()->tabWidget(*secondGroup)->count() != 1 ||
+      workspaceShell->splitWorkspace()->tabWidget(*secondGroup)->tabText(0) !=
+          QStringLiteral("Details") ||
+      commandBar.primaryActions().size() != 1 ||
+      commandBar.primaryActions().first()->text() !=
+          QStringLiteral("Connect") ||
+      markers.markerModel() != &markerModel ||
       !ZzPureTools::ZzWorkspacePanelId(QStringLiteral(" explorer ")).isValid()) {
     return 1;
   }

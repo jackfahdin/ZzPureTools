@@ -44,6 +44,7 @@ foreach(source_file IN LISTS
     string(REGEX REPLACE "/\\*([^*]|\\*[^/])*\\*/" "" source_code
         "${source_content}")
     string(REGEX REPLACE "//[^\r\n]*" "" source_code "${source_code}")
+    string(TOLOWER "${source_code}" source_code_lower)
     string(REGEX MATCHALL
         "#[ \t]*include[ \t]*[<\"][^>\"]+[>\"]"
         include_directives
@@ -57,12 +58,16 @@ foreach(source_file IN LISTS
             zz_workspace_fail(WORKSPACE_PRESENTATION_DEPENDENCY "${source_file}")
         endif()
     endforeach()
+    if(source_code_lower MATCHES
+       "(^|[^a-z0-9_])(ssh|sftp|network|domain)[a-z0-9_]*[ \t\r\n]*([*&]|::)")
+        zz_workspace_fail(WORKSPACE_PRESENTATION_DEPENDENCY "${source_file}")
+    endif()
 endforeach()
 
 foreach(public_header IN LISTS zz_workspace_public_files)
     file(READ "${public_header}" public_content)
     string(REGEX MATCHALL
-        "class[ \t\r\n]+(ZZ_[A-Z0-9_]+_EXPORT[ \t\r\n]+)?Zz[A-Za-z0-9_]+[ \t\r\n]+(final[ \t\r\n]+)?(:[ \t\r\n]*public[ \t\r\n]+(QWidget|QFrame|QToolBar|QTabWidget|QDockWidget|QDialog|QAbstractScrollArea))"
+        "class[ \t\r\n]+(ZZ_[A-Z0-9_]+_EXPORT[ \t\r\n]+)?Zz[A-Za-z0-9_]+[ \t\r\n]+(final[ \t\r\n]+)?(:[ \t\r\n]*public[ \t\r\n]+(QWidget|QFrame|QToolBar|QTabWidget|QDockWidget|QDialog|QAbstractScrollArea|QScrollBar))"
         widget_declarations
         "${public_content}")
     foreach(widget_declaration IN LISTS widget_declarations)
