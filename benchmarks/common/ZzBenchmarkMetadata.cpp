@@ -18,6 +18,8 @@ namespace ZzBenchmarks {
 
 namespace {
 
+constexpr qint64 memoryFingerprintBucketBytes = 64LL * 1024 * 1024;
+
 ZzCore::ZzResult<QString> readProcValue(
     const QString &path,
     const QByteArray &key)
@@ -79,7 +81,8 @@ ZzCore::ZzResult<qint64> readMemoryBytes()
             memoryResult.value()));
     }
     return ZzCore::ZzResult<qint64>::success(
-        kibibytes * bytesPerKibibyte);
+        ZzBenchmarkMetadata::normalizeMemoryBytes(
+            kibibytes * bytesPerKibibyte));
 }
 
 ZzCore::ZzResult<void> invalidEnvironment(QString message)
@@ -90,6 +93,15 @@ ZzCore::ZzResult<void> invalidEnvironment(QString message)
 }
 
 } // namespace
+
+qint64 ZzBenchmarkMetadata::normalizeMemoryBytes(qint64 memoryBytes)
+{
+    if (memoryBytes <= 0) {
+        return 0;
+    }
+    return memoryBytes
+        - (memoryBytes % memoryFingerprintBucketBytes);
+}
 
 ZzCore::ZzResult<void> ZzBenchmarkMetadata::populate(
     ZzPerformanceReporter &reporter,

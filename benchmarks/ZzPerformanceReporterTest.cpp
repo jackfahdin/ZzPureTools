@@ -4,6 +4,7 @@
 #include <QtCore/QJsonDocument>
 #include <QtCore/QTemporaryDir>
 
+#include "ZzBenchmarkMetadata.h"
 #include "ZzPerformanceReporter.h"
 
 class ZzPerformanceReporterTest final : public QObject
@@ -11,6 +12,38 @@ class ZzPerformanceReporterTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void normalizesMemoryFingerprintToStableCapacityBuckets()
+    {
+        constexpr qint64 bucketBytes = 64LL * 1024 * 1024;
+        constexpr qint64 previousBootBytes = 32708886528LL;
+        constexpr qint64 currentBootBytes = 32709496832LL;
+        constexpr qint64 normalizedBytes = 32682016768LL;
+
+        QCOMPARE(
+            ZzBenchmarks::ZzBenchmarkMetadata::normalizeMemoryBytes(0),
+            0);
+        QCOMPARE(
+            ZzBenchmarks::ZzBenchmarkMetadata::normalizeMemoryBytes(
+                bucketBytes - 1),
+            0);
+        QCOMPARE(
+            ZzBenchmarks::ZzBenchmarkMetadata::normalizeMemoryBytes(
+                bucketBytes),
+            bucketBytes);
+        QCOMPARE(
+            ZzBenchmarks::ZzBenchmarkMetadata::normalizeMemoryBytes(
+                previousBootBytes),
+            normalizedBytes);
+        QCOMPARE(
+            ZzBenchmarks::ZzBenchmarkMetadata::normalizeMemoryBytes(
+                currentBootBytes),
+            normalizedBytes);
+        QCOMPARE(
+            ZzBenchmarks::ZzBenchmarkMetadata::normalizeMemoryBytes(
+                currentBootBytes + bucketBytes),
+            normalizedBytes + bucketBytes);
+    }
+
     void calculatesNearestRankAndWritesSchema()
     {
         ZzBenchmarks::ZzPerformanceReporter reporter;

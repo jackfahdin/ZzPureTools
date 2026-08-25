@@ -2,6 +2,8 @@
 
 #include <ZzCore/ZzResult.h>
 
+#include <QtCore/QtTypes>
+
 class QScreen;
 
 namespace ZzBenchmarks {
@@ -15,6 +17,11 @@ class ZzBenchmarkMetadata final
 {
 public:
     ZzBenchmarkMetadata() = delete;
+
+    /**
+     * @brief 将 Linux MemTotal 归入稳定的硬件容量桶。
+     */
+    [[nodiscard]] static qint64 normalizeMemoryBytes(qint64 memoryBytes);
 
     /**
      * @brief 校验环境并把完整元数据写入 reporter。
