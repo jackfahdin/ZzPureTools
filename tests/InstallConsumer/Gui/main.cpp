@@ -2,6 +2,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDate>
 #include <QtCore/QTimer>
+#include <memory>
 #include <QtGui/QActionGroup>
 #include <QtGui/QImage>
 #include <QtGui/QIntValidator>
@@ -83,6 +84,7 @@
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
+#include <ZzCore/ZzResult.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -250,6 +252,22 @@ int main(int argc, char *argv[]) {
   workspaceShell->setApplicationTitle(QStringLiteral("Installed workspace"));
   workspaceShell->setTitleMode(
       ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+  int deferredCalls = 0;
+  const auto registeredDeferred = workspaceShell->registerSidePanelFactory(
+      ZzPureTools::ZzWorkspacePanelId(QStringLiteral("deferred")),
+      QStringLiteral("Deferred"), {},
+      ZzFluentUI::ZzActivityArea::RightSecondary,
+      [&deferredCalls] {
+        ++deferredCalls;
+        return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+            std::make_unique<QWidget>());
+      });
+  if (!registeredDeferred || deferredCalls != 0
+      || !workspaceShell->showPanel(
+          ZzPureTools::ZzWorkspacePanelId(QStringLiteral("deferred")))
+      || deferredCalls != 1) {
+    return 29;
+  }
   auto *explorerPane = new ZzFluentUI::ZzExplorerPane;
   explorerPane->setModel(&workspaceExplorerModel);
   auto *outlinePane = new ZzFluentUI::ZzExplorerPane;
