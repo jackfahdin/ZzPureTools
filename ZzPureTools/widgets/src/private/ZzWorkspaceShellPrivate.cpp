@@ -671,7 +671,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     ZzPanelRecord record;
     record.id = id;
     record.title = normalizedTitle;
-    record.icon = icon;
+    record.icon = std::move(icon);
     record.kind = ZzPanelKind::Side;
     record.activityArea = area;
     record.materialization = ZzMaterializationState::Ready;
@@ -1338,12 +1338,12 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::materializeSidePanel(
         id, before.registrationGeneration, content.get(), false);
     if (!adopted) {
         if (contentGuard == nullptr) {
-            static_cast<void>(content.release());
+            [[maybe_unused]] QWidget *const destroyedContent = content.release();
         }
         restorePending();
         return adopted;
     }
-    static_cast<void>(content.release());
+    [[maybe_unused]] QWidget *const adoptedContent = content.release();
     panelIndex = indexOf(id);
     if (panelIndex < 0
         || panels.at(panelIndex).registrationGeneration
@@ -1568,7 +1568,8 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
                 || pendingContentGuard->isVisible()) {
                 if (pendingContentGuard == nullptr
                     || pendingContentGuard->parent() != nullptr) {
-                    static_cast<void>(pendingContent.release());
+                    [[maybe_unused]] QWidget *const parentOwnedContent =
+                        pendingContent.release();
                 }
                 panelIndex = stablePanelIndex(record);
                 if (panelIndex >= 0
