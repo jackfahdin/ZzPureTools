@@ -93,20 +93,12 @@ void ZzAnnotatedScrollBar::paintEvent(QPaintEvent *event)
 {
     ZzScrollBar::paintEvent(event);
     d_ptr->ensurePixelBuckets();
-    if (d_ptr->pixelBuckets.isEmpty()) {
+    if (d_ptr->markerLayer.isNull()) {
         return;
     }
 
     QPainter painter(this);
-    const QRect groove = d_ptr->grooveRect();
-    for (const ZzPixelBucket &bucket : d_ptr->pixelBuckets) {
-        const ZzMarker &marker = d_ptr->markers.at(bucket.markerIndex);
-        painter.fillRect(
-            orientation() == Qt::Vertical
-                ? QRect(groove.left(), bucket.pixel, groove.width(), 1)
-                : QRect(bucket.pixel, groove.top(), 1, groove.height()),
-            marker.color);
-    }
+    painter.drawImage(QPoint{}, d_ptr->markerLayer);
 }
 
 void ZzAnnotatedScrollBar::mousePressEvent(QMouseEvent *event)
@@ -159,6 +151,7 @@ void ZzAnnotatedScrollBar::changeEvent(QEvent *event)
     }
     switch (event->type()) {
     case QEvent::LayoutDirectionChange:
+    case QEvent::DevicePixelRatioChange:
         d_ptr->rebuildPixelBuckets();
         break;
     case QEvent::PaletteChange:

@@ -6,6 +6,7 @@
 #include <QtCore/QRect>
 #include <QtCore/QVector>
 #include <QtGui/QColor>
+#include <QtGui/QImage>
 
 #include "ZzWidgetTheme.h"
 
@@ -52,6 +53,9 @@ public:
     /** @brief 从标记缓存构造数量不超过可用像素数的绘制桶。 */
     void rebuildPixelBuckets();
 
+    /** @brief 将像素桶预绘制到与当前 DPR 匹配的透明标记层。 */
+    void rebuildMarkerLayer();
+
     /** @brief 在未通知的继承属性变化后按缓存键同步像素桶。 */
     void ensurePixelBuckets();
 
@@ -75,6 +79,7 @@ public:
     QVector<QMetaObject::Connection> modelConnections;
     QVector<ZzMarker> markers;
     QVector<ZzPixelBucket> pixelBuckets;
+    QImage markerLayer;
     QRect pixelBucketGroove;
     Qt::Orientation pixelBucketOrientation = Qt::Vertical;
     Qt::LayoutDirection pixelBucketLayoutDirection = Qt::LeftToRight;

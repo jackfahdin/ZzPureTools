@@ -6,6 +6,7 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QVariant>
+#include <QtGui/QPainter>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOptionSlider>
 
@@ -123,6 +124,7 @@ void ZzAnnotatedScrollBarPrivate::rebuildMarkerCache()
     markers.clear();
     if (model == nullptr) {
         pixelBuckets.clear();
+        markerLayer = {};
         q_ptr->update();
         return;
     }
@@ -168,6 +170,7 @@ void ZzAnnotatedScrollBarPrivate::rebuildMarkerCache()
 void ZzAnnotatedScrollBarPrivate::rebuildPixelBuckets()
 {
     pixelBuckets.clear();
+    markerLayer = {};
     const QRect groove = grooveRect();
     pixelBucketGroove = groove;
     pixelBucketOrientation = q_ptr->orientation();
@@ -218,6 +221,38 @@ void ZzAnnotatedScrollBarPrivate::rebuildPixelBuckets()
                 winners.at(localPixel)});
         }
     }
+    rebuildMarkerLayer();
+}
+
+void ZzAnnotatedScrollBarPrivate::rebuildMarkerLayer()
+{
+    markerLayer = {};
+    if (pixelBuckets.isEmpty() || q_ptr->size().isEmpty()) {
+        return;
+    }
+
+    const qreal dpr = q_ptr->devicePixelRatioF();
+    const QSize physicalSize(
+        qCeil(static_cast<qreal>(q_ptr->width()) * dpr),
+        qCeil(static_cast<qreal>(q_ptr->height()) * dpr));
+    if (physicalSize.isEmpty()) {
+        return;
+    }
+    markerLayer = QImage(
+        physicalSize, QImage::Format_ARGB32_Premultiplied);
+    markerLayer.setDevicePixelRatio(dpr);
+    markerLayer.fill(Qt::transparent);
+
+    QPainter painter(&markerLayer);
+    const QRect groove = grooveRect();
+    for (const ZzPixelBucket &bucket : pixelBuckets) {
+        const ZzMarker &marker = markers.at(bucket.markerIndex);
+        painter.fillRect(
+            q_ptr->orientation() == Qt::Vertical
+                ? QRect(groove.left(), bucket.pixel, groove.width(), 1)
+                : QRect(bucket.pixel, groove.top(), 1, groove.height()),
+            marker.color);
+    }
 }
 
 void ZzAnnotatedScrollBarPrivate::ensurePixelBuckets()
@@ -226,7 +261,9 @@ void ZzAnnotatedScrollBarPrivate::ensurePixelBuckets()
     if (!pixelBucketsCurrent || pixelBucketGroove != groove
         || pixelBucketOrientation != q_ptr->orientation()
         || pixelBucketLayoutDirection != q_ptr->layoutDirection()
-        || pixelBucketInvertedAppearance != q_ptr->invertedAppearance()) {
+        || pixelBucketInvertedAppearance != q_ptr->invertedAppearance()
+        || !qFuzzyCompare(
+            markerLayer.devicePixelRatio(), q_ptr->devicePixelRatioF())) {
         rebuildPixelBuckets();
     }
 }
@@ -296,6 +333,7 @@ void ZzAnnotatedScrollBarPrivate::handleModelDestroyed()
     modelConnections.clear();
     markers.clear();
     pixelBuckets.clear();
+    markerLayer = {};
     pixelBucketsCurrent = false;
     q_ptr->update();
     Q_EMIT q_ptr->markerModelChanged(nullptr);

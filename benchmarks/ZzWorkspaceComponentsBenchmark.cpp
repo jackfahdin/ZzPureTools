@@ -6,16 +6,22 @@
 
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QAbstractTableModel>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QEvent>
 #include <QtCore/QEventLoop>
 #include <QtCore/QFile>
 #include <QtCore/QIODevice>
+#include <QtCore/QJsonObject>
 #include <QtCore/QTextStream>
 #include <QtCore/QTimer>
 #include <QtCore/QVector>
+#include <QtGui/QAction>
 #include <QtGui/QColor>
 #include <QtGui/QImage>
+#include <QtGui/QPainter>
+#include <QtGui/QRegion>
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QListView>
@@ -32,7 +38,10 @@
 
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzAnnotatedScrollBar.h>
+#include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzBundledSvgIcon.h>
+#include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzCommandItemRole.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzExplorerPane.h>
@@ -40,9 +49,13 @@
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzSidePane.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -58,8 +71,18 @@ constexpr int zzStateToggleIterations = 1000;
 constexpr int zzExplorerNodeCount = 100000;
 constexpr int zzCommandCount = 10000;
 constexpr int zzTabCount = 200;
-constexpr int zzSidePanelCount = 64;
-constexpr int zzDockPanelCount = 32;
+constexpr int zzSidePanelCount = 32;
+constexpr int zzBottomPanelCount = 3;
+constexpr int zzCommandBarActionCount = 40;
+constexpr int zzSmallGroupCount = 4;
+constexpr int zzLargeGroupCount = 32;
+constexpr int zzSmallMarkerCount = 20;
+constexpr int zzLargeMarkerCount = 100000;
+constexpr int zzPaintViewportWidth = 1200;
+constexpr int zzPaintViewportHeight = 800;
+constexpr double zzRenderP95BudgetMs = 12.0;
+constexpr double zzStructureP95BudgetMs = 16.7;
+constexpr double zzPaintRatioBudget = 2.0;
 // QListView 的 viewport 与滚动条需要固定少量 QWidget；每个结果一行的实现
 // 会在 10,000 条命令下远超此预算。
 constexpr qsizetype zzMaximumResultViewWidgets = 8;
@@ -155,6 +178,112 @@ bool zzHasBoundedResultViewWidgets(const ZzWorkspaceObjectBudget &budget)
     return budget.resultViewWidgets <= zzMaximumResultViewWidgets;
 }
 
+/** @brief 提供不分配每行 QObject 的固定标记模型。 */
+class ZzBenchmarkMarkerModel final : public QAbstractTableModel
+{
+public:
+    explicit ZzBenchmarkMarkerModel(
+        int rows,
+        int positionCount,
+        QObject *parent = nullptr)
+        : QAbstractTableModel(parent)
+        , rows_(rows)
+        , positionCount_(positionCount)
+    {
+    }
+
+    [[nodiscard]] int rowCount(const QModelIndex &parent = {}) const override
+    {
+        return parent.isValid() ? 0 : rows_;
+    }
+
+    [[nodiscard]] int columnCount(const QModelIndex &parent = {}) const override
+    {
+        return parent.isValid() ? 0 : 1;
+    }
+
+    [[nodiscard]] QVariant data(
+        const QModelIndex &index,
+        int role = Qt::DisplayRole) const override
+    {
+        if (!index.isValid() || index.column() != 0) {
+            return {};
+        }
+        if (role == static_cast<int>(
+                        ZzFluentUI::ZzScrollMarkerRole::Position)) {
+            return static_cast<qreal>(index.row() % positionCount_)
+                / qMax(1, positionCount_ - 1);
+        }
+        if (role == static_cast<int>(
+                        ZzFluentUI::ZzScrollMarkerRole::Kind)) {
+            return static_cast<int>(ZzFluentUI::ZzScrollMarkerKind::Information);
+        }
+        if (role == static_cast<int>(
+                        ZzFluentUI::ZzScrollMarkerRole::Priority)) {
+            return index.row() % 5;
+        }
+        return {};
+    }
+
+private:
+    int rows_ = 0;
+    int positionCount_ = 1;
+};
+
+/** @brief 只使用公开 API 把分屏工作区扩展到固定组数。 */
+bool zzCreateTabGroups(
+    ZzFluentUI::ZzSplitWorkspace *workspace,
+    int groupCount)
+{
+    if (workspace == nullptr || groupCount < 1) {
+        return false;
+    }
+    const ZzFluentUI::ZzTabGroupId root =
+        workspace->groupIds().constFirst();
+    while (workspace->groupIds().size() < groupCount) {
+        if (!workspace->splitGroup(
+                root,
+                Qt::Horizontal,
+                ZzFluentUI::ZzSplitPlacement::After).has_value()) {
+            return false;
+        }
+    }
+    for (const ZzFluentUI::ZzTabGroupId &id : workspace->groupIds()) {
+        workspace->tabWidget(id)->addTab(
+            new QWidget,
+            QStringLiteral("Group %1").arg(id.value()));
+    }
+    return workspace->groupIds().size() == groupCount;
+}
+
+/** @brief 返回隐藏页面是否仍持有运行中的 timer 或 animation。 */
+bool zzHasBackgroundWakeup(const QWidget &page)
+{
+    for (const QTimer *timer : page.findChildren<QTimer *>()) {
+        if (timer->isActive()) {
+            return true;
+        }
+    }
+    for (const QAbstractAnimation *animation
+         : page.findChildren<QAbstractAnimation *>()) {
+        if (animation->state() == QAbstractAnimation::Running) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** @brief 从 reporter schema 中读取指定 metric 的 P95。 */
+std::optional<double> zzMetricP95(
+    const QJsonObject &report,
+    const QString &metric)
+{
+    const QJsonValue value = report.value(QStringLiteral("metrics"))
+        .toObject().value(metric).toObject().value(QStringLiteral("p95"));
+    return value.isDouble()
+        ? std::optional<double>(value.toDouble()) : std::nullopt;
+}
+
 /** @brief 返回渲染图像是否至少包含一个非透明像素。 */
 bool zzContainsOpaquePixel(const QImage &image)
 {
@@ -198,6 +327,7 @@ bool zzContainsOpaquePixel(const QImage &image)
 void zzProcessGuiEvents()
 {
     QCoreApplication::processEvents(QEventLoop::AllEvents);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 }
 
 } // namespace
@@ -247,6 +377,8 @@ int main(int argc, char *argv[])
     explorer->setSearchDelay(0);
     QVector<ZzPureTools::ZzWorkspacePanelId> sidePanelIds;
     sidePanelIds.reserve(zzSidePanelCount);
+    QVector<QWidget *> sidePanelContents;
+    sidePanelContents.reserve(zzSidePanelCount);
     const ZzFluentUI::ZzIconDescriptor fontActivityIcon =
         ZzFluentUI::ZzIconDescriptor::fromFontIcon(
             ZzFluentUI::ZzFontIcon::Server,
@@ -279,6 +411,7 @@ int main(int argc, char *argv[])
             return zzFail(registration.error().technicalMessage());
         }
         sidePanelIds.append(id);
+        sidePanelContents.append(content);
         if (index <= 1) {
             zzProcessGuiEvents();
             auto *activityBar = shell->activityBar(
@@ -304,20 +437,99 @@ int main(int argc, char *argv[])
             }
         }
     }
-    for (int index = 0; index < zzDockPanelCount; ++index) {
+
+    ZzFluentUI::ZzSidePane *const leftSidePane = shell->sidePane(
+        ZzFluentUI::ZzSidePaneEdge::Left);
+    leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+    for (QWidget *content : sidePanelContents) {
+        if (!leftSidePane->setWidgetVisible(content, true)) {
+            return zzFail(QStringLiteral(
+                "failed to expose all 32 side panels"));
+        }
+    }
+    if (leftSidePane->visibleWidgets().size() != zzSidePanelCount) {
+        return zzFail(QStringLiteral(
+            "side pane did not retain 32 visible panels"));
+    }
+
+    QVector<ZzPureTools::ZzWorkspacePanelId> bottomPanelIds;
+    bottomPanelIds.reserve(zzBottomPanelCount);
+    for (int index = 0; index < zzBottomPanelCount; ++index) {
         auto *content = new QWidget;
-        const auto registration = shell->registerDockPanel(
-            ZzPureTools::ZzWorkspacePanelId(
-                QStringLiteral("benchmark-dock-%1").arg(index)),
-            QStringLiteral("Dock panel %1").arg(index),
+        const ZzPureTools::ZzWorkspacePanelId id(
+            QStringLiteral("benchmark-bottom-%1").arg(index));
+        const auto registration = shell->registerBottomPanel(
+            id,
+            QStringLiteral("Bottom tool %1").arg(index),
             {},
-            Qt::BottomDockWidgetArea,
             content);
         if (!registration) {
             delete content;
             return zzFail(registration.error().technicalMessage());
         }
+        bottomPanelIds.append(id);
     }
+    if (shell->bottomPane()->widgetCount() != zzBottomPanelCount) {
+        return zzFail(QStringLiteral("bottom pane did not retain three tools"));
+    }
+    const auto showBottom = shell->showPanel(bottomPanelIds.constFirst());
+    if (!showBottom) {
+        return zzFail(showBottom.error().technicalMessage());
+    }
+
+    auto *commandBar = new ZzFluentUI::ZzCommandBar(&host);
+    commandBar->resize(920, 40);
+    for (int index = 0; index < zzCommandBarActionCount; ++index) {
+        QAction *action = nullptr;
+        if ((index % 4) == 3) {
+            action = commandBar->addSecondaryAction(
+                {}, QStringLiteral("Secondary %1").arg(index));
+        } else {
+            action = commandBar->addPrimaryAction(
+                {}, QStringLiteral("Primary %1").arg(index));
+        }
+        if (action == nullptr) {
+            return zzFail(QStringLiteral("failed to create command bar action"));
+        }
+    }
+    if (commandBar->primaryActions().size()
+            + commandBar->secondaryActions().size()
+        != zzCommandBarActionCount) {
+        return zzFail(QStringLiteral("command bar did not retain 40 actions"));
+    }
+
+    auto *fourGroupWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
+    auto *thirtyTwoGroupWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
+    auto *structureWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
+    fourGroupWorkspace->resize(zzPaintViewportWidth, zzPaintViewportHeight);
+    thirtyTwoGroupWorkspace->resize(
+        zzPaintViewportWidth * zzLargeGroupCount / zzSmallGroupCount,
+        zzPaintViewportHeight);
+    structureWorkspace->resize(zzPaintViewportWidth, zzPaintViewportHeight);
+    for (ZzFluentUI::ZzSplitWorkspace *workspace
+         : {fourGroupWorkspace, thirtyTwoGroupWorkspace, structureWorkspace}) {
+        workspace->hide();
+    }
+    if (!zzCreateTabGroups(fourGroupWorkspace, zzSmallGroupCount)
+        || !zzCreateTabGroups(thirtyTwoGroupWorkspace, zzLargeGroupCount)) {
+        return zzFail(QStringLiteral("failed to create fixed tab group scales"));
+    }
+
+    ZzBenchmarkMarkerModel smallMarkerModel(
+        zzSmallMarkerCount, zzSmallMarkerCount);
+    ZzBenchmarkMarkerModel largeMarkerModel(
+        zzLargeMarkerCount, zzLargeMarkerCount);
+    auto *smallMarkerBar = new ZzFluentUI::ZzAnnotatedScrollBar(&host);
+    auto *largeMarkerBar = new ZzFluentUI::ZzAnnotatedScrollBar(&host);
+    for (ZzFluentUI::ZzAnnotatedScrollBar *bar
+         : {smallMarkerBar, largeMarkerBar}) {
+        bar->resize(16, 600);
+        bar->setRange(0, 100000);
+        bar->hide();
+    }
+    smallMarkerBar->setMarkerModel(&smallMarkerModel);
+    largeMarkerBar->setMarkerModel(&largeMarkerModel);
+    zzProcessGuiEvents();
 
     auto *tabs = shell->tabWidget();
     for (int index = 0; index < zzTabCount; ++index) {
@@ -335,6 +547,9 @@ int main(int argc, char *argv[])
     if (palette->resultCount() != zzCommandCount) {
         return zzFail(QStringLiteral("command palette did not expose all commands"));
     }
+    themeController.setMode(ZzFluentUI::ZzThemeMode::Dark);
+    themeController.setMode(ZzFluentUI::ZzThemeMode::Light);
+    zzProcessGuiEvents();
 
     const auto initialLayout = shell->saveLayout();
     if (!initialLayout) {
@@ -354,10 +569,21 @@ int main(int argc, char *argv[])
     if (!metadata) {
         return zzFail(metadata.error().technicalMessage());
     }
+    const QSize paintViewportSize(
+        zzPaintViewportWidth, zzPaintViewportHeight);
+    const QRegion paintViewportRegion(QRect(QPoint{}, paintViewportSize));
+    QImage fourGroupImage(
+        paintViewportSize, QImage::Format_ARGB32_Premultiplied);
+    QImage thirtyTwoGroupImage(
+        paintViewportSize, QImage::Format_ARGB32_Premultiplied);
+    QImage smallMarkerImage(
+        smallMarkerBar->size(), QImage::Format_ARGB32_Premultiplied);
+    QImage largeMarkerImage(
+        largeMarkerBar->size(), QImage::Format_ARGB32_Premultiplied);
 
     for (int iteration = 0;
          iteration < zzWarmupIterations + zzMeasuredIterations;
-         ++iteration) {
+        ++iteration) {
         const bool measured = iteration >= zzWarmupIterations;
 
         QElapsedTimer timer;
@@ -374,7 +600,6 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
-
         timer.restart();
         palette->setQuery(QStringLiteral("command %1").arg(
             iteration % zzCommandCount));
@@ -387,7 +612,6 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
-
         timer.restart();
         const int tabIndex = iteration % zzTabCount;
         tabs->setTabPinned(tabIndex, (iteration % 2) == 0);
@@ -399,7 +623,6 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
-
         timer.restart();
         constexpr std::array titleMenuModes{
             ZzFluentUI::ZzTitleBarMenuDisplayMode::Expanded,
@@ -426,7 +649,6 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
-
         timer.restart();
         auto *activityBar = shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
@@ -441,6 +663,93 @@ int main(int argc, char *argv[])
             reporter.addSample({QStringLiteral("activity-activation-time"),
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
+        }
+        timer.restart();
+        QWidget *const toggledPanel = sidePanelContents.at(
+            iteration % zzSidePanelCount);
+        if (!leftSidePane->setWidgetVisible(toggledPanel, false)
+            || !leftSidePane->setWidgetVisible(toggledPanel, true)) {
+            return zzFail(QStringLiteral("side panel visibility toggle failed"));
+        }
+        zzProcessGuiEvents();
+        if (leftSidePane->visibleWidgets().size() != zzSidePanelCount) {
+            return zzFail(QStringLiteral(
+                "side panel visibility did not return to 32"));
+        }
+        if (measured) {
+            reporter.addSample({QStringLiteral("panel-toggle-time"),
+                                QStringLiteral("ms"),
+                                zzMilliseconds(timer.nsecsElapsed())});
+        }
+        timer.restart();
+        const ZzFluentUI::ZzTabGroupId structureRoot =
+            structureWorkspace->groupIds().constFirst();
+        const auto temporaryGroup = structureWorkspace->splitGroup(
+            structureRoot,
+            Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After);
+        if (!temporaryGroup.has_value()
+            || !structureWorkspace->removeEmptyGroup(*temporaryGroup)) {
+            return zzFail(QStringLiteral(
+                "split/merge structure operation failed"));
+        }
+        if (measured) {
+            reporter.addSample({QStringLiteral("group-structure-time"),
+                                QStringLiteral("ms"),
+                                zzMilliseconds(timer.nsecsElapsed())});
+        }
+
+        fourGroupImage.fill(Qt::transparent);
+        timer.restart();
+        fourGroupWorkspace->render(
+            &fourGroupImage,
+            QPoint{},
+            paintViewportRegion,
+            QWidget::DrawWindowBackground | QWidget::DrawChildren);
+        const double fourGroupElapsed = zzMilliseconds(timer.nsecsElapsed());
+        if (!zzContainsOpaquePixel(fourGroupImage)) {
+            return zzFail(QStringLiteral(
+                "four group workspace paint was fully transparent"));
+        }
+        thirtyTwoGroupImage.fill(Qt::transparent);
+        timer.restart();
+        thirtyTwoGroupWorkspace->render(
+            &thirtyTwoGroupImage,
+            QPoint{},
+            paintViewportRegion,
+            QWidget::DrawWindowBackground | QWidget::DrawChildren);
+        const double thirtyTwoGroupElapsed =
+            zzMilliseconds(timer.nsecsElapsed());
+        if (!zzContainsOpaquePixel(thirtyTwoGroupImage)) {
+            return zzFail(QStringLiteral(
+                "32 group workspace paint was fully transparent"));
+        }
+        if (measured) {
+            reporter.addSample({QStringLiteral(
+                                    "workspace-paint-4-groups-time"),
+                                QStringLiteral("ms"), fourGroupElapsed});
+            reporter.addSample({QStringLiteral(
+                                    "workspace-paint-32-groups-time"),
+                                QStringLiteral("ms"), thirtyTwoGroupElapsed});
+        }
+
+        smallMarkerImage.fill(Qt::transparent);
+        timer.restart();
+        smallMarkerBar->render(&smallMarkerImage);
+        const double smallMarkerElapsed = zzMilliseconds(timer.nsecsElapsed());
+        largeMarkerImage.fill(Qt::transparent);
+        timer.restart();
+        largeMarkerBar->render(&largeMarkerImage);
+        const double largeMarkerElapsed = zzMilliseconds(timer.nsecsElapsed());
+        if (!zzContainsOpaquePixel(smallMarkerImage)
+            || !zzContainsOpaquePixel(largeMarkerImage)) {
+            return zzFail(QStringLiteral("marker paint was fully transparent"));
+        }
+        if (measured) {
+            reporter.addSample({QStringLiteral("marker-paint-20-time"),
+                                QStringLiteral("ms"), smallMarkerElapsed});
+            reporter.addSample({QStringLiteral("marker-paint-100000-time"),
+                                QStringLiteral("ms"), largeMarkerElapsed});
         }
 
         timer.restart();
@@ -464,7 +773,6 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
-
         QImage image(host.size(), QImage::Format_ARGB32_Premultiplied);
         image.fill(Qt::transparent);
         timer.restart();
@@ -477,6 +785,7 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
+        zzProcessGuiEvents();
 
         const ZzWorkspaceObjectBudget currentBudget = zzObjectBudget(
             host, *palette);
@@ -487,7 +796,17 @@ int main(int argc, char *argv[])
         if (!measured) {
             stableBudget = currentBudget;
         } else if (!zzHasStableObjectBudget(stableBudget, currentBudget)) {
-            return zzFail(QStringLiteral("repeated workspace operations changed object budget"));
+            return zzFail(QStringLiteral(
+                "repeated workspace operations changed object budget: "
+                "expected %1/%2/%3/%4, actual %5/%6/%7/%8")
+                .arg(stableBudget.objects)
+                .arg(stableBudget.timers)
+                .arg(stableBudget.animations)
+                .arg(stableBudget.resultViewWidgets)
+                .arg(currentBudget.objects)
+                .arg(currentBudget.timers)
+                .arg(currentBudget.animations)
+                .arg(currentBudget.resultViewWidgets));
         }
         if (measured) {
             reporter.addSample({QStringLiteral("object-count"),
@@ -531,7 +850,32 @@ int main(int argc, char *argv[])
     const qsizetype stateTimerBudget = host.findChildren<QTimer *>().size();
     const qsizetype stateAnimationBudget =
         host.findChildren<QAbstractAnimation *>().size();
+    const ZzWorkspaceObjectBudget stateObjectBudget = zzObjectBudget(
+        host, *palette);
     for (int iteration = 0; iteration < zzStateToggleIterations; ++iteration) {
+        QWidget *const statePanel = sidePanelContents.at(
+            iteration % zzSidePanelCount);
+        if (!leftSidePane->setWidgetVisible(statePanel, false)
+            || !leftSidePane->setWidgetVisible(statePanel, true)) {
+            return zzFail(QStringLiteral(
+                "1000 state changes failed to restore side visibility"));
+        }
+        const ZzFluentUI::ZzTabGroupId structureRoot =
+            structureWorkspace->groupIds().constFirst();
+        const auto temporaryGroup = structureWorkspace->splitGroup(
+            structureRoot,
+            (iteration % 2) == 0 ? Qt::Horizontal : Qt::Vertical,
+            ZzFluentUI::ZzSplitPlacement::After);
+        if (!temporaryGroup.has_value()
+            || !structureWorkspace->removeEmptyGroup(*temporaryGroup)) {
+            return zzFail(QStringLiteral(
+                "1000 state changes failed to restore group structure"));
+        }
+        shell->bottomPane()->setCollapsed((iteration % 2) == 0);
+        shell->bottomPane()->setCollapsed(false);
+        themeController.setMode((iteration % 2) == 0
+            ? ZzFluentUI::ZzThemeMode::Dark
+            : ZzFluentUI::ZzThemeMode::Light);
         shell->setTitleMode(static_cast<ZzPureTools::ZzWorkspaceTitleMode>(
             iteration % 4));
         shell->setApplicationTitle(QStringLiteral("Workspace %1").arg(iteration));
@@ -540,13 +884,86 @@ int main(int argc, char *argv[])
         if (!badge) {
             return zzFail(badge.error().technicalMessage());
         }
+        if ((iteration % 50) == 49) {
+            zzProcessGuiEvents();
+        }
     }
+    themeController.setMode(ZzFluentUI::ZzThemeMode::Light);
     zzProcessGuiEvents();
     if (host.findChildren<QTimer *>().size() != stateTimerBudget
         || host.findChildren<QAbstractAnimation *>().size()
             != stateAnimationBudget
-        || !zzHasStableObjectBudget(stableBudget, zzObjectBudget(host, *palette))) {
+        || !zzHasStableObjectBudget(
+            stateObjectBudget, zzObjectBudget(host, *palette))) {
         return zzFail(QStringLiteral("1000 state changes changed timer, animation, or object budget"));
+    }
+
+    QWidget *const hiddenPanel = sidePanelContents.constFirst();
+    if (!leftSidePane->setWidgetVisible(hiddenPanel, false)) {
+        return zzFail(QStringLiteral("failed to hide background wakeup probe"));
+    }
+    zzProcessGuiEvents();
+    if (zzHasBackgroundWakeup(*hiddenPanel)) {
+        return zzFail(QStringLiteral(
+            "hidden workspace page retained an active timer or animation"));
+    }
+    if (!leftSidePane->setWidgetVisible(hiddenPanel, true)) {
+        return zzFail(QStringLiteral("failed to restore background wakeup probe"));
+    }
+    zzProcessGuiEvents();
+    if (!zzHasStableObjectBudget(
+            stateObjectBudget, zzObjectBudget(host, *palette))) {
+        return zzFail(QStringLiteral(
+            "hidden page wakeup probe changed the object budget"));
+    }
+
+    const auto reportResult = reporter.report();
+    if (!reportResult) {
+        return zzFail(reportResult.error().technicalMessage());
+    }
+    const QJsonObject report = reportResult.value();
+    const auto renderP95 = zzMetricP95(
+        report, QStringLiteral("workspace-render-time"));
+    const auto panelP95 = zzMetricP95(
+        report, QStringLiteral("panel-toggle-time"));
+    const auto structureP95 = zzMetricP95(
+        report, QStringLiteral("group-structure-time"));
+    const auto fourGroupP95 = zzMetricP95(
+        report, QStringLiteral("workspace-paint-4-groups-time"));
+    const auto thirtyTwoGroupP95 = zzMetricP95(
+        report, QStringLiteral("workspace-paint-32-groups-time"));
+    const auto smallMarkerP95 = zzMetricP95(
+        report, QStringLiteral("marker-paint-20-time"));
+    const auto largeMarkerP95 = zzMetricP95(
+        report, QStringLiteral("marker-paint-100000-time"));
+    if (!renderP95 || !panelP95 || !structureP95
+        || !fourGroupP95 || !thirtyTwoGroupP95
+        || !smallMarkerP95 || !largeMarkerP95) {
+        return zzFail(QStringLiteral("workspace performance report is incomplete"));
+    }
+    if (*renderP95 > zzRenderP95BudgetMs) {
+        return zzFail(QStringLiteral(
+            "workspace render P95 %1 ms exceeds 12 ms")
+                          .arg(*renderP95));
+    }
+    if (*panelP95 > zzStructureP95BudgetMs
+        || *structureP95 > zzStructureP95BudgetMs) {
+        return zzFail(QStringLiteral(
+            "workspace structure P95 exceeds 16.7 ms"));
+    }
+    if (*fourGroupP95 <= 0.0
+        || *thirtyTwoGroupP95 / *fourGroupP95 > zzPaintRatioBudget) {
+        return zzFail(QStringLiteral(
+            "32/4 group paint P95 ratio %1/%2 exceeds 2.0")
+            .arg(*thirtyTwoGroupP95)
+            .arg(*fourGroupP95));
+    }
+    if (*smallMarkerP95 <= 0.0
+        || *largeMarkerP95 / *smallMarkerP95 > zzPaintRatioBudget) {
+        return zzFail(QStringLiteral(
+            "100000/20 marker paint P95 ratio %1/%2 exceeds 2.0")
+            .arg(*largeMarkerP95)
+            .arg(*smallMarkerP95));
     }
 
     const auto writeResult = reporter.write(reportPath);

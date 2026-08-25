@@ -279,6 +279,29 @@ private Q_SLOTS:
         QCOMPARE(bar.markerAt(zzMarkerPointFor(bar, 0.5)), QModelIndex());
     }
 
+    void clearsPaintCacheWhenModelIsDetached()
+    {
+        ZzAnnotatedScrollBar bar;
+        bar.resize(16, 240);
+
+        const auto render = [&bar] {
+            QImage image(bar.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            bar.render(&image);
+            return image;
+        };
+        const QImage baseline = render();
+
+        QStandardItemModel model(1, 1);
+        zzSetMarker(model, 0, 0.5, ZzScrollMarkerKind::Error);
+        bar.setMarkerModel(&model);
+        QVERIFY(render() != baseline);
+
+        bar.setMarkerModel(nullptr);
+        QCOMPARE(bar.markerModel(), nullptr);
+        QCOMPARE(render(), baseline);
+    }
+
     void activatesHitMarkerAndDelegatesMissToScrollBar()
     {
         QStandardItemModel model(1, 1);
