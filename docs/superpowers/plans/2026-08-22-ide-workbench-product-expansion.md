@@ -1022,7 +1022,7 @@
 - 修改：`tests/Architecture/ZzFluentVisualTokenContract.cmake`
 - 修改：`tests/Platform/PresetMatrixContract.cmake`
 
-- [ ] **步骤 1：先扩展安装消费源码。** 仅包含安装后的公开头并创建一个最小工作台：两个同侧面板、两个 tab group、一个 Bottom 工具、CommandBar 和 AnnotatedScrollBar。关键消费代码必须使用公开 API：
+- [x] **步骤 1：先扩展安装消费源码。** 仅包含安装后的公开头并创建一个最小工作台：两个同侧面板、两个 tab group、一个 Bottom 工具、CommandBar 和 AnnotatedScrollBar。关键消费代码必须使用公开 API：
 
   ```cpp
   ZzFluentUI::ZzCommandBar commandBar;
@@ -1038,7 +1038,7 @@
   }
   ```
 
-- [ ] **步骤 2：运行 shared 安装消费并确认未接线时失败。**
+- [x] **步骤 2：运行 shared 安装消费并确认未接线时失败。**
 
   ```bash
   ctest --preset linux-gcc-debug -R '^install.consumer$' --output-on-failure
@@ -1046,9 +1046,9 @@
 
   预期：若公共头、导出源或传递依赖有遗漏，安装消费在编译或链接阶段失败。
 
-- [ ] **步骤 3：扩展架构规则。** 将 `QScrollBar` 加入公开 QWidget PIMPL 检查；在 `ZzArchitectureAudit.cmake` 添加新增公开头存在性清单后再运行递归扫描，并禁止 SSH/SFTP/network/domain 类型、Qt Private、stylesheet、链式命名空间和无 token 尺寸。视觉测试 fixture 增加使用新 `ZzMetricToken` 的合法样例，禁止为新增文件加入 allowlist；Preset 合同补充断言 Windows MSVC/MinGW 基础 preset 始终启用测试，使安装消费在这些工具链上保持可编译。
+- [x] **步骤 3：扩展架构规则。** 将 `QScrollBar` 加入公开 QWidget PIMPL 检查；在 `ZzArchitectureAudit.cmake` 添加新增公开头存在性清单后再运行递归扫描，并禁止 SSH/SFTP/network/domain 类型、Qt Private、stylesheet、链式命名空间和无 token 尺寸。视觉测试 fixture 增加使用新 `ZzMetricToken` 的合法样例，禁止为新增文件加入 allowlist；Preset 合同补充断言 Windows MSVC/MinGW 基础 preset 始终启用测试，使安装消费在这些工具链上保持可编译。
 
-- [ ] **步骤 4：验证 shared/static 包和跨平台静态合同。**
+- [x] **步骤 4：验证 shared/static 包和跨平台静态合同。**
 
   ```bash
   ctest --preset linux-gcc-debug -R '^(architecture\.|install\.consumer$)' --output-on-failure
@@ -1059,7 +1059,7 @@
 
   预期：shared/static 的公共头和安装消费均通过；Preset 合同仍包含 Windows MSVC/MinGW 与 macOS 四组既有 preset，不新增平台私有代码。
 
-- [ ] **步骤 5：提交。**
+- [x] **步骤 5：提交。**
 
   ```bash
   git add \
