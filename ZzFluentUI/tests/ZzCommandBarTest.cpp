@@ -539,8 +539,16 @@ private Q_SLOTS:
         QCOMPARE(separatorCount, 1);
 
         for (int index = 0; index < 1000; ++index) {
-            bar.resize((index % 2 == 0) ? 300 : 40, 40);
+            const bool wide = index % 2 == 0;
+            bar.resize(wide ? 1000 : 40, 40);
             zzFlushEvents();
+            if (wide) {
+                QVERIFY(zzToolBar(&bar)->actions().contains(build));
+                QVERIFY(!more->menu()->actions().contains(build));
+            } else {
+                QVERIFY(!zzToolBar(&bar)->actions().contains(build));
+                QVERIFY(more->menu()->actions().contains(build));
+            }
         }
         build->trigger();
 
