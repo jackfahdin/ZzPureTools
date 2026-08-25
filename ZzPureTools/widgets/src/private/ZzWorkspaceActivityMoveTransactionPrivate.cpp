@@ -258,6 +258,8 @@ void zzInsertActivityRows(
         }
         result.recordRows.insert(id, static_cast<int>(row));
         if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && record.materialization
+                == ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
             && record.content != nullptr
             && record.content.data() == record.contentIdentity) {
             result.idsByWidget.insert(record.contentIdentity, id);
@@ -602,6 +604,40 @@ void zzCaptureSide(
         && expected.widget.data() == expected.rawWidget;
 }
 
+[[nodiscard]] bool zzLogicalIdentitiesMatch(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index)
+{
+    if (index.areas.size() != projection.identities.size()) {
+        return false;
+    }
+    for (const auto &identity : projection.identities) {
+        const auto *const record = zzRecord(shell, index, identity.id);
+        if (record == nullptr
+            || record->kind != ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            || record->registrationGeneration
+                != identity.registrationGeneration) {
+            return false;
+        }
+        if (record->materialization
+            == ZzWorkspaceShellPrivate::ZzMaterializationState::Pending) {
+            if (record->content != nullptr || record->contentIdentity != nullptr
+                || identity.widget != nullptr
+                || identity.rawWidget != nullptr) {
+                return false;
+            }
+            continue;
+        }
+        if (record->materialization
+                != ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+            || !zzSamePanel(shell, index, identity)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 [[nodiscard]] bool zzStableSubsystems(
     const ZzWorkspaceShellPrivate &shell,
     const ZzProjection &projection)
@@ -757,13 +793,103 @@ void zzCaptureSide(
     bool includeSizes)
 {
     return index.valid && zzStableSubsystems(shell, projection)
-        && projection.leftSide.order.size()
-                + projection.rightSide.order.size()
-            == projection.identities.size()
+        && zzLogicalIdentitiesMatch(shell, projection, index)
         && zzSideMatches(
             shell, projection, index, projection.leftSide, includeSizes)
         && zzSideMatches(
             shell, projection, index, projection.rightSide, includeSizes);
+}
+
+/**
+ * @brief 将纯值移动规划中的逻辑 Side 顺序收窄为 Ready 物理投影。
+ *
+ * Activity 四区保留全部 Side ID；PanelStack 的顺序、可见项、尺寸和当前项
+ * 只能引用已经创建的内容。Pending 迁移因此不会触碰 QWidget。
+ */
+void zzKeepReadyPhysicalProjection(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzSnapshot &snapshot,
+    ZzProjection *target)
+{
+    QSet<QString> readyIds;
+    readyIds.reserve(shell.panels.size());
+    for (const auto &record : shell.panels) {
+        if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && record.materialization
+                == ZzWorkspaceShellPrivate::ZzMaterializationState::Ready) {
+            readyIds.insert(record.id.value());
+        }
+    }
+    const auto filterSide = [&readyIds](
+                                ZzSide *side,
+                                const ZzSide &before) {
+        QHash<QString, int> sizesById;
+        sizesById.reserve(side->visible.size());
+        for (qsizetype index = 0; index < side->visible.size(); ++index) {
+            sizesById.insert(
+                side->visible.at(index),
+                index < side->sizes.size() ? side->sizes.at(index) : 1);
+        }
+        QStringList order;
+        for (const QString &id : std::as_const(side->order)) {
+            if (readyIds.contains(id)) {
+                order.append(id);
+            }
+        }
+        QStringList visible;
+        QList<int> sizes;
+        for (const QString &id : std::as_const(side->visible)) {
+            if (readyIds.contains(id)) {
+                visible.append(id);
+                sizes.append(sizesById.value(id, 1));
+            }
+        }
+        side->order = std::move(order);
+        side->visible = std::move(visible);
+        side->sizes = std::move(sizes);
+        if (!readyIds.contains(side->current)) {
+            side->current = side->visible.contains(before.current)
+                ? before.current : QString{};
+        }
+        QList<ZzLayoutState::ZzContentPlacement> contents;
+        contents.reserve(side->contents.size());
+        for (const auto &placement : std::as_const(side->contents)) {
+            if (readyIds.contains(placement.panelId)) {
+                contents.append(placement);
+            }
+        }
+        side->contents = std::move(contents);
+    };
+    filterSide(&target->leftSide, snapshot.leftSide);
+    filterSide(&target->rightSide, snapshot.rightSide);
+    target->activity.leftCurrent = target->leftSide.current;
+    target->activity.rightCurrent = target->rightSide.current;
+    target->activity.leftActive = QSet<QString>(
+        target->leftSide.visible.cbegin(), target->leftSide.visible.cend());
+    target->activity.rightActive = QSet<QString>(
+        target->rightSide.visible.cbegin(), target->rightSide.visible.cend());
+}
+
+[[nodiscard]] bool zzProjectedRecordStateMatches(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &projection,
+    const ZzAuditIndex &index,
+    const QString &id)
+{
+    const auto *const record = zzRecord(shell, index, id);
+    if (record == nullptr) {
+        return false;
+    }
+    if (record->materialization
+        == ZzWorkspaceShellPrivate::ZzMaterializationState::Pending) {
+        return record->content == nullptr
+            && record->contentIdentity == nullptr
+            && index.areas.contains(id)
+            && !index.idsByWidget.values().contains(id);
+    }
+    return record->materialization
+            == ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+        && zzProjectedPanelStateMatches(shell, projection, index, id);
 }
 
 [[nodiscard]] bool zzActivityProjectionMatches(
@@ -938,7 +1064,30 @@ void zzCleanupInterruptedMove(
             != expected.registrationGeneration
         || record->contentIdentity != expected.contentIdentity
         || record->content != expected.content
-        || shell.activityModel == nullptr || expected.content == nullptr) {
+        || shell.activityModel == nullptr) {
+        return false;
+    }
+    if (expected.materialization
+        == ZzWorkspaceShellPrivate::ZzMaterializationState::Pending) {
+        if (record->materialization
+                != ZzWorkspaceShellPrivate::ZzMaterializationState::Pending
+            || record->content != nullptr
+            || record->contentIdentity != nullptr) {
+            return false;
+        }
+        for (const auto &row : shell.activityRows()) {
+            if (row.id == expected.id) {
+                ZzFluentUI::ZzActivityArea expectedArea = row.area;
+                return zzAreaForId(
+                        snapshot.activity, expected.id.value(), &expectedArea)
+                    && row.area == expectedArea;
+            }
+        }
+        return false;
+    }
+    if (expected.materialization
+            != ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+        || expected.content == nullptr) {
         return false;
     }
     const ZzSide &side = snapshot.leftSide.order.contains(expected.id.value())
@@ -1026,7 +1175,8 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
     if (!planned.has_value()) {
         return false;
     }
-    const ZzProjection &target = *planned;
+    ZzProjection target = *planned;
+    zzKeepReadyPhysicalProjection(shell_, snapshot, &target);
     const QStringList snapshotOrder = zzModelOrder(snapshotRows);
     const QStringList targetOrder = zzBuildTargetModelOrder(
         snapshotRows, target, expected.id.value(), targetArea);
@@ -1355,7 +1505,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
     }
     if (strict
         && (!zzStableSubsystems(shell_, projection)
-            || !zzProjectedPanelStateMatches(
+            || !zzProjectedRecordStateMatches(
                 shell_, projection, audit, movedId_))) {
         return false;
     }
@@ -1368,7 +1518,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             && shell_.leftActivityBar == leftBar
             && shell_.rightActivityBar == rightBar
             && zzStableSubsystems(shell_, projection)
-            && zzProjectedPanelStateMatches(
+            && zzProjectedRecordStateMatches(
                 shell_, projection, audit, movedId_));
     };
     if (leftBar == nullptr || rightBar == nullptr
@@ -1418,7 +1568,7 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         }
         if (!mutationObserver.isValid()
             || (strict && (!zzStableSubsystems(shell_, projection)
-                || !zzProjectedPanelStateMatches(
+                || !zzProjectedRecordStateMatches(
                     shell_, projection, audit, movedId_)
                 || stackGuard->panelSizes() != side.sizes))) {
             return false;

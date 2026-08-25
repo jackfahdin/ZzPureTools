@@ -15,6 +15,7 @@
 #include <QtCore/QModelIndex>
 #include <QtCore/QPointer>
 #include <QtCore/QSet>
+#include <QtCore/QThread>
 #include <QtWidgets/QDockWidget>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QStackedWidget>
@@ -495,13 +496,33 @@ void zzWriteSide(
             &result.sideOwners)) {
         return std::nullopt;
     }
-    const qsizetype registeredSideCount = std::count_if(
-        shell.panels.cbegin(), shell.panels.cend(), [](const auto &record) {
-            return record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side;
-        });
+    qsizetype readySideCount = 0;
+    for (const auto &record : shell.panels) {
+        if (record.kind != ZzWorkspaceShellPrivate::ZzPanelKind::Side) {
+            continue;
+        }
+        if (record.materialization
+            == ZzWorkspaceShellPrivate::ZzMaterializationState::Pending) {
+            if (record.content != nullptr || record.contentIdentity != nullptr
+                || !record.factory || result.sideOwners.contains(
+                    record.id.value())) {
+                return std::nullopt;
+            }
+            continue;
+        }
+        if (record.materialization
+                != ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+            || record.content == nullptr
+            || record.content.data() != record.contentIdentity
+            || record.factory
+            || !result.sideOwners.contains(record.id.value())) {
+            return std::nullopt;
+        }
+        ++readySideCount;
+    }
     if (result.projection.leftSide.order.size()
             + result.projection.rightSide.order.size()
-        != registeredSideCount) {
+        != readySideCount) {
         return std::nullopt;
     }
 
@@ -549,12 +570,52 @@ void zzWriteSide(
     const ZzRuntimeSnapshot &runtime)
 {
     const auto &snapshot = runtime.projection;
-    return snapshot.leftSide.order
-            == snapshot.activity.leftPrimary
-                + snapshot.activity.leftSecondary
-        && snapshot.rightSide.order
-            == snapshot.activity.rightPrimary
-                + snapshot.activity.rightSecondary;
+    QSet<QString> readySideIds;
+    QSet<QString> logicalSideIds;
+    readySideIds.reserve(snapshot.identities.size());
+    logicalSideIds.reserve(snapshot.identities.size());
+    for (const auto &identity : snapshot.identities) {
+        if (identity.kind != ZzLayoutState::ZzPanelKind::Side
+            || identity.id.isEmpty() || logicalSideIds.contains(identity.id)) {
+            continue;
+        }
+        logicalSideIds.insert(identity.id);
+        if (identity.widget != nullptr
+            && identity.widget.data() == identity.rawWidget) {
+            readySideIds.insert(identity.id);
+        }
+    }
+    QSet<QString> activitySideIds;
+    for (const QStringList *rows : {
+             &snapshot.activity.leftPrimary,
+             &snapshot.activity.leftSecondary,
+             &snapshot.activity.rightPrimary,
+             &snapshot.activity.rightSecondary}) {
+        for (const QString &id : *rows) {
+            if (id.isEmpty() || activitySideIds.contains(id)) {
+                return false;
+            }
+            activitySideIds.insert(id);
+        }
+    }
+    if (activitySideIds != logicalSideIds) {
+        return false;
+    }
+    const auto readyOrder = [&readySideIds](const QStringList &logicalOrder) {
+        QStringList result;
+        for (const QString &id : logicalOrder) {
+            if (readySideIds.contains(id)) {
+                result.append(id);
+            }
+        }
+        return result;
+    };
+    return snapshot.leftSide.order == readyOrder(
+               snapshot.activity.leftPrimary
+                   + snapshot.activity.leftSecondary)
+        && snapshot.rightSide.order == readyOrder(
+               snapshot.activity.rightPrimary
+                   + snapshot.activity.rightSecondary);
 }
 
 [[nodiscard]] const ZzWorkspaceShellPrivate::ZzPanelRecord *zzRecord(
@@ -609,18 +670,250 @@ void zzWriteSide(
         const auto *const record = zzRecord(shell, runtime, identity.id);
         if (record == nullptr
             || zzPanelKind(record->kind) != identity.kind
-            || record->registrationGeneration != identity.registrationGeneration
-            || record->contentIdentity != identity.rawWidget
-            || record->content == nullptr
-            || record->content.data() != identity.rawWidget
-            || identity.widget == nullptr
-            || identity.widget.data() != identity.rawWidget
+            || record->registrationGeneration
+                != identity.registrationGeneration
             || record->dockIdentity != identity.rawDock
             || record->dock != identity.dock) {
             return false;
         }
+        if (record->kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && record->materialization
+                == ZzWorkspaceShellPrivate::ZzMaterializationState::Pending) {
+            if (record->content != nullptr || record->contentIdentity != nullptr
+                || identity.widget != nullptr || identity.rawWidget != nullptr
+                || !record->factory) {
+                return false;
+            }
+            continue;
+        }
+        if (record->contentIdentity != identity.rawWidget
+            || record->content == nullptr
+            || record->content.data() != identity.rawWidget
+            || identity.widget == nullptr
+            || identity.widget.data() != identity.rawWidget
+            || (record->kind
+                    == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+                && (record->materialization
+                        != ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+                    || record->factory))) {
+            return false;
+        }
     }
     return true;
+}
+
+/**
+ * @brief 从布局 DTO 的逻辑 Side 顺序生成当前 Ready QWidget 的物理投影。
+ *
+ * sideEntries/Activity 保留全部逻辑 ID；SidePane 的顺序、可见项、尺寸和
+ * current 只引用当前已经创建的内容。
+ */
+void zzKeepReadyPhysicalProjection(
+    const ZzWorkspaceShellPrivate &shell,
+    ZzProjection *target)
+{
+    QSet<QString> readyIds;
+    readyIds.reserve(shell.panels.size());
+    for (const auto &record : shell.panels) {
+        if (record.kind == ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            && record.materialization
+                == ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+            && record.content != nullptr
+            && record.content.data() == record.contentIdentity) {
+            readyIds.insert(record.id.value());
+        }
+    }
+    const auto filter = [&readyIds](ZzSide *side) {
+        QStringList order;
+        for (const QString &id : std::as_const(side->order)) {
+            if (readyIds.contains(id)) {
+                order.append(id);
+            }
+        }
+        QStringList visible;
+        QList<int> sizes;
+        for (qsizetype index = 0; index < side->visible.size(); ++index) {
+            const QString &id = side->visible.at(index);
+            if (readyIds.contains(id)) {
+                visible.append(id);
+                sizes.append(index < side->sizes.size()
+                        ? side->sizes.at(index) : 1);
+            }
+        }
+        side->order = std::move(order);
+        side->visible = std::move(visible);
+        side->sizes = std::move(sizes);
+        if (!side->visible.contains(side->current)) {
+            side->current.clear();
+        }
+        side->contents.clear();
+        side->contents.reserve(side->order.size());
+        for (const QString &id : std::as_const(side->order)) {
+            side->contents.append({id, side->stackIdentity,
+                {side->paneIdentity, side->stackIdentity}});
+        }
+    };
+    filter(&target->leftSide);
+    filter(&target->rightSide);
+    target->activity.leftCurrent = target->leftSide.current;
+    target->activity.rightCurrent = target->rightSide.current;
+    target->activity.leftActive = QSet<QString>(
+        target->leftSide.visible.cbegin(), target->leftSide.visible.cend());
+    target->activity.rightActive = QSet<QString>(
+        target->rightSide.visible.cbegin(), target->rightSide.visible.cend());
+}
+
+/** @brief 为纯值恢复规划补回 Activity 中的完整逻辑 Side 顺序。 */
+[[nodiscard]] ZzSnapshot zzLogicalPlanningSnapshot(
+    const ZzRuntimeSnapshot &runtime)
+{
+    ZzSnapshot result = runtime.projection;
+    result.leftSide.order = result.activity.leftPrimary
+        + result.activity.leftSecondary;
+    result.rightSide.order = result.activity.rightPrimary
+        + result.activity.rightSecondary;
+    return result;
+}
+
+[[nodiscard]] ZzFluentUI::ZzSidePane *zzOwningSide(
+    ZzWorkspaceShellPrivate &shell,
+    QWidget *content);
+
+/** @brief 记录布局恢复本轮新建内容及已推进内部状态的原 factory。 */
+struct ZzRestoreMaterialization final
+{
+    ZzWorkspacePanelId id;
+    std::uint64_t generation = 0;
+    ZzWorkspacePanelFactory factory;
+    QPointer<QWidget> content;
+    QWidget *contentIdentity = nullptr;
+};
+
+/**
+ * @brief 创建一个目标可见的 Pending Side 内容，但保持其物理状态 hidden。
+ *
+ * factory 在调用后从记录移动到日志；这样成功提交会自然释放 factory，失败
+ * 回滚则能恢复同一个 mutable 实例，而不是从副本重置内部状态。
+ */
+[[nodiscard]] ZzCore::ZzResult<void> zzMaterializeForRestore(
+    ZzWorkspaceShellPrivate &shell,
+    const ZzWorkspacePanelId &id,
+    QVector<ZzRestoreMaterialization> *log)
+{
+    auto createdResult = shell.createPendingSidePanelContent(id);
+    if (!createdResult) {
+        return ZzCore::ZzResult<void>::failure(createdResult.error());
+    }
+    std::unique_ptr<QWidget> content = std::move(createdResult).value();
+    int panelIndex = shell.indexOf(id);
+    if (panelIndex < 0 || content == nullptr
+        || shell.panels.at(panelIndex).materialization
+            != ZzWorkspaceShellPrivate::ZzMaterializationState::Materializing
+        || !shell.panels.at(panelIndex).factory) {
+        return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Side panel registration changed during creation"));
+    }
+    const std::uint64_t generation =
+        shell.panels.at(panelIndex).registrationGeneration;
+    ZzWorkspacePanelFactory factory =
+        std::move(shell.panels[panelIndex].factory);
+    const QPointer<QWidget> contentGuard(content.get());
+    auto adopted = shell.adoptSidePanelContent(
+        id, generation, content.get(), false);
+    if (!adopted) {
+        panelIndex = shell.indexOf(id);
+        if (panelIndex >= 0
+            && shell.panels.at(panelIndex).registrationGeneration
+                == generation) {
+            shell.panels[panelIndex].factory = std::move(factory);
+            shell.panels[panelIndex].materialization =
+                ZzWorkspaceShellPrivate::ZzMaterializationState::Pending;
+            shell.panels[panelIndex].registrationInProgress = false;
+        }
+        if (contentGuard == nullptr) {
+            static_cast<void>(content.release());
+        }
+        return adopted;
+    }
+    static_cast<void>(content.release());
+    log->append({id, generation, std::move(factory),
+        contentGuard, contentGuard.data()});
+    panelIndex = shell.indexOf(id);
+    if (panelIndex < 0 || contentGuard == nullptr
+        || shell.panels.at(panelIndex).registrationGeneration != generation
+        || shell.panels.at(panelIndex).materialization
+            != ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+        || shell.panels.at(panelIndex).content != contentGuard
+        || shell.panels.at(panelIndex).contentIdentity != contentGuard.data()) {
+        return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Side panel materialization commit was interrupted"));
+    }
+    return ZzCore::ZzResult<void>::success();
+}
+
+/**
+ * @brief 逆序撤销本轮新建内容，恢复 Pending 记录与原 mutable factory。
+ *
+ * 只销毁仍由对应 SidePane 托管且处于 Shell GUI 线程的内容；所有权已被
+ * 外部污染时失败闭合，不跨线程 direct delete。
+ */
+[[nodiscard]] bool zzRollbackMaterializations(
+    ZzWorkspaceShellPrivate &shell,
+    QVector<ZzRestoreMaterialization> *log)
+{
+    bool complete = true;
+    for (qsizetype position = log->size(); position > 0; --position) {
+        ZzRestoreMaterialization &created = (*log)[position - 1];
+        int panelIndex = shell.indexOf(created.id);
+        if (panelIndex < 0 || created.content == nullptr
+            || created.content.data() != created.contentIdentity
+            || created.content->thread() != QThread::currentThread()
+            || shell.panels.at(panelIndex).registrationGeneration
+                != created.generation
+            || shell.panels.at(panelIndex).materialization
+                != ZzWorkspaceShellPrivate::ZzMaterializationState::Ready
+            || shell.panels.at(panelIndex).content != created.content
+            || shell.panels.at(panelIndex).contentIdentity
+                != created.contentIdentity) {
+            complete = false;
+            continue;
+        }
+        QObject::disconnect(
+            shell.panels[panelIndex].contentDestroyedConnection);
+        shell.panels[panelIndex].removalInProgress = true;
+        ZzFluentUI::ZzSidePane *const pane =
+            zzOwningSide(shell, created.contentIdentity);
+        QWidget *const taken = pane != nullptr
+            ? pane->takeWidget(created.contentIdentity) : nullptr;
+        panelIndex = shell.indexOf(created.id);
+        if (taken != created.contentIdentity || created.content == nullptr
+            || taken == nullptr || taken->parent() != nullptr
+            || panelIndex < 0
+            || shell.panels.at(panelIndex).registrationGeneration
+                != created.generation) {
+            if (panelIndex >= 0 && created.content != nullptr) {
+                shell.panels[panelIndex].removalInProgress = false;
+                shell.connectPanelContentDestroyed(
+                    created.id, created.content.data());
+            }
+            complete = false;
+            continue;
+        }
+        auto &record = shell.panels[panelIndex];
+        record.content = nullptr;
+        record.contentIdentity = nullptr;
+        record.contentOwner = nullptr;
+        record.contentOwnerIdentity = nullptr;
+        record.contentDestroyedConnection = {};
+        record.factory = std::move(created.factory);
+        record.materialization =
+            ZzWorkspaceShellPrivate::ZzMaterializationState::Pending;
+        record.registrationInProgress = false;
+        record.removalInProgress = false;
+        std::unique_ptr<QWidget> owned(taken);
+    }
+    shell.syncSideEdgeVisibility();
+    return complete;
 }
 
 [[nodiscard]] QStringList zzIds(
@@ -2153,6 +2446,13 @@ ZzWorkspaceLayoutTransactionPrivate::save() const
     ZzLayoutState::ZzLayoutRequest request;
     request.projection = static_cast<const ZzProjection &>(
         captured->projection);
+    // codec 的 side.order 仅是 sideEntries 的派生 DTO，不会写入新字段。
+    request.projection->leftSide.order =
+        request.projection->activity.leftPrimary
+        + request.projection->activity.leftSecondary;
+    request.projection->rightSide.order =
+        request.projection->activity.rightPrimary
+        + request.projection->activity.rightSecondary;
     request.leftCurrent = captured->projection.leftSide.current;
     request.rightCurrent = captured->projection.rightSide.current;
     request.sourceSchema =
@@ -2179,7 +2479,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace host has been destroyed"));
     }
-    const ZzRuntimeSnapshot &snapshot = *captured;
+    const ZzRuntimeSnapshot &initialSnapshot = *captured;
     ZzLayoutState::ZzLayoutRequest request = std::move(decoded).value();
     if (!request.projection.has_value()) {
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
@@ -2191,13 +2491,13 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     if (versionOne) {
         const ZzLayoutState::ZzTitleProjection requestedTitle =
             requestProjection.title;
-        requestProjection.title = snapshot.projection.title;
+        requestProjection.title = initialSnapshot.projection.title;
         requestProjection.title.mode = requestedTitle.mode;
     }
     const int migrationCurrent = versionOne
         ? requestProjection.split.root.currentIndex : -1;
     const QString migrationGroup = versionOne
-        ? snapshot.projection.split.groupOrder.value(0) : QString{};
+        ? initialSnapshot.projection.split.groupOrder.value(0) : QString{};
     auto *const snapshotMigrationTabs = !migrationGroup.isEmpty()
         ? shell_.splitWorkspace->tabWidget(
             ZzFluentUI::ZzTabGroupId(migrationGroup))
@@ -2209,19 +2509,97 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Workspace split projection is invalid"));
         }
-        requestProjection.split = snapshot.projection.split;
+        requestProjection.split = initialSnapshot.projection.split;
     }
-    requestProjection.bottom.order = snapshot.projection.bottom.order;
+    requestProjection.bottom.order = initialSnapshot.projection.bottom.order;
     const bool dockTargetReady = zzBuildDockTarget(
-        snapshot, &requestProjection.dock);
+        initialSnapshot, &requestProjection.dock);
     const bool splitTargetReady = dockTargetReady
         && zzCanonicalizeSplitTarget(
             shell_.splitWorkspace, &requestProjection.split,
             migrationGroup, migrationCurrent);
-    const auto planned = splitTargetReady
-        ? ZzLayoutState::buildRestoreTarget(snapshot.projection, request)
+    const ZzSnapshot initialPlanningSnapshot =
+        zzLogicalPlanningSnapshot(initialSnapshot);
+    const auto validatedTarget = splitTargetReady
+        ? ZzLayoutState::buildRestoreTarget(
+            initialPlanningSnapshot, request)
         : std::optional<ZzProjection>{};
+    if (!validatedTarget.has_value()) {
+        const ZzLayoutTransactionScope transaction(shell_);
+        const bool rolledBack = zzRollback(
+            shell_, initialSnapshot, migrationGroup,
+            snapshotMigrationCurrent, requestProjection.split.canonicalState);
+        return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            rolledBack
+                ? QStringLiteral(
+                    "Workspace layout restore failed and was rolled back")
+                : QStringLiteral(
+                    "Workspace layout restore failed and rollback failed"));
+    }
+
+    QStringList materializationIds = validatedTarget->leftSide.visible
+        + validatedTarget->rightSide.visible;
+    materializationIds.append(validatedTarget->leftSide.current);
+    materializationIds.append(validatedTarget->rightSide.current);
+    materializationIds.removeAll(QString{});
+    QSet<QString> seenMaterializationIds;
+    QVector<ZzRestoreMaterialization> materializations;
     const ZzLayoutTransactionScope transaction(shell_);
+    const auto rollbackInitial = [&] {
+        if (materializations.isEmpty()) {
+            return true;
+        }
+        const bool materializationsRolledBack =
+            zzRollbackMaterializations(shell_, &materializations);
+        return materializationsRolledBack
+            && zzRollback(
+                shell_, initialSnapshot, migrationGroup,
+                snapshotMigrationCurrent,
+                requestProjection.split.canonicalState);
+    };
+    for (const QString &id : std::as_const(materializationIds)) {
+        if (seenMaterializationIds.contains(id)) {
+            continue;
+        }
+        seenMaterializationIds.insert(id);
+        const int panelIndex = shell_.indexOf(ZzWorkspacePanelId(id));
+        if (panelIndex < 0
+            || shell_.panels.at(panelIndex).kind
+                != ZzWorkspaceShellPrivate::ZzPanelKind::Side
+            || shell_.panels.at(panelIndex).materialization
+                != ZzWorkspaceShellPrivate::ZzMaterializationState::Pending) {
+            continue;
+        }
+        auto materialized = zzMaterializeForRestore(
+            shell_, ZzWorkspacePanelId(id), &materializations);
+        if (!materialized) {
+            const ZzCore::ZzError error = materialized.error();
+            if (rollbackInitial()) {
+                return ZzCore::ZzResult<void>::failure(error);
+            }
+            return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral(
+                    "Workspace layout restore failed and rollback failed"));
+        }
+    }
+
+    const auto preparedCaptured = zzCaptureSnapshot(shell_);
+    if (!preparedCaptured.has_value()) {
+        const bool rolledBack = rollbackInitial();
+        return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            rolledBack
+                ? QStringLiteral(
+                    "Workspace layout restore failed and was rolled back")
+                : QStringLiteral(
+                    "Workspace layout restore failed and rollback failed"));
+    }
+    const ZzRuntimeSnapshot &snapshot = *preparedCaptured;
+    const ZzSnapshot planningSnapshot = zzLogicalPlanningSnapshot(snapshot);
+    auto planned = ZzLayoutState::buildRestoreTarget(
+        planningSnapshot, request);
+    if (planned.has_value()) {
+        zzKeepReadyPhysicalProjection(shell_, &*planned);
+    }
     bool committed = planned.has_value();
     if (committed) {
         const ZzProjection &target = *planned;
@@ -2257,9 +2635,11 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     }
     const QByteArray alternateSplitCanonical = planned.has_value()
         ? planned->split.canonicalState : QByteArray{};
-    const bool rolledBack = zzRollback(
+    const bool preparedRolledBack = zzRollback(
         shell_, snapshot, migrationGroup, snapshotMigrationCurrent,
         alternateSplitCanonical);
+    const bool initialRolledBack = rollbackInitial();
+    const bool rolledBack = preparedRolledBack && initialRolledBack;
     return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
         rolledBack
             ? QStringLiteral(

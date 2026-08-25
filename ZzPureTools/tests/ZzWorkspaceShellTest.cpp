@@ -983,8 +983,7 @@ private Q_SLOTS:
         auto *const rightBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
         const auto saveBefore = fixture.shell->saveLayout();
-        QVERIFY(!saveBefore);
-        const ZzCore::ZzErrorCode saveCodeBefore = saveBefore.error().code();
+        QVERIFY(saveBefore);
         const QModelIndex leftCurrentBefore = leftBar->currentSourceIndex();
         const QModelIndex rightCurrentBefore = rightBar->currentSourceIndex();
         const QList<QModelIndex> leftActiveBefore =
@@ -1015,8 +1014,8 @@ private Q_SLOTS:
                 : ZzCore::ZzErrorCode::InvalidState);
         QCOMPARE(calls, 1);
         const auto saveAfter = fixture.shell->saveLayout();
-        QVERIFY(!saveAfter);
-        QCOMPARE(saveAfter.error().code(), saveCodeBefore);
+        QVERIFY(saveAfter);
+        QCOMPARE(saveAfter.value(), saveBefore.value());
         QCOMPARE(leftBar->currentSourceIndex(), leftCurrentBefore);
         QCOMPARE(rightBar->currentSourceIndex(), rightCurrentBefore);
         QCOMPARE(leftBar->activeSourceIndexes(), leftActiveBefore);
@@ -1258,6 +1257,745 @@ private Q_SLOTS:
             ZzFluentUI::ZzSidePaneEdge::Left)->panelStack()->panels(),
             QList<QWidget *>({pendingPrimary, eagerPrimaryRaw,
                 pendingSecondary, eagerSecondaryRaw}));
+    }
+
+    void movesPendingPanelWithoutMaterializingIt()
+    {
+        ZzShellFixture fixture;
+        auto leftReady = std::make_unique<QWidget>();
+        QWidget *const leftReadyRaw = leftReady.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-ready"), QStringLiteral("Left ready"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftReady.get()));
+        zzReleaseAfterAdoption(leftReady);
+
+        int calls = 0;
+        QWidget *pendingContent = nullptr;
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("pending"), QStringLiteral("Pending"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [&calls, &pendingContent] {
+                ++calls;
+                auto content = std::make_unique<QWidget>();
+                pendingContent = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        auto rightReady = std::make_unique<QWidget>();
+        QWidget *const rightReadyRaw = rightReady.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right-ready"), QStringLiteral("Right ready"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary, rightReady.get()));
+        zzReleaseAfterAdoption(rightReady);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = leftBar->model();
+        QCOMPARE(model->rowCount(), 3);
+
+        Q_EMIT leftBar->moveRequested(
+            model->index(1, 0),
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            0);
+
+        QCOMPARE(calls, 0);
+        QCOMPARE(model->index(1, 0).data().toString(),
+            QStringLiteral("Pending"));
+        QCOMPARE(model->index(1, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area))
+            .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightSecondary);
+        QCOMPARE(leftPane->panelStack()->panels(),
+            QList<QWidget *>({leftReadyRaw}));
+        QCOMPARE(rightPane->panelStack()->panels(),
+            QList<QWidget *>({rightReadyRaw}));
+
+        QVERIFY(fixture.shell->showPanel(zzPanelId("pending"), true));
+        QCOMPARE(calls, 1);
+        QVERIFY(pendingContent != nullptr);
+        QCOMPARE(rightPane->panelStack()->panels(),
+            QList<QWidget *>({rightReadyRaw, pendingContent}));
+        QCOMPARE(leftPane->panelStack()->panels(),
+            QList<QWidget *>({leftReadyRaw}));
+    }
+
+    void movesMixedPendingAndReadyPanelsConsistently()
+    {
+        ZzShellFixture fixture;
+        auto leftReady = std::make_unique<QWidget>();
+        leftReady->setObjectName(QStringLiteral("left-ready"));
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-ready"), QStringLiteral("left-ready"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftReady.get()));
+        zzReleaseAfterAdoption(leftReady);
+
+        int leftPendingCalls = 0;
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("left-pending"), QStringLiteral("left-pending"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [&leftPendingCalls] {
+                ++leftPendingCalls;
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(QStringLiteral("left-pending"));
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        auto rightReady = std::make_unique<QWidget>();
+        rightReady->setObjectName(QStringLiteral("right-ready"));
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right-ready"), QStringLiteral("right-ready"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary, rightReady.get()));
+        zzReleaseAfterAdoption(rightReady);
+
+        int rightPendingCalls = 0;
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("right-pending"), QStringLiteral("right-pending"), {},
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            [&rightPendingCalls] {
+                ++rightPendingCalls;
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(QStringLiteral("right-pending"));
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = leftBar->model();
+        const auto rowFor = [model](const QString &title) {
+            for (int row = 0; row < model->rowCount(); ++row) {
+                if (model->index(row, 0).data().toString() == title) {
+                    return row;
+                }
+            }
+            return -1;
+        };
+        const auto logicalIds = [model](bool left) {
+            QStringList ids;
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                const auto area = index.data(static_cast<int>(
+                    ZzFluentUI::ZzActivityItemRole::Area))
+                    .value<ZzFluentUI::ZzActivityArea>();
+                const bool isLeft = area
+                        == ZzFluentUI::ZzActivityArea::LeftPrimary
+                    || area == ZzFluentUI::ZzActivityArea::LeftSecondary;
+                if (isLeft == left) {
+                    ids.append(index.data().toString());
+                }
+            }
+            return ids;
+        };
+        const auto physicalIds = [](ZzFluentUI::ZzSidePane *pane) {
+            QStringList ids;
+            for (QWidget *const content : pane->panelStack()->panels()) {
+                ids.append(content->objectName());
+            }
+            return ids;
+        };
+
+        Q_EMIT leftBar->moveRequested(
+            model->index(rowFor(QStringLiteral("right-pending")), 0),
+            ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+        QCOMPARE(rightPendingCalls, 0);
+        QCOMPARE(logicalIds(false), QStringList({QStringLiteral("right-pending"),
+            QStringLiteral("right-ready")}));
+        QCOMPARE(physicalIds(fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right)),
+            QStringList({QStringLiteral("right-ready")}));
+
+        Q_EMIT leftBar->moveRequested(
+            model->index(rowFor(QStringLiteral("right-ready")), 0),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
+        QCOMPARE(logicalIds(true), QStringList({QStringLiteral("left-ready"),
+            QStringLiteral("right-ready"), QStringLiteral("left-pending")}));
+        QCOMPARE(logicalIds(false),
+            QStringList({QStringLiteral("right-pending")}));
+        QCOMPARE(physicalIds(fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)),
+            QStringList({QStringLiteral("left-ready"),
+                QStringLiteral("right-ready")}));
+        QVERIFY(fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right)->panelStack()->panels().isEmpty());
+
+        QVERIFY(fixture.shell->showPanel(zzPanelId("left-pending"), true));
+        QCOMPARE(leftPendingCalls, 1);
+        QCOMPARE(physicalIds(fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)),
+            QStringList({QStringLiteral("left-ready"),
+                QStringLiteral("right-ready"),
+                QStringLiteral("left-pending")}));
+
+        auto taken = fixture.shell->takePanel(zzPanelId("right-pending"));
+        QVERIFY(taken);
+        std::unique_ptr<QWidget> returned(taken.value());
+        QCOMPARE(rightPendingCalls, 1);
+        QCOMPARE(returned->objectName(), QStringLiteral("right-pending"));
+        QCOMPARE(model->rowCount(), 3);
+        QCOMPARE(logicalIds(true), QStringList({QStringLiteral("left-ready"),
+            QStringLiteral("right-ready"), QStringLiteral("left-pending")}));
+        QCOMPARE(physicalIds(fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)), logicalIds(true));
+    }
+
+    void savesPendingPanelsWithoutMaterializingThem()
+    {
+        ZzShellFixture source;
+        int sourcePendingCalls = 0;
+        auto sourceLeft = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("left-ready"), QStringLiteral("left-ready"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceLeft.get()));
+        zzReleaseAfterAdoption(sourceLeft);
+        QVERIFY(source.shell->registerSidePanelFactory(
+            zzPanelId("pending-one"), QStringLiteral("pending-one"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [&sourcePendingCalls] {
+                ++sourcePendingCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            }));
+        auto sourceRight = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("right-ready"), QStringLiteral("right-ready"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceRight.get()));
+        zzReleaseAfterAdoption(sourceRight);
+        QVERIFY(source.shell->registerSidePanelFactory(
+            zzPanelId("pending-two"), QStringLiteral("pending-two"), {},
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            [&sourcePendingCalls] {
+                ++sourcePendingCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            }));
+
+        auto *const sourceBar = source.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const sourceModel = sourceBar->model();
+        const auto sourceRowFor = [sourceModel](const QString &title) {
+            for (int row = 0; row < sourceModel->rowCount(); ++row) {
+                if (sourceModel->index(row, 0).data().toString() == title) {
+                    return row;
+                }
+            }
+            return -1;
+        };
+        Q_EMIT sourceBar->moveRequested(
+            sourceModel->index(sourceRowFor(QStringLiteral("pending-one")), 0),
+            ZzFluentUI::ZzActivityArea::RightSecondary, 0);
+        Q_EMIT sourceBar->moveRequested(
+            sourceModel->index(sourceRowFor(QStringLiteral("pending-two")), 0),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
+        QCOMPARE(sourcePendingCalls, 0);
+
+        const auto saved = source.shell->saveLayout();
+        QVERIFY(saved);
+        QCOMPARE(sourcePendingCalls, 0);
+
+        ZzShellFixture target;
+        int targetPendingCalls = 0;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("pending-two"), QStringLiteral("pending-two"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            [&targetPendingCalls] {
+                ++targetPendingCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            }));
+        auto targetRight = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("right-ready"), QStringLiteral("right-ready"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary, targetRight.get()));
+        zzReleaseAfterAdoption(targetRight);
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("pending-one"), QStringLiteral("pending-one"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [&targetPendingCalls] {
+                ++targetPendingCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            }));
+        auto targetLeft = std::make_unique<QWidget>();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("left-ready"), QStringLiteral("left-ready"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetLeft.get()));
+        zzReleaseAfterAdoption(targetLeft);
+
+        const auto restored = target.shell->restoreLayout(saved.value());
+        const QString restoreError = restored
+            ? QString{} : restored.error().technicalMessage();
+        QVERIFY2(restored, qPrintable(restoreError));
+        QCOMPARE(targetPendingCalls, 0);
+        QAbstractItemModel *const targetModel = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QCOMPARE(targetModel->rowCount(), sourceModel->rowCount());
+        const auto idsForArea = [](QAbstractItemModel *model,
+                                   ZzFluentUI::ZzActivityArea area) {
+            QStringList ids;
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                if (index.data(static_cast<int>(
+                        ZzFluentUI::ZzActivityItemRole::Area))
+                        .value<ZzFluentUI::ZzActivityArea>() == area) {
+                    ids.append(index.data().toString());
+                }
+            }
+            return ids;
+        };
+        for (const auto area : {
+                 ZzFluentUI::ZzActivityArea::LeftPrimary,
+                 ZzFluentUI::ZzActivityArea::LeftSecondary,
+                 ZzFluentUI::ZzActivityArea::RightPrimary,
+                 ZzFluentUI::ZzActivityArea::RightSecondary}) {
+            QCOMPARE(idsForArea(targetModel, area),
+                idsForArea(sourceModel, area));
+        }
+        const auto resaved = target.shell->saveLayout();
+        QVERIFY(resaved);
+        QCOMPARE(targetPendingCalls, 0);
+        QCOMPARE(resaved.value(), saved.value());
+    }
+
+    void preservesAdditionalPendingPanelWhenRestoringOlderLayout()
+    {
+        ZzShellFixture source;
+        auto sourceKnown = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("known"), QStringLiteral("known"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceKnown.get()));
+        zzReleaseAfterAdoption(sourceKnown);
+        const auto saved = source.shell->saveLayout();
+        QVERIFY(saved);
+
+        ZzShellFixture target;
+        auto targetKnown = std::make_unique<QWidget>();
+        QWidget *const targetKnownRaw = targetKnown.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("known"), QStringLiteral("known"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary, targetKnown.get()));
+        zzReleaseAfterAdoption(targetKnown);
+        int additionalCalls = 0;
+        QWidget *additionalContent = nullptr;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("additional"), QStringLiteral("additional"), {},
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            [&additionalCalls, &additionalContent] {
+                ++additionalCalls;
+                auto content = std::make_unique<QWidget>();
+                additionalContent = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        const auto restored = target.shell->restoreLayout(saved.value());
+        const QString restoreError = restored
+            ? QString{} : restored.error().technicalMessage();
+        QVERIFY2(restored, qPrintable(restoreError));
+        QCOMPARE(additionalCalls, 0);
+        auto *const bar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        QCOMPARE(model->rowCount(), 2);
+        QCOMPARE(model->index(0, 0).data().toString(),
+            QStringLiteral("known"));
+        QCOMPARE(model->index(0, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area))
+            .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary);
+        QCOMPARE(model->index(1, 0).data().toString(),
+            QStringLiteral("additional"));
+        QCOMPARE(model->index(1, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area))
+            .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightSecondary);
+        QCOMPARE(target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->panelStack()->panels(),
+            QList<QWidget *>({targetKnownRaw}));
+        QVERIFY(target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right)
+                    ->panelStack()->panels().isEmpty());
+        QVERIFY(target.shell->saveLayout());
+
+        QVERIFY(target.shell->showPanel(zzPanelId("additional"), true));
+        QCOMPARE(additionalCalls, 1);
+        QVERIFY(additionalContent != nullptr);
+        QCOMPARE(target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right)->panelStack()->panels(),
+            QList<QWidget *>({additionalContent}));
+    }
+
+    void restoresOnlyDeferredPanelsRequestedVisible()
+    {
+        ZzShellFixture source;
+        for (const auto &registration : {
+                 std::pair{"files", ZzFluentUI::ZzActivityArea::LeftPrimary},
+                 std::pair{"outline", ZzFluentUI::ZzActivityArea::LeftSecondary},
+                 std::pair{"tasks", ZzFluentUI::ZzActivityArea::RightPrimary},
+                 std::pair{"search", ZzFluentUI::ZzActivityArea::RightSecondary}}) {
+            auto content = std::make_unique<QWidget>();
+            QVERIFY(source.shell->registerSidePanel(
+                zzPanelId(registration.first),
+                QString::fromLatin1(registration.first), {},
+                registration.second, content.get()));
+            zzReleaseAfterAdoption(content);
+        }
+        QVERIFY(source.shell->showPanel(zzPanelId("outline"), false));
+        QVERIFY(source.shell->showPanel(zzPanelId("search"), false));
+        auto *const sourceLeft = source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const sourceRight = source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QVERIFY(sourceLeft->panelStack()->setPanelSizes({333}));
+        QVERIFY(sourceRight->panelStack()->setPanelSizes({444}));
+        const auto saved = source.shell->saveLayout();
+        QVERIFY(saved);
+
+        ZzShellFixture target;
+        std::array<int, 4> calls{};
+        std::array<QWidget *, 4> created{};
+        const std::array<const char *, 4> ids = {
+            "files", "outline", "tasks", "search"};
+        const std::array<ZzFluentUI::ZzActivityArea, 4> areas = {
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            ZzFluentUI::ZzActivityArea::RightSecondary};
+        for (std::size_t index = 0; index < ids.size(); ++index) {
+            QVERIFY(target.shell->registerSidePanelFactory(
+                zzPanelId(ids.at(index)), QString::fromLatin1(ids.at(index)),
+                {}, areas.at(index),
+                [&, index] {
+                    ++calls.at(index);
+                    auto content = std::make_unique<QWidget>();
+                    content->setObjectName(
+                        QString::fromLatin1(ids.at(index)));
+                    created.at(index) = content.get();
+                    return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                        std::move(content));
+                }));
+        }
+
+        const auto restored = target.shell->restoreLayout(saved.value());
+        const QString restoreError = restored
+            ? QString{} : restored.error().technicalMessage();
+        QVERIFY2(restored, qPrintable(restoreError));
+        const std::array<int, 4> expectedCalls = {1, 0, 1, 0};
+        QCOMPARE(calls, expectedCalls);
+        auto *const targetLeft = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const targetRight = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QCOMPARE(targetLeft->panelStack()->panels(),
+            QList<QWidget *>({created.at(0)}));
+        QCOMPARE(targetRight->panelStack()->panels(),
+            QList<QWidget *>({created.at(2)}));
+        QCOMPARE(targetLeft->visibleWidgets(),
+            QList<QWidget *>({created.at(0)}));
+        QCOMPARE(targetRight->visibleWidgets(),
+            QList<QWidget *>({created.at(2)}));
+        QCOMPARE(targetLeft->currentWidget(), created.at(0));
+        QCOMPARE(targetRight->currentWidget(), created.at(2));
+        QCOMPARE(targetLeft->panelStack()->panelSizes(),
+            sourceLeft->panelStack()->panelSizes());
+        QCOMPARE(targetRight->panelStack()->panelSizes(),
+            sourceRight->panelStack()->panelSizes());
+        QCOMPARE(targetLeft->isCollapsed(), sourceLeft->isCollapsed());
+        QCOMPARE(targetRight->isCollapsed(), sourceRight->isCollapsed());
+    }
+
+    void rollsBackNewlyMaterializedPanelsWhenRestoreFails()
+    {
+        ZzShellFixture source;
+        auto sourceFirst = std::make_unique<QWidget>();
+        auto sourceSecond = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("first"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceFirst.get()));
+        zzReleaseAfterAdoption(sourceFirst);
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("second"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary, sourceSecond.get()));
+        zzReleaseAfterAdoption(sourceSecond);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        int firstCalls = 0;
+        int secondCalls = 0;
+        QPointer<QWidget> firstCreated;
+        QPointer<QWidget> secondCreated;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("first"), QStringLiteral("first"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [attempt = 0, &firstCalls, &firstCreated]() mutable {
+                ++attempt;
+                ++firstCalls;
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(
+                    QStringLiteral("first-%1").arg(attempt));
+                firstCreated = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("second"), QStringLiteral("second"), {},
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            [attempt = 0, &secondCalls, &secondCreated]() mutable
+                -> ZzCore::ZzResult<std::unique_ptr<QWidget>> {
+                ++attempt;
+                ++secondCalls;
+                if (attempt == 1) {
+                    return ZzCore::ZzResult<std::unique_ptr<QWidget>>::failure(
+                        ZzCore::ZzError(
+                            ZzCore::ZzErrorCode::Backend,
+                            QStringLiteral("second factory failed")));
+                }
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(
+                    QStringLiteral("second-%1").arg(attempt));
+                secondCreated = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        QVERIFY(target.shell->setPanelBadge(zzPanelId("first"), 7));
+
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const bar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        const QList<QWidget *> leftPanelsBefore =
+            leftPane->panelStack()->panels();
+        const QList<QWidget *> rightPanelsBefore =
+            rightPane->panelStack()->panels();
+        const QList<QWidget *> leftVisibleBefore = leftPane->visibleWidgets();
+        const QList<QWidget *> rightVisibleBefore = rightPane->visibleWidgets();
+        const QList<int> leftSizesBefore = leftPane->panelStack()->panelSizes();
+        const QList<int> rightSizesBefore = rightPane->panelStack()->panelSizes();
+        QWidget *const leftCurrentBefore = leftPane->currentWidget();
+        QWidget *const rightCurrentBefore = rightPane->currentWidget();
+        const bool leftCollapsedBefore = leftPane->isCollapsed();
+        const bool rightCollapsedBefore = rightPane->isCollapsed();
+        const auto originalLayout = target.shell->saveLayout();
+        QVERIFY(originalLayout);
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(!restored);
+        QCOMPARE(firstCalls, 1);
+        QCOMPARE(secondCalls, 1);
+        QVERIFY(firstCreated == nullptr);
+        QVERIFY(secondCreated == nullptr);
+        QCOMPARE(model->rowCount(), 2);
+        QCOMPARE(model->index(0, 0).data().toString(),
+            QStringLiteral("first"));
+        QCOMPARE(model->index(0, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area))
+            .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftSecondary);
+        QCOMPARE(model->index(0, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Badge)).toInt(), 7);
+        QCOMPARE(model->index(1, 0).data().toString(),
+            QStringLiteral("second"));
+        QCOMPARE(model->index(1, 0).data(static_cast<int>(
+            ZzFluentUI::ZzActivityItemRole::Area))
+            .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::RightSecondary);
+        QCOMPARE(leftPane->panelStack()->panels(), leftPanelsBefore);
+        QCOMPARE(rightPane->panelStack()->panels(), rightPanelsBefore);
+        QCOMPARE(leftPane->visibleWidgets(), leftVisibleBefore);
+        QCOMPARE(rightPane->visibleWidgets(), rightVisibleBefore);
+        QCOMPARE(leftPane->panelStack()->panelSizes(), leftSizesBefore);
+        QCOMPARE(rightPane->panelStack()->panelSizes(), rightSizesBefore);
+        QCOMPARE(leftPane->currentWidget(), leftCurrentBefore);
+        QCOMPARE(rightPane->currentWidget(), rightCurrentBefore);
+        QCOMPARE(leftPane->isCollapsed(), leftCollapsedBefore);
+        QCOMPARE(rightPane->isCollapsed(), rightCollapsedBefore);
+        const auto layoutAfter = target.shell->saveLayout();
+        QVERIFY(layoutAfter);
+        QCOMPARE(layoutAfter.value(), originalLayout.value());
+
+        QVERIFY(target.shell->showPanel(zzPanelId("first"), true));
+        QCOMPARE(firstCalls, 2);
+        QVERIFY(firstCreated != nullptr);
+        QCOMPARE(firstCreated->objectName(), QStringLiteral("first-2"));
+        QVERIFY(target.shell->showPanel(zzPanelId("second"), true));
+        QCOMPARE(secondCalls, 2);
+        QVERIFY(secondCreated != nullptr);
+        QCOMPARE(secondCreated->objectName(), QStringLiteral("second-2"));
+    }
+
+    void rollsBackNewlyMaterializedPanelsWhenCommitFails()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        source.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->setPaneWidth(420);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        int calls = 0;
+        QPointer<QWidget> created;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [attempt = 0, &calls, &created]() mutable {
+                ++attempt;
+                ++calls;
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(
+                    QStringLiteral("deferred-%1").arg(attempt));
+                created = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        const auto originalLayout = target.shell->saveLayout();
+        QVERIFY(originalLayout);
+        auto *const pane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        bool polluted = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzSidePane::paneWidthChanged,
+            target.shell.get(), [pane, &polluted](int width) {
+                if (!polluted && width == 420) {
+                    polluted = true;
+                    pane->setPaneWidth(222);
+                }
+            });
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(!restored);
+        QVERIFY(polluted);
+        QCOMPARE(calls, 1);
+        QVERIFY(created == nullptr);
+        QVERIFY(pane->panelStack()->panels().isEmpty());
+        QVERIFY(pane->isCollapsed());
+        const auto afterFailure = target.shell->saveLayout();
+        QVERIFY(afterFailure);
+        QCOMPARE(afterFailure.value(), originalLayout.value());
+
+        QVERIFY(target.shell->showPanel(zzPanelId("deferred"), true));
+        QCOMPARE(calls, 2);
+        QVERIFY(created != nullptr);
+        QCOMPARE(created->objectName(), QStringLiteral("deferred-2"));
+    }
+
+    void auditsMixedPendingReadyLifecycle()
+    {
+        ZzShellFixture fixture;
+        auto leftReady = std::make_unique<QWidget>();
+        leftReady->setObjectName(QStringLiteral("left-ready"));
+        QWidget *const leftReadyRaw = leftReady.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("left-ready"), QStringLiteral("left-ready"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, leftReady.get()));
+        zzReleaseAfterAdoption(leftReady);
+        int shownCalls = 0;
+        QWidget *shownContent = nullptr;
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("shown"), QStringLiteral("shown"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [&shownCalls, &shownContent] {
+                ++shownCalls;
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(QStringLiteral("shown"));
+                shownContent = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        auto removedReady = std::make_unique<QWidget>();
+        removedReady->setObjectName(QStringLiteral("removed-ready"));
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("removed-ready"), QStringLiteral("removed-ready"), {},
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            removedReady.get()));
+        zzReleaseAfterAdoption(removedReady);
+        int pendingCalls = 0;
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("pending"), QStringLiteral("pending"), {},
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            [&pendingCalls] {
+                ++pendingCalls;
+                auto content = std::make_unique<QWidget>();
+                content->setObjectName(QStringLiteral("pending"));
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        QVERIFY(fixture.shell->setPanelBadge(zzPanelId("shown"), 9));
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        const auto rowFor = [model](const QString &title) {
+            for (int row = 0; row < model->rowCount(); ++row) {
+                if (model->index(row, 0).data().toString() == title) {
+                    return row;
+                }
+            }
+            return -1;
+        };
+        Q_EMIT bar->moveRequested(
+            model->index(rowFor(QStringLiteral("shown")), 0),
+            ZzFluentUI::ZzActivityArea::RightSecondary, 0);
+        QCOMPARE(shownCalls, 0);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("shown"), true));
+        QCOMPARE(shownCalls, 1);
+        auto removed = fixture.shell->takePanel(zzPanelId("removed-ready"));
+        QVERIFY(removed);
+        std::unique_ptr<QWidget> returned(removed.value());
+        const auto saved = fixture.shell->saveLayout();
+        QVERIFY(saved);
+        QCOMPARE(pendingCalls, 0);
+
+        Q_EMIT bar->moveRequested(
+            model->index(rowFor(QStringLiteral("pending")), 0),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
+        QVERIFY(fixture.shell->restoreLayout(saved.value()));
+
+        QStringList logicalIds;
+        QSet<QString> logicalUnique;
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const QString id = model->index(row, 0).data().toString();
+            QVERIFY(!logicalUnique.contains(id));
+            logicalUnique.insert(id);
+            logicalIds.append(id);
+        }
+        QCOMPARE(logicalIds.size(), 3);
+        QCOMPARE(logicalUnique, QSet<QString>({QStringLiteral("left-ready"),
+            QStringLiteral("shown"), QStringLiteral("pending")}));
+        QCOMPARE(model->index(rowFor(QStringLiteral("shown")), 0).data(
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Badge)).toInt(), 9);
+
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QCOMPARE(leftPane->panelStack()->panels(),
+            QList<QWidget *>({leftReadyRaw}));
+        QCOMPARE(rightPane->panelStack()->panels(),
+            QList<QWidget *>({shownContent}));
+        QSet<QWidget *> physicalUnique;
+        for (QWidget *const content : leftPane->panelStack()->panels()
+                 + rightPane->panelStack()->panels()) {
+            QVERIFY(content != nullptr);
+            QVERIFY(!physicalUnique.contains(content));
+            physicalUnique.insert(content);
+        }
+        QCOMPARE(physicalUnique.size(), 2);
+        QCOMPARE(shownCalls, 1);
+        QCOMPARE(pendingCalls, 0);
     }
 
     void preservesStatefulDeferredFactoryAcrossRetry()
