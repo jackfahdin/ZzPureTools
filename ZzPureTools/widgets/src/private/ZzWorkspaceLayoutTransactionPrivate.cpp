@@ -844,7 +844,7 @@ struct ZzRestoreMaterialization final
         || contentGuard->isVisible()) {
         restorePending();
         if (contentDestroyed) {
-            static_cast<void>(content.release());
+            [[maybe_unused]] QWidget *const destroyedContent = content.release();
         } else if (wrongThread) {
             QWidget *const foreignContent = content.release();
             static_cast<void>(QMetaObject::invokeMethod(
@@ -869,11 +869,11 @@ struct ZzRestoreMaterialization final
             shell.panels[panelIndex].registrationInProgress = false;
         }
         if (contentGuard == nullptr) {
-            static_cast<void>(content.release());
+            [[maybe_unused]] QWidget *const destroyedContent = content.release();
         }
         return adopted;
     }
-    static_cast<void>(content.release());
+    [[maybe_unused]] QWidget *const adoptedContent = content.release();
     log->append({id, generation, std::move(factory),
         contentGuard, contentGuard.data()});
     panelIndex = shell.indexOf(id);
@@ -2611,7 +2611,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
         auto materialized = zzMaterializeForRestore(
             shell_, ZzWorkspacePanelId(id), &materializations);
         if (!materialized) {
-            const ZzCore::ZzError error = materialized.error();
+            const ZzCore::ZzError &error = materialized.error();
             if (rollbackPreparation()) {
                 return ZzCore::ZzResult<void>::failure(error);
             }
