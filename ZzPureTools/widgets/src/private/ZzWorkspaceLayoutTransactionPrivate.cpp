@@ -815,9 +815,47 @@ struct ZzRestoreMaterialization final
     }
     const std::uint64_t generation =
         shell.panels.at(panelIndex).registrationGeneration;
+    const auto restorePending = [&] {
+        panelIndex = shell.indexOf(id);
+        if (panelIndex >= 0
+            && shell.panels.at(panelIndex).registrationGeneration == generation
+            && shell.panels.at(panelIndex).materialization
+                == ZzWorkspaceShellPrivate::ZzMaterializationState::Materializing) {
+            shell.panels[panelIndex].materialization =
+                ZzWorkspaceShellPrivate::ZzMaterializationState::Pending;
+            shell.panels[panelIndex].registrationInProgress = false;
+        }
+    };
+    const QPointer<QWidget> contentGuard(content.get());
+    contentGuard->hide();
+    panelIndex = shell.indexOf(id);
+    const bool contentDestroyed = contentGuard == nullptr;
+    const bool contentParented = !contentDestroyed
+        && contentGuard->parent() != nullptr;
+    const bool wrongThread = !contentDestroyed
+        && contentGuard->thread() != QThread::currentThread();
+    if (contentDestroyed || panelIndex < 0 || shell.host == nullptr
+        || shell.panels.at(panelIndex).registrationGeneration != generation
+        || shell.panels.at(panelIndex).materialization
+            != ZzWorkspaceShellPrivate::ZzMaterializationState::Materializing
+        || !shell.panels.at(panelIndex).factory
+        || contentParented || wrongThread
+        || contentGuard->thread() != shell.host->thread()
+        || contentGuard->isVisible()) {
+        restorePending();
+        if (contentDestroyed || contentParented) {
+            static_cast<void>(content.release());
+        } else if (wrongThread) {
+            QWidget *const foreignContent = content.release();
+            static_cast<void>(QMetaObject::invokeMethod(
+                foreignContent, &QObject::deleteLater,
+                Qt::QueuedConnection));
+        }
+        return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Side panel content is not hidden for restore"));
+    }
     ZzWorkspacePanelFactory factory =
         std::move(shell.panels[panelIndex].factory);
-    const QPointer<QWidget> contentGuard(content.get());
     auto adopted = shell.adoptSidePanelContent(
         id, generation, content.get(), false);
     if (!adopted) {
@@ -2545,17 +2583,17 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     QSet<QString> seenMaterializationIds;
     QVector<ZzRestoreMaterialization> materializations;
     const ZzLayoutTransactionScope transaction(shell_);
-    const auto rollbackInitial = [&] {
-        if (materializations.isEmpty()) {
-            return true;
-        }
-        const bool materializationsRolledBack =
-            zzRollbackMaterializations(shell_, &materializations);
-        return materializationsRolledBack
-            && zzRollback(
-                shell_, initialSnapshot, migrationGroup,
-                snapshotMigrationCurrent,
-                requestProjection.split.canonicalState);
+    const auto rollbackMaterializations = [&] {
+        return materializations.isEmpty()
+            || zzRollbackMaterializations(shell_, &materializations);
+    };
+    const auto rollbackPreparation = [&] {
+        const bool materializationsRolledBack = rollbackMaterializations();
+        const bool initialRolledBack = zzRollback(
+            shell_, initialSnapshot, migrationGroup,
+            snapshotMigrationCurrent,
+            requestProjection.split.canonicalState);
+        return materializationsRolledBack && initialRolledBack;
     };
     for (const QString &id : std::as_const(materializationIds)) {
         if (seenMaterializationIds.contains(id)) {
@@ -2574,7 +2612,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             shell_, ZzWorkspacePanelId(id), &materializations);
         if (!materialized) {
             const ZzCore::ZzError error = materialized.error();
-            if (rollbackInitial()) {
+            if (rollbackPreparation()) {
                 return ZzCore::ZzResult<void>::failure(error);
             }
             return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
@@ -2585,7 +2623,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
 
     const auto preparedCaptured = zzCaptureSnapshot(shell_);
     if (!preparedCaptured.has_value()) {
-        const bool rolledBack = rollbackInitial();
+        const bool rolledBack = rollbackPreparation();
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
             rolledBack
                 ? QStringLiteral(
@@ -2638,8 +2676,9 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     const bool preparedRolledBack = zzRollback(
         shell_, snapshot, migrationGroup, snapshotMigrationCurrent,
         alternateSplitCanonical);
-    const bool initialRolledBack = rollbackInitial();
-    const bool rolledBack = preparedRolledBack && initialRolledBack;
+    const bool materializationsRolledBack = rollbackMaterializations();
+    const bool rolledBack =
+        preparedRolledBack && materializationsRolledBack;
     return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
         rolledBack
             ? QStringLiteral(

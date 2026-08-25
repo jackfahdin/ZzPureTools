@@ -140,6 +140,48 @@ protected:
     }
 };
 
+class ZzDeferredVisibilityAuditWidget final : public QWidget
+{
+public:
+    explicit ZzDeferredVisibilityAuditWidget(
+        ZzFluentUI::ZzPanelStack *stack)
+        : stack_(stack)
+        , stackDescendantsBefore_(stack != nullptr
+              ? stack->findChildren<QWidget *>().size() : -1)
+    {
+    }
+
+    bool hiddenBeforeAdoption = false;
+    bool hiddenAfterAdoptionStarted = false;
+
+    void setVisible(bool visible) override
+    {
+        if (!visible && parentWidget() == nullptr) {
+            const qsizetype descendants = stack_ != nullptr
+                ? stack_->findChildren<QWidget *>().size() : -1;
+            hiddenBeforeAdoption = descendants == stackDescendantsBefore_;
+            hiddenAfterAdoptionStarted = descendants > stackDescendantsBefore_;
+        }
+        QWidget::setVisible(visible);
+    }
+
+private:
+    QPointer<ZzFluentUI::ZzPanelStack> stack_;
+    qsizetype stackDescendantsBefore_ = -1;
+};
+
+class ZzHideResistantWidget final : public QWidget
+{
+public:
+    void setVisible(bool visible) override
+    {
+        if (!visible) {
+            return;
+        }
+        QWidget::setVisible(true);
+    }
+};
+
 /** @brief 首次被移出捕获 frame 时同步重新挂回，用于覆盖 ParentChange 重入。 */
 class ZzReattachingOwner final : public QWidget
 {
@@ -1832,6 +1874,156 @@ private Q_SLOTS:
         QCOMPARE(secondCreated->objectName(), QStringLiteral("second-2"));
     }
 
+    void rollsBackFirstFactorySideEffectsWhenRestoreFails()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto *const pane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        const int widthBefore = pane->paneWidth();
+        const bool collapsedBefore = pane->isCollapsed();
+        int calls = 0;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [pane, attempt = 0, &calls]() mutable
+                -> ZzCore::ZzResult<std::unique_ptr<QWidget>> {
+                ++attempt;
+                ++calls;
+                if (attempt == 1) {
+                    pane->setPaneWidth(333);
+                    pane->setCollapsed(!pane->isCollapsed());
+                    return ZzCore::ZzResult<std::unique_ptr<QWidget>>::failure(
+                        ZzCore::ZzError(
+                            ZzCore::ZzErrorCode::Backend,
+                            QStringLiteral("first factory failed")));
+                }
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            }));
+        const auto layoutBeforeRestore = target.shell->saveLayout();
+        QVERIFY(layoutBeforeRestore);
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::Backend);
+        QCOMPARE(calls, 1);
+        QCOMPARE(pane->paneWidth(), widthBefore);
+        QCOMPARE(pane->isCollapsed(), collapsedBefore);
+        const auto layoutAfter = target.shell->saveLayout();
+        QVERIFY(layoutAfter);
+        QCOMPARE(layoutAfter.value(), layoutBeforeRestore.value());
+
+        QVERIFY(target.shell->showPanel(zzPanelId("deferred"), true));
+        QCOMPARE(calls, 2);
+    }
+
+    void hidesVisibleFactoryContentBeforeRestoreAdoption()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        auto *const stack = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->panelStack();
+        int calls = 0;
+        ZzDeferredVisibilityAuditWidget *created = nullptr;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [stack, &calls, &created] {
+                ++calls;
+                auto content =
+                    std::make_unique<ZzDeferredVisibilityAuditWidget>(stack);
+                content->show();
+                created = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        const QString restoreError = restored
+            ? QString{} : restored.error().technicalMessage();
+        QVERIFY2(restored, qPrintable(restoreError));
+        QCOMPARE(calls, 1);
+        QVERIFY(created != nullptr);
+        QVERIFY(created->hiddenBeforeAdoption);
+        QVERIFY(!created->hiddenAfterAdoptionStarted);
+        QCOMPARE(target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left)->panelStack()->panels(),
+            QList<QWidget *>({created}));
+    }
+
+    void rejectsFactoryContentThatRemainsVisibleAfterHide()
+    {
+        ZzShellFixture source;
+        auto sourceContent = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+
+        ZzShellFixture target;
+        int calls = 0;
+        QPointer<QWidget> firstCreated;
+        QWidget *retryContent = nullptr;
+        QVERIFY(target.shell->registerSidePanelFactory(
+            zzPanelId("deferred"), QStringLiteral("deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            [attempt = 0, &calls, &firstCreated, &retryContent]() mutable {
+                ++attempt;
+                ++calls;
+                if (attempt == 1) {
+                    auto content = std::make_unique<ZzHideResistantWidget>();
+                    content->show();
+                    firstCreated = content.get();
+                    return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                        std::move(content));
+                }
+                auto content = std::make_unique<QWidget>();
+                retryContent = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        const auto layoutBefore = target.shell->saveLayout();
+        QVERIFY(layoutBefore);
+
+        const auto restored = target.shell->restoreLayout(requested.value());
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(calls, 1);
+        QVERIFY(firstCreated == nullptr);
+        auto *const pane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QVERIFY(pane->panelStack()->panels().isEmpty());
+        QVERIFY(pane->isCollapsed());
+        const auto layoutAfter = target.shell->saveLayout();
+        QVERIFY(layoutAfter);
+        QCOMPARE(layoutAfter.value(), layoutBefore.value());
+
+        QVERIFY(target.shell->showPanel(zzPanelId("deferred"), true));
+        QCOMPARE(calls, 2);
+        QVERIFY(retryContent != nullptr);
+        QCOMPARE(pane->panelStack()->panels(),
+            QList<QWidget *>({retryContent}));
+    }
+
     void rollsBackNewlyMaterializedPanelsWhenCommitFails()
     {
         ZzShellFixture source;
@@ -1865,6 +2057,13 @@ private Q_SLOTS:
         QVERIFY(originalLayout);
         auto *const pane = target.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left);
+        const int widthBefore = pane->paneWidth();
+        QSignalSpy widthSpy(
+            pane, &ZzFluentUI::ZzSidePane::paneWidthChanged);
+        QSignalSpy modelResetSpy(
+            target.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->model(),
+            &QAbstractItemModel::modelReset);
         bool polluted = false;
         QObject::connect(
             pane, &ZzFluentUI::ZzSidePane::paneWidthChanged,
@@ -1882,6 +2081,11 @@ private Q_SLOTS:
         QVERIFY(created == nullptr);
         QVERIFY(pane->panelStack()->panels().isEmpty());
         QVERIFY(pane->isCollapsed());
+        QCOMPARE(widthSpy.count(), 3);
+        QCOMPARE(widthSpy.at(0).at(0).toInt(), 420);
+        QCOMPARE(widthSpy.at(1).at(0).toInt(), 222);
+        QCOMPARE(widthSpy.at(2).at(0).toInt(), widthBefore);
+        QCOMPARE(modelResetSpy.count(), 1);
         const auto afterFailure = target.shell->saveLayout();
         QVERIFY(afterFailure);
         QCOMPARE(afterFailure.value(), originalLayout.value());
