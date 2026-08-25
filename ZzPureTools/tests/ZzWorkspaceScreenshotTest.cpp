@@ -23,6 +23,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
@@ -168,7 +169,8 @@ public:
         QSize surfaceSize = zzLogicalSurfaceSize,
         QString titleBarTitle = {},
         bool denseWorkbench = false,
-        bool collapseBottom = false)
+        bool collapseBottom = false,
+        bool twoGroupWorkbench = false)
         : titleBar(&window)
     {
         window.setObjectName(QStringLiteral("zzWorkspaceScreenshotSurface"));
@@ -202,7 +204,7 @@ public:
         commandModel.appendRow(new QStandardItem(QStringLiteral("Build workspace")));
         shell->commandPalette()->setModel(&commandModel);
         if (denseWorkbench) {
-            configureDenseWorkbench(collapseBottom);
+            configureDenseWorkbench(collapseBottom, twoGroupWorkbench);
         }
     }
 
@@ -225,7 +227,7 @@ public:
     QStandardItemModel commandModel;
 
 private:
-    void configureDenseWorkbench(bool collapseBottom)
+    void configureDenseWorkbench(bool collapseBottom, bool twoGroupWorkbench)
     {
         auto registerSide = [this](const char *id, const QString &title,
                                 ZzFluentUI::ZzActivityArea area) {
@@ -257,17 +259,52 @@ private:
         auto *commands = new QWidget;
         auto *commandLayout = new QVBoxLayout(commands);
         commandLayout->setContentsMargins(6, 4, 6, 4);
-        for (const auto mode : {ZzFluentUI::ZzCommandBarDisplayMode::Expanded,
-                 ZzFluentUI::ZzCommandBarDisplayMode::Compact,
-                 ZzFluentUI::ZzCommandBarDisplayMode::Auto}) {
-            auto *bar = new ZzFluentUI::ZzCommandBar(commands);
-            auto *run = new QAction(QStringLiteral("Run"), bar);
-            auto *stop = new QAction(QStringLiteral("Stop"), bar);
-            bar->addPrimaryAction(run);
-            bar->addSecondaryAction(stop);
-            bar->setDisplayMode(mode);
-            commandLayout->addWidget(bar);
-        }
+        const auto addPrimary = [](ZzFluentUI::ZzCommandBar *bar,
+                                    QStyle::StandardPixmap icon,
+                                    const QString &text) {
+            Q_ASSERT(bar->addPrimaryAction(
+                bar->style()->standardIcon(icon), text) != nullptr);
+        };
+        const auto addSecondary = [](ZzFluentUI::ZzCommandBar *bar,
+                                      QStyle::StandardPixmap icon,
+                                      const QString &text) {
+            Q_ASSERT(bar->addSecondaryAction(
+                bar->style()->standardIcon(icon), text) != nullptr);
+        };
+        auto *expanded = new ZzFluentUI::ZzCommandBar(commands);
+        expanded->setObjectName(QStringLiteral("zzDenseExpandedCommandBar"));
+        expanded->setFixedWidth(300);
+        expanded->setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Expanded);
+        addPrimary(expanded, QStyle::SP_ComputerIcon, QStringLiteral("Build"));
+        addPrimary(expanded, QStyle::SP_DialogApplyButton,
+            QStringLiteral("Test"));
+        addSecondary(expanded, QStyle::SP_FileDialogDetailedView,
+            QStringLiteral("Artifacts"));
+        commandLayout->addWidget(expanded, 0, Qt::AlignLeft);
+
+        auto *compact = new ZzFluentUI::ZzCommandBar(commands);
+        compact->setObjectName(QStringLiteral("zzDenseCompactCommandBar"));
+        compact->setFixedWidth(180);
+        compact->setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Compact);
+        addPrimary(compact, QStyle::SP_MediaPlay, QStringLiteral("Run"));
+        addPrimary(compact, QStyle::SP_BrowserReload,
+            QStringLiteral("Restart"));
+        addPrimary(compact, QStyle::SP_MediaStop, QStringLiteral("Stop"));
+        commandLayout->addWidget(compact, 0, Qt::AlignLeft);
+
+        auto *automatic = new ZzFluentUI::ZzCommandBar(commands);
+        automatic->setObjectName(QStringLiteral("zzDenseAutoCommandBar"));
+        automatic->setFixedWidth(230);
+        automatic->setDisplayMode(ZzFluentUI::ZzCommandBarDisplayMode::Auto);
+        addPrimary(automatic, QStyle::SP_ArrowForward,
+            QStringLiteral("Publish"));
+        addPrimary(automatic, QStyle::SP_DialogSaveButton,
+            QStringLiteral("Snapshot"));
+        addSecondary(automatic, QStyle::SP_FileDialogContentsView,
+            QStringLiteral("Logs"));
+        addSecondary(automatic, QStyle::SP_FileDialogInfoView,
+            QStringLiteral("Details"));
+        commandLayout->addWidget(automatic, 0, Qt::AlignLeft);
         Q_ASSERT(shell->registerBottomPanel(
             ZzPureTools::ZzWorkspacePanelId(QStringLiteral("bottom-commands")),
             QStringLiteral("Commands"), {}, commands));
@@ -277,7 +314,16 @@ private:
         shell->bottomPane()->setCollapsed(collapseBottom);
 
         auto *editor = new QPlainTextEdit;
-        editor->setPlainText(QStringLiteral("int main()\n{\n    return 0;\n}\n"));
+        QStringList editorLines;
+        editorLines.reserve(96);
+        for (int line = 1; line <= 96; ++line) {
+            editorLines.append(QStringLiteral(
+                "%1  const int value%2 = %2;").arg(
+                line, 3, 10, QLatin1Char('0')).arg(
+                line, 3, 10, QLatin1Char('0')));
+        }
+        editor->setLineWrapMode(QPlainTextEdit::NoWrap);
+        editor->setPlainText(editorLines.join(u'\n'));
         auto *markers = new QStandardItemModel(editor);
         for (const auto &[position, kind] : std::array<std::pair<qreal,
                  ZzFluentUI::ZzScrollMarkerKind>, 3>{{
@@ -300,6 +346,12 @@ private:
         shell->tabWidget()->addTab(new QLabel(QStringLiteral("Trace")),
             QStringLiteral("Trace"));
         const auto root = shell->splitWorkspace()->groupIds().constFirst();
+        if (twoGroupWorkbench) {
+            Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
+                root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Top));
+            Q_ASSERT(shell->splitWorkspace()->groupIds().size() == 2);
+            return;
+        }
         Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
             root, 0, root, ZzFluentUI::ZzWorkspaceDropZone::Right));
         Q_ASSERT(shell->splitWorkspace()->moveTabToDropZone(
@@ -521,6 +573,35 @@ private Q_SLOTS:
         ZzWorkspaceScreenshotSurface surface(
             zzLogicalSurfaceSize, QStringLiteral("Dense workspace"), true,
             collapseBottom);
+        surface.polish();
+        const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
+        surface.hide();
+        verifyScreenshot(fileStem, actual);
+    }
+
+    void rendersTwoGroupWorkbenchThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::newRow("workspace-two-group-light")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("workspace-two-group-light");
+        QTest::newRow("workspace-two-group-dark")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("workspace-two-group-dark");
+        QTest::newRow("workspace-two-group-high-contrast")
+            << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("workspace-two-group-high-contrast");
+    }
+
+    void rendersTwoGroupWorkbenchThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzWorkspaceScreenshotSurface surface(
+            zzLogicalSurfaceSize, QStringLiteral("Two group workspace"), true,
+            false, true);
         surface.polish();
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         surface.hide();

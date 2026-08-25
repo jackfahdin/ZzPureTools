@@ -3,8 +3,18 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleActivityModel.cpp
     ../ZzExampleActivityModel.h
     ../ZzExampleActivityModelPrivate.h
+    ../ZzExampleApplicationContext.cpp
+    ../ZzExampleApplicationContext.h
+    ../ZzExampleApplicationContextPrivate.cpp
+    ../ZzExampleApplicationContextPrivate.h
+    ../ZzExampleRouteCatalog.cpp
+    ../ZzExampleRouteCatalog.h
     ../ZzExampleSessionModel.cpp
     ../ZzExampleSessionModel.h
+    ../ZzExampleWindowShell.cpp
+    ../ZzExampleWindowShell.h
+    ../ZzExampleWindowShellPrivate.cpp
+    ../ZzExampleWindowShellPrivate.h
     ../ZzExampleWorkspaceContent.cpp
     ../ZzExampleWorkspaceContent.h
 )
@@ -15,6 +25,8 @@ target_link_libraries(ZzExampleWorkspaceSmokeTest PRIVATE
     Qt6::Test
     Zz::FluentUI
     Zz::PureTools
+    Zz::WindowKit
+    ZzLog::ZzLog
 )
 set_target_properties(ZzExampleWorkspaceSmokeTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzExampleWorkspaceSmokeTest)

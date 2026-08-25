@@ -14,12 +14,14 @@
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QStatusBar>
+#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzBottomPane.h>
+#include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
@@ -122,6 +124,31 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
 
     sessions = std::make_unique<ZzExampleSessionModel>(q_ptr);
     workspace->commandPalette()->setModel(sessions->commandModel());
+
+    backAction = new QAction(q_ptr);
+    backAction->setObjectName(QStringLiteral("zzExampleBackAction"));
+    backAction->setShortcut(QKeySequence::Back);
+    forwardAction = new QAction(q_ptr);
+    forwardAction->setObjectName(QStringLiteral("zzExampleForwardAction"));
+    forwardAction->setShortcut(QKeySequence::Forward);
+    auto *themeAction = new QAction(q_ptr);
+    themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
+    auto *newWindowAction = new QAction(q_ptr);
+    newWindowAction->setObjectName(QStringLiteral("zzExampleNewWindowAction"));
+    auto *openPaletteAction = new QAction(q_ptr);
+    openPaletteAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExample", "命令面板"));
+    openPaletteAction->setShortcut(
+        QKeySequence(QStringLiteral("Ctrl+Shift+P")));
+    auto *newTerminalAction = new QAction(q_ptr);
+    newTerminalAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExample", "新建终端"));
+    newTerminalAction->setShortcut(QKeySequence::AddTab);
+    auto *closeTerminalAction = new QAction(q_ptr);
+    closeTerminalAction->setShortcut(QKeySequence::Close);
+    window->addActions({backAction, forwardAction, themeAction,
+        newWindowAction, openPaletteAction, newTerminalAction,
+        closeTerminalAction});
     searchEdit = workspace->commandPalette()->searchEdit();
     searchEdit->setObjectName(QStringLiteral("zzExamplePageSearch"));
     searchEdit->setAccessibleName(QCoreApplication::translate(
@@ -180,18 +207,39 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         QString title;
         std::unique_ptr<QWidget> content;
     };
+    auto terminalPanel = std::make_unique<QWidget>();
+    terminalPanel->setObjectName(QStringLiteral("zzExampleTerminalPanel"));
+    auto *terminalLayout = new QVBoxLayout(terminalPanel.get());
+    terminalLayout->setContentsMargins(6, 4, 6, 4);
+    terminalLayout->addWidget(
+        ZzExampleWorkspaceContent::createTerminalPage(
+            QStringLiteral("dev-local"))
+            .release());
+
+    auto outputPanel = std::make_unique<QWidget>();
+    outputPanel->setObjectName(QStringLiteral("zzExampleOutputPanel"));
+    auto *outputLayout = new QVBoxLayout(outputPanel.get());
+    outputLayout->setContentsMargins(6, 4, 6, 4);
+    auto *outputCommandBar = new ZzFluentUI::ZzCommandBar(outputPanel.get());
+    outputCommandBar->setObjectName(QStringLiteral("zzExampleOutputCommandBar"));
+    outputCommandBar->addPrimaryAction(newTerminalAction);
+    outputCommandBar->addSecondaryAction(openPaletteAction);
+    outputLayout->addWidget(outputCommandBar);
+    outputLayout->addWidget(
+        ZzExampleWorkspaceContent::createOutputPanel(
+            &context->activityModel())
+            .release());
+
     std::array<ZzBottomRegistration, 3> bottomPanels{{
         {zzPanelId("terminal"),
          QCoreApplication::translate("ZzPureToolsExample", "终端"),
-         ZzExampleWorkspaceContent::createTerminalPage(
-             QStringLiteral("dev-local"))},
+         std::move(terminalPanel)},
         {zzPanelId("problems"),
          QCoreApplication::translate("ZzPureToolsExample", "问题"),
          ZzExampleWorkspaceContent::createProblemsPanel()},
         {zzPanelId("activity-log"),
          QCoreApplication::translate("ZzPureToolsExample", "输出"),
-         ZzExampleWorkspaceContent::createOutputPanel(
-             &context->activityModel())},
+         std::move(outputPanel)},
     }};
     for (ZzBottomRegistration &panel : bottomPanels) {
         auto result = workspace->registerBottomPanel(
@@ -216,27 +264,6 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         q_ptr, [this](bool collapsed) {
             Q_EMIT q_ptr->activityDockVisibilityChanged(!collapsed);
         });
-
-    backAction = new QAction(q_ptr);
-    backAction->setObjectName(QStringLiteral("zzExampleBackAction"));
-    backAction->setShortcut(QKeySequence::Back);
-    forwardAction = new QAction(q_ptr);
-    forwardAction->setObjectName(QStringLiteral("zzExampleForwardAction"));
-    forwardAction->setShortcut(QKeySequence::Forward);
-    auto *themeAction = new QAction(q_ptr);
-    themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
-    auto *newWindowAction = new QAction(q_ptr);
-    newWindowAction->setObjectName(QStringLiteral("zzExampleNewWindowAction"));
-    auto *openPaletteAction = new QAction(q_ptr);
-    openPaletteAction->setShortcut(
-        QKeySequence(QStringLiteral("Ctrl+Shift+P")));
-    auto *newTerminalAction = new QAction(q_ptr);
-    newTerminalAction->setShortcut(QKeySequence::AddTab);
-    auto *closeTerminalAction = new QAction(q_ptr);
-    closeTerminalAction->setShortcut(QKeySequence::Close);
-    window->addActions({backAction, forwardAction, themeAction,
-        newWindowAction, openPaletteAction, newTerminalAction,
-        closeTerminalAction});
 
     statusBar = new QStatusBar(window);
     statusBar->setObjectName(QStringLiteral("zzExampleStatusBar"));
@@ -377,7 +404,7 @@ void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(
         closeCurrentTerminal();
         break;
     case ZzExampleCommandId::ShowSftp:
-        if (auto result = workspace->showPanel(zzPanelId("sftp")); !result) {
+        if (auto result = workspace->showPanel(zzPanelId("files")); !result) {
             reportFailure(result.error());
         }
         break;
