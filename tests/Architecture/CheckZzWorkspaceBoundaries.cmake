@@ -44,7 +44,6 @@ foreach(source_file IN LISTS
     string(REGEX REPLACE "/\\*([^*]|\\*[^/])*\\*/" "" source_code
         "${source_content}")
     string(REGEX REPLACE "//[^\r\n]*" "" source_code "${source_code}")
-    string(TOLOWER "${source_code}" source_code_lower)
     string(REGEX MATCHALL
         "#[ \t]*include[ \t]*[<\"][^>\"]+[>\"]"
         include_directives
@@ -58,8 +57,29 @@ foreach(source_file IN LISTS
             zz_workspace_fail(WORKSPACE_PRESENTATION_DEPENDENCY "${source_file}")
         endif()
     endforeach()
-    if(source_code_lower MATCHES
-       "(^|[^a-z0-9_])(ssh|sftp|network|domain)[a-z0-9_]*[ \t\r\n]*([*&]|::)")
+    set(source_code_without_literals "${source_code}")
+    string(REGEX REPLACE
+        "\\\\[^\r\n]" ""
+        source_code_without_literals "${source_code_without_literals}")
+    string(REGEX REPLACE
+        "\"[^\"\r\n]*\"" "\"\""
+        source_code_without_literals "${source_code_without_literals}")
+    string(REGEX REPLACE
+        "'[^'\r\n]*'" "''"
+        source_code_without_literals "${source_code_without_literals}")
+
+    set(zz_business_type
+        "(Ssh|SSH|Sftp|SFTP|Network|Domain)[A-Za-z0-9_]*")
+    if(source_code_without_literals MATCHES
+       "(^|[^A-Za-z0-9_])${zz_business_type}[ \t\r\n]*[*&]"
+       OR source_code_without_literals MATCHES
+       "(^|[^A-Za-z0-9_])${zz_business_type}[ \t\r\n]+[A-Za-z_][A-Za-z0-9_]*[ \t\r\n]*(;|=|,|\\)|\\(|\\{|\\[)"
+       OR source_code_without_literals MATCHES
+       "(<|,)[ \t\r\n]*${zz_business_type}[ \t\r\n]*(>|,)"
+       OR source_code_without_literals MATCHES
+       "(^|[^A-Za-z0-9_])${zz_business_type}[ \t\r\n]*::"
+       OR source_code_without_literals MATCHES
+       "(^|[^A-Za-z0-9_])(ssh|sftp|network|domain)[A-Za-z0-9_]*[ \t\r\n]*::")
         zz_workspace_fail(WORKSPACE_PRESENTATION_DEPENDENCY "${source_file}")
     endif()
 endforeach()
@@ -67,7 +87,7 @@ endforeach()
 foreach(public_header IN LISTS zz_workspace_public_files)
     file(READ "${public_header}" public_content)
     string(REGEX MATCHALL
-        "class[ \t\r\n]+(ZZ_[A-Z0-9_]+_EXPORT[ \t\r\n]+)?Zz[A-Za-z0-9_]+[ \t\r\n]+(final[ \t\r\n]+)?(:[ \t\r\n]*public[ \t\r\n]+(QWidget|QFrame|QToolBar|QTabWidget|QDockWidget|QDialog|QAbstractScrollArea|QScrollBar))"
+        "class[ \t\r\n]+(ZZ_[A-Z0-9_]+_EXPORT[ \t\r\n]+)?Zz[A-Za-z0-9_]+[ \t\r\n]+(final[ \t\r\n]+)?(:[ \t\r\n]*public[ \t\r\n]+(QWidget|QFrame|QToolBar|QTabWidget|QDockWidget|QDialog|QAbstractScrollArea|QScrollBar|ZzScrollBar))"
         widget_declarations
         "${public_content}")
     foreach(widget_declaration IN LISTS widget_declarations)

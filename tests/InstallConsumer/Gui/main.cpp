@@ -37,6 +37,7 @@
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzAnnotatedScrollBar.h>
+#include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
@@ -63,6 +64,7 @@
 #include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
+#include <ZzFluentUI/ZzPanelStack.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRatingControl.h>
@@ -260,9 +262,10 @@ int main(int argc, char *argv[]) {
       ZzPureTools::ZzWorkspacePanelId(QStringLiteral("outline")),
       QStringLiteral("Outline"), {},
       ZzFluentUI::ZzActivityArea::LeftPrimary, outlinePane);
+  auto *terminalTool = new QWidget;
   const auto registeredBottomTool = workspaceShell->registerBottomPanel(
       ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
-      QStringLiteral("Terminal"), {}, new QWidget);
+      QStringLiteral("Terminal"), {}, terminalTool);
   workspaceShell->commandPalette()->setModel(&workspaceCommandModel);
   workspaceShell->tabWidget()->addTab(
       new QWidget, QStringLiteral("Overview"));
@@ -687,6 +690,11 @@ int main(int argc, char *argv[]) {
       workspaceShell->activityBar(
           ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
       workspaceShell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
+      workspaceShell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+              ->panelStack()
+              ->panels() != QList<QWidget *>({explorerPane, outlinePane}) ||
+      workspaceShell->bottomPane()->widgetCount() != 1 ||
+      workspaceShell->bottomPane()->currentWidget() != terminalTool ||
       workspaceShell->commandPalette()->model() != &workspaceCommandModel ||
       workspaceShell->tabWidget()->count() != 1 ||
       workspaceShell->tabWidget()->tabText(0) != QStringLiteral("Overview") ||

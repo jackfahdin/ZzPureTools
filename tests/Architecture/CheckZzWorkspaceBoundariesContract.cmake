@@ -17,7 +17,9 @@ endif()
 set(zz_fixture_root
     "${zz_source_root}/tests/Architecture/fixtures")
 
-function(zz_expect_workspace_fixture fixture_name expected_result)
+set(zz_workspace_contract_failures)
+
+function(zz_check_workspace_fixture fixture_name expected_result expected_rule)
     set(fixture_root "${zz_fixture_root}/${fixture_name}")
     execute_process(
         COMMAND "${CMAKE_COMMAND}"
@@ -30,30 +32,45 @@ function(zz_expect_workspace_fixture fixture_name expected_result)
         ERROR_VARIABLE fixture_stderr
     )
     if(expected_result AND NOT fixture_result EQUAL 0)
-        message(FATAL_ERROR
-            "good workspace fixture was rejected:\n"
+        list(APPEND zz_workspace_contract_failures
+            "good workspace fixture was rejected: ${fixture_name}\n"
             "${fixture_stdout}\n${fixture_stderr}")
     endif()
     if(NOT expected_result AND fixture_result EQUAL 0)
-        message(FATAL_ERROR "bad workspace fixture was accepted: ${fixture_name}")
+        list(APPEND zz_workspace_contract_failures
+            "bad workspace fixture was accepted: ${fixture_name}")
+    elseif(NOT expected_result
+           AND NOT "${expected_rule}" STREQUAL ""
+           AND NOT "${fixture_stdout}${fixture_stderr}" MATCHES
+               "${expected_rule}:")
+        list(APPEND zz_workspace_contract_failures
+            "bad workspace fixture produced no ${expected_rule}: ${fixture_name}\n"
+            "${fixture_stdout}\n${fixture_stderr}")
     endif()
-    set(zz_fixture_output "${fixture_stdout}\n${fixture_stderr}"
+    set(zz_workspace_contract_failures "${zz_workspace_contract_failures}"
         PARENT_SCOPE)
 endfunction()
 
-zz_expect_workspace_fixture(zzworkspace-good TRUE)
+zz_check_workspace_fixture(zzworkspace-good TRUE "")
+zz_check_workspace_fixture(zzworkspace-good-string-literal TRUE "")
+zz_check_workspace_fixture(zzworkspace-good-arithmetic TRUE "")
+zz_check_workspace_fixture(zzworkspace-forbidden-dependency FALSE
+    WORKSPACE_PRESENTATION_DEPENDENCY)
+zz_check_workspace_fixture(zzworkspace-forbidden-pointer-type FALSE
+    WORKSPACE_PRESENTATION_DEPENDENCY)
+zz_check_workspace_fixture(zzworkspace-forbidden-value-type FALSE
+    WORKSPACE_PRESENTATION_DEPENDENCY)
+zz_check_workspace_fixture(zzworkspace-forbidden-template-type FALSE
+    WORKSPACE_PRESENTATION_DEPENDENCY)
+zz_check_workspace_fixture(zzworkspace-no-pimpl FALSE
+    WORKSPACE_PUBLIC_WIDGET_PIMPL)
+zz_check_workspace_fixture(zzworkspace-project-base-no-pimpl FALSE
+    WORKSPACE_PUBLIC_WIDGET_PIMPL)
 
-zz_expect_workspace_fixture(zzworkspace-forbidden-dependency FALSE)
-if(NOT zz_fixture_output MATCHES "WORKSPACE_PRESENTATION_DEPENDENCY:")
+if(zz_workspace_contract_failures)
+    list(JOIN zz_workspace_contract_failures "\n" failure_text)
     message(FATAL_ERROR
-        "forbidden dependency fixture produced no dependency failure:\n"
-        "${zz_fixture_output}")
-endif()
-
-zz_expect_workspace_fixture(zzworkspace-no-pimpl FALSE)
-if(NOT zz_fixture_output MATCHES "WORKSPACE_PUBLIC_WIDGET_PIMPL:")
-    message(FATAL_ERROR
-        "no-PIMPL fixture produced no PIMPL failure:\n${zz_fixture_output}")
+        "Workspace boundary checker contract failures:\n${failure_text}")
 endif()
 
 message(STATUS "Workspace boundary checker contract passed")
