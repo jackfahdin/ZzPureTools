@@ -859,7 +859,7 @@
 - 修改：`ZzFluentUI/CMakeLists.txt`
 - 修改：`ZzFluentUI/tests/CMakeLists.txt`
 
-- [ ] **步骤 1：写模型生命周期、碰撞和交互失败测试。** 使用 `QStandardItemModel` 设置 Position/Kind/Priority，覆盖 reset、insert/remove/dataChanged、模型销毁、NaN/Inf/越界忽略、水平/垂直、RTL、tooltip 和点击：
+- [x] **步骤 1：写模型生命周期、碰撞和交互失败测试。** 使用 `QStandardItemModel` 设置 Position/Kind/Priority，覆盖 reset、insert/remove/dataChanged、模型销毁、NaN/Inf/越界忽略、水平/垂直、RTL、tooltip 和点击：
 
   ```cpp
   bar.setRange(0, 1000);
@@ -876,7 +876,7 @@
 
   再构造 20 和 100000 标记，断言 QObject/QTimer/animation 数相同，稳定 paint 访问的 bucket 数不超过滚动条可用像素数。
 
-- [ ] **步骤 2：运行测试验证失败。**
+- [x] **步骤 2：运行测试验证失败。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzAnnotatedScrollBarTest --parallel 2
@@ -884,7 +884,7 @@
 
   预期：`ZzScrollBar final` 无法继承，Annotated 类不存在。
 
-- [ ] **步骤 3：开放继承并实现规范化缓存。** 只移除 `ZzScrollBar` 的 `final`，不改变其构造、动画或 PIMPL。Annotated Private 保存非拥有 `QPointer<QAbstractItemModel>` 和轻量记录：
+- [x] **步骤 3：开放继承并实现规范化缓存。** 只移除 `ZzScrollBar` 的 `final`，不改变其构造、动画或 PIMPL。Annotated Private 保存非拥有 `QPointer<QAbstractItemModel>` 和轻量记录：
 
   ```cpp
   struct ZzMarker final
@@ -905,9 +905,9 @@
 
   模型变化时 O(n) 重建 marker cache；尺寸、方向或 marker cache 变化时重建像素桶。paint 先调用 `ZzScrollBar::paintEvent()`，然后只遍历桶；不得在 paint 中读取整个模型或创建 QObject。
 
-- [ ] **步骤 4：实现点击、tooltip 和颜色合同。** 命中 marker 时按归一化 position 映射到 range，设置 value 后发源索引；未命中调用基类鼠标事件。`event(QEvent::ToolTip)` 读取缓存源索引的 `Qt::ToolTipRole`。内置 kind 使用主题语义色；Custom 颜色若与 Surface 对比不足则回退 Information。
+- [x] **步骤 4：实现点击、tooltip 和颜色合同。** 命中 marker 时按归一化 position 映射到 range，设置 value 后发源索引；未命中调用基类鼠标事件。`event(QEvent::ToolTip)` 读取缓存源索引的 `Qt::ToolTipRole`。内置 kind 使用主题语义色；Custom 颜色若与 Surface 对比不足则回退 Information。
 
-- [ ] **步骤 5：验证标记规模与原生滚动行为。**
+- [x] **步骤 5：验证标记规模与原生滚动行为。**
 
   ```bash
   ctest --preset linux-gcc-debug -R '^(fluent.annotated-scroll-bar|fluent.scroll-controls)$' --output-on-failure
@@ -915,7 +915,7 @@
 
   预期：原 ZzScrollBar 行为无回归；0/1/100000 标记、模型销毁和未命中轨道操作通过。
 
-- [ ] **步骤 6：提交。**
+- [x] **步骤 6：提交。**
 
   ```bash
   git add \
