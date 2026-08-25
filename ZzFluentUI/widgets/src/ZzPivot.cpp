@@ -33,9 +33,22 @@ int ZzPivot::addItem(const QString &text)
     return addTab(text);
 }
 
+int ZzPivot::addItem(const QIcon &icon, const QString &text)
+{
+    return addTab(icon, text);
+}
+
 int ZzPivot::insertItem(int index, const QString &text)
 {
     return insertTab(index, text);
+}
+
+int ZzPivot::insertItem(
+    int index,
+    const QIcon &icon,
+    const QString &text)
+{
+    return insertTab(index, icon, text);
 }
 
 void ZzPivot::removeItem(int index)
@@ -51,12 +64,23 @@ QString ZzPivot::itemText(int index) const
     return index >= 0 && index < count() ? tabText(index) : QString();
 }
 
+QIcon ZzPivot::itemIcon(int index) const
+{
+    return tabIcon(index);
+}
+
 void ZzPivot::setItemText(int index, const QString &text)
 {
     if (index < 0 || index >= count() || tabText(index) == text) {
         return;
     }
     setTabText(index, text);
+    d_ptr->settleIndicator();
+}
+
+void ZzPivot::setItemIcon(int index, const QIcon &icon)
+{
+    setTabIcon(index, icon);
     d_ptr->settleIndicator();
 }
 

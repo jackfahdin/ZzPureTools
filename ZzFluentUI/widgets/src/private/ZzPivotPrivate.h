@@ -5,6 +5,7 @@
 #include "ZzWidgetTheme.h"
 
 class QPainter;
+class QStyleOptionTab;
 class QVariantAnimation;
 
 namespace ZzFluentUI {
@@ -36,7 +37,12 @@ public:
     QRectF currentIndicatorRect;
 
 private:
-    /** @brief 返回指定项基于文字宽度的终态指示条矩形。 */
+    /** @brief 初始化为底部指示条预留安全 gutter 的平台标签 option。 */
+    void initLabelStyleOption(
+        QStyleOptionTab *option,
+        int index) const;
+
+    /** @brief 返回指定项基于平台内容区和底部 gutter 的终态矩形。 */
     [[nodiscard]] QRectF targetIndicatorRect(int index) const;
 
     /** @brief 返回当前主题策略调整后的 Normal 动画时长。 */

@@ -1,16 +1,21 @@
+#include <algorithm>
 #include <memory>
 
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QTimer>
+#include <QtCore/QtMath>
 #include <QtCore/QVariantAnimation>
 #include <QtGui/QAccessible>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
+#include <QtGui/QRegion>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QStyleFactory>
+#include <QtWidgets/QStyleOptionTab>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzColorToken.h>
@@ -19,6 +24,67 @@
 #include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
+
+namespace {
+
+/** @brief 记录 Pivot 实际交给平台样式的标签 option。 */
+class ZzTabLabelRecordingStyle final : public QProxyStyle
+{
+public:
+    explicit ZzTabLabelRecordingStyle(QStyle *baseStyle)
+        : QProxyStyle(baseStyle)
+    {
+    }
+
+    void drawControl(
+        ControlElement element,
+        const QStyleOption *option,
+        QPainter *painter,
+        const QWidget *widget = nullptr) const override
+    {
+        if (element == CE_TabBarTabLabel) {
+            if (const auto *tab = qstyleoption_cast<
+                    const QStyleOptionTab *>(option)) {
+                labelOptions.append(*tab);
+            }
+        }
+        QProxyStyle::drawControl(element, option, painter, widget);
+    }
+
+    mutable QList<QStyleOptionTab> labelOptions;
+};
+
+/** @brief 返回图像中精确颜色像素映射到逻辑坐标后的区域。 */
+QRegion zzLogicalColorRegion(
+    const QImage &image,
+    const QColor &color,
+    qreal devicePixelRatio)
+{
+    QRegion region;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y) != color) {
+                continue;
+            }
+            region += QRect(
+                QPoint(
+                    qFloor(static_cast<qreal>(x) / devicePixelRatio),
+                    qFloor(static_cast<qreal>(y) / devicePixelRatio)),
+                QSize(1, 1));
+        }
+    }
+    return region;
+}
+
+/** @brief 创建颜色唯一且无透明边缘的图标供像素安全区断言。 */
+QIcon zzTestIcon(const QColor &color)
+{
+    QPixmap pixmap(16, 16);
+    pixmap.fill(color);
+    return QIcon(pixmap);
+}
+
+} // namespace
 
 /** @brief 验证 Pivot 的项 API、原生输入语义、绘制和固定动画预算。 */
 class ZzPivotTest final : public QObject
@@ -35,6 +101,127 @@ private:
     }
 
 private Q_SLOTS:
+    void delegatesIconItemsToTheNativeTabApi()
+    {
+        std::unique_ptr<QStyle> style(
+            QStyleFactory::create(QStringLiteral("Fusion")));
+        QVERIFY(style != nullptr);
+        ZzFluentUI::ZzPivot pivot;
+        const QIcon computer = style->standardIcon(
+            QStyle::SP_ComputerIcon);
+        const QIcon directory = style->standardIcon(
+            QStyle::SP_DirIcon);
+
+        QCOMPARE(
+            pivot.addItem(computer, QStringLiteral("Sessions")),
+            0);
+        QCOMPARE(
+            pivot.insertItem(0, directory, QStringLiteral("Files")),
+            0);
+        QCOMPARE(pivot.itemIcon(0).cacheKey(), directory.cacheKey());
+        QCOMPARE(pivot.itemIcon(1).cacheKey(), computer.cacheKey());
+        QVERIFY(pivot.itemIcon(-1).isNull());
+
+        pivot.setItemIcon(1, QIcon());
+        QVERIFY(pivot.itemIcon(1).isNull());
+        pivot.setItemIcon(8, directory);
+        QCOMPARE(pivot.count(), 2);
+    }
+
+    void indicatorStaysInTheBottomContentGutter_data()
+    {
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+        QTest::addColumn<QString>("text");
+        QTest::addColumn<bool>("overflow");
+        QTest::addColumn<qreal>("devicePixelRatio");
+
+        QTest::newRow("ltr-long-dpr-1")
+            << Qt::LeftToRight
+            << QStringLiteral("A deliberately long session destination")
+            << false
+            << 1.0;
+        QTest::newRow("rtl-long-dpr-1.25")
+            << Qt::RightToLeft
+            << QStringLiteral("A deliberately long session destination")
+            << false
+            << 1.25;
+        QTest::newRow("ltr-icon-only-dpr-1.5")
+            << Qt::LeftToRight
+            << QString()
+            << false
+            << 1.5;
+        QTest::newRow("rtl-overflow-dpr-2")
+            << Qt::RightToLeft
+            << QStringLiteral("Session destination")
+            << true
+            << 2.0;
+    }
+
+    void indicatorStaysInTheBottomContentGutter()
+    {
+        QFETCH(Qt::LayoutDirection, direction);
+        QFETCH(QString, text);
+        QFETCH(bool, overflow);
+        QFETCH(qreal, devicePixelRatio);
+        ZzFluentUI::ZzThemeController controller;
+        auto *recordingStyle = new ZzTabLabelRecordingStyle(
+            QStyleFactory::create(QStringLiteral("Fusion")));
+        ZzFluentUI::ZzFluentStyle style(&controller, recordingStyle);
+        ZzFluentUI::ZzPivot pivot;
+        pivot.setStyle(&style);
+        pivot.setLayoutDirection(direction);
+        const QColor iconColor(17, 231, 109);
+        const QIcon icon = zzTestIcon(iconColor);
+        pivot.addItem(icon, text);
+        if (overflow) {
+            for (int index = 1; index < 12; ++index) {
+                pivot.addItem(
+                    icon,
+                    QStringLiteral("Destination %1").arg(index));
+            }
+        }
+        showPivot(&pivot, overflow ? 260 : 300);
+        pivot.clearFocus();
+        recordingStyle->labelOptions.clear();
+
+        const QSize physicalSize(
+            qCeil(pivot.width() * devicePixelRatio),
+            qCeil(pivot.height() * devicePixelRatio));
+        QImage image(
+            physicalSize,
+            QImage::Format_ARGB32_Premultiplied);
+        image.setDevicePixelRatio(devicePixelRatio);
+        image.fill(pivot.palette().color(QPalette::Window));
+        QPainter painter(&image);
+        pivot.render(&painter);
+        painter.end();
+
+        const auto selected = std::find_if(
+            recordingStyle->labelOptions.cbegin(),
+            recordingStyle->labelOptions.cend(),
+            [](const QStyleOptionTab &option) {
+                return option.state.testFlag(QStyle::State_Selected);
+            });
+        QVERIFY(selected != recordingStyle->labelOptions.cend());
+        const QRect tab = pivot.tabRect(pivot.currentIndex());
+        const QRect textArea = style.subElementRect(
+            QStyle::SE_TabBarTabText,
+            &(*selected),
+            &pivot).intersected(tab);
+        const QColor accent = controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent);
+        const QRegion indicatorRegion = zzLogicalColorRegion(
+            image, accent, devicePixelRatio).intersected(tab);
+        const QRegion iconRegion = zzLogicalColorRegion(
+            image, iconColor, devicePixelRatio).intersected(tab);
+
+        QVERIFY(!indicatorRegion.isEmpty());
+        QVERIFY(!iconRegion.isEmpty());
+        QVERIFY(indicatorRegion.intersected(textArea).isEmpty());
+        QVERIFY(indicatorRegion.intersected(iconRegion).isEmpty());
+        QCOMPARE(indicatorRegion.boundingRect().bottom(), tab.bottom());
+    }
+
     void managesItemsAndEmitsCountOnlyForEffectiveChanges()
     {
         ZzFluentUI::ZzPivot pivot;

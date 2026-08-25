@@ -164,9 +164,9 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
     const auto snapshot = theme.snapshot();
     const ZzSplitButtonRegions current = regions();
     const bool enabled = option.state.testFlag(QStyle::State_Enabled);
+    const bool checked = option.state.testFlag(QStyle::State_On);
     const bool accentAppearance = appearance == ZzButtonAppearance::Accent
-        || option.features.testFlag(QStyleOptionButton::DefaultButton)
-        || option.state.testFlag(QStyle::State_On);
+        || option.features.testFlag(QStyleOptionButton::DefaultButton);
     const bool subtleAppearance = appearance == ZzButtonAppearance::Subtle;
     const bool mainPressed = option.state.testFlag(QStyle::State_Sunken)
         && !menuPressed;
@@ -177,6 +177,8 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
         baseFill = snapshot->color(ZzColorToken::ControlFillDisabled);
     } else if (accentAppearance) {
         baseFill = option.palette.color(QPalette::Highlight);
+    } else if (checked) {
+        baseFill = snapshot->color(ZzColorToken::ControlFillPressed);
     } else if (subtleAppearance) {
         baseFill.setAlpha(0);
     }

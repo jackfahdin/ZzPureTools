@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtGui/QIcon>
 #include <QtWidgets/QTabBar>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
@@ -45,12 +46,32 @@ public:
     int addItem(const QString &text);
 
     /**
+     * @brief 在末尾增加带图标的项。
+     * @param icon 展示图标；空图标表示纯文字项。
+     * @param text 展示文字，可为空或包含 Qt 助记符。
+     * @return 新项索引。
+     */
+    int addItem(const QIcon &icon, const QString &text);
+
+    /**
      * @brief 在指定位置插入文字项。
      * @param index 请求位置，具体边界处理沿用 QTabBar。
      * @param text 展示文字，可包含 Qt 助记符。
      * @return 实际插入索引。
      */
     int insertItem(int index, const QString &text);
+
+    /**
+     * @brief 在指定位置插入带图标的项。
+     * @param index 请求位置，具体边界处理沿用 QTabBar。
+     * @param icon 展示图标；空图标表示纯文字项。
+     * @param text 展示文字，可为空或包含 Qt 助记符。
+     * @return 实际插入索引。
+     */
+    int insertItem(
+        int index,
+        const QIcon &icon,
+        const QString &text);
 
     /**
      * @brief 移除指定项，不拥有或删除任何页面。
@@ -66,11 +87,25 @@ public:
     [[nodiscard]] QString itemText(int index) const;
 
     /**
+     * @brief 返回指定项图标。
+     * @param index 项索引。
+     * @return 展示图标；非法索引或纯文字项返回空图标。
+     */
+    [[nodiscard]] QIcon itemIcon(int index) const;
+
+    /**
      * @brief 设置指定项文字，重复值不触发布局刷新。
      * @param index 项索引；非法值不产生变化。
      * @param text 新展示文字。
      */
     void setItemText(int index, const QString &text);
+
+    /**
+     * @brief 设置指定项图标。
+     * @param index 项索引；非法值不产生变化。
+     * @param icon 新展示图标；空图标移除现有图标。
+     */
+    void setItemIcon(int index, const QIcon &icon);
 
 Q_SIGNALS:
     /**

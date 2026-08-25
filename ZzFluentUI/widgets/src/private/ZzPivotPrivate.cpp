@@ -71,7 +71,7 @@ void ZzPivotPrivate::paint(QPainter *painter)
             continue;
         }
         QStyleOptionTab option;
-        q_ptr->initStyleOption(&option, index);
+        initLabelStyleOption(&option, index);
         const bool hovered = option.state.testFlag(QStyle::State_MouseOver);
         const bool pressed = option.state.testFlag(QStyle::State_Sunken);
         if (hovered || pressed) {
@@ -156,6 +156,25 @@ void ZzPivotPrivate::refreshTheme()
     q_ptr->update();
 }
 
+void ZzPivotPrivate::initLabelStyleOption(
+    QStyleOptionTab *option,
+    int index) const
+{
+    Q_ASSERT(option != nullptr);
+    q_ptr->initStyleOption(option, index);
+    const auto snapshot = theme.snapshot();
+    if (snapshot == nullptr) {
+        return;
+    }
+    const int gutterHeight = std::max(
+        0,
+        qCeil(snapshot->metric(
+            ZzMetricToken::SelectionIndicatorThickness)));
+    option->rect.setHeight(std::max(
+        0,
+        option->rect.height() - gutterHeight));
+}
+
 QRectF ZzPivotPrivate::targetIndicatorRect(int index) const
 {
     if (index < 0 || index >= q_ptr->count()) {
@@ -170,11 +189,28 @@ QRectF ZzPivotPrivate::targetIndicatorRect(int index) const
         return {};
     }
     QStyleOptionTab option;
-    q_ptr->initStyleOption(&option, index);
-    const QRect textBounds = option.fontMetrics.boundingRect(
-        option.rect,
-        Qt::AlignCenter | Qt::TextShowMnemonic | Qt::TextSingleLine,
-        option.text);
+    initLabelStyleOption(&option, index);
+    QRect contentBounds = q_ptr->style()->subElementRect(
+        QStyle::SE_TabBarTabText,
+        &option,
+        q_ptr).intersected(option.rect);
+    if (contentBounds.isEmpty() && !option.icon.isNull()) {
+        const int preferredIconExtent = option.iconSize.isValid()
+            ? option.iconSize.width()
+            : q_ptr->style()->pixelMetric(
+                  QStyle::PM_SmallIconSize,
+                  &option,
+                  q_ptr);
+        const int iconExtent = std::max(0, preferredIconExtent);
+        contentBounds = QRect(
+            option.rect.center().x() - (iconExtent / 2),
+            option.rect.top(),
+            std::min(iconExtent, option.rect.width()),
+            option.rect.height());
+    }
+    if (contentBounds.isEmpty()) {
+        return {};
+    }
     const int horizontalPadding = qCeil(
         snapshot->metric(ZzMetricToken::HorizontalPadding));
     const qreal maximumWidth = std::max(
@@ -182,14 +218,20 @@ QRectF ZzPivotPrivate::targetIndicatorRect(int index) const
         tab.width() - (2 * horizontalPadding));
     const qreal indicatorWidth = std::min(
         maximumWidth,
-        static_cast<qreal>(textBounds.width()));
+        static_cast<qreal>(contentBounds.width()));
     const qreal thickness = snapshot->metric(
         ZzMetricToken::SelectionIndicatorThickness);
+    const qreal bottom = static_cast<qreal>(tab.bottom() + 1);
+    const qreal top = std::max(
+        static_cast<qreal>(option.rect.bottom() + 1),
+        bottom - thickness);
+    const qreal indicatorHeight = std::max(0.0, bottom - top);
     return QRectF(
-        static_cast<qreal>(tab.center().x()) - (indicatorWidth / 2.0),
-        static_cast<qreal>(tab.bottom() + 1) - thickness,
+        static_cast<qreal>(contentBounds.center().x())
+            - (indicatorWidth / 2.0),
+        top,
         indicatorWidth,
-        thickness);
+        indicatorHeight);
 }
 
 int ZzPivotPrivate::transitionDuration() const

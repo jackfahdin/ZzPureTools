@@ -19,9 +19,9 @@ class ZzSplitButtonPrivate;
 /**
  * @brief 在单个 QPushButton 中提供主命令区和菜单打开区。
  *
- * 主区保留 QPushButton 的 click、default、shortcut 和无障碍按钮语义；
- * 逻辑 trailing 菜单区只发出打开意图，并借用调用方提供的 QMenu。
- * 控件不拥有菜单、QAction 或业务命令。
+ * 主区保留 QPushButton 的 click、checkable、default、shortcut 和无障碍
+ * 按钮语义；逻辑 trailing 菜单区只发出打开意图，不改变 checked，并借用
+ * 调用方提供的 QMenu。控件不拥有菜单、QAction 或业务命令。
  */
 class ZZ_FLUENT_UI_EXPORT ZzSplitButton final : public QPushButton
 {

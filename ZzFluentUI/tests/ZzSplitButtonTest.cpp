@@ -50,6 +50,17 @@ bool zzContainsColor(const QImage &image, const QColor &expected)
     return false;
 }
 
+/** @brief 把按钮绘制到透明图像，供公开视觉结果断言复用。 */
+QImage zzRenderButton(QWidget *button)
+{
+    Q_ASSERT(button != nullptr);
+    QImage image(button->size(), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    button->render(&painter);
+    return image;
+}
+
 /** @brief 关闭菜单并处理其 aboutToHide 状态更新。 */
 void zzCloseMenu(QMenu *menu)
 {
@@ -66,6 +77,184 @@ class ZzSplitButtonTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void checkablePathsUseOnlyTheNativeToggleStateMachine_data()
+    {
+        QTest::addColumn<int>("appearance");
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+
+        for (const auto appearance : {
+                 ZzFluentUI::ZzButtonAppearance::Standard,
+                 ZzFluentUI::ZzButtonAppearance::Accent,
+                 ZzFluentUI::ZzButtonAppearance::Subtle}) {
+            const QByteArray appearanceName = QByteArray::number(
+                static_cast<int>(appearance));
+            QTest::newRow(
+                (appearanceName + "-ltr").constData())
+                << static_cast<int>(appearance)
+                << Qt::LeftToRight;
+            QTest::newRow(
+                (appearanceName + "-rtl").constData())
+                << static_cast<int>(appearance)
+                << Qt::RightToLeft;
+        }
+    }
+
+    void checkablePathsUseOnlyTheNativeToggleStateMachine()
+    {
+        QFETCH(int, appearance);
+        QFETCH(Qt::LayoutDirection, direction);
+        ZzFluentUI::ZzSplitButton button(QStringLiteral("Build"));
+        auto *menu = new QMenu;
+        menu->addAction(QStringLiteral("Clean build"));
+        button.setAppearance(
+            static_cast<ZzFluentUI::ZzButtonAppearance>(appearance));
+        button.setLayoutDirection(direction);
+        button.setCheckable(true);
+        button.setMenu(menu);
+        button.resize(180, 40);
+        button.show();
+        button.setFocus(Qt::TabFocusReason);
+        QCoreApplication::processEvents();
+        const QPoint mainPoint = direction == Qt::LeftToRight
+            ? QPoint(40, button.height() / 2)
+            : QPoint(button.width() - 40, button.height() / 2);
+        const QPoint menuPoint = direction == Qt::LeftToRight
+            ? QPoint(button.width() - 12, button.height() / 2)
+            : QPoint(12, button.height() / 2);
+        QSignalSpy toggledSpy(&button, &QPushButton::toggled);
+        QSignalSpy clickedSpy(&button, &QPushButton::clicked);
+        QSignalSpy requestedSpy(
+            &button,
+            &ZzFluentUI::ZzSplitButton::menuRequested);
+
+        QTest::mouseClick(
+            &button, Qt::LeftButton, Qt::NoModifier, mainPoint);
+        QVERIFY(button.isChecked());
+        QCOMPARE(toggledSpy.count(), 1);
+        QCOMPARE(clickedSpy.count(), 1);
+
+        QTest::mouseClick(
+            &button, Qt::LeftButton, Qt::NoModifier, menuPoint);
+        QVERIFY(button.isChecked());
+        QCOMPARE(toggledSpy.count(), 1);
+        QCOMPARE(clickedSpy.count(), 1);
+        QCOMPARE(requestedSpy.count(), 1);
+        QTRY_VERIFY(menu->isVisible());
+        zzCloseMenu(menu);
+
+        QTest::keyClick(&button, Qt::Key_Space);
+        QVERIFY(!button.isChecked());
+        QCOMPARE(toggledSpy.count(), 2);
+        QCOMPARE(clickedSpy.count(), 2);
+
+        QTest::keyClick(&button, Qt::Key_Down);
+        QVERIFY(!button.isChecked());
+        QCOMPARE(toggledSpy.count(), 2);
+        QCOMPARE(requestedSpy.count(), 2);
+        QTRY_VERIFY(menu->isVisible());
+        zzCloseMenu(menu);
+
+        QTest::keyClick(&button, Qt::Key_Return);
+        QVERIFY(button.isChecked());
+        QCOMPARE(toggledSpy.count(), 3);
+        QCOMPARE(clickedSpy.count(), 3);
+
+        QTest::keyClick(&button, Qt::Key_Down, Qt::AltModifier);
+        QVERIFY(button.isChecked());
+        QCOMPARE(toggledSpy.count(), 3);
+        QCOMPARE(requestedSpy.count(), 3);
+        QTRY_VERIFY(menu->isVisible());
+        zzCloseMenu(menu);
+
+        QTest::keyClick(&button, Qt::Key_Enter);
+        QVERIFY(!button.isChecked());
+        QCOMPARE(toggledSpy.count(), 4);
+        QCOMPARE(clickedSpy.count(), 4);
+        QCOMPARE(toggledSpy.at(0).at(0).toBool(), true);
+        QCOMPARE(toggledSpy.at(1).at(0).toBool(), false);
+        QCOMPARE(toggledSpy.at(2).at(0).toBool(), true);
+        QCOMPARE(toggledSpy.at(3).at(0).toBool(), false);
+
+        button.setEnabled(false);
+        const qsizetype disabledToggleCount = toggledSpy.count();
+        const qsizetype disabledClickCount = clickedSpy.count();
+        const qsizetype disabledRequestCount = requestedSpy.count();
+        QTest::mouseClick(
+            &button, Qt::LeftButton, Qt::NoModifier, mainPoint);
+        QTest::mouseClick(
+            &button, Qt::LeftButton, Qt::NoModifier, menuPoint);
+        QTest::keyClick(&button, Qt::Key_Space);
+        QTest::keyClick(&button, Qt::Key_Return);
+        QTest::keyClick(&button, Qt::Key_Enter);
+        QTest::keyClick(&button, Qt::Key_Down);
+        QTest::keyClick(&button, Qt::Key_Down, Qt::AltModifier);
+        QVERIFY(!button.isChecked());
+        QCOMPARE(toggledSpy.count(), disabledToggleCount);
+        QCOMPARE(clickedSpy.count(), disabledClickCount);
+        QCOMPARE(requestedSpy.count(), disabledRequestCount);
+
+        button.setEnabled(true);
+        button.setChecked(true);
+        const qsizetype destroyedMenuToggleCount = toggledSpy.count();
+        const qsizetype destroyedMenuRequestCount = requestedSpy.count();
+        delete menu;
+        QCOMPARE(button.menu(), nullptr);
+        QTest::mouseClick(
+            &button, Qt::LeftButton, Qt::NoModifier, menuPoint);
+        QVERIFY(button.isChecked());
+        QCOMPARE(toggledSpy.count(), destroyedMenuToggleCount);
+        QCOMPARE(requestedSpy.count(), destroyedMenuRequestCount + 1);
+    }
+
+    void checkedSurfaceDoesNotReplaceTheConfiguredAppearance_data()
+    {
+        QTest::addColumn<int>("appearance");
+        QTest::newRow("standard")
+            << static_cast<int>(
+                   ZzFluentUI::ZzButtonAppearance::Standard);
+        QTest::newRow("accent")
+            << static_cast<int>(ZzFluentUI::ZzButtonAppearance::Accent);
+        QTest::newRow("subtle")
+            << static_cast<int>(ZzFluentUI::ZzButtonAppearance::Subtle);
+    }
+
+    void checkedSurfaceDoesNotReplaceTheConfiguredAppearance()
+    {
+        QFETCH(int, appearance);
+        ZzFluentUI::ZzThemeController controller;
+        auto style = zzCreateStyle(&controller);
+        ZzFluentUI::ZzSplitButton button(QStringLiteral("Pin preview"));
+        button.setStyle(style.get());
+        button.setAppearance(
+            static_cast<ZzFluentUI::ZzButtonAppearance>(appearance));
+        button.setCheckable(true);
+        button.resize(180, 40);
+        button.show();
+        button.clearFocus();
+        QCoreApplication::processEvents();
+        const QPoint surfacePoint(18, button.height() / 2);
+        const QColor uncheckedColor =
+            zzRenderButton(&button).pixelColor(surfacePoint);
+
+        button.setChecked(true);
+        const QColor checkedColor =
+            zzRenderButton(&button).pixelColor(surfacePoint);
+        const QColor accent = button.palette().color(QPalette::Highlight);
+        if (static_cast<ZzFluentUI::ZzButtonAppearance>(appearance)
+            == ZzFluentUI::ZzButtonAppearance::Accent) {
+            QCOMPARE(checkedColor, accent);
+        } else {
+            QVERIFY(checkedColor != accent);
+            QVERIFY(checkedColor != uncheckedColor);
+        }
+
+        button.setEnabled(false);
+        QCOMPARE(
+            zzRenderButton(&button).pixelColor(surfacePoint),
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::ControlFillDisabled));
+    }
+
     void propertiesAreIdempotentAndMenuIsBorrowed()
     {
         ZzFluentUI::ZzSplitButton button(QStringLiteral("Build"));
