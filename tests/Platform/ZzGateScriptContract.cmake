@@ -39,6 +39,26 @@ set(required_tokens
     "scripts/ci/run-linux-startup-stability-probe.sh|summary.json"
     "scripts/ci/run-linux-startup-stability-probe.sh|INVALID "
     "scripts/ci/run-linux-startup-stability-probe.sh|trap cleanup_xvfb EXIT"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|EUID -ne 0"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|SUDO_USER"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|SUDO_UID"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|SUDO_GID"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|mktemp -d"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|trap finish EXIT"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|trap 'exit 130' INT"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|trap 'exit 143' TERM"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|trap 'exit 129' HUP"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_snapshot"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_apply"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_restore"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_verify"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|runuser -u"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|--phase control"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|--phase performance"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|host-state-before.json"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|host-state-applied.json"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|host-state-restored.json"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|manual restore"
     "scripts/ci/run-linux-gates.sh|sha256:\${profile_digest}"
     "scripts/ci/run-linux-gates.sh|ZZ_UBUNTU2204_BUILD_IMAGE"
     "scripts/ci/run-linux-gates.sh|pending-user-validation"
@@ -112,6 +132,19 @@ if(startup_stability_probe_size EQUAL 0)
     message(FATAL_ERROR "Linux startup stability probe must not be empty")
 endif()
 
+set(governor_experiment
+    "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-startup-governor-experiment.sh")
+if(NOT EXISTS "${governor_experiment}"
+   OR IS_DIRECTORY "${governor_experiment}"
+   OR IS_SYMLINK "${governor_experiment}")
+    message(FATAL_ERROR
+        "Linux governor experiment must be an existing regular non-symlink file")
+endif()
+file(SIZE "${governor_experiment}" governor_experiment_size)
+if(governor_experiment_size EQUAL 0)
+    message(FATAL_ERROR "Linux governor experiment must not be empty")
+endif()
+
 foreach(requirement IN LISTS required_tokens)
     if(NOT requirement MATCHES "^([^|]+)\\|(.*)$")
         message(FATAL_ERROR "Invalid runner contract entry: ${requirement}")
@@ -165,6 +198,42 @@ foreach(forbidden_token IN ITEMS
     if(NOT forbidden_position EQUAL -1)
         message(FATAL_ERROR
             "Linux startup stability probe contains forbidden token: ${forbidden_token}")
+    endif()
+endforeach()
+
+file(READ "${governor_experiment}" governor_experiment_content)
+string(FIND "${governor_experiment_content}"
+    "trap finish EXIT" finish_trap_position)
+string(FIND "${governor_experiment_content}"
+    "zz_governor_apply" governor_apply_position)
+if(finish_trap_position EQUAL -1 OR governor_apply_position EQUAL -1
+   OR finish_trap_position GREATER governor_apply_position)
+    message(FATAL_ERROR
+        "Linux governor experiment must install its EXIT trap before applying state")
+endif()
+
+string(FIND "${governor_experiment_content}" "runuser -u" runuser_position)
+string(FIND "${governor_experiment_content}"
+    "--phase control" control_phase_position)
+string(FIND "${governor_experiment_content}"
+    "--phase performance" performance_phase_position)
+if(runuser_position EQUAL -1 OR control_phase_position EQUAL -1
+   OR performance_phase_position EQUAL -1
+   OR runuser_position GREATER control_phase_position
+   OR runuser_position GREATER performance_phase_position)
+    message(FATAL_ERROR
+        "Linux governor experiment must define ordinary-user execution before both phases")
+endif()
+
+foreach(forbidden_root_token IN ITEMS
+    "ZzStartupBenchmark"
+    "Xvfb"
+    "powerprofilesctl set")
+    string(FIND "${governor_experiment_content}"
+        "${forbidden_root_token}" forbidden_root_position)
+    if(NOT forbidden_root_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux governor experiment contains forbidden root token: ${forbidden_root_token}")
     endif()
 endforeach()
 
