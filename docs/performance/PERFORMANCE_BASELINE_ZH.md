@@ -96,6 +96,33 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 metric。后续同档案报告只有在完整环境指纹一致时才能与本基线执行相对回归比较；
 档案变化、环境不匹配或任一报告缺失都必须失败关闭。
 
+## Governor 可逆对照实验
+
+2026-08-26 在当前活动档案 `local-release-xvfb` 上完成一次可逆 governor 对照实验。
+实验源码 HEAD 为 `d2c255055fec9ba856c7efee36bf86aeba00efd5`，runner 档案 digest 为
+`sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c`。实验只对
+CPU 8、10 的 `scaling_governor` 做事务性切换，EPP、频率上下限、CPU online 状态和
+power profile 均保持不变；普通用户 benchmark 通过 `setpriv` 执行，不创建第二层 PAM
+会话。
+
+| 阶段 | governor | 通过轮次 | 结论 |
+|---|---|---:|---|
+| control | 原始 `powersave` | 10/10 | 全部通过 |
+| performance | `performance` | 9/10 | 第 6 轮相对门禁失败 |
+
+事务最终判定为 `GOVERNOR_INSUFFICIENT`。失败轮次的启动 `external-total` P95 为
+28.465849 ms（基线 21.027348 ms，+35%），`first-paint` P95 为 20.452418 ms
+（+37%），`modules-started`、`page-created` 和 `qt-created` P95 同步上升 35% 至
+39%；P50 仍约 20.3 ms，说明异常集中在少量启动样本，而非整个阶段持续变慢。其余
+九个 performance 轮次和全部 control 轮次均通过。
+
+该结果只能证明本次 `performance` 阶段没有达到 10/10 的相对门禁，不能单独证明
+governor 是异常尖峰的根因，也不能据此修改正式阈值或发布策略。详细证据保留在本机
+`build/linux-gcc-benchmarks/governor-experiment/`，包括两阶段 summary、失败轮次报告、
+比较日志和事务快照。`host-state-before.json` 与 `host-state-restored.json` 的 CPU 字段
+及 power profile 完全一致，恢复日志为 `restore: VERIFIED all CPU fields and power profile`；
+未发现残留 Xvfb 进程。
+
 ## 测量与文件映射
 
 所有报告必须来自干净工作树的同一 HEAD，使用相同档案 digest 和 renderer identity：
