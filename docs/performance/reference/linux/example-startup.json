@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
+        "commit": "5ee0e57d5477c6636be9597e3d5a7207f9fe3087",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -13,25 +13,25 @@
         "dpr": 1,
         "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24",
         "memoryBytes": 32682016768,
-        "os": "Ubuntu 26.04 LTS",
+        "os": "Ubuntu 26.04.1 LTS",
         "qtVersion": "6.11.1",
         "refreshRateHz": 60,
-        "runnerImageDigest": "sha256:0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295",
+        "runnerImageDigest": "sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c",
         "windowSystem": "xcb"
     },
     "metrics": {
         "external-total": {
             "count": 30,
-            "max": 73.02699,
-            "p50": 72.245767,
-            "p95": 72.994552,
+            "max": 79.001167,
+            "p50": 77.402037,
+            "p95": 78.185564,
             "unit": "ms"
         },
         "first-paint": {
             "count": 30,
-            "max": 64.35475,
-            "p50": 63.608417,
-            "p95": 64.331592,
+            "max": 69.259903,
+            "p50": 67.944482,
+            "p95": 68.589041,
             "unit": "ms"
         }
     },

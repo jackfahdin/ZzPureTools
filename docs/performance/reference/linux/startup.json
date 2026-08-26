@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4",
+        "commit": "5ee0e57d5477c6636be9597e3d5a7207f9fe3087",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -13,46 +13,46 @@
         "dpr": 1,
         "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24",
         "memoryBytes": 32682016768,
-        "os": "Ubuntu 26.04 LTS",
+        "os": "Ubuntu 26.04.1 LTS",
         "qtVersion": "6.11.1",
         "refreshRateHz": 60,
-        "runnerImageDigest": "sha256:0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295",
+        "runnerImageDigest": "sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c",
         "windowSystem": "xcb"
     },
     "metrics": {
         "external-total": {
             "count": 30,
-            "max": 20.027428,
-            "p50": 19.457461,
-            "p95": 19.987948,
+            "max": 21.44915,
+            "p50": 20.417847,
+            "p95": 21.027348,
             "unit": "ms"
         },
         "first-paint": {
             "count": 30,
-            "max": 13.85932,
-            "p50": 13.440757,
-            "p95": 13.841967,
+            "max": 15.041744,
+            "p50": 14.185956,
+            "p95": 14.909409,
             "unit": "ms"
         },
         "modules-started": {
             "count": 30,
-            "max": 2.882632,
-            "p50": 2.644573,
-            "p95": 2.790825,
+            "max": 2.820008,
+            "p50": 2.640902,
+            "p95": 2.746333,
             "unit": "ms"
         },
         "page-created": {
             "count": 30,
-            "max": 12.712735,
-            "p50": 12.319897,
-            "p95": 12.691112,
+            "max": 13.929252,
+            "p50": 13.135656,
+            "p95": 13.857568,
             "unit": "ms"
         },
         "qt-created": {
             "count": 30,
-            "max": 2.868306,
-            "p50": 2.62987,
-            "p95": 2.775579,
+            "max": 2.804587,
+            "p50": 2.624322,
+            "p95": 2.73102,
             "unit": "ms"
         }
     },

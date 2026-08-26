@@ -29,7 +29,7 @@ seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没�
 | 主机 GPU | Intel UHD Graphics 770，i915，当前不参与 Xvfb 绘制 |
 | benchmark renderer | Mesa llvmpipe，LLVM 21.1.8，Mesa 26.0.3 |
 | 显示 | Xvfb 21.1.22，xcb，1920×1080×24，60 Hz，DPR 1.0 |
-| OS | Ubuntu 26.04 LTS，kernel 7.0.0-28-generic |
+| OS | Ubuntu 26.04.1 LTS，kernel 7.0.0-28-generic |
 | Qt | 6.11.1 |
 | 编译器 | GCC 15.2.0 |
 | libstdc++ | `libstdc++.so.6.0.35` |
@@ -57,39 +57,39 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 
 ## 当前活动基线
 
-本机活动基线指标于 2026-08-10 建立，十二份报告来自同一次固定环境采集。2026-08-25
-只把十二份报告的 `memoryBytes` 迁移到 64 MiB 归一值，并同步活动档案摘要；
-`build.commit` 和全部 metric 保持原值，不把新采样静默提升为基线。原采集同时生成
-七个组件场景与五个完整 `ZzPureToolsExample` 场景：
+本机活动基线原于 2026-08-10 建立。由于系统升级到 Ubuntu 26.04.1 LTS，
+2026-08-26 按更新后的参考档案重新采集十二份报告；旧报告保留 Git 历史，
+不与新报告混用。本次采集同时生成七个组件场景与五个完整
+`ZzPureToolsExample` 场景：
 
 | 身份字段 | 固定值 |
 |---|---|
-| 被测源码 HEAD | `a990498ddfb8ab8770dc2ee4f6b6a2c2281321c4` |
-| runner 档案 SHA-256 | `0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295` |
+| 被测源码 HEAD | `5ee0e57d5477c6636be9597e3d5a7207f9fe3087` |
+| runner 档案 SHA-256 | `e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c` |
 | renderer identity | `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` |
-| reference CTest | 37/37 通过，包含 12 个报告生产者与 15 项绝对门禁 |
-| Clang ASan/UBSan | `linux-clang-asan-benchmarks` 构建通过；窗口生命周期与导航面板场景 2/2 通过，保持 LeakSanitizer 开启 |
+| reference CTest | 42/42 通过，包含 12 个正式报告生产者与全部参考门禁 |
+| Clang ASan/UBSan | 独立门禁记录保持通过；本次参考基线重采集未重复运行该构建 |
 
 | 门禁 | 实测结果 | 要求 | 结论 |
 |---|---:|---:|---|
-| 启动 `external-total` | P95 19.987948 ms，max 20.027428 ms | P95/max ≤ 300 ms | 通过 |
-| 500 控件主题切换 | P95 6.730136 ms | P95 ≤ 50 ms | 通过 |
-| Toggle 动画 | P95 16.604626 ms | P95 ≤ 16.7 ms | 通过 |
-| 10 万行模型 | P95 1.529310 ms | P95 ≤ 16.7 ms | 通过 |
-| 窗口生命周期 | 100 次完成，P95 3.886237 ms | 100 次且诊断计数无残留 | 通过 |
-| 40 个导航面板整帧 | P95 8.159529 ms | P95 ≤ 12 ms | 通过 |
-| 导航绘制复杂度 | 0.9663735099 倍 | 严格 ≤ 1.5 倍 | 通过 |
-| 10 万行导航 reset | P95 17.077180 ms | P95 ≤ 80 ms | 通过 |
+| 启动 `external-total` | P95 21.027348 ms，max 21.449150 ms | P95/max ≤ 300 ms | 通过 |
+| 500 控件主题切换 | P95 6.536127 ms | P95 ≤ 50 ms | 通过 |
+| Toggle 动画 | P95 16.597077 ms | P95 ≤ 16.7 ms | 通过 |
+| 10 万行模型 | P95 1.584755 ms | P95 ≤ 16.7 ms | 通过 |
+| 窗口生命周期 | 100 次完成，P95 4.179517 ms | 100 次且诊断计数无残留 | 通过 |
+| 40 个导航面板整帧 | P95 8.249177 ms | P95 ≤ 12 ms | 通过 |
+| 导航绘制复杂度 | 0.9683243569 倍 | 严格 ≤ 1.5 倍 | 通过 |
+| 10 万行导航 reset | P95 17.273860 ms | P95 ≤ 80 ms | 通过 |
 | 空闲 CPU | 0% | 严格 < 0.5% | 通过 |
 | 空闲 RSS 增长 | 0% | ≤ 10% | 通过 |
-| 综合示例启动 `external-total` | P95 72.994552 ms，max 73.026990 ms；首次绘制 P95 64.331592 ms | P95/max ≤ 300 ms | 通过 |
-| 综合示例页面切换 | P50 10.137042 ms，P95 11.352345 ms，max 18.545556 ms | P95 ≤ 50 ms | 通过 |
-| 综合示例主题切换 | P50 3.814043 ms，P95 9.305927 ms，max 9.393607 ms | P95 ≤ 50 ms | 通过 |
-| 综合示例 10 万行模型 | P95 0.468593 ms，22 次 `multiData`、11 个请求行、2 次 viewport paint/帧 | P95 ≤ 16.7 ms | 通过 |
+| 综合示例启动 `external-total` | P95 78.185564 ms，max 79.001167 ms；首次绘制 P95 68.589041 ms | P95/max ≤ 300 ms | 通过 |
+| 综合示例页面切换 | P50 9.648745 ms，P95 11.210102 ms，max 17.897056 ms | P95 ≤ 50 ms | 通过 |
+| 综合示例主题切换 | P50 3.958840 ms，P95 9.536496 ms，max 9.709254 ms | P95 ≤ 50 ms | 通过 |
+| 综合示例 10 万行模型 | P95 0.508864 ms，22 次 `multiData`、11 个请求行、2 次 viewport paint/帧 | P95 ≤ 16.7 ms | 通过 |
 | 综合示例空闲 CPU | 0.033327% | 严格 < 0.5% | 通过 |
-| 综合示例空闲 RSS | 64,344,064 增至 64,475,136 bytes，增长 0.203705% | ≤ 10% | 通过 |
+| 综合示例空闲 RSS | 67,383,296 增至 67,514,368 bytes，增长 0.194517% | ≤ 10% | 通过 |
 
-该历史结果建立 `local-release-xvfb` 活动基线。提交
+该次 2026-08-26 采集重新建立 `local-release-xvfb` 活动基线。提交
 `35362b90715c2c1a76ffe9c2adfcd39606f203cb` 的 2026-08-25 候选运行通过 benchmark
 标签 41/41 与全部绝对门禁，但相对比较首次运行有 7/12 场景失败；静置后三轮复测仍
 稳定复现综合示例启动和 RSS 回归，因此候选没有解除当前发布阻断，也没有覆盖本表
@@ -194,7 +194,8 @@ benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100%
 
 `theme-switch` 的 P95 也表现出明显跨轮噪声，因此作为 observe 不阻断相对比较；其绝对 P95 50ms 门限继续失败关闭。百分比超过配置允许上限时以 observe 100% 保存，同时在本表保留原始 123% 证据。2026-08-26 的 animation 三轮复采 max 噪声为 20.76%，因此采用向上取整的 21% observe；同日 example-startup 三轮证据没有超过 10%，其 duration max 采用 10% observe。后续只有新的至少三轮校准证据才能修改这些策略，不得凭单轮失败扩大门限。
 
-本次迁移仅修改 `regression-thresholds.json` 的策略元数据；12 份历史 reporter JSON 保持未修改。
+2026-08-25 的内存归一迁移仅修改 `regression-thresholds.json` 的策略元数据；
+当时的 12 份历史 reporter JSON 保持未修改。
 
 ## 工作区组件 Observe 记录
 
@@ -209,9 +210,9 @@ benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100%
 | 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `65180443edf80fa107325b95af93477643980a57ddb430e9cc111894b0f4712e` |
 | 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `14398ef639dba0ec85be1cd5140cdff9c5634bfd9fe83d3794eca29367530369` |
 
-三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04、Xvfb/`xcb`、DPR 1、
+三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04 系列（更新活动档案前）、Xvfb/`xcb`、DPR 1、
 Release/shared/LTO、`linux-gcc-reference`、归一内存指纹 32,682,016,768 bytes、
-runner digest
+旧 runner digest
 `sha256:0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295` 和
 `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` renderer identity。
 
