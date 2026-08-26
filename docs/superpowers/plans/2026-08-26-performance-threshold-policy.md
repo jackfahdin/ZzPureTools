@@ -58,8 +58,8 @@
 - 修改 `tests/Platform/ZzGateScriptContract.cmake`：静态验证三轮 helper 和主门禁接线。
 - 修改 `docs/performance/PERFORMANCE_BASELINE_ZH.md`：记录语义策略、迁移表和最终三轮
   结果。
-- 修改 `.superpowers/sdd/2026-08-25-deferred-side-panel-performance/progress.md`：只有最终
-  验证和审查通过后，才把原 Task 3 从 `BLOCKED` 更新为完成。
+- 本计划使用自己被 Git 忽略的 SDD 账本记录执行过程；最终整分支审查通过后，由控制者
+  在旧计划账本中把原 Task 3 从 `BLOCKED` 更新为完成，旧账本不进入 Git 提交。
 
 ## 任务 1：让比较器执行 schema v2 语义合同
 
@@ -476,8 +476,8 @@ observe；噪声分析器生成的候选策略满足同一 schema 和语义规�
 **文件：**
 
 - 修改：`docs/performance/PERFORMANCE_BASELINE_ZH.md`
-- 修改：`.superpowers/sdd/2026-08-25-deferred-side-panel-performance/progress.md`
 - 不提交：`build/linux-gcc-benchmarks/release-rounds/**`
+- 不提交：`.superpowers/sdd/2026-08-25-deferred-side-panel-performance/progress.md`
 
 - [ ] **步骤 1：运行定向合同和十二场景自比较。**
 
@@ -550,9 +550,9 @@ observe；噪声分析器生成的候选策略满足同一 schema 和语义规�
   observe 告警、全部强制门禁和绝对预算结果。明确 build 目录原始报告不进入 Git，历史
   reference reporter 仍未修改。
 
-  在 SDD ledger 中追加：新策略计划 commit 范围、定向合同结果、三轮结果和 Task 3 的
-  审查状态。只有实现审查无 Critical/Important 且全部要求满足时写 `Task 3: complete`；
-  否则记录具体 open finding，不能仅因 max 改为 observe 就宣称完成。
+  本步骤不修改旧计划 SDD ledger。只有本计划任务审查和最终整分支审查均无
+  Critical/Important、且全部要求满足后，控制者才在旧账本写 `Task 3: complete`；否则
+  记录具体 open finding，不能仅因 max 改为 observe 就宣称完成。
 
 - [ ] **步骤 7：运行最终差异与文档验证。**
 
@@ -563,19 +563,17 @@ observe；噪声分析器生成的候选策略满足同一 schema 和语义规�
   git status --short
   ```
 
-  预期：只出现本步骤两份文档修改；没有历史 reporter、`temp_image/` 或 build evidence 被
-  暂存。
+  预期：只出现 `PERFORMANCE_BASELINE_ZH.md` 修改；没有历史 reporter、SDD ledger、
+  `temp_image/` 或 build evidence 被暂存。
 
 - [ ] **步骤 8：提交任务 4。**
 
   ```bash
-  git add \
-    docs/performance/PERFORMANCE_BASELINE_ZH.md \
-    .superpowers/sdd/2026-08-25-deferred-side-panel-performance/progress.md
+  git add docs/performance/PERFORMANCE_BASELINE_ZH.md
   git diff --cached --check
   git commit -m "质量：完成性能阈值发布验收" \
     -m "记录最终 HEAD 的三轮 Linux 性能报告、观察告警、强制相对门禁和绝对预算结果。" \
-    -m "在不修改历史 reporter 的前提下解除延迟侧面板 Task 3 阻塞，并保留跨平台真机待验证边界。"
+    -m "在不修改历史 reporter 的前提下提供解除延迟侧面板 Task 3 阻塞所需证据，并保留跨平台真机待验证边界。"
   ```
 
 ## 最终完成标准
@@ -591,8 +589,9 @@ observe；噪声分析器生成的候选策略满足同一 schema 和语义规�
 6. Linux 发布性能验收固定三轮、每轮独立保存 12 份报告和命令；任一 P95、确定性、资源、
    绝对或 INVALID 失败都会阻断。
 7. 最终 HEAD 的定向合同、十二场景自比较和三轮真实性能验收有新鲜通过证据。
-8. 原延迟侧面板计划 Task 3 经最终实现审查后才从 BLOCKED 改为 complete；Windows
-   MSVC、Windows MinGW 和 macOS 继续准确标记真机待验证。
+8. 原延迟侧面板计划 Task 3 经最终整分支审查后才在本机旧账本中从 BLOCKED 改为
+   complete；该账本不进入 Git。Windows MSVC、Windows MinGW 和 macOS 继续准确标记
+   真机待验证。
 
 ## 计划自检
 
