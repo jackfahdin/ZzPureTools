@@ -12,7 +12,7 @@
     "logicalCpus": 28,
     "memoryBytes": 32682016768,
     "memoryFingerprintBucketBytes": 67108864,
-    "os": "Ubuntu 26.04 LTS",
+    "os": "Ubuntu 26.04.1 LTS",
     "kernel": "7.0.0-28-generic",
     "hardwareGpu": "Intel UHD Graphics 770 [8086:a780]",
     "hardwareGpuDriver": "i915 7.0.0-28-generic"
