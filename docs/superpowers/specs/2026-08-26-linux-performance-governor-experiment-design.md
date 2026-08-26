@@ -49,7 +49,9 @@
 ### 普通用户稳定性探针
 
 新增 `scripts/ci/run-linux-startup-stability-probe.sh`，由 root 包装器降权到原用户后
-调用。探针承担以下职责：
+调用。root 包装器使用 `setpriv --reuid/--regid/--init-groups` 进行一次性身份切换，
+不创建第二层 PAM 登录会话；Qt、Xvfb 和 benchmark 继承经过显式构造的普通用户环境。
+探针承担以下职责：
 
 1. 验证当前 HEAD、Qt 6.11.1、GCC 15、benchmark cache 的
    `ZZ_PERFORMANCE_REFERENCE:BOOL=ON`、现有 `ZzStartupBenchmark` 和活动 profile。
@@ -62,6 +64,10 @@
    高尾仍可审计。Xvfb 启动失败、报告缺失、INVALID、环境不匹配或绝对执行错误仍立即
    失败。
 5. 每个 Xvfb 都由局部 trap 清理；不得结束或修改其他 display 的进程。
+
+6. 每个阶段开始前只清理该阶段目录中本次实验命名的 `round-01` 至 `round-10` 报告、
+   比较日志、Xvfb 日志、display 文件、`rounds.ndjson` 和 `summary.json`；不得递归删除
+   阶段目录，也不得触碰其他路径中的证据。
 
 对照与处理阶段分别写入：
 
@@ -101,8 +107,8 @@ CLI、不得 push。所有删除仅限本次创建的明确临时状态文件；
 ## 测试与交付边界
 
 实现采用 TDD：先扩展 `tests/Platform/ZzGateScriptContract.cmake`，让合同因缺少两个脚本、
-root/降权边界、快照、trap、恢复验真、10 轮和 evidence 路径而失败；再实现最小脚本使
-合同通过。两份脚本还必须通过 `bash -n`；本机存在 `shellcheck` 时必须通过其检查，
+root/`setpriv` 降权边界、快照、trap、恢复验真、10 轮和 evidence 路径而失败；再实现最小
+脚本使合同通过。两份脚本还必须通过 `bash -n`；本机存在 `shellcheck` 时必须通过其检查，
 不存在时明确记录未运行且不得为本实验下载工具。
 
 实现提交与真实 sudo 实验分开：脚本和合同先用中文提交；用户执行一次 root 事务后，

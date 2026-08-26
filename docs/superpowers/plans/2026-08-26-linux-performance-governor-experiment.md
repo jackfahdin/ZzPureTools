@@ -4,7 +4,7 @@
 
 **目标：** 实现并执行一个可审计、必恢复的 CPU governor 对照实验，判断 CPU 8、10 的动态调频是否导致 Linux/Xvfb 启动 P95 随机高尾，同时不修改正式阈值、基线或业务代码。
 
-**架构：** 参数化 shell 状态库负责读取、应用、恢复和验证 governor；普通用户探针在 10 个独立 Xvfb 会话中保存 startup reporter 与相对比较结果；root 包装器只管理 CPU 状态并通过 `runuser` 降权运行探针。包装器在应用配置前注册 EXIT trap，最后用结构化快照证明 governor、EPP、频率上下限和 power profile 已恢复。
+**架构：** 参数化 shell 状态库负责读取、应用、恢复和验证 governor；普通用户探针在 10 个独立 Xvfb 会话中保存 startup reporter 与相对比较结果；root 包装器只管理 CPU 状态并通过 `setpriv` 降权运行探针。包装器在应用配置前注册 EXIT trap，最后用结构化快照证明 governor、EPP、频率上下限和 power profile 已恢复。
 
 **技术栈：** Bash、CMake/CTest、JSON/jq、Linux sysfs、intel_pstate、Xvfb/xcb、Qt 6.11.1、GNU 15.2、Git。
 
@@ -329,7 +329,7 @@ governor、恢复原 governor，并拒绝 EPP/min/max 未恢复或 CPU/driver �
   zz_governor_apply
   zz_governor_restore
   zz_governor_verify
-  runuser -u
+  setpriv --reuid
   --phase control
   --phase performance
   host-state-before.json
@@ -338,7 +338,7 @@ governor、恢复原 governor，并拒绝 EPP/min/max 未恢复或 CPU/driver �
   manual restore
   ```
 
-  合同按文本位置断言 `trap finish EXIT` 早于 `zz_governor_apply`；`runuser` 调用必须早于
+  合同按文本位置断言 `trap finish EXIT` 早于 `zz_governor_apply`；`setpriv` 调用必须早于
   两个 phase 参数且包装器不得直接包含 `ZzStartupBenchmark` 或 `Xvfb` 命令。
 
 - [ ] **步骤 2：运行 RED。**
@@ -357,7 +357,7 @@ governor、恢复原 governor，并拒绝 EPP/min/max 未恢复或 CPU/driver �
   ```
 
   启动时验证 `EUID == 0`、sudo 身份字段、源码目录所有者等于 `SUDO_UID`、profile、
-  `jq`、`runuser` 和状态库。用 `mktemp -d /tmp/zz-governor-experiment.XXXXXX` 保存 root
+  `jq`、`setpriv` 和状态库。用 `mktemp -d /tmp/zz-governor-experiment.XXXXXX` 保存 root
   快照和事务日志，并在应用前注册：
 
   ```bash
@@ -382,10 +382,16 @@ governor、恢复原 governor，并拒绝 EPP/min/max 未恢复或 CPU/driver �
   `build/linux-gcc-benchmarks/governor-experiment/`，owner/group 设回
   `SUDO_UID:SUDO_GID`，最后返回原实验退出码。
 
-  `run_as_invoking_user()` 使用 `runuser -u "$SUDO_USER" -- env`，只传递该用户 HOME、
-  `XDG_RUNTIME_DIR=/run/user/$SUDO_UID`、
-  `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus`，并调用普通用户探针。
-  power profile 也通过该函数调用 `powerprofilesctl get`；包装器从不调用 set。
+  `run_as_invoking_user()` 使用
+  `setpriv --reuid "$SUDO_UID" --regid "$SUDO_GID" --init-groups -- env -i`，只传递
+  该用户 HOME、`XDG_RUNTIME_DIR=/run/user/$SUDO_UID`、
+  `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus`，并调用普通用户探针，
+  不创建第二层 PAM 登录会话。power profile 也通过该函数调用 `powerprofilesctl get`；
+  包装器从不调用 set。
+
+  每个阶段开始前，`clear_phase_evidence()` 只删除该阶段目录内明确命名的
+  `round-01` 至 `round-10` 的 JSON、比较日志、Xvfb 日志、display 文件、
+  `rounds.ndjson` 和 `summary.json`；不递归删除阶段目录或其他 evidence。
 
   执行顺序固定为：snapshot -> control -> apply performance -> applied snapshot/verify ->
   performance -> summary verdict -> EXIT restore。判定使用两个 summary：
@@ -551,7 +557,7 @@ governor、恢复原 governor，并拒绝 EPP/min/max 未恢复或 CPU/driver �
 
 - 规格的最小变更边界由任务 1 状态库和任务 3 root 包装器覆盖；没有加入固定频率、
   CPU 隔离、SMT/Turbo 或重启操作。
-- 规格的普通用户执行边界由任务 2 探针与任务 3 `runuser` 接线覆盖。
+- 规格的普通用户执行边界由任务 2 探针与任务 3 `setpriv` 接线覆盖。
 - 规格的十轮、独立 Xvfb、继续收集相对 FAIL、立即拒绝 INVALID 由任务 2 覆盖。
 - 规格的 EXIT/信号恢复、幂等 restore、六字段与 power profile 验真由任务 1、3、4 覆盖。
 - 规格的三分支判定及“不能直接解除发布阻塞”由任务 3、4 和最终完成标准覆盖。
