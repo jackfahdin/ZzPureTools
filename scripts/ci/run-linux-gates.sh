@@ -96,7 +96,7 @@ xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 || {
   exit 1
 }
 
-cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE=ON
+cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE:BOOL=ON
 cmake --build --preset linux-gcc-benchmarks
 taskset -c 10 ctest --preset linux-gcc-benchmarks \
   -LE benchmark --output-on-failure -j1
