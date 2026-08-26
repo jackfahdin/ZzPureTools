@@ -28,6 +28,17 @@ set(required_tokens
     "scripts/ci/run-linux-performance-gates.sh|ZzComparePerformanceReport.cmake"
     "scripts/ci/run-linux-performance-gates.sh|regression-thresholds.json"
     "scripts/ci/run-linux-performance-gates.sh|commands.log"
+    "scripts/ci/run-linux-startup-stability-probe.sh|EUID"
+    "scripts/ci/run-linux-startup-stability-probe.sh|for round in $(seq 1 10)"
+    "scripts/ci/run-linux-startup-stability-probe.sh|-displayfd 3"
+    "scripts/ci/run-linux-startup-stability-probe.sh|taskset -c"
+    "scripts/ci/run-linux-startup-stability-probe.sh|ZzStartupBenchmark"
+    "scripts/ci/run-linux-startup-stability-probe.sh|ZzComparePerformanceReport.cmake"
+    "scripts/ci/run-linux-startup-stability-probe.sh|regression-thresholds.json"
+    "scripts/ci/run-linux-startup-stability-probe.sh|governor-experiment/\${phase}"
+    "scripts/ci/run-linux-startup-stability-probe.sh|summary.json"
+    "scripts/ci/run-linux-startup-stability-probe.sh|INVALID "
+    "scripts/ci/run-linux-startup-stability-probe.sh|trap cleanup_xvfb EXIT"
     "scripts/ci/run-linux-gates.sh|sha256:\${profile_digest}"
     "scripts/ci/run-linux-gates.sh|ZZ_UBUNTU2204_BUILD_IMAGE"
     "scripts/ci/run-linux-gates.sh|pending-user-validation"
@@ -88,6 +99,19 @@ if(performance_helper_size EQUAL 0)
     message(FATAL_ERROR "Linux performance helper must not be empty")
 endif()
 
+set(startup_stability_probe
+    "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-startup-stability-probe.sh")
+if(NOT EXISTS "${startup_stability_probe}"
+   OR IS_DIRECTORY "${startup_stability_probe}"
+   OR IS_SYMLINK "${startup_stability_probe}")
+    message(FATAL_ERROR
+        "Linux startup stability probe must be an existing regular non-symlink file")
+endif()
+file(SIZE "${startup_stability_probe}" startup_stability_probe_size)
+if(startup_stability_probe_size EQUAL 0)
+    message(FATAL_ERROR "Linux startup stability probe must not be empty")
+endif()
+
 foreach(requirement IN LISTS required_tokens)
     if(NOT requirement MATCHES "^([^|]+)\\|(.*)$")
         message(FATAL_ERROR "Invalid runner contract entry: ${requirement}")
@@ -129,5 +153,19 @@ if(cache_check_position EQUAL -1 OR report_delete_position EQUAL -1 OR
     message(FATAL_ERROR
         "Linux performance helper must verify ZZ_PERFORMANCE_REFERENCE before report deletion and CTest")
 endif()
+
+file(READ "${startup_stability_probe}" startup_stability_probe_content)
+foreach(forbidden_token IN ITEMS
+    "sudo"
+    "cpupower"
+    "powerprofilesctl set"
+    "scaling_governor")
+    string(FIND "${startup_stability_probe_content}"
+        "${forbidden_token}" forbidden_position)
+    if(NOT forbidden_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux startup stability probe contains forbidden token: ${forbidden_token}")
+    endif()
+endforeach()
 
 message(STATUS "Native gate script contract passed")
