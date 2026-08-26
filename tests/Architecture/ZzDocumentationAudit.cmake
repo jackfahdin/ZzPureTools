@@ -79,7 +79,8 @@ endforeach()
 
 set(performance_document_path
     "${source_root}/docs/performance/PERFORMANCE_BASELINE_ZH.md")
-set(linux_runner_path "${source_root}/scripts/ci/run-linux-gates.sh")
+set(linux_runner_path
+    "${source_root}/scripts/ci/run-linux-performance-gates.sh")
 file(READ "${performance_document_path}" performance_document)
 file(READ "${linux_runner_path}" linux_runner)
 foreach(required_runner_token IN ITEMS
