@@ -98,6 +98,7 @@ for round in 1 2 3; do
       "-DZZ_BASELINE=$source_dir/docs/performance/reference/linux/${scenario}.json"
       "-DZZ_CURRENT=$round_report"
       "-DZZ_THRESHOLDS=$source_dir/docs/performance/reference/linux/regression-thresholds.json"
+      "-DZZ_ABSOLUTE_GATES_VERIFIED=TRUE"
       -P "$source_dir/cmake/ZzComparePerformanceReport.cmake"
     )
     log_command "$command_log" "${compare_command[@]}"

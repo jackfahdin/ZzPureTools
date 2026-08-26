@@ -30,6 +30,7 @@ set(required_tokens
     "scripts/ci/run-linux-performance-gates.sh|release-rounds/round-\${round}"
     "scripts/ci/run-linux-performance-gates.sh|ZzComparePerformanceReport.cmake"
     "scripts/ci/run-linux-performance-gates.sh|regression-thresholds.json"
+    "scripts/ci/run-linux-performance-gates.sh|-DZZ_ABSOLUTE_GATES_VERIFIED=TRUE"
     "scripts/ci/run-linux-performance-gates.sh|commands.log"
     "scripts/ci/run-linux-startup-stability-probe.sh|EUID"
     "scripts/ci/run-linux-startup-stability-probe.sh|for round in $(seq 1 10)"

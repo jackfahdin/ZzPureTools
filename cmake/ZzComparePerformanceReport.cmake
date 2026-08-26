@@ -15,6 +15,12 @@ function(zz_invalid context detail)
     message(FATAL_ERROR "INVALID ${context}: ${detail}")
 endfunction()
 
+if(DEFINED ZZ_ABSOLUTE_GATES_VERIFIED
+   AND NOT "${ZZ_ABSOLUTE_GATES_VERIFIED}" STREQUAL "TRUE")
+    zz_invalid(comparison
+        "ZZ_ABSOLUTE_GATES_VERIFIED must be TRUE when provided")
+endif()
+
 function(zz_json_get output json_text context)
     string(JSON value ERROR_VARIABLE json_error GET "${json_text}" ${ARGN})
     if(NOT "${json_error}" STREQUAL "NOTFOUND")
@@ -92,7 +98,8 @@ function(zz_validate_policy scenario metric kind field mode percent)
     endif()
 endfunction()
 
-function(zz_assert_regression output scenario metric field baseline_value current_value mode percent)
+function(zz_assert_regression output scenario metric field baseline_value current_value
+    mode percent metric_kind)
     set(context "${scenario}/${metric}")
     zz_decimal_to_micro(baseline_micro "${baseline_value}" "${context}.${field}")
     zz_decimal_to_micro(current_micro "${current_value}" "${context}.${field}")
@@ -109,6 +116,16 @@ function(zz_assert_regression output scenario metric field baseline_value curren
         else()
             math(EXPR allowed_micro "${baseline_micro} + ${whole_increment} + ${remainder_increment}")
         endif()
+    endif()
+    # 资源采样的零基线可能因一个调度 tick 量化为极小非零值；
+    # 只有同一轮绝对门禁已通过时才允许该特例继续通过相对比较。
+    set(zero_baseline_resource_verified FALSE)
+    if(baseline_micro EQUAL 0
+       AND current_micro GREATER 0
+       AND "${metric_kind}" STREQUAL "sampled-resource"
+       AND DEFINED ZZ_ABSOLUTE_GATES_VERIFIED
+       AND "${ZZ_ABSOLUTE_GATES_VERIFIED}" STREQUAL "TRUE")
+        set(zero_baseline_resource_verified TRUE)
     endif()
     if(baseline_micro EQUAL 0)
         if(current_micro EQUAL 0)
@@ -133,7 +150,11 @@ function(zz_assert_regression output scenario metric field baseline_value curren
             set(change "-${change_percent}%")
         endif()
     endif()
-    if(current_micro GREATER allowed_micro)
+    set(status_detail "")
+    if(zero_baseline_resource_verified)
+        set(status PASS)
+        set(status_detail " zero-baseline=absolute-budget-verified")
+    elseif(current_micro GREATER allowed_micro)
         if("${mode}" STREQUAL "observe")
             set(status OBSERVE)
         else()
@@ -142,7 +163,7 @@ function(zz_assert_regression output scenario metric field baseline_value curren
     else()
         set(status PASS)
     endif()
-    message(STATUS "${status} ${scenario}/${metric}.${field} baseline=${baseline_value} current=${current_value} change=${change} mode=${mode} band=${percent}%")
+    message(STATUS "${status} ${scenario}/${metric}.${field} baseline=${baseline_value} current=${current_value} change=${change} mode=${mode} band=${percent}%${status_detail}")
     set(${output} "${status}" PARENT_SCOPE)
 endfunction()
 
@@ -240,7 +261,7 @@ foreach(metric_index RANGE 0 ${last_metric_index})
         zz_json_get(mode "${thresholds_json}" "${metric_context}" scenarios "${current_scenario}" metrics "${metric}" "${field}" mode)
         zz_json_get(percent "${thresholds_json}" "${metric_context}" scenarios "${current_scenario}" metrics "${metric}" "${field}" percent)
         zz_validate_policy("${current_scenario}" "${metric}" "${metric_kind}" "${field}" "${mode}" "${percent}")
-        zz_assert_regression(field_status "${current_scenario}" "${metric}" "${field}" "${baseline_value}" "${current_value}" "${mode}" "${percent}")
+        zz_assert_regression(field_status "${current_scenario}" "${metric}" "${field}" "${baseline_value}" "${current_value}" "${mode}" "${percent}" "${metric_kind}")
         if("${field_status}" STREQUAL "FAIL")
             set(has_gate_failure TRUE)
         elseif("${field_status}" STREQUAL "OBSERVE")

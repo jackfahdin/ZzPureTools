@@ -224,7 +224,11 @@ cmake \
 10% 时使用 10% gate，10% 至 20% 使用实测 gate，超过 20% 则候选生成失败，必须修复
 benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100% 时，候选 `percent`
 封顶为 100，而 `noisePercent` 保留真实向上取整值。只有 `gate` 模式的相对 P95
-会阻断比较；所有绝对预算始终失败关闭。
+会阻断比较；所有绝对预算始终失败关闭。对于 `sampled-resource` 的零基线字段，
+单个采样 tick 可能把当前值量化为极小的非零数值；Linux 三轮门禁只有在同一轮
+绝对 reference gate 已通过后，才向比较器传入
+`ZZ_ABSOLUTE_GATES_VERIFIED=TRUE`，允许该字段通过相对比较。缺少该证明仍按
+`new-nonzero` 失败关闭，`deterministic` 指标不适用此例外。
 候选文件不得直接覆盖正式策略，必须结合原始三轮报告人工审核。
 
 2026-08-11 在源码 `9b79f65cd107fdd25d99cbfb9e7528c69ea74c29` 上完成三轮校准，每轮 23/23 benchmark 与契约测试通过，单轮约 113 秒。原始报告保留在本机 `build/noise/round-{1,2,3}`，不进入版本库。审核结果如下：

@@ -320,11 +320,25 @@ file(WRITE "${ZZ_TEST_ROOT}/deterministic.json" "${deterministic_thresholds}")
 file(WRITE "${ZZ_TEST_ROOT}/resource.json" "${resource_thresholds}")
 
 function(zz_run_comparison result output thresholds current)
+    set(comparison_baseline "${baseline}")
+    set(absolute_gate_proof "")
+    if(ARGC GREATER 4)
+        set(absolute_gate_proof "${ARGV4}")
+    endif()
+    if(ARGC GREATER 5)
+        set(comparison_baseline "${ARGV5}")
+    endif()
+    set(compare_arguments
+        "-DZZ_BASELINE=${comparison_baseline}"
+        "-DZZ_CURRENT=${current}"
+        "-DZZ_THRESHOLDS=${thresholds}")
+    if(NOT "${absolute_gate_proof}" STREQUAL "")
+        list(APPEND compare_arguments
+            "-DZZ_ABSOLUTE_GATES_VERIFIED=${absolute_gate_proof}")
+    endif()
     execute_process(
         COMMAND "${CMAKE_COMMAND}"
-            "-DZZ_BASELINE=${baseline}"
-            "-DZZ_CURRENT=${current}"
-            "-DZZ_THRESHOLDS=${thresholds}"
+            ${compare_arguments}
             -P "${compare_script}"
         RESULT_VARIABLE comparison_result
         OUTPUT_VARIABLE comparison_output
@@ -373,6 +387,53 @@ foreach(kind IN ITEMS deterministic resource)
     endif()
     zz_require_log("${kind_output}" "FAIL contract/latency.max")
 endforeach()
+
+string(JSON zero_resource_baseline SET "${baseline_json}"
+    metrics latency unit [=["percent"]=])
+string(JSON zero_resource_baseline SET "${zero_resource_baseline}"
+    metrics latency p95 0)
+string(JSON zero_resource_baseline SET "${zero_resource_baseline}"
+    metrics latency max 0)
+string(JSON zero_resource_current SET "${zero_resource_baseline}"
+    metrics latency p95 0.033333)
+string(JSON zero_resource_current SET "${zero_resource_current}"
+    metrics latency max 0.033333)
+file(WRITE "${ZZ_TEST_ROOT}/zero-resource-baseline.json"
+    "${zero_resource_baseline}")
+file(WRITE "${ZZ_TEST_ROOT}/zero-resource-current.json"
+    "${zero_resource_current}")
+
+zz_run_comparison(zero_resource_result zero_resource_output
+    "${ZZ_TEST_ROOT}/resource.json"
+    "${ZZ_TEST_ROOT}/zero-resource-current.json"
+    "" "${ZZ_TEST_ROOT}/zero-resource-baseline.json")
+if(zero_resource_result EQUAL 0)
+    message(FATAL_ERROR
+        "Sampled resource zero baseline accepted without absolute proof")
+endif()
+zz_require_log("${zero_resource_output}" "FAIL contract/latency.p95")
+
+zz_run_comparison(zero_verified_result zero_verified_output
+    "${ZZ_TEST_ROOT}/resource.json"
+    "${ZZ_TEST_ROOT}/zero-resource-current.json"
+    TRUE "${ZZ_TEST_ROOT}/zero-resource-baseline.json")
+if(NOT zero_verified_result EQUAL 0)
+    message(FATAL_ERROR
+        "Sampled resource zero baseline was not accepted after absolute proof: "
+        "${zero_verified_output}")
+endif()
+zz_require_log("${zero_verified_output}"
+    "zero-baseline=absolute-budget-verified")
+
+zz_run_comparison(zero_deterministic_result zero_deterministic_output
+    "${ZZ_TEST_ROOT}/deterministic.json"
+    "${ZZ_TEST_ROOT}/zero-resource-current.json"
+    TRUE "${ZZ_TEST_ROOT}/zero-resource-baseline.json")
+if(zero_deterministic_result EQUAL 0)
+    message(FATAL_ERROR
+        "Deterministic zero baseline bypassed by absolute proof")
+endif()
+zz_require_log("${zero_deterministic_output}" "FAIL contract/latency.p95")
 
 function(zz_require_invalid name thresholds expected)
     file(WRITE "${ZZ_TEST_ROOT}/${name}.json" "${thresholds}")
