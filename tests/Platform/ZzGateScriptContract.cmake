@@ -16,8 +16,14 @@ set(required_tokens
     "scripts/ci/run-linux-gates.sh|-DZZ_BUILD_EXAMPLES=ON"
     "scripts/ci/run-linux-gates.sh|linux-gcc-benchmarks"
     "scripts/ci/run-linux-gates.sh|linux-clang-asan-benchmarks"
-    "scripts/ci/run-linux-gates.sh|ZzComparePerformanceReport.cmake"
-    "scripts/ci/run-linux-gates.sh|regression-thresholds.json"
+    "scripts/ci/run-linux-gates.sh|run-linux-performance-gates.sh"
+    "scripts/ci/run-linux-gates.sh|-LE benchmark"
+    "scripts/ci/run-linux-performance-gates.sh|for round in 1 2 3"
+    "scripts/ci/run-linux-performance-gates.sh|-L benchmark"
+    "scripts/ci/run-linux-performance-gates.sh|release-rounds/round-\${round}"
+    "scripts/ci/run-linux-performance-gates.sh|ZzComparePerformanceReport.cmake"
+    "scripts/ci/run-linux-performance-gates.sh|regression-thresholds.json"
+    "scripts/ci/run-linux-performance-gates.sh|commands.log"
     "scripts/ci/run-linux-gates.sh|sha256:\${profile_digest}"
     "scripts/ci/run-linux-gates.sh|ZZ_UBUNTU2204_BUILD_IMAGE"
     "scripts/ci/run-linux-gates.sh|pending-user-validation"
@@ -66,6 +72,18 @@ set(required_tokens
     "ZzPureTools/tests/CMakeLists.txt|QT_QPA_PLATFORM=cocoa"
     "docs/third-party/THIRD_PARTY_NOTICES.md|GCC Runtime Library Exception")
 
+set(performance_helper
+    "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-performance-gates.sh")
+if(NOT EXISTS "${performance_helper}" OR IS_DIRECTORY "${performance_helper}" OR
+   IS_SYMLINK "${performance_helper}")
+    message(FATAL_ERROR
+        "Linux performance helper must be an existing non-empty regular file")
+endif()
+file(SIZE "${performance_helper}" performance_helper_size)
+if(performance_helper_size EQUAL 0)
+    message(FATAL_ERROR "Linux performance helper must not be empty")
+endif()
+
 foreach(requirement IN LISTS required_tokens)
     if(NOT requirement MATCHES "^([^|]+)\\|(.*)$")
         message(FATAL_ERROR "Invalid runner contract entry: ${requirement}")
@@ -87,5 +105,11 @@ foreach(requirement IN LISTS required_tokens)
             "${relative_path} is missing required token: ${required_token}")
     endif()
 endforeach()
+
+file(READ "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-gates.sh" linux_gates_content)
+if(linux_gates_content MATCHES "performance_scenarios[ \t]*\\(")
+    message(FATAL_ERROR
+        "run-linux-gates.sh must not retain the legacy single-round performance_scenarios block")
+endif()
 
 message(STATUS "Native gate script contract passed")

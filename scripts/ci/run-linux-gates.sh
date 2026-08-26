@@ -57,7 +57,7 @@ for preset in linux-gcc-release linux-static-release \
   run_preset "$preset"
 done
 
-for tool in Xvfb awk seq taskset xdpyinfo sha256sum; do
+for tool in Xvfb awk seq taskset xdpyinfo sha256sum realpath; do
   command -v "$tool" >/dev/null || {
     echo "required performance tool is unavailable: $tool" >&2
     exit 69
@@ -99,28 +99,8 @@ xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 || {
 cmake --preset linux-gcc-benchmarks
 cmake --build --preset linux-gcc-benchmarks
 taskset -c 10 ctest --preset linux-gcc-benchmarks \
-  --output-on-failure -j1
-performance_scenarios=(
-  startup
-  theme-switch
-  animation
-  large-model
-  window-lifecycle
-  navigation-pane
-  idle
-  example-startup
-  example-navigation
-  example-theme-switch
-  example-large-model
-  example-idle
-)
-for scenario in "${performance_scenarios[@]}"; do
-  cmake \
-    -DZZ_BASELINE="docs/performance/reference/linux/${scenario}.json" \
-    -DZZ_CURRENT="build/linux-gcc-benchmarks/reports/benchmark.${scenario}.json" \
-    -DZZ_THRESHOLDS="docs/performance/reference/linux/regression-thresholds.json" \
-    -P cmake/ZzComparePerformanceReport.cmake
-done
+  -LE benchmark --output-on-failure -j1
+scripts/ci/run-linux-performance-gates.sh
 
 cmake --preset linux-clang-asan-benchmarks
 cmake --build --preset linux-clang-asan-benchmarks \
