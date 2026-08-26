@@ -500,6 +500,32 @@ if(noisy_count_error_index EQUAL -1)
     message(FATAL_ERROR "Noise analyzer reported the wrong deterministic failure")
 endif()
 
+file(READ "${ZZ_TEST_ROOT}/round-3/benchmark.contract.json" high_noise_json)
+string(JSON high_noise_json SET "${high_noise_json}" metrics count p95 100)
+string(JSON high_noise_json SET "${high_noise_json}" metrics count max 100)
+string(JSON high_noise_json SET "${high_noise_json}" metrics latency p95 201)
+file(WRITE "${ZZ_TEST_ROOT}/round-3/benchmark.contract.json" "${high_noise_json}")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_RUN_DIRECTORIES=${run_directories}"
+        "-DZZ_OUTPUT_JSON=${ZZ_TEST_ROOT}/high-noise-candidate.json"
+        "-DZZ_OUTPUT_MARKDOWN=${ZZ_TEST_ROOT}/high-noise-candidate.md"
+        -P "${analyze_script}"
+    RESULT_VARIABLE high_noise_result
+    ERROR_VARIABLE high_noise_error)
+if(NOT high_noise_result EQUAL 0)
+    message(FATAL_ERROR "Noise analyzer rejected a high-noise duration: ${high_noise_error}")
+endif()
+file(READ "${ZZ_TEST_ROOT}/high-noise-candidate.json" high_noise_candidate_json)
+string(JSON high_noise_percent GET "${high_noise_candidate_json}"
+    scenarios contract metrics latency p95 percent)
+string(JSON high_noise_percent_raw GET "${high_noise_candidate_json}"
+    scenarios contract metrics latency p95 noisePercent)
+if(NOT high_noise_percent EQUAL 100 OR NOT high_noise_percent_raw EQUAL 101)
+    message(FATAL_ERROR
+        "High-noise duration must clamp percent to 100 and retain noisePercent 101")
+endif()
+
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_RUN_DIRECTORIES=${ZZ_TEST_ROOT}/round-1;${ZZ_TEST_ROOT}/round-2"

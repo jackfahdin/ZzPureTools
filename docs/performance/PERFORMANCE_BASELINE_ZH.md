@@ -175,7 +175,9 @@ cmake \
 是 `sampled-resource`。统计耗时 P95 在噪声不超过 10% 时使用 10% gate，超过 10%
 时记录实测向上取整值为 observe；max 始终 observe。确定性和采样资源字段在不超过
 10% 时使用 10% gate，10% 至 20% 使用实测 gate，超过 20% 则候选生成失败，必须修复
-benchmark 或运行环境，不能自动降为 observe。统计耗时的 P95 与所有绝对预算仍失败关闭。
+benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100% 时，候选 `percent`
+封顶为 100，而 `noisePercent` 保留真实向上取整值。只有 `gate` 模式的相对 P95
+会阻断比较；所有绝对预算始终失败关闭。
 候选文件不得直接覆盖正式策略，必须结合原始三轮报告人工审核。
 
 2026-08-11 在源码 `9b79f65cd107fdd25d99cbfb9e7528c69ea74c29` 上完成三轮校准，每轮 23/23 benchmark 与契约测试通过，单轮约 113 秒。原始报告保留在本机 `build/noise/round-{1,2,3}`，不进入版本库。审核结果如下：
@@ -186,9 +188,11 @@ benchmark 或运行环境，不能自动降为 observe。统计耗时的 P95 与
 | `navigation-pane/mapping-time` | 8% | 85% | P95 gate 10%，max observe 85% |
 | `navigation-pane/reset-time` | 1% | 26% | P95 gate 10%，max observe 26% |
 | `example-large-model/frame-time` | 2% | 25% | P95 gate 10%，max observe 25% |
-| 其余 34 个指标 | 0% 至 10% | 0% 至 10% | P95/max gate 10% |
+| `animation/frame-time` | 不超过 10% | 20.76% | P95 gate 10%，max observe 21% |
+| 其余统计耗时指标 | 0% 至 10% | 0% 至 10% | P95 gate 10%，max observe 10% |
+| 确定性与采样资源指标 | 0% 至 10% | 0% 至 10% | P95/max gate 10% |
 
-`theme-switch` 的 P95 也表现出明显跨轮噪声，因此不能作为相对发布阻断；其绝对 P95 50ms 门限继续生效。百分比超过配置允许上限时以 observe 100% 保存，同时在本表保留原始 123% 证据。2026-08-26 的 animation 三轮复采 max 噪声为 20.76%，因此采用向上取整的 21% observe；同日 example-startup 三轮证据没有超过 10%，其 duration max 采用 10% observe。后续只有新的至少三轮校准证据才能修改这些策略，不得凭单轮失败扩大门限。
+`theme-switch` 的 P95 也表现出明显跨轮噪声，因此作为 observe 不阻断相对比较；其绝对 P95 50ms 门限继续失败关闭。百分比超过配置允许上限时以 observe 100% 保存，同时在本表保留原始 123% 证据。2026-08-26 的 animation 三轮复采 max 噪声为 20.76%，因此采用向上取整的 21% observe；同日 example-startup 三轮证据没有超过 10%，其 duration max 采用 10% observe。后续只有新的至少三轮校准证据才能修改这些策略，不得凭单轮失败扩大门限。
 
 本次迁移仅修改 `regression-thresholds.json` 的策略元数据；12 份历史 reporter JSON 保持未修改。
 
