@@ -121,6 +121,13 @@ set_tests_properties(platform.github-actions-contract PROPERTIES
     LABELS "platform;contract")
 
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    add_test(NAME platform.governor-state
+        COMMAND bash
+            "${CMAKE_CURRENT_SOURCE_DIR}/ZzGovernorStateTest.sh"
+            "${PROJECT_SOURCE_DIR}")
+    set_tests_properties(platform.governor-state PROPERTIES
+        LABELS "platform;contract;linux")
+
     add_test(NAME platform.linux-desktop-acceptance-contract
         COMMAND "${CMAKE_COMMAND}"
             "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
