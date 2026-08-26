@@ -14,8 +14,11 @@ set(required_tokens
     "scripts/ci/run-linux-gates.sh|linux-gcc-release-lto"
     "scripts/ci/run-linux-gates.sh|linux-static-release-lto"
     "scripts/ci/run-linux-gates.sh|-DZZ_BUILD_EXAMPLES=ON"
+    "scripts/ci/run-linux-gates.sh|cmake --preset \"$preset\" -DZZ_BUILD_EXAMPLES=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF"
     "scripts/ci/run-linux-gates.sh|linux-gcc-benchmarks"
+    "scripts/ci/run-linux-gates.sh|cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE:BOOL=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF"
     "scripts/ci/run-linux-gates.sh|linux-clang-asan-benchmarks"
+    "scripts/ci/run-linux-gates.sh|cmake --preset linux-clang-asan-benchmarks -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF"
     "scripts/ci/run-linux-gates.sh|run-linux-performance-gates.sh"
     "scripts/ci/run-linux-gates.sh|-LE benchmark"
     "scripts/ci/run-linux-gates.sh|-DZZ_PERFORMANCE_REFERENCE:BOOL=ON"
@@ -174,6 +177,14 @@ file(READ "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-gates.sh" linux_gates_content)
 if(linux_gates_content MATCHES "performance_scenarios[ \t]*\\(")
     message(FATAL_ERROR
         "run-linux-gates.sh must not retain the legacy single-round performance_scenarios block")
+endif()
+string(REGEX MATCHALL
+    "cmake --preset \\\"\\$preset\\\" -DZZ_BUILD_EXAMPLES=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF"
+    linux_preset_configurations "${linux_gates_content}")
+list(LENGTH linux_preset_configurations linux_preset_configuration_count)
+if(NOT linux_preset_configuration_count EQUAL 2)
+    message(FATAL_ERROR
+        "run-linux-gates.sh must configure run_preset and clang-tidy presets with build-tree RPATH")
 endif()
 
 file(READ "${performance_helper}" performance_helper_content)

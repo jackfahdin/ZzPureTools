@@ -37,7 +37,7 @@ fi
 
 run_preset() {
   local preset=$1
-  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
+  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
   cmake --build --preset "$preset"
   ctest --preset "$preset" --output-on-failure
 }
@@ -45,7 +45,7 @@ run_preset() {
 run_preset linux-gcc-debug
 
 for preset in linux-clang-tidy-release linux-clang-tidy-static; do
-  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
+  cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
   cmake --build --preset "$preset"
   cmake --build --preset "$preset" --target ZzClangTidy
   ctest --preset "$preset" --output-on-failure
@@ -96,13 +96,13 @@ xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 || {
   exit 1
 }
 
-cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE:BOOL=ON
+cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE:BOOL=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
 cmake --build --preset linux-gcc-benchmarks
 taskset -c 10 ctest --preset linux-gcc-benchmarks \
   -LE benchmark --output-on-failure -j1
 scripts/ci/run-linux-performance-gates.sh
 
-cmake --preset linux-clang-asan-benchmarks
+cmake --preset linux-clang-asan-benchmarks -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
 cmake --build --preset linux-clang-asan-benchmarks \
   --target ZzWindowLifecycleBenchmark ZzNavigationPaneBenchmark
 ctest --preset linux-clang-asan-benchmarks \
