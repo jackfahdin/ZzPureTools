@@ -281,6 +281,8 @@ endfunction()
 
 string(JSON invalid_schema SET "${duration_thresholds}" schemaVersion 1)
 zz_require_invalid(invalid-schema "${invalid_schema}" "INVALID thresholds")
+string(JSON string_schema SET "${duration_thresholds}" schemaVersion [=["2"]=])
+zz_require_invalid(string-schema "${string_schema}" "INVALID thresholds")
 string(JSON missing_kind REMOVE "${duration_thresholds}"
     scenarios contract metrics latency metricKind)
 zz_require_invalid(missing-kind "${missing_kind}" "INVALID contract/latency")

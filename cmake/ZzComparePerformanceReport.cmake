@@ -146,6 +146,9 @@ function(zz_assert_regression output scenario metric field baseline_value curren
     set(${output} "${status}" PARENT_SCOPE)
 endfunction()
 
+zz_json_require_type("${baseline_json}" baseline NUMBER schemaVersion)
+zz_json_require_type("${current_json}" current NUMBER schemaVersion)
+zz_json_require_type("${thresholds_json}" thresholds NUMBER schemaVersion)
 zz_json_get(baseline_schema "${baseline_json}" baseline schemaVersion)
 zz_json_get(current_schema "${current_json}" current schemaVersion)
 zz_json_get(baseline_scenario "${baseline_json}" baseline scenario)
