@@ -29,7 +29,7 @@ done
   || fail "sudo UID and GID must be positive decimal values" 64
 
 for tool in awk dirname getent id install jq mktemp powerprofilesctl \
-            realpath rm rmdir runuser stat tee; do
+            realpath rm rmdir setpriv stat tee; do
   command -v "$tool" >/dev/null 2>&1 \
     || fail "required root tool is unavailable: $tool" 69
 done
@@ -116,7 +116,10 @@ cmake_command=$(cache_value CMAKE_COMMAND) \
 user_path="$(dirname -- "$cmake_command"):/usr/local/bin:/usr/bin:/bin"
 
 run_as_invoking_user() {
-  runuser -u "$SUDO_USER" -- /usr/bin/env -i \
+  setpriv --reuid "$SUDO_UID" \
+    --regid "$SUDO_GID" \
+    --init-groups \
+    -- /usr/bin/env -i \
     HOME="$invoking_home" \
     USER="$SUDO_USER" \
     LOGNAME="$SUDO_USER" \
@@ -148,6 +151,76 @@ verdict_file="$transaction_dir/transaction-verdict.json"
 
 log_message() {
   printf '%s\n' "$*" | tee -a "$transaction_log"
+}
+
+clear_phase_evidence() {
+  local phase_name=$1
+  [[ "$phase_name" == control || "$phase_name" == performance ]] \
+    || fail "unsupported phase evidence name: $phase_name" 64
+
+  local experiment_root="$benchmark_root/governor-experiment"
+  local phase_dir="$experiment_root/$phase_name"
+  if [[ -L "$experiment_root" || -e "$experiment_root" && ! -d "$experiment_root" ]]; then
+    fail "experiment evidence root is unsafe: $experiment_root" 66
+  fi
+  [[ ! -L "$experiment_root" ]] \
+    || fail "experiment evidence root must not be a symbolic link" 66
+  if [[ -e "$experiment_root" ]]; then
+    [[ $(realpath -e -- "$experiment_root") == "$experiment_root" \
+       && $(stat -c %u "$experiment_root") == "$SUDO_UID" \
+       && $(stat -c %g "$experiment_root") == "$SUDO_GID" ]] \
+      || fail "experiment evidence root ownership or path is unsafe" 66
+  else
+    return 0
+  fi
+
+  if [[ -L "$phase_dir" || -e "$phase_dir" && ! -d "$phase_dir" ]]; then
+    fail "phase evidence directory is unsafe: $phase_dir" 66
+  fi
+  [[ ! -L "$phase_dir" ]] \
+    || fail "phase evidence directory must not be a symbolic link: $phase_dir" 66
+  [[ -e "$phase_dir" ]] || return 0
+  [[ $(realpath -e -- "$phase_dir") == "$experiment_root/$phase_name" \
+     && $(stat -c %u "$phase_dir") == "$SUDO_UID" \
+     && $(stat -c %g "$phase_dir") == "$SUDO_GID" ]] \
+    || fail "phase evidence directory ownership or path is unsafe: $phase_dir" 66
+
+  local round round_label suffix target
+  for round in {1..10}; do
+    printf -v round_label '%02d' "$round"
+    for suffix in json compare.log xvfb.log; do
+      target="$phase_dir/round-${round_label}.${suffix}"
+      if [[ -L "$target" || -d "$target" ]]; then
+        fail "refusing unsafe phase evidence path: $target" 66
+      fi
+      if [[ -e "$target" ]]; then
+        [[ -f "$target" ]] \
+          || fail "refusing non-regular phase evidence path: $target" 66
+        rm -- "$target"
+      fi
+    done
+
+    target="$phase_dir/.display-${round_label}"
+    if [[ -L "$target" || -d "$target" ]]; then
+      fail "refusing unsafe phase evidence path: $target" 66
+    fi
+    if [[ -e "$target" ]]; then
+      [[ -f "$target" ]] \
+        || fail "refusing non-regular phase evidence path: $target" 66
+      rm -- "$target"
+    fi
+  done
+
+  for target in "$phase_dir/rounds.ndjson" "$phase_dir/summary.json"; do
+    if [[ -L "$target" || -d "$target" ]]; then
+      fail "refusing unsafe phase evidence path: $target" 66
+    fi
+    if [[ -e "$target" ]]; then
+      [[ -f "$target" ]] \
+        || fail "refusing non-regular phase evidence path: $target" 66
+      rm -- "$target"
+    fi
+  done
 }
 
 state_captured=0
@@ -321,6 +394,7 @@ run_phase() {
   [[ $# -eq 2 && $1 == --phase ]] \
     || fail "internal phase invocation is invalid"
   local phase_name=$2
+  clear_phase_evidence "$phase_name"
   log_message "phase: starting $phase_name"
   run_as_invoking_user "$probe_script" "$@" 2>&1 \
     | tee -a "$transaction_log"

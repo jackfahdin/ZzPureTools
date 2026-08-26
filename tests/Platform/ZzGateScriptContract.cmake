@@ -52,7 +52,10 @@ set(required_tokens
     "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_apply"
     "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_restore"
     "scripts/ci/run-linux-startup-governor-experiment.sh|zz_governor_verify"
-    "scripts/ci/run-linux-startup-governor-experiment.sh|runuser -u"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|setpriv --reuid"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|--regid"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|--init-groups"
+    "scripts/ci/run-linux-startup-governor-experiment.sh|clear_phase_evidence"
     "scripts/ci/run-linux-startup-governor-experiment.sh|--phase control"
     "scripts/ci/run-linux-startup-governor-experiment.sh|--phase performance"
     "scripts/ci/run-linux-startup-governor-experiment.sh|host-state-before.json"
@@ -212,17 +215,26 @@ if(finish_trap_position EQUAL -1 OR governor_apply_position EQUAL -1
         "Linux governor experiment must install its EXIT trap before applying state")
 endif()
 
+string(FIND "${governor_experiment_content}" "setpriv --reuid" setpriv_position)
+string(FIND "${governor_experiment_content}" "--regid" setpriv_regid_position)
+string(FIND "${governor_experiment_content}" "--init-groups" setpriv_groups_position)
+string(FIND "${governor_experiment_content}" "clear_phase_evidence"
+    clear_phase_evidence_position)
 string(FIND "${governor_experiment_content}" "runuser -u" runuser_position)
 string(FIND "${governor_experiment_content}"
     "--phase control" control_phase_position)
 string(FIND "${governor_experiment_content}"
     "--phase performance" performance_phase_position)
-if(runuser_position EQUAL -1 OR control_phase_position EQUAL -1
+if(setpriv_position EQUAL -1 OR setpriv_regid_position EQUAL -1
+   OR setpriv_groups_position EQUAL -1 OR clear_phase_evidence_position EQUAL -1
+   OR runuser_position GREATER -1 OR control_phase_position EQUAL -1
    OR performance_phase_position EQUAL -1
-   OR runuser_position GREATER control_phase_position
-   OR runuser_position GREATER performance_phase_position)
+   OR setpriv_position GREATER control_phase_position
+   OR setpriv_position GREATER performance_phase_position
+   OR clear_phase_evidence_position GREATER control_phase_position
+   OR clear_phase_evidence_position GREATER performance_phase_position)
     message(FATAL_ERROR
-        "Linux governor experiment must define ordinary-user execution before both phases")
+        "Linux governor experiment must use setpriv ordinary-user execution before both phases")
 endif()
 
 foreach(forbidden_root_token IN ITEMS
