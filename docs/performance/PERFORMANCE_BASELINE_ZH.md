@@ -96,6 +96,12 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 metric。后续同档案报告只有在完整环境指纹一致时才能与本基线执行相对回归比较；
 档案变化、环境不匹配或任一报告缺失都必须失败关闭。
 
+2026-08-26 提交 `a0025f7007b4d92c15ae714839c7e473dda9e7de` 修复零基线采样资源的
+量化噪声语义后，使用同一档案、Xvfb 固定 CPU 8、benchmark 固定 CPU 10 完成三轮
+`scripts/ci/run-linux-performance-gates.sh` 验证。每轮 42/42 测试通过，三轮绝对
+reference gate、相对比较和综合示例空闲场景均通过；本次验证没有覆盖或修改历史
+reporter 基线。
+
 ## Governor 可逆对照实验
 
 2026-08-26 在当前活动档案 `local-release-xvfb` 上完成一次可逆 governor 对照实验。
