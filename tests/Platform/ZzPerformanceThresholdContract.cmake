@@ -538,7 +538,7 @@ if(insufficient_result EQUAL 0)
 endif()
 
 set(workspace_evidence_directory
-    "${ZZ_SOURCE_DIR}/docs/performance/evidence/workspace-components/2026-08-22")
+    "${ZZ_SOURCE_DIR}/docs/performance/evidence/workspace-components/2026-08-26")
 file(READ "${workspace_evidence_directory}/round-1.json" workspace_fixture)
 string(JSON workspace_fixture SET "${workspace_fixture}"
     build preset [=["linux-gcc-reference"]=])

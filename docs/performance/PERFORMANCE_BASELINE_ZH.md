@@ -246,57 +246,59 @@ benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100%
 
 ## 工作区组件 Observe 记录
 
-2026-08-26 在源码 `3aaae72697d8e1676ff4b91eb2ff4890d4bd5bff` 完成
+2026-08-26 在源码 `cd96e59ba7388f5a7a1ba471d5dd21b7e4034cef` 完成
 `benchmark.workspace-components` 最终三轮观测。场景固定创建 32 个可见侧面板、
 4/32 个 tab group、三个 Bottom 工具、40 个 CommandBar action 和 20/100000
 标记模型；原始 reporter JSON 已入库，分别为：
 
 | 轮次 | 证据文件 | SHA-256 |
 |---|---|---|
-| 1 | `docs/performance/evidence/workspace-components/2026-08-22/round-1.json` | `df62a0480b16c1aa6e1b978742eb2eb859e00f69ca557d251df7257371cdb87a` |
-| 2 | `docs/performance/evidence/workspace-components/2026-08-22/round-2.json` | `65180443edf80fa107325b95af93477643980a57ddb430e9cc111894b0f4712e` |
-| 3 | `docs/performance/evidence/workspace-components/2026-08-22/round-3.json` | `14398ef639dba0ec85be1cd5140cdff9c5634bfd9fe83d3794eca29367530369` |
+| 1 | `docs/performance/evidence/workspace-components/2026-08-26/round-1.json` | `6a930b8705acbbdc64516b3b7f1ab2c799efbc44789d72960966adf2e52e2abb` |
+| 2 | `docs/performance/evidence/workspace-components/2026-08-26/round-2.json` | `6d092659560bc07406840e73c8febf5699a24c7667cd3232112279c63b3a72a1` |
+| 3 | `docs/performance/evidence/workspace-components/2026-08-26/round-3.json` | `6a21145b7c1ae6e6ee09596b8d886038a4b13232c297f3b53dd64954067474cb` |
 
-三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04 系列（更新活动档案前）、Xvfb/`xcb`、DPR 1、
+三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04.1 LTS、Xvfb/`xcb`、DPR 1、
 Release/shared/LTO、`linux-gcc-reference`、归一内存指纹 32,682,016,768 bytes、
-旧 runner digest
-`sha256:0a6cc154c5e565cdac99c7a83b82cc7625fab23cb6af2c4701119221bd947295` 和
+runner digest
+`sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c` 和
 `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` renderer identity。
 
-每项每轮采集 80 个样本，单位为 ms。下表记录三轮 P50/P95/max 的最小至最大范围：
+每项每轮采集 80 个样本，时间指标单位为 ms，结构指标单位为 count，资源指标单位为
+bytes；单位以 JSON 报告中的 `unit` 字段为准。下表记录三轮 P50/P95/max 的最小至最大范围：
 
 | 指标 | P50 | P95 | max |
 |---|---:|---:|---:|
-| `title-menu-switch-time` | 4.771666 - 4.923465 | 6.455298 - 6.642621 | 6.796118 - 6.935034 |
-| `activity-activation-time` | 0.046388 - 0.046812 | 0.057445 - 0.059751 | 0.071499 - 0.073380 |
-| `explorer-filter-time` | 26.563990 - 27.174630 | 27.105620 - 27.847475 | 27.243064 - 28.864735 |
-| `tab-state-time` | 0.002815 - 0.012216 | 0.017427 - 0.028077 | 0.028226 - 0.030489 |
-| `command-filter-time` | 3.599609 - 3.682419 | 3.953255 - 4.090190 | 4.192200 - 4.237182 |
-| `layout-save-time` | 0.199503 - 0.206380 | 0.218132 - 0.224189 | 0.231050 - 0.240135 |
-| `layout-restore-time` | 0.730219 - 0.737227 | 0.759424 - 0.763049 | 0.780227 - 0.813868 |
-| `panel-toggle-time` | 1.541653 - 1.549856 | 2.604300 - 2.711097 | 3.007721 - 3.166551 |
-| `group-structure-time` | 0.127772 - 0.130598 | 0.147084 - 0.151325 | 0.160553 - 0.186653 |
-| `workspace-paint-4-groups-time` | 1.730398 - 1.738980 | 1.772522 - 1.797120 | 1.814271 - 1.834964 |
-| `workspace-paint-32-groups-time` | 1.687368 - 1.700983 | 1.733478 - 1.764633 | 1.766063 - 1.813989 |
-| `workspace-render-time` | 3.168823 - 3.226492 | 3.642670 - 3.676729 | 3.719376 - 3.913390 |
-| `marker-paint-20-time` | 0.027331 - 0.028434 | 0.030040 - 0.032475 | 0.040183 - 0.049027 |
-| `marker-paint-100000-time` | 0.016674 - 0.017781 | 0.017320 - 0.019687 | 0.017926 - 0.042728 |
+| `title-menu-switch-time` | 4.824204 - 4.930064 | 6.609758 - 6.712892 | 6.879543 - 6.961846 |
+| `activity-activation-time` | 0.044712 - 0.046268 | 0.055981 - 0.060892 | 0.061569 - 0.096936 |
+| `explorer-filter-time` | 26.578353 - 27.157771 | 27.133286 - 27.688662 | 27.625942 - 29.282925 |
+| `tab-state-time` | 0.002728 - 0.012526 | 0.017309 - 0.028485 | 0.027199 - 0.038222 |
+| `command-filter-time` | 3.593293 - 3.670361 | 3.984766 - 4.010115 | 4.080174 - 4.097226 |
+| `layout-save-time` | 0.196195 - 0.205657 | 0.218102 - 0.221249 | 0.222954 - 0.233257 |
+| `layout-restore-time` | 0.727452 - 0.732705 | 0.762787 - 0.767510 | 0.785385 - 0.898552 |
+| `panel-toggle-time` | 1.536783 - 1.575725 | 2.596644 - 2.698912 | 2.989880 - 3.146072 |
+| `group-structure-time` | 0.128067 - 0.130984 | 0.147668 - 0.165717 | 0.165139 - 0.195202 |
+| `workspace-paint-4-groups-time` | 1.717430 - 1.735384 | 1.767021 - 1.799964 | 1.834706 - 1.873124 |
+| `workspace-paint-32-groups-time` | 1.692339 - 1.702593 | 1.736907 - 1.783299 | 1.821054 - 1.850551 |
+| `workspace-render-time` | 3.173425 - 3.268231 | 3.638849 - 3.740855 | 3.723703 - 4.057436 |
+| `marker-paint-20-time` | 0.027386 - 0.028314 | 0.030571 - 0.031946 | 0.043570 - 0.051593 |
+| `marker-paint-100000-time` | 0.016608 - 0.018109 | 0.017389 - 0.019287 | 0.020728 - 0.035840 |
 
-三轮 P95 噪声中，`tab-state-time` 为 61.1121%、`marker-paint-100000-time` 为
-13.6663%，均超过 10%；`marker-paint-20-time` 为 8.1059%、`panel-toggle-time` 为
-4.1008%、Activity 激活为 4.0143%，其余更低。max 仍有调度尖峰，超过 10% 的仅为
-100000 标记 138.3577%、20 标记 22.0093% 和组结构 16.2563%。这些工作区指标继续作为独立 observe 证据，
-不据单轮 max 扩大正式相对阈值；进程内仍对结构操作 P95 16.7 ms、render P95
-12 ms，以及两组规模 P95 比值 2.0 失败关闭。本次最坏 32/4 组绘制 P95 比值为
-0.989，100000/20 标记绘制 P95 比值为 0.563。
+按 `ZzAnalyzePerformanceNoise.cmake` 的向上取整规则，三轮 P95 噪声中
+`tab-state-time` 为 65%、`group-structure-time` 为 13%、
+`marker-paint-100000-time` 为 11%，均超过 10%；其余工作区指标不超过 10%。
+max 仍有调度尖峰，超过 10% 的包括 Activity 激活（58%）、组结构（19%）、
+布局恢复（15%）、tab 状态（41%）、20 标记绘制（19%）和 100000 标记绘制（73%）。
+这些工作区指标继续作为独立 observe 证据，不据单轮 max 扩大正式相对阈值；进程内仍
+对结构操作 P95 16.7 ms、render P95 12 ms，以及两组规模 P95 比值 2.0 失败关闭。
+本次最坏 32/4 组绘制 P95 比值为 0.994，100000/20 标记绘制 P95 比值为 0.610。
 
 三轮结构观测完全一致：QObject 为 1088、结果视图 QWidget 为 5、timer 为 3、
 animation 为 3、图标样式缓存为 9296 bytes；Linux RSS 为
-190128128 - 190353408 bytes。缓存值包含字体和 SVG ActivityBar 图标，基准在采样前
+190058496 - 190218240 bytes。缓存值包含字体和 SVG ActivityBar 图标，基准在采样前
 分别验证两类描述符都会填充缓存。基准同时失败关闭：重复操作的 QObject 增长、结果
 列表超过 8 个 QWidget、字体/SVG 缓存路径未生效、失败布局恢复未回滚、全透明绘制、
 隐藏页后台唤醒，以及 1000 次显隐/分割/合并/主题切换后的 timer/animation 增长。
-2026-08-21 的三份 JSON 仅保留为历史记录，不再作为当前工作区组件验收证据。
+2026-08-22 及更早的 JSON 保留为历史记录，不再作为当前工作区组件验收证据。
 
 ## 原 CI 参考档案
 

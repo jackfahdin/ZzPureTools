@@ -1,0 +1,167 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "cd96e59ba7388f5a7a1ba471d5dd21b7e4034cef",
+        "lto": true,
+        "preset": "linux-gcc-reference",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "activity-activation-time": {
+            "count": 80,
+            "max": 0.096936,
+            "p50": 0.046268,
+            "p95": 0.060892,
+            "unit": "ms"
+        },
+        "animation-count": {
+            "count": 80,
+            "max": 3,
+            "p50": 3,
+            "p95": 3,
+            "unit": "count"
+        },
+        "command-filter-time": {
+            "count": 80,
+            "max": 4.080174,
+            "p50": 3.670361,
+            "p95": 3.984766,
+            "unit": "ms"
+        },
+        "explorer-filter-time": {
+            "count": 80,
+            "max": 29.282925,
+            "p50": 26.578353,
+            "p95": 27.133286,
+            "unit": "ms"
+        },
+        "group-structure-time": {
+            "count": 80,
+            "max": 0.179299,
+            "p50": 0.130984,
+            "p95": 0.165717,
+            "unit": "ms"
+        },
+        "layout-restore-time": {
+            "count": 80,
+            "max": 0.790696,
+            "p50": 0.727452,
+            "p95": 0.764537,
+            "unit": "ms"
+        },
+        "layout-save-time": {
+            "count": 80,
+            "max": 0.229686,
+            "p50": 0.196195,
+            "p95": 0.218102,
+            "unit": "ms"
+        },
+        "marker-paint-100000-time": {
+            "count": 80,
+            "max": 0.021612,
+            "p50": 0.018109,
+            "p95": 0.019287,
+            "unit": "ms"
+        },
+        "marker-paint-20-time": {
+            "count": 80,
+            "max": 0.051593,
+            "p50": 0.027438,
+            "p95": 0.031946,
+            "unit": "ms"
+        },
+        "object-count": {
+            "count": 80,
+            "max": 1088,
+            "p50": 1088,
+            "p95": 1088,
+            "unit": "count"
+        },
+        "panel-toggle-time": {
+            "count": 80,
+            "max": 2.98988,
+            "p50": 1.567801,
+            "p95": 2.698912,
+            "unit": "ms"
+        },
+        "result-view-widget-count": {
+            "count": 80,
+            "max": 5,
+            "p50": 5,
+            "p95": 5,
+            "unit": "count"
+        },
+        "rss-bytes": {
+            "count": 80,
+            "max": 190218240,
+            "p50": 190218240,
+            "p95": 190218240,
+            "unit": "bytes"
+        },
+        "style-cache-bytes": {
+            "count": 80,
+            "max": 9296,
+            "p50": 9296,
+            "p95": 9296,
+            "unit": "bytes"
+        },
+        "tab-state-time": {
+            "count": 80,
+            "max": 0.038222,
+            "p50": 0.012526,
+            "p95": 0.027967,
+            "unit": "ms"
+        },
+        "timer-count": {
+            "count": 80,
+            "max": 3,
+            "p50": 3,
+            "p95": 3,
+            "unit": "count"
+        },
+        "title-menu-switch-time": {
+            "count": 80,
+            "max": 6.942382,
+            "p50": 4.930064,
+            "p95": 6.626422,
+            "unit": "ms"
+        },
+        "workspace-paint-32-groups-time": {
+            "count": 80,
+            "max": 1.821054,
+            "p50": 1.702593,
+            "p95": 1.774713,
+            "unit": "ms"
+        },
+        "workspace-paint-4-groups-time": {
+            "count": 80,
+            "max": 1.834706,
+            "p50": 1.732602,
+            "p95": 1.799964,
+            "unit": "ms"
+        },
+        "workspace-render-time": {
+            "count": 80,
+            "max": 3.778159,
+            "p50": 3.268231,
+            "p95": 3.681729,
+            "unit": "ms"
+        }
+    },
+    "scenario": "workspace-components",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}
