@@ -19,6 +19,15 @@ done
   echo "QT_QPA_PLATFORM must be xcb" >&2
   exit 64
 }
+cache_file="$source_dir/build/linux-gcc-benchmarks/CMakeCache.txt"
+[[ -f "$cache_file" ]] || {
+  echo "benchmark cache is missing: $cache_file" >&2
+  exit 64
+}
+grep -Fx 'ZZ_PERFORMANCE_REFERENCE:BOOL=ON' "$cache_file" >/dev/null || {
+  echo "benchmark cache must set ZZ_PERFORMANCE_REFERENCE:BOOL=ON" >&2
+  exit 64
+}
 
 performance_scenarios=(
   startup

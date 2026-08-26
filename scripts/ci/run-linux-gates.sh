@@ -57,7 +57,7 @@ for preset in linux-gcc-release linux-static-release \
   run_preset "$preset"
 done
 
-for tool in Xvfb awk seq taskset xdpyinfo sha256sum realpath; do
+for tool in Xvfb awk seq taskset xdpyinfo sha256sum realpath grep; do
   command -v "$tool" >/dev/null || {
     echo "required performance tool is unavailable: $tool" >&2
     exit 69
@@ -96,7 +96,7 @@ xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 || {
   exit 1
 }
 
-cmake --preset linux-gcc-benchmarks
+cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE=ON
 cmake --build --preset linux-gcc-benchmarks
 taskset -c 10 ctest --preset linux-gcc-benchmarks \
   -LE benchmark --output-on-failure -j1

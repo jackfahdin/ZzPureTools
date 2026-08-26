@@ -18,8 +18,12 @@ set(required_tokens
     "scripts/ci/run-linux-gates.sh|linux-clang-asan-benchmarks"
     "scripts/ci/run-linux-gates.sh|run-linux-performance-gates.sh"
     "scripts/ci/run-linux-gates.sh|-LE benchmark"
+    "scripts/ci/run-linux-gates.sh|-DZZ_PERFORMANCE_REFERENCE=ON"
+    "scripts/ci/run-linux-gates.sh|cmake --preset linux-gcc-benchmarks -DZZ_PERFORMANCE_REFERENCE=ON"
     "scripts/ci/run-linux-performance-gates.sh|for round in 1 2 3"
     "scripts/ci/run-linux-performance-gates.sh|-L benchmark"
+    "scripts/ci/run-linux-performance-gates.sh|ZZ_PERFORMANCE_REFERENCE:BOOL=ON"
+    "scripts/ci/run-linux-performance-gates.sh|grep -Fx 'ZZ_PERFORMANCE_REFERENCE:BOOL=ON'"
     "scripts/ci/run-linux-performance-gates.sh|release-rounds/round-\${round}"
     "scripts/ci/run-linux-performance-gates.sh|ZzComparePerformanceReport.cmake"
     "scripts/ci/run-linux-performance-gates.sh|regression-thresholds.json"
@@ -110,6 +114,20 @@ file(READ "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-gates.sh" linux_gates_content)
 if(linux_gates_content MATCHES "performance_scenarios[ \t]*\\(")
     message(FATAL_ERROR
         "run-linux-gates.sh must not retain the legacy single-round performance_scenarios block")
+endif()
+
+file(READ "${performance_helper}" performance_helper_content)
+string(FIND "${performance_helper_content}"
+    "grep -Fx 'ZZ_PERFORMANCE_REFERENCE:BOOL=ON'" cache_check_position)
+string(FIND "${performance_helper_content}" "rm -- " report_delete_position)
+string(FIND "${performance_helper_content}" "ctest --preset linux-gcc-benchmarks"
+    benchmark_ctest_position)
+if(cache_check_position EQUAL -1 OR report_delete_position EQUAL -1 OR
+   benchmark_ctest_position EQUAL -1 OR
+   cache_check_position GREATER report_delete_position OR
+   cache_check_position GREATER benchmark_ctest_position)
+    message(FATAL_ERROR
+        "Linux performance helper must verify ZZ_PERFORMANCE_REFERENCE before report deletion and CTest")
 endif()
 
 message(STATUS "Native gate script contract passed")
