@@ -25,6 +25,110 @@ function(zz_contract_decimal_to_micro output value)
     set(${output} "${micro}" PARENT_SCOPE)
 endfunction()
 
+function(zz_contract_metric_kind output unit)
+    if(unit STREQUAL "ms" OR unit STREQUAL "us")
+        set(kind statistical-duration)
+    elseif(unit STREQUAL "count" OR unit STREQUAL "ratio")
+        set(kind deterministic)
+    elseif(unit STREQUAL "bytes" OR unit STREQUAL "percent")
+        set(kind sampled-resource)
+    else()
+        message(FATAL_ERROR "Unsupported performance metric unit: ${unit}")
+    endif()
+    set(${output} "${kind}" PARENT_SCOPE)
+endfunction()
+
+function(zz_validate_formal_thresholds)
+    set(threshold_file
+        "${ZZ_SOURCE_DIR}/docs/performance/reference/linux/regression-thresholds.json")
+    file(READ "${threshold_file}" thresholds_json)
+    string(JSON threshold_schema GET "${thresholds_json}" schemaVersion)
+    if(NOT threshold_schema EQUAL 2)
+        message(FATAL_ERROR "Formal thresholds must use schemaVersion 2")
+    endif()
+
+    file(GLOB reporters LIST_DIRECTORIES FALSE
+        "${ZZ_SOURCE_DIR}/docs/performance/reference/linux/*.json")
+    list(REMOVE_ITEM reporters "${threshold_file}")
+    set(expected_scenarios)
+    foreach(reporter IN LISTS reporters)
+        file(READ "${reporter}" reporter_json)
+        string(JSON scenario GET "${reporter_json}" scenario)
+        list(APPEND expected_scenarios "${scenario}")
+    endforeach()
+    list(SORT expected_scenarios)
+
+    string(JSON scenario_count LENGTH "${thresholds_json}" scenarios)
+    set(actual_scenarios)
+    math(EXPR last_scenario "${scenario_count} - 1")
+    foreach(scenario_index RANGE 0 ${last_scenario})
+        string(JSON scenario MEMBER "${thresholds_json}" scenarios ${scenario_index})
+        list(APPEND actual_scenarios "${scenario}")
+    endforeach()
+    list(SORT actual_scenarios)
+    if(NOT "${actual_scenarios}" STREQUAL "${expected_scenarios}")
+        message(FATAL_ERROR "Formal threshold scenarios differ from reporters")
+    endif()
+
+    foreach(reporter IN LISTS reporters)
+        file(READ "${reporter}" reporter_json)
+        string(JSON scenario GET "${reporter_json}" scenario)
+        string(JSON reporter_metric_count LENGTH "${reporter_json}" metrics)
+        string(JSON threshold_metric_count LENGTH "${thresholds_json}"
+            scenarios "${scenario}" metrics)
+        set(reporter_metrics)
+        set(threshold_metrics)
+        math(EXPR last_reporter_metric "${reporter_metric_count} - 1")
+        math(EXPR last_threshold_metric "${threshold_metric_count} - 1")
+        foreach(metric_index RANGE 0 ${last_reporter_metric})
+            string(JSON metric MEMBER "${reporter_json}" metrics ${metric_index})
+            list(APPEND reporter_metrics "${metric}")
+        endforeach()
+        foreach(metric_index RANGE 0 ${last_threshold_metric})
+            string(JSON metric MEMBER "${thresholds_json}"
+                scenarios "${scenario}" metrics ${metric_index})
+            list(APPEND threshold_metrics "${metric}")
+        endforeach()
+        list(SORT reporter_metrics)
+        list(SORT threshold_metrics)
+        if(NOT "${reporter_metrics}" STREQUAL "${threshold_metrics}")
+            message(FATAL_ERROR
+                "Formal threshold metrics differ from reporter for ${scenario}")
+        endif()
+
+        foreach(metric IN LISTS reporter_metrics)
+            string(JSON unit GET "${reporter_json}" metrics "${metric}" unit)
+            zz_contract_metric_kind(expected_kind "${unit}")
+            string(JSON actual_kind GET "${thresholds_json}"
+                scenarios "${scenario}" metrics "${metric}" metricKind)
+            if(NOT "${actual_kind}" STREQUAL "${expected_kind}")
+                message(FATAL_ERROR
+                    "Formal threshold kind mismatch for ${scenario}/${metric}")
+            endif()
+            foreach(field p95 max)
+                string(JSON mode GET "${thresholds_json}" scenarios "${scenario}"
+                    metrics "${metric}" "${field}" mode)
+                string(JSON percent GET "${thresholds_json}" scenarios "${scenario}"
+                    metrics "${metric}" "${field}" percent)
+                if(expected_kind STREQUAL "statistical-duration")
+                    if(field STREQUAL "max" AND NOT mode STREQUAL "observe")
+                        message(FATAL_ERROR
+                            "Duration max must observe for ${scenario}/${metric}")
+                    endif()
+                    if(field STREQUAL "p95" AND mode STREQUAL "gate"
+                       AND percent GREATER 10)
+                        message(FATAL_ERROR
+                            "Duration P95 gate exceeds 10 percent for ${scenario}/${metric}")
+                    endif()
+                elseif(NOT mode STREQUAL "gate" OR percent GREATER 20)
+                    message(FATAL_ERROR
+                        "${expected_kind} must gate within 20 percent for ${scenario}/${metric}")
+                endif()
+            endforeach()
+        endforeach()
+    endforeach()
+endfunction()
+
 function(zz_validate_workspace_evidence output directory)
     file(GLOB round_reports LIST_DIRECTORIES FALSE
         "${directory}/round-*.json")
@@ -199,6 +303,7 @@ function(zz_validate_workspace_evidence output directory)
 endfunction()
 
 file(READ "${baseline}" baseline_json)
+zz_validate_formal_thresholds()
 string(JSON p95_regressed_json SET "${baseline_json}" metrics latency p95 111)
 string(JSON max_regressed_json SET "${baseline_json}" metrics latency max 111)
 file(WRITE "${ZZ_TEST_ROOT}/p95-regressed.json" "${p95_regressed_json}")
@@ -319,6 +424,10 @@ foreach(round RANGE 1 3)
     math(EXPR value "90 + ${round} * 10")
     string(REPLACE "\"p95\": 100" "\"p95\": ${value}" round_json "${baseline_json}")
     string(REPLACE "\"max\": 100" "\"max\": ${value}" round_json "${round_json}")
+    string(JSON round_json SET "${round_json}" metrics count
+        [=[{"unit":"count","p95":100,"max":100}]=])
+    string(JSON round_json SET "${round_json}" metrics bytes
+        [=[{"unit":"bytes","p95":100,"max":100}]=])
     file(WRITE "${round_directory}/benchmark.contract.json" "${round_json}")
 endforeach()
 set(run_directories
@@ -335,17 +444,60 @@ if(NOT analyze_result EQUAL 0)
     message(FATAL_ERROR "Noise analyzer failed: ${analyze_error}")
 endif()
 file(READ "${ZZ_TEST_ROOT}/candidate.json" candidate_json)
+string(JSON candidate_schema GET "${candidate_json}" schemaVersion)
+string(JSON latency_kind GET "${candidate_json}"
+    scenarios contract metrics latency metricKind)
 string(JSON p95_mode GET "${candidate_json}"
     scenarios contract metrics latency p95 mode)
 string(JSON p95_percent GET "${candidate_json}"
     scenarios contract metrics latency p95 percent)
 string(JSON p95_noise GET "${candidate_json}"
     scenarios contract metrics latency p95 noisePercent)
-if(NOT p95_mode STREQUAL "gate"
+string(JSON max_mode GET "${candidate_json}"
+    scenarios contract metrics latency max mode)
+string(JSON max_percent GET "${candidate_json}"
+    scenarios contract metrics latency max percent)
+string(JSON max_noise GET "${candidate_json}"
+    scenarios contract metrics latency max noisePercent)
+string(JSON count_kind GET "${candidate_json}"
+    scenarios contract metrics count metricKind)
+string(JSON bytes_kind GET "${candidate_json}"
+    scenarios contract metrics bytes metricKind)
+if(NOT candidate_schema EQUAL 2
+   OR NOT latency_kind STREQUAL "statistical-duration"
+   OR NOT p95_mode STREQUAL "observe"
    OR NOT p95_percent EQUAL 20
-   OR NOT p95_noise EQUAL 20)
+   OR NOT p95_noise EQUAL 20
+   OR NOT max_mode STREQUAL "observe"
+   OR NOT max_percent EQUAL 20
+   OR NOT max_noise EQUAL 20
+   OR NOT count_kind STREQUAL "deterministic"
+   OR NOT bytes_kind STREQUAL "sampled-resource")
     message(FATAL_ERROR
-        "Noise analyzer returned an unexpected 20 percent policy")
+        "Noise analyzer returned an unexpected schema v2 policy")
+endif()
+
+file(READ "${ZZ_TEST_ROOT}/round-3/benchmark.contract.json" noisy_count_json)
+string(JSON noisy_count_json SET "${noisy_count_json}" metrics count p95 121)
+string(JSON noisy_count_json SET "${noisy_count_json}" metrics count max 121)
+file(WRITE "${ZZ_TEST_ROOT}/round-3/benchmark.contract.json" "${noisy_count_json}")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_RUN_DIRECTORIES=${run_directories}"
+        "-DZZ_OUTPUT_JSON=${ZZ_TEST_ROOT}/noisy-candidate.json"
+        "-DZZ_OUTPUT_MARKDOWN=${ZZ_TEST_ROOT}/noisy-candidate.md"
+        -P "${analyze_script}"
+    RESULT_VARIABLE noisy_count_result
+    ERROR_VARIABLE noisy_count_error)
+if(noisy_count_result EQUAL 0)
+    message(FATAL_ERROR
+        "Noise analyzer accepted a deterministic 21 percent stability band")
+endif()
+string(FIND "${noisy_count_error}"
+    "deterministic metric exceeds the acceptable 20 percent stability band"
+    noisy_count_error_index)
+if(noisy_count_error_index EQUAL -1)
+    message(FATAL_ERROR "Noise analyzer reported the wrong deterministic failure")
 endif()
 
 execute_process(
