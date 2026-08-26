@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scenarios": {
     "contract": {
       "metrics": {
         "latency": {
+          "metricKind": "statistical-duration",
           "p95": { "mode": "gate", "percent": 10 },
-          "max": { "mode": "gate", "percent": 10 }
+          "max": { "mode": "observe", "percent": 10 }
         }
       }
     }

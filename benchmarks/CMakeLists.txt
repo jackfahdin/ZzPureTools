@@ -280,6 +280,6 @@ add_test(NAME benchmark.relative-comparison-rejects-environment-mismatch
 set_tests_properties(
     benchmark.relative-comparison-rejects-regression
     benchmark.relative-comparison-rejects-environment-mismatch
-    PROPERTIES WILL_FAIL TRUE LABELS "benchmark;unit")
+    PROPERTIES WILL_FAIL TRUE LABELS "benchmark;unit;relative-comparison")
 set_tests_properties(benchmark.relative-comparison-valid PROPERTIES
-    LABELS "benchmark;unit")
+    LABELS "benchmark;unit;relative-comparison")

@@ -199,50 +199,117 @@ function(zz_validate_workspace_evidence output directory)
 endfunction()
 
 file(READ "${baseline}" baseline_json)
-set(gate_thresholds
-    [=[{"schemaVersion":1,"scenarios":{"contract":{"metrics":{"latency":{"p95":{"mode":"gate","percent":10},"max":{"mode":"gate","percent":10}}}}}}]=])
-set(observe_thresholds
-    [=[{"schemaVersion":1,"scenarios":{"contract":{"metrics":{"latency":{"p95":{"mode":"observe","percent":10},"max":{"mode":"observe","percent":10}}}}}}]=])
-file(WRITE "${ZZ_TEST_ROOT}/gate.json" "${gate_thresholds}")
-file(WRITE "${ZZ_TEST_ROOT}/observe.json" "${observe_thresholds}")
+string(JSON p95_regressed_json SET "${baseline_json}" metrics latency p95 111)
+string(JSON max_regressed_json SET "${baseline_json}" metrics latency max 111)
+file(WRITE "${ZZ_TEST_ROOT}/p95-regressed.json" "${p95_regressed_json}")
+file(WRITE "${ZZ_TEST_ROOT}/max-regressed.json" "${max_regressed_json}")
 
-execute_process(
-    COMMAND "${CMAKE_COMMAND}"
-        "-DZZ_BASELINE=${baseline}"
-        "-DZZ_CURRENT=${baseline}"
-        "-DZZ_THRESHOLDS=${ZZ_TEST_ROOT}/gate.json"
-        -P "${compare_script}"
-    RESULT_VARIABLE valid_result
-    ERROR_VARIABLE valid_error)
+set(duration_thresholds
+    [=[{"schemaVersion":2,"scenarios":{"contract":{"metrics":{"latency":{"metricKind":"statistical-duration","p95":{"mode":"gate","percent":10},"max":{"mode":"observe","percent":10}}}}}}]=])
+set(deterministic_thresholds
+    [=[{"schemaVersion":2,"scenarios":{"contract":{"metrics":{"latency":{"metricKind":"deterministic","p95":{"mode":"gate","percent":10},"max":{"mode":"gate","percent":10}}}}}}]=])
+set(resource_thresholds
+    [=[{"schemaVersion":2,"scenarios":{"contract":{"metrics":{"latency":{"metricKind":"sampled-resource","p95":{"mode":"gate","percent":10},"max":{"mode":"gate","percent":10}}}}}}]=])
+file(WRITE "${ZZ_TEST_ROOT}/duration.json" "${duration_thresholds}")
+file(WRITE "${ZZ_TEST_ROOT}/deterministic.json" "${deterministic_thresholds}")
+file(WRITE "${ZZ_TEST_ROOT}/resource.json" "${resource_thresholds}")
+
+function(zz_run_comparison result output thresholds current)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}"
+            "-DZZ_BASELINE=${baseline}"
+            "-DZZ_CURRENT=${current}"
+            "-DZZ_THRESHOLDS=${thresholds}"
+            -P "${compare_script}"
+        RESULT_VARIABLE comparison_result
+        OUTPUT_VARIABLE comparison_output
+        ERROR_VARIABLE comparison_error)
+    string(APPEND comparison_output "${comparison_error}")
+    set(${result} "${comparison_result}" PARENT_SCOPE)
+    set(${output} "${comparison_output}" PARENT_SCOPE)
+endfunction()
+
+function(zz_require_log output expected)
+    string(FIND "${output}" "${expected}" expected_index)
+    if(expected_index EQUAL -1)
+        message(FATAL_ERROR "Comparison log lacks '${expected}': ${output}")
+    endif()
+endfunction()
+
+zz_run_comparison(valid_result valid_output
+    "${ZZ_TEST_ROOT}/duration.json" "${baseline}")
 if(NOT valid_result EQUAL 0)
-    message(FATAL_ERROR "Valid threshold comparison failed: ${valid_error}")
+    message(FATAL_ERROR "Valid duration comparison failed: ${valid_output}")
 endif()
+zz_require_log("${valid_output}" "PASS contract/latency.p95")
+zz_require_log("${valid_output}" "PASS contract/latency.max")
+zz_require_log("${valid_output}" "PASS contract")
 
-string(REPLACE "\"p95\": 100" "\"p95\": 111" regressed_json "${baseline_json}")
-string(REPLACE "\"max\": 100" "\"max\": 111" regressed_json "${regressed_json}")
-file(WRITE "${ZZ_TEST_ROOT}/regressed.json" "${regressed_json}")
-execute_process(
-    COMMAND "${CMAKE_COMMAND}"
-        "-DZZ_BASELINE=${baseline}"
-        "-DZZ_CURRENT=${ZZ_TEST_ROOT}/regressed.json"
-        "-DZZ_THRESHOLDS=${ZZ_TEST_ROOT}/gate.json"
-        -P "${compare_script}"
-    RESULT_VARIABLE gate_result)
-if(gate_result EQUAL 0)
-    message(FATAL_ERROR "Gate mode accepted an 11 percent regression")
+zz_run_comparison(observe_result observe_output
+    "${ZZ_TEST_ROOT}/duration.json" "${ZZ_TEST_ROOT}/max-regressed.json")
+if(NOT observe_result EQUAL 0)
+    message(FATAL_ERROR "Duration max observation failed: ${observe_output}")
 endif()
-execute_process(
-    COMMAND "${CMAKE_COMMAND}"
-        "-DZZ_BASELINE=${baseline}"
-        "-DZZ_CURRENT=${ZZ_TEST_ROOT}/regressed.json"
-        "-DZZ_THRESHOLDS=${ZZ_TEST_ROOT}/observe.json"
-        -P "${compare_script}"
-    RESULT_VARIABLE observe_result
-    ERROR_VARIABLE observe_error)
-if(NOT observe_result EQUAL 0 OR NOT observe_error MATCHES "OBSERVE")
-    message(FATAL_ERROR
-        "Observe mode did not report and accept the regression: ${observe_error}")
+zz_require_log("${observe_output}" "OBSERVE contract/latency.max")
+zz_require_log("${observe_output}" "OBSERVE contract")
+
+zz_run_comparison(p95_result p95_output
+    "${ZZ_TEST_ROOT}/duration.json" "${ZZ_TEST_ROOT}/p95-regressed.json")
+if(p95_result EQUAL 0)
+    message(FATAL_ERROR "Duration P95 gate accepted an 11 percent regression")
 endif()
+zz_require_log("${p95_output}" "FAIL contract/latency.p95")
+
+foreach(kind IN ITEMS deterministic resource)
+    zz_run_comparison(kind_result kind_output
+        "${ZZ_TEST_ROOT}/${kind}.json" "${ZZ_TEST_ROOT}/max-regressed.json")
+    if(kind_result EQUAL 0)
+        message(FATAL_ERROR "${kind} max gate accepted an 11 percent regression")
+    endif()
+    zz_require_log("${kind_output}" "FAIL contract/latency.max")
+endforeach()
+
+function(zz_require_invalid name thresholds expected)
+    file(WRITE "${ZZ_TEST_ROOT}/${name}.json" "${thresholds}")
+    zz_run_comparison(invalid_result invalid_output
+        "${ZZ_TEST_ROOT}/${name}.json" "${baseline}")
+    if(invalid_result EQUAL 0)
+        message(FATAL_ERROR "Invalid policy ${name} was accepted")
+    endif()
+    zz_require_log("${invalid_output}" "${expected}")
+endfunction()
+
+string(JSON invalid_schema SET "${duration_thresholds}" schemaVersion 1)
+zz_require_invalid(invalid-schema "${invalid_schema}" "INVALID thresholds")
+string(JSON missing_kind REMOVE "${duration_thresholds}"
+    scenarios contract metrics latency metricKind)
+zz_require_invalid(missing-kind "${missing_kind}" "INVALID contract/latency")
+string(JSON unknown_kind SET "${duration_thresholds}"
+    scenarios contract metrics latency metricKind [=["unknown"]=])
+zz_require_invalid(unknown-kind "${unknown_kind}" "INVALID contract/latency")
+string(JSON duration_max_gate SET "${duration_thresholds}"
+    scenarios contract metrics latency max mode [=["gate"]=])
+zz_require_invalid(duration-max-gate "${duration_max_gate}" "INVALID contract/latency")
+string(JSON duration_p95_percent SET "${duration_thresholds}"
+    scenarios contract metrics latency p95 percent 11)
+zz_require_invalid(duration-p95-percent "${duration_p95_percent}" "INVALID contract/latency")
+string(JSON deterministic_observe SET "${deterministic_thresholds}"
+    scenarios contract metrics latency max mode [=["observe"]=])
+zz_require_invalid(deterministic-observe "${deterministic_observe}" "INVALID contract/latency")
+string(JSON resource_observe SET "${resource_thresholds}"
+    scenarios contract metrics latency p95 mode [=["observe"]=])
+zz_require_invalid(resource-observe "${resource_observe}" "INVALID contract/latency")
+string(JSON deterministic_percent SET "${deterministic_thresholds}"
+    scenarios contract metrics latency max percent 21)
+zz_require_invalid(deterministic-percent "${deterministic_percent}" "INVALID contract/latency")
+
+zz_run_comparison(environment_result environment_output
+    "${ZZ_TEST_ROOT}/duration.json"
+    "${ZZ_SOURCE_DIR}/benchmarks/testdata/performance-mismatched-environment.json")
+if(environment_result EQUAL 0)
+    message(FATAL_ERROR "Environment mismatch was accepted")
+endif()
+zz_require_log("${environment_output}" "INVALID contract environment;gpu")
 
 foreach(round RANGE 1 3)
     set(round_directory "${ZZ_TEST_ROOT}/round-${round}")
