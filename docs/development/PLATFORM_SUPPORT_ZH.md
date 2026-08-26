@@ -22,7 +22,7 @@ Windows 的原生 Mica/Acrylic、macOS 的原生 Blur 仍由现有私有 QWindow
 
 ## Linux 发布参考环境登记
 
-当前只有一台可用机器，因此项目选用 `local-release-xvfb` 作为活动 Linux 发布参考环境。它是 Ubuntu 26.04、Qt 6.11.1、GCC 15.2.0 的本机档案，已经保存 Xvfb 性能基线和四个 GCC 发布组合的自动测试记录。主机没有物理显示器，所以这些记录不能提升下方 KDE/GNOME 真机会话行。
+当前只有一台可用机器，因此项目选用 `local-release-xvfb` 作为活动 Linux 发布参考环境。它是 Ubuntu 26.04.1、Qt 6.11.1、GCC 15.2.0 的本机档案，已经保存 Xvfb 性能基线和四个 GCC 发布组合的自动测试记录。主机没有物理显示器，所以这些记录不能提升下方 KDE/GNOME 真机会话行。
 
 原规划的 `ubuntu2204-github-ci` 继续作为 Ubuntu 22.04 兼容参考档案保留，等待用户上传 GitHub 或购置替代主机后独立验证。它不再是当前本机自动发布门禁的前置条件；提供受审核 immutable image 后，Linux runner 会追加兼容检查。两个档案的工具链、显示指纹和性能 JSON 不得混用，切换活动档案前必须提交新档案的独立证据。
 
@@ -55,11 +55,13 @@ Qt 6.11.1、Release/shared/LTO。它覆盖四档 DPR 截图、公开头编译、
 ArchitectureAudit 与 `ZzWorkspaceShell` 的布局/所有权测试；该结果仅证明 Qt
 公共 API 和软件渲染路径，不提升任一真实桌面会话状态。
 
-2026-08-25 的 Task 15 本机运行来自远程 TTY（`Remote=yes`、`Type=tty`）和专用
-Xvfb。它补充 GCC/Clang、shared/static/LTO、ASan/UBSan、clang-tidy 和工作区性能
-证据，但不满足本地活动桌面与物理输出要求。Linux 五种交互行、真实 tab 拖放五区
-Overlay 截图、IME 与重启恢复仍为“未执行”；Ubuntu 22.04 兼容档案也继续等待独立
-immutable image 验证。
+2026-08-26 的 Task 15 本机运行来自远程 TTY（`Remote=yes`、`Type=tty`）和专用
+Xvfb。统一 Linux gate 的 Debug 配置、151 个 CTest、shared/static/LTO、ASan/UBSan、
+clang-tidy 和工作区性能检查均已完成；结果补充了可审计的 GCC/Clang 与性能证据，但
+不满足本地活动桌面与物理输出要求。Linux 五种交互行、真实 tab 拖放五区 Overlay
+截图、IME 与重启恢复仍为“未执行”；Ubuntu 22.04 兼容档案也继续等待独立 immutable
+image 验证。延迟 Side 面板三轮 startup/idle 原始报告见
+`docs/performance/evidence/deferred-side-panel/2026-08-26/`。
 
 Windows MSVC、Windows MinGW 和 macOS 对工作区组件均为“未执行”：没有在对应
 SDK、ABI 或原生窗口系统上配置、构建或运行消费者。现有 preset、公共头和

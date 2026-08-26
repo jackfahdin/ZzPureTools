@@ -63,7 +63,7 @@
 - 修改：`ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.cpp`
 - 测试：`ZzPureTools/tests/ZzWorkspaceShellTest.cpp`
 
-- [ ] **步骤 1：写 eager 兼容与 factory 延迟注册失败测试。** 在 `ZzWorkspaceShellTest` 增加 `keepsEagerSideRegistrationVisible()` 与 `registersDeferredSidePanelWithoutCreatingContent()`。后者必须保存调用次数，并断言 Activity 行存在、两个物理栈为空、Pane 折叠、Activity 行 inactive：
+- [x] **步骤 1：写 eager 兼容与 factory 延迟注册失败测试。** 在 `ZzWorkspaceShellTest` 增加 `keepsEagerSideRegistrationVisible()` 与 `registersDeferredSidePanelWithoutCreatingContent()`。后者必须保存调用次数，并断言 Activity 行存在、两个物理栈为空、Pane 折叠、Activity 行 inactive：
 
   ```cpp
   int calls = 0;
@@ -84,7 +84,7 @@
       ZzFluentUI::ZzSidePaneEdge::Left)->isCollapsed());
   ```
 
-- [ ] **步骤 2：运行失败测试。**
+- [x] **步骤 2：运行失败测试。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -92,7 +92,7 @@
 
   预期：编译失败，错误明确指出 `ZzWorkspacePanelFactory` 或 `registerSidePanelFactory()` 尚不存在；旧 eager 用例仍能编译。
 
-- [ ] **步骤 3：声明公共 factory 合同和私有状态。** 在公开命名空间中加入：
+- [x] **步骤 3：声明公共 factory 合同和私有状态。** 在公开命名空间中加入：
 
   ```cpp
   using ZzWorkspacePanelFactory =
@@ -127,7 +127,7 @@
 
   eager Side、Bottom、Dock 记录显式为 `Ready`；factory 注册记录为 `Pending`，`content`、`contentIdentity` 和 owner 字段为空。
 
-- [ ] **步骤 4：实现仅逻辑注册。** `registerSidePanelFactory()` 复用 eager 输入门禁：宿主存活、PanelId 合法、trim 后标题非空、area 合法、factory 非空、全局 ID 不重复、无其他事务。先预占 `registrationGeneration`，再 append Activity 行并审计模型、左右 Bar、Pane、注册表身份；成功时保持 Activity current/active 为空并调用 `syncSideEdgeVisibility()` 只显示对应 Activity Bar，不展开 Pane。
+- [x] **步骤 4：实现仅逻辑注册。** `registerSidePanelFactory()` 复用 eager 输入门禁：宿主存活、PanelId 合法、trim 后标题非空、area 合法、factory 非空、全局 ID 不重复、无其他事务。先预占 `registrationGeneration`，再 append Activity 行并审计模型、左右 Bar、Pane、注册表身份；成功时保持 Activity current/active 为空并调用 `syncSideEdgeVisibility()` 只显示对应 Activity Bar，不展开 Pane。
 
   `syncSideEdgeVisibility()` 的 `hasPanel` 判断改为逻辑 Side 记录，而不是 `content != nullptr`：
 
@@ -139,7 +139,7 @@
 
   注册过程中发生同步模型破坏时，只移除本次逻辑记录和本次 Activity 行；不得调用 factory。
 
-- [ ] **步骤 5：验证延迟注册转绿。**
+- [x] **步骤 5：验证延迟注册转绿。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -148,9 +148,9 @@
 
   预期：新增延迟注册和原 eager 兼容用例通过，现有 WorkspaceShell 全部用例继续通过。
 
-- [ ] **步骤 6：写首次显示、Activity 激活和单次创建失败测试。** 增加 `materializesDeferredSidePanelOnlyOnce()` 与 `activityActivationMaterializesDeferredSidePanel()`。测试应让 factory 返回带稳定 objectName 的 QWidget，先调用或单击入口，再断言 calls 为 1、内容已进入正确 SidePane、current/visible/active 一致；重复显隐和重复点击后 calls 仍为 1。
+- [x] **步骤 6：写首次显示、Activity 激活和单次创建失败测试。** 增加 `materializesDeferredSidePanelOnlyOnce()` 与 `activityActivationMaterializesDeferredSidePanel()`。测试应让 factory 返回带稳定 objectName 的 QWidget，先调用或单击入口，再断言 calls 为 1、内容已进入正确 SidePane、current/visible/active 一致；重复显隐和重复点击后 calls 仍为 1。
 
-- [ ] **步骤 7：实现共享物理接管 helper。** 把 eager 注册中从 `ZzPanelOwnerObserver` 到 canonical Stack 顺序审计的代码抽成私有 `adoptSidePanelContent()`，输入固定 PanelId、registration generation、无父 QWidget 和 `activate` 标志。eager 路径用 `activate=true` 保持旧语义；延迟 materialize 用 `activate=false`，只完成 `Ready` 接管，随后由 `showPanel()` 执行既有显隐/当前/Activity 同步。
+- [x] **步骤 7：实现共享物理接管 helper。** 把 eager 注册中从 `ZzPanelOwnerObserver` 到 canonical Stack 顺序审计的代码抽成私有 `adoptSidePanelContent()`，输入固定 PanelId、registration generation、无父 QWidget 和 `activate` 标志。eager 路径用 `activate=true` 保持旧语义；延迟 materialize 用 `activate=false`，只完成 `Ready` 接管，随后由 `showPanel()` 执行既有显隐/当前/Activity 同步。
 
   新增 `materializeSidePanel(id)`，固定顺序为：
 
@@ -164,15 +164,15 @@
 
   `showPanel(id, false)` 对 Pending 返回成功且不得创建；`showPanel(id, true)` 在任何 UI 更新前调用 `materializeSidePanel()`。
 
-- [ ] **步骤 8：写并实现失败矩阵。** 使用 data-driven 测试 `deferredFactoryFailureIsAtomic_data()` / `deferredFactoryFailureIsAtomic()` 覆盖 `ZzError`、success null、带父对象、错误线程、`std::runtime_error` 与未知异常。每个数据行都在失败前后比较 `saveLayout()`、Activity current/active、Pane collapsed/current/visible/sizes、Stack panels 及原父对象，并让第二次 factory 返回合法 QWidget 证明可重试。
+- [x] **步骤 8：写并实现失败矩阵。** 使用 data-driven 测试 `deferredFactoryFailureIsAtomic_data()` / `deferredFactoryFailureIsAtomic()` 覆盖 `ZzError`、success null、带父对象、错误线程、`std::runtime_error` 与未知异常。每个数据行都在失败前后比较 `saveLayout()`、Activity current/active、Pane collapsed/current/visible/sizes、Stack panels 及原父对象，并让第二次 factory 返回合法 QWidget 证明可重试。
 
   稳定错误映射为：factory 自身 `ZzError` 原样保留；非法返回使用 `InvalidState`；标准和未知异常转换为 `InvalidState`，异常不能越过 Qt 回调。
 
-- [ ] **步骤 9：写并实现同 ID 同步重入。** 增加 `rejectsReentrantDeferredMaterialization()`：factory 第一次执行时同步调用同一 ID 的 `showPanel(true)` 和 `takePanel()`，两者必须返回 `InvalidState`，calls 保持 1，外层成功后内容为 Ready。`Materializing` 状态不得被嵌套调用清除。
+- [x] **步骤 9：写并实现同 ID 同步重入。** 增加 `rejectsReentrantDeferredMaterialization()`：factory 第一次执行时同步调用同一 ID 的 `showPanel(true)` 和 `takePanel()`，两者必须返回 `InvalidState`，calls 保持 1，外层成功后内容为 Ready。`Materializing` 状态不得被嵌套调用清除。
 
-- [ ] **步骤 10：写并实现 Pending take 和 badge。** 增加 `takesPendingPanelWithoutShowingIt()`、`failedPendingTakePreservesRegistration()` 与 `updatesBadgeBeforeMaterialization()`。Pending take 成功时调用 factory 一次，归还非空、无父、未显示 QWidget，移除 Activity 行和记录；失败时 factory 和 Activity 行保留。badge 必须在 Pending 阶段写入 Activity model，并在 materialize 后保持。
+- [x] **步骤 10：写并实现 Pending take 和 badge。** 增加 `takesPendingPanelWithoutShowingIt()`、`failedPendingTakePreservesRegistration()` 与 `updatesBadgeBeforeMaterialization()`。Pending take 成功时调用 factory 一次，归还非空、无父、未显示 QWidget，移除 Activity 行和记录；失败时 factory 和 Activity 行保留。badge 必须在 Pending 阶段写入 Activity model，并在 materialize 后保持。
 
-- [ ] **步骤 11：运行任务 1 全部验证。**
+- [x] **步骤 11：运行任务 1 全部验证。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -181,7 +181,7 @@
 
   预期：WorkspaceShell 全套测试和两项架构检查通过；factory 失败与异常没有未捕获输出、QObject 泄漏或状态漂移。
 
-- [ ] **步骤 12：提交任务 1。**
+- [x] **步骤 12：提交任务 1。**
 
   ```bash
   git add \
@@ -208,9 +208,9 @@
 - 修改：`ZzPureTools/widgets/src/private/ZzWorkspaceLayoutTransactionPrivate.cpp`
 - 测试：`ZzPureTools/tests/ZzWorkspaceShellTest.cpp`
 
-- [ ] **步骤 1：写 Pending 跨侧迁移失败测试。** 增加 `movesPendingPanelWithoutMaterializingIt()`：注册 LeftPrimary Ready、LeftSecondary Pending、RightPrimary Ready，触发 Activity `moveRequested` 把 Pending 移到 RightSecondary；断言 factory calls 为 0、Activity Area 与全局顺序已更新、左右 Stack QWidget 子集不变。随后 `showPanel(true)`，断言 Pending 内容按最新逻辑顺序插入右侧 Ready 子序列。
+- [x] **步骤 1：写 Pending 跨侧迁移失败测试。** 增加 `movesPendingPanelWithoutMaterializingIt()`：注册 LeftPrimary Ready、LeftSecondary Pending、RightPrimary Ready，触发 Activity `moveRequested` 把 Pending 移到 RightSecondary；断言 factory calls 为 0、Activity Area 与全局顺序已更新、左右 Stack QWidget 子集不变。随后 `showPanel(true)`，断言 Pending 内容按最新逻辑顺序插入右侧 Ready 子序列。
 
-- [ ] **步骤 2：运行失败测试。**
+- [x] **步骤 2：运行失败测试。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
@@ -219,20 +219,20 @@
 
   预期：迁移审计因 Pending 没有物理 QWidget identity 而失败，或错误地调用 factory。
 
-- [ ] **步骤 3：让移动事务区分逻辑全量与物理子集。** `ZzAuditIndex` 对所有 Side 记录建立 `recordRows` 和 Activity area；只有 `Ready` 且 identity 有效的记录进入 `idsByWidget`、frames 和物理内容审计。目标投影的逻辑顺序允许 Pending ID，Stack order/visible/sizes/current 只允许 Ready ID。
+- [x] **步骤 3：让移动事务区分逻辑全量与物理子集。** `ZzAuditIndex` 对所有 Side 记录建立 `recordRows` 和 Activity area；只有 `Ready` 且 identity 有效的记录进入 `idsByWidget`、frames 和物理内容审计。目标投影的逻辑顺序允许 Pending ID，Stack order/visible/sizes/current 只允许 Ready ID。
 
   `applyProjection()` 遇到 Pending 移动时只更新 record `activityArea` 和 Activity model 投影；不得 detach/attach QWidget。Ready 移动继续沿用现有 `ZzMutationObserver` 和回滚路径。物理插入索引通过目标逻辑顺序中过滤 Ready ID 计算，不能用全量 Activity row 直接作为 Stack index。
 
-- [ ] **步骤 4：验证 Pending 与混合迁移转绿。** 增加 `movesMixedPendingAndReadyPanelsConsistently()`，在四个 Activity area 中混排至少两个 Pending 和两个 Ready，执行同侧重排、跨侧迁移、materialize、take 后检查逻辑全量 ID 唯一、物理 QWidget 子集唯一且顺序与过滤后的逻辑顺序一致。
+- [x] **步骤 4：验证 Pending 与混合迁移转绿。** 增加 `movesMixedPendingAndReadyPanelsConsistently()`，在四个 Activity area 中混排至少两个 Pending 和两个 Ready，执行同侧重排、跨侧迁移、materialize、take 后检查逻辑全量 ID 唯一、物理 QWidget 子集唯一且顺序与过滤后的逻辑顺序一致。
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest --parallel 2
   ctest --preset linux-gcc-debug -R '^puretools.workspace-shell$' --output-on-failure
   ```
 
-- [ ] **步骤 5：写 save 不创建与逻辑 round trip 失败测试。** 增加 `savesPendingPanelsWithoutMaterializingThem()`：source 同时注册 Pending/Ready，调整 Area 与顺序后保存；calls 必须保持 0。target 用同 ID factory 注册后 restore，断言未保存为 visible/current 的 Pending 仍未创建，Activity Area 与顺序完整 round trip，重新 save 得到等价逻辑布局。
+- [x] **步骤 5：写 save 不创建与逻辑 round trip 失败测试。** 增加 `savesPendingPanelsWithoutMaterializingThem()`：source 同时注册 Pending/Ready，调整 Area 与顺序后保存；calls 必须保持 0。target 用同 ID factory 注册后 restore，断言未保存为 visible/current 的 Pending 仍未创建，Activity Area 与顺序完整 round trip，重新 save 得到等价逻辑布局。
 
-- [ ] **步骤 6：实现 Pending 保存投影。** 捕获 snapshot 时：
+- [x] **步骤 6：实现 Pending 保存投影。** 捕获 snapshot 时：
 
   ```cpp
   // Activity / sideEntries: 全部逻辑 Side 记录
@@ -242,15 +242,15 @@
 
   `save()` 的审计不再要求 Side 注册数等于两个 Stack 内容总数。Pending 不写入新 schema 字段，继续由现有 `sideEntries` 的 ID、Area、order 表示；visible/current 列表自然不含 Pending。
 
-- [ ] **步骤 7：写 restore 选择性创建失败测试。** 增加 `restoresOnlyDeferredPanelsRequestedVisible()`：source 用 eager 内容保存一份仅 `files` 和 `tasks` visible/current 的布局；target 四个 ID 都用计数 factory 注册。restore 后只允许 files/tasks calls 为 1，另两个为 0，目标 Pane current/visible/sizes 与 source 一致。
+- [x] **步骤 7：写 restore 选择性创建失败测试。** 增加 `restoresOnlyDeferredPanelsRequestedVisible()`：source 用 eager 内容保存一份仅 `files` 和 `tasks` visible/current 的布局；target 四个 ID 都用计数 factory 注册。restore 后只允许 files/tasks calls 为 1，另两个为 0，目标 Pane current/visible/sizes 与 source 一致。
 
-- [ ] **步骤 8：实现 restore prepare 阶段的选择性 materialize。** 解码和完整 ID/Area/order 校验完成后，计算 `leftVisible + rightVisible + leftCurrent + rightCurrent` 的去重目标 ID。只对其中处于 Pending 的记录调用内部 materialize；创建时先保持 hidden，不提前修改 Activity active/current 或 Pane collapsed。全部创建成功后再应用既有五阶段投影。
+- [x] **步骤 8：实现 restore prepare 阶段的选择性 materialize。** 解码和完整 ID/Area/order 校验完成后，计算 `leftVisible + rightVisible + leftCurrent + rightCurrent` 的去重目标 ID。只对其中处于 Pending 的记录调用内部 materialize；创建时先保持 hidden，不提前修改 Activity active/current 或 Pane collapsed。全部创建成功后再应用既有五阶段投影。
 
-- [ ] **步骤 9：写 restore 中途失败的整批回滚测试。** 增加 `rollsBackNewlyMaterializedPanelsWhenRestoreFails()`：目标布局要求两个 Pending 可见，第一个 factory 成功，第二个返回 error；断言 restore 失败后两个记录均为 Pending，第一个新 QWidget 已销毁，两个 factory 均可重试，Activity rows/badge/Area/order、Pane/Stack/current/visible/sizes、原布局 bytes 与 restore 前完全一致。
+- [x] **步骤 9：写 restore 中途失败的整批回滚测试。** 增加 `rollsBackNewlyMaterializedPanelsWhenRestoreFails()`：目标布局要求两个 Pending 可见，第一个 factory 成功，第二个返回 error；断言 restore 失败后两个记录均为 Pending，第一个新 QWidget 已销毁，两个 factory 均可重试，Activity rows/badge/Area/order、Pane/Stack/current/visible/sizes、原布局 bytes 与 restore 前完全一致。
 
-- [ ] **步骤 10：实现 restore 创建日志与反向回滚。** Layout transaction 保存本轮成功 materialize 的 `{id, generation, factory}` 日志。后续创建或投影提交失败时按逆序从 PanelStack 取回并销毁本轮 QWidget，断开 destroyed connection，清空 content/owner identity，恢复 factory 和 `Pending`；之后再应用既有原始投影回滚。事务期间嵌套 show/take/move/save/restore 继续由 `transactionKind` 拒绝。
+- [x] **步骤 10：实现 restore 创建日志与反向回滚。** Layout transaction 保存本轮成功 materialize 的 `{id, generation, factory}` 日志。后续创建或投影提交失败时按逆序从 PanelStack 取回并销毁本轮 QWidget，断开 destroyed connection，清空 content/owner identity，恢复 factory 和 `Pending`；之后再应用既有原始投影回滚。事务期间嵌套 show/take/move/save/restore 继续由 `transactionKind` 拒绝。
 
-- [ ] **步骤 11：增加混合 take/save/restore 审计并运行任务 2 验证。** `auditsMixedPendingReadyLifecycle()` 依次执行 badge、move、show、take、save、restore，最终验证每个逻辑 Side ID 恰有一个 Activity row，每个 Ready ID 恰有一个物理内容，Pending ID 没有 QWidget，所有 factory 成功后至多调用一次。
+- [x] **步骤 11：增加混合 take/save/restore 审计并运行任务 2 验证。** `auditsMixedPendingReadyLifecycle()` 依次执行 badge、move、show、take、save、restore，最终验证每个逻辑 Side ID 恰有一个 Activity row，每个 Ready ID 恰有一个物理内容，Pending ID 没有 QWidget，所有 factory 成功后至多调用一次。
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzWorkspaceShellTest ZzWorkspaceLayoutStatePrivateTest ZzWorkspaceLayoutCodecPrivateTest --parallel 2
@@ -260,7 +260,7 @@
 
   预期：三项 workspace 测试和架构审计通过；现有 schema 1 迁移、schema 2 round trip、摘要和 1 MiB 上限测试不变。
 
-- [ ] **步骤 12：提交任务 2。**
+- [x] **步骤 12：提交任务 2。**
 
   ```bash
   git add \
@@ -298,7 +298,7 @@
 - 修改：`docs/release/MANUAL_WINDOWS_CHECKLIST_ZH.md`
 - 修改：`docs/release/MANUAL_MACOS_CHECKLIST_ZH.md`
 
-- [ ] **步骤 1：把 Example smoke 改成首建零 Side 内容的失败测试。** 首次创建 `ZzExampleWindowShell` 后仍断言四个 Activity row 及两个 Activity Bar 存在，但以下四个 objectName 均不存在，左右 Pane collapsed，两个 Stack 为空：
+- [x] **步骤 1：把 Example smoke 改成首建零 Side 内容的失败测试。** 首次创建 `ZzExampleWindowShell` 后仍断言四个 Activity row 及两个 Activity Bar 存在，但以下四个 objectName 均不存在，左右 Pane collapsed，两个 Stack 为空：
 
   ```cpp
   QCOMPARE(window->findChild<QWidget *>(
@@ -313,7 +313,7 @@
 
   通过 Activity 单击创建 Sessions，再激活 Files，断言对应 objectName 只出现一个、左侧 Stacked 同时 visible；右侧 Properties/Tasks 重复相同验证。继续执行现有标签分屏、Bottom、CommandBar、跨侧迁移和布局 round trip 流程。
 
-- [ ] **步骤 2：运行 smoke 确认失败。**
+- [x] **步骤 2：运行 smoke 确认失败。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzExampleWorkspaceSmokeTest --parallel 2
@@ -322,11 +322,11 @@
 
   预期：首建断言失败，因为当前四个 Side QWidget 仍被 eager 创建。
 
-- [ ] **步骤 3：用 factory 接入 Example。** `ZzExampleWindowShellPrivate::initialize()` 不再提前调用四个 `create*Panel()`。改为捕获稳定的 `ZzExampleApplicationContext`/模型依赖，并分别调用 `registerSidePanelFactory()`；lambda 返回 `ZzResult<std::unique_ptr<QWidget>>`，只负责构造内容，不访问 SidePane、Activity model 或布局 envelope。
+- [x] **步骤 3：用 factory 接入 Example。** `ZzExampleWindowShellPrivate::initialize()` 不再提前调用四个 `create*Panel()`。改为捕获稳定的 `ZzExampleApplicationContext`/模型依赖，并分别调用 `registerSidePanelFactory()`；lambda 返回 `ZzResult<std::unique_ptr<QWidget>>`，只负责构造内容，不访问 SidePane、Activity model 或布局 envelope。
 
   注册成功后不调用 `showPanel(false)` 模拟延迟；Shell 合同本身保证初始 inactive/hidden。三个 Bottom 面板和现有 Dock 保持 eager。每个内容继续由 `ZzExampleWorkspaceContent` 创建并设置原 objectName，确保 smoke、命令和布局身份不变。
 
-- [ ] **步骤 4：验证 Example 完整工作流。**
+- [x] **步骤 4：验证 Example 完整工作流。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzPureToolsExample ZzExampleWorkspaceSmokeTest --parallel 2
@@ -335,7 +335,7 @@
 
   预期：首次构建四个 Side 内容不存在；每个首次激活创建一次；现有 workspace smoke 和 Shell 测试全部通过。
 
-- [ ] **步骤 5：增加安装消费失败测试并实现。** 在 `tests/InstallConsumer/Gui/main.cpp` 增加安装后公共 API 调用：
+- [x] **步骤 5：增加安装消费失败测试并实现。** 在 `tests/InstallConsumer/Gui/main.cpp` 增加安装后公共 API 调用：
 
   ```cpp
   int deferredCalls = 0;
@@ -358,7 +358,7 @@
 
   先在未安装旧头状态确认消费者编译失败，再安装当前实现并验证 shared/static 消费。
 
-- [ ] **步骤 6：运行公共头、架构与安装消费矩阵。**
+- [x] **步骤 6：运行公共头、架构与安装消费矩阵。**
 
   ```bash
   cmake --build --preset linux-gcc-debug --target ZzPublicHeadersTest --parallel 2
@@ -373,7 +373,7 @@
 
   若仓库中的实际 target 名与命令不同，先用 `cmake --build --preset <preset> --target help` 和 `ctest --preset <preset> -N` 解析现有名字，只允许调整命令，不允许跳过对应合同。
 
-- [ ] **步骤 7：运行三轮 Example startup/idle 性能复采。** 使用 `docs/performance/profiles/local-release-xvfb.json` 和门禁实际采用的 `linux-gcc-benchmarks` 构建，不覆盖 reference。先按 `scripts/ci/run-linux-gates.sh` 的 Xvfb、`taskset -c 10`、`DISPLAY` 和 `QT_QPA_PLATFORM=xcb` 环境启动固定显示服务器，再执行：
+- [x] **步骤 7：运行三轮 Example startup/idle 性能复采。** 使用 `docs/performance/profiles/local-release-xvfb.json` 和门禁实际采用的 `linux-gcc-benchmarks` 构建，不覆盖 reference。先按 `scripts/ci/run-linux-gates.sh` 的 Xvfb、`taskset -c 10`、`DISPLAY` 和 `QT_QPA_PLATFORM=xcb` 环境启动固定显示服务器，再执行：
 
   ```bash
   cmake --preset linux-gcc-benchmarks -DZZ_BUILD_TESTS=ON -DZZ_BUILD_EXAMPLES=ON
@@ -391,7 +391,7 @@
 
   每轮分别保留 reporter JSON 和 gate 输出到新的 `build/gate-evidence/task-15-deferred-side-panel/round-N/`。必须验证首帧前四个 Side factory calls 为 0，且四个 Side QWidget 不计入首帧 QObject/QWidget。
 
-- [ ] **步骤 8：比较相对性能且不得放宽阈值。** 对 `example-startup`、`example-idle` 分别调用仓库现有比较脚本，参数固定使用：
+- [x] **步骤 8：比较相对性能且不得放宽阈值。** 对 `example-startup`、`example-idle` 分别调用仓库现有比较脚本，参数固定使用：
 
   ```text
   baseline = docs/performance/reference/linux/<scenario>.json
@@ -402,7 +402,7 @@
 
   预期：startup P95/max、idle 起止 RSS 和增长率均不超过既有相对 gate。若仍失败，保留阶段计时、对象/RSS 与调度证据继续定位；禁止刷新历史 metric 或提高阈值。
 
-- [ ] **步骤 9：运行统一 Linux 门禁。**
+- [x] **步骤 9：运行统一 Linux 门禁。**
 
   ```bash
   scripts/ci/run-linux-gates.sh
@@ -410,9 +410,9 @@
 
   预期：GCC Debug/Release/static、Clang tidy shared/static、ASan/UBSan、GCC shared/static LTO、架构、安装消费、截图和性能门禁全部通过。命令运行期间持续保存完整日志，不得以此前历史结果代替本次实现后的结果。
 
-- [ ] **步骤 10：执行并记录平台边界。** Linux 五区 Overlay 只能在物理桌面运行 `scripts/release/run-linux-desktop-acceptance.sh` 并人工拖放验收；Xvfb/offscreen 结果不得写成物理桌面通过。Windows MSVC、Windows MinGW 与 macOS 记录公共 API/CMake 静态检查结果和“真机待验证”，不伪造运行证据。
+- [ ] **步骤 10：执行并记录平台边界。** Linux 五区 Overlay 只能在物理桌面运行 `scripts/release/run-linux-desktop-acceptance.sh` 并人工拖放验收；Xvfb/offscreen 结果不得写成物理桌面通过。Windows MSVC、Windows MinGW 与 macOS 记录公共 API/CMake 静态检查结果和“真机待验证”，不伪造运行证据。当前静态边界已记录，物理桌面人工验收待执行。
 
-- [ ] **步骤 11：更新性能与平台证据。** 三轮 workspace evidence 写入本次 commit、reporter 路径、环境和测量结果。12 份 `docs/performance/reference/linux/*.json` 保留原 commit 和全部 metrics，只把：
+- [x] **步骤 11：更新性能与平台证据。** 三轮 workspace evidence 写入本次 commit、reporter 路径、环境和测量结果。12 份 `docs/performance/reference/linux/*.json` 保留原 commit 和全部 metrics，只把：
 
   ```json
   {
@@ -425,7 +425,7 @@
 
   迁移到稳定环境指纹。文档明确：当前只有这台本机可作为发布参考机，原计划参考机仍被记录，Windows/macOS 真机验证待补充。
 
-- [ ] **步骤 12：提交任务 3。** 先用 `git diff --name-only` 确认没有 `temp_image/`，再只暂存本任务文件：
+- [x] **步骤 12：提交任务 3。** 先用 `git diff --name-only` 确认没有 `temp_image/`，再只暂存本任务文件：
 
   ```bash
   git diff --cached --check
@@ -452,3 +452,17 @@
 - 规格第 7 至 10 节的 Example、12 项测试、性能阈值和平台边界由任务 3 覆盖。
 - 全文不存在待定实现、模糊的“适当错误处理”或引用未定义方法；类型名统一为 `ZzWorkspacePanelFactory`、`ZzMaterializationState`、`registerSidePanelFactory()`、`materializeSidePanel()` 和 `adoptSidePanelContent()`。
 - 三个任务分别产生可独立测试和审查的逻辑提交；计划文档本身单独提交，不与代码或既有性能证据混合。
+
+## 执行记录（2026-08-26）
+
+任务 1、任务 2 和任务 3 的代码与测试已分别在以下提交完成：
+
+- `0c4387c`：新增延迟 Side 面板 factory 及 Pending/Materializing/Ready 状态机。
+- `2bae9d6`：完善 Pending 迁移、布局保存恢复和整批回滚事务。
+- `c3d208c`、`d8f1f0d`：Example 延迟接入与安装消费者覆盖。
+- `f59e4d1`：收口性能、平台和人工验收文档及三轮 workspace evidence。
+
+本轮补充 `CMAKE_BUILD_RPATH_USE_ORIGIN` 的 Linux 目录级约束，避免 CMake 重新配置后
+构建目标继续携带绝对构建路径；并记录三轮 `example-startup`/`example-idle` 原始
+报告。统一 gate 在本机完成 Debug 151/151 CTest、两档 clang-tidy 和后续发布组合；
+Linux 物理桌面以及 Windows/macOS 真机仍按清单保持“未执行”。

@@ -1,0 +1,13 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro/.worktrees/command-bar/build/linux-gcc-benchmarks-clean
+    Start 180: benchmark.example-startup
+1/2 Test #180: benchmark.example-startup ........   Passed    2.70 sec
+    Start 184: benchmark.example-idle
+2/2 Test #184: benchmark.example-idle ...........   Passed   35.11 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+benchmark    =  37.81 sec*proc (2 tests)
+example      =  37.81 sec*proc (2 tests)
+
+Total Test time (real) =  37.81 sec

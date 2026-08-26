@@ -123,6 +123,26 @@ governor 是异常尖峰的根因，也不能据此修改正式阈值或发布�
 及 power profile 完全一致，恢复日志为 `restore: VERIFIED all CPU fields and power profile`；
 未发现残留 Xvfb 进程。
 
+## 延迟 Side 面板复采证据
+
+2026-08-26 在源码 `cdce829c23b223fc02f5e176a78ce408419f14be` 上，使用活动档案
+`local-release-xvfb`、Xvfb 固定 CPU 8、被测进程 `taskset -c 10`，完成三轮真实
+`ZzPureToolsExample` startup/idle 复采。每轮只运行对应的两个 benchmark，CTest 均为
+2/2 通过；六份 reporter JSON 和 CTest 日志已按原始字节保存到
+`docs/performance/evidence/deferred-side-panel/2026-08-26/round-{1,2,3}/`。
+
+| 轮次 | startup external-total P95 / max (ms) | startup first-paint P95 / max (ms) | idle CPU | idle RSS 增长 |
+|---|---:|---:|---:|---:|
+| 1 | 79.262122 / 93.418925 | 68.975328 / 82.348246 | 0% | 0.193307% |
+| 2 | 77.470862 / 78.322898 | 68.166441 / 68.645645 | 0% | 0.193576% |
+| 3 | 77.674666 / 77.867621 | 68.322382 / 68.357651 | 0% | 0.193330% |
+
+三轮均满足绝对预算；startup 的 max 高尾只按现有策略记录为 `OBSERVE`，没有修改
+历史基线或 10% 相对阈值。三轮 startup/idle 报告均通过现有相对比较器，且环境中的
+Qt、编译器、renderer、内存归一值和 runner digest 完全一致。该证据证明延迟 Side
+面板修复后的当前构建在本机 Xvfb 参考环境稳定；它不等价于 Linux 物理桌面或
+Windows/macOS 真机验收。
+
 ## 测量与文件映射
 
 所有报告必须来自干净工作树的同一 HEAD，使用相同档案 digest 和 renderer identity：

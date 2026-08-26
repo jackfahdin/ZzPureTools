@@ -12,7 +12,7 @@ Qt/工具链:
 
 本清单覆盖 X11 KDE、X11 GNOME、Wayland KDE、Wayland GNOME 和强制 Qt fallback。当前 `local-release-xvfb` 是自动性能参考环境，但主机没有物理显示器，其报告不能代替以下桌面会话交互项。开始前保存 `build/gate-evidence/linux-native.log`，并确保被测 commit、Qt、工具链和产物摘要一致。
 
-2026-08-25 的 Task 15 自动门禁运行于远程 TTY 和专用 Xvfb，不满足本清单的
+2026-08-26 的 Task 15 自动门禁运行于远程 TTY 和专用 Xvfb，不满足本清单的
 本地会话、活动物理输出和人工签署要求。下面所有交互项继续保持未执行；自动测试、
 offscreen 截图和 Xvfb 性能结果只能作为补充证据，不能填写“实际结果”或提升首行状态。
 

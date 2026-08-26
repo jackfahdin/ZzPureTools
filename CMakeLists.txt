@@ -71,6 +71,9 @@ zz_check_compiler_capabilities()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # 统一 GNU 与 Clang 驱动行为，避免未使用的私有 Qt 依赖进入 ELF DT_NEEDED。
     add_link_options("LINKER:--as-needed")
+    # 构建树也使用相对 RPATH，避免重新配置后旧目标携带绝对构建路径。
+    # 这样 Ninja 无需在安装阶段对不一致的构建 RPATH 做二次修复。
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
 endif()
 
 if(ZZ_BUNDLE_GNU_RUNTIME)
