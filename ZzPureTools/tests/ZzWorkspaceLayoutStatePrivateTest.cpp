@@ -231,7 +231,7 @@ private slots:
             QStringList({QStringLiteral("one"), QStringLiteral("two")}));
     }
 
-    void versionThreeRejectsUnknownDuplicateAndWrongSideIds()
+    void versionThreeRejectsUnknownDuplicateAndInconsistentSides()
     {
         auto snapshot = zzTwoSideSnapshot();
         snapshot.identities = {zzSideIdentity(QStringLiteral("explorer")),
@@ -255,10 +255,18 @@ private slots:
 
         request.projection = static_cast<ZzPlannerLayoutState::ZzWorkspaceProjection>(
             snapshot);
+        request.projection->activity.leftPrimary = {QStringLiteral("terminal")};
         request.projection->activity.rightPrimary = {QStringLiteral("explorer")};
-        request.projection->leftSide.order = {QStringLiteral("explorer")};
-        request.projection->rightSide.order.clear();
         QVERIFY(!ZzPlannerLayoutState::buildRestoreTarget(snapshot, request));
+
+        request.projection = static_cast<ZzPlannerLayoutState::ZzWorkspaceProjection>(
+            snapshot);
+        std::swap(request.projection->activity.leftPrimary,
+            request.projection->activity.rightPrimary);
+        std::swap(request.projection->activity.leftCurrent,
+            request.projection->activity.rightCurrent);
+        std::swap(request.projection->leftSide, request.projection->rightSide);
+        QVERIFY(ZzPlannerLayoutState::buildRestoreTarget(snapshot, request));
     }
 
     void alternatingOmissionsKeepStableAnchorsAndSizes()

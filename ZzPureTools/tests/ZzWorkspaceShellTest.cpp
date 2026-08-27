@@ -7403,30 +7403,143 @@ private Q_SLOTS:
 
     void failedVersionThreeRestoreRollsBackRuntimeState()
     {
-        ZzShellFixture fixture;
-        auto panel = std::make_unique<QWidget>();
-        QWidget *const panelRaw = panel.get();
-        QVERIFY(fixture.shell->registerSidePanel(
-            zzPanelId("explorer"), QStringLiteral("Explorer"), zzIcon(),
-            ZzFluentUI::ZzActivityArea::LeftPrimary, panel.get()));
-        zzReleaseAfterAdoption(panel);
-        auto *const pane = fixture.shell->sidePane(
+        ZzShellFixture source;
+        QAction sourceSettingsAction(QStringLiteral("Fixed settings"));
+        QVERIFY(source.shell->registerFixedActivityAction(
+            zzActivityId("fixed-settings"), QStringLiteral("Fixed settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &sourceSettingsAction));
+        auto sourceContent = std::make_unique<QWidget>();
+        auto sourceOther = std::make_unique<QWidget>();
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceContent.get()));
+        zzReleaseAfterAdoption(sourceContent);
+        QVERIFY(source.shell->registerSidePanel(
+            zzPanelId("other"), QStringLiteral("Other"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, sourceOther.get()));
+        zzReleaseAfterAdoption(sourceOther);
+        auto *const sourceLeftPane = source.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left);
-        pane->setPaneWidth(389);
-        const auto before = fixture.shell->saveLayout();
-        QVERIFY(before);
+        sourceLeftPane->setMaximumPaneWidth(800);
+        sourceLeftPane->setPaneWidth(700);
+        const auto requested = source.shell->saveLayout();
+        QVERIFY(requested);
+        QDataStream envelope(requested.value());
+        envelope.setVersion(QDataStream::Qt_6_8);
+        char magic[4]{};
+        quint16 schemaVersion = 0;
+        QCOMPARE(envelope.readRawData(magic, 4), 4);
+        envelope >> schemaVersion;
+        QCOMPARE(schemaVersion, quint16(3));
 
-        QByteArray malformedVersionThree = before.value();
-        malformedVersionThree.back() = static_cast<char>(
-            malformedVersionThree.back() ^ 0x01);
+        ZzShellFixture target;
+        QAction settingsAction(QStringLiteral("Fixed settings"));
+        QVERIFY(target.shell->registerFixedActivityAction(
+            zzActivityId("fixed-settings"), QStringLiteral("Fixed settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction));
+        auto targetContent = std::make_unique<QWidget>();
+        auto targetOther = std::make_unique<QWidget>();
+        QWidget *const targetContentRaw = targetContent.get();
+        QWidget *const targetOtherRaw = targetOther.get();
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("other"), QStringLiteral("Other"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetOther.get()));
+        zzReleaseAfterAdoption(targetOther);
+        QVERIFY(target.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, targetContent.get()));
+        zzReleaseAfterAdoption(targetContent);
+        auto *const leftPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = target.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        leftPane->setPaneWidth(100);
+        QVERIFY(leftPane->panelStack()->setPanelSizes({456}));
+        auto *const leftBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = target.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QAbstractItemModel *const model = leftBar->model();
+        QVERIFY(model != nullptr);
+        const QModelIndex fixedBefore = zzActivityIndex(
+            model, QStringLiteral("Fixed settings"));
+        QVERIFY(fixedBefore.isValid());
+        const int fixedRow = fixedBefore.row();
+        const QVariant fixedArea = fixedBefore.data(
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+        const QStringList modelTitles = {model->index(0, 0).data().toString(),
+            model->index(1, 0).data().toString(),
+            model->index(2, 0).data().toString()};
+        const QList<QVariant> modelAreas = {
+            model->index(0, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area)),
+            model->index(1, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area)),
+            model->index(2, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))};
+        const QList<QWidget *> leftPanels = leftPane->panelStack()->panels();
+        const QList<QWidget *> leftVisible = leftPane->visibleWidgets();
+        QWidget *const leftCurrent = leftPane->currentWidget();
+        const bool leftCollapsed = leftPane->isCollapsed();
+        const int leftWidth = leftPane->paneWidth();
+        const QList<int> leftSizes = leftPane->panelStack()->panelSizes();
+        const QList<QWidget *> rightPanels = rightPane->panelStack()->panels();
+        const QList<QWidget *> rightVisible = rightPane->visibleWidgets();
+        QWidget *const rightCurrent = rightPane->currentWidget();
+        const bool rightCollapsed = rightPane->isCollapsed();
+        const int rightWidth = rightPane->paneWidth();
+        const QList<int> rightSizes = rightPane->panelStack()->panelSizes();
+        const QModelIndex leftCurrentIndex = leftBar->currentSourceIndex();
+        const QModelIndex rightCurrentIndex = rightBar->currentSourceIndex();
+        bool callbackEntered = false;
+        QObject::connect(
+            leftPane->panelStack(), &ZzFluentUI::ZzPanelStack::panelMoved,
+            target.shell.get(), [&](QWidget *panel, int) {
+            if (callbackEntered || panel != targetContentRaw) {
+                return;
+            }
+            callbackEntered = true;
+            leftPane->setMaximumPaneWidth(100);
+        });
 
-        const auto restored = fixture.shell->restoreLayout(malformedVersionThree);
+        const auto restored = target.shell->restoreLayout(requested.value());
+
         QVERIFY(!restored);
-        QCOMPARE(pane->currentWidget(), panelRaw);
-        QCOMPARE(pane->paneWidth(), 389);
-        const auto after = fixture.shell->saveLayout();
-        QVERIFY(after);
-        QCOMPARE(after.value(), before.value());
+        QCOMPARE(restored.error().technicalMessage(),
+            QStringLiteral("Workspace layout restore failed and was rolled back"));
+        QVERIFY(callbackEntered);
+        QCOMPARE(leftPane->panelStack()->panels(), leftPanels);
+        QCOMPARE(leftPane->visibleWidgets(), leftVisible);
+        QCOMPARE(leftPane->currentWidget(), leftCurrent);
+        QCOMPARE(leftPane->isCollapsed(), leftCollapsed);
+        QCOMPARE(leftPane->paneWidth(), leftWidth);
+        QCOMPARE(leftPane->panelStack()->panelSizes(), leftSizes);
+        QCOMPARE(rightPane->panelStack()->panels(), rightPanels);
+        QCOMPARE(rightPane->visibleWidgets(), rightVisible);
+        QCOMPARE(rightPane->currentWidget(), rightCurrent);
+        QCOMPARE(rightPane->isCollapsed(), rightCollapsed);
+        QCOMPARE(rightPane->paneWidth(), rightWidth);
+        QCOMPARE(rightPane->panelStack()->panelSizes(), rightSizes);
+        QVERIFY(leftPane->isAncestorOf(targetContentRaw));
+        QCOMPARE(leftBar->currentSourceIndex(), leftCurrentIndex);
+        QCOMPARE(rightBar->currentSourceIndex(), rightCurrentIndex);
+        QCOMPARE(model->rowCount(), 3);
+        for (int row = 0; row < model->rowCount(); ++row) {
+            QCOMPARE(model->index(row, 0).data().toString(), modelTitles.at(row));
+            QCOMPARE(model->index(row, 0).data(
+                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area)),
+                modelAreas.at(row));
+        }
+        const QModelIndex fixedAfter = zzActivityIndex(
+            model, QStringLiteral("Fixed settings"));
+        QVERIFY(fixedAfter.isValid());
+        QCOMPARE(fixedAfter.row(), fixedRow);
+        QCOMPARE(fixedAfter.data(
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area)), fixedArea);
+        QCOMPARE(fixedAfter.flags(), Qt::ItemFlags(Qt::ItemIsEnabled));
+        QVERIFY(leftPane->panelStack()->panels().contains(targetOtherRaw));
     }
 
     void boundsVersionOneLayoutDtos_data()
