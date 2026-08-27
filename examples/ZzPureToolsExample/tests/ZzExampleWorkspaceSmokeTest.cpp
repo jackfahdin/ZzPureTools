@@ -1,4 +1,5 @@
 #include <memory>
+#include <string_view>
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
@@ -25,14 +26,19 @@
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 
 #include <ZzPureTools/ZzApplicationBuilder.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzNavigationNode.h>
+#include <ZzPureTools/ZzNavigationModel.h>
 #include <ZzPureTools/ZzPageInstance.h>
+#include <ZzPureTools/ZzPageHost.h>
 #include <ZzPureTools/ZzPageLifetimePolicy.h>
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureApplication.h>
@@ -40,16 +46,24 @@
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSettingsWindow.h"
 #include "ZzExampleWindowShell.h"
 
 namespace {
 
-[[nodiscard]] ZzPureTools::ZzPageRegistration zzHomePage()
+[[nodiscard]] QString zzFromUtf8(std::string_view text)
+{
+    return QString::fromUtf8(
+        text.data(), static_cast<qsizetype>(text.size()));
+}
+
+[[nodiscard]] ZzPureTools::ZzPageRegistration zzPage(
+    const ZzExample::ZzExampleRouteDescriptor &route)
 {
     ZzPureTools::ZzPageRegistration registration;
-    registration.routeId = ZzPureTools::ZzRouteId(QStringLiteral("home"));
-    registration.lifetime = ZzPureTools::ZzPageLifetimePolicy::WhileActive;
+    registration.routeId = ZzPureTools::ZzRouteId(zzFromUtf8(route.routeId));
+    registration.lifetime = route.lifetime;
     registration.factory =
         [](QWidget *pageParent)
         -> ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>> {
@@ -61,6 +75,18 @@ namespace {
                 std::make_unique<QObject>());
         };
     return registration;
+}
+
+[[nodiscard]] QStringList zzActivityTitles(QListView *view)
+{
+    QStringList titles;
+    if (view == nullptr || view->model() == nullptr) {
+        return titles;
+    }
+    for (int row = 0; row < view->model()->rowCount(); ++row) {
+        titles.append(view->model()->index(row, 0).data().toString());
+    }
+    return titles;
 }
 
 [[nodiscard]] QListView *zzPrimaryActivityView(
@@ -154,12 +180,16 @@ private Q_SLOTS:
         context_ = std::move(contextResult).value();
 
         ZzPureTools::ZzApplicationBuilder builder;
-        QVERIFY(builder.addPage(zzHomePage()));
-        QVERIFY(builder.addNavigationNode({
-            ZzPureTools::ZzRouteId(QStringLiteral("home")),
-            QStringLiteral("ZzExampleWorkspaceSmokeTest"),
-            QStringLiteral("Home"),
-            {}}));
+        for (const auto &route : ZzExample::ZzExampleRouteCatalog::routes()) {
+            QVERIFY(builder.addPage(zzPage(route)));
+            ZzPureTools::ZzNavigationNode node{
+                ZzPureTools::ZzRouteId(zzFromUtf8(route.routeId)),
+                QStringLiteral("ZzExampleWorkspaceSmokeTest"),
+                zzFromUtf8(route.title),
+                {}};
+            node.placement = route.placement;
+            QVERIFY(builder.addNavigationNode(std::move(node)));
+        }
         QVERIFY(builder.setInitialRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("home"))));
         QVERIFY(builder.setWindowSetupCallback(
@@ -201,7 +231,6 @@ private Q_SLOTS:
         QCOMPARE(activityBars.size(), 2);
         ZzFluentUI::ZzActivityBar *leftActivityBar = nullptr;
         ZzFluentUI::ZzActivityBar *rightActivityBar = nullptr;
-        int activityRows = 0;
         for (auto *bar : activityBars) {
             if (bar->edge() == ZzFluentUI::ZzSidePaneEdge::Left) {
                 leftActivityBar = bar;
@@ -226,11 +255,7 @@ private Q_SLOTS:
                     continue;
                 }
                 QVERIFY(view->model() != nullptr);
-                const int expectedRows = expectedArea
-                        == ZzFluentUI::ZzActivityArea::LeftSecondary
-                    ? 2 : 1;
-                QCOMPARE(view->model()->rowCount(), expectedRows);
-                for (int row = 0; row < expectedRows; ++row) {
+                for (int row = 0; row < view->model()->rowCount(); ++row) {
                     const QModelIndex index = view->model()->index(row, 0);
                     QCOMPARE(index.data(static_cast<int>(
                                          ZzFluentUI::ZzActivityItemRole::Area))
@@ -251,18 +276,75 @@ private Q_SLOTS:
                         QCOMPARE(
                             descriptor.fontIcon,
                             ZzFluentUI::ZzFontIcon::Gear);
+                    } else if (index.data().toString()
+                               == QStringLiteral("组件")) {
+                        QCOMPARE(
+                            descriptor.source,
+                            ZzFluentUI::ZzIconSource::FontGlyph);
+                        QCOMPARE(
+                            descriptor.fontIcon,
+                            ZzFluentUI::ZzFontIcon::PuzzlePiece);
                     } else {
                         QCOMPARE(
                             descriptor.source,
                             ZzFluentUI::ZzIconSource::SvgResource);
                     }
-                    ++activityRows;
                 }
             }
         }
-        QCOMPARE(activityRows, 5);
         QVERIFY(leftActivityBar != nullptr);
         QVERIFY(rightActivityBar != nullptr);
+        auto *leftPrimaryView = zzPrimaryActivityView(leftActivityBar);
+        auto *leftSecondaryView = zzSecondaryActivityView(leftActivityBar);
+        auto *rightPrimaryView = zzPrimaryActivityView(rightActivityBar);
+        auto *rightSecondaryView = zzSecondaryActivityView(rightActivityBar);
+        QVERIFY(leftPrimaryView != nullptr);
+        QVERIFY(leftSecondaryView != nullptr);
+        QVERIFY(rightPrimaryView != nullptr);
+        QVERIFY(rightSecondaryView != nullptr);
+        QCOMPARE(zzActivityTitles(leftPrimaryView),
+            QStringList({QStringLiteral("会话"), QStringLiteral("文件"),
+                QStringLiteral("组件")}));
+        QCOMPARE(zzActivityTitles(leftSecondaryView),
+            QStringList({QStringLiteral("设置")}));
+        QCOMPARE(zzActivityTitles(rightPrimaryView),
+            QStringList({QStringLiteral("属性"), QStringLiteral("任务")}));
+        QVERIFY(zzActivityTitles(rightSecondaryView).isEmpty());
+
+        auto *navigationModel = window->navigationModel();
+        QVERIFY(navigationModel != nullptr);
+        QCOMPARE(navigationModel->rowCount(), 11);
+        QVERIFY(!navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
+        const auto aboutIndex = navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("about")));
+        QVERIFY(aboutIndex);
+        QCOMPARE(aboutIndex.value().data(static_cast<int>(
+                     ZzPureTools::ZzNavigationRole::Placement))
+                     .value<ZzFluentUI::ZzNavigationPlacement>(),
+            ZzFluentUI::ZzNavigationPlacement::Footer);
+        QVERIFY(!window->navigationController()->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
+
+        const auto rootGroup = splitWorkspace->groupIds().constFirst();
+        auto *rootTabs = splitWorkspace->tabWidget(rootGroup);
+        QVERIFY(rootTabs != nullptr);
+        QVERIFY(rootTabs->findChildren<
+            ZzFluentUI::ZzNavigationPane *>().isEmpty());
+        const int pageHostIndex = rootTabs->indexOf(window->pageHost());
+        QVERIFY(pageHostIndex >= 0);
+        QVERIFY(rootTabs->isTabPinned(pageHostIndex));
+        QVERIFY(!rootTabs->isTabCloseEnabled(pageHostIndex));
+        QCOMPARE(window->pageHost()->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        QVERIFY(window->navigationController()->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("controls"))));
+        QCOMPARE(window->pageHost()->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("controls")));
+        QVERIFY(window->navigationController()->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("about"))));
+        QCOMPARE(window->pageHost()->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("about")));
         QCOMPARE(window->findChild<QWidget *>(
                      QStringLiteral("zzExampleSessionPanel")), nullptr);
         QCOMPARE(window->findChild<QWidget *>(
@@ -271,27 +353,21 @@ private Q_SLOTS:
                      QStringLiteral("zzExamplePropertiesPanel")), nullptr);
         QCOMPARE(window->findChild<QWidget *>(
                      QStringLiteral("zzExampleTasksPanel")), nullptr);
-        QVERIFY(leftPane->isCollapsed());
+        QVERIFY(!leftPane->isCollapsed());
+        QTRY_COMPARE(leftPane->currentWidget(), window->navigationPane());
+        QTRY_COMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({window->navigationPane()}));
         QVERIFY(rightPane->isCollapsed());
-        QVERIFY(leftPane->visibleWidgets().isEmpty());
         QVERIFY(rightPane->visibleWidgets().isEmpty());
 
-        auto *activityView = zzPrimaryActivityView(leftActivityBar);
-        auto *filesActivityView = zzSecondaryActivityView(leftActivityBar);
-        auto *propertiesActivityView = zzPrimaryActivityView(rightActivityBar);
-        auto *tasksActivityView = zzSecondaryActivityView(rightActivityBar);
-        QVERIFY(activityView != nullptr);
-        QVERIFY(filesActivityView != nullptr);
-        QVERIFY(propertiesActivityView != nullptr);
-        QVERIFY(tasksActivityView != nullptr);
         window->show();
         window->activateWindow();
         QCoreApplication::processEvents();
         QTRY_VERIFY(window->isActiveWindow());
         QTest::mouseClick(
-            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
-            activityView->visualRect(
-                activityView->model()->index(0, 0)).center());
+            leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            leftPrimaryView->visualRect(
+                leftPrimaryView->model()->index(0, 0)).center());
         QWidget *sessionsPanel = nullptr;
         QTRY_VERIFY((sessionsPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSessionPanel"))) != nullptr);
@@ -300,9 +376,9 @@ private Q_SLOTS:
         QCOMPARE(window->findChildren<QWidget *>(
                      QStringLiteral("zzExampleSessionPanel")).size(), 1);
         QTest::mouseClick(
-            filesActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
-            filesActivityView->visualRect(
-                filesActivityView->model()->index(0, 0)).center());
+            leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            leftPrimaryView->visualRect(
+                leftPrimaryView->model()->index(1, 0)).center());
         QWidget *filesPanel = nullptr;
         QTRY_VERIFY((filesPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSftpPanel"))) != nullptr);
@@ -314,9 +390,17 @@ private Q_SLOTS:
             QList<QWidget *>({filesPanel}));
 
         QTest::mouseClick(
-            propertiesActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
-            propertiesActivityView->visualRect(
-                propertiesActivityView->model()->index(0, 0)).center());
+            leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            leftPrimaryView->visualRect(
+                leftPrimaryView->model()->index(2, 0)).center());
+        QTRY_COMPARE(leftPane->currentWidget(), window->navigationPane());
+        QTRY_COMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({window->navigationPane()}));
+
+        QTest::mouseClick(
+            rightPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            rightPrimaryView->visualRect(
+                rightPrimaryView->model()->index(0, 0)).center());
         QWidget *propertiesPanel = nullptr;
         QTRY_VERIFY((propertiesPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExamplePropertiesPanel"))) != nullptr);
@@ -326,9 +410,9 @@ private Q_SLOTS:
                      QStringLiteral("zzExamplePropertiesPanel")).size(), 1);
 
         QTest::mouseClick(
-            tasksActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
-            tasksActivityView->visualRect(
-                tasksActivityView->model()->index(0, 0)).center());
+            rightPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            rightPrimaryView->visualRect(
+                rightPrimaryView->model()->index(1, 0)).center());
         QWidget *tasksPanel = nullptr;
         QTRY_VERIFY((tasksPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleTasksPanel"))) != nullptr);
@@ -338,9 +422,6 @@ private Q_SLOTS:
         QCOMPARE(rightPane->visibleWidgets(),
             QList<QWidget *>({tasksPanel}));
 
-        const auto rootGroup = splitWorkspace->groupIds().constFirst();
-        auto *rootTabs = splitWorkspace->tabWidget(rootGroup);
-        QVERIFY(rootTabs != nullptr);
         const int tabCountBeforeCommand = rootTabs->count();
         QSignalSpy commandTriggered(
             commandBar, &ZzFluentUI::ZzCommandBar::actionTriggered);

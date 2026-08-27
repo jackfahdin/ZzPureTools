@@ -561,10 +561,13 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             QStringLiteral("zzExampleForwardAction"));
         auto *themeAction = window.findChild<QAction *>(
             QStringLiteral("zzExampleThemeAction"));
+        auto *settingsAction = window.findChild<QAction *>(
+            QStringLiteral("zzExampleSettingsAction"));
         auto *theme = application->themeController();
         if (controller == nullptr || searchEdit == nullptr
             || backAction == nullptr || forwardAction == nullptr
-            || themeAction == nullptr || theme == nullptr) {
+            || themeAction == nullptr || settingsAction == nullptr
+            || theme == nullptr) {
             fail("route smoke has incomplete window shell controls");
             return;
         }
@@ -591,12 +594,22 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             }
         }
 
+        settingsAction->trigger();
+        auto *settingsWindow = window.findChild<QWidget *>(
+            QStringLiteral("zzExampleSettingsWindow"),
+            Qt::FindDirectChildrenOnly);
+        if (settingsWindow == nullptr || !settingsWindow->isVisible()) {
+            fail("route smoke settings action integration failed");
+            return;
+        }
+        settingsWindow->close();
+
         const QString routeBeforeSearch = controller->currentRoute().value();
-        searchEdit->setText(QStringLiteral("settings"));
+        searchEdit->setText(QStringLiteral("controls"));
         if (!QMetaObject::invokeMethod(
                 searchEdit, "returnPressed", Qt::DirectConnection)
             || controller->currentRoute().value()
-                != QStringLiteral("settings")
+                != QStringLiteral("controls")
             || !searchEdit->text().isEmpty()
             || !backAction->isEnabled()) {
             fail("route smoke search integration failed");
@@ -610,7 +623,7 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
         }
         forwardAction->trigger();
         if (controller->currentRoute().value()
-            != QStringLiteral("settings")) {
+            != QStringLiteral("controls")) {
             fail("route smoke forward action integration failed");
             return;
         }
@@ -700,13 +713,6 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
             QStringLiteral("zzExampleCardsPage"));
         return page != nullptr
             && !page->findChildren<QLCDNumber *>().isEmpty();
-    }
-    if (routeId == QStringLiteral("settings")) {
-        auto *page = window.findChild<QWidget *>(
-            QStringLiteral("zzExampleSettingsPage"));
-        return page != nullptr
-            && !page->findChildren<QComboBox *>().isEmpty()
-            && page->findChildren<ZzFluentUI::ZzToggleSwitch *>().size() >= 2;
     }
     return true;
 }
@@ -821,7 +827,15 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
         auto firstRoute = firstNavigation->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("controls")));
         auto secondRoute = secondNavigation->navigate(
-            ZzPureTools::ZzRouteId(QStringLiteral("settings")));
+            ZzPureTools::ZzRouteId(QStringLiteral("about")));
+        auto *secondSettingsAction = secondWindow->findChild<QAction *>(
+            QStringLiteral("zzExampleSettingsAction"));
+        if (secondSettingsAction != nullptr) {
+            secondSettingsAction->trigger();
+        }
+        auto *secondSettingsWindow = secondWindow->findChild<QWidget *>(
+            QStringLiteral("zzExampleSettingsWindow"),
+            Qt::FindDirectChildrenOnly);
         const bool secondDockWasVisible =
             secondShell->isActivityDockVisible();
         firstShell->setActivityDockVisible(!secondDockWasVisible);
@@ -829,7 +843,10 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
             || firstNavigation->currentRoute().value()
                 != QStringLiteral("controls")
             || secondNavigation->currentRoute().value()
-                != QStringLiteral("settings")
+                != QStringLiteral("about")
+            || secondSettingsAction == nullptr
+            || secondSettingsWindow == nullptr
+            || !secondSettingsWindow->isVisible()
             || secondShell->isActivityDockVisible()
                 != secondDockWasVisible
             || context->activityModel().rowCount() < activityRows + 2) {

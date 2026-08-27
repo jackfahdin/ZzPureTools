@@ -79,13 +79,18 @@ int main(int argc, char *argv[])
     const int timeout = qEnvironmentVariableIntValue(
         "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS", &timeoutValid);
     const bool autoCloseRequested = timeoutValid && timeout > 0;
+    const bool commandLineSmokeRequested =
+        QCoreApplication::arguments().contains(
+            QStringLiteral("--smoke-test"));
+    const bool smokeRequested =
+        autoCloseRequested || commandLineSmokeRequested;
 #if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
     const bool performanceMode = !qEnvironmentVariable(
         "ZZ_PURETOOLS_EXAMPLE_PERFORMANCE_SCENARIO").trimmed().isEmpty();
-    const bool smokeMode = autoCloseRequested && !performanceMode;
+    const bool smokeMode = smokeRequested && !performanceMode;
     const bool testMode = smokeMode || performanceMode;
 #else
-    const bool smokeMode = autoCloseRequested;
+    const bool smokeMode = smokeRequested;
     const bool testMode = smokeMode;
 #endif
     if (testMode) {
@@ -237,7 +242,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (smokeMode) {
+    if (smokeMode && autoCloseRequested) {
         QTimer::singleShot(
             timeout, &application, &QCoreApplication::quit);
     }

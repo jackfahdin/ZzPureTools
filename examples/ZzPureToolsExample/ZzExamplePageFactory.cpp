@@ -81,15 +81,12 @@ zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
     return std::nullopt;
 }
 
-/** @brief 为平台、设置和关于路由解析系统页面类型。 */
+/** @brief 为平台和关于路由解析系统页面类型。 */
 [[nodiscard]] std::optional<ZzExampleSystemPageKind>
 zzSystemPageKind(const ZzPureTools::ZzRouteId &routeId)
 {
     if (routeId.value() == QStringLiteral("platform")) {
         return ZzExampleSystemPageKind::Platform;
-    }
-    if (routeId.value() == QStringLiteral("settings")) {
-        return ZzExampleSystemPageKind::Settings;
     }
     if (routeId.value() == QStringLiteral("about")) {
         return ZzExampleSystemPageKind::About;

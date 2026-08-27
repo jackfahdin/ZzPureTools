@@ -29,6 +29,7 @@
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzNavigationController.h>
+#include <ZzPureTools/ZzPageHost.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
 #include <ZzPureTools/ZzWorkspaceActivityId.h>
@@ -106,19 +107,12 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         window->installEventFilter(q_ptr);
     }
 
-    QWidget *const navigationContent = window->takeCentralWidget();
-    if (navigationContent == nullptr) {
-        return zzInvalidState(
-            QStringLiteral("window shell requires existing navigation content"));
-    }
     auto created = ZzPureTools::ZzWorkspaceShell::create(
         window, window->titleBar());
     if (!created) {
-        window->setCentralWidget(navigationContent);
         return ZzCore::ZzResult<void>::failure(created.error());
     }
     workspace = std::move(created).value();
-    window->setCentralWidget(workspace->workspaceWidget());
     workspace->setApplicationTitle(QStringLiteral("ZzPureToolsExample"));
     workspace->setTitleMode(
         ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
@@ -180,13 +174,25 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         ZzFluentUI::ZzIconDescriptor::fromSvgResource(
             QStringLiteral(
                 ":/ZzPureToolsExample/workspace-icons/Files.svg")),
-        ZzFluentUI::ZzActivityArea::LeftSecondary, [] {
+        ZzFluentUI::ZzActivityArea::LeftPrimary, [] {
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
                 ZzExampleWorkspaceContent::createSftpPanel());
         });
     if (!files) {
         return files;
     }
+
+    auto integrated = workspace->integrateApplicationNavigation(
+        zzPanelId("components"),
+        QCoreApplication::translate("ZzPureToolsExample", "组件"),
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::PuzzlePiece),
+        ZzFluentUI::ZzActivityArea::LeftPrimary,
+        QCoreApplication::translate("ZzPureToolsExample", "组件示例"));
+    if (!integrated) {
+        return integrated;
+    }
+    window->setCentralWidget(workspace->workspaceWidget());
 
     auto settings = workspace->registerFixedActivityAction(
         ZzPureTools::ZzWorkspaceActivityId(QStringLiteral("settings")),
@@ -219,7 +225,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         ZzFluentUI::ZzIconDescriptor::fromSvgResource(
             QStringLiteral(
                 ":/ZzPureToolsExample/workspace-icons/Tasks.svg")),
-        ZzFluentUI::ZzActivityArea::RightSecondary, [] {
+        ZzFluentUI::ZzActivityArea::RightPrimary, [] {
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
                 ZzExampleWorkspaceContent::createTasksPanel());
         });
@@ -277,11 +283,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
             panel.content.release();
     }
 
-    const int navigationIndex = workspace->tabWidget()->addTab(
-        navigationContent,
-        QCoreApplication::translate("ZzPureToolsExample", "组件示例"));
-    workspace->tabWidget()->setTabPinned(navigationIndex, true);
-    workspace->tabWidget()->setTabCloseEnabled(navigationIndex, false);
+    const int navigationIndex =
+        workspace->tabWidget()->indexOf(window->pageHost());
     createTerminalTab();
     workspace->tabWidget()->setCurrentIndex(navigationIndex);
 
