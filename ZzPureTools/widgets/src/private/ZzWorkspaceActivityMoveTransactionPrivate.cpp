@@ -1057,6 +1057,32 @@ void zzApplySingleActivityMoveProjection(
         && rightActive == projection.activity.rightActive;
 }
 
+[[nodiscard]] bool zzSnapshotMatches(
+    const ZzWorkspaceShellPrivate &shell,
+    const ZzProjection &snapshot,
+    const QStringList &modelOrder)
+{
+    const ZzAuditIndex audit = zzBuildAuditIndex(shell, snapshot);
+    const bool leftHasActivity = !snapshot.activity.leftPrimary.isEmpty()
+        || !snapshot.activity.leftSecondary.isEmpty();
+    const bool rightHasActivity = !snapshot.activity.rightPrimary.isEmpty()
+        || !snapshot.activity.rightSecondary.isEmpty();
+    return zzProjectionMatches(shell, snapshot, audit, true)
+        && zzActivityProjectionMatches(shell, snapshot, modelOrder)
+        && shell.leftActivityBar != nullptr
+        && shell.rightActivityBar != nullptr
+        && shell.leftSidePane != nullptr
+        && shell.rightSidePane != nullptr
+        && (!shell.leftActivityBar->isHidden()) == leftHasActivity
+        && (!shell.rightActivityBar->isHidden()) == rightHasActivity
+        && (!shell.leftSidePane->isHidden())
+            == (!snapshot.leftSide.current.isEmpty()
+                && !snapshot.leftSide.collapsed)
+        && (!shell.rightSidePane->isHidden())
+            == (!snapshot.rightSide.current.isEmpty()
+                && !snapshot.rightSide.collapsed);
+}
+
 [[nodiscard]] ZzFluentUI::ZzSidePane *zzLivePane(
     ZzWorkspaceShellPrivate &shell,
     const ZzSide &side)
@@ -1281,9 +1307,16 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
     if (applyProjection(target, targetOrder, true)) {
         return true;
     }
-    static_cast<void>(applyProjection(snapshot, snapshotOrder, false));
+    bool restored = false;
+    // A synchronous callback can run at the end of a non-strict restore. Replay
+    // the immutable snapshot once before classifying the moved panel as invalid.
+    for (int attempt = 0; attempt < 2 && !restored; ++attempt) {
+        static_cast<void>(applyProjection(snapshot, snapshotOrder, false));
+        restored = zzSnapshotMatches(shell_, snapshot, snapshotOrder);
+    }
     const ZzAuditIndex rollbackAudit = zzBuildAuditIndex(shell_, snapshot);
-    if (!zzMovedRestored(shell_, snapshot, rollbackAudit, expected)) {
+    if (!restored
+        && !zzMovedRestored(shell_, snapshot, rollbackAudit, expected)) {
         zzCleanupInterruptedMove(shell_, expected);
     }
     return false;
@@ -1368,6 +1401,29 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                     return false;
                 }
                 continue;
+            }
+            if (current == nullptr && id == movedId_
+                && destinationGuard->panelStack()->panels().contains(content)) {
+                if (destinationGuard->mode()
+                        == ZzFluentUI::ZzSidePaneMode::Single
+                    && destinationGuard->currentWidget() == content) {
+                    for (QWidget *const candidate
+                         : destinationGuard->panelStack()->panels()) {
+                        if (candidate != content) {
+                            mutationObserver.allowVisibilityChange(candidate);
+                            break;
+                        }
+                    }
+                }
+                QWidget *const staleContent = destinationGuard->takeWidget(content);
+                mutationObserver.finishMutation();
+                if (staleContent != content || !mutationObserver.isValid()) {
+                    complete = false;
+                    if (strict) {
+                        return false;
+                    }
+                    continue;
+                }
             }
             if (current != destinationGuard) {
                 if (current != nullptr) {

@@ -129,6 +129,7 @@ class ZzShowEventFilter final : public QObject
 {
 public:
     std::function<void()> shown;
+    std::function<void()> hidden;
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override
@@ -138,6 +139,12 @@ protected:
                 || event->type() == QEvent::ShowToParent)
             && shown) {
             shown();
+        }
+        if (event != nullptr
+            && (event->type() == QEvent::Hide
+                || event->type() == QEvent::HideToParent)
+            && hidden) {
+            hidden();
         }
         return QObject::eventFilter(watched, event);
     }
@@ -1185,6 +1192,205 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary);
         QCOMPARE(leftBar->currentSourceIndex(), movedAfter);
         QVERIFY(!rightBar->currentSourceIndex().isValid());
+    }
+
+    void activityMoveRollbackRestoresFinalBarStateAfterReentry()
+    {
+        ZzShellFixture fixture;
+        auto fallback = std::make_unique<QWidget>();
+        auto moved = std::make_unique<QWidget>();
+        QWidget *const movedRaw = moved.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("rollback-fallback"),
+            QStringLiteral("Rollback fallback"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, fallback.get()));
+        zzReleaseAfterAdoption(fallback);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("rollback-moved"), QStringLiteral("Rollback moved"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        bool targetCallbackEntered = false;
+        ZzShowEventFilter targetShowFilter;
+        targetShowFilter.shown = [&] {
+            if (!targetCallbackEntered) {
+                targetCallbackEntered = true;
+                rightBar->setCurrentSourceIndex({});
+            }
+        };
+        bool rollbackCallbackEntered = false;
+        targetShowFilter.hidden = [&] {
+            if (targetCallbackEntered && !rollbackCallbackEntered) {
+                rollbackCallbackEntered = true;
+                leftBar->setCurrentSourceIndex({});
+            }
+        };
+        rightPane->installEventFilter(&targetShowFilter);
+
+        Q_EMIT leftBar->moveRequested(
+            zzActivityIndex(leftBar->model(), QStringLiteral("Rollback moved")),
+            ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+
+        QVERIFY(targetCallbackEntered);
+        QVERIFY(rollbackCallbackEntered);
+        const QModelIndex movedAfter = zzActivityIndex(
+            leftBar->model(), QStringLiteral("Rollback moved"));
+        QCOMPARE(leftPane->currentWidget(), movedRaw);
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QCOMPARE(leftBar->currentSourceIndex(), movedAfter);
+        QCOMPARE(leftBar->activeSourceIndexes(), QList<QModelIndex>({movedAfter}));
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(rightPane->isHidden());
+        QVERIFY(rightBar->isHidden());
+    }
+
+    void activityMoveRollbackRestoresMovedRegistrationAfterReentry()
+    {
+        ZzShellFixture fixture;
+        auto fallback = std::make_unique<QWidget>();
+        auto moved = std::make_unique<QWidget>();
+        QWidget *const movedRaw = moved.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("rollback-fallback"),
+            QStringLiteral("Rollback fallback"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, fallback.get()));
+        zzReleaseAfterAdoption(fallback);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("rollback-moved"), QStringLiteral("Rollback moved"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        bool targetCallbackEntered = false;
+        bool rollbackCallbackEntered = false;
+        ZzShowEventFilter targetShowFilter;
+        targetShowFilter.shown = [&] {
+            if (!targetCallbackEntered) {
+                targetCallbackEntered = true;
+                rightBar->setCurrentSourceIndex({});
+            }
+        };
+        rightPane->installEventFilter(&targetShowFilter);
+        QObject::connect(
+            leftPane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (targetCallbackEntered && current == movedRaw
+                    && !rollbackCallbackEntered) {
+                    rollbackCallbackEntered = true;
+                    movedRaw->setParent(nullptr);
+                }
+            });
+
+        Q_EMIT leftBar->moveRequested(
+            zzActivityIndex(leftBar->model(), QStringLiteral("Rollback moved")),
+            ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+
+        QVERIFY(targetCallbackEntered);
+        QVERIFY(rollbackCallbackEntered);
+        QCOMPARE(leftPane->currentWidget(), movedRaw);
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QVERIFY(leftPane->isAncestorOf(movedRaw));
+        QVERIFY(leftPane->panelStack()->isAncestorOf(movedRaw));
+        const QModelIndex movedAfter = zzActivityIndex(
+            leftBar->model(), QStringLiteral("Rollback moved"));
+        QVERIFY(movedAfter.isValid());
+        QCOMPARE(leftBar->currentSourceIndex(), movedAfter);
+    }
+
+    void sideShowPanelRollsBackSynchronousVisibilityMutation()
+    {
+        ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QWidget *const firstRaw = first.get();
+        QWidget *const secondRaw = second.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        bool callbackEntered = false;
+        QObject::connect(
+            bar, &ZzFluentUI::ZzActivityBar::currentSourceIndexChanged,
+            fixture.shell.get(), [&](const QModelIndex &current) {
+                if (current == zzActivityIndex(
+                            bar->model(), QStringLiteral("First"))
+                    && !callbackEntered) {
+                    callbackEntered = true;
+                    QVERIFY(pane->setWidgetVisible(firstRaw, false));
+                }
+            });
+
+        const auto shown = fixture.shell->showPanel(zzPanelId("first"), true);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!shown);
+        QCOMPARE(shown.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(pane->currentWidget(), secondRaw);
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({secondRaw}));
+        QVERIFY(!pane->isCollapsed());
+        const QModelIndex secondIndex = zzActivityIndex(
+            bar->model(), QStringLiteral("Second"));
+        QCOMPARE(bar->currentSourceIndex(), secondIndex);
+        QCOMPARE(bar->activeSourceIndexes(), QList<QModelIndex>({secondIndex}));
+    }
+
+    void sideHidePanelRollsBackSynchronousBarMutation()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        bool callbackEntered = false;
+        ZzShowEventFilter hideFilter;
+        hideFilter.hidden = [&] {
+            if (!callbackEntered) {
+                callbackEntered = true;
+                bar->setCurrentSourceIndex({});
+            }
+        };
+        pane->installEventFilter(&hideFilter);
+
+        const auto hidden = fixture.shell->showPanel(zzPanelId("side"), false);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!hidden);
+        QCOMPARE(hidden.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(pane->currentWidget(), contentRaw);
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contentRaw}));
+        QVERIFY(!pane->isCollapsed());
+        QVERIFY(!pane->isHidden());
+        const QModelIndex sideIndex = zzActivityIndex(
+            bar->model(), QStringLiteral("Side"));
+        QCOMPARE(bar->currentSourceIndex(), sideIndex);
+        QCOMPARE(bar->activeSourceIndexes(), QList<QModelIndex>({sideIndex}));
     }
 
     void hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge()

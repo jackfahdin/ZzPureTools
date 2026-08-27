@@ -47,7 +47,8 @@ public:
     {
         None,
         LayoutRestore,
-        ActivityMove
+        ActivityMove,
+        SideActivation
     };
 
     enum class ZzPanelKind : std::uint8_t

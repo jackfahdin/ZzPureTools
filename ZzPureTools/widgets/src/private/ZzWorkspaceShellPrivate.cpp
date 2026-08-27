@@ -2270,18 +2270,172 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
         }
         return true;
     };
+    const QVector<ZzSideLayoutEntry> rowsBefore = activityRows();
+    const QList<QWidget *> leftOrderBefore = leftStackGuard->panels();
+    const QList<QWidget *> rightOrderBefore = rightStackGuard->panels();
+    const QList<QWidget *> leftVisibleBefore = leftPaneGuard->visibleWidgets();
+    const QList<QWidget *> rightVisibleBefore = rightPaneGuard->visibleWidgets();
+    const QList<int> leftSizesBefore = leftStackGuard->panelSizes();
+    const QList<int> rightSizesBefore = rightStackGuard->panelSizes();
+    const QPointer<QWidget> leftWidgetBefore(leftPaneGuard->currentWidget());
+    const QPointer<QWidget> rightWidgetBefore(rightPaneGuard->currentWidget());
+    const bool leftCollapsedBefore = leftPaneGuard->isCollapsed();
+    const bool rightCollapsedBefore = rightPaneGuard->isCollapsed();
+    const bool leftHiddenBefore = leftPaneGuard->isHidden();
+    const bool rightHiddenBefore = rightPaneGuard->isHidden();
+    const bool leftBarHiddenBefore = leftBarGuard->isHidden();
+    const bool rightBarHiddenBefore = rightBarGuard->isHidden();
+    const QModelIndex leftBarCurrentBefore = leftBarGuard->currentSourceIndex();
+    const QModelIndex rightBarCurrentBefore = rightBarGuard->currentSourceIndex();
+    const QList<QModelIndex> leftBarActiveBefore =
+        leftBarGuard->activeSourceIndexes();
+    const QList<QModelIndex> rightBarActiveBefore =
+        rightBarGuard->activeSourceIndexes();
+    const ZzWorkspacePanelId leftCurrentPanelBefore = leftCurrentPanel;
+    const ZzWorkspacePanelId rightCurrentPanelBefore = rightCurrentPanel;
+    const bool leftPaneExpandedBefore = leftPaneExpanded;
+    const bool rightPaneExpandedBefore = rightPaneExpanded;
+    const auto sameRows = [](const QVector<ZzSideLayoutEntry> &actual,
+                             const QVector<ZzSideLayoutEntry> &expected) {
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+        for (qsizetype index = 0; index < actual.size(); ++index) {
+            if (actual.at(index).id != expected.at(index).id
+                || actual.at(index).area != expected.at(index).area
+                || actual.at(index).order != expected.at(index).order) {
+                return false;
+            }
+        }
+        return true;
+    };
+    const auto snapshotMatches = [&] {
+        return stable()
+            && sameRows(activityRows(), rowsBefore)
+            && leftStackGuard->panels() == leftOrderBefore
+            && rightStackGuard->panels() == rightOrderBefore
+            && leftPaneGuard->visibleWidgets() == leftVisibleBefore
+            && rightPaneGuard->visibleWidgets() == rightVisibleBefore
+            && leftStackGuard->panelSizes() == leftSizesBefore
+            && rightStackGuard->panelSizes() == rightSizesBefore
+            && leftPaneGuard->currentWidget() == leftWidgetBefore
+            && rightPaneGuard->currentWidget() == rightWidgetBefore
+            && leftPaneGuard->isCollapsed() == leftCollapsedBefore
+            && rightPaneGuard->isCollapsed() == rightCollapsedBefore
+            && leftPaneGuard->isHidden() == leftHiddenBefore
+            && rightPaneGuard->isHidden() == rightHiddenBefore
+            && leftBarGuard->isHidden() == leftBarHiddenBefore
+            && rightBarGuard->isHidden() == rightBarHiddenBefore
+            && leftBarGuard->currentSourceIndex() == leftBarCurrentBefore
+            && rightBarGuard->currentSourceIndex() == rightBarCurrentBefore
+            && leftBarGuard->activeSourceIndexes() == leftBarActiveBefore
+            && rightBarGuard->activeSourceIndexes() == rightBarActiveBefore
+            && leftCurrentPanel == leftCurrentPanelBefore
+            && rightCurrentPanel == rightCurrentPanelBefore
+            && leftPaneExpanded == leftPaneExpandedBefore
+            && rightPaneExpanded == rightPaneExpandedBefore;
+    };
+    const auto restorePane = [](ZzFluentUI::ZzSidePane *sidePane,
+                                ZzFluentUI::ZzPanelStack *panelStack,
+                                const QList<QWidget *> &order,
+                                const QList<QWidget *> &visibleWidgets,
+                                const QPointer<QWidget> &currentWidget,
+                                const QList<int> &sizes,
+                                bool collapsed,
+                                bool hidden) {
+        if (sidePane == nullptr || panelStack == nullptr) {
+            return false;
+        }
+        for (qsizetype index = 0; index < order.size(); ++index) {
+            if (!panelStack->panels().contains(order.at(index))) {
+                return false;
+            }
+            if (panelStack->panels().at(index) != order.at(index)
+                && !panelStack->movePanel(order.at(index), static_cast<int>(index))) {
+                return false;
+            }
+        }
+        for (QWidget *const widget : panelStack->panels()) {
+            if (widget != nullptr
+                && !sidePane->setWidgetVisible(
+                    widget, visibleWidgets.contains(widget))) {
+                return false;
+            }
+        }
+        if (currentWidget != nullptr
+            && (!panelStack->panels().contains(currentWidget)
+                || !sidePane->setCurrentWidget(currentWidget))) {
+            return false;
+        }
+        if (panelStack->panelSizes() != sizes
+            && !panelStack->setPanelSizes(sizes)) {
+            return false;
+        }
+        sidePane->setCollapsed(collapsed);
+        sidePane->setVisible(!hidden);
+        return true;
+    };
+    const auto restoreSnapshot = [&] {
+        leftCurrentPanel = leftCurrentPanelBefore;
+        rightCurrentPanel = rightCurrentPanelBefore;
+        leftPaneExpanded = leftPaneExpandedBefore;
+        rightPaneExpanded = rightPaneExpandedBefore;
+        if (!restorePane(
+                leftPaneGuard, leftStackGuard, leftOrderBefore,
+                leftVisibleBefore, leftWidgetBefore, leftSizesBefore,
+                leftCollapsedBefore, leftHiddenBefore)
+            || !restorePane(
+                rightPaneGuard, rightStackGuard, rightOrderBefore,
+                rightVisibleBefore, rightWidgetBefore, rightSizesBefore,
+                rightCollapsedBefore, rightHiddenBefore)
+            || !stable()) {
+            return false;
+        }
+        syncSideEdgeVisibility();
+        if (!stable()) {
+            return false;
+        }
+        leftBarGuard->setCurrentSourceIndex(leftBarCurrentBefore);
+        leftBarGuard->setActiveSourceIndexes(leftBarActiveBefore);
+        rightBarGuard->setCurrentSourceIndex(rightBarCurrentBefore);
+        rightBarGuard->setActiveSourceIndexes(rightBarActiveBefore);
+        return snapshotMatches();
+    };
+    const auto reject = [&](const QString &message) {
+        for (int attempt = 0; attempt < 2 && !snapshotMatches(); ++attempt) {
+            static_cast<void>(restoreSnapshot());
+        }
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState, message, id.value());
+    };
+    struct ZzSideActivationScope final
+    {
+        ZzWorkspaceShellPrivate &shell;
+        ZzTransactionKind previous;
+
+        explicit ZzSideActivationScope(ZzWorkspaceShellPrivate &target) noexcept
+            : shell(target)
+            , previous(target.transactionKind)
+        {
+            shell.transactionKind = ZzTransactionKind::SideActivation;
+        }
+
+        ~ZzSideActivationScope()
+        {
+            shell.transactionKind = previous;
+        }
+    } activationScope(*this);
     const bool left = zzIsLeftArea(record.activityArea);
     ZzWorkspacePanelId &currentPanel = left
         ? leftCurrentPanel : rightCurrentPanel;
     bool &paneExpanded = left ? leftPaneExpanded : rightPaneExpanded;
+    const bool collapsesCurrent = currentPanel == id
+        || pane->currentWidget() == contentGuard;
     if (visible) {
         if (!pane->setCurrentWidget(contentGuard)
             || !stable() || pane->currentWidget() != contentGuard
             || pane->visibleWidgets() != QList<QWidget *>({contentGuard})) {
-            return zzWorkspaceFailure<void>(
-                ZzCore::ZzErrorCode::InvalidState,
-                QStringLiteral("Side panel activation was interrupted"),
-                id.value());
+            return reject(QStringLiteral("Side panel activation was interrupted"));
         }
         currentPanel = id;
         paneExpanded = true;
@@ -2292,18 +2446,37 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
         pane->setCollapsed(true);
     }
     if (!stable()) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Side panel collapse update was interrupted"),
-            id.value());
+        return reject(QStringLiteral("Side panel collapse update was interrupted"));
     }
 
     const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
     syncSideEdgeVisibility();
     if (shellGuard == nullptr || !stable()) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Activity current state was interrupted"), id.value());
+        return reject(QStringLiteral("Activity current state was interrupted"));
+    }
+    const QModelIndex expectedCurrent = zzActivityModel(modelGuard)->indexFor(id);
+    ZzFluentUI::ZzActivityBar *const owningBar = left
+        ? leftBarGuard.data() : rightBarGuard.data();
+    const bool expandedStateMatches = currentPanel == id && paneExpanded
+        && pane->currentWidget() == contentGuard
+        && pane->visibleWidgets() == QList<QWidget *>({contentGuard})
+        && !pane->isCollapsed() && !pane->isHidden()
+        && expectedCurrent.isValid()
+        && owningBar->currentSourceIndex() == expectedCurrent
+        && owningBar->activeSourceIndexes()
+            == QList<QModelIndex>({expectedCurrent});
+    const bool collapsedStateMatches = currentPanel == id && !paneExpanded
+        && pane->currentWidget() == contentGuard
+        && pane->visibleWidgets() == QList<QWidget *>({contentGuard})
+        && pane->isCollapsed() && pane->isHidden()
+        && expectedCurrent.isValid()
+        && owningBar->currentSourceIndex() == expectedCurrent
+        && owningBar->activeSourceIndexes()
+            == QList<QModelIndex>({expectedCurrent});
+    if ((visible && !expandedStateMatches)
+        || (!visible && ((collapsesCurrent && !collapsedStateMatches)
+            || (!collapsesCurrent && !snapshotMatches())))) {
+        return reject(QStringLiteral("Side panel state was interrupted"));
     }
     return ZzCore::ZzResult<void>::success();
 }
