@@ -368,9 +368,14 @@ private Q_SLOTS:
             leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             leftPrimaryView->visualRect(
                 leftPrimaryView->model()->index(0, 0)).center());
-        QWidget *sessionsPanel = nullptr;
-        QTRY_VERIFY((sessionsPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleSessionPanel"))) != nullptr);
+        QTRY_VERIFY(window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSessionPanel")) != nullptr);
+        QWidget *const sessionsPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSessionPanel"));
+        QVERIFY(sessionsPanel != nullptr);
+        if (sessionsPanel == nullptr) {
+            return;
+        }
         QVERIFY(!leftPane->isCollapsed());
         QCOMPARE(leftPane->currentWidget(), sessionsPanel);
         QCOMPARE(window->findChildren<QWidget *>(
@@ -379,9 +384,14 @@ private Q_SLOTS:
             leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             leftPrimaryView->visualRect(
                 leftPrimaryView->model()->index(1, 0)).center());
-        QWidget *filesPanel = nullptr;
-        QTRY_VERIFY((filesPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleSftpPanel"))) != nullptr);
+        QTRY_VERIFY(window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSftpPanel")) != nullptr);
+        QWidget *const filesPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSftpPanel"));
+        QVERIFY(filesPanel != nullptr);
+        if (filesPanel == nullptr) {
+            return;
+        }
         QCOMPARE(leftPane->currentWidget(), filesPanel);
         QVERIFY(!leftPane->isCollapsed());
         QCOMPARE(window->findChildren<QWidget *>(
@@ -401,9 +411,14 @@ private Q_SLOTS:
             rightPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             rightPrimaryView->visualRect(
                 rightPrimaryView->model()->index(0, 0)).center());
-        QWidget *propertiesPanel = nullptr;
-        QTRY_VERIFY((propertiesPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExamplePropertiesPanel"))) != nullptr);
+        QTRY_VERIFY(window->findChild<QWidget *>(
+            QStringLiteral("zzExamplePropertiesPanel")) != nullptr);
+        QWidget *const propertiesPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExamplePropertiesPanel"));
+        QVERIFY(propertiesPanel != nullptr);
+        if (propertiesPanel == nullptr) {
+            return;
+        }
         QVERIFY(!rightPane->isCollapsed());
         QCOMPARE(rightPane->currentWidget(), propertiesPanel);
         QCOMPARE(window->findChildren<QWidget *>(
@@ -413,9 +428,14 @@ private Q_SLOTS:
             rightPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             rightPrimaryView->visualRect(
                 rightPrimaryView->model()->index(1, 0)).center());
-        QWidget *tasksPanel = nullptr;
-        QTRY_VERIFY((tasksPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleTasksPanel"))) != nullptr);
+        QTRY_VERIFY(window->findChild<QWidget *>(
+            QStringLiteral("zzExampleTasksPanel")) != nullptr);
+        QWidget *const tasksPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleTasksPanel"));
+        QVERIFY(tasksPanel != nullptr);
+        if (tasksPanel == nullptr) {
+            return;
+        }
         QCOMPARE(rightPane->currentWidget(), tasksPanel);
         QCOMPARE(window->findChildren<QWidget *>(
                      QStringLiteral("zzExampleTasksPanel")).size(), 1);
@@ -505,6 +525,9 @@ private Q_SLOTS:
         QCoreApplication::processEvents();
         QMainWindow *const first = settingsWindow(window);
         QVERIFY(first != nullptr);
+        if (first == nullptr) {
+            return;
+        }
 
         window->raise();
         window->activateWindow();
@@ -539,6 +562,9 @@ private Q_SLOTS:
         QCoreApplication::processEvents();
         QMainWindow *const recreated = settingsWindow(window);
         QVERIFY(recreated != nullptr);
+        if (recreated == nullptr) {
+            return;
+        }
         QVERIFY(recreated->isVisible());
 
         closeSettings(recreated);

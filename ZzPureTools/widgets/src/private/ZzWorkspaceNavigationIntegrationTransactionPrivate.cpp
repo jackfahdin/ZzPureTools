@@ -576,13 +576,11 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
         || layoutGuard == nullptr || layoutGuard->count() != 0) {
         return fail(QStringLiteral("Application body release was interrupted"));
     }
-    const QPointer<ZzPageHost> fixedPage(pageGuard);
-    const QPointer<ZzFluentUI::ZzTabWidget> fixedTabs(tabsGuard);
     shell.navigationTabPinnedConnection = QObject::connect(
         tabsGuard,
         &ZzFluentUI::ZzTabWidget::tabPinnedChanged,
         shell.q_ptr,
-        [fixedPage, fixedTabs](int, bool pinned) {
+        [fixedPage = pageGuard, fixedTabs = tabsGuard](int, bool pinned) {
             if (pinned || fixedPage == nullptr || fixedTabs == nullptr) {
                 return;
             }
@@ -595,7 +593,7 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
         tabsGuard,
         &ZzFluentUI::ZzTabWidget::tabCloseEnabledChanged,
         shell.q_ptr,
-        [fixedPage, fixedTabs](int, bool enabled) {
+        [fixedPage = pageGuard, fixedTabs = tabsGuard](int, bool enabled) {
             if (!enabled || fixedPage == nullptr || fixedTabs == nullptr) {
                 return;
             }

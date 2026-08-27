@@ -155,6 +155,9 @@ private slots:
 
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
+        if (!target.has_value()) {
+            return;
+        }
         QCOMPARE(target->leftSide.current, QStringLiteral("two"));
         QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("two")}));
         QCOMPARE(target->leftSide.sizes, QList<int>({200}));
@@ -180,6 +183,9 @@ private slots:
 
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
+        if (!target.has_value()) {
+            return;
+        }
         QCOMPARE(target->leftSide.current, QStringLiteral("two"));
         QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("two")}));
         QCOMPARE(target->leftSide.sizes, QList<int>({200}));
@@ -200,6 +206,9 @@ private slots:
 
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
+        if (!target.has_value()) {
+            return;
+        }
         QCOMPARE(target->leftSide.current, QStringLiteral("one"));
         QVERIFY(target->leftSide.collapsed);
         QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("one")}));
@@ -225,6 +234,9 @@ private slots:
 
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
+        if (!target.has_value()) {
+            return;
+        }
         QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("two")}));
         QCOMPARE(target->leftSide.sizes, QList<int>({202}));
         QCOMPARE(target->activity.leftPrimary,

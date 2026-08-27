@@ -915,8 +915,15 @@ private Q_SLOTS:
                 ZzFluentUI::ZzSidePaneEdge::Left)->findChild<QListView *>(
                     QStringLiteral("zzActivityPrimaryView"));
             QVERIFY(view != nullptr);
-            QVERIFY(view->model() != nullptr);
-            view->setCurrentIndex(view->model()->index(1, 0));
+            if (view == nullptr) {
+                return;
+            }
+            const auto *const model = view->model();
+            QVERIFY(model != nullptr);
+            if (model == nullptr) {
+                return;
+            }
+            view->setCurrentIndex(model->index(1, 0));
             view->setFocus(Qt::TabFocusReason);
             QVERIFY(view->hasFocus());
         }
