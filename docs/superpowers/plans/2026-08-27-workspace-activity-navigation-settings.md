@@ -914,3 +914,65 @@ git commit -m "docs(工作区): 记录导航与设置重构验收" \
 
 最终 `git status --short` 只允许显示用户已有且始终未读取、未修改、未暂存的
 `?? temp_image/`。
+
+## 实施证据
+
+实施提交范围为 `7215626` 至 `4f14162`。其中 `db356db` 修复了 Clang Tidy
+门禁，`4f14162` 修复了 Qt 析构期弱指针的子类降型；后者不改变 Activity
+移动的内容所有权合同，并由回归测试覆盖临时 frame 的销毁和内容归属恢复。
+
+### Linux 构建与测试矩阵
+
+- `linux-gcc-debug`、`linux-gcc-release`、`linux-static-release`、
+  `linux-gcc-release-lto`、`linux-static-release-lto`：配置、构建均通过，
+  每个预设的 CTest 均为 `153/153` 通过。
+- `linux-clang-tidy-release` 与 `linux-clang-tidy-static`：配置、构建、
+  `ZzClangTidy` 和 CTest 均通过；每个 CTest 均为 `153/153` 通过。
+- `linux-clang-asan`：完整重建后运行
+  `ctest --preset linux-clang-asan --output-on-failure`，结果为 `153/153`
+  通过，耗时 `264.62 s`；日志不含 AddressSanitizer、UndefinedBehaviorSanitizer
+  或 `runtime error` 诊断。另行复核了 `puretools.workspace-shell`（224 项）和
+  `example.puretools-integration-english`。
+
+完整 ASan 日志位于忽略目录
+`.superpowers/sdd/2026-08-27-workspace-activity-navigation-settings/task-9-logs/asan-lifecycle-fix-4-full-rebuilt-ctest.log`。
+
+### 安装、架构与截图
+
+在重新构建 `linux-gcc-benchmarks` 后，运行：
+
+```bash
+ctest --preset linux-gcc-benchmarks \
+  -R '^architecture\.complete-audit$|^platform\.package-relocation$|^puretools\.workspace-screenshot-(100|125|150|200)$' \
+  --output-on-failure
+```
+
+结果为 `6/6` 通过：四档 Workspace 截图、完整架构审计和安装重定位均通过，
+耗时 `68.90 s`。
+
+### 性能证据
+
+`scripts/ci/run-linux-performance-gates.sh` 的首轮实际运行结果为 **INVALID**，
+不是性能 PASS 或代码性能 FAIL。当前 `DISPLAY=localhost:10.0`，X11 vendor 为
+Moba/X，渲染器为 Mesa llvmpipe；这与 `local-release-xvfb` reference profile
+不一致。补齐 `QT_QPA_PLATFORM=xcb` 后，首轮 benchmark CTest 为 `32/42` 通过、
+`10` 项失败、耗时 `272.76 s`，脚本以退出码 `8` 停止，未形成三轮报告。
+
+失败证据包括 Workspace reference gate 的 GPU/environment fingerprint mismatch，
+以及 startup、theme-switch、large-model 和 Example reference gates 的绝对阈值超限。
+这些结果不能与 reference 比较；未修改
+`docs/performance/reference/linux/` 或 `regression-thresholds.json`。
+
+性能日志位于忽略目录
+`.superpowers/sdd/2026-08-27-workspace-activity-navigation-settings/task-9-logs/linux-performance-gates-rerun.log`。
+
+### 跨平台合同与边界
+
+- `ZzGitHubActionsContract.cmake`：通过。
+- `PresetMatrixContract.cmake`：通过。
+- 对 `ZzCore`、`ZzFluentUI`、`ZzPureTools` 和 `ZzWindowKit` 的公开 include 根进行
+  Linux 专用头和 API 扫描，无命中。
+- Windows MSVC、Windows MinGW 与 macOS：未执行。本机没有对应工具链或运行日志，
+  Linux 结果不替代这些平台的验证。
+- 真实 X11/Wayland 桌面人工验收：未执行；Moba/X SSH 转发和 offscreen 截图不替代
+  原生桌面交互证据。
