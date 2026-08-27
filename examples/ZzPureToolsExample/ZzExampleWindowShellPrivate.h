@@ -12,6 +12,7 @@ class QLabel;
 class QLineEdit;
 class QObject;
 class QStatusBar;
+class QWidget;
 
 namespace ZzCore {
 class ZzError;
@@ -93,7 +94,7 @@ public:
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
     QAction *settingsAction = nullptr;
-    QPointer<ZzExampleSettingsWindow> settingsWindow;
+    QPointer<QWidget> settingsWindow;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;

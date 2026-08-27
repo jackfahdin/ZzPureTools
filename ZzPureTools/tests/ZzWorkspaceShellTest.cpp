@@ -1155,8 +1155,8 @@ private Q_SLOTS:
         QVERIFY(rightPane->visibleWidgets().isEmpty());
         QVERIFY(rightPane->isHidden());
         QVERIFY(rightBar->isHidden());
-        QWidget *const movedOwner = movedRaw->parentWidget();
-        QWidget *const fallbackOwner = fallbackRaw->parentWidget();
+        QPointer<QWidget> movedOwner(movedRaw->parentWidget());
+        QPointer<QWidget> fallbackOwner(fallbackRaw->parentWidget());
         bool callbackEntered = false;
         ZzShowEventFilter finalShowFilter;
         finalShowFilter.shown = [&] {
@@ -1173,8 +1173,12 @@ private Q_SLOTS:
             movedIndex, ZzFluentUI::ZzActivityArea::RightSecondary, 0);
 
         QVERIFY(callbackEntered);
-        QCOMPARE(movedRaw->parentWidget(), movedOwner);
-        QCOMPARE(fallbackRaw->parentWidget(), fallbackOwner);
+        QVERIFY(movedOwner.isNull());
+        QVERIFY(!fallbackOwner.isNull());
+        QVERIFY(movedRaw->parentWidget() != nullptr);
+        QCOMPARE(fallbackRaw->parentWidget(), fallbackOwner.data());
+        QVERIFY(leftPane->panelStack()->isAncestorOf(movedRaw));
+        QVERIFY(leftPane->panelStack()->isAncestorOf(fallbackRaw));
         QCOMPARE(leftPane->currentWidget(), movedRaw);
         QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
         QVERIFY(!leftPane->isCollapsed());
@@ -10564,7 +10568,7 @@ private Q_SLOTS:
                 content.get()));
             zzReleaseAfterAdoption(content);
         }
-        QPointer<ZzPureTools::ZzWorkspaceShell> shellGuard(shell.get());
+        QPointer<QObject> shellGuard(shell.get());
         shell->setParent(host.get());
         zzReleaseAfterAdoption(shell);
 

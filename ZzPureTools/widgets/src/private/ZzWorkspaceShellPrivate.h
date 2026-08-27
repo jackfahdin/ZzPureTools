@@ -311,6 +311,7 @@ public:
         ZzFluentUI::ZzSidePane *pane) const;
     ZzWorkspaceShell *const q_ptr;
     QPointer<QMainWindow> host;
+    QPointer<QObject> hostObject;
     QPointer<ZzFluentUI::ZzFluentTitleBar> titleBar;
     QPointer<QWidget> workspaceRoot;
     QPointer<ZzFluentUI::ZzActivityBar> leftActivityBar;

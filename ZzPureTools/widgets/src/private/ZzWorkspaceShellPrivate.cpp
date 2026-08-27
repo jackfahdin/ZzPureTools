@@ -656,6 +656,7 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     ZzFluentUI::ZzFluentTitleBar *fluentTitleBar)
     : q_ptr(publicObject)
     , host(hostWindow)
+    , hostObject(hostWindow)
     , titleBar(fluentTitleBar)
     , applicationTitle(hostWindow->windowTitle())
 {
@@ -792,9 +793,9 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
         }
     }
     const bool hostOwnsWorkspaceRoot = applicationNavigationIntegrated
-        && host != nullptr
+        && hostObject != nullptr
         && workspaceRoot != nullptr
-        && workspaceRoot->parentWidget() == host;
+        && workspaceRoot->parent() == hostObject;
     if (workspaceRoot != nullptr && !hostOwnsWorkspaceRoot) {
         if (sideEdgeVisibilitySyncDepth > 0) {
             workspaceRoot->deleteLater();
