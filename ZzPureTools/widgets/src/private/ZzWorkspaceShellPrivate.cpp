@@ -794,7 +794,6 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
     const bool hostOwnsWorkspaceRoot = applicationNavigationIntegrated
         && host != nullptr
         && workspaceRoot != nullptr
-        && host->centralWidget() == workspaceRoot
         && workspaceRoot->parentWidget() == host;
     if (workspaceRoot != nullptr && !hostOwnsWorkspaceRoot) {
         if (sideEdgeVisibilitySyncDepth > 0) {

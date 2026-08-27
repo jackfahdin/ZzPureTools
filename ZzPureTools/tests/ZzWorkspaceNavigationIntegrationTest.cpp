@@ -241,6 +241,84 @@ private Q_SLOTS:
         QVERIFY(pageHostBefore.isNull());
     }
 
+    void preservesIntegratedSurfacesBeforeWorkspaceMount()
+    {
+        std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
+        QPointer<QWidget> workspace;
+        QPointer<ZzFluentUI::ZzNavigationPane> navigation;
+        QPointer<ZzPureTools::ZzPageHost> pageHost;
+        ZzPureTools::ZzNavigationModel *model = nullptr;
+        ZzPureTools::ZzNavigationController *controller = nullptr;
+        ZzPureTools::ZzRouteId routeBefore;
+        bool survivedShellDestruction = false;
+
+        currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
+            model = window.navigationModel();
+            controller = window.navigationController();
+            routeBefore = controller->currentRoute();
+            auto created = ZzPureTools::ZzWorkspaceShell::create(
+                &window, window.titleBar());
+            if (!created) {
+                return ZzCore::ZzResult<void>::failure(created.error());
+            }
+            shell = std::move(created).value();
+            workspace = shell->workspaceWidget();
+            auto integrated = shell->integrateApplicationNavigation(
+                zzPanelId("components"), QStringLiteral("Components"),
+                zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+                QStringLiteral("Component examples"));
+            if (!integrated) {
+                return integrated;
+            }
+            navigation = window.navigationPane();
+            pageHost = window.pageHost();
+            const bool ownedBeforeDestruction = window.centralWidget() == nullptr
+                && workspace != nullptr && workspace->parentWidget() == &window
+                && navigation != nullptr && pageHost != nullptr;
+
+            shell.reset();
+
+            survivedShellDestruction = ownedBeforeDestruction
+                && workspace != nullptr && workspace->parentWidget() == &window
+                && navigation != nullptr && pageHost != nullptr
+                && window.navigationPane() == navigation.data()
+                && window.pageHost() == pageHost.data()
+                && window.navigationModel() == model
+                && window.navigationController() == controller
+                && controller->currentRoute() == routeBefore;
+            if (!survivedShellDestruction) {
+                return zzFailure(QStringLiteral(
+                    "unmounted integrated surfaces did not survive Shell destruction"));
+            }
+            model->refreshTranslations();
+            if (!controller->navigate(
+                    ZzPureTools::ZzRouteId(QStringLiteral("home")))) {
+                return zzFailure(QStringLiteral(
+                    "unmounted integrated navigation stopped working"));
+            }
+            return ZzCore::ZzResult<void>::success();
+        };
+
+        auto createdWindow = zzApplication().createWindow();
+
+        QVERIFY(createdWindow);
+        auto *const window = createdWindow.value();
+        QVERIFY(survivedShellDestruction);
+        QCOMPARE(window->centralWidget(), nullptr);
+        QCOMPARE(workspace->parentWidget(), window);
+        QCOMPARE(window->navigationPane(), navigation.data());
+        QCOMPARE(window->pageHost(), pageHost.data());
+        QCOMPARE(window->navigationModel(), model);
+        QCOMPARE(window->navigationController(), controller);
+        QCOMPARE(
+            controller->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        closeWindow(window);
+        QVERIFY(workspace.isNull());
+        QVERIFY(navigation.isNull());
+        QVERIFY(pageHost.isNull());
+    }
+
     void pinsPageHostAndRejectsSecondIntegration()
     {
         std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
