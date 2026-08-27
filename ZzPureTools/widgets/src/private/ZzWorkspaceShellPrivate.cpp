@@ -2173,6 +2173,13 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
     const ZzWorkspacePanelId &id,
     bool visible)
 {
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
+    const auto interrupted = [&] {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace shell was destroyed during panel update"),
+            id.value());
+    };
     if (transactionKind != ZzTransactionKind::None) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -2199,6 +2206,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                 return ZzCore::ZzResult<void>::success();
             }
             auto materialized = materializeSidePanel(id);
+            if (shellGuard == nullptr) {
+                return interrupted();
+            }
             if (!materialized) {
                 return materialized;
             }
@@ -2227,6 +2237,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                 QStringLiteral("Dock panel has been destroyed"), id.value());
         } else {
             dock->setVisible(visible);
+            if (shellGuard == nullptr) {
+                return interrupted();
+            }
         }
         return ZzCore::ZzResult<void>::success();
     case ZzPanelKind::Bottom: {
@@ -2237,11 +2250,19 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                 ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("Bottom panel has been destroyed"), id.value());
         }
-        if (visible && !paneGuard->setCurrentWidget(contentGuard)) {
-            return zzWorkspaceFailure<void>(
-                ZzCore::ZzErrorCode::InvalidState,
-                QStringLiteral("Bottom panel content is no longer registered"),
-                id.value());
+        if (visible) {
+            const bool currentWidgetSet =
+                paneGuard->setCurrentWidget(contentGuard);
+            if (shellGuard == nullptr) {
+                return interrupted();
+            }
+            if (!currentWidgetSet) {
+                return zzWorkspaceFailure<void>(
+                    ZzCore::ZzErrorCode::InvalidState,
+                    QStringLiteral(
+                        "Bottom panel content is no longer registered"),
+                    id.value());
+            }
         }
         const int currentIndex = stablePanelIndex(record);
         if (paneGuard == nullptr || contentGuard == nullptr
@@ -2256,6 +2277,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                 id.value());
         }
         paneGuard->setCollapsed(!visible);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         const int finalIndex = stablePanelIndex(record);
         if (paneGuard == nullptr || contentGuard == nullptr
             || finalIndex < 0
@@ -2302,8 +2326,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
     const auto stable = [this, &expectedPanels, &leftPaneGuard,
                             &rightPaneGuard, &leftStackGuard,
                             &rightStackGuard, &leftBarGuard,
-                            &rightBarGuard, &modelGuard] {
-        if (leftPaneGuard == nullptr || rightPaneGuard == nullptr
+                            &rightBarGuard, &modelGuard, &shellGuard] {
+        if (shellGuard == nullptr
+            || leftPaneGuard == nullptr || rightPaneGuard == nullptr
             || leftStackGuard == nullptr || rightStackGuard == nullptr
             || leftBarGuard == nullptr || rightBarGuard == nullptr
             || modelGuard == nullptr
@@ -2408,15 +2433,17 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
             && leftPaneExpanded == leftPaneExpandedBefore
             && rightPaneExpanded == rightPaneExpandedBefore;
     };
-    const auto restorePane = [](ZzFluentUI::ZzSidePane *sidePane,
-                                ZzFluentUI::ZzPanelStack *panelStack,
+    const auto restorePane = [&shellGuard](
+                                const QPointer<ZzFluentUI::ZzSidePane> &sidePane,
+                                const QPointer<ZzFluentUI::ZzPanelStack> &panelStack,
                                 const QList<QWidget *> &order,
                                 const QList<QWidget *> &visibleWidgets,
                                 const QPointer<QWidget> &currentWidget,
                                 const QList<int> &sizes,
                                 bool collapsed,
                                 bool hidden) {
-        if (sidePane == nullptr || panelStack == nullptr) {
+        if (shellGuard == nullptr
+            || sidePane == nullptr || panelStack == nullptr) {
             return false;
         }
         for (qsizetype index = 0; index < order.size(); ++index) {
@@ -2427,6 +2454,10 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                 && !panelStack->movePanel(order.at(index), static_cast<int>(index))) {
                 return false;
             }
+            if (shellGuard == nullptr
+                || sidePane == nullptr || panelStack == nullptr) {
+                return false;
+            }
         }
         for (QWidget *const widget : panelStack->panels()) {
             if (widget != nullptr
@@ -2434,21 +2465,41 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
                     widget, visibleWidgets.contains(widget))) {
                 return false;
             }
+            if (shellGuard == nullptr
+                || sidePane == nullptr || panelStack == nullptr) {
+                return false;
+            }
         }
-        if (currentWidget != nullptr
-            && (!panelStack->panels().contains(currentWidget)
-                || !sidePane->setCurrentWidget(currentWidget))) {
-            return false;
+        if (currentWidget != nullptr) {
+            if (!panelStack->panels().contains(currentWidget)
+                || !sidePane->setCurrentWidget(currentWidget)) {
+                return false;
+            }
+            if (shellGuard == nullptr
+                || sidePane == nullptr || panelStack == nullptr) {
+                return false;
+            }
         }
-        if (panelStack->panelSizes() != sizes
-            && !panelStack->setPanelSizes(sizes)) {
-            return false;
+        if (panelStack->panelSizes() != sizes) {
+            if (!panelStack->setPanelSizes(sizes)) {
+                return false;
+            }
+            if (shellGuard == nullptr
+                || sidePane == nullptr || panelStack == nullptr) {
+                return false;
+            }
         }
         sidePane->setCollapsed(collapsed);
+        if (shellGuard == nullptr || sidePane == nullptr) {
+            return false;
+        }
         sidePane->setVisible(!hidden);
-        return true;
+        return shellGuard != nullptr && sidePane != nullptr;
     };
     const auto restoreSnapshot = [&] {
+        if (shellGuard == nullptr) {
+            return false;
+        }
         leftCurrentPanel = leftCurrentPanelBefore;
         rightCurrentPanel = rightCurrentPanelBefore;
         leftPaneExpanded = leftPaneExpandedBefore;
@@ -2465,39 +2516,63 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
             return false;
         }
         syncSideEdgeVisibility();
-        if (!stable()) {
+        if (shellGuard == nullptr || !stable()) {
             return false;
         }
         leftBarGuard->setCurrentSourceIndex(leftBarCurrentBefore);
+        if (shellGuard == nullptr || leftBarGuard == nullptr) {
+            return false;
+        }
         leftBarGuard->setActiveSourceIndexes(leftBarActiveBefore);
+        if (shellGuard == nullptr || leftBarGuard == nullptr) {
+            return false;
+        }
         rightBarGuard->setCurrentSourceIndex(rightBarCurrentBefore);
+        if (shellGuard == nullptr || rightBarGuard == nullptr) {
+            return false;
+        }
         rightBarGuard->setActiveSourceIndexes(rightBarActiveBefore);
+        if (shellGuard == nullptr || rightBarGuard == nullptr) {
+            return false;
+        }
         return snapshotMatches();
     };
     const auto reject = [&](const QString &message) {
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         for (int attempt = 0; attempt < 2 && !snapshotMatches(); ++attempt) {
             static_cast<void>(restoreSnapshot());
+            if (shellGuard == nullptr) {
+                return interrupted();
+            }
         }
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState, message, id.value());
     };
     struct ZzSideActivationScope final
     {
-        ZzWorkspaceShellPrivate &shell;
+        ZzWorkspaceShellPrivate *shell;
+        QPointer<ZzWorkspaceShell> shellGuard;
         ZzTransactionKind previous;
 
-        explicit ZzSideActivationScope(ZzWorkspaceShellPrivate &target) noexcept
-            : shell(target)
+        explicit ZzSideActivationScope(
+            ZzWorkspaceShellPrivate &target,
+            const QPointer<ZzWorkspaceShell> &guard) noexcept
+            : shell(&target)
+            , shellGuard(guard)
             , previous(target.transactionKind)
         {
-            shell.transactionKind = ZzTransactionKind::SideActivation;
+            shell->transactionKind = ZzTransactionKind::SideActivation;
         }
 
         ~ZzSideActivationScope()
         {
-            shell.transactionKind = previous;
+            if (shellGuard != nullptr) {
+                shell->transactionKind = previous;
+            }
         }
-    } activationScope(*this);
+    } activationScope(*this, shellGuard);
     const bool left = zzIsLeftArea(record.activityArea);
     ZzWorkspacePanelId &currentPanel = left
         ? leftCurrentPanel : rightCurrentPanel;
@@ -2505,26 +2580,37 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
     const bool collapsesCurrent = currentPanel == id
         || pane->currentWidget() == contentGuard;
     if (visible) {
-        if (!pane->setCurrentWidget(contentGuard)
-            || !stable() || pane->currentWidget() != contentGuard
+        const bool currentWidgetSet = pane->setCurrentWidget(contentGuard);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
+        if (!currentWidgetSet || !stable()
+            || pane->currentWidget() != contentGuard
             || pane->visibleWidgets() != QList<QWidget *>({contentGuard})) {
             return reject(QStringLiteral("Side panel activation was interrupted"));
         }
         currentPanel = id;
         paneExpanded = true;
         pane->setCollapsed(false);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
     } else if (currentPanel == id || pane->currentWidget() == contentGuard) {
         currentPanel = id;
         paneExpanded = false;
         pane->setCollapsed(true);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
     }
     if (!stable()) {
         return reject(QStringLiteral("Side panel collapse update was interrupted"));
     }
-
-    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
     syncSideEdgeVisibility();
-    if (shellGuard == nullptr || !stable()) {
+    if (shellGuard == nullptr) {
+        return interrupted();
+    }
+    if (!stable()) {
         return reject(QStringLiteral("Activity current state was interrupted"));
     }
     const QModelIndex expectedCurrent = zzActivityModel(modelGuard)->indexFor(id);

@@ -1397,6 +1397,78 @@ private Q_SLOTS:
         QCOMPARE(bar->activeSourceIndexes(), QList<QModelIndex>({sideIndex}));
     }
 
+    void sideShowPanelStopsWhenCurrentWidgetSignalDestroysShell()
+    {
+        ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QWidget *const firstRaw = first.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        bool callbackEntered = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            &fixture.host, [&](QWidget *current) {
+                if (callbackEntered || current != firstRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                fixture.shell.reset();
+            });
+
+        const auto activated = fixture.shell->showPanel(
+            zzPanelId("first"), true);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!activated);
+        QCOMPARE(activated.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(fixture.shell == nullptr);
+        QVERIFY(workspaceGuard.isNull());
+    }
+
+    void sideShowPanelStopsWhenCollapsedSignalDestroysShell()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        bool callbackEntered = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzSidePane::collapsedChanged,
+            &fixture.host, [&](bool collapsed) {
+                if (callbackEntered || !collapsed) {
+                    return;
+                }
+                callbackEntered = true;
+                fixture.shell.reset();
+            });
+
+        const auto collapsed = fixture.shell->showPanel(
+            zzPanelId("side"), false);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!collapsed);
+        QCOMPARE(collapsed.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(fixture.shell == nullptr);
+        QVERIFY(workspaceGuard.isNull());
+    }
+
     void hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge()
     {
         ZzShellFixture fixture;
