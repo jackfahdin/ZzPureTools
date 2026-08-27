@@ -6,7 +6,9 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QMimeData>
 #include <QtCore/QPointer>
+#include <QtGui/QAction>
 #include <QtGui/QColor>
+#include <QtGui/QContextMenuEvent>
 #include <QtGui/QDropEvent>
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDragLeaveEvent>
@@ -14,8 +16,10 @@
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QMenu>
 #include <QtGui/QStandardItem>
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QWidget>
@@ -24,11 +28,14 @@
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzBundledSvgIcon.h>
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 namespace {
 
@@ -45,6 +52,7 @@ public:
         bool draggable = true;
         QString text;
         ZzFluentUI::ZzIconDescriptor icon;
+        bool selectable = true;
     };
 
     explicit ZzActivityRowsModel(QObject *parent = nullptr)
@@ -97,7 +105,10 @@ public:
             return Qt::NoItemFlags;
         }
         const Row &row = rows.at(index.row());
-        Qt::ItemFlags result = Qt::ItemIsSelectable;
+        Qt::ItemFlags result = Qt::NoItemFlags;
+        if (row.selectable) {
+            result |= Qt::ItemIsSelectable;
+        }
         if (row.enabled) {
             result |= Qt::ItemIsEnabled;
         }
@@ -228,6 +239,43 @@ struct ZzActiveSelectionMeasurement final
         }
     }
     return bounds;
+}
+
+[[nodiscard]] QMenu *zzOpenContextMenu(QListView *view, int row)
+{
+    Q_ASSERT(view != nullptr);
+    const QModelIndex index = view->model()->index(row, 0);
+    const QPoint localPosition = index.isValid()
+        ? view->visualRect(index).center()
+        : QPoint(view->viewport()->width() / 2,
+                 view->viewport()->height() - 1);
+    QContextMenuEvent event(
+        QContextMenuEvent::Mouse,
+        localPosition,
+        view->viewport()->mapToGlobal(localPosition));
+    QCoreApplication::sendEvent(view->viewport(), &event);
+    QCoreApplication::processEvents();
+    return qobject_cast<QMenu *>(QApplication::activePopupWidget());
+}
+
+[[nodiscard]] QMenu *zzMoveSubmenu(QMenu *root)
+{
+    if (root == nullptr) {
+        return nullptr;
+    }
+    const QList<QMenu *> menus = root->findChildren<QMenu *>(
+        QString(), Qt::FindDirectChildrenOnly);
+    return menus.isEmpty() ? nullptr : menus.constFirst();
+}
+
+void zzCloseContextMenu(QMenu *root)
+{
+    if (root == nullptr) {
+        return;
+    }
+    root->close();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCoreApplication::processEvents();
 }
 
 } // namespace
@@ -630,45 +678,562 @@ private Q_SLOTS:
         QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({second}));
     }
 
-    void rendersActiveIndicatorsOnTheLogicalLeadingEdge()
+    void indicatorUsesSingleShortPhysicalEdgeInLtrAndRtl()
     {
         const QColor indicatorColor(QStringLiteral("#00ff55"));
-        for (const Qt::LayoutDirection direction : {
-                 Qt::LeftToRight, Qt::RightToLeft}) {
-            ZzFluentUI::ZzThemeController controller;
-            ZzFluentUI::ZzFluentStyle style(&controller);
-            ZzActivityRowsModel model;
-            model.rows[0].badge = 0;
-            ZzFluentUI::ZzActivityBar bar;
-            bar.setLayoutDirection(direction);
-            bar.setModel(&model);
-            bar.setCurrentSourceIndex(model.index(0, 0));
-            QListView *const view = zzActivityView(
-                &bar, QStringLiteral("zzActivityPrimaryView"));
-            QPalette palette = view->palette();
-            palette.setColor(QPalette::Highlight, indicatorColor);
-            view->setPalette(palette);
-            view->setStyle(&style);
-            view->viewport()->setStyle(&style);
-            zzShow(&bar);
+        for (const ZzFluentUI::ZzSidePaneEdge edge : {
+                 ZzFluentUI::ZzSidePaneEdge::Left,
+                 ZzFluentUI::ZzSidePaneEdge::Right}) {
+            for (const Qt::LayoutDirection direction : {
+                     Qt::LeftToRight, Qt::RightToLeft}) {
+                ZzFluentUI::ZzThemeController controller;
+                controller.setAccentColor(indicatorColor);
+                ZzFluentUI::ZzFluentStyle style(&controller);
+                ZzActivityRowsModel model;
+                const int sourceRow =
+                    edge == ZzFluentUI::ZzSidePaneEdge::Left ? 0 : 2;
+                model.rows[sourceRow].badge = 0;
+                ZzFluentUI::ZzActivityBar bar(edge);
+                bar.setLayoutDirection(direction);
+                bar.setModel(&model);
+                bar.setCurrentSourceIndex(model.index(sourceRow, 0));
+                QListView *const view = zzActivityView(
+                    &bar, QStringLiteral("zzActivityPrimaryView"));
+                QPalette palette = view->palette();
+                palette.setColor(QPalette::Highlight, indicatorColor);
+                view->setPalette(palette);
+                view->setStyle(&style);
+                view->viewport()->setStyle(&style);
+                zzShow(&bar);
 
-            const QRect rowRect = view->visualRect(view->model()->index(0, 0));
-            const QRect leadingEdge = direction == Qt::LeftToRight
-                ? QRect(rowRect.left(), rowRect.top(), 4, rowRect.height())
-                : QRect(rowRect.right() - 3, rowRect.top(), 4, rowRect.height());
-            const QImage rendered = zzRenderWidget(view->viewport());
-            QVERIFY2(
-                zzCountPixelsNearColor(rendered, leadingEdge, indicatorColor) > 8,
-                "Activity Bar 没有在逻辑 leading 边缘绘制默认激活指示条");
+                const QRect rowRect =
+                    view->visualRect(view->model()->index(0, 0));
+                const QImage rendered = zzRenderWidget(view->viewport());
+                const QRect indicator = zzPixelBoundsNearColor(
+                    rendered, rowRect, indicatorColor);
+                const int expectedHeight = qCeil(
+                    controller.snapshot()->metric(
+                        ZzFluentUI::ZzMetricToken::SelectionIndicatorExtent));
+                const int expectedWidth = qCeil(
+                    controller.snapshot()->metric(
+                        ZzFluentUI::ZzMetricToken::SelectionIndicatorThickness));
 
-            bar.setMultiActiveEnabled(true);
-            bar.setActiveSourceIndexes({model.index(0, 0)});
-            const QImage multiActiveRendered = zzRenderWidget(view->viewport());
-            QVERIFY2(
-                zzCountPixelsNearColor(
-                    multiActiveRendered, leadingEdge, indicatorColor) > 8,
-                "Activity Bar 没有在逻辑 leading 边缘绘制多激活指示条");
+                QVERIFY2(!indicator.isEmpty(),
+                         "Activity Bar 没有绘制当前入口短指示条");
+                QVERIFY2(qAbs(indicator.height() - expectedHeight) <= 2,
+                         "Activity Bar 指示条高度没有遵循 Fluent 令牌");
+                QVERIFY2(indicator.height() <= expectedHeight + 2,
+                         "Activity Bar 仍在绘制全行高的第二条指示");
+                QVERIFY2(qAbs(indicator.width() - expectedWidth) <= 2,
+                         "Activity Bar 指示条厚度没有遵循 Fluent 令牌");
+                QVERIFY2(indicator.width() <= expectedWidth + 2,
+                         "Activity Bar 指示条厚度超出 Fluent 令牌");
+                if (edge == ZzFluentUI::ZzSidePaneEdge::Left) {
+                    QVERIFY2(indicator.left() <= rowRect.left() + 6,
+                             "左 Activity Bar 指示条没有贴物理左边");
+                    QVERIFY(indicator.right() < rowRect.center().x());
+                } else {
+                    QVERIFY2(indicator.right() >= rowRect.right() - 6,
+                             "右 Activity Bar 指示条没有贴物理右边");
+                    QVERIFY(indicator.left() > rowRect.center().x());
+                }
+            }
         }
+    }
+
+    void enabledNonSelectableRowOnlyRequestsActivation()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].enabled = true;
+        model.rows[1].draggable = false;
+        model.rows[1].selectable = false;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        QSignalSpy activationSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        QSignalSpy collapseSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::collapseRequested);
+        QListView *const secondary = zzActivityView(
+            &bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(&bar);
+
+        QTest::mouseClick(
+            secondary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            secondary->visualRect(secondary->model()->index(0, 0)).center());
+
+        QTRY_COMPARE(activationSpy.count(), 1);
+        QCOMPARE(collapseSpy.count(), 0);
+        QCOMPARE(bar.currentSourceIndex(), model.index(0, 0));
+        QCOMPARE(
+            activationSpy.constFirst().at(0).value<QModelIndex>(),
+            model.index(1, 0));
+    }
+
+    void selectableActivationStopsWhenCurrentSignalDestroysBar()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[1].enabled = true;
+        auto *bar = new ZzFluentUI::ZzActivityBar;
+        QPointer<ZzFluentUI::ZzActivityBar> barGuard(bar);
+        bar->setModel(&model);
+        bar->setCurrentSourceIndex(model.index(0, 0));
+        int activationCount = 0;
+        QObject::connect(
+            bar,
+            &ZzFluentUI::ZzActivityBar::activationRequested,
+            qApp,
+            [&activationCount] { ++activationCount; });
+        QObject::connect(
+            bar,
+            &ZzFluentUI::ZzActivityBar::currentSourceIndexChanged,
+            qApp,
+            [bar](const QModelIndex &) { delete bar; });
+        QListView *const primary = zzActivityView(
+            bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(bar);
+
+        QTest::mouseClick(
+            primary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            primary->visualRect(primary->model()->index(1, 0)).center());
+
+        QTRY_VERIFY(barGuard.isNull());
+        QCOMPARE(activationCount, 0);
+    }
+
+    void selectableActivationStopsWhenCurrentSignalDestroysModel()
+    {
+        auto model = std::make_unique<ZzActivityRowsModel>();
+        model->rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model->rows[1].enabled = true;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(model.get());
+        bar.setCurrentSourceIndex(model->index(0, 0));
+        QSignalSpy activationSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        QObject::connect(
+            &bar,
+            &ZzFluentUI::ZzActivityBar::currentSourceIndexChanged,
+            &bar,
+            [&model](const QModelIndex &) { model.reset(); });
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+
+        QTest::mouseClick(
+            primary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            primary->visualRect(primary->model()->index(1, 0)).center());
+
+        QTRY_VERIFY(model == nullptr);
+        QCOMPARE(bar.model(), nullptr);
+        QCOMPARE(activationSpy.count(), 0);
+    }
+
+    void nonSelectableActivationMayDestroyBarAfterMouseRelease()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].enabled = true;
+        model.rows[1].draggable = false;
+        model.rows[1].selectable = false;
+        auto *bar = new ZzFluentUI::ZzActivityBar;
+        QPointer<ZzFluentUI::ZzActivityBar> barGuard(bar);
+        bar->setModel(&model);
+        bar->setCurrentSourceIndex(model.index(0, 0));
+        QObject::connect(
+            bar,
+            &ZzFluentUI::ZzActivityBar::activationRequested,
+            qApp,
+            [bar](const QModelIndex &) { delete bar; });
+        QListView *const secondary = zzActivityView(
+            bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(bar);
+
+        QTest::mouseClick(
+            secondary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            secondary->visualRect(secondary->model()->index(0, 0)).center());
+
+        QTRY_VERIFY(barGuard.isNull());
+    }
+
+    void collapseActivationMayDestroyBarAfterMouseRelease()
+    {
+        ZzActivityRowsModel model;
+        auto *bar = new ZzFluentUI::ZzActivityBar;
+        QPointer<ZzFluentUI::ZzActivityBar> barGuard(bar);
+        bar->setModel(&model);
+        bar->setCurrentSourceIndex(model.index(0, 0));
+        QObject::connect(
+            bar,
+            &ZzFluentUI::ZzActivityBar::collapseRequested,
+            qApp,
+            [bar](const QModelIndex &) { delete bar; });
+        QListView *const primary = zzActivityView(
+            bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(bar);
+
+        QTest::mouseClick(
+            primary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            primary->visualRect(primary->model()->index(0, 0)).center());
+
+        QTRY_VERIFY(barGuard.isNull());
+    }
+
+    void queuedMouseActivationRejectsChangedRowState()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[1].enabled = true;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        QSignalSpy activationSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+
+        QTest::mouseClick(
+            primary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            primary->visualRect(primary->model()->index(1, 0)).center());
+        model.rows[1].enabled = false;
+        Q_EMIT model.dataChanged(
+            model.index(1, 0), model.index(1, 0), {Qt::DisplayRole});
+        QCoreApplication::processEvents();
+
+        QCOMPARE(activationSpy.count(), 0);
+        QCOMPARE(bar.currentSourceIndex(), model.index(0, 0));
+    }
+
+    void queuedMouseActivationRejectsChangedCurrentState()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[1].enabled = true;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        QSignalSpy activationSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        QSignalSpy collapseSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::collapseRequested);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+
+        QTest::mouseClick(
+            primary->viewport(), Qt::LeftButton, Qt::NoModifier,
+            primary->visualRect(primary->model()->index(1, 0)).center());
+        bar.setCurrentSourceIndex(model.index(1, 0));
+        QCoreApplication::processEvents();
+
+        QCOMPARE(activationSpy.count(), 0);
+        QCOMPARE(collapseSpy.count(), 0);
+        QCOMPARE(bar.currentSourceIndex(), model.index(1, 0));
+    }
+
+    void keyboardActivatesEnabledNonSelectableRowWithoutSelection()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].enabled = true;
+        model.rows[1].draggable = false;
+        model.rows[1].selectable = false;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        QSignalSpy activationSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        QSignalSpy collapseSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::collapseRequested);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        primary->setFocus();
+
+        QTest::keyClick(primary, Qt::Key_End);
+        QCOMPARE(bar.currentSourceIndex(), model.index(0, 0));
+        QTest::keyClick(
+            zzActivityView(&bar, QStringLiteral("zzActivitySecondaryView")),
+            Qt::Key_Enter);
+
+        QCOMPARE(activationSpy.count(), 1);
+        QCOMPARE(collapseSpy.count(), 0);
+        QCOMPARE(bar.currentSourceIndex(), model.index(0, 0));
+        QCOMPARE(
+            activationSpy.constFirst().at(0).value<QModelIndex>(),
+            model.index(1, 0));
+    }
+
+    void keyboardDoesNotFallBackWhenFocusedRowBecomesDisabled()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].enabled = true;
+        model.rows[1].draggable = false;
+        model.rows[1].selectable = false;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        QSignalSpy activationSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        QSignalSpy collapseSpy(
+            &bar, &ZzFluentUI::ZzActivityBar::collapseRequested);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        QListView *const secondary = zzActivityView(
+            &bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(&bar);
+        primary->setFocus();
+
+        QTest::keyClick(primary, Qt::Key_End);
+        model.rows[1].enabled = false;
+        Q_EMIT model.dataChanged(
+            model.index(1, 0), model.index(1, 0), {Qt::DisplayRole});
+        QTest::keyClick(secondary, Qt::Key_Enter);
+
+        QCOMPARE(activationSpy.count(), 0);
+        QCOMPARE(collapseSpy.count(), 0);
+        QCOMPARE(bar.currentSourceIndex(), model.index(0, 0));
+    }
+
+    void contextMenuListsOnlyThreeOtherAreas()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+
+        QMenu *const root = zzOpenContextMenu(primary, 0);
+        QVERIFY(root != nullptr);
+        QMenu *const moveMenu = zzMoveSubmenu(root);
+        QVERIFY(moveMenu != nullptr);
+        QList<ZzFluentUI::ZzActivityArea> actual;
+        for (QAction *action : moveMenu->actions()) {
+            QVERIFY(action->data().canConvert<ZzFluentUI::ZzActivityArea>());
+            actual.append(
+                action->data().value<ZzFluentUI::ZzActivityArea>());
+        }
+        const QList<ZzFluentUI::ZzActivityArea> expected = {
+            ZzFluentUI::ZzActivityArea::LeftSecondary,
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+        };
+        QCOMPARE(actual, expected);
+        zzCloseContextMenu(root);
+    }
+
+    void keyboardContextMenuTargetsFocusedRow()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[1].enabled = true;
+        model.rows[1].draggable = true;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        primary->setCurrentIndex(primary->model()->index(1, 0));
+        primary->setFocus();
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+        const QPoint eventPosition = primary->visualRect(
+            primary->model()->index(0, 0)).center();
+
+        QContextMenuEvent event(
+            QContextMenuEvent::Keyboard,
+            eventPosition,
+            primary->viewport()->mapToGlobal(eventPosition));
+        QCoreApplication::sendEvent(primary->viewport(), &event);
+        QCoreApplication::processEvents();
+
+        QMenu *const root = qobject_cast<QMenu *>(
+            QApplication::activePopupWidget());
+        QVERIFY(root != nullptr);
+        QMenu *const moveMenu = zzMoveSubmenu(root);
+        QVERIFY(moveMenu != nullptr);
+        QCOMPARE(moveMenu->actions().size(), 3);
+        moveMenu->actions().constFirst()->trigger();
+        QCOMPARE(moveSpy.count(), 1);
+        QCOMPARE(
+            moveSpy.constFirst().at(0).value<QModelIndex>(),
+            model.index(1, 0));
+        zzCloseContextMenu(root);
+    }
+
+    void keyboardContextMenuRejectsMissingFocusedRow()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        primary->setCurrentIndex({});
+        primary->setFocus();
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+        const QPoint eventPosition = primary->visualRect(
+            primary->model()->index(0, 0)).center();
+
+        QContextMenuEvent event(
+            QContextMenuEvent::Keyboard,
+            eventPosition,
+            primary->viewport()->mapToGlobal(eventPosition));
+        QCoreApplication::sendEvent(primary->viewport(), &event);
+        QCoreApplication::processEvents();
+
+        QVERIFY(QApplication::activePopupWidget() == nullptr);
+        QCOMPARE(moveSpy.count(), 0);
+    }
+
+    void contextMenuMoveMatchesDragMoveArguments()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        QListView *const secondary = zzActivityView(
+            &bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(&bar);
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+
+        QMenu *const root = zzOpenContextMenu(primary, 0);
+        QVERIFY(root != nullptr);
+        QMenu *const moveMenu = zzMoveSubmenu(root);
+        QVERIFY(moveMenu != nullptr);
+        QAction *menuAction = nullptr;
+        for (QAction *action : moveMenu->actions()) {
+            if (action->data().value<ZzFluentUI::ZzActivityArea>()
+                == ZzFluentUI::ZzActivityArea::LeftSecondary) {
+                menuAction = action;
+                break;
+            }
+        }
+        QVERIFY(menuAction != nullptr);
+        menuAction->trigger();
+        QCOMPARE(moveSpy.count(), 1);
+        const QList<QVariant> menuArguments = moveSpy.constFirst();
+        zzCloseContextMenu(root);
+        moveSpy.clear();
+
+        const QModelIndex projected = primary->model()->index(0, 0);
+        std::unique_ptr<QMimeData> mime(primary->model()->mimeData({projected}));
+        QVERIFY(mime != nullptr);
+        QDragEnterEvent enter(
+            secondary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(secondary, &enter);
+        QDropEvent drop(
+            QPointF(0, secondary->viewport()->height() - 1),
+            Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(secondary, &drop);
+
+        QCOMPARE(moveSpy.count(), 1);
+        QCOMPARE(moveSpy.constFirst(), menuArguments);
+    }
+
+    void contextMenuRejectsFixedDisabledAndInvalidRows()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].enabled = true;
+        model.rows[1].draggable = false;
+        model.rows[1].selectable = false;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        QListView *const secondary = zzActivityView(
+            &bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(&bar);
+
+        QVERIFY(zzOpenContextMenu(secondary, 0) == nullptr);
+        model.rows[0].enabled = false;
+        Q_EMIT model.dataChanged(
+            model.index(0, 0), model.index(0, 0), {Qt::DisplayRole});
+        QVERIFY(zzOpenContextMenu(primary, 0) == nullptr);
+        QVERIFY(zzOpenContextMenu(primary, -1) == nullptr);
+    }
+
+    void contextMenuDoesNotIncreaseSteadyObjectBudget()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        const qsizetype objectCount = bar.findChildren<QObject *>().size();
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+
+        for (int iteration = 0; iteration < 8; ++iteration) {
+            QPointer<QMenu> menu = zzOpenContextMenu(primary, 0);
+            QVERIFY(menu != nullptr);
+            zzCloseContextMenu(menu);
+            QTRY_VERIFY(menu.isNull());
+            QCOMPARE(bar.findChildren<QObject *>().size(), objectCount);
+            QCOMPARE(moveSpy.count(), 0);
+        }
+    }
+
+    void contextMenuCancelsMoveWhenSourceModelIsDestroyed()
+    {
+        auto model = std::make_unique<ZzActivityRowsModel>();
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(model.get());
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+
+        QPointer<QMenu> root = zzOpenContextMenu(primary, 0);
+        QVERIFY(root != nullptr);
+        QMenu *const moveMenu = zzMoveSubmenu(root);
+        QVERIFY(moveMenu != nullptr);
+        QAction *const targetAction = moveMenu->actions().constFirst();
+        QVERIFY(targetAction != nullptr);
+
+        model.reset();
+        targetAction->trigger();
+
+        QCOMPARE(moveSpy.count(), 0);
+        zzCloseContextMenu(root);
+        QTRY_VERIFY(root.isNull());
+    }
+
+    void contextMenuCancelsMoveWhenSourceAreaChanges()
+    {
+        ZzActivityRowsModel model;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        QListView *const primary = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        zzShow(&bar);
+        QSignalSpy moveSpy(&bar, &ZzFluentUI::ZzActivityBar::moveRequested);
+
+        QPointer<QMenu> root = zzOpenContextMenu(primary, 0);
+        QVERIFY(root != nullptr);
+        QMenu *const moveMenu = zzMoveSubmenu(root);
+        QVERIFY(moveMenu != nullptr);
+        QAction *targetAction = nullptr;
+        for (QAction *action : moveMenu->actions()) {
+            if (action->data().value<ZzFluentUI::ZzActivityArea>()
+                == ZzFluentUI::ZzActivityArea::LeftSecondary) {
+                targetAction = action;
+                break;
+            }
+        }
+        QVERIFY(targetAction != nullptr);
+
+        model.rows[0].area = ZzFluentUI::ZzActivityArea::RightPrimary;
+        Q_EMIT model.dataChanged(
+            model.index(0, 0), model.index(0, 0),
+            {static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area)});
+        targetAction->trigger();
+
+        QCOMPARE(moveSpy.count(), 0);
+        zzCloseContextMenu(root);
+        QTRY_VERIFY(root.isNull());
     }
 
     void activatesOtherRowsAndCollapsesTheCurrentRow()
@@ -688,14 +1253,14 @@ private Q_SLOTS:
         QTest::mouseClick(
             view->viewport(), Qt::LeftButton, Qt::NoModifier,
             view->visualRect(view->model()->index(0, 0)).center());
-        QCOMPARE(collapseSpy.count(), 1);
+        QTRY_COMPARE(collapseSpy.count(), 1);
         QCOMPARE(activationSpy.count(), 0);
 
         bar.setCurrentSourceIndex(model.index(2, 0));
         QTest::mouseClick(
             view->viewport(), Qt::LeftButton, Qt::NoModifier,
             view->visualRect(view->model()->index(0, 0)).center());
-        QCOMPARE(activationSpy.count(), 1);
+        QTRY_COMPARE(activationSpy.count(), 1);
         QCOMPARE(
             activationSpy.first().at(0).value<QModelIndex>(), model.index(0, 0));
     }
@@ -731,7 +1296,9 @@ private Q_SLOTS:
             model.index(1, 0), model.index(1, 0), {Qt::DisplayRole});
         QTest::keyClick(primary, Qt::Key_Down);
         QCOMPARE(bar.currentSourceIndex(), model.index(1, 0));
-        QTest::keyClick(primary, Qt::Key_Space);
+        QTest::keyClick(
+            zzActivityView(&bar, QStringLiteral("zzActivitySecondaryView")),
+            Qt::Key_Space);
         QCOMPARE(collapseSpy.count(), 1);
     }
 

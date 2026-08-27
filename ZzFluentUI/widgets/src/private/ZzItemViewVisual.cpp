@@ -48,10 +48,17 @@ constexpr int zzItemHoverAccentAlpha = 32;
 /** @brief 在逻辑 leading 侧预留固定强调条槽位。 */
 [[nodiscard]] QRect zzContentRect(
     const QStyleOptionViewItem &option,
-    bool reserveIndicator) noexcept
+    bool reserveIndicator,
+    ZzItemIndicatorPlacement placement) noexcept
 {
     if (!reserveIndicator || option.rect.isEmpty()) {
         return option.rect;
+    }
+    if (placement == ZzItemIndicatorPlacement::PhysicalLeft) {
+        return option.rect.adjusted(zzItemContentLeading, 0, 0, 0);
+    }
+    if (placement == ZzItemIndicatorPlacement::PhysicalRight) {
+        return option.rect.adjusted(0, 0, -zzItemContentLeading, 0);
     }
     QRect logical = option.rect;
     logical.setLeft(std::min(
@@ -99,17 +106,37 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
         option.rect.center().y() - indicatorHeight / 2,
         indicatorWidth,
         indicatorHeight);
+    QRect placedIndicatorRect;
+    switch (options.indicatorPlacement) {
+    case ZzItemIndicatorPlacement::LogicalLeading:
+        placedIndicatorRect = QStyle::visualRect(
+            option.direction,
+            option.rect,
+            logicalIndicator);
+        break;
+    case ZzItemIndicatorPlacement::PhysicalLeft:
+        placedIndicatorRect = logicalIndicator;
+        break;
+    case ZzItemIndicatorPlacement::PhysicalRight:
+        placedIndicatorRect = QRect(
+            option.rect.right() - zzItemIndicatorLeading
+                - indicatorWidth + 1,
+            logicalIndicator.top(),
+            indicatorWidth,
+            indicatorHeight);
+        break;
+    }
     ZzItemViewVisualLayout result{
         QRectF(option.rect).adjusted(
             zzItemSurfaceInset,
             zzItemSurfaceInset,
             -zzItemSurfaceInset,
             -zzItemSurfaceInset),
-        QStyle::visualRect(
-            option.direction,
-            option.rect,
-            logicalIndicator),
-        zzContentRect(option, options.ownsIndicator)};
+        placedIndicatorRect,
+        zzContentRect(
+            option,
+            options.ownsIndicator,
+            options.indicatorPlacement)};
 
     if (painter == nullptr || snapshot == nullptr) {
         return result;

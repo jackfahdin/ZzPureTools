@@ -108,14 +108,18 @@ Q_SIGNALS:
     /** @brief 活动源索引集合实际变化后发出。 */
     void activeSourceIndexesChanged(const QList<QModelIndex> &sourceIndexes);
 
-    /** @brief 用户激活非当前有效入口时发出，不执行业务路由。 */
+    /**
+     * @brief 用户激活非当前入口或不可选择固定入口时发出。
+     *
+     * enabled 且 non-selectable 的入口不会改变 current，也不会发出折叠意图。
+     */
     void activationRequested(const QModelIndex &sourceIndex);
 
     /** @brief 用户再次激活当前有效入口时发出，由 Shell 决定是否折叠面板。 */
     void collapseRequested(const QModelIndex &sourceIndex);
 
     /**
-     * @brief 接收到经进程内令牌验证的拖放后发出移动意图。
+     * @brief 接收到经验证的拖放或上下文菜单操作后发出移动意图。
      * @param sourceIndex 非拥有源模型索引。
      * @param targetArea 目标分组。
      * @param targetRow 目标分组中的插入行。
@@ -126,7 +130,7 @@ Q_SIGNALS:
         int targetRow);
 
 protected:
-    /** @brief 处理固定两个视图的键盘和进程内拖放事件。 */
+    /** @brief 处理固定两个视图的键盘、上下文菜单和进程内拖放事件。 */
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:

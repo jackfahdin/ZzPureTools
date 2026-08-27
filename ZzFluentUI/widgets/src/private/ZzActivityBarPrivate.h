@@ -4,6 +4,7 @@
 #include <QtCore/QList>
 #include <QtCore/QMetaObject>
 #include <QtCore/QPersistentModelIndex>
+#include <QtCore/QPoint>
 #include <QtCore/QPointer>
 
 #include <ZzFluentUI/ZzActivityArea.h>
@@ -64,8 +65,17 @@ public:
     /** @brief 处理点击或键盘激活，只发出公开意图。 */
     void activateSourceIndex(const QModelIndex &index);
 
+    /** @brief 将鼠标点击激活推迟到释放事件结束后，并复核模型状态。 */
+    void scheduleSourceActivation(const QModelIndex &index);
+
     /** @brief 在两个分组中以确定顺序处理键盘移动和激活。 */
     bool handleKey(QListView *view, int key);
+
+    /** @brief 按需显示只包含三个其他目标区域的移动菜单。 */
+    bool showMoveContextMenu(QListView *view, const QPoint &viewportPosition);
+
+    /** @brief 返回源模型中指定区域当前包含的行数。 */
+    [[nodiscard]] int rowCountForArea(ZzActivityArea area) const;
 
     /** @brief 创建一次性进程内拖放令牌并返回 MIME 数据。 */
     [[nodiscard]] QMimeData *createMimeData(const QModelIndex &sourceIndex);

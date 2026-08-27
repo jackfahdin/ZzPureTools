@@ -1,20 +1,23 @@
 #include "ZzActivityBarPrivate.h"
 
 #include <algorithm>
+#include <array>
+#include <utility>
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QCoreApplication>
 #include <QtCore/QItemSelectionModel>
 #include <QtCore/QMimeData>
 #include <QtCore/QSet>
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
-#include <QtCore/QtMath>
 #include <QtCore/QUuid>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QStyledItemDelegate>
@@ -24,8 +27,6 @@
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
-#include <ZzFluentUI/ZzMetricToken.h>
-#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzItemViewVisual.h"
 
@@ -53,6 +54,35 @@ constexpr int zzActivityBadgeHeight = 14;
     }
     return primary ? ZzActivityArea::RightPrimary
                    : ZzActivityArea::RightSecondary;
+}
+
+/** @brief 判断模型返回值是否属于四个受支持的固定区域。 */
+[[nodiscard]] bool zzIsKnownArea(ZzActivityArea area) noexcept
+{
+    switch (area) {
+    case ZzActivityArea::LeftPrimary:
+    case ZzActivityArea::LeftSecondary:
+    case ZzActivityArea::RightPrimary:
+    case ZzActivityArea::RightSecondary:
+        return true;
+    }
+    return false;
+}
+
+/** @brief 返回上下文菜单使用的可翻译区域名称。 */
+[[nodiscard]] QString zzAreaLabel(ZzActivityArea area)
+{
+    switch (area) {
+    case ZzActivityArea::LeftPrimary:
+        return QCoreApplication::translate("ZzActivityBar", "左上");
+    case ZzActivityArea::LeftSecondary:
+        return QCoreApplication::translate("ZzActivityBar", "左下");
+    case ZzActivityArea::RightPrimary:
+        return QCoreApplication::translate("ZzActivityBar", "右上");
+    case ZzActivityArea::RightSecondary:
+        return QCoreApplication::translate("ZzActivityBar", "右下");
+    }
+    return {};
 }
 
 [[nodiscard]] bool zzIsEnabled(const QModelIndex &index)
@@ -121,24 +151,21 @@ public:
         }
 
         painter->save();
+        ZzItemViewVisualOptions visualOptions;
+        if (owner_ != nullptr) {
+            visualOptions.forceIndicator =
+                owner_->isProjectionIndexActive(index);
+            visualOptions.indicatorPlacement =
+                owner_->edge == ZzSidePaneEdge::Left
+                ? ZzItemIndicatorPlacement::PhysicalLeft
+                : ZzItemIndicatorPlacement::PhysicalRight;
+        }
         [[maybe_unused]] const ZzItemViewVisualLayout visual =
             ZzItemViewVisual::draw(
                 *fluentStyle,
                 adjusted,
-                painter);
-        if (owner_ != nullptr && owner_->isProjectionIndexActive(index)) {
-            const auto snapshot = fluentStyle->themeSnapshot();
-            const int thickness = std::max(
-                1,
-                qCeil(snapshot->metric(
-                    ZzMetricToken::SelectionIndicatorThickness)));
-            const QRect logicalIndicator(
-                adjusted.rect.left(), adjusted.rect.top(), thickness,
-                adjusted.rect.height());
-            const QRect indicator = QStyle::visualRect(
-                adjusted.direction, adjusted.rect, logicalIndicator);
-            painter->fillRect(indicator, adjusted.palette.highlight());
-        }
+                painter,
+                visualOptions);
         const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
         const QPalette::ColorGroup colorGroup = enabled
             ? QPalette::Normal : QPalette::Disabled;
@@ -493,7 +520,7 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
             [this, view](const QModelIndex &index) {
                 const auto *projection = static_cast<ZzActivityProjectionModel *>(
                     view->model());
-                activateSourceIndex(projection->mapToSource(index));
+                scheduleSourceActivation(projection->mapToSource(index));
             });
     }
     auto *layout = new QVBoxLayout(q_ptr);
@@ -702,12 +729,70 @@ void ZzActivityBarPrivate::activateSourceIndex(const QModelIndex &index)
     if (!zzIsEnabled(index)) {
         return;
     }
+    if (!index.flags().testFlag(Qt::ItemIsSelectable)) {
+        Q_EMIT q_ptr->activationRequested(index);
+        return;
+    }
     if (currentSourceIndex == index) {
         Q_EMIT q_ptr->collapseRequested(index);
         return;
     }
+    QPointer<ZzActivityBar> barGuard(q_ptr);
+    QPointer<QAbstractItemModel> modelGuard(sourceModel);
+    const QPersistentModelIndex indexGuard(index);
     setCurrentSourceIndex(index);
-    Q_EMIT q_ptr->activationRequested(index);
+    if (barGuard.isNull() || modelGuard.isNull()) {
+        return;
+    }
+    if (sourceModel.data() != modelGuard.data()
+        || !indexGuard.isValid()
+        || indexGuard.model() != modelGuard.data()
+        || currentSourceIndex != indexGuard) {
+        return;
+    }
+    const QModelIndex emittedIndex = indexGuard;
+    Q_EMIT q_ptr->activationRequested(emittedIndex);
+}
+
+void ZzActivityBarPrivate::scheduleSourceActivation(const QModelIndex &index)
+{
+    if (!acceptsSourceIndex(index)) {
+        return;
+    }
+    const QVariant areaValue = index.data(
+        static_cast<int>(ZzActivityItemRole::Area));
+    if (!areaValue.isValid() || !areaValue.canConvert<ZzActivityArea>()) {
+        return;
+    }
+    const ZzActivityArea expectedArea = areaValue.value<ZzActivityArea>();
+    const Qt::ItemFlags expectedFlags = index.flags();
+    const QPersistentModelIndex expectedCurrent = currentSourceIndex;
+    QPointer<ZzActivityBar> barGuard(q_ptr);
+    QPointer<QAbstractItemModel> modelGuard(sourceModel);
+    const QPersistentModelIndex indexGuard(index);
+    QTimer::singleShot(
+        0,
+        q_ptr,
+        [this, barGuard, modelGuard, indexGuard, expectedArea, expectedFlags,
+         expectedCurrent] {
+            if (barGuard.isNull() || modelGuard.isNull()
+                || sourceModel.data() != modelGuard.data()
+                || !indexGuard.isValid()
+                || indexGuard.model() != modelGuard.data()) {
+                return;
+            }
+            const QVariant currentAreaValue = indexGuard.data(
+                static_cast<int>(ZzActivityItemRole::Area));
+            if (!acceptsSourceIndex(indexGuard)
+                || currentSourceIndex != expectedCurrent
+                || indexGuard.flags() != expectedFlags
+                || !currentAreaValue.isValid()
+                || !currentAreaValue.canConvert<ZzActivityArea>()
+                || currentAreaValue.value<ZzActivityArea>() != expectedArea) {
+                return;
+            }
+            activateSourceIndex(indexGuard);
+        });
 }
 
 bool ZzActivityBarPrivate::handleKey(QListView *view, int key)
@@ -716,40 +801,180 @@ bool ZzActivityBarPrivate::handleKey(QListView *view, int key)
         return false;
     }
     if (key == Qt::Key_Enter || key == Qt::Key_Return || key == Qt::Key_Space) {
-        activateSourceIndex(currentSourceIndex);
+        const auto *projection =
+            static_cast<ZzActivityProjectionModel *>(view->model());
+        const QModelIndex sourceIndex = projection->mapToSource(
+            view->currentIndex());
+        activateSourceIndex(sourceIndex);
         return true;
     }
     if (key != Qt::Key_Home && key != Qt::Key_End
         && key != Qt::Key_Up && key != Qt::Key_Down) {
         return false;
     }
-    QList<QModelIndex> indexes;
-    for (ZzActivityProjectionModel *projection :
-         {primaryProjection, secondaryProjection}) {
+    /** @brief 绑定键盘遍历中的视图、投影索引与稳定源索引。 */
+    struct ZzKeyboardEntry final
+    {
+        QListView *view = nullptr;
+        QModelIndex projectionIndex;
+        QModelIndex sourceIndex;
+    };
+    QList<ZzKeyboardEntry> entries;
+    for (const auto [candidateView, projection] :
+         {std::pair{primaryView, primaryProjection},
+          std::pair{secondaryView, secondaryProjection}}) {
         for (int row = 0; row < projection->rowCount(); ++row) {
-            const QModelIndex sourceIndex = projection->mapToSource(
-                projection->index(row, 0));
+            const QModelIndex projectionIndex = projection->index(row, 0);
+            const QModelIndex sourceIndex =
+                projection->mapToSource(projectionIndex);
             if (zzIsEnabled(sourceIndex)) {
-                indexes.append(sourceIndex);
+                entries.append(
+                    {candidateView, projectionIndex, sourceIndex});
             }
         }
     }
-    if (indexes.isEmpty()) {
+    if (entries.isEmpty()) {
         return true;
     }
-    int target = static_cast<int>(indexes.indexOf(currentSourceIndex));
+    const auto *currentProjection =
+        static_cast<ZzActivityProjectionModel *>(view->model());
+    const QModelIndex focusedSource = currentProjection->mapToSource(
+        view->currentIndex());
+    int target = -1;
+    for (qsizetype index = 0; index < entries.size(); ++index) {
+        if (entries.at(index).sourceIndex == focusedSource) {
+            target = static_cast<int>(index);
+            break;
+        }
+    }
+    if (target < 0) {
+        for (qsizetype index = 0; index < entries.size(); ++index) {
+            if (entries.at(index).sourceIndex == currentSourceIndex) {
+                target = static_cast<int>(index);
+                break;
+            }
+        }
+    }
     if (key == Qt::Key_Home) {
         target = 0;
     } else if (key == Qt::Key_End) {
-        target = static_cast<int>(indexes.size()) - 1;
+        target = static_cast<int>(entries.size()) - 1;
     } else if (key == Qt::Key_Up) {
         target = target > 0 ? target - 1 : 0;
     } else {
-        target = target >= 0 && target + 1 < static_cast<int>(indexes.size())
-            ? target + 1 : static_cast<int>(indexes.size()) - 1;
+        target = target >= 0 && target + 1 < static_cast<int>(entries.size())
+            ? target + 1 : static_cast<int>(entries.size()) - 1;
     }
-    setCurrentSourceIndex(indexes.at(target));
+    const ZzKeyboardEntry &entry = entries.at(target);
+    entry.view->setFocus(Qt::TabFocusReason);
+    if (entry.sourceIndex.flags().testFlag(Qt::ItemIsSelectable)) {
+        setCurrentSourceIndex(entry.sourceIndex);
+    } else if (entry.view->selectionModel() != nullptr) {
+        entry.view->selectionModel()->setCurrentIndex(
+            entry.projectionIndex,
+            QItemSelectionModel::NoUpdate);
+    }
     return true;
+}
+
+bool ZzActivityBarPrivate::showMoveContextMenu(
+    QListView *view,
+    const QPoint &viewportPosition)
+{
+    if (view != primaryView && view != secondaryView) {
+        return false;
+    }
+    const auto *projection =
+        static_cast<ZzActivityProjectionModel *>(view->model());
+    const QModelIndex sourceIndex = projection->mapToSource(
+        view->indexAt(viewportPosition));
+    if (!zzIsEnabled(sourceIndex)
+        || !sourceIndex.flags().testFlag(Qt::ItemIsDragEnabled)) {
+        return false;
+    }
+    const QVariant areaValue = sourceIndex.data(
+        static_cast<int>(ZzActivityItemRole::Area));
+    if (!areaValue.isValid()
+        || !areaValue.canConvert<ZzActivityArea>()) {
+        return false;
+    }
+    const ZzActivityArea currentArea = areaValue.value<ZzActivityArea>();
+    if (!zzIsKnownArea(currentArea)) {
+        return false;
+    }
+
+    auto *root = new QMenu(q_ptr);
+    root->setAttribute(Qt::WA_DeleteOnClose);
+    QMenu *const moveMenu = root->addMenu(
+        QCoreApplication::translate("ZzActivityBar", "移动到"));
+    const QPersistentModelIndex guardedSource(sourceIndex);
+    constexpr std::array areas = {
+        ZzActivityArea::LeftPrimary,
+        ZzActivityArea::LeftSecondary,
+        ZzActivityArea::RightPrimary,
+        ZzActivityArea::RightSecondary,
+    };
+    for (const ZzActivityArea targetArea : areas) {
+        if (targetArea == currentArea) {
+            continue;
+        }
+        QAction *const action = moveMenu->addAction(
+            zzAreaLabel(targetArea));
+        action->setData(QVariant::fromValue(targetArea));
+        QObject::connect(
+            action,
+            &QAction::triggered,
+            root,
+            [this, guardedSource, currentArea, targetArea] {
+                if (!guardedSource.isValid()
+                    || guardedSource.model() != sourceModel.data()
+                    || !zzIsEnabled(guardedSource)
+                    || !guardedSource.flags().testFlag(
+                        Qt::ItemIsDragEnabled)) {
+                    return;
+                }
+                const QVariant currentAreaValue = guardedSource.data(
+                    static_cast<int>(ZzActivityItemRole::Area));
+                if (!currentAreaValue.isValid()
+                    || !currentAreaValue.canConvert<ZzActivityArea>()
+                    || currentAreaValue.value<ZzActivityArea>()
+                        != currentArea) {
+                    return;
+                }
+                const QModelIndex emittedSource = guardedSource;
+                const int targetRow = rowCountForArea(targetArea);
+                Q_EMIT q_ptr->moveRequested(
+                    emittedSource,
+                    targetArea,
+                    targetRow);
+            });
+    }
+    QObject::connect(
+        root,
+        &QMenu::aboutToHide,
+        root,
+        &QObject::deleteLater);
+    root->popup(view->viewport()->mapToGlobal(viewportPosition));
+    return true;
+}
+
+int ZzActivityBarPrivate::rowCountForArea(ZzActivityArea area) const
+{
+    if (sourceModel.isNull() || !zzIsKnownArea(area)) {
+        return 0;
+    }
+    int count = 0;
+    for (int row = 0; row < sourceModel->rowCount(); ++row) {
+        const QModelIndex index = sourceModel->index(row, 0);
+        const QVariant areaValue = index.data(
+            static_cast<int>(ZzActivityItemRole::Area));
+        if (areaValue.isValid()
+            && areaValue.canConvert<ZzActivityArea>()
+            && areaValue.value<ZzActivityArea>() == area) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 QMimeData *ZzActivityBarPrivate::createMimeData(const QModelIndex &sourceIndex)

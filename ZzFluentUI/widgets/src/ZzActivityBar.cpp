@@ -4,6 +4,7 @@
 #include <QtCore/QThread>
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDropEvent>
+#include <QtGui/QContextMenuEvent>
 #include <QtGui/QKeyEvent>
 #include <QtWidgets/QListView>
 
@@ -122,6 +123,33 @@ bool ZzActivityBar::eventFilter(QObject *watched, QEvent *event)
     if (event->type() == QEvent::KeyPress) {
         const auto *keyEvent = static_cast<QKeyEvent *>(event);
         if (d_ptr->handleKey(view, keyEvent->key())) {
+            event->accept();
+            return true;
+        }
+    }
+    if (event->type() == QEvent::ContextMenu) {
+        const auto *contextEvent =
+            static_cast<QContextMenuEvent *>(event);
+        QPoint viewportPosition;
+        if (contextEvent->reason() == QContextMenuEvent::Keyboard) {
+            const QModelIndex focusedIndex = view->currentIndex();
+            if (!focusedIndex.isValid()
+                || focusedIndex.model() != view->model()) {
+                event->accept();
+                return true;
+            }
+            const QRect focusedRect = view->visualRect(focusedIndex);
+            if (focusedRect.isEmpty()) {
+                event->accept();
+                return true;
+            }
+            viewportPosition = focusedRect.center();
+        } else {
+            viewportPosition = watched == view->viewport()
+                ? contextEvent->pos()
+                : view->viewport()->mapFrom(view, contextEvent->pos());
+        }
+        if (d_ptr->showMoveContextMenu(view, viewportPosition)) {
             event->accept();
             return true;
         }

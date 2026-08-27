@@ -12,6 +12,17 @@ namespace ZzFluentUI {
 
 class ZzFluentStyle;
 
+/** @brief 指定 item 强调条使用逻辑方向或固定物理边。 */
+enum class ZzItemIndicatorPlacement : unsigned char
+{
+    /** @brief 使用布局方向的 leading 边。 */
+    LogicalLeading,
+    /** @brief 固定使用物理左边，不随 RTL 翻转。 */
+    PhysicalLeft,
+    /** @brief 固定使用物理右边，不随 RTL 翻转。 */
+    PhysicalRight
+};
+
 /** @brief 描述单个 item 选中视觉的绘制职责。 */
 struct ZzItemViewVisualOptions final
 {
@@ -23,6 +34,9 @@ struct ZzItemViewVisualOptions final
     bool forceIndicator = false;
     /** @brief 强调条沿长轴绘制的比例，自动收敛到 0 至 1。 */
     qreal indicatorScale = 1.0;
+    /** @brief 强调条的逻辑或固定物理边放置策略。 */
+    ZzItemIndicatorPlacement indicatorPlacement =
+        ZzItemIndicatorPlacement::LogicalLeading;
 };
 
 /** @brief 保存由同一几何契约计算的背板、强调条和内容区域。 */
