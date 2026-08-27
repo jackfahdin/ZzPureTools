@@ -22,13 +22,14 @@ struct ZzCommandDescriptor final
     int priority;
 };
 
-constexpr std::array<ZzCommandDescriptor, 6> zzCommands{{
+constexpr std::array<ZzCommandDescriptor, 7> zzCommands{{
     {"新建终端", "terminal new shell", ZzExampleCommandId::NewTerminal, 100},
     {"关闭当前终端", "terminal close", ZzExampleCommandId::CloseTerminal, 90},
     {"显示 SFTP", "files sftp", ZzExampleCommandId::ShowSftp, 80},
     {"显示日志", "log activity", ZzExampleCommandId::ShowActivityLog, 70},
     {"显示属性", "properties details", ZzExampleCommandId::ShowProperties, 60},
     {"显示任务", "tasks jobs", ZzExampleCommandId::ShowTasks, 50},
+    {"打开设置", "settings preferences", ZzExampleCommandId::ShowSettings, 40},
 }};
 
 [[nodiscard]] QString zzTranslate(const char *text)
@@ -111,7 +112,7 @@ ZzExampleCommandId ZzExampleSessionModel::commandId(
     bool valid = false;
     const int value = index.data(zzCommandIdRole).toInt(&valid);
     if (!valid || value < static_cast<int>(ZzExampleCommandId::NewTerminal)
-        || value > static_cast<int>(ZzExampleCommandId::ShowTasks)) {
+        || value > static_cast<int>(ZzExampleCommandId::ShowSettings)) {
         return ZzExampleCommandId::NewTerminal;
     }
     return static_cast<ZzExampleCommandId>(value);

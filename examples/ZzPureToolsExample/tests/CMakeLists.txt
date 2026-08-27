@@ -11,6 +11,21 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleRouteCatalog.h
     ../ZzExampleSessionModel.cpp
     ../ZzExampleSessionModel.h
+    ../ZzExampleSettingsWindow.cpp
+    ../ZzExampleSettingsWindow.h
+    ../ZzExampleSettingsWindowPrivate.cpp
+    ../ZzExampleSettingsWindowPrivate.h
+    ../ZzExampleSystemPage.cpp
+    ../ZzExampleSystemPage.h
+    ../ZzExampleSystemPagePrivate.cpp
+    ../ZzExampleSystemPagePrivate.h
+    ../ZzExampleSystemPageKind.h
+    ../ZzExampleSystemPresenter.cpp
+    ../ZzExampleSystemPresenter.h
+    ../ZzExampleSystemPresenterPrivate.cpp
+    ../ZzExampleSystemPresenterPrivate.h
+    ../ZzExampleSystemViewModel.cpp
+    ../ZzExampleSystemViewModel.h
     ../ZzExampleWindowShell.cpp
     ../ZzExampleWindowShell.h
     ../ZzExampleWindowShellPrivate.cpp

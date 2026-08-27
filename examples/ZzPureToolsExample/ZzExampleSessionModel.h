@@ -19,6 +19,7 @@ enum class ZzExampleCommandId : int
     ShowActivityLog,
     ShowProperties,
     ShowTasks,
+    ShowSettings,
 };
 
 /**
@@ -32,7 +33,7 @@ class ZzExampleSessionModel final : public QAbstractListModel
     Q_DISABLE_COPY_MOVE(ZzExampleSessionModel)
 
 public:
-    /** @brief 创建三条固定会话和六条工作区命令。 */
+    /** @brief 创建三条固定会话和七条工作区命令。 */
     explicit ZzExampleSessionModel(QObject *parent = nullptr);
 
     /** @brief 释放内部命令模型。 */

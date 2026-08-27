@@ -3,9 +3,12 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QFile>
+#include <QtCore/QPointer>
 #include <QtCore/QStandardPaths>
+#include <QtGui/QAction>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMainWindow>
@@ -37,6 +40,7 @@
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleSettingsWindow.h"
 #include "ZzExampleWindowShell.h"
 
 namespace {
@@ -98,6 +102,13 @@ class ZzExampleWorkspaceSmokeTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void cleanupTestCase()
+    {
+        auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        application->beginShutdown();
+    }
+
     void publicWorkspaceRestoresPaneSizes()
     {
         QMainWindow host;
@@ -140,7 +151,7 @@ private Q_SLOTS:
         QVERIFY(application != nullptr);
         auto contextResult = ZzExample::ZzExampleApplicationContext::create();
         QVERIFY(contextResult);
-        auto context = std::move(contextResult).value();
+        context_ = std::move(contextResult).value();
 
         ZzPureTools::ZzApplicationBuilder builder;
         QVERIFY(builder.addPage(zzHomePage()));
@@ -151,17 +162,18 @@ private Q_SLOTS:
             {}}));
         QVERIFY(builder.setInitialRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("home"))));
-        ZzPureTools::ZzApplicationWindow *assembledWindow = nullptr;
         QVERIFY(builder.setWindowSetupCallback(
-            [context, application, &assembledWindow](
-                ZzPureTools::ZzApplicationWindow &window) {
-                assembledWindow = &window;
+            [this, application](ZzPureTools::ZzApplicationWindow &window) {
+                initialWindow_ = initialWindow_ == nullptr
+                    ? &window : initialWindow_;
                 return ZzExample::ZzExampleWindowShell::attach(
-                    window, context, *application, false);
+                    window, context_, *application, false);
             }));
         QVERIFY(builder.build(*application));
+        baselineWindowCount_ = application->windowCount();
+        QCOMPARE(baselineWindowCount_, 1);
 
-        auto *window = assembledWindow;
+        auto *window = initialWindow_;
         QVERIFY(window != nullptr);
         QVERIFY(ZzExample::ZzExampleWindowShell::attachedTo(*window) != nullptr);
         auto *palette = window->findChild<ZzFluentUI::ZzCommandPalette *>();
@@ -214,27 +226,41 @@ private Q_SLOTS:
                     continue;
                 }
                 QVERIFY(view->model() != nullptr);
-                QCOMPARE(view->model()->rowCount(), 1);
-                const QModelIndex index = view->model()->index(0, 0);
-                QCOMPARE(index.data(static_cast<int>(
-                                     ZzFluentUI::ZzActivityItemRole::Area))
-                             .value<ZzFluentUI::ZzActivityArea>(),
-                    expectedArea);
-                QVERIFY2(
-                    zzHasRenderableActivityIcon(index.data(
-                        Qt::DecorationRole)),
-                    qPrintable(QStringLiteral(
-                        "Activity Bar row has no renderable icon: %1")
-                                   .arg(index.data().toString())));
-                QCOMPARE(
-                    index.data(Qt::DecorationRole)
-                        .value<ZzFluentUI::ZzIconDescriptor>()
-                        .source,
-                    ZzFluentUI::ZzIconSource::SvgResource);
-                ++activityRows;
+                const int expectedRows = expectedArea
+                        == ZzFluentUI::ZzActivityArea::LeftSecondary
+                    ? 2 : 1;
+                QCOMPARE(view->model()->rowCount(), expectedRows);
+                for (int row = 0; row < expectedRows; ++row) {
+                    const QModelIndex index = view->model()->index(row, 0);
+                    QCOMPARE(index.data(static_cast<int>(
+                                         ZzFluentUI::ZzActivityItemRole::Area))
+                                 .value<ZzFluentUI::ZzActivityArea>(),
+                        expectedArea);
+                    QVERIFY2(
+                        zzHasRenderableActivityIcon(index.data(
+                            Qt::DecorationRole)),
+                        qPrintable(QStringLiteral(
+                            "Activity Bar row has no renderable icon: %1")
+                                       .arg(index.data().toString())));
+                    const auto descriptor = index.data(Qt::DecorationRole)
+                                                .value<ZzFluentUI::ZzIconDescriptor>();
+                    if (index.data().toString() == QStringLiteral("设置")) {
+                        QCOMPARE(
+                            descriptor.source,
+                            ZzFluentUI::ZzIconSource::FontGlyph);
+                        QCOMPARE(
+                            descriptor.fontIcon,
+                            ZzFluentUI::ZzFontIcon::Gear);
+                    } else {
+                        QCOMPARE(
+                            descriptor.source,
+                            ZzFluentUI::ZzIconSource::SvgResource);
+                    }
+                    ++activityRows;
+                }
             }
         }
-        QCOMPARE(activityRows, 4);
+        QCOMPARE(activityRows, 5);
         QVERIFY(leftActivityBar != nullptr);
         QVERIFY(rightActivityBar != nullptr);
         QCOMPARE(window->findChild<QWidget *>(
@@ -259,14 +285,16 @@ private Q_SLOTS:
         QVERIFY(propertiesActivityView != nullptr);
         QVERIFY(tasksActivityView != nullptr);
         window->show();
+        window->activateWindow();
         QCoreApplication::processEvents();
+        QTRY_VERIFY(window->isActiveWindow());
         QTest::mouseClick(
             activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
             activityView->visualRect(
                 activityView->model()->index(0, 0)).center());
-        auto *sessionsPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleSessionPanel"));
-        QVERIFY(sessionsPanel != nullptr);
+        QWidget *sessionsPanel = nullptr;
+        QTRY_VERIFY((sessionsPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSessionPanel"))) != nullptr);
         QVERIFY(!leftPane->isCollapsed());
         QCOMPARE(leftPane->currentWidget(), sessionsPanel);
         QCOMPARE(window->findChildren<QWidget *>(
@@ -275,23 +303,23 @@ private Q_SLOTS:
             filesActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
             filesActivityView->visualRect(
                 filesActivityView->model()->index(0, 0)).center());
-        auto *filesPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleSftpPanel"));
-        QVERIFY(filesPanel != nullptr);
+        QWidget *filesPanel = nullptr;
+        QTRY_VERIFY((filesPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleSftpPanel"))) != nullptr);
         QCOMPARE(leftPane->currentWidget(), filesPanel);
         QVERIFY(!leftPane->isCollapsed());
         QCOMPARE(window->findChildren<QWidget *>(
                      QStringLiteral("zzExampleSftpPanel")).size(), 1);
         QCOMPARE(leftPane->visibleWidgets(),
-            QList<QWidget *>({sessionsPanel, filesPanel}));
+            QList<QWidget *>({filesPanel}));
 
         QTest::mouseClick(
             propertiesActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
             propertiesActivityView->visualRect(
                 propertiesActivityView->model()->index(0, 0)).center());
-        auto *propertiesPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExamplePropertiesPanel"));
-        QVERIFY(propertiesPanel != nullptr);
+        QWidget *propertiesPanel = nullptr;
+        QTRY_VERIFY((propertiesPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExamplePropertiesPanel"))) != nullptr);
         QVERIFY(!rightPane->isCollapsed());
         QCOMPARE(rightPane->currentWidget(), propertiesPanel);
         QCOMPARE(window->findChildren<QWidget *>(
@@ -301,14 +329,14 @@ private Q_SLOTS:
             tasksActivityView->viewport(), Qt::LeftButton, Qt::NoModifier,
             tasksActivityView->visualRect(
                 tasksActivityView->model()->index(0, 0)).center());
-        auto *tasksPanel = window->findChild<QWidget *>(
-            QStringLiteral("zzExampleTasksPanel"));
-        QVERIFY(tasksPanel != nullptr);
+        QWidget *tasksPanel = nullptr;
+        QTRY_VERIFY((tasksPanel = window->findChild<QWidget *>(
+            QStringLiteral("zzExampleTasksPanel"))) != nullptr);
         QCOMPARE(rightPane->currentWidget(), tasksPanel);
         QCOMPARE(window->findChildren<QWidget *>(
                      QStringLiteral("zzExampleTasksPanel")).size(), 1);
         QCOMPARE(rightPane->visibleWidgets(),
-            QList<QWidget *>({propertiesPanel, tasksPanel}));
+            QList<QWidget *>({tasksPanel}));
 
         const auto rootGroup = splitWorkspace->groupIds().constFirst();
         auto *rootTabs = splitWorkspace->tabWidget(rootGroup);
@@ -364,6 +392,243 @@ private Q_SLOTS:
         }
         QCOMPARE(splitWorkspace->groupIds().size(), 5);
     }
+
+    void settingsActionCreatesOneWindowModalChildPerMainWindow()
+    {
+        auto *window = createAdditionalWindow();
+        QAction *const action = settingsAction(window);
+        QVERIFY(action != nullptr);
+
+        action->trigger();
+        QCoreApplication::processEvents();
+
+        QMainWindow *const settings = settingsWindow(window);
+        QVERIFY(settings != nullptr);
+        QCOMPARE(settings->parentWidget(), window);
+        QCOMPARE(settings->windowModality(), Qt::WindowModal);
+        QVERIFY(settings->windowFlags().testFlag(Qt::Window));
+        QVERIFY(!settings->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+        QVERIFY(settings->testAttribute(Qt::WA_DeleteOnClose));
+        QVERIFY(settings->isVisible());
+
+        closeSettings(settings);
+        closeApplicationWindow(window);
+    }
+
+    void repeatedSettingsActivationRaisesExistingWindow()
+    {
+        auto *window = createAdditionalWindow();
+        QAction *const action = settingsAction(window);
+        QVERIFY(action != nullptr);
+        action->trigger();
+        QCoreApplication::processEvents();
+        QMainWindow *const first = settingsWindow(window);
+        QVERIFY(first != nullptr);
+
+        window->raise();
+        window->activateWindow();
+        action->trigger();
+
+        QCOMPARE(settingsWindow(window), first);
+        QCOMPARE(window->findChildren<QMainWindow *>(
+                     QStringLiteral("zzExampleSettingsWindow"),
+                     Qt::FindDirectChildrenOnly).size(), 1);
+        QVERIFY(first->isVisible());
+        QTRY_VERIFY(first->isActiveWindow());
+
+        closeSettings(first);
+        closeApplicationWindow(window);
+    }
+
+    void closingSettingsAllowsRecreation()
+    {
+        auto *window = createAdditionalWindow();
+        QAction *const action = settingsAction(window);
+        QVERIFY(action != nullptr);
+        action->trigger();
+        QCoreApplication::processEvents();
+        QPointer<QMainWindow> first(settingsWindow(window));
+        QVERIFY(!first.isNull());
+
+        first->close();
+        QTRY_VERIFY(first.isNull());
+        QCOMPARE(settingsWindow(window), nullptr);
+
+        action->trigger();
+        QCoreApplication::processEvents();
+        QMainWindow *const recreated = settingsWindow(window);
+        QVERIFY(recreated != nullptr);
+        QVERIFY(recreated->isVisible());
+
+        closeSettings(recreated);
+        closeApplicationWindow(window);
+    }
+
+    void settingsWindowsAreIsolatedAcrossTwoMainWindows()
+    {
+        auto *firstWindow = createAdditionalWindow();
+        auto *secondWindow = createAdditionalWindow();
+        QAction *const firstAction = settingsAction(firstWindow);
+        QAction *const secondAction = settingsAction(secondWindow);
+        QVERIFY(firstAction != nullptr);
+        QVERIFY(secondAction != nullptr);
+        QVERIFY(firstAction != secondAction);
+        auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        auto *secondShell =
+            ZzExample::ZzExampleWindowShell::attachedTo(*secondWindow);
+        QVERIFY(secondShell != nullptr);
+        auto mismatched = ZzExample::ZzExampleSettingsWindow::create(
+            firstWindow, context_, application, secondShell);
+        QVERIFY(!mismatched);
+
+        firstAction->trigger();
+        secondAction->trigger();
+        QCoreApplication::processEvents();
+        QMainWindow *const firstSettings = settingsWindow(firstWindow);
+        QMainWindow *const secondSettings = settingsWindow(secondWindow);
+        QVERIFY(firstSettings != nullptr);
+        QVERIFY(secondSettings != nullptr);
+        QVERIFY(firstSettings != secondSettings);
+        QCOMPARE(firstSettings->parentWidget(), firstWindow);
+        QCOMPARE(secondSettings->parentWidget(), secondWindow);
+
+        closeSettings(firstSettings);
+        closeSettings(secondSettings);
+        closeApplicationWindow(secondWindow, baselineWindowCount_ + 1);
+        closeApplicationWindow(firstWindow);
+    }
+
+    void commandPaletteAndActivityUseTheSameSettingsAction()
+    {
+        auto *window = createAdditionalWindow();
+        QAction *const action = settingsAction(window);
+        QVERIFY(action != nullptr);
+        QSignalSpy triggered(action, &QAction::triggered);
+
+        auto *leftBar = window->findChild<ZzFluentUI::ZzActivityBar *>();
+        for (auto *bar : window->findChildren<ZzFluentUI::ZzActivityBar *>()) {
+            if (bar->edge() == ZzFluentUI::ZzSidePaneEdge::Left) {
+                leftBar = bar;
+                break;
+            }
+        }
+        QVERIFY(leftBar != nullptr);
+        auto *activityView = zzSecondaryActivityView(leftBar);
+        QVERIFY(activityView != nullptr);
+        window->show();
+        window->raise();
+        window->activateWindow();
+        QCoreApplication::processEvents();
+        QTRY_VERIFY(window->isActiveWindow());
+        QModelIndex settingsIndex;
+        for (int row = 0; row < activityView->model()->rowCount(); ++row) {
+            const QModelIndex candidate = activityView->model()->index(row, 0);
+            if (candidate.data().toString() == QStringLiteral("设置")) {
+                settingsIndex = candidate;
+                break;
+            }
+        }
+        QVERIFY(settingsIndex.isValid());
+        QTest::mouseClick(
+            activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
+            activityView->visualRect(settingsIndex).center());
+        QTRY_COMPARE(triggered.count(), 1);
+
+        auto *palette = window->findChild<ZzFluentUI::ZzCommandPalette *>();
+        QVERIFY(palette != nullptr);
+        QCOMPARE(palette->model()->rowCount(), 7);
+        palette->setQuery(QStringLiteral("打开设置"));
+        palette->open();
+        QCOMPARE(palette->resultCount(), 1);
+        QVERIFY(palette->activateCurrent());
+        QCOMPARE(triggered.count(), 2);
+
+        closeSettings(settingsWindow(window));
+        closeApplicationWindow(window);
+    }
+
+    void closingMainWindowClosesOnlyItsSettingsWindow()
+    {
+        auto *firstWindow = createAdditionalWindow();
+        auto *secondWindow = createAdditionalWindow();
+        QAction *const firstAction = settingsAction(firstWindow);
+        QAction *const secondAction = settingsAction(secondWindow);
+        QVERIFY(firstAction != nullptr);
+        QVERIFY(secondAction != nullptr);
+        firstAction->trigger();
+        secondAction->trigger();
+        QCoreApplication::processEvents();
+        QPointer<ZzPureTools::ZzApplicationWindow> firstWindowGuard(firstWindow);
+        QPointer<QMainWindow> firstSettings(settingsWindow(firstWindow));
+        QPointer<QMainWindow> secondSettings(settingsWindow(secondWindow));
+        QVERIFY(!firstSettings.isNull());
+        QVERIFY(!secondSettings.isNull());
+
+        firstWindow->close();
+        QTRY_VERIFY(firstWindowGuard.isNull());
+        QTRY_VERIFY(firstSettings.isNull());
+        QVERIFY(!secondSettings.isNull());
+        QVERIFY(secondSettings->isVisible());
+
+        closeSettings(secondSettings.data());
+        closeApplicationWindow(secondWindow);
+    }
+
+private:
+    [[nodiscard]] ZzPureTools::ZzApplicationWindow *createAdditionalWindow()
+    {
+        auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        if (application == nullptr) {
+            return nullptr;
+        }
+        auto result = application->createWindow();
+        return result ? std::move(result).value() : nullptr;
+    }
+
+    [[nodiscard]] static QAction *settingsAction(
+        ZzPureTools::ZzApplicationWindow *window)
+    {
+        return window == nullptr
+            ? nullptr
+            : window->findChild<QAction *>(
+                  QStringLiteral("zzExampleSettingsAction"));
+    }
+
+    [[nodiscard]] static QMainWindow *settingsWindow(
+        ZzPureTools::ZzApplicationWindow *window)
+    {
+        return window == nullptr
+            ? nullptr
+            : window->findChild<QMainWindow *>(
+                  QStringLiteral("zzExampleSettingsWindow"),
+                  Qt::FindDirectChildrenOnly);
+    }
+
+    static void closeSettings(QMainWindow *settings)
+    {
+        QVERIFY(settings != nullptr);
+        QPointer<QMainWindow> guard(settings);
+        settings->close();
+        QTRY_VERIFY(guard.isNull());
+    }
+
+    void closeApplicationWindow(
+        ZzPureTools::ZzApplicationWindow *window,
+        qsizetype expectedWindowCount = -1)
+    {
+        QVERIFY(window != nullptr);
+        auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        window->close();
+        const qsizetype expected = expectedWindowCount < 0
+            ? baselineWindowCount_ : expectedWindowCount;
+        QTRY_COMPARE(application->windowCount(), expected);
+    }
+
+    std::shared_ptr<ZzExample::ZzExampleApplicationContext> context_;
+    ZzPureTools::ZzApplicationWindow *initialWindow_ = nullptr;
+    qsizetype baselineWindowCount_ = 0;
 };
 
 int main(int argc, char *argv[])

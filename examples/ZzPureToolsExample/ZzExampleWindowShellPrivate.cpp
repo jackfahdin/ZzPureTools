@@ -31,6 +31,7 @@
 #include <ZzPureTools/ZzNavigationController.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -39,6 +40,7 @@
 #include "ZzExampleActivityModel.h"
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleRouteCatalog.h"
+#include "ZzExampleSettingsWindow.h"
 #include "ZzExampleSessionModel.h"
 #include "ZzExampleWindowShell.h"
 #include "ZzExampleWorkspaceContent.h"
@@ -130,6 +132,10 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     forwardAction = new QAction(q_ptr);
     forwardAction->setObjectName(QStringLiteral("zzExampleForwardAction"));
     forwardAction->setShortcut(QKeySequence::Forward);
+    settingsAction = new QAction(q_ptr);
+    settingsAction->setObjectName(QStringLiteral("zzExampleSettingsAction"));
+    settingsAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExample", "设置"));
     auto *themeAction = new QAction(q_ptr);
     themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
     auto *newWindowAction = new QAction(q_ptr);
@@ -145,7 +151,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     newTerminalAction->setShortcut(QKeySequence::AddTab);
     auto *closeTerminalAction = new QAction(q_ptr);
     closeTerminalAction->setShortcut(QKeySequence::Close);
-    window->addActions({backAction, forwardAction, themeAction,
+    window->addActions({backAction, forwardAction, settingsAction, themeAction,
         newWindowAction, openPaletteAction, newTerminalAction,
         closeTerminalAction});
     searchEdit = workspace->commandPalette()->searchEdit();
@@ -180,6 +186,17 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         });
     if (!files) {
         return files;
+    }
+
+    auto settings = workspace->registerFixedActivityAction(
+        ZzPureTools::ZzWorkspaceActivityId(QStringLiteral("settings")),
+        QCoreApplication::translate("ZzPureToolsExample", "设置"),
+        ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+            ZzFluentUI::ZzFontIcon::Gear),
+        ZzFluentUI::ZzActivityArea::LeftSecondary,
+        settingsAction);
+    if (!settings) {
+        return settings;
     }
 
     auto properties = workspace->registerSidePanelFactory(
@@ -316,6 +333,30 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         q_ptr, [this] { navigateFromSearch(); });
     QObject::connect(themeAction, &QAction::triggered,
         q_ptr, [this] { cycleTheme(); });
+    QObject::connect(settingsAction, &QAction::triggered,
+        q_ptr, [this] {
+            if (settingsWindow.isNull()) {
+                auto settingsCreated = ZzExampleSettingsWindow::create(
+                    window, context, application, q_ptr);
+                if (!settingsCreated) {
+                    reportFailure(settingsCreated.error());
+                    return;
+                }
+                ZzExampleSettingsWindow *const identity =
+                    settingsCreated.value();
+                settingsWindow = identity;
+                QObject::connect(
+                    identity, &QObject::destroyed, q_ptr,
+                    [this, identity] {
+                        if (settingsWindow.data() == identity) {
+                            settingsWindow.clear();
+                        }
+                    });
+            }
+            settingsWindow->show();
+            settingsWindow->raise();
+            settingsWindow->activateWindow();
+        });
     QObject::connect(newWindowAction, &QAction::triggered,
         q_ptr, [this] {
             auto result = application->createWindow();
@@ -433,6 +474,9 @@ void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(
         if (auto result = workspace->showPanel(zzPanelId("tasks")); !result) {
             reportFailure(result.error());
         }
+        break;
+    case ZzExampleCommandId::ShowSettings:
+        settingsAction->trigger();
         break;
     }
 }

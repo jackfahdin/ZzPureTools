@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <QtCore/QPointer>
+
 #include <ZzCore/ZzResult.h>
 
 class QAction;
@@ -27,6 +29,7 @@ namespace ZzExample {
 class ZzExampleApplicationContext;
 enum class ZzExampleCommandId : int;
 class ZzExampleSessionModel;
+class ZzExampleSettingsWindow;
 class ZzExampleWindowShell;
 
 /** @brief 使用公开工作区组件实现单窗口展示与 QAction 意图转发。 */
@@ -89,6 +92,8 @@ public:
     std::unique_ptr<ZzExampleSessionModel> sessions;
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
+    QAction *settingsAction = nullptr;
+    QPointer<ZzExampleSettingsWindow> settingsWindow;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;

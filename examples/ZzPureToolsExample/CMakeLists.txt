@@ -18,6 +18,8 @@ set(zz_pure_tools_example_sources
     ZzExamplePageFactory.cpp
     ZzExampleRouteCatalog.cpp
     ZzExampleSessionModel.cpp
+    ZzExampleSettingsWindow.cpp
+    ZzExampleSettingsWindowPrivate.cpp
     ZzExampleShowcasePage.cpp
     ZzExampleShowcasePagePrivate.cpp
     ZzExampleSmokeController.cpp
