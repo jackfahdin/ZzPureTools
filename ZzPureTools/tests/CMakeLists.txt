@@ -199,6 +199,26 @@ foreach(scenario IN LISTS builder_scenarios)
     )
 endforeach()
 
+add_executable(ZzWorkspaceNavigationIntegrationTest
+    ZzWorkspaceNavigationIntegrationTest.cpp)
+target_link_libraries(ZzWorkspaceNavigationIntegrationTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::PureTools
+    Zz::WindowKit
+    Zz::FluentUI
+)
+set_target_properties(ZzWorkspaceNavigationIntegrationTest PROPERTIES
+    AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceNavigationIntegrationTest)
+zz_enable_sanitizers(ZzWorkspaceNavigationIntegrationTest)
+add_test(NAME puretools.workspace-navigation-integration
+    COMMAND ZzWorkspaceNavigationIntegrationTest)
+set_tests_properties(puretools.workspace-navigation-integration PROPERTIES
+    LABELS "component;puretools;workspace"
+    ENVIRONMENT "${zz_puretools_window_environment}"
+)
+
 add_executable(ZzMultiWindowIsolationTest ZzMultiWindowIsolationTest.cpp)
 target_link_libraries(ZzMultiWindowIsolationTest PRIVATE
     Qt6::Test

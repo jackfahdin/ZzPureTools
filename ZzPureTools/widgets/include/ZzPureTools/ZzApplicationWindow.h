@@ -30,6 +30,7 @@ namespace ZzPureTools {
 
 class ZzApplicationBuilderPrivate;
 class ZzApplicationWindowPrivate;
+class ZzWorkspaceNavigationIntegrationTransactionPrivate;
 class ZzNavigationController;
 class ZzNavigationModel;
 class ZzPageHost;
@@ -85,6 +86,7 @@ private:
 
     friend class ZzApplicationBuilderPrivate;
     friend class ZzPureApplicationPrivate;
+    friend class ZzWorkspaceNavigationIntegrationTransactionPrivate;
 
     /** @brief 创建尚未装配、禁止自动删除的顶层窗口。 */
     ZzApplicationWindow();

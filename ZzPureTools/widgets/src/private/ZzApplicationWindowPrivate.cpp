@@ -97,7 +97,8 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     theme = themeController;
     titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
     q_ptr->setMenuWidget(titleBar);
-    auto *body = new QWidget(q_ptr);
+    body = new QWidget(q_ptr);
+    bodyIdentity = body;
     auto *bodyLayout = new QHBoxLayout(body);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     bodyLayout->setSpacing(0);

@@ -60,6 +60,8 @@ public:
     std::unique_ptr<ZzNavigationModel> model;
     std::unique_ptr<ZzNavigationController> controller;
     ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr;
+    QPointer<QWidget> body;
+    QWidget *bodyIdentity = nullptr;
     ZzFluentUI::ZzNavigationPane *navigationPane = nullptr;
     ZzPageHost *host = nullptr;
     QPointer<ZzFluentUI::ZzThemeController> theme;

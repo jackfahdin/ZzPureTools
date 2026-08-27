@@ -38,6 +38,7 @@ namespace ZzPureTools {
 
 class ZzWorkspaceShell;
 class ZzWorkspaceLayoutTransactionPrivate;
+class ZzWorkspaceNavigationIntegrationTransactionPrivate;
 
 /** @brief 管理工作区稳定对象、面板注册表和布局恢复事务。 */
 class ZzWorkspaceShellPrivate final
@@ -48,7 +49,8 @@ public:
         None,
         LayoutRestore,
         ActivityMove,
-        SideActivation
+        SideActivation,
+        NavigationIntegration
     };
 
     enum class ZzPanelKind : std::uint8_t
@@ -142,7 +144,8 @@ public:
         const QString &title,
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
-        QWidget *content);
+        QWidget *content,
+        bool withinNavigationIntegration = false);
     [[nodiscard]] ZzCore::ZzResult<void> registerSidePanelFactory(
         const ZzWorkspacePanelId &id,
         const QString &title,
@@ -179,7 +182,14 @@ public:
         const ZzFluentUI::ZzIconDescriptor &icon,
         QWidget *content);
     [[nodiscard]] ZzCore::ZzResult<QWidget *> takePanel(
-        const ZzWorkspacePanelId &id);
+        const ZzWorkspacePanelId &id,
+        bool withinNavigationIntegration = false);
+    [[nodiscard]] ZzCore::ZzResult<void> integrateApplicationNavigation(
+        const ZzWorkspacePanelId &panelId,
+        const QString &panelTitle,
+        ZzFluentUI::ZzIconDescriptor icon,
+        ZzFluentUI::ZzActivityArea area,
+        const QString &centralTabTitle);
     [[nodiscard]] ZzCore::ZzResult<void> showPanel(
         const ZzWorkspacePanelId &id,
         bool visible);
@@ -325,12 +335,16 @@ public:
     int sideEdgeVisibilitySyncDepth = 0;
     bool leftPaneExpanded = false;
     bool rightPaneExpanded = false;
+    bool applicationNavigationIntegrated = false;
     ZzTransactionKind transactionKind = ZzTransactionKind::None;
     QMetaObject::Connection activeTabChangedConnection;
     QMetaObject::Connection activeTabPresentationConnection;
     QMetaObject::Connection currentTabTitleConnection;
+    QMetaObject::Connection navigationTabPinnedConnection;
+    QMetaObject::Connection navigationTabCloseConnection;
 
     friend class ZzWorkspaceLayoutTransactionPrivate;
+    friend class ZzWorkspaceNavigationIntegrationTransactionPrivate;
 };
 
 } // namespace ZzPureTools

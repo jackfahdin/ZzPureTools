@@ -32,6 +32,7 @@
 
 #include "ZzWorkspaceActivityMoveTransactionPrivate.h"
 #include "ZzWorkspaceLayoutTransactionPrivate.h"
+#include "ZzWorkspaceNavigationIntegrationTransactionPrivate.h"
 
 namespace ZzPureTools {
 
@@ -752,6 +753,8 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
     QObject::disconnect(activeTabChangedConnection);
     QObject::disconnect(activeTabPresentationConnection);
     QObject::disconnect(currentTabTitleConnection);
+    QObject::disconnect(navigationTabPinnedConnection);
+    QObject::disconnect(navigationTabCloseConnection);
     for (ZzPanelRecord &record : panels) {
         QObject::disconnect(record.contentDestroyedConnection);
     }
@@ -802,9 +805,12 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     const QString &title,
     ZzFluentUI::ZzIconDescriptor icon,
     ZzFluentUI::ZzActivityArea area,
-    QWidget *content)
+    QWidget *content,
+    bool withinNavigationIntegration)
 {
-    if (transactionKind != ZzTransactionKind::None) {
+    if (transactionKind != ZzTransactionKind::None
+        && !(withinNavigationIntegration
+            && transactionKind == ZzTransactionKind::NavigationIntegration)) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace panel transaction is in progress"),
@@ -861,8 +867,15 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
     record.registrationInProgress = true;
     panels.append(std::move(record));
     const ZzPanelRecord expectedRecord = panels.constLast();
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
     auto adopted = adoptSidePanelContent(
         id, expectedRecord.registrationGeneration, content, true);
+    if (shellGuard == nullptr) {
+        return adopted ? zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace was destroyed during panel registration"),
+            id.value()) : adopted;
+    }
     if (!adopted) {
         const int panelIndex = stablePanelIndex(expectedRecord);
         if (panelIndex >= 0) {
@@ -1236,6 +1249,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
     }
 
     const QPointer<QMainWindow> hostGuard(host);
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
     const QPointer<QWidget> rootGuard(workspaceRoot);
     const QPointer<QAbstractListModel> modelGuard(activityModel);
     const QPointer<ZzFluentUI::ZzActivityBar> leftBarGuard(leftActivityBar);
@@ -1310,6 +1324,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
     const auto audit = [&](const QList<QPointer<QWidget>> &expectedOrder,
                            const QVector<ZzSideLayoutEntry> &expectedRows,
                            bool registrationInProgress) {
+        if (shellGuard == nullptr) {
+            return false;
+        }
         const int currentIndex = stablePanelIndex(expected);
         if (hostGuard == nullptr || hostGuard != host
             || rootGuard == nullptr || rootGuard != workspaceRoot
@@ -1349,6 +1366,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
             && sameRows(activityRows(), expectedRows);
     };
     const auto rollback = [&] {
+        if (shellGuard == nullptr) {
+            return;
+        }
         if (paneGuard != nullptr && stackGuard != nullptr
             && contentGuard != nullptr
             && stackGuard->panels().contains(contentGuard)) {
@@ -1403,6 +1423,11 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
         syncSideEdgeVisibility();
     };
     const auto reject = [&](const QString &message) {
+        if (shellGuard == nullptr) {
+            return zzWorkspaceFailure<void>(
+                ZzCore::ZzErrorCode::InvalidState,
+                message, id.value());
+        }
         rollback();
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -1851,9 +1876,12 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
 }
 
 ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
-    const ZzWorkspacePanelId &id)
+    const ZzWorkspacePanelId &id,
+    bool withinNavigationIntegration)
 {
-    if (transactionKind != ZzTransactionKind::None) {
+    if (transactionKind != ZzTransactionKind::None
+        && !(withinNavigationIntegration
+            && transactionKind == ZzTransactionKind::NavigationIntegration)) {
         return zzWorkspaceFailure<QWidget *>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace panel transaction is in progress"),
@@ -1872,6 +1900,8 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
             QStringLiteral("Workspace panel transaction is in progress"),
             id.value());
     }
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
     QPointer<QWidget> contentGuard(record.content);
     QWidget *content = nullptr;
     switch (record.kind) {
@@ -1955,6 +1985,12 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
         panels[panelIndex].removalInProgress = true;
         QObject::disconnect(panels[panelIndex].contentDestroyedConnection);
         content = pane->takeWidget(contentGuard);
+        if (shellGuard == nullptr) {
+            return zzWorkspaceFailure<QWidget *>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Workspace was destroyed during panel removal"),
+                id.value());
+        }
         if (content == nullptr || contentGuard == nullptr) {
             const int currentIndex = indexOf(id);
             if (currentIndex >= 0
@@ -1975,8 +2011,23 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
                 id.value());
         }
         if (content != contentGuard || contentGuard->parent() != nullptr
-            || activityModel == nullptr
-            || !zzActivityModel(activityModel)->remove(id)) {
+            || modelGuard == nullptr || modelGuard != activityModel) {
+            cleanupInterruptedPanelRemoval(
+                id, record.contentIdentity, record.registrationGeneration);
+            return zzWorkspaceFailure<QWidget *>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Side panel removal was interrupted"),
+                id.value());
+        }
+        const bool activityRemoved = zzActivityModel(modelGuard)->remove(id);
+        if (shellGuard == nullptr) {
+            return zzWorkspaceFailure<QWidget *>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Workspace was destroyed during panel removal"),
+                id.value());
+        }
+        if (!activityRemoved || modelGuard == nullptr
+            || modelGuard != activityModel) {
             cleanupInterruptedPanelRemoval(
                 id, record.contentIdentity, record.registrationGeneration);
             return zzWorkspaceFailure<QWidget *>(
@@ -2094,6 +2145,23 @@ ZzCore::ZzResult<QWidget *> ZzWorkspaceShellPrivate::takePanel(
             id.value());
     }
     return ZzCore::ZzResult<QWidget *>::success(content);
+}
+
+ZzCore::ZzResult<void>
+ZzWorkspaceShellPrivate::integrateApplicationNavigation(
+    const ZzWorkspacePanelId &panelId,
+    const QString &panelTitle,
+    ZzFluentUI::ZzIconDescriptor icon,
+    ZzFluentUI::ZzActivityArea area,
+    const QString &centralTabTitle)
+{
+    return ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
+        *this,
+        panelId,
+        panelTitle,
+        std::move(icon),
+        area,
+        centralTabTitle);
 }
 
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(

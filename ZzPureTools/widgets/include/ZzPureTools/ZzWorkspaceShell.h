@@ -114,6 +114,22 @@ public:
         ZzWorkspacePanelFactory factory);
 
     /**
+     * @brief 事务迁入当前 ApplicationWindow 的导航面板与页面宿主。
+     * @param panelId 导航 Side Panel 的稳定标识。
+     * @param panelTitle 导航 Side Panel 的展示标题。
+     * @param icon 导航 Activity 的图标描述。
+     * @param area 导航 Activity 所属的侧栏区域。
+     * @param centralTabTitle 页面宿主固定中央标签的标题。
+     * @return 全部表面迁移并保持导航身份时成功；失败时回滚原状态。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> integrateApplicationNavigation(
+        const ZzWorkspacePanelId &panelId,
+        const QString &panelTitle,
+        ZzFluentUI::ZzIconDescriptor icon,
+        ZzFluentUI::ZzActivityArea area,
+        const QString &centralTabTitle);
+
+    /**
      * @brief 注册由调用方拥有、固定在 Activity Bar 中的动作入口。
      * @param id 固定 Activity 的稳定标识。
      * @param title Activity Bar 展示标题。
