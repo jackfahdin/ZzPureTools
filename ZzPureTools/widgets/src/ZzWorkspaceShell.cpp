@@ -325,7 +325,9 @@ QString ZzWorkspaceShell::applicationTitle() const
 void ZzWorkspaceShell::setApplicationTitle(QString title)
 {
     Q_ASSERT(zzIsShellThread(this));
-    if (!zzIsShellThread(this)) {
+    if (!zzIsShellThread(this)
+        || d_ptr->transactionKind
+            == ZzWorkspaceShellPrivate::ZzTransactionKind::NavigationIntegration) {
         return;
     }
     d_ptr->applicationTitle = std::move(title);
@@ -344,7 +346,9 @@ QString ZzWorkspaceShell::customTitle() const
 void ZzWorkspaceShell::setCustomTitle(QString title)
 {
     Q_ASSERT(zzIsShellThread(this));
-    if (!zzIsShellThread(this)) {
+    if (!zzIsShellThread(this)
+        || d_ptr->transactionKind
+            == ZzWorkspaceShellPrivate::ZzTransactionKind::NavigationIntegration) {
         return;
     }
     d_ptr->customTitle = std::move(title);
@@ -363,7 +367,9 @@ ZzWorkspaceTitleMode ZzWorkspaceShell::titleMode() const noexcept
 void ZzWorkspaceShell::setTitleMode(ZzWorkspaceTitleMode mode)
 {
     Q_ASSERT(zzIsShellThread(this));
-    if (!zzIsShellThread(this)) {
+    if (!zzIsShellThread(this)
+        || d_ptr->transactionKind
+            == ZzWorkspaceShellPrivate::ZzTransactionKind::NavigationIntegration) {
         return;
     }
     switch (mode) {

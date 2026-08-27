@@ -131,13 +131,13 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
     ZzFluentUI::ZzActivityArea area,
     const QString &centralTabTitle)
 {
-    const QString normalizedPanelTitle = panelTitle.trimmed();
-    const QString normalizedTabTitle = centralTabTitle.trimmed();
-    if (!panelId.isValid() || normalizedPanelTitle.isEmpty()
-        || normalizedTabTitle.isEmpty() || !zzIsSideArea(area)) {
+    auto *const window = qobject_cast<ZzApplicationWindow *>(shell.host.data());
+    if (window == nullptr || shell.q_ptr == nullptr
+        || shell.workspaceRoot == nullptr || shell.splitWorkspace == nullptr
+        || shell.activityModel == nullptr) {
         return zzIntegrationFailure<void>(
-            ZzCore::ZzErrorCode::InvalidArgument,
-            QStringLiteral("Invalid application navigation integration"),
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace host is not an application window"),
             panelId);
     }
     if (shell.transactionKind != ZzWorkspaceShellPrivate::ZzTransactionKind::None
@@ -147,14 +147,13 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
             QStringLiteral("Application navigation integration is unavailable"),
             panelId);
     }
-
-    auto *const window = qobject_cast<ZzApplicationWindow *>(shell.host.data());
-    if (window == nullptr || shell.q_ptr == nullptr
-        || shell.workspaceRoot == nullptr || shell.splitWorkspace == nullptr
-        || shell.activityModel == nullptr) {
+    const QString normalizedPanelTitle = panelTitle.trimmed();
+    const QString normalizedTabTitle = centralTabTitle.trimmed();
+    if (!panelId.isValid() || normalizedPanelTitle.isEmpty()
+        || normalizedTabTitle.isEmpty() || !zzIsSideArea(area)) {
         return zzIntegrationFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace host is not an application window"),
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("Invalid application navigation integration"),
             panelId);
     }
     ZzApplicationWindowPrivate *const application = window->d_ptr.get();
@@ -622,7 +621,6 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
     }
     if (bodyGuard != nullptr || application->body != nullptr
         || windowGuard->centralWidget() != nullptr || !surfacesIntact()) {
-        shell.transactionKind = ZzWorkspaceShellPrivate::ZzTransactionKind::None;
         return zzIntegrationFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Application body destruction was interrupted"),

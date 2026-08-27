@@ -44,7 +44,8 @@ using ZzWorkspacePanelFactory =
  * @brief 协调宿主窗口中的 Fluent 工作区组件、面板、标题和布局。
  *
  * Shell 不替调用方设置 QMainWindow centralWidget，也不创建 WindowAgent。
- * create() 返回的 unique_ptr 拥有 Shell；内部 QWidget 挂入 host 对象树。
+ * create() 返回的 unique_ptr 拥有 Shell；内部 QWidget 挂入 host 对象树。导航
+ * 集成提交并设为 centralWidget 后，由 host 持续拥有工作区生命周期。
  */
 class ZZ_PURE_TOOLS_EXPORT ZzWorkspaceShell final : public QObject
 {
@@ -62,7 +63,7 @@ public:
         QMainWindow *host,
         ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr);
 
-    /** @brief 移除 Shell 创建的 Dock 和工作区，host 已销毁时安全结束。 */
+    /** @brief 移除 Shell 创建的 Dock；保留已提交集成且由 host 接管的工作区。 */
     ~ZzWorkspaceShell() override;
 
     /** @brief 返回待由调用方挂载的工作区根控件。 */

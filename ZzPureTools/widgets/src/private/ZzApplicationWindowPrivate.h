@@ -62,8 +62,8 @@ public:
     ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr;
     QPointer<QWidget> body;
     QWidget *bodyIdentity = nullptr;
-    ZzFluentUI::ZzNavigationPane *navigationPane = nullptr;
-    ZzPageHost *host = nullptr;
+    QPointer<ZzFluentUI::ZzNavigationPane> navigationPane;
+    QPointer<ZzPageHost> host;
     QPointer<ZzFluentUI::ZzThemeController> theme;
     bool initialized = false;
     bool acceptedClosePending = false;

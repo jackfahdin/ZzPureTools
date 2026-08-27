@@ -6,6 +6,9 @@
 #include <QtCore/QThread>
 #include <QtGui/QCloseEvent>
 
+#include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzPureTools/ZzPageHost.h>
+
 #include "private/ZzApplicationWindowPrivate.h"
 
 namespace ZzPureTools {

@@ -4,6 +4,8 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QPointer>
+#include <QtGui/QAction>
+#include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMainWindow>
@@ -13,6 +15,7 @@
 #include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
@@ -34,6 +37,7 @@
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 
 namespace {
@@ -59,6 +63,12 @@ using ZzWindowSetup = std::function<ZzCore::ZzResult<void>(
     const char *value)
 {
     return ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(value));
+}
+
+[[nodiscard]] ZzPureTools::ZzWorkspaceActivityId zzActivityId(
+    const char *value)
+{
+    return ZzPureTools::ZzWorkspaceActivityId(QString::fromLatin1(value));
 }
 
 [[nodiscard]] ZzFluentUI::ZzIconDescriptor zzIcon()
@@ -138,10 +148,11 @@ private Q_SLOTS:
     {
         std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
         QPointer<QWidget> originalBody;
+        QPointer<QWidget> workspace;
         ZzPureTools::ZzNavigationModel *modelBefore = nullptr;
         ZzPureTools::ZzNavigationController *controllerBefore = nullptr;
-        ZzFluentUI::ZzNavigationPane *navigationBefore = nullptr;
-        ZzPureTools::ZzPageHost *pageHostBefore = nullptr;
+        QPointer<ZzFluentUI::ZzNavigationPane> navigationBefore;
+        QPointer<ZzPureTools::ZzPageHost> pageHostBefore;
         ZzPureTools::ZzRouteId routeBefore;
         ZzPureTools::ZzRouteId routeAfter;
         bool surfaceAuditPassed = false;
@@ -159,6 +170,7 @@ private Q_SLOTS:
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
             shell = std::move(created).value();
+            workspace = shell->workspaceWidget();
             auto integrated = shell->integrateApplicationNavigation(
                 zzPanelId("components"), QStringLiteral("Components"),
                 zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
@@ -189,7 +201,7 @@ private Q_SLOTS:
                 return zzFailure(QStringLiteral(
                     "integrated navigation surface identity audit failed"));
             }
-            window.setCentralWidget(shell->workspaceWidget());
+            window.setCentralWidget(workspace);
             return ZzCore::ZzResult<void>::success();
         };
 
@@ -207,8 +219,26 @@ private Q_SLOTS:
             ZzPureTools::ZzRouteId(QStringLiteral("home")));
         QVERIFY(!routeBefore.isValid());
         QCOMPARE(routeAfter, routeBefore);
-        closeWindow(window);
+        QCOMPARE(window->centralWidget(), workspace.data());
+        QCOMPARE(workspace->parentWidget(), window);
         shell.reset();
+        QVERIFY(workspace != nullptr);
+        QCOMPARE(window->centralWidget(), workspace.data());
+        QCOMPARE(workspace->parentWidget(), window);
+        QCOMPARE(window->navigationPane(), navigationBefore.data());
+        QCOMPARE(window->pageHost(), pageHostBefore.data());
+        QCOMPARE(window->navigationModel(), modelBefore);
+        QCOMPARE(window->navigationController(), controllerBefore);
+        modelBefore->refreshTranslations();
+        QCOMPARE(
+            controllerBefore->currentRoute(),
+            ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        QVERIFY(controllerBefore->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("home"))));
+        closeWindow(window);
+        QVERIFY(workspace.isNull());
+        QVERIFY(navigationBefore.isNull());
+        QVERIFY(pageHostBefore.isNull());
     }
 
     void pinsPageHostAndRejectsSecondIntegration()
@@ -289,13 +319,35 @@ private Q_SLOTS:
         const int activityCount = shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount();
 
-        auto integrated = shell->integrateApplicationNavigation(
-            zzPanelId("components"), QStringLiteral("Components"), zzIcon(),
-            ZzFluentUI::ZzActivityArea::LeftPrimary,
-            QStringLiteral("Component examples"));
+        const auto auditInvalidHost = [&](
+                                          const ZzPureTools::ZzWorkspacePanelId &panelId,
+                                          const QString &panelTitle,
+                                          ZzFluentUI::ZzActivityArea area,
+                                          const QString &tabTitle) {
+            auto integrated = shell->integrateApplicationNavigation(
+                panelId, panelTitle, zzIcon(), area, tabTitle);
+            return !integrated
+                && integrated.error().code() == ZzCore::ZzErrorCode::InvalidState
+                && host.centralWidget() == body
+                && body->parentWidget() == &host
+                && tabs->count() == tabCount
+                && stack->panelCount() == panelCount
+                && shell->activityBar(
+                    ZzFluentUI::ZzSidePaneEdge::Left)->model()->rowCount()
+                    == activityCount;
+        };
 
-        QVERIFY(!integrated);
-        QCOMPARE(integrated.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(auditInvalidHost(
+            zzPanelId("components"), QStringLiteral("Components"),
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            QStringLiteral("Component examples")));
+        QVERIFY(auditInvalidHost(
+            zzPanelId(""), QStringLiteral("Components"),
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            QStringLiteral("Component examples")));
+        QVERIFY(auditInvalidHost(
+            zzPanelId("components"), QString(),
+            ZzFluentUI::ZzActivityArea::RightSecondary, QString()));
         QCOMPARE(host.centralWidget(), body);
         QCOMPARE(body->parentWidget(), &host);
         QCOMPARE(tabs->count(), tabCount);
@@ -379,6 +431,9 @@ private Q_SLOTS:
     {
         std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
         QPointer<QWidget> occupied;
+        QAction fixedAction(QStringLiteral("Settings"));
+        QPointer<QAction> fixedActionGuard(&fixedAction);
+        QSignalSpy fixedTriggered(&fixedAction, &QAction::triggered);
         bool rollbackAuditPassed = false;
         bool lateRollbackAuditPassed = false;
 
@@ -396,6 +451,13 @@ private Q_SLOTS:
                 occupied);
             if (!occupiedRegistered) {
                 return occupiedRegistered;
+            }
+            auto fixedRegistered = shell->registerFixedActivityAction(
+                zzActivityId("settings"), QStringLiteral("Settings"),
+                zzIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+                &fixedAction);
+            if (!fixedRegistered) {
+                return fixedRegistered;
             }
             QWidget *const body = window.centralWidget();
             QWidget *const navigationParent = window.navigationPane()->parentWidget();
@@ -419,6 +481,17 @@ private Q_SLOTS:
             const int tabCount = tabs->count();
             const int panelCount = stack->panelCount();
             const int rowCount = model->rowCount();
+            QStringList rowTitles;
+            QList<ZzFluentUI::ZzActivityArea> rowAreas;
+            QList<Qt::ItemFlags> rowFlags;
+            for (int row = 0; row < rowCount; ++row) {
+                const QModelIndex index = model->index(row, 0);
+                rowTitles.append(index.data(Qt::DisplayRole).toString());
+                rowAreas.append(index.data(static_cast<int>(
+                    ZzFluentUI::ZzActivityItemRole::Area))
+                    .value<ZzFluentUI::ZzActivityArea>());
+                rowFlags.append(index.flags());
+            }
             const auto route = window.navigationController()->currentRoute();
 
             auto integrated = shell->integrateApplicationNavigation(
@@ -465,8 +538,29 @@ private Q_SLOTS:
                 && leftPane->isCollapsed() == collapsed
                 && activityBar->currentSourceIndex() == activityCurrent
                 && activityBar->activeSourceIndexes() == activityActive
+                && fixedActionGuard == &fixedAction
                 && leftPane->isAncestorOf(occupied)
                 && window.navigationController()->currentRoute() == route;
+            QStringList rowTitlesAfter;
+            QList<ZzFluentUI::ZzActivityArea> rowAreasAfter;
+            QList<Qt::ItemFlags> rowFlagsAfter;
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                rowTitlesAfter.append(index.data(Qt::DisplayRole).toString());
+                rowAreasAfter.append(index.data(static_cast<int>(
+                    ZzFluentUI::ZzActivityItemRole::Area))
+                    .value<ZzFluentUI::ZzActivityArea>());
+                rowFlagsAfter.append(index.flags());
+            }
+            lateRollbackAuditPassed = lateRollbackAuditPassed
+                && rowTitlesAfter == rowTitles
+                && rowAreasAfter == rowAreas
+                && rowFlagsAfter == rowFlags;
+            const QModelIndex fixedIndex = model->index(1, 0);
+            Q_EMIT activityBar->activationRequested(fixedIndex);
+            lateRollbackAuditPassed = lateRollbackAuditPassed
+                && fixedActionGuard == &fixedAction
+                && fixedTriggered.count() == 1;
             return rollbackAuditPassed && lateRollbackAuditPassed
                 ? ZzCore::ZzResult<void>::success()
                 : zzFailure(QStringLiteral("duplicate panel rollback failed"));
@@ -489,6 +583,8 @@ private Q_SLOTS:
         QPointer<QWidget> workspace;
         bool pinDestructionEntered = false;
         bool rollbackDestructionEntered = false;
+        bool bodyPollutionEntered = false;
+        bool poisonedMutationsRejected = false;
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
@@ -562,6 +658,87 @@ private Q_SLOTS:
         QVERIFY(shell == nullptr);
         QVERIFY(workspace.isNull());
         QCOMPARE(zzApplication().windowCount(), baselineWindowCount_);
+
+        currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
+            auto created = ZzPureTools::ZzWorkspaceShell::create(
+                &window, window.titleBar());
+            if (!created) {
+                return ZzCore::ZzResult<void>::failure(created.error());
+            }
+            shell = std::move(created).value();
+            workspace = shell->workspaceWidget();
+            auto savedLayout = shell->saveLayout();
+            if (!savedLayout) {
+                return ZzCore::ZzResult<void>::failure(savedLayout.error());
+            }
+            const QString applicationTitleBefore = shell->applicationTitle();
+            const QString customTitleBefore = shell->customTitle();
+            const auto titleModeBefore = shell->titleMode();
+            const auto differentTitleMode = titleModeBefore
+                    == ZzPureTools::ZzWorkspaceTitleMode::Application
+                ? ZzPureTools::ZzWorkspaceTitleMode::Custom
+                : ZzPureTools::ZzWorkspaceTitleMode::Application;
+            const bool alwaysOnTopBefore = shell->isAlwaysOnTop();
+            QObject::connect(
+                window.centralWidget(), &QObject::destroyed,
+                &window, [&] {
+                    bodyPollutionEntered = true;
+                    static_cast<void>(window.navigationController()->navigate(
+                        ZzPureTools::ZzRouteId(QStringLiteral("home"))));
+                });
+            auto integrated = shell->integrateApplicationNavigation(
+                zzPanelId("components"), QStringLiteral("Components"),
+                zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+                QStringLiteral("Component examples"));
+            auto *const rejectedContent = new QWidget;
+            auto registration = shell->registerSidePanel(
+                zzPanelId("blocked"), QStringLiteral("Blocked"), zzIcon(),
+                ZzFluentUI::ZzActivityArea::RightPrimary, rejectedContent);
+            if (!registration) {
+                delete rejectedContent;
+            }
+            auto activation = shell->showPanel(
+                zzPanelId("components"), false);
+            auto restore = shell->restoreLayout(savedLayout.value());
+            shell->setApplicationTitle(
+                applicationTitleBefore + QStringLiteral(" poisoned"));
+            shell->setCustomTitle(
+                customTitleBefore + QStringLiteral(" poisoned"));
+            shell->setTitleMode(differentTitleMode);
+            auto alwaysOnTop = shell->setAlwaysOnTop(!alwaysOnTopBefore);
+            auto *const activityBar = shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left);
+            const QModelIndex navigationIndex = activityBar->model()->index(0, 0);
+            const auto areaBefore = navigationIndex.data(static_cast<int>(
+                ZzFluentUI::ZzActivityItemRole::Area));
+            Q_EMIT activityBar->moveRequested(
+                navigationIndex, ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+            poisonedMutationsRejected = bodyPollutionEntered && !integrated
+                && !registration && !activation && !restore && !alwaysOnTop
+                && registration.error().code() == ZzCore::ZzErrorCode::InvalidState
+                && activation.error().code() == ZzCore::ZzErrorCode::InvalidState
+                && restore.error().code() == ZzCore::ZzErrorCode::InvalidState
+                && alwaysOnTop.error().code() == ZzCore::ZzErrorCode::InvalidState
+                && shell->applicationTitle() == applicationTitleBefore
+                && shell->customTitle() == customTitleBefore
+                && shell->titleMode() == titleModeBefore
+                && shell->isAlwaysOnTop() == alwaysOnTopBefore
+                && navigationIndex.data(static_cast<int>(
+                    ZzFluentUI::ZzActivityItemRole::Area)) == areaBefore;
+            window.setCentralWidget(workspace);
+            return poisonedMutationsRejected
+                ? ZzCore::ZzResult<void>::success()
+                : zzFailure(QStringLiteral(
+                    "post-commit pollution did not poison workspace mutations"));
+        };
+
+        createdWindow = zzApplication().createWindow();
+
+        QVERIFY(createdWindow);
+        QVERIFY(bodyPollutionEntered);
+        QVERIFY(poisonedMutationsRejected);
+        closeWindow(createdWindow.value());
+        shell.reset();
     }
 
 private:

@@ -791,7 +791,12 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
             model->detachAndDeleteWhenStructurallyIdle();
         }
     }
-    if (workspaceRoot != nullptr) {
+    const bool hostOwnsWorkspaceRoot = applicationNavigationIntegrated
+        && host != nullptr
+        && workspaceRoot != nullptr
+        && host->centralWidget() == workspaceRoot
+        && workspaceRoot->parentWidget() == host;
+    if (workspaceRoot != nullptr && !hostOwnsWorkspaceRoot) {
         if (sideEdgeVisibilitySyncDepth > 0) {
             workspaceRoot->deleteLater();
         } else {
@@ -2582,6 +2587,11 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setPanelBadge(
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setAlwaysOnTop(
     bool alwaysOnTop)
 {
+    if (transactionKind == ZzTransactionKind::NavigationIntegration) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace panel transaction is in progress"));
+    }
     if (host == nullptr) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
