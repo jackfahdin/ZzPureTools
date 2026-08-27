@@ -934,7 +934,7 @@ git commit -m "docs(工作区): 记录导航与设置重构验收" \
 | 9 修复 | `db356db`、`4f14162` | Clang Tidy 门禁和析构期弱指针降型 |
 | 最终审查修复 | `ab9366d`、`57e217d`、`f5b0aaa`、`43c38ff` | 同步回调、内容采用、导航提交和延迟工厂的生命周期保护 |
 
-### 最终整分支审查与当前 HEAD 验证
+### 最终整分支审查与实现 HEAD 验证
 
 最终整分支审查以 `master` 分叉点 `eb7a4b2` 到 `43c38ff` 为范围。审查发现的四项
 生命周期问题均已修复并完成定向复审：
@@ -947,7 +947,8 @@ git commit -m "docs(工作区): 记录导航与设置重构验收" \
 - `43c38ff`：延迟 SidePanel factory 返回后先检查 Shell 生命周期，局部结果负责回收未
   采用内容，不再访问已释放的 private。
 
-定向复审结论为无遗留 Critical、Important 或 Minor。随后在当前 HEAD `43c38ff` 上执行：
+定向复审结论为无遗留 Critical、Important 或 Minor。随后在实现代码 HEAD `43c38ff`
+上执行：
 
 ```bash
 cmake --build --preset linux-gcc-debug --parallel 2
