@@ -174,9 +174,9 @@ non-selectable 的 FixedAction 可键盘触发，但不覆盖 Shell 同步的 cu
 
 ```bash
 cmake --build --preset linux-gcc-debug --target \
-  ZzActivityBarTest ZzListViewTest ZzTableViewTest ZzTreeViewTest --parallel 2
+  ZzActivityBarTest ZzFluentItemDelegateTest ZzFluentStandardControlsTest --parallel 2
 ctest --test-dir build/linux-gcc-debug \
-  -R '^fluent\.(activity-bar|list-view|table-view|tree-view)$' \
+  -R '^fluent\.(activity-bar|item-delegate|standard-controls)$' \
   --output-on-failure
 ```
 
