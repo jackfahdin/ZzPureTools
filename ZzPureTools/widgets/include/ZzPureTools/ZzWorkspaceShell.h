@@ -13,9 +13,11 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzPureTools/ZzPureToolsExport.h>
+#include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
 
+class QAction;
 class QMainWindow;
 class QWidget;
 
@@ -110,6 +112,22 @@ public:
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
         ZzWorkspacePanelFactory factory);
+
+    /**
+     * @brief 注册由调用方拥有、固定在 Activity Bar 中的动作入口。
+     * @param id 固定 Activity 的稳定标识。
+     * @param title Activity Bar 展示标题。
+     * @param icon 非空 SVG 或字体图标描述。
+     * @param area 固定入口所属的四区域之一。
+     * @param action 调用方拥有且与 Shell 同线程的 QAction。
+     * @return 成功时 Shell 非拥有地观察 action；失败时界面状态不变。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> registerFixedActivityAction(
+        const ZzWorkspaceActivityId &id,
+        const QString &title,
+        ZzFluentUI::ZzIconDescriptor icon,
+        ZzFluentUI::ZzActivityArea area,
+        QAction *action);
 
     /** @brief 校验后接管无父对象内容，并注册到中央底部工具区。 */
     [[nodiscard]] ZzCore::ZzResult<void> registerBottomPanel(

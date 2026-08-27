@@ -57,6 +57,7 @@ set(required_workspace_headers
     ZzFluentUI/ZzSplitWorkspace.h
     ZzFluentUI/ZzTabGroupId.h
     ZzFluentUI/ZzTitleBarMenuDisplayMode.h
+    ZzPureTools/ZzWorkspaceActivityId.h
     ZzPureTools/ZzWorkspacePanelId.h
     ZzPureTools/ZzWorkspaceShell.h
     ZzPureTools/ZzWorkspaceTitleMode.h

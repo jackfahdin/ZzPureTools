@@ -55,6 +55,7 @@
 #include <ZzFluentUI/ZzFlowLayout.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzImageCard.h>
 #include <ZzFluentUI/ZzKeyBinder.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -85,6 +86,7 @@
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 #include <ZzCore/ZzResult.h>
+#include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -284,6 +286,28 @@ int main(int argc, char *argv[]) {
   const auto registeredBottomTool = workspaceShell->registerBottomPanel(
       ZzPureTools::ZzWorkspacePanelId(QStringLiteral("terminal")),
       QStringLiteral("Terminal"), {}, terminalTool);
+  QAction workspaceSettingsAction(QStringLiteral("Settings"));
+  bool workspaceSettingsTriggered = false;
+  QObject::connect(
+      &workspaceSettingsAction, &QAction::triggered,
+      [&workspaceSettingsTriggered] { workspaceSettingsTriggered = true; });
+  const auto registeredSettings = workspaceShell->registerFixedActivityAction(
+      ZzPureTools::ZzWorkspaceActivityId(QStringLiteral("settings")),
+      QStringLiteral("Settings"),
+      ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+          ZzFluentUI::ZzFontIcon::Gear),
+      ZzFluentUI::ZzActivityArea::LeftSecondary,
+      &workspaceSettingsAction);
+  auto *const workspaceActivityBar = workspaceShell->activityBar(
+      ZzFluentUI::ZzSidePaneEdge::Left);
+  if (registeredSettings && workspaceActivityBar != nullptr) {
+    const int fixedActionRow = workspaceActivityBar->model()->rowCount() - 1;
+    const QModelIndex fixedActionIndex =
+        workspaceActivityBar->model()->index(fixedActionRow, 0);
+    if (fixedActionIndex.data().toString() == QStringLiteral("Settings")) {
+      Q_EMIT workspaceActivityBar->activationRequested(fixedActionIndex);
+    }
+  }
   workspaceShell->commandPalette()->setModel(&workspaceCommandModel);
   workspaceShell->tabWidget()->addTab(
       new QWidget, QStringLiteral("Overview"));
@@ -704,7 +728,8 @@ int main(int argc, char *argv[]) {
       sourceTabs.fluentTabBar() == nullptr ||
       !sourceTabs.transferTabTo(&targetTabs, 0) || sourceTabs.count() != 0 ||
       targetTabs.widget(0) != tabPage || !registeredExplorer ||
-      !registeredOutline || !registeredBottomTool ||
+      !registeredOutline || !registeredBottomTool || !registeredSettings ||
+      !workspaceSettingsTriggered ||
       workspaceShell->activityBar(
           ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
       workspaceShell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left) == nullptr ||
@@ -726,6 +751,8 @@ int main(int argc, char *argv[]) {
       commandBar.primaryActions().first()->text() !=
           QStringLiteral("Connect") ||
       markers.markerModel() != &markerModel ||
+      !ZzPureTools::ZzWorkspaceActivityId(
+          QStringLiteral(" settings ")).isValid() ||
       !ZzPureTools::ZzWorkspacePanelId(QStringLiteral(" explorer ")).isValid()) {
     return 1;
   }

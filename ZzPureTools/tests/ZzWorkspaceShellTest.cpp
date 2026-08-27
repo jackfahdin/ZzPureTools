@@ -18,6 +18,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
+#include <QtGui/QAction>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLayout>
@@ -36,6 +37,7 @@
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzPanelStack.h>
 #include <ZzFluentUI/ZzSidePane.h>
@@ -43,6 +45,7 @@
 #include <ZzFluentUI/ZzSidePaneMode.h>
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -283,6 +286,18 @@ private:
     const char *value)
 {
     return ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(value));
+}
+
+[[nodiscard]] ZzPureTools::ZzWorkspaceActivityId zzActivityId(
+    const char *value)
+{
+    return ZzPureTools::ZzWorkspaceActivityId(QString::fromLatin1(value));
+}
+
+[[nodiscard]] ZzFluentUI::ZzIconDescriptor zzActivityIcon()
+{
+    return ZzFluentUI::ZzIconDescriptor::fromFontIcon(
+        ZzFluentUI::ZzFontIcon::Gear);
 }
 
 [[nodiscard]] ZzFluentUI::ZzIconDescriptor zzIcon()
@@ -838,6 +853,347 @@ private Q_SLOTS:
         QVERIFY(leftBar->isHidden());
         QVERIFY(rightPane->isCollapsed());
         QVERIFY(rightBar->isHidden());
+    }
+
+    void registersFixedActivityWithoutSelectionOrDragFlags()
+    {
+        ZzShellFixture fixture;
+        QAction settingsAction(QStringLiteral("Settings"));
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+            &settingsAction));
+        QCOMPARE(bar->model()->rowCount(), 1);
+        QCOMPARE(
+            bar->model()->flags(bar->model()->index(0, 0)),
+            Qt::ItemFlags(Qt::ItemIsEnabled));
+        QVERIFY(!bar->isHidden());
+        QVERIFY(!bar->currentSourceIndex().isValid());
+
+        auto panel = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("sessions"), QStringLiteral("Sessions"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, panel.get()));
+        zzReleaseAfterAdoption(panel);
+
+        QCOMPARE(bar->model()->rowCount(), 2);
+        const QModelIndex sideIndex = bar->model()->index(0, 0);
+        const QModelIndex actionIndex = bar->model()->index(1, 0);
+        QCOMPARE(sideIndex.data(Qt::DisplayRole).toString(), QStringLiteral("Sessions"));
+        QCOMPARE(actionIndex.data(Qt::DisplayRole).toString(), QStringLiteral("Settings"));
+        QCOMPARE(
+            sideIndex.flags(),
+            Qt::ItemFlags(
+                Qt::ItemIsEnabled | Qt::ItemIsSelectable
+                | Qt::ItemIsDragEnabled));
+        QCOMPARE(
+            actionIndex.flags(), Qt::ItemFlags(Qt::ItemIsEnabled));
+        QCOMPARE(bar->currentSourceIndex(), sideIndex);
+    }
+
+    void fixedActivityTracksActionEnabledAndTriggeredState()
+    {
+        ZzShellFixture fixture;
+        QAction settingsAction(QStringLiteral("Settings"));
+        QSignalSpy triggeredSpy(&settingsAction, &QAction::triggered);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction));
+        const QModelIndex index = bar->model()->index(0, 0);
+
+        settingsAction.setEnabled(false);
+        QTRY_COMPARE(index.flags(), Qt::NoItemFlags);
+        settingsAction.setEnabled(true);
+        QTRY_COMPARE(index.flags(), Qt::ItemFlags(Qt::ItemIsEnabled));
+
+        settingsAction.trigger();
+        QCOMPARE(triggeredSpy.count(), 1);
+        Q_EMIT bar->activationRequested(index);
+        QCOMPARE(triggeredSpy.count(), 2);
+        QVERIFY(!bar->currentSourceIndex().isValid());
+    }
+
+    void fixedActivityPublishesActionChangeReceivedDuringInsertion()
+    {
+        ZzShellFixture fixture;
+        QAction settingsAction(QStringLiteral("Settings"));
+        auto *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QSignalSpy changedSpy(model, &QAbstractItemModel::dataChanged);
+        QObject::connect(
+            model, &QAbstractItemModel::rowsInserted,
+            &settingsAction,
+            [&settingsAction](const QModelIndex &, int, int) {
+                settingsAction.setEnabled(false);
+            });
+
+        const auto registered = fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction);
+
+        QVERIFY(registered);
+        QCOMPARE(model->flags(model->index(0, 0)), Qt::NoItemFlags);
+        QCOMPARE(changedSpy.count(), 1);
+        QCOMPARE(
+            changedSpy.at(0).at(0).value<QModelIndex>(), model->index(0, 0));
+    }
+
+    void fixedActivityRegistrationStopsWhenAboutToInsertDestroysShell()
+    {
+        ZzShellFixture fixture;
+        QAction settingsAction(QStringLiteral("Settings"));
+        auto *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        QObject::connect(
+            model, &QAbstractItemModel::rowsAboutToBeInserted,
+            &settingsAction,
+            [&fixture](const QModelIndex &, int, int) {
+                fixture.shell.reset();
+            });
+
+        const auto registered = fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction);
+
+        QVERIFY(!registered);
+        QVERIFY(fixture.shell == nullptr);
+        QVERIFY(workspaceGuard.isNull());
+    }
+
+    void fixedActivityRegistrationStopsWhenAboutToInsertDestroysHost()
+    {
+        auto host = std::make_unique<QMainWindow>();
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        QAction settingsAction(QStringLiteral("Settings"));
+        auto *const model = shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QPointer<QAbstractItemModel> modelGuard(model);
+        QObject::connect(
+            model, &QAbstractItemModel::rowsAboutToBeInserted,
+            &settingsAction,
+            [&host](const QModelIndex &, int, int) {
+                host.reset();
+            });
+
+        const auto registered = shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction);
+
+        QVERIFY(!registered);
+        QVERIFY(host == nullptr);
+        QVERIFY(modelGuard != nullptr);
+        QCOMPARE(modelGuard->rowCount(), 0);
+        QCOMPARE(shell->workspaceWidget(), nullptr);
+    }
+
+    void fixedActivityRegistrationStopsWhenBarShowDestroysShell()
+    {
+        ZzShellFixture fixture;
+        QAction settingsAction(QStringLiteral("Settings"));
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        ZzShowEventFilter filter;
+        bool callbackEntered = false;
+        filter.shown = [&] {
+            if (callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            fixture.shell.reset();
+        };
+        bar->installEventFilter(&filter);
+
+        const auto registered = fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!registered);
+        QVERIFY(fixture.shell == nullptr);
+        QTRY_VERIFY(workspaceGuard.isNull());
+    }
+
+    void fixedActivityRegistrationStopsWhenBarShowDestroysAction()
+    {
+        ZzShellFixture fixture;
+        auto *settingsAction = new QAction(QStringLiteral("Settings"));
+        QPointer<QAction> actionGuard(settingsAction);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        ZzShowEventFilter filter;
+        bool callbackEntered = false;
+        filter.shown = [&] {
+            if (callbackEntered) {
+                return;
+            }
+            callbackEntered = true;
+            delete settingsAction;
+        };
+        bar->installEventFilter(&filter);
+
+        const auto registered = fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            settingsAction);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!registered);
+        QVERIFY(actionGuard.isNull());
+        QCOMPARE(bar->model()->rowCount(), 0);
+        QVERIFY(bar->isHidden());
+    }
+
+    void sameActionUpdatesEveryRegisteredFixedActivity()
+    {
+        ZzShellFixture fixture;
+        QAction sharedAction(QStringLiteral("Shared"));
+        auto *const model = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &sharedAction));
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("account"), QStringLiteral("Account"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::RightSecondary,
+            &sharedAction));
+        QSignalSpy changedSpy(model, &QAbstractItemModel::dataChanged);
+
+        sharedAction.setEnabled(false);
+
+        QCOMPARE(changedSpy.count(), 2);
+        QList<int> changedRows;
+        for (const QList<QVariant> &arguments : changedSpy) {
+            changedRows.append(arguments.at(0).value<QModelIndex>().row());
+        }
+        std::sort(changedRows.begin(), changedRows.end());
+        QCOMPARE(changedRows, QList<int>({0, 1}));
+        QCOMPARE(model->flags(model->index(0, 0)), Qt::NoItemFlags);
+        QCOMPARE(model->flags(model->index(1, 0)), Qt::NoItemFlags);
+    }
+
+    void destroyedFixedActionRemovesOnlyItsActivityRow()
+    {
+        ZzShellFixture fixture;
+        auto panel = std::make_unique<QWidget>();
+        QWidget *const panelIdentity = panel.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("sessions"), QStringLiteral("Sessions"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, panel.get()));
+        zzReleaseAfterAdoption(panel);
+        auto *const action = new QAction(QStringLiteral("Settings"));
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            action));
+        const QPersistentModelIndex currentBefore(bar->currentSourceIndex());
+
+        delete action;
+
+        QTRY_COMPARE(bar->model()->rowCount(), 1);
+        QCOMPARE(bar->model()->index(0, 0).data().toString(), QStringLiteral("Sessions"));
+        QCOMPARE(bar->currentSourceIndex(), QModelIndex(currentBefore));
+        QCOMPARE(
+            fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                ->currentWidget(),
+            panelIdentity);
+    }
+
+    void rejectsDuplicateIdsAcrossPanelAndActionDomains()
+    {
+        ZzShellFixture actionFirst;
+        QAction action(QStringLiteral("Shared"));
+        QVERIFY(actionFirst.shell->registerFixedActivityAction(
+            zzActivityId(" shared "), QStringLiteral("Shared"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &action));
+
+        QWidget side;
+        QWidget bottom;
+        QWidget dock;
+        QVERIFY(!actionFirst.shell->registerSidePanel(
+            zzPanelId("shared"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, &side));
+        QVERIFY(!actionFirst.shell->registerBottomPanel(
+            zzPanelId("shared"), QStringLiteral("Bottom"), zzIcon(), &bottom));
+        QVERIFY(!actionFirst.shell->registerDockPanel(
+            zzPanelId("shared"), QStringLiteral("Dock"), zzIcon(),
+            Qt::BottomDockWidgetArea, &dock));
+        QCOMPARE(side.parent(), nullptr);
+        QCOMPARE(bottom.parent(), nullptr);
+        QCOMPARE(dock.parent(), nullptr);
+
+        ZzShellFixture panelFirst;
+        auto content = std::make_unique<QWidget>();
+        QVERIFY(panelFirst.shell->registerSidePanel(
+            zzPanelId("shared"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+        QAction duplicateAction(QStringLiteral("Duplicate"));
+        const auto duplicate = panelFirst.shell->registerFixedActivityAction(
+            zzActivityId(" shared "), QStringLiteral("Duplicate"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::RightSecondary,
+            &duplicateAction);
+        QVERIFY(!duplicate);
+        QCOMPARE(duplicate.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+    }
+
+    void rejectsForeignThreadFixedAction()
+    {
+        ZzShellFixture fixture;
+        QThread foreignThread;
+        auto *const action = new QAction(QStringLiteral("Settings"));
+        action->moveToThread(&foreignThread);
+        foreignThread.start();
+
+        const auto registered = fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            action);
+
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(
+            fixture.shell->activityBar(ZzFluentUI::ZzSidePaneEdge::Left)
+                ->model()->rowCount(),
+            0);
+        QVERIFY(QMetaObject::invokeMethod(
+            action, [action] { delete action; }, Qt::BlockingQueuedConnection));
+        foreignThread.quit();
+        QVERIFY(foreignThread.wait());
+    }
+
+    void fixedActionNeverAppearsInSavedLayout()
+    {
+        ZzShellFixture fixture;
+        const auto before = fixture.shell->saveLayout();
+        QVERIFY(before);
+        QAction settingsAction(QStringLiteral("Settings"));
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("settings"), QStringLiteral("Settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction));
+
+        const auto after = fixture.shell->saveLayout();
+
+        QVERIFY(after);
+        QCOMPARE(after.value(), before.value());
     }
 
     void keepsEagerSideRegistrationVisible()

@@ -57,6 +57,7 @@ set(zz_installed_header_specs
     "Zz::AppCore|ZzPureTools/ZzAppCoreExport.h"
     "Zz::PureTools|ZzPureTools/ZzPureToolsVersion.h"
     "Zz::PureTools|ZzPureTools/ZzPureToolsExport.h"
+    "Zz::PureTools|ZzPureTools/ZzWorkspaceActivityId.h"
     "Zz::PureTools|ZzPureTools/ZzWorkspacePanelId.h"
     "Zz::PureTools|ZzPureTools/ZzWorkspaceTitleMode.h"
     "Zz::PureTools|ZzPureTools/ZzWorkspaceShell.h"

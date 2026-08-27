@@ -9,6 +9,7 @@
 #include <QtCore/QHash>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
+#include <QtGui/QAction>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QVBoxLayout>
@@ -240,6 +241,19 @@ private:
         && object->thread() == QThread::currentThread();
 }
 
+/** @brief 判断图标描述是否包含可渲染的 SVG 标识或字体字形。 */
+[[nodiscard]] bool zzHasIconDescriptor(
+    const ZzFluentUI::ZzIconDescriptor &descriptor) noexcept
+{
+    switch (descriptor.source) {
+    case ZzFluentUI::ZzIconSource::SvgResource:
+        return !descriptor.resourceId.trimmed().isEmpty();
+    case ZzFluentUI::ZzIconSource::FontGlyph:
+        return descriptor.fontIcon != ZzFluentUI::ZzFontIcon::None;
+    }
+    return false;
+}
+
 struct ZzActivityRow final
 {
     ZzWorkspacePanelId id;
@@ -248,9 +262,13 @@ struct ZzActivityRow final
     ZzFluentUI::ZzActivityArea area =
         ZzFluentUI::ZzActivityArea::LeftPrimary;
     int badge = 0;
+    ZzWorkspaceShellPrivate::ZzActivityRowKind kind =
+        ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel;
+    ZzWorkspaceActivityId activityId;
+    QPointer<QAction> action;
 };
 
-/** @brief 保存 Side Panel 注册顺序并投影 Activity Bar 所需角色。 */
+/** @brief 保存 Side Panel 与 FixedAction，并投影 Activity Bar 通用角色。 */
 class ZzWorkspaceActivityModel final : public QAbstractListModel
 {
 public:
@@ -292,17 +310,35 @@ public:
     [[nodiscard]] Qt::ItemFlags flags(
         const QModelIndex &index) const override
     {
-        return index.isValid()
-            ? Qt::ItemIsEnabled | Qt::ItemIsSelectable
-            : Qt::NoItemFlags;
+        if (!index.isValid() || index.row() < 0
+            || index.row() >= static_cast<int>(rows_.size())) {
+            return Qt::NoItemFlags;
+        }
+        const ZzActivityRow &row = rows_.at(index.row());
+        if (row.kind == ZzWorkspaceShellPrivate::ZzActivityRowKind::FixedAction) {
+            return row.action != nullptr && row.action->isEnabled()
+                ? Qt::ItemFlags(Qt::ItemIsEnabled) : Qt::NoItemFlags;
+        }
+        return Qt::ItemIsEnabled | Qt::ItemIsSelectable
+            | Qt::ItemIsDragEnabled;
     }
 
     void append(ZzActivityRow row)
     {
-        const int rowIndex = static_cast<int>(rows_.size());
+        int rowIndex = static_cast<int>(rows_.size());
+        if (row.kind == ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel) {
+            const auto firstFixed = std::find_if(
+                rows_.cbegin(), rows_.cend(), [](const ZzActivityRow &candidate) {
+                    return candidate.kind
+                        == ZzWorkspaceShellPrivate::ZzActivityRowKind::FixedAction;
+                });
+            rowIndex = static_cast<int>(std::distance(rows_.cbegin(), firstFixed));
+        }
+        beginStructuralChange();
         beginInsertRows({}, rowIndex, rowIndex);
-        rows_.append(std::move(row));
+        rows_.insert(rowIndex, std::move(row));
         endInsertRows();
+        endStructuralChange();
     }
 
     [[nodiscard]] bool insert(int rowIndex, ZzActivityRow row)
@@ -310,11 +346,22 @@ public:
         if (indexOf(row.id) >= 0) {
             return false;
         }
-        rowIndex = std::clamp(
-            rowIndex, 0, static_cast<int>(rows_.size()));
+        const auto firstFixed = std::find_if(
+            rows_.cbegin(), rows_.cend(), [](const ZzActivityRow &candidate) {
+                return candidate.kind
+                    == ZzWorkspaceShellPrivate::ZzActivityRowKind::FixedAction;
+            });
+        const int sideCount = static_cast<int>(
+            std::distance(rows_.cbegin(), firstFixed));
+        rowIndex = row.kind
+            == ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel
+            ? std::clamp(rowIndex, 0, sideCount)
+            : static_cast<int>(rows_.size());
+        beginStructuralChange();
         beginInsertRows({}, rowIndex, rowIndex);
         rows_.insert(rowIndex, std::move(row));
         endInsertRows();
+        endStructuralChange();
         return true;
     }
 
@@ -324,10 +371,34 @@ public:
         if (row < 0) {
             return false;
         }
+        beginStructuralChange();
         beginRemoveRows({}, row, row);
         rows_.removeAt(row);
         endRemoveRows();
+        endStructuralChange();
         return true;
+    }
+
+    [[nodiscard]] bool remove(const ZzWorkspaceActivityId &id)
+    {
+        const int row = indexOf(id);
+        if (row < 0) {
+            return false;
+        }
+        beginStructuralChange();
+        beginRemoveRows({}, row, row);
+        rows_.removeAt(row);
+        endRemoveRows();
+        endStructuralChange();
+        return true;
+    }
+
+    void notifyActionChanged(const ZzWorkspaceActivityId &id)
+    {
+        const int row = indexOf(id);
+        if (row >= 0) {
+            Q_EMIT dataChanged(index(row, 0), index(row, 0), {});
+        }
     }
 
     [[nodiscard]] bool setBadge(
@@ -377,6 +448,10 @@ public:
             }
         }
         for (const ZzActivityRow &row : std::as_const(rows_)) {
+            if (row.kind
+                != ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel) {
+                continue;
+            }
             bool alreadyAdded = false;
             for (const ZzActivityRow &candidate : std::as_const(reordered)) {
                 if (candidate.id == row.id) {
@@ -388,9 +463,17 @@ public:
                 reordered.append(row);
             }
         }
+        for (const ZzActivityRow &row : std::as_const(rows_)) {
+            if (row.kind
+                == ZzWorkspaceShellPrivate::ZzActivityRowKind::FixedAction) {
+                reordered.append(row);
+            }
+        }
+        beginStructuralChange();
         beginResetModel();
         rows_ = std::move(reordered);
         endResetModel();
+        endStructuralChange();
     }
 
     [[nodiscard]] QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry>
@@ -398,9 +481,13 @@ public:
     {
         QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> result;
         result.reserve(rows_.size());
+        int sideOrder = 0;
         for (qsizetype index = 0; index < rows_.size(); ++index) {
             const ZzActivityRow &row = rows_.at(index);
-            result.append({row.id, row.area, static_cast<int>(index)});
+            if (row.kind
+                == ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel) {
+                result.append({row.id, row.area, sideOrder++});
+            }
         }
         return result;
     }
@@ -408,12 +495,21 @@ public:
     [[nodiscard]] bool replaceRows(
         const QVector<ZzWorkspaceShellPrivate::ZzSideLayoutEntry> &rows)
     {
-        if (rows.size() != rows_.size()) {
+        const qsizetype sideCount = std::count_if(
+            rows_.cbegin(), rows_.cend(), [](const ZzActivityRow &row) {
+                return row.kind
+                    == ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel;
+            });
+        if (rows.size() != sideCount) {
             return false;
         }
         QHash<ZzWorkspacePanelId, int> sourceRows;
-        sourceRows.reserve(rows_.size());
+        sourceRows.reserve(sideCount);
         for (qsizetype index = 0; index < rows_.size(); ++index) {
+            if (rows_.at(index).kind
+                != ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel) {
+                continue;
+            }
             if (sourceRows.contains(rows_.at(index).id)) {
                 return false;
             }
@@ -435,9 +531,17 @@ public:
             item.area = placement.area;
             replacement.append(std::move(item));
         }
+        for (const ZzActivityRow &item : std::as_const(rows_)) {
+            if (item.kind
+                == ZzWorkspaceShellPrivate::ZzActivityRowKind::FixedAction) {
+                replacement.append(item);
+            }
+        }
+        beginStructuralChange();
         beginResetModel();
         rows_ = std::move(replacement);
         endResetModel();
+        endStructuralChange();
         return true;
     }
 
@@ -460,11 +564,72 @@ public:
         return row >= 0 ? index(row, 0) : QModelIndex{};
     }
 
+    [[nodiscard]] QModelIndex indexFor(
+        const ZzWorkspaceActivityId &id) const
+    {
+        const int row = indexOf(id);
+        return row >= 0 ? index(row, 0) : QModelIndex{};
+    }
+
+    [[nodiscard]] bool hasRowsForSide(bool left) const noexcept
+    {
+        return std::any_of(
+            rows_.cbegin(), rows_.cend(), [left](const ZzActivityRow &row) {
+                return zzIsLeftArea(row.area) == left;
+            });
+    }
+
+    /** @brief 返回模型是否正在发送结构变更信号。 */
+    [[nodiscard]] bool isStructuralChangeInProgress() const noexcept
+    {
+        return structuralChangeDepth_ > 0;
+    }
+
+    /** @brief 脱离工作区对象树，并在当前结构变更完整结束后销毁。 */
+    void detachAndDeleteWhenStructurallyIdle()
+    {
+        setParent(nullptr);
+        deleteWhenStructurallyIdle_ = true;
+        if (!isStructuralChangeInProgress()) {
+            deleteLater();
+        }
+    }
+
 private:
+    /** @brief 标记 begin/end 结构信号序列开始。 */
+    void beginStructuralChange() noexcept
+    {
+        ++structuralChangeDepth_;
+    }
+
+    /** @brief 标记结构信号序列结束，并兑现析构期延迟销毁。 */
+    void endStructuralChange()
+    {
+        Q_ASSERT(structuralChangeDepth_ > 0);
+        --structuralChangeDepth_;
+        if (structuralChangeDepth_ == 0 && deleteWhenStructurallyIdle_) {
+            deleteLater();
+        }
+    }
+
     [[nodiscard]] int indexOf(const ZzWorkspacePanelId &id) const noexcept
     {
         for (qsizetype row = 0; row < rows_.size(); ++row) {
-            if (rows_.at(row).id == id) {
+            if (rows_.at(row).kind
+                    == ZzWorkspaceShellPrivate::ZzActivityRowKind::SidePanel
+                && rows_.at(row).id == id) {
+                return static_cast<int>(row);
+            }
+        }
+        return -1;
+    }
+
+    [[nodiscard]] int indexOf(const ZzWorkspaceActivityId &id) const noexcept
+    {
+        for (qsizetype row = 0; row < rows_.size(); ++row) {
+            if (rows_.at(row).kind
+                    == ZzWorkspaceShellPrivate::ZzActivityRowKind::FixedAction
+                && rows_.at(row).activityId == id) {
                 return static_cast<int>(row);
             }
         }
@@ -472,6 +637,8 @@ private:
     }
 
     QVector<ZzActivityRow> rows_;
+    int structuralChangeDepth_ = 0;
+    bool deleteWhenStructurallyIdle_ = false;
 };
 
 [[nodiscard]] ZzWorkspaceActivityModel *zzActivityModel(
@@ -515,7 +682,7 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     leftActivityBar->setMultiActiveEnabled(true);
     rightActivityBar->setMultiActiveEnabled(true);
     palette = new ZzFluentUI::ZzCommandPalette(workspaceRoot);
-    activityModel = new ZzWorkspaceActivityModel(workspaceRoot);
+    activityModel = new ZzWorkspaceActivityModel(q_ptr);
     leftActivityBar->setModel(activityModel);
     rightActivityBar->setModel(activityModel);
 
@@ -538,22 +705,22 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     QObject::connect(
         leftActivityBar, &ZzFluentUI::ZzActivityBar::activationRequested,
         q_ptr, [this](const QModelIndex &index) {
-            activateSidePanel(index, false);
+            activateActivity(index, false);
         });
     QObject::connect(
         rightActivityBar, &ZzFluentUI::ZzActivityBar::activationRequested,
         q_ptr, [this](const QModelIndex &index) {
-            activateSidePanel(index, false);
+            activateActivity(index, false);
         });
     QObject::connect(
         leftActivityBar, &ZzFluentUI::ZzActivityBar::collapseRequested,
         q_ptr, [this](const QModelIndex &index) {
-            activateSidePanel(index, true);
+            activateActivity(index, true);
         });
     QObject::connect(
         rightActivityBar, &ZzFluentUI::ZzActivityBar::collapseRequested,
         q_ptr, [this](const QModelIndex &index) {
-            activateSidePanel(index, true);
+            activateActivity(index, true);
         });
     QObject::connect(
         leftActivityBar, &ZzFluentUI::ZzActivityBar::moveRequested,
@@ -588,6 +755,11 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
     for (ZzPanelRecord &record : panels) {
         QObject::disconnect(record.contentDestroyedConnection);
     }
+    for (ZzFixedActivityRecord &record : fixedActivities) {
+        QObject::disconnect(record.destroyedConnection);
+        QObject::disconnect(record.changedConnection);
+    }
+    fixedActivities.clear();
     for (const ZzPanelRecord &record : std::as_const(panels)) {
         switch (record.kind) {
         case ZzPanelKind::Side:
@@ -610,8 +782,18 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
         }
     }
     panels.clear();
+    if (activityModel != nullptr) {
+        auto *const model = zzActivityModel(activityModel);
+        if (model->isStructuralChangeInProgress()) {
+            model->detachAndDeleteWhenStructurallyIdle();
+        }
+    }
     if (workspaceRoot != nullptr) {
-        delete workspaceRoot;
+        if (sideEdgeVisibilitySyncDepth > 0) {
+            workspaceRoot->deleteLater();
+        } else {
+            delete workspaceRoot;
+        }
     }
 }
 
@@ -646,7 +828,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerSidePanel(
             QStringLiteral("Side panel content must be unparented on the GUI thread"),
             id.value());
     }
-    if (indexOf(id) >= 0) {
+    if (hasRegisteredStableId(id.value())) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Workspace panel id is already registered"),
@@ -722,7 +904,7 @@ ZzWorkspaceShellPrivate::registerSidePanelFactory(
             QStringLiteral("Invalid deferred side panel registration"),
             id.value());
     }
-    if (indexOf(id) >= 0) {
+    if (hasRegisteredStableId(id.value())) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Workspace panel id is already registered"),
@@ -837,7 +1019,8 @@ ZzWorkspaceShellPrivate::registerSidePanelFactory(
     };
 
     zzActivityModel(modelGuard)->append(
-        ZzActivityRow{id, normalizedTitle, std::move(icon), area, 0});
+        ZzActivityRow{id, normalizedTitle, std::move(icon), area, 0,
+            ZzActivityRowKind::SidePanel, {}, {}});
     QVector<ZzSideLayoutEntry> rowsAfter = rowsBefore;
     rowsAfter.append({id, area, static_cast<int>(rowsAfter.size())});
     const int panelIndex = stablePanelIndex(expectedRecord);
@@ -861,6 +1044,149 @@ ZzWorkspaceShellPrivate::registerSidePanelFactory(
         || panels.at(finalIndex).registrationInProgress
         || !sameRows(activityRows(), rowsAfter)) {
         return reject();
+    }
+    return ZzCore::ZzResult<void>::success();
+}
+
+ZzCore::ZzResult<void>
+ZzWorkspaceShellPrivate::registerFixedActivityAction(
+    const ZzWorkspaceActivityId &id,
+    const QString &title,
+    ZzFluentUI::ZzIconDescriptor icon,
+    ZzFluentUI::ZzActivityArea area,
+    QAction *action)
+{
+    if (transactionKind != ZzTransactionKind::None) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace panel transaction is in progress"),
+            id.value());
+    }
+    const QString normalizedTitle = title.trimmed();
+    if (host == nullptr || workspaceRoot == nullptr || activityModel == nullptr
+        || leftActivityBar == nullptr || rightActivityBar == nullptr) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace host has been destroyed"), id.value());
+    }
+    if (!id.isValid() || normalizedTitle.isEmpty() || action == nullptr
+        || !zzIsSideArea(area) || !zzHasIconDescriptor(icon)) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("Invalid fixed activity registration"), id.value());
+    }
+    if (!zzIsCurrentThread(action)) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Fixed activity action must use the GUI thread"),
+            id.value());
+    }
+    if (hasRegisteredStableId(id.value())) {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("Workspace activity id is already registered"),
+            id.value());
+    }
+
+    ZzFixedActivityRecord record;
+    record.id = id;
+    record.action = action;
+    record.actionIdentity = action;
+    record.registrationInProgress = true;
+    record.destroyedConnection = QObject::connect(
+        action, &QObject::destroyed, q_ptr,
+        [this, id, action](QObject *) {
+            handleFixedActivityActionDestroyed(id, action);
+        });
+    record.changedConnection = QObject::connect(
+        action, &QAction::changed, q_ptr,
+        [this, id, action] {
+            handleFixedActivityActionChanged(id, action);
+        });
+    fixedActivities.append(record);
+
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
+    const QPointer<QMainWindow> hostGuard(host);
+    const QPointer<QWidget> rootGuard(workspaceRoot);
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    const QPointer<ZzFluentUI::ZzActivityBar> leftBarGuard(leftActivityBar);
+    const QPointer<ZzFluentUI::ZzActivityBar> rightBarGuard(rightActivityBar);
+    const QPointer<QAction> actionGuard(action);
+    const auto interrupted = [&id] {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Fixed activity registration was interrupted"),
+            id.value());
+    };
+    zzActivityModel(modelGuard)->append(ZzActivityRow{
+        {}, normalizedTitle, std::move(icon), area, 0,
+        ZzActivityRowKind::FixedAction, id, actionGuard});
+
+    if (shellGuard == nullptr) {
+        if (modelGuard != nullptr) {
+            static_cast<void>(zzActivityModel(modelGuard)->remove(id));
+        }
+        return interrupted();
+    }
+    const auto infrastructureIntact = [&] {
+        return hostGuard != nullptr && hostGuard == host
+            && rootGuard != nullptr && rootGuard == workspaceRoot
+            && modelGuard != nullptr && modelGuard == activityModel
+            && leftBarGuard != nullptr && leftBarGuard == leftActivityBar
+            && rightBarGuard != nullptr && rightBarGuard == rightActivityBar;
+    };
+    const auto registrationIntact = [&] {
+        if (!infrastructureIntact() || actionGuard == nullptr) {
+            return false;
+        }
+        const int currentRecord = fixedActivityIndex(id);
+        return currentRecord >= 0
+            && fixedActivities.at(currentRecord).actionIdentity == action
+            && fixedActivities.at(currentRecord).action == actionGuard
+            && zzActivityModel(modelGuard)->indexFor(id).isValid();
+    };
+    const auto rollback = [&] {
+        const int staleRecord = fixedActivityIndex(id);
+        if (staleRecord >= 0) {
+            QObject::disconnect(fixedActivities[staleRecord].destroyedConnection);
+            QObject::disconnect(fixedActivities[staleRecord].changedConnection);
+            fixedActivities.removeAt(staleRecord);
+        }
+        if (modelGuard != nullptr && modelGuard == activityModel) {
+            static_cast<void>(zzActivityModel(modelGuard)->remove(id));
+        }
+        if (shellGuard != nullptr) {
+            syncSideEdgeVisibility();
+        }
+    };
+    if (!registrationIntact()) {
+        rollback();
+        return interrupted();
+    }
+
+    const int recordIndex = fixedActivityIndex(id);
+    const bool publishPendingActionChange =
+        fixedActivities.at(recordIndex).actionChangePending;
+    fixedActivities[recordIndex].registrationInProgress = false;
+    fixedActivities[recordIndex].actionChangePending = false;
+    if (publishPendingActionChange) {
+        zzActivityModel(modelGuard)->notifyActionChanged(id);
+    }
+    if (shellGuard == nullptr) {
+        return interrupted();
+    }
+    if (!registrationIntact()) {
+        rollback();
+        return interrupted();
+    }
+
+    syncSideEdgeVisibility();
+    if (shellGuard == nullptr) {
+        return interrupted();
+    }
+    if (!registrationIntact()) {
+        rollback();
+        return interrupted();
     }
     return ZzCore::ZzResult<void>::success();
 }
@@ -1104,7 +1430,8 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
 
     if (activate) {
         zzActivityModel(modelGuard)->append(ZzActivityRow{
-            id, expected.title, expected.icon, expected.activityArea, 0});
+            id, expected.title, expected.icon, expected.activityArea, 0,
+            ZzActivityRowKind::SidePanel, {}, {}});
         activityAppended = true;
         if (!audit(canonicalOrder, rowsAfter, true)) {
             return reject(QStringLiteral(
@@ -1388,7 +1715,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerBottomPanel(
             QStringLiteral("Bottom panel content must be unparented on the GUI thread"),
             id.value());
     }
-    if (indexOf(id) >= 0) {
+    if (hasRegisteredStableId(id.value())) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Workspace panel id is already registered"),
@@ -1458,7 +1785,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::registerDockPanel(
             QStringLiteral("Dock content must be unparented on the GUI thread"),
             id.value());
     }
-    if (indexOf(id) >= 0) {
+    if (hasRegisteredStableId(id.value())) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Workspace panel id is already registered"),
@@ -2423,7 +2750,7 @@ void ZzWorkspaceShellPrivate::scheduleInterruptedPanelRemovalCleanup(
         Qt::QueuedConnection));
 }
 
-void ZzWorkspaceShellPrivate::activateSidePanel(
+void ZzWorkspaceShellPrivate::activateActivity(
     const QModelIndex &sourceIndex,
     bool collapse)
 {
@@ -2431,8 +2758,19 @@ void ZzWorkspaceShellPrivate::activateSidePanel(
         || !sourceIndex.isValid() || sourceIndex.model() != activityModel) {
         return;
     }
-    const ZzWorkspacePanelId id =
-        zzActivityModel(activityModel)->idAt(sourceIndex.row());
+    const ZzActivityRow *const activityRow =
+        zzActivityModel(activityModel)->rowAt(sourceIndex.row());
+    if (activityRow == nullptr) {
+        return;
+    }
+    if (activityRow->kind == ZzActivityRowKind::FixedAction) {
+        const QPointer<QAction> action(activityRow->action);
+        if (!collapse && action != nullptr && action->isEnabled()) {
+            action->trigger();
+        }
+        return;
+    }
+    const ZzWorkspacePanelId id = activityRow->id;
     const int panelIndex = indexOf(id);
     if (panelIndex < 0 || panels.at(panelIndex).kind != ZzPanelKind::Side) {
         return;
@@ -2447,6 +2785,44 @@ void ZzWorkspaceShellPrivate::activateSidePanel(
         return;
     }
     static_cast<void>(showPanel(id, true));
+}
+
+void ZzWorkspaceShellPrivate::handleFixedActivityActionDestroyed(
+    const ZzWorkspaceActivityId &id,
+    QAction *actionIdentity)
+{
+    const int recordIndex = fixedActivityIndex(id, actionIdentity);
+    if (recordIndex < 0) {
+        return;
+    }
+    QObject::disconnect(fixedActivities[recordIndex].destroyedConnection);
+    QObject::disconnect(fixedActivities[recordIndex].changedConnection);
+    fixedActivities.removeAt(recordIndex);
+
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    if (modelGuard != nullptr) {
+        static_cast<void>(zzActivityModel(modelGuard)->remove(id));
+    }
+    if (shellGuard != nullptr) {
+        syncSideEdgeVisibility();
+    }
+}
+
+void ZzWorkspaceShellPrivate::handleFixedActivityActionChanged(
+    const ZzWorkspaceActivityId &id,
+    QAction *actionIdentity)
+{
+    const int recordIndex = fixedActivityIndex(id, actionIdentity);
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    if (recordIndex < 0 || modelGuard == nullptr) {
+        return;
+    }
+    if (fixedActivities.at(recordIndex).registrationInProgress) {
+        fixedActivities[recordIndex].actionChangePending = true;
+        return;
+    }
+    zzActivityModel(modelGuard)->notifyActionChanged(id);
 }
 
 void ZzWorkspaceShellPrivate::moveSidePanel(
@@ -2510,7 +2886,8 @@ bool ZzWorkspaceShellPrivate::restoreActivityRow(
     const bool inserted = zzActivityModel(modelGuard)->insert(
         snapshot.order,
         ZzActivityRow{snapshot.id, snapshot.title, snapshot.icon,
-            snapshot.area, snapshot.badge});
+            snapshot.area, snapshot.badge,
+            ZzActivityRowKind::SidePanel, {}, {}});
     return inserted && modelGuard != nullptr && activityModel == modelGuard
         && zzActivityModel(modelGuard)->indexFor(snapshot.id).isValid();
 }
@@ -2540,27 +2917,100 @@ bool ZzWorkspaceShellPrivate::replaceActivityRows(
 
 void ZzWorkspaceShellPrivate::syncSideEdgeVisibility()
 {
-    const auto syncEdge = [this](
-                              ZzFluentUI::ZzSidePane *pane,
-                              ZzFluentUI::ZzActivityBar *bar,
-                              bool left) {
-        if (pane == nullptr || bar == nullptr) {
-            return;
-        }
-        const bool hasPanel = std::any_of(
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
+    const QPointer<ZzFluentUI::ZzSidePane> leftPaneGuard(leftSidePane);
+    const QPointer<ZzFluentUI::ZzSidePane> rightPaneGuard(rightSidePane);
+    const QPointer<ZzFluentUI::ZzActivityBar> leftBarGuard(leftActivityBar);
+    const QPointer<ZzFluentUI::ZzActivityBar> rightBarGuard(rightActivityBar);
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    const auto hasPanelOnSide = [this](bool left) {
+        return std::any_of(
             panels.cbegin(), panels.cend(), [left](const ZzPanelRecord &record) {
                 return record.kind == ZzPanelKind::Side
                     && !record.removalInProgress
                     && zzIsLeftArea(record.activityArea) == left;
             });
-        bar->setVisible(hasPanel);
+    };
+    const bool leftHasPanel = hasPanelOnSide(true);
+    const bool rightHasPanel = hasPanelOnSide(false);
+    const bool leftHasActivity = modelGuard != nullptr
+        && zzActivityModel(modelGuard)->hasRowsForSide(true);
+    const bool rightHasActivity = modelGuard != nullptr
+        && zzActivityModel(modelGuard)->hasRowsForSide(false);
+    ++sideEdgeVisibilitySyncDepth;
+
+    const auto syncEdge = [&shellGuard](
+                              const QPointer<ZzFluentUI::ZzSidePane> &pane,
+                              const QPointer<ZzFluentUI::ZzActivityBar> &bar,
+                              bool hasPanel,
+                              bool hasActivity) {
+        if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
+            return false;
+        }
+        bar->setVisible(hasActivity);
+        if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
+            return false;
+        }
         if (!hasPanel) {
             bar->setCurrentSourceIndex({});
+            if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
+                return false;
+            }
             pane->setCollapsed(true);
+            if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
+                return false;
+            }
         }
+        return true;
     };
-    syncEdge(leftSidePane, leftActivityBar, true);
-    syncEdge(rightSidePane, rightActivityBar, false);
+    if (!syncEdge(
+            leftPaneGuard, leftBarGuard, leftHasPanel, leftHasActivity)
+        || !syncEdge(
+            rightPaneGuard, rightBarGuard, rightHasPanel, rightHasActivity)) {
+        if (shellGuard != nullptr) {
+            --sideEdgeVisibilitySyncDepth;
+        }
+        return;
+    }
+    --sideEdgeVisibilitySyncDepth;
+}
+
+bool ZzWorkspaceShellPrivate::hasRegisteredStableId(
+    const QString &value) const noexcept
+{
+    return std::any_of(
+               panels.cbegin(), panels.cend(), [&value](const ZzPanelRecord &record) {
+                   return record.id.value() == value;
+               })
+        || std::any_of(
+            fixedActivities.cbegin(), fixedActivities.cend(),
+            [&value](const ZzFixedActivityRecord &record) {
+                return record.id.value() == value;
+            });
+}
+
+int ZzWorkspaceShellPrivate::fixedActivityIndex(
+    const ZzWorkspaceActivityId &id) const noexcept
+{
+    for (qsizetype index = 0; index < fixedActivities.size(); ++index) {
+        if (fixedActivities.at(index).id == id) {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
+}
+
+int ZzWorkspaceShellPrivate::fixedActivityIndex(
+    const ZzWorkspaceActivityId &id,
+    QAction *actionIdentity) const noexcept
+{
+    for (qsizetype index = 0; index < fixedActivities.size(); ++index) {
+        if (fixedActivities.at(index).id == id
+            && fixedActivities.at(index).actionIdentity == actionIdentity) {
+            return static_cast<int>(index);
+        }
+    }
+    return -1;
 }
 
 int ZzWorkspaceShellPrivate::indexOf(

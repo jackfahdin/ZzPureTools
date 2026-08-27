@@ -59,6 +59,7 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzApplicationBuilderPrivate.cpp
     widgets/src/ZzApplicationWindow.cpp
     widgets/src/private/ZzApplicationWindowPrivate.cpp
+    widgets/src/ZzWorkspaceActivityId.cpp
     widgets/src/ZzWorkspacePanelId.cpp
     widgets/src/ZzWorkspaceShell.cpp
     widgets/src/private/ZzWorkspaceActivityMoveTransactionPrivate.cpp

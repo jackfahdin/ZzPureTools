@@ -12,10 +12,12 @@
 #include <ZzCore/ZzResult.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
 
+class QAction;
 class QAbstractListModel;
 class QMainWindow;
 class QModelIndex;
@@ -53,6 +55,13 @@ public:
         Side,
         Bottom,
         Dock
+    };
+
+    /** @brief 区分可选择 Side Panel 与不可选择固定动作模型行。 */
+    enum class ZzActivityRowKind : std::uint8_t
+    {
+        SidePanel,
+        FixedAction
     };
 
     /** @brief 描述延迟 Side 内容尚未创建、创建中或已被接管。 */
@@ -95,6 +104,18 @@ public:
         int order = 0;
     };
 
+    /** @brief 非拥有地观察固定动作及其模型同步连接。 */
+    struct ZzFixedActivityRecord final
+    {
+        ZzWorkspaceActivityId id;
+        QPointer<QAction> action;
+        QAction *actionIdentity = nullptr;
+        QMetaObject::Connection destroyedConnection;
+        QMetaObject::Connection changedConnection;
+        bool registrationInProgress = false;
+        bool actionChangePending = false;
+    };
+
     struct ZzActivityRowSnapshot final
     {
         ZzWorkspacePanelId id;
@@ -127,6 +148,12 @@ public:
         ZzFluentUI::ZzIconDescriptor icon,
         ZzFluentUI::ZzActivityArea area,
         ZzWorkspacePanelFactory factory);
+    [[nodiscard]] ZzCore::ZzResult<void> registerFixedActivityAction(
+        const ZzWorkspaceActivityId &id,
+        const QString &title,
+        ZzFluentUI::ZzIconDescriptor icon,
+        ZzFluentUI::ZzActivityArea area,
+        QAction *action);
     /** @brief 将已创建的无父 Side 内容事务接管到其逻辑区域。 */
     [[nodiscard]] ZzCore::ZzResult<void> adoptSidePanelContent(
         const ZzWorkspacePanelId &id,
@@ -207,8 +234,18 @@ public:
         QWidget *contentIdentity,
         std::uint64_t registrationGeneration);
 
-    /** @brief 将 Activity 激活或折叠意图应用到对应 Side Panel。 */
-    void activateSidePanel(const QModelIndex &sourceIndex, bool collapse);
+    /** @brief 将 Activity 激活或折叠意图分派给 Side Panel 或固定动作。 */
+    void activateActivity(const QModelIndex &sourceIndex, bool collapse);
+
+    /** @brief QAction 销毁后按活动标识和动作身份移除固定入口。 */
+    void handleFixedActivityActionDestroyed(
+        const ZzWorkspaceActivityId &id,
+        QAction *actionIdentity);
+
+    /** @brief QAction 状态改变后刷新对应活动标识的模型行 flags。 */
+    void handleFixedActivityActionChanged(
+        const ZzWorkspaceActivityId &id,
+        QAction *actionIdentity);
 
     /** @brief 将 Activity 拖放意图交给不可变移动事务。 */
     void moveSidePanel(
@@ -242,6 +279,15 @@ public:
     /** @brief 隐藏没有已注册内容的边缘，并收起其 Side Pane。 */
     void syncSideEdgeVisibility();
 
+    /** @brief 返回所有面板与固定动作共享域中是否已有稳定字符串。 */
+    [[nodiscard]] bool hasRegisteredStableId(
+        const QString &value) const noexcept;
+
+    [[nodiscard]] int fixedActivityIndex(
+        const ZzWorkspaceActivityId &id) const noexcept;
+    [[nodiscard]] int fixedActivityIndex(
+        const ZzWorkspaceActivityId &id,
+        QAction *actionIdentity) const noexcept;
     [[nodiscard]] int indexOf(const ZzWorkspacePanelId &id) const noexcept;
     [[nodiscard]] int stablePanelIndex(
         const ZzPanelRecord &expected) const noexcept;
@@ -262,11 +308,13 @@ public:
     QPointer<ZzFluentUI::ZzCommandPalette> palette;
     QPointer<QAbstractListModel> activityModel;
     QVector<ZzPanelRecord> panels;
+    QVector<ZzFixedActivityRecord> fixedActivities;
     QString applicationTitle;
     QString customTitle;
     ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
     std::uint64_t nextPanelRegistrationGeneration = 0;
     std::uint64_t titleRefreshGeneration = 0;
+    int sideEdgeVisibilitySyncDepth = 0;
     ZzTransactionKind transactionKind = ZzTransactionKind::None;
     QMetaObject::Connection activeTabChangedConnection;
     QMetaObject::Connection activeTabPresentationConnection;
