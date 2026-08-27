@@ -917,62 +917,139 @@ git commit -m "docs(工作区): 记录导航与设置重构验收" \
 
 ## 实施证据
 
-实施提交范围为 `180390a` 至 `4f14162`。其中 `db356db` 修复了 Clang Tidy
-门禁，`4f14162` 修复了 Qt 析构期弱指针的子类降型；后者不改变 Activity
-移动的内容所有权合同，并由回归测试覆盖临时 frame 的销毁和内容归属恢复。
+### 提交范围
 
-### Linux 构建与测试矩阵
+验证范围为 `180390a` 至 `4f14162`。各实现提交如下：
 
-- `linux-gcc-debug`、`linux-gcc-release`、`linux-static-release`、
-  `linux-gcc-release-lto`、`linux-static-release-lto`：配置、构建均通过，
-  每个预设的 CTest 均为 `153/153` 通过。
-- `linux-clang-tidy-release` 与 `linux-clang-tidy-static`：配置、构建、
-  `ZzClangTidy` 和 CTest 均通过；每个 CTest 均为 `153/153` 通过。
-- `linux-clang-asan`：完整重建后运行
-  `ctest --preset linux-clang-asan --output-on-failure`，结果为 `153/153`
-  通过，耗时 `264.62 s`；日志不含 AddressSanitizer、UndefinedBehaviorSanitizer
-  或 `runtime error` 诊断。另行复核了 `puretools.workspace-shell`（224 项）和
-  `example.puretools-integration-english`。
+| 任务 | 提交 | 内容 |
+| --- | --- | --- |
+| 1 | `180390a` | ActivityBar 交互与物理边指示 |
+| 2 | `0533de6`、`589d243` | 固定 Activity Action 注册域 |
+| 3 | `7215626`、`91cd5bf` | 单活动侧栏、空边和移动回滚 |
+| 4 | `84ef4eb`、`2b71d38` | v3 布局 schema 与恢复校验 |
+| 5 | `9778f13`、`ec1e9f5`、`de59e5f` | 导航集成事务与生命周期 |
+| 6 | `eaace04` | 逐窗口模态设置页 |
+| 7 | `17f98b0` | 六入口示例工作区 |
+| 8 | `09a0ec2` | 视觉基线和性能验收资产 |
+| 9 修复 | `db356db`、`4f14162` | Clang Tidy 门禁和析构期弱指针降型 |
 
-完整 ASan 日志位于忽略目录
-`.superpowers/sdd/2026-08-27-workspace-activity-navigation-settings/task-9-logs/asan-lifecycle-fix-4-full-rebuilt-ctest.log`。
+### Linux GCC 矩阵
+
+以下命令逐个执行，均在对应预设的 configure、build 和 CTest 日志中留有记录：
+
+```bash
+cmake --preset linux-gcc-debug -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-gcc-debug --parallel 2
+ctest --preset linux-gcc-debug --output-on-failure
+
+cmake --preset linux-gcc-release -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-gcc-release --parallel 2
+ctest --preset linux-gcc-release --output-on-failure
+
+cmake --preset linux-static-release -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-static-release --parallel 2
+ctest --preset linux-static-release --output-on-failure
+
+cmake --preset linux-gcc-release-lto -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-gcc-release-lto --parallel 2
+ctest --preset linux-gcc-release-lto --output-on-failure
+
+cmake --preset linux-static-release-lto -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-static-release-lto --parallel 2
+ctest --preset linux-static-release-lto --output-on-failure
+```
+
+| 预设 | 对应实现范围 | configure/build | CTest |
+| --- | --- | --- | --- |
+| `linux-gcc-debug` | `180390a` 至 `4f14162` | 通过 | `153/153` 通过，`196.03 s` |
+| `linux-gcc-release` | `180390a` 至 `4f14162` | 通过 | `153/153` 通过，`199.41 s` |
+| `linux-static-release` | `180390a` 至 `4f14162` | 通过 | `153/153` 通过，`199.14 s` |
+| `linux-gcc-release-lto` | `180390a` 至 `4f14162` | 通过 | `153/153` 通过，`194.50 s` |
+| `linux-static-release-lto` | `180390a` 至 `4f14162` | 通过 | `153/153` 通过，`191.00 s` |
+
+### Clang、Tidy 与 ASan/UBSan
+
+```bash
+cmake --preset linux-clang-tidy-release -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-clang-tidy-release --parallel 2
+cmake --build --preset linux-clang-tidy-release --target ZzClangTidy
+ctest --preset linux-clang-tidy-release --output-on-failure
+
+cmake --preset linux-clang-tidy-static -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-clang-tidy-static --parallel 2
+cmake --build --preset linux-clang-tidy-static --target ZzClangTidy
+ctest --preset linux-clang-tidy-static --output-on-failure
+
+cmake --preset linux-clang-asan -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-clang-asan --parallel 2
+ctest --preset linux-clang-asan --output-on-failure
+```
+
+| 预设 | 对应实现范围 | configure/build/Tidy | CTest |
+| --- | --- | --- | --- |
+| `linux-clang-tidy-release` | `180390a` 至 `db356db` | 通过；`ZzClangTidy` 在修复后通过 | `153/153` 通过，`201.60 s` |
+| `linux-clang-tidy-static` | `180390a` 至 `db356db` | 通过；`ZzClangTidy` 通过 | `153/153` 通过，`202.80 s` |
+| `linux-clang-asan` | `180390a` 至 `4f14162` | 通过 | `153/153` 通过，`264.62 s` |
+
+最终 ASan 运行日志不含 AddressSanitizer、UndefinedBehaviorSanitizer 或 `runtime error`
+诊断；另外运行：
+
+```bash
+ctest --test-dir build/linux-clang-asan -R '^puretools\.workspace-shell$' --output-on-failure
+ctest --test-dir build/linux-clang-asan -R '^example\.puretools-integration-english$' --output-on-failure
+```
+
+结果分别为 224 项通过和 `1/1` 通过。完整日志位于忽略目录
+`.superpowers/sdd/2026-08-27-workspace-activity-navigation-settings/task-9-logs/`。
 
 ### 安装、架构与截图
 
-在重新构建 `linux-gcc-benchmarks` 后，运行：
-
 ```bash
+cmake --build --preset linux-gcc-benchmarks --parallel 2
 ctest --preset linux-gcc-benchmarks \
   -R '^architecture\.complete-audit$|^platform\.package-relocation$|^puretools\.workspace-screenshot-(100|125|150|200)$' \
   --output-on-failure
 ```
 
-结果为 `6/6` 通过：四档 Workspace 截图、完整架构审计和安装重定位均通过，
-耗时 `68.90 s`。
+对应 `09a0ec2` 至 `4f14162` 的增量构建通过；筛选 CTest 为 `6/6` 通过、
+`68.90 s`，覆盖四档 Workspace 截图、完整架构审计和安装重定位。
 
 ### 性能证据
 
-`scripts/ci/run-linux-performance-gates.sh` 的首轮实际运行结果为 **INVALID**，
-不是性能 PASS 或代码性能 FAIL。当前 `DISPLAY=localhost:10.0`，X11 vendor 为
-Moba/X，渲染器为 Mesa llvmpipe；这与 `local-release-xvfb` reference profile
-不一致。补齐 `QT_QPA_PLATFORM=xcb` 后，首轮 benchmark CTest 为 `32/42` 通过、
-`10` 项失败、耗时 `272.76 s`，脚本以退出码 `8` 停止，未形成三轮报告。
+```bash
+scripts/ci/run-linux-performance-gates.sh
 
-失败证据包括 Workspace reference gate 的 GPU/environment fingerprint mismatch，
-以及 startup、theme-switch、large-model 和 Example reference gates 的绝对阈值超限。
-这些结果不能与 reference 比较；未修改
+ZZ_BENCHMARK_COMMIT="$(git rev-parse --verify HEAD)" \
+ZZ_RUNNER_IMAGE_DIGEST="sha256:$(sha256sum docs/performance/profiles/local-release-xvfb.json | awk '{print $1}')" \
+ZZ_GPU_IDENTITY='Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Moba/X localhost:10.0' \
+QT_QPA_PLATFORM=xcb scripts/ci/run-linux-performance-gates.sh
+```
+
+首次运行因缺少 `QT_QPA_PLATFORM` 以退出码 `64` 拒绝启动。补齐环境变量后的首轮实际
+运行结果为 **INVALID**，不是代码性能 PASS 或 FAIL：当前 `DISPLAY=localhost:10.0`，
+X11 vendor 为 Moba/X，渲染器为 Mesa llvmpipe，未满足 `local-release-xvfb`
+reference profile。首轮 benchmark CTest 为 `32/42` 通过、`10` 项失败、`272.76 s`，
+脚本以退出码 `8` 停止，未形成三轮可比结果。失败证据包括 Workspace reference gate 的
+GPU/environment fingerprint mismatch，以及 startup、theme-switch、large-model 和
+Example reference gates 的绝对阈值超限。未修改
 `docs/performance/reference/linux/` 或 `regression-thresholds.json`。
 
-性能日志位于忽略目录
+原始单项 benchmark JSON 报告目录为
+`build/linux-gcc-benchmarks/reports/`。正式三轮复制报告目录为
+`build/linux-gcc-benchmarks/release-rounds/`；首轮退出前只生成
+`release-rounds/round-1/commands.log`，没有 `round-1/benchmark.*.json`，
+也没有 `round-2` 或 `round-3`，因此不存在三轮正式报告集。INVALID 运行日志位于
 `.superpowers/sdd/2026-08-27-workspace-activity-navigation-settings/task-9-logs/linux-performance-gates-rerun.log`。
 
 ### 跨平台合同与边界
 
-- `ZzGitHubActionsContract.cmake`：通过。
-- `PresetMatrixContract.cmake`：通过。
-- 对 `ZzCore`、`ZzFluentUI`、`ZzPureTools` 和 `ZzWindowKit` 的公开 include 根进行
-  Linux 专用头和 API 扫描，无命中。
-- Windows MSVC、Windows MinGW 与 macOS：未执行。本机没有对应工具链或运行日志，
-  Linux 结果不替代这些平台的验证。
-- 真实 X11/Wayland 桌面人工验收：未执行；Moba/X SSH 转发和 offscreen 截图不替代
-  原生桌面交互证据。
+```bash
+cmake -DZZ_SOURCE_DIR="$PWD" -P tests/Platform/ZzGitHubActionsContract.cmake
+cmake -DZZ_PRESETS_FILE="$PWD/CMakePresets.json" -P tests/Platform/PresetMatrixContract.cmake
+```
+
+上述两个合同分别通过；对 `ZzCore`、`ZzFluentUI`、`ZzPureTools` 和 `ZzWindowKit` 的
+公开 include 根进行 Linux 专用头和 API 扫描，无命中。Windows MSVC、Windows MinGW
+和 macOS 均未执行：本机没有对应工具链或运行日志，Linux 结果不替代这些平台的验证。
+真实 X11/Wayland 桌面人工验收同样未执行；Moba/X SSH 转发和 offscreen 截图不替代
+原生桌面交互证据。
