@@ -1280,6 +1280,12 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
     const ZzWorkspacePanelId rightCurrentPanelBefore = rightCurrentPanel;
     const bool leftPaneExpandedBefore = leftPaneExpanded;
     const bool rightPaneExpandedBefore = rightPaneExpanded;
+    const auto interrupted = [&] {
+        return zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace was destroyed during side panel adoption"),
+            id.value());
+    };
     QList<QPointer<QWidget>> appendOrder;
     appendOrder.reserve(panelsBefore.size() + 1);
     for (QWidget *const panel : panelsBefore) {
@@ -1378,18 +1384,36 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
             && contentGuard != nullptr
             && stackGuard->panels().contains(contentGuard)) {
             static_cast<void>(paneGuard->takeWidget(contentGuard));
+            if (shellGuard == nullptr) {
+                return;
+            }
         }
         if (activityAppended && modelGuard != nullptr
             && modelGuard == activityModel) {
             static_cast<void>(zzActivityModel(modelGuard)->remove(id));
+            if (shellGuard == nullptr) {
+                return;
+            }
         }
         if (leftBarGuard != nullptr && leftBarGuard == leftActivityBar) {
             leftBarGuard->setCurrentSourceIndex(leftCurrentBefore);
+            if (shellGuard == nullptr) {
+                return;
+            }
             leftBarGuard->setActiveSourceIndexes(leftActiveBefore);
+            if (shellGuard == nullptr) {
+                return;
+            }
         }
         if (rightBarGuard != nullptr && rightBarGuard == rightActivityBar) {
             rightBarGuard->setCurrentSourceIndex(rightCurrentBefore);
+            if (shellGuard == nullptr) {
+                return;
+            }
             rightBarGuard->setActiveSourceIndexes(rightActiveBefore);
+            if (shellGuard == nullptr) {
+                return;
+            }
         }
         leftCurrentPanel = leftCurrentPanelBefore;
         rightCurrentPanel = rightCurrentPanelBefore;
@@ -1400,16 +1424,28 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
                 if (existing != nullptr && stackGuard->panels().contains(existing)) {
                     static_cast<void>(paneGuard->setWidgetVisible(
                         existing, visibleBefore.contains(existing)));
+                    if (shellGuard == nullptr) {
+                        return;
+                    }
                 }
             }
             if (currentBefore != nullptr
                 && stackGuard->panels().contains(currentBefore)) {
                 static_cast<void>(paneGuard->setCurrentWidget(currentBefore));
+                if (shellGuard == nullptr) {
+                    return;
+                }
             }
             if (!sizesBefore.isEmpty()) {
                 static_cast<void>(stackGuard->setPanelSizes(sizesBefore));
+                if (shellGuard == nullptr) {
+                    return;
+                }
             }
             paneGuard->setCollapsed(collapsedBefore);
+            if (shellGuard == nullptr) {
+                return;
+            }
         }
         panelIndex = stablePanelIndex(expected);
         if (panelIndex >= 0) {
@@ -1429,9 +1465,7 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
     };
     const auto reject = [&](const QString &message) {
         if (shellGuard == nullptr) {
-            return zzWorkspaceFailure<void>(
-                ZzCore::ZzErrorCode::InvalidState,
-                message, id.value());
+            return interrupted();
         }
         rollback();
         return zzWorkspaceFailure<void>(
@@ -1440,6 +1474,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
     };
 
     const bool added = paneGuard->addWidget(contentGuard, expected.title);
+    if (shellGuard == nullptr) {
+        return interrupted();
+    }
     panelIndex = stablePanelIndex(expected);
     contentOwnerGuard = ownerObserver.owner();
     contentOwnerIdentity = ownerObserver.ownerIdentity();
@@ -1451,15 +1488,26 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
         return reject(QStringLiteral(
             "Side panel content adoption was interrupted"));
     }
-    if (activate && (!paneGuard->setCurrentWidget(contentGuard)
-        || !audit(appendOrder, rowsBefore, true))) {
-        return reject(QStringLiteral(
-            "Side panel current state was interrupted"));
+    if (activate) {
+        const bool currentWidgetSet = paneGuard->setCurrentWidget(contentGuard);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
+        if (!currentWidgetSet || !audit(appendOrder, rowsBefore, true)) {
+            return reject(QStringLiteral(
+                "Side panel current state was interrupted"));
+        }
     }
-    if (targetStackIndex != panelsBefore.size()
-        && !stackGuard->movePanel(contentGuard, targetStackIndex)) {
-        return reject(QStringLiteral(
-            "Side panel content ordering was interrupted"));
+    if (targetStackIndex != panelsBefore.size()) {
+        const bool moved = stackGuard->movePanel(
+            contentGuard, targetStackIndex);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
+        if (!moved) {
+            return reject(QStringLiteral(
+                "Side panel content ordering was interrupted"));
+        }
     }
     if (!audit(canonicalOrder, rowsBefore, true)) {
         return reject(QStringLiteral(
@@ -1471,6 +1519,9 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
             id, expected.title, expected.icon, expected.activityArea, 0,
             ZzActivityRowKind::SidePanel, {}, {}});
         activityAppended = true;
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         if (!audit(canonicalOrder, rowsAfter, true)) {
             return reject(QStringLiteral(
                 "Side panel activity registration was interrupted"));
@@ -1490,34 +1541,60 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
             zzIsLeftArea(expected.activityArea)
             ? leftBarGuard.data() : rightBarGuard.data();
         owningBar->setCurrentSourceIndex(sourceIndex);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         if (!audit(canonicalOrder, rowsAfter, true)) {
             return reject(QStringLiteral(
                 "Side panel activity state was interrupted"));
         }
         paneGuard->setCollapsed(false);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         syncSideEdgeVisibility();
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         if (!audit(canonicalOrder, rowsAfter, true)) {
             return reject(QStringLiteral(
                 "Side panel activation was interrupted"));
         }
     } else {
-        if (!paneGuard->setWidgetVisible(contentGuard, false)
-            || paneGuard == nullptr || stackGuard == nullptr
+        const bool hidden = paneGuard->setWidgetVisible(contentGuard, false);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
+        if (!hidden || paneGuard == nullptr || stackGuard == nullptr
             || contentGuard == nullptr) {
             return reject(QStringLiteral(
                 "Side panel pending visibility was interrupted"));
         }
-        if (currentBefore != nullptr
-            && !paneGuard->setCurrentWidget(currentBefore)) {
-            return reject(QStringLiteral(
-                "Side panel current state was interrupted"));
+        if (currentBefore != nullptr) {
+            const bool currentWidgetSet =
+                paneGuard->setCurrentWidget(currentBefore);
+            if (shellGuard == nullptr) {
+                return interrupted();
+            }
+            if (!currentWidgetSet) {
+                return reject(QStringLiteral(
+                    "Side panel current state was interrupted"));
+            }
         }
-        if (!sizesBefore.isEmpty()
-            && !stackGuard->setPanelSizes(sizesBefore)) {
-            return reject(QStringLiteral(
-                "Side panel sizes changed during adoption"));
+        if (!sizesBefore.isEmpty()) {
+            const bool sizesRestored = stackGuard->setPanelSizes(sizesBefore);
+            if (shellGuard == nullptr) {
+                return interrupted();
+            }
+            if (!sizesRestored) {
+                return reject(QStringLiteral(
+                    "Side panel sizes changed during adoption"));
+            }
         }
         paneGuard->setCollapsed(collapsedBefore);
+        if (shellGuard == nullptr) {
+            return interrupted();
+        }
         if (paneGuard->visibleWidgets() != visibleBefore
             || paneGuard->currentWidget() != currentBefore
             || stackGuard->panelSizes() != sizesBefore
@@ -1651,6 +1728,7 @@ ZzWorkspaceShellPrivate::createPendingSidePanelContent(
 ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::materializeSidePanel(
     const ZzWorkspacePanelId &id)
 {
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
     const int initialIndex = indexOf(id);
     if (initialIndex < 0) {
         return zzWorkspaceFailure<void>(
@@ -1695,6 +1773,15 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::materializeSidePanel(
     const QPointer<QWidget> contentGuard(content.get());
     auto adopted = adoptSidePanelContent(
         id, before.registrationGeneration, content.get(), false);
+    if (shellGuard == nullptr) {
+        if (contentGuard == nullptr) {
+            [[maybe_unused]] QWidget *const destroyedContent = content.release();
+        }
+        return adopted ? zzWorkspaceFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace was destroyed during panel materialization"),
+            id.value()) : adopted;
+    }
     if (!adopted) {
         if (contentGuard == nullptr) {
             [[maybe_unused]] QWidget *const destroyedContent = content.release();

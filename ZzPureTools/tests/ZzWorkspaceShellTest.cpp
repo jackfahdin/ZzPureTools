@@ -1469,6 +1469,37 @@ private Q_SLOTS:
         QVERIFY(workspaceGuard.isNull());
     }
 
+    void sidePanelRegistrationStopsWhenCurrentWidgetSignalDestroysShell()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        bool callbackEntered = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            &fixture.host, [&](QWidget *current) {
+                if (callbackEntered || current != contentRaw) {
+                    return;
+                }
+                callbackEntered = true;
+                fixture.shell.reset();
+            });
+
+        const auto registered = fixture.shell->registerSidePanel(
+            zzPanelId("side"), QStringLiteral("Side"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, content.get());
+        [[maybe_unused]] QWidget *const adoptedContent = content.release();
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!registered);
+        QCOMPARE(registered.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(fixture.shell == nullptr);
+        QVERIFY(workspaceGuard.isNull());
+    }
+
     void hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge()
     {
         ZzShellFixture fixture;
@@ -1936,6 +1967,43 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->showPanel(zzPanelId("sessions"), true));
         QVERIFY(fixture.shell->showPanel(zzPanelId("sessions"), true));
         QCOMPARE(calls, 1);
+    }
+
+    void deferredSidePanelMaterializationStopsWhenCurrentWidgetSignalDestroysShell()
+    {
+        ZzShellFixture fixture;
+        QWidget *created = nullptr;
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("deferred"), QStringLiteral("Deferred"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            [&created] {
+                auto content = std::make_unique<QWidget>();
+                created = content.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        bool callbackEntered = false;
+        QObject::connect(
+            pane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            &fixture.host, [&](QWidget *current) {
+                if (callbackEntered || current != created) {
+                    return;
+                }
+                callbackEntered = true;
+                fixture.shell.reset();
+            });
+
+        const auto materialized = fixture.shell->showPanel(
+            zzPanelId("deferred"), true);
+
+        QVERIFY(callbackEntered);
+        QVERIFY(!materialized);
+        QCOMPARE(materialized.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(fixture.shell == nullptr);
+        QVERIFY(workspaceGuard.isNull());
     }
 
     void activityActivationMaterializesDeferredSidePanel()
