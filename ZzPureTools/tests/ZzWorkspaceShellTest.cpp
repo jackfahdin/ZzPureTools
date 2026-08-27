@@ -2006,6 +2006,40 @@ private Q_SLOTS:
         QVERIFY(workspaceGuard.isNull());
     }
 
+    void deferredSidePanelFactoryStopsWhenFactoryDestroysShell()
+    {
+        ZzShellFixture fixture;
+        int calls = 0;
+        int destroyed = 0;
+        QPointer<QWidget> createdGuard;
+        QPointer<QWidget> workspaceGuard(fixture.shell->workspaceWidget());
+        QVERIFY(fixture.shell->registerSidePanelFactory(
+            zzPanelId("factory-destroys-shell"),
+            QStringLiteral("Factory destroys shell"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            [&] {
+                ++calls;
+                auto content = std::make_unique<QWidget>();
+                createdGuard = content.get();
+                QObject::connect(content.get(), &QObject::destroyed,
+                    &fixture.host, [&destroyed] { ++destroyed; });
+                fixture.shell.reset();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(content));
+            }));
+
+        const auto materialized = fixture.shell->showPanel(
+            zzPanelId("factory-destroys-shell"), true);
+
+        QCOMPARE(calls, 1);
+        QVERIFY(!materialized);
+        QCOMPARE(materialized.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(fixture.shell == nullptr);
+        QVERIFY(workspaceGuard.isNull());
+        QVERIFY(createdGuard.isNull());
+        QCOMPARE(destroyed, 1);
+    }
+
     void activityActivationMaterializesDeferredSidePanel()
     {
         ZzShellFixture fixture;

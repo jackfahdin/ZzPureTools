@@ -1648,6 +1648,7 @@ ZzWorkspaceShellPrivate::createPendingSidePanelContent(
             QStringLiteral("Workspace host has been destroyed"), id.value());
     }
 
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
     ZzWorkspacePanelFactory factory = std::move(panels[panelIndex].factory);
     panels[panelIndex].materialization = ZzMaterializationState::Materializing;
     const auto restorePending = [this, &before] {
@@ -1679,6 +1680,12 @@ ZzWorkspaceShellPrivate::createPendingSidePanelContent(
     };
 
     auto createdResult = invokeFactory();
+    if (shellGuard == nullptr) {
+        return zzWorkspaceFailure<std::unique_ptr<QWidget>>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace shell was destroyed during side panel creation"),
+            id.value());
+    }
     panelIndex = stablePanelIndex(before);
     if (panelIndex < 0
         || panels.at(panelIndex).materialization
