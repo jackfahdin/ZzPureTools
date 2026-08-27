@@ -610,21 +610,8 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
 
     shell.applicationNavigationIntegrated = true;
     committed = true;
-    delete bodyGuard.data();
-    if (!shellAlive() || !applicationAlive()) {
-        return zzIntegrationFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Application was destroyed during body release"),
-            panelId);
-    }
-    if (bodyGuard != nullptr || application->body != nullptr
-        || windowGuard->centralWidget() != nullptr || !surfacesIntact()) {
-        return zzIntegrationFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Application body destruction was interrupted"),
-            panelId);
-    }
     shell.transactionKind = ZzWorkspaceShellPrivate::ZzTransactionKind::None;
+    bodyGuard->deleteLater();
     return ZzCore::ZzResult<void>::success();
 }
 

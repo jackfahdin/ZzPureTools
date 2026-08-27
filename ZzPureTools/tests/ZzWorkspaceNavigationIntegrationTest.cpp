@@ -3,6 +3,8 @@
 #include <utility>
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QEvent>
 #include <QtCore/QPointer>
 #include <QtGui/QAction>
 #include <QtTest/QSignalSpy>
@@ -178,6 +180,7 @@ private Q_SLOTS:
             if (!integrated) {
                 return integrated;
             }
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
             routeAfter = controllerBefore->currentRoute();
             auto *const leftPane = shell->sidePane(
                 ZzFluentUI::ZzSidePaneEdge::Left);
@@ -662,7 +665,7 @@ private Q_SLOTS:
         bool pinDestructionEntered = false;
         bool rollbackDestructionEntered = false;
         bool bodyPollutionEntered = false;
-        bool poisonedMutationsRejected = false;
+        bool postCommitMutationsSucceeded = false;
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
@@ -745,10 +748,6 @@ private Q_SLOTS:
             }
             shell = std::move(created).value();
             workspace = shell->workspaceWidget();
-            auto savedLayout = shell->saveLayout();
-            if (!savedLayout) {
-                return ZzCore::ZzResult<void>::failure(savedLayout.error());
-            }
             const QString applicationTitleBefore = shell->applicationTitle();
             const QString customTitleBefore = shell->customTitle();
             const auto titleModeBefore = shell->titleMode();
@@ -768,16 +767,19 @@ private Q_SLOTS:
                 zzPanelId("components"), QStringLiteral("Components"),
                 zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
                 QStringLiteral("Component examples"));
-            auto *const rejectedContent = new QWidget;
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            auto *const registeredContent = new QWidget;
             auto registration = shell->registerSidePanel(
-                zzPanelId("blocked"), QStringLiteral("Blocked"), zzIcon(),
-                ZzFluentUI::ZzActivityArea::RightPrimary, rejectedContent);
+                zzPanelId("registered"), QStringLiteral("Registered"), zzIcon(),
+                ZzFluentUI::ZzActivityArea::RightPrimary, registeredContent);
             if (!registration) {
-                delete rejectedContent;
+                delete registeredContent;
             }
             auto activation = shell->showPanel(
                 zzPanelId("components"), false);
-            auto restore = shell->restoreLayout(savedLayout.value());
+            const auto savedLayout = shell->saveLayout();
+            const bool layoutRoundTrip = savedLayout
+                && shell->restoreLayout(savedLayout.value());
             shell->setApplicationTitle(
                 applicationTitleBefore + QStringLiteral(" poisoned"));
             shell->setCustomTitle(
@@ -788,33 +790,35 @@ private Q_SLOTS:
                 ZzFluentUI::ZzSidePaneEdge::Left);
             const QModelIndex navigationIndex = activityBar->model()->index(0, 0);
             const auto areaBefore = navigationIndex.data(static_cast<int>(
-                ZzFluentUI::ZzActivityItemRole::Area));
+                ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>();
             Q_EMIT activityBar->moveRequested(
                 navigationIndex, ZzFluentUI::ZzActivityArea::RightPrimary, 0);
-            poisonedMutationsRejected = bodyPollutionEntered && !integrated
-                && !registration && !activation && !restore && !alwaysOnTop
-                && registration.error().code() == ZzCore::ZzErrorCode::InvalidState
-                && activation.error().code() == ZzCore::ZzErrorCode::InvalidState
-                && restore.error().code() == ZzCore::ZzErrorCode::InvalidState
-                && alwaysOnTop.error().code() == ZzCore::ZzErrorCode::InvalidState
-                && shell->applicationTitle() == applicationTitleBefore
-                && shell->customTitle() == customTitleBefore
-                && shell->titleMode() == titleModeBefore
-                && shell->isAlwaysOnTop() == alwaysOnTopBefore
+            postCommitMutationsSucceeded = bodyPollutionEntered && integrated
+                && registration && activation && layoutRoundTrip && alwaysOnTop
+                && shell->applicationTitle()
+                    == applicationTitleBefore + QStringLiteral(" poisoned")
+                && shell->customTitle()
+                    == customTitleBefore + QStringLiteral(" poisoned")
+                && shell->titleMode() == differentTitleMode
+                && shell->isAlwaysOnTop() == !alwaysOnTopBefore
                 && navigationIndex.data(static_cast<int>(
-                    ZzFluentUI::ZzActivityItemRole::Area)) == areaBefore;
+                    ZzFluentUI::ZzActivityItemRole::Area))
+                    .value<ZzFluentUI::ZzActivityArea>()
+                    == ZzFluentUI::ZzActivityArea::RightPrimary
+                && areaBefore == ZzFluentUI::ZzActivityArea::LeftPrimary;
             window.setCentralWidget(workspace);
-            return poisonedMutationsRejected
+            return postCommitMutationsSucceeded
                 ? ZzCore::ZzResult<void>::success()
                 : zzFailure(QStringLiteral(
-                    "post-commit pollution did not poison workspace mutations"));
+                    "post-commit navigation integration left workspace unusable"));
         };
 
         createdWindow = zzApplication().createWindow();
 
         QVERIFY(createdWindow);
         QVERIFY(bodyPollutionEntered);
-        QVERIFY(poisonedMutationsRejected);
+        QVERIFY(postCommitMutationsSucceeded);
         closeWindow(createdWindow.value());
         shell.reset();
     }
