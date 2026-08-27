@@ -17,7 +17,7 @@ namespace ZzPureTools {
 class ZzWorkspaceLayoutCodecPrivate final
 {
 public:
-    /** @brief 解码 schema 1 或 schema 2 为完整的纯值布局请求。 */
+    /** @brief 解码 schema 1、2 或 3 为完整的纯值布局请求。 */
     [[nodiscard]] static ZzCore::ZzResult<
         ZzWorkspaceLayoutStatePrivate::ZzLayoutRequest>
     decode(const QByteArray &encoded);
@@ -25,6 +25,11 @@ public:
     /** @brief 校验纯值请求并按稳定 schema 2 字节合同编码。 */
     [[nodiscard]] static ZzCore::ZzResult<QByteArray>
     encodeVersionTwo(
+        const ZzWorkspaceLayoutStatePrivate::ZzLayoutRequest &request);
+
+    /** @brief 校验纯值请求并按稳定 schema 3 字节合同编码。 */
+    [[nodiscard]] static ZzCore::ZzResult<QByteArray>
+    encodeVersionThree(
         const ZzWorkspaceLayoutStatePrivate::ZzLayoutRequest &request);
 
     /** @brief 解码并使用同一纯值 writer 重新编码 Split 布局。 */

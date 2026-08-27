@@ -2698,9 +2698,9 @@ private Q_SLOTS:
         QCOMPARE(targetLeft->currentWidget(), created.at(1));
         QCOMPARE(targetRight->currentWidget(), created.at(3));
         QCOMPARE(targetLeft->panelStack()->panelSizes(),
-            sourceLeft->panelStack()->panelSizes());
+            QList<int>({1}));
         QCOMPARE(targetRight->panelStack()->panelSizes(),
-            sourceRight->panelStack()->panelSizes());
+            QList<int>({1}));
         QCOMPARE(targetLeft->isCollapsed(), sourceLeft->isCollapsed());
         QCOMPARE(targetRight->isCollapsed(), sourceRight->isCollapsed());
     }
@@ -4662,8 +4662,8 @@ private Q_SLOTS:
         QCOMPARE(targetRightPane->panelStack()->panels(),
             QList<QWidget *>({targetRightPrimaryOneRaw,
                 targetRightSecondaryOneRaw}));
-        QCOMPARE(targetLeftPane->panelStack()->panelSizes(), QList<int>({444}));
-        QCOMPARE(targetRightPane->panelStack()->panelSizes(), QList<int>({555}));
+        QCOMPARE(targetLeftPane->panelStack()->panelSizes(), QList<int>({1}));
+        QCOMPARE(targetRightPane->panelStack()->panelSizes(), QList<int>({1}));
         QCOMPARE(targetLeftPane->visibleWidgets(),
             QList<QWidget *>({targetLeftSecondaryTwoRaw}));
         QCOMPARE(targetRightPane->visibleWidgets(),
@@ -7395,10 +7395,38 @@ private Q_SLOTS:
         quint32 payloadLength = 0;
         QCOMPARE(envelope.readRawData(magic, 4), 4);
         envelope >> schemaVersion >> streamVersion >> payloadLength;
-        QCOMPARE(schemaVersion, quint16(2));
+        QCOMPARE(schemaVersion, quint16(3));
         QCOMPARE(streamVersion,
             static_cast<quint16>(QDataStream::Qt_6_8));
         QVERIFY(payloadLength > 0);
+    }
+
+    void failedVersionThreeRestoreRollsBackRuntimeState()
+    {
+        ZzShellFixture fixture;
+        auto panel = std::make_unique<QWidget>();
+        QWidget *const panelRaw = panel.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("explorer"), QStringLiteral("Explorer"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, panel.get()));
+        zzReleaseAfterAdoption(panel);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        pane->setPaneWidth(389);
+        const auto before = fixture.shell->saveLayout();
+        QVERIFY(before);
+
+        QByteArray malformedVersionThree = before.value();
+        malformedVersionThree.back() = static_cast<char>(
+            malformedVersionThree.back() ^ 0x01);
+
+        const auto restored = fixture.shell->restoreLayout(malformedVersionThree);
+        QVERIFY(!restored);
+        QCOMPARE(pane->currentWidget(), panelRaw);
+        QCOMPARE(pane->paneWidth(), 389);
+        const auto after = fixture.shell->saveLayout();
+        QVERIFY(after);
+        QCOMPARE(after.value(), before.value());
     }
 
     void boundsVersionOneLayoutDtos_data()
@@ -7572,8 +7600,8 @@ private Q_SLOTS:
         QCOMPARE(
             leftPane->visibleWidgets(),
             QList<QWidget *>({leftTwoRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({350}));
-        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({420}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({1}));
+        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({1}));
         QCOMPARE(leftPane->paneWidth(), 345);
         QCOMPARE(rightPane->paneWidth(), 456);
         QCOMPARE(workspace->groupIds().size(), 2);
@@ -7623,7 +7651,7 @@ private Q_SLOTS:
         QTest::newRow("split-duplicate-order")
             << QStringLiteral("split-duplicate-order") << false;
         QTest::newRow("current-not-visible")
-            << QStringLiteral("current-not-visible") << false;
+            << QStringLiteral("current-not-visible") << true;
         QTest::newRow("visible-without-entry")
             << QStringLiteral("visible-without-entry") << false;
         QTest::newRow("visible-on-wrong-edge")
@@ -7760,8 +7788,12 @@ private Q_SLOTS:
         const auto saved = fixture.shell->saveLayout();
         QCOMPARE(bool(saved), accepted);
         if (saved) {
-            ZzShellFixture target;
-            QVERIFY(target.shell->restoreLayout(saved.value()));
+            QDataStream envelope(saved.value());
+            envelope.setVersion(QDataStream::Qt_6_8);
+            envelope.skipRawData(4);
+            quint16 schema = 0;
+            envelope >> schema;
+            QCOMPARE(schema, quint16(3));
         } else {
             QCOMPARE(saved.error().code(), ZzCore::ZzErrorCode::InvalidState);
         }
@@ -9035,7 +9067,7 @@ private Q_SLOTS:
         QVERIFY(!fixture.shell->restoreLayout(
             zzMutatedByte(valid, 0, 'X')));
         QVERIFY(!fixture.shell->restoreLayout(
-            zzMutatedByte(valid, 5, '\x03')));
+            zzMutatedByte(valid, 5, '\x04')));
         QVERIFY(!fixture.shell->restoreLayout(
             zzMutatedByte(valid, 11, '\x7f')));
         QVERIFY(!fixture.shell->restoreLayout(
@@ -9048,24 +9080,27 @@ private Q_SLOTS:
     void boundsAndDeduplicatesNearLimitSideLayoutEntries()
     {
         ZzShellFixture fixture;
-        const auto saved = fixture.shell->saveLayout();
-        QVERIFY(saved);
+        ZzTestVersionTwoLayout baseline;
+        baseline.qtState = fixture.host.saveState(1);
+        baseline.splitState = fixture.shell->splitWorkspace()->saveLayout();
+        const QByteArray saved = zzVersionTwoLayout(baseline);
+        QVERIFY(!saved.isEmpty());
 
         QElapsedTimer timer;
         timer.start();
         const auto maximumUnique = zzLayoutWithSideEntries(
-            saved.value(), 4096);
+            saved, 4096);
         QVERIFY(!maximumUnique.isEmpty());
         QVERIFY(fixture.shell->restoreLayout(maximumUnique));
         QVERIFY2(timer.elapsed() < 1000,
             "The maximum valid side layout must be decoded on the GUI thread promptly");
 
-        const auto excessive = zzLayoutWithSideEntries(saved.value(), 4097);
+        const auto excessive = zzLayoutWithSideEntries(saved, 4097);
         QVERIFY(!excessive.isEmpty());
         QVERIFY(!fixture.shell->restoreLayout(excessive));
 
         const auto duplicateTail = zzLayoutWithSideEntries(
-            saved.value(), 4096, QStringLiteral("side-0000"));
+            saved, 4096, QStringLiteral("side-0000"));
         QVERIFY(!duplicateTail.isEmpty());
         QVERIFY(!fixture.shell->restoreLayout(duplicateTail));
     }
@@ -9094,7 +9129,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, known.get()));
         zzReleaseAfterAdoption(known);
 
-        QVERIFY(target.shell->restoreLayout(saved.value()));
+        QVERIFY(!target.shell->restoreLayout(saved.value()));
         QCOMPARE(
             target.shell->sidePane(
                 ZzFluentUI::ZzSidePaneEdge::Left)->currentWidget(),
@@ -10156,6 +10191,7 @@ private Q_SLOTS:
         auto two = std::make_unique<QWidget>();
         auto one = std::make_unique<QWidget>();
         QWidget *const twoRaw = two.get();
+        QWidget *const oneRaw = one.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("two"), QStringLiteral("Two"), zzIcon(),
             ZzFluentUI::ZzActivityArea::LeftPrimary, two.get()));
@@ -10215,10 +10251,10 @@ private Q_SLOTS:
                 ? QStringLiteral("restore accepted")
                 : restored.error().technicalMessage();
             QVERIFY2(restored, qPrintable(restoreDiagnostic));
-            QCOMPARE(pane->currentWidget(), twoRaw);
+            QCOMPARE(pane->currentWidget(), oneRaw);
             QCOMPARE(
                 bar->currentSourceIndex().data().toString(),
-                QStringLiteral("Two"));
+                QStringLiteral("One"));
         }
     }
 

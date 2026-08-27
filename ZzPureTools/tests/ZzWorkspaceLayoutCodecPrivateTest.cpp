@@ -342,6 +342,49 @@ class ZzWorkspaceLayoutCodecPrivateTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void versionThreeRoundTripStoresOneCurrentAndExpandedPerSide()
+    {
+        auto layout = zzValidVersionTwoLayout();
+        layout.leftCollapsed = 0;
+        layout.leftWidth = 371;
+        layout.leftCurrent = QStringLiteral("search");
+        layout.leftVisible = {QStringLiteral("explorer"),
+            QStringLiteral("search")};
+        layout.leftSizes = {120, 251};
+        layout.sideEntries = {
+            {QStringLiteral("explorer"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 0},
+            {QStringLiteral("search"),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, 1}};
+
+        const auto versionTwo = ZzCodec::decode(zzVersionTwoLayout(layout));
+        QVERIFY(versionTwo);
+        const auto encoded = ZzCodec::encodeVersionThree(versionTwo.value());
+        QVERIFY(encoded);
+
+        QDataStream envelope(encoded.value());
+        envelope.setVersion(QDataStream::Qt_6_8);
+        char magic[4]{};
+        quint16 schema = 0;
+        quint16 streamVersion = 0;
+        quint32 payloadSize = 0;
+        QCOMPARE(envelope.readRawData(magic, 4), 4);
+        envelope >> schema >> streamVersion >> payloadSize;
+        QCOMPARE(schema, quint16(3));
+        QCOMPARE(streamVersion, static_cast<quint16>(QDataStream::Qt_6_8));
+        QVERIFY(payloadSize > 0);
+
+        const auto decoded = ZzCodec::decode(encoded.value());
+        QVERIFY(decoded);
+        QCOMPARE(decoded.value().sourceSchema,
+            ZzState::ZzLayoutRequest::ZzSourceSchema::VersionThree);
+        const auto &projection = zzProjectionOrDefault(decoded.value());
+        QCOMPARE(projection.leftSide.current, QStringLiteral("search"));
+        QCOMPARE(projection.leftSide.visible,
+            QStringList({QStringLiteral("search")}));
+        QCOMPARE(projection.leftSide.sizes, QList<int>({1}));
+    }
+
     void migratesSchemaOneIntoConcreteSchemaTwoRequest()
     {
         const QList<ZzTestSideEntry> entries = {

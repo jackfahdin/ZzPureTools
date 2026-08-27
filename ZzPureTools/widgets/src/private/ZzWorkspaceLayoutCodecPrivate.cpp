@@ -23,7 +23,8 @@ using ZzLayoutState = ZzWorkspaceLayoutStatePrivate;
 constexpr qsizetype zzMaximumLayoutSize = qsizetype{1024} * 1024;
 constexpr qsizetype zzDigestSize = 32;
 constexpr qsizetype zzHeaderSize = 12;
-constexpr quint16 zzWorkspaceVersion = 2;
+constexpr quint16 zzWorkspaceVersion = 3;
+constexpr quint16 zzVersionTwoWorkspaceVersion = 2;
 constexpr quint16 zzLegacyWorkspaceVersion = 1;
 constexpr quint16 zzSplitVersion = 1;
 constexpr auto zzStreamVersion = QDataStream::Qt_6_8;
@@ -546,7 +547,8 @@ zzReadSplit(const QByteArray &encoded)
     const ZzLayoutState::ZzSplitProjection &split)
 {
     using ZzSourceSchema = ZzLayoutState::ZzLayoutRequest::ZzSourceSchema;
-    if (request.sourceSchema == ZzSourceSchema::VersionTwo) {
+    if (request.sourceSchema == ZzSourceSchema::VersionTwo
+        || request.sourceSchema == ZzSourceSchema::VersionThree) {
         return zzHasOnlyUnsetCurrentIndexes(split.root);
     }
     if (request.sourceSchema != ZzSourceSchema::VersionOne) {
@@ -621,7 +623,8 @@ void zzAppendAreaEntries(
     const ZzLayoutState::ZzSideProjection &side,
     bool left,
     const QList<ZzSideEntry> &entries,
-    QSet<QString> *visibleIds)
+    QSet<QString> *visibleIds,
+    bool strictCurrent)
 {
     if (side.width <= 0 || side.width > zzMaximumLayoutSize
         || side.visible.size() > zzMaximumVisibleSidePanels
@@ -629,8 +632,12 @@ void zzAppendAreaEntries(
         return false;
     }
     const QString current = side.current.trimmed();
+    const auto currentEntry = std::find_if(entries.cbegin(), entries.cend(),
+        [&current](const ZzSideEntry &entry) { return entry.id == current; });
     if (current.size() > zzMaximumIdLength
-        || (!current.isEmpty() && !side.visible.contains(current))) {
+        || (strictCurrent && !current.isEmpty()
+            && (currentEntry == entries.cend()
+            || zzIsLeftArea(currentEntry->area) != left))) {
         return false;
     }
     qsizetype physicalIndex = 0;
@@ -771,11 +778,28 @@ void zzPopulateProjectionEntries(
 
 [[nodiscard]] bool zzValidateSideReferences(
     const ZzLayoutState::ZzWorkspaceProjection &projection,
-    const QList<ZzSideEntry> &entries)
+    const QList<ZzSideEntry> &entries,
+    bool strictCurrent = true)
 {
     QSet<QString> visible;
-    return zzValidateSide(projection.leftSide, true, entries, &visible)
-        && zzValidateSide(projection.rightSide, false, entries, &visible);
+    const auto validateSide = [strictCurrent, &entries, &visible](
+                                  const ZzLayoutState::ZzSideProjection &side,
+                                  bool left) {
+        if (!zzValidateSide(side, left, entries, &visible, strictCurrent)) {
+            return false;
+        }
+        if (!strictCurrent || side.current.isEmpty()) {
+            return true;
+        }
+        const auto current = std::find_if(entries.cbegin(), entries.cend(),
+            [&side](const ZzSideEntry &entry) {
+                return entry.id == side.current;
+            });
+        return current != entries.cend()
+            && zzIsLeftArea(current->area) == left;
+    };
+    return validateSide(projection.leftSide, true)
+        && validateSide(projection.rightSide, false);
 }
 
 [[nodiscard]] bool zzValidateDerivedSideState(
@@ -841,7 +865,7 @@ void zzPopulateProjectionEntries(
         return false;
     }
     zzPopulateProjectionEntries(entries, &projection);
-    if (!zzValidateSideReferences(projection, entries)) {
+    if (!zzValidateSideReferences(projection, entries, false)) {
         return false;
     }
     QByteArray splitState;
@@ -892,6 +916,96 @@ void zzPopulateProjectionEntries(
     request->projection = std::move(projection);
     request->sourceSchema =
         ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionTwo;
+    return true;
+}
+
+/** @brief 读取 v3 的每侧单 current、展开状态和宽度，不再接受多 visible DTO。 */
+[[nodiscard]] bool zzReadVersionThreePayload(
+    const QByteArray &payload,
+    ZzLayoutState::ZzLayoutRequest *request)
+{
+    QDataStream stream(payload);
+    stream.setVersion(zzStreamVersion);
+    ZzLayoutState::ZzWorkspaceProjection projection;
+    const auto readSide = [&stream](ZzLayoutState::ZzSideProjection *side) {
+        quint8 collapsed = 0;
+        qint32 width = 0;
+        stream >> collapsed >> width;
+        return stream.status() == QDataStream::Ok && collapsed <= 1
+            && width > 0 && width <= zzMaximumLayoutSize
+            && zzReadQtString(stream, &side->current, true)
+            && (side->collapsed = collapsed == 1, side->width = width, true);
+    };
+    if (!zzReadByteArray(stream, &projection.dock.state,
+            static_cast<quint32>(zzMaximumLayoutSize))
+        || !readSide(&projection.leftSide)
+        || !readSide(&projection.rightSide)) {
+        return false;
+    }
+    quint32 sideCount = 0;
+    QList<ZzSideEntry> entries;
+    stream >> sideCount;
+    if (stream.status() != QDataStream::Ok
+        || !zzReadSideEntries(stream, sideCount, &entries)) {
+        return false;
+    }
+    zzPopulateProjectionEntries(entries, &projection);
+    for (ZzLayoutState::ZzSideProjection *side : {
+             &projection.leftSide, &projection.rightSide}) {
+        if (!side->current.isEmpty()) {
+            side->visible = {side->current};
+            side->sizes = {1};
+        }
+    }
+    if (!zzValidateSideReferences(projection, entries)) {
+        return false;
+    }
+    QByteArray splitState;
+    if (!zzReadByteArray(stream, &splitState,
+            static_cast<quint32>(zzMaximumLayoutSize))) {
+        return false;
+    }
+    auto split = zzReadSplit(splitState);
+    if (!split.has_value()) {
+        return false;
+    }
+    split->canonicalState = zzWriteSplit(*split);
+    if (split->canonicalState.isEmpty()) {
+        return false;
+    }
+    projection.split = std::move(*split);
+    quint8 bottomCollapsed = 0;
+    qint32 bottomHeight = 0;
+    quint8 titleMode = 0;
+    stream >> bottomCollapsed >> bottomHeight;
+    if (stream.status() != QDataStream::Ok || bottomCollapsed > 1
+        || bottomHeight <= 0 || bottomHeight > zzMaximumLayoutSize
+        || !zzReadQtString(stream, &projection.bottom.current, true)) {
+        return false;
+    }
+    stream >> titleMode;
+    if (stream.status() != QDataStream::Ok || !stream.atEnd()
+        || !zzIsTitleMode(titleMode)) {
+        return false;
+    }
+    projection.bottom.collapsed = bottomCollapsed == 1;
+    projection.bottom.height = bottomHeight;
+    if (!projection.bottom.current.isEmpty()) {
+        projection.bottom.order = {projection.bottom.current};
+        projection.bottom.visible = {projection.bottom.current};
+    }
+    projection.title.mode = static_cast<ZzLayoutState::ZzTitleMode>(titleMode);
+    projection.activity.leftCurrent = projection.leftSide.current;
+    projection.activity.rightCurrent = projection.rightSide.current;
+    projection.activity.leftActive = QSet<QString>(
+        projection.leftSide.visible.cbegin(), projection.leftSide.visible.cend());
+    projection.activity.rightActive = QSet<QString>(
+        projection.rightSide.visible.cbegin(), projection.rightSide.visible.cend());
+    request->leftCurrent = projection.leftSide.current;
+    request->rightCurrent = projection.rightSide.current;
+    request->projection = std::move(projection);
+    request->sourceSchema =
+        ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionThree;
     return true;
 }
 
@@ -1021,7 +1135,8 @@ ZzWorkspaceLayoutCodecPrivate::decode(const QByteArray &encoded)
     quint16 schema = 0;
     QByteArray payload;
     if (!zzDecodeEnvelope(encoded, QByteArrayView("ZZWS", 4),
-            {zzLegacyWorkspaceVersion, zzWorkspaceVersion},
+            {zzLegacyWorkspaceVersion, zzVersionTwoWorkspaceVersion,
+                zzWorkspaceVersion},
             &schema, &payload)) {
         return zzFailure<ZzLayoutState::ZzLayoutRequest>(
             ZzCore::ZzErrorCode::InvalidArgument,
@@ -1030,7 +1145,9 @@ ZzWorkspaceLayoutCodecPrivate::decode(const QByteArray &encoded)
     ZzLayoutState::ZzLayoutRequest request;
     const bool valid = schema == zzLegacyWorkspaceVersion
         ? zzReadVersionOnePayload(payload, &request)
-        : zzReadVersionTwoPayload(payload, &request);
+        : schema == zzVersionTwoWorkspaceVersion
+        ? zzReadVersionTwoPayload(payload, &request)
+        : zzReadVersionThreePayload(payload, &request);
     if (!valid) {
         return zzFailure<ZzLayoutState::ZzLayoutRequest>(
             ZzCore::ZzErrorCode::InvalidArgument,
@@ -1083,6 +1200,86 @@ ZzWorkspaceLayoutCodecPrivate::encodeVersionTwo(
         for (const int size : side.sizes) {
             stream << static_cast<qint32>(size);
         }
+    };
+    stream << projection.dock.state;
+    writeSide(projection.leftSide);
+    writeSide(projection.rightSide);
+    stream << static_cast<quint32>(entries.size());
+    for (const ZzSideEntry &entry : std::as_const(entries)) {
+        stream << entry.id << static_cast<quint8>(entry.area)
+               << static_cast<qint32>(entry.order);
+    }
+    stream << generatedSplit
+           << static_cast<quint8>(projection.bottom.collapsed ? 1 : 0)
+           << static_cast<qint32>(projection.bottom.height)
+           << projection.bottom.current.trimmed()
+           << static_cast<quint8>(projection.title.mode);
+    if (stream.status() != QDataStream::Ok) {
+        return zzFailure<QByteArray>(ZzCore::ZzErrorCode::Io,
+            QStringLiteral("Failed to serialize workspace payload"));
+    }
+    QByteArray encoded = zzEncodeEnvelope(
+        QByteArrayView("ZZWS", 4), zzVersionTwoWorkspaceVersion, payload);
+    if (encoded.isEmpty()) {
+        return zzFailure<QByteArray>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace layout exceeds 1 MiB"));
+    }
+    return ZzCore::ZzResult<QByteArray>::success(std::move(encoded));
+}
+
+ZzCore::ZzResult<QByteArray>
+ZzWorkspaceLayoutCodecPrivate::encodeVersionThree(
+    const ZzWorkspaceLayoutStatePrivate::ZzLayoutRequest &request)
+{
+    if (!request.projection.has_value()) {
+        return zzFailure<QByteArray>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace layout request has no projection"));
+    }
+    const ZzLayoutState::ZzWorkspaceProjection &projection =
+        *request.projection;
+    QList<ZzSideEntry> entries;
+    const QByteArray generatedSplit = zzWriteSplit(projection.split);
+    const auto validSide = [&entries](
+                               const ZzLayoutState::ZzSideProjection &side,
+                               bool left) {
+        if (side.width <= 0 || side.width > zzMaximumLayoutSize
+            || side.current.trimmed().size() > zzMaximumIdLength) {
+            return false;
+        }
+        if (side.current.isEmpty()) {
+            return side.visible.isEmpty() && side.sizes.isEmpty();
+        }
+        const auto found = std::find_if(entries.cbegin(), entries.cend(),
+            [&side](const ZzSideEntry &entry) {
+                return entry.id == side.current;
+            });
+        return found != entries.cend() && zzIsLeftArea(found->area) == left;
+    };
+    if (projection.dock.state.size() > zzMaximumLayoutSize
+        || !zzBuildEntries(projection, &entries)
+        || !validSide(projection.leftSide, true)
+        || !validSide(projection.rightSide, false)
+        || !zzValidateDerivedSideState(request, projection)
+        || !zzValidateSourceSplit(request, projection.split)
+        || projection.bottom.height <= 0
+        || projection.bottom.height > zzMaximumLayoutSize
+        || projection.bottom.current.trimmed().size() > zzMaximumIdLength
+        || !zzIsTitleMode(static_cast<quint8>(projection.title.mode))
+        || generatedSplit.isEmpty()
+        || generatedSplit != projection.split.canonicalState
+        || !zzSameEncodableSplit(projection.split, generatedSplit)) {
+        return zzFailure<QByteArray>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace layout projection is invalid"));
+    }
+
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(zzStreamVersion);
+    const auto writeSide = [&stream](
+                               const ZzLayoutState::ZzSideProjection &side) {
+        stream << static_cast<quint8>(side.collapsed ? 1 : 0)
+               << static_cast<qint32>(side.width)
+               << side.current.trimmed();
     };
     stream << projection.dock.state;
     writeSide(projection.leftSide);

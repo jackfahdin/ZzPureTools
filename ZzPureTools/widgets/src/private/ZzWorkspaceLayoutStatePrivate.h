@@ -223,7 +223,8 @@ public:
         enum class ZzSourceSchema : unsigned char
         {
             VersionOne = 1,
-            VersionTwo = 2
+            VersionTwo = 2,
+            VersionThree = 3
         };
 
         std::optional<ZzWorkspaceProjection> projection;

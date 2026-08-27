@@ -45,7 +45,7 @@ using ZzSnapshot = ZzLayoutState::ZzWorkspaceSnapshot;
 using ZzSide = ZzLayoutState::ZzSideProjection;
 
 constexpr quint16 zzQtDockStateVersion = 1;
-constexpr quint16 zzWorkspaceSchemaVersion = 2;
+constexpr quint16 zzWorkspaceSchemaVersion = 3;
 constexpr auto zzStreamVersion = QDataStream::Qt_6_8;
 constexpr qsizetype zzMaximumLayoutSize = qsizetype{1024} * 1024;
 
@@ -315,22 +315,11 @@ void zzWriteSide(
 {
     const QString current = pane != nullptr
         ? zzIdForWidget(ids, pane->currentWidget()) : QString{};
-    const QList<QWidget *> visible = pane != nullptr
-        ? pane->visibleWidgets() : QList<QWidget *>{};
-    const QList<int> sizes = pane != nullptr && pane->panelStack() != nullptr
-        ? pane->panelStack()->panelSizes() : QList<int>{};
     stream << static_cast<quint8>(
                   pane != nullptr && pane->isCollapsed() ? 1 : 0)
            << static_cast<qint32>(
                   pane != nullptr ? pane->paneWidth() : 280)
-           << current << static_cast<quint32>(visible.size());
-    for (QWidget *const content : visible) {
-        stream << zzIdForWidget(ids, content);
-    }
-    stream << static_cast<quint32>(sizes.size());
-    for (const int size : sizes) {
-        stream << static_cast<qint32>(size);
-    }
+           << current;
 }
 
 /** @brief 只桥接真实 Qt 状态到 codec；所有有界解析仍由 codec 完成。 */
@@ -421,6 +410,11 @@ void zzWriteSide(
         side->contents.append({
             id, side->stackIdentity,
             {side->paneIdentity, side->stackIdentity}});
+    }
+    // schema v3 不保存 stack 分配；快照仍保留它以支持失败事务的精确回滚。
+    if (!side->current.isEmpty()) {
+        side->visible = {side->current};
+        side->sizes = {std::max(stack->panelSizes().value(0), 1)};
     }
     return true;
 }
@@ -2516,8 +2510,8 @@ ZzWorkspaceLayoutTransactionPrivate::save() const
     request.leftCurrent = captured->projection.leftSide.current;
     request.rightCurrent = captured->projection.rightSide.current;
     request.sourceSchema =
-        ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionTwo;
-    return ZzWorkspaceLayoutCodecPrivate::encodeVersionTwo(request);
+        ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionThree;
+    return ZzWorkspaceLayoutCodecPrivate::encodeVersionThree(request);
 }
 
 ZzCore::ZzResult<void>

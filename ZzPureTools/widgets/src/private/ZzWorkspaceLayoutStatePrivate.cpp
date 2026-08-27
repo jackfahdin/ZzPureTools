@@ -312,6 +312,113 @@ void zzReconcileSerializedSideProjection(
         snapshot.activity.rightSecondary, rightOmitted);
 }
 
+/** @brief 仅对 v3 检查已保存的 Side 身份和物理左右侧没有越过注册表。 */
+[[nodiscard]] bool zzValidateVersionThreeProjection(
+    const ZzLayoutState::ZzWorkspaceSnapshot &snapshot,
+    const ZzLayoutState::ZzWorkspaceProjection &projection)
+{
+    const ZzSnapshotIndex index = zzBuildSnapshotIndex(snapshot);
+    QSet<QString> seen;
+    const auto validateArea = [&index, &seen](const QStringList &ids) {
+        for (const QString &id : ids) {
+            const auto identity = index.identitiesById.constFind(id);
+            if (id.isEmpty() || seen.contains(id)
+                || identity == index.identitiesById.cend()
+                || identity.value()->kind != ZzLayoutState::ZzPanelKind::Side) {
+                return false;
+            }
+            seen.insert(id);
+        }
+        return true;
+    };
+    if (!validateArea(projection.activity.leftPrimary)
+        || !validateArea(projection.activity.leftSecondary)
+        || !validateArea(projection.activity.rightPrimary)
+        || !validateArea(projection.activity.rightSecondary)) {
+        return false;
+    }
+    const QStringList leftOrder = projection.activity.leftPrimary
+        + projection.activity.leftSecondary;
+    const QStringList rightOrder = projection.activity.rightPrimary
+        + projection.activity.rightSecondary;
+    const auto validateSide = [&index](
+                                  const ZzLayoutState::ZzSideProjection &side,
+                                  const QStringList &order) {
+        if (side.order != order || side.current.isEmpty()) {
+            return side.order == order && side.current.isEmpty()
+                && side.visible.isEmpty() && side.sizes.isEmpty();
+        }
+        const auto identity = index.identitiesById.constFind(side.current);
+        return identity != index.identitiesById.cend()
+            && identity.value()->kind == ZzLayoutState::ZzPanelKind::Side
+            && order.contains(side.current)
+            && side.visible == QStringList({side.current})
+            && side.sizes.size() == 1;
+    };
+    return validateSide(projection.leftSide, leftOrder)
+        && validateSide(projection.rightSide, rightOrder);
+}
+
+/** @brief 防止恢复目标绑定到已失效或被替换的 QObject 身份。 */
+[[nodiscard]] bool zzSnapshotRuntimeIdentitiesAreIntact(
+    const ZzLayoutState::ZzWorkspaceSnapshot &snapshot)
+{
+    const auto validSubsystem = [](const ZzLayoutState::ZzSubsystemIdentity &id) {
+        return id.rawObject == nullptr || id.object.data() == id.rawObject;
+    };
+    if (!validSubsystem(snapshot.leftSide.paneIdentity)
+        || !validSubsystem(snapshot.leftSide.stackIdentity)
+        || !validSubsystem(snapshot.rightSide.paneIdentity)
+        || !validSubsystem(snapshot.rightSide.stackIdentity)
+        || !validSubsystem(snapshot.bottom.paneIdentity)
+        || !validSubsystem(snapshot.bottom.stackIdentity)
+        || !validSubsystem(snapshot.activity.modelIdentity)) {
+        return false;
+    }
+    for (const ZzLayoutState::ZzPanelIdentity &identity : snapshot.identities) {
+        if ((identity.rawWidget != nullptr
+                && identity.widget.data() != identity.rawWidget)
+            || (identity.rawDock != nullptr
+                && identity.dock.data()
+                    != reinterpret_cast<QObject *>(identity.rawDock))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** @brief 以 v2 的历史可见集合选择一项，并将结果收敛为 v3 运行时语义。 */
+void zzNormalizeVersionTwoSide(
+    ZzLayoutState::ZzSideProjection *side,
+    const QString &requestedCurrent)
+{
+    QHash<QString, int> visibleSizes;
+    visibleSizes.reserve(side->visible.size());
+    for (qsizetype index = 0; index < side->visible.size(); ++index) {
+        visibleSizes.insert(side->visible.at(index), index < side->sizes.size()
+                ? std::max(side->sizes.at(index), 1) : 1);
+    }
+    QString selected;
+    if (!requestedCurrent.isEmpty() && side->order.contains(requestedCurrent)) {
+        selected = requestedCurrent;
+    } else {
+        for (const QString &id : side->order) {
+            if (visibleSizes.contains(id)) {
+                selected = id;
+                break;
+            }
+        }
+        if (selected.isEmpty() && !side->order.isEmpty()) {
+            selected = side->order.front();
+            side->collapsed = true;
+        }
+    }
+    side->current = selected;
+    side->visible = selected.isEmpty() ? QStringList{} : QStringList({selected});
+    side->sizes = selected.isEmpty() ? QList<int>{}
+        : QList<int>({visibleSizes.value(selected, 1)});
+}
+
 void zzNormalizeSide(ZzLayoutState::ZzSideProjection *side)
 {
     zzUniqueNonEmpty(&side->order);
@@ -636,6 +743,16 @@ ZzWorkspaceLayoutStatePrivate::buildRestoreTarget(
     const ZzWorkspaceSnapshot &snapshot,
     const ZzLayoutRequest &request)
 {
+    if (!zzSnapshotRuntimeIdentitiesAreIntact(snapshot)) {
+        return std::nullopt;
+    }
+    const bool versionThree = request.sourceSchema
+        == ZzLayoutRequest::ZzSourceSchema::VersionThree;
+    if (versionThree && (!request.projection.has_value()
+            || !zzValidateVersionThreeProjection(snapshot,
+                request.projection.value()))) {
+        return std::nullopt;
+    }
     ZzWorkspaceProjection target = request.projection.value_or(
         static_cast<const ZzWorkspaceProjection &>(snapshot));
     if (request.projection.has_value()) {
@@ -658,10 +775,16 @@ ZzWorkspaceLayoutStatePrivate::buildRestoreTarget(
             side->current.clear();
         }
     };
-    selectSideCurrent(
-        &target.leftSide, request.leftCurrent, snapshot.leftSide.current);
-    selectSideCurrent(
-        &target.rightSide, request.rightCurrent, snapshot.rightSide.current);
+    if (request.projection.has_value()
+        && request.sourceSchema == ZzLayoutRequest::ZzSourceSchema::VersionTwo) {
+        zzNormalizeVersionTwoSide(&target.leftSide, request.leftCurrent);
+        zzNormalizeVersionTwoSide(&target.rightSide, request.rightCurrent);
+    } else if (!versionThree) {
+        selectSideCurrent(
+            &target.leftSide, request.leftCurrent, snapshot.leftSide.current);
+        selectSideCurrent(
+            &target.rightSide, request.rightCurrent, snapshot.rightSide.current);
+    }
     zzRestoreRuntimeIdentities(&target, snapshot);
     zzNormalizeTarget(&target, snapshot);
     return target;

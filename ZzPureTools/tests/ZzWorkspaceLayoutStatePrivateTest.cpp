@@ -82,6 +82,8 @@ struct ZzPlannerMeasurement final
         projection.activity.leftPrimary.append(id);
     }
     fixture.request.leftCurrent = fixture.snapshot.leftSide.order.value(0);
+    fixture.request.sourceSchema =
+        ZzPlannerLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
     return fixture;
 }
 
@@ -131,6 +133,134 @@ class ZzWorkspaceLayoutStatePrivateTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void versionTwoPrefersValidCurrentOverVisibleRows()
+    {
+        auto snapshot = zzTwoSideSnapshot();
+        snapshot.leftSide.order = {QStringLiteral("one"),
+            QStringLiteral("two"), QStringLiteral("three")};
+        snapshot.activity.leftPrimary = snapshot.leftSide.order;
+        snapshot.identities = {zzSideIdentity(QStringLiteral("one")),
+            zzSideIdentity(QStringLiteral("two")),
+            zzSideIdentity(QStringLiteral("three"))};
+
+        ZzPlannerLayoutState::ZzLayoutRequest request;
+        request.projection = ZzPlannerLayoutState::ZzWorkspaceProjection{};
+        auto &side = request.projection->leftSide;
+        side.order = snapshot.leftSide.order;
+        side.visible = snapshot.leftSide.order;
+        side.sizes = {100, 200, 300};
+        side.current = QStringLiteral("two");
+        request.projection->activity.leftPrimary = snapshot.leftSide.order;
+        request.leftCurrent = QStringLiteral("two");
+
+        const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.current, QStringLiteral("two"));
+        QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("two")}));
+        QCOMPARE(target->leftSide.sizes, QList<int>({200}));
+    }
+
+    void versionTwoFallsBackToFirstVisibleInAreaOrder()
+    {
+        auto snapshot = zzTwoSideSnapshot();
+        snapshot.leftSide.order = {QStringLiteral("one"),
+            QStringLiteral("two"), QStringLiteral("three")};
+        snapshot.activity.leftPrimary = snapshot.leftSide.order;
+        snapshot.identities = {zzSideIdentity(QStringLiteral("one")),
+            zzSideIdentity(QStringLiteral("two")),
+            zzSideIdentity(QStringLiteral("three"))};
+
+        ZzPlannerLayoutState::ZzLayoutRequest request;
+        request.projection = ZzPlannerLayoutState::ZzWorkspaceProjection{};
+        auto &side = request.projection->leftSide;
+        side.order = snapshot.leftSide.order;
+        side.visible = {QStringLiteral("three"), QStringLiteral("two")};
+        side.sizes = {300, 200};
+        request.projection->activity.leftPrimary = snapshot.leftSide.order;
+
+        const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.current, QStringLiteral("two"));
+        QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("two")}));
+        QCOMPARE(target->leftSide.sizes, QList<int>({200}));
+    }
+
+    void versionTwoFallsBackToFirstRegisteredPanelCollapsed()
+    {
+        auto snapshot = zzTwoSideSnapshot();
+        snapshot.leftSide.order = {QStringLiteral("one"), QStringLiteral("two")};
+        snapshot.activity.leftPrimary = snapshot.leftSide.order;
+        snapshot.identities = {zzSideIdentity(QStringLiteral("one")),
+            zzSideIdentity(QStringLiteral("two"))};
+
+        ZzPlannerLayoutState::ZzLayoutRequest request;
+        request.projection = ZzPlannerLayoutState::ZzWorkspaceProjection{};
+        request.projection->leftSide.order = snapshot.leftSide.order;
+        request.projection->activity.leftPrimary = snapshot.leftSide.order;
+
+        const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.current, QStringLiteral("one"));
+        QVERIFY(target->leftSide.collapsed);
+        QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("one")}));
+    }
+
+    void versionTwoDropsAdditionalVisibleAndFixedActionRows()
+    {
+        auto snapshot = zzTwoSideSnapshot();
+        snapshot.leftSide.order = {QStringLiteral("one"), QStringLiteral("two")};
+        snapshot.activity.leftPrimary = snapshot.leftSide.order;
+        snapshot.identities = {zzSideIdentity(QStringLiteral("one")),
+            zzSideIdentity(QStringLiteral("two"))};
+
+        ZzPlannerLayoutState::ZzLayoutRequest request;
+        request.projection = ZzPlannerLayoutState::ZzWorkspaceProjection{};
+        request.projection->leftSide.order = snapshot.leftSide.order;
+        request.projection->leftSide.visible = snapshot.leftSide.order;
+        request.projection->leftSide.sizes = {101, 202};
+        request.projection->leftSide.current = QStringLiteral("two");
+        request.projection->activity.leftPrimary = {QStringLiteral("one"),
+            QStringLiteral("fixed-action"), QStringLiteral("two")};
+        request.leftCurrent = QStringLiteral("two");
+
+        const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.visible, QStringList({QStringLiteral("two")}));
+        QCOMPARE(target->leftSide.sizes, QList<int>({202}));
+        QCOMPARE(target->activity.leftPrimary,
+            QStringList({QStringLiteral("one"), QStringLiteral("two")}));
+    }
+
+    void versionThreeRejectsUnknownDuplicateAndWrongSideIds()
+    {
+        auto snapshot = zzTwoSideSnapshot();
+        snapshot.identities = {zzSideIdentity(QStringLiteral("explorer")),
+            zzSideIdentity(QStringLiteral("terminal"))};
+        ZzPlannerLayoutState::ZzLayoutRequest request;
+        request.sourceSchema =
+            ZzPlannerLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionThree;
+        request.projection = static_cast<ZzPlannerLayoutState::ZzWorkspaceProjection>(
+            snapshot);
+        request.projection->activity.leftPrimary = {QStringLiteral("unknown")};
+        request.projection->leftSide.order = {QStringLiteral("unknown")};
+        QVERIFY(!ZzPlannerLayoutState::buildRestoreTarget(snapshot, request));
+
+        request.projection = static_cast<ZzPlannerLayoutState::ZzWorkspaceProjection>(
+            snapshot);
+        request.projection->activity.leftPrimary = {QStringLiteral("explorer")};
+        request.projection->activity.leftSecondary = {QStringLiteral("explorer")};
+        request.projection->leftSide.order = {QStringLiteral("explorer"),
+            QStringLiteral("explorer")};
+        QVERIFY(!ZzPlannerLayoutState::buildRestoreTarget(snapshot, request));
+
+        request.projection = static_cast<ZzPlannerLayoutState::ZzWorkspaceProjection>(
+            snapshot);
+        request.projection->activity.rightPrimary = {QStringLiteral("explorer")};
+        request.projection->leftSide.order = {QStringLiteral("explorer")};
+        request.projection->rightSide.order.clear();
+        QVERIFY(!ZzPlannerLayoutState::buildRestoreTarget(snapshot, request));
+    }
+
     void alternatingOmissionsKeepStableAnchorsAndSizes()
     {
         ZzPlannerLayoutState::ZzWorkspaceSnapshot snapshot;
@@ -154,6 +284,8 @@ private slots:
         request.projection->activity.leftPrimary =
             request.projection->leftSide.order;
         request.leftCurrent = QStringLiteral("f");
+        request.sourceSchema =
+            ZzPlannerLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
 
         const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
@@ -288,6 +420,8 @@ private slots:
             snapshot);
         request.projection->leftSide.current = QStringLiteral("one");
         request.leftCurrent = QStringLiteral("unknown");
+        request.sourceSchema =
+            ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
@@ -827,6 +961,8 @@ private slots:
             QStringLiteral("search"), QStringLiteral("ghost")};
         request.projection->activity.rightActive = {
             QStringLiteral("terminal"), QStringLiteral("ghost")};
+        request.sourceSchema =
+            ZzLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
 
         const auto target = ZzLayoutState::buildRestoreTarget(snapshot, request);
         QVERIFY(target.has_value());
