@@ -919,7 +919,7 @@ git commit -m "docs(工作区): 记录导航与设置重构验收" \
 
 ### 提交范围
 
-验证范围为 `180390a` 至 `4f14162`。各实现提交如下：
+完整实现与最终审查修复范围为 `180390a` 至 `43c38ff`。各实现提交如下：
 
 | 任务 | 提交 | 内容 |
 | --- | --- | --- |
@@ -932,6 +932,38 @@ git commit -m "docs(工作区): 记录导航与设置重构验收" \
 | 7 | `17f98b0` | 六入口示例工作区 |
 | 8 | `09a0ec2` | 视觉基线和性能验收资产 |
 | 9 修复 | `db356db`、`4f14162` | Clang Tidy 门禁和析构期弱指针降型 |
+| 最终审查修复 | `ab9366d`、`57e217d`、`f5b0aaa`、`43c38ff` | 同步回调、内容采用、导航提交和延迟工厂的生命周期保护 |
+
+### 最终整分支审查与当前 HEAD 验证
+
+最终整分支审查以 `master` 分叉点 `eb7a4b2` 到 `43c38ff` 为范围。审查发现的四项
+生命周期问题均已修复并完成定向复审：
+
+- `ab9366d`：`showPanel()` 在 Side、Bottom、Dock 同步 setter 回调销毁 Shell 后停止
+  访问 private，并让 RAII 状态恢复受 Shell 弱引用保护。
+- `57e217d`：SidePanel 内容采用和回滚流程在每个可重入调用后重新检查 Shell 生命周期。
+- `f5b0aaa`：导航表面提交后先终结事务状态，再延迟回收已脱离 central 的空 body，避免
+  提交后销毁回调永久锁定工作区。
+- `43c38ff`：延迟 SidePanel factory 返回后先检查 Shell 生命周期，局部结果负责回收未
+  采用内容，不再访问已释放的 private。
+
+定向复审结论为无遗留 Critical、Important 或 Minor。随后在当前 HEAD `43c38ff` 上执行：
+
+```bash
+cmake --build --preset linux-gcc-debug --parallel 2
+ctest --preset linux-gcc-debug --output-on-failure
+
+cmake --build --preset linux-clang-asan --parallel 2
+ctest --preset linux-clang-asan --output-on-failure
+
+cmake --build --preset linux-clang-tidy-release --target ZzClangTidy
+git diff --check master..HEAD
+```
+
+GCC Debug 与 Clang ASan/UBSan 构建均通过；两套 CTest 均为 `153/153` 通过，耗时分别为
+`193.47 s` 与 `265.60 s`。`ZzClangTidy` 检查 `276/276` 个一方翻译单元并以退出码 `0`
+结束；输出中的统计告警来自依赖或系统头，没有一方代码诊断失败。`git diff --check`
+无输出。性能 reference、阈值和跨平台边界均未因最终审查修复而改变。
 
 ### Linux GCC 矩阵
 
