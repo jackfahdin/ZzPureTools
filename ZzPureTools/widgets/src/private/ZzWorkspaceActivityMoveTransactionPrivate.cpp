@@ -112,8 +112,9 @@ public:
 
     void allowVisibilityChange(QWidget *content) noexcept
     {
-        allowedVisibilityContent_ = content;
-        allowedVisibilityChanges_ = 1;
+        if (content != nullptr) {
+            ++allowedVisibilityChanges_[content];
+        }
     }
 
     void allowModelReset() noexcept
@@ -125,10 +126,9 @@ public:
     {
         allowedParentContent_ = nullptr;
         allowedMovedContent_ = nullptr;
-        allowedVisibilityContent_ = nullptr;
         allowedParentChanges_ = 0;
         allowedPanelMoves_ = 0;
-        allowedVisibilityChanges_ = 0;
+        allowedVisibilityChanges_.clear();
         allowedModelResets_ = 0;
     }
 
@@ -163,9 +163,13 @@ private:
         QObject::connect(
             stack, &ZzFluentUI::ZzPanelStack::panelVisibilityChanged,
             this, [this](QWidget *content, bool) {
-                consume(
-                    content, allowedVisibilityContent_,
-                    allowedVisibilityChanges_);
+                const auto allowed = allowedVisibilityChanges_.find(content);
+                if (content == nullptr || allowed == allowedVisibilityChanges_.end()
+                    || allowed.value() <= 0) {
+                    valid_ = false;
+                    return;
+                }
+                --allowed.value();
             });
     }
 
@@ -185,10 +189,9 @@ private:
     QList<QPointer<QWidget>> watchedContents_;
     QPointer<QWidget> allowedParentContent_;
     QPointer<QWidget> allowedMovedContent_;
-    QPointer<QWidget> allowedVisibilityContent_;
+    QHash<QWidget *, int> allowedVisibilityChanges_;
     int allowedParentChanges_ = 0;
     int allowedPanelMoves_ = 0;
-    int allowedVisibilityChanges_ = 0;
     int allowedModelResets_ = 0;
     bool valid_ = true;
 };
@@ -763,11 +766,18 @@ void zzCaptureSide(
     auto *const pane = qobject_cast<ZzFluentUI::ZzSidePane *>(
         side.paneIdentity.object.data());
     auto *const stack = pane != nullptr ? pane->panelStack() : nullptr;
+    const bool left = pane != nullptr && pane == shell.leftSidePane;
+    const ZzWorkspacePanelId &shellCurrent = left
+        ? shell.leftCurrentPanel : shell.rightCurrentPanel;
+    const bool shellExpanded = left
+        ? shell.leftPaneExpanded : shell.rightPaneExpanded;
     if (pane == nullptr || !zzSameIdentity(side.stackIdentity, stack)
         || zzIds(index, stack->panels()) != side.order
         || zzIds(index, stack->visiblePanels()) != side.visible
         || zzIdForWidget(index, pane->currentWidget()) != side.current
         || pane->isCollapsed() != side.collapsed
+        || shellCurrent.value() != side.current
+        || shellExpanded != (!side.current.isEmpty() && !side.collapsed)
         || pane->paneWidth() != side.width
         || (includeSizes && stack->panelSizes() != side.sizes)) {
         return false;
@@ -868,6 +878,81 @@ void zzKeepReadyPhysicalProjection(
         target->leftSide.visible.cbegin(), target->leftSide.visible.cend());
     target->activity.rightActive = QSet<QString>(
         target->rightSide.visible.cbegin(), target->rightSide.visible.cend());
+}
+
+[[nodiscard]] int zzVisibleSizeForId(
+    const ZzSide &side,
+    const QString &id) noexcept
+{
+    const qsizetype visibleIndex = side.visible.indexOf(id);
+    return visibleIndex >= 0 && visibleIndex < side.sizes.size()
+        ? std::max(side.sizes.at(visibleIndex), 1) : 1;
+}
+
+/** @brief 将通用多可见移动投影收敛为每侧唯一 current 与展开状态。 */
+void zzApplySingleActivityMoveProjection(
+    const ZzSnapshot &snapshot,
+    const QString &movedId,
+    ZzFluentUI::ZzActivityArea targetArea,
+    ZzProjection *target)
+{
+    const bool sourceLeft = snapshot.leftSide.order.contains(movedId);
+    const bool targetLeft = targetArea
+            == ZzFluentUI::ZzActivityArea::LeftPrimary
+        || targetArea == ZzFluentUI::ZzActivityArea::LeftSecondary;
+    const ZzSide &sourceBefore = sourceLeft
+        ? snapshot.leftSide : snapshot.rightSide;
+    const ZzSide &destinationBefore = targetLeft
+        ? snapshot.leftSide : snapshot.rightSide;
+    ZzSide &sourceAfter = sourceLeft
+        ? target->leftSide : target->rightSide;
+    ZzSide &destinationAfter = targetLeft
+        ? target->leftSide : target->rightSide;
+    const bool movedWasCurrent = sourceBefore.current == movedId;
+
+    const auto restoreSideState = [](ZzSide *side, const ZzSide &before) {
+        side->visible.clear();
+        side->sizes.clear();
+        if (!before.current.isEmpty()
+            && side->order.contains(before.current)) {
+            side->current = before.current;
+            side->visible.append(before.current);
+            side->sizes.append(zzVisibleSizeForId(before, before.current));
+            side->collapsed = before.collapsed;
+        } else {
+            side->current.clear();
+            side->collapsed = true;
+        }
+    };
+    const auto selectCurrent = [](ZzSide *side, const QString &id,
+                                  bool expanded, int size) {
+        side->current = id;
+        side->visible = id.isEmpty() ? QStringList{} : QStringList{id};
+        side->sizes = id.isEmpty() ? QList<int>{} : QList<int>{std::max(size, 1)};
+        side->collapsed = id.isEmpty() || !expanded;
+    };
+
+    if (sourceLeft == targetLeft) {
+        restoreSideState(&sourceAfter, sourceBefore);
+    } else if (!movedWasCurrent) {
+        restoreSideState(&sourceAfter, sourceBefore);
+        restoreSideState(&destinationAfter, destinationBefore);
+    } else {
+        const QString fallback = sourceAfter.order.value(0);
+        selectCurrent(
+            &sourceAfter, fallback, !sourceBefore.collapsed,
+            zzVisibleSizeForId(sourceBefore, fallback));
+        selectCurrent(
+            &destinationAfter, movedId, true,
+            zzVisibleSizeForId(sourceBefore, movedId));
+    }
+
+    target->activity.leftCurrent = target->leftSide.current;
+    target->activity.rightCurrent = target->rightSide.current;
+    target->activity.leftActive = target->leftSide.current.isEmpty()
+        ? QSet<QString>{} : QSet<QString>{target->leftSide.current};
+    target->activity.rightActive = target->rightSide.current.isEmpty()
+        ? QSet<QString>{} : QSet<QString>{target->rightSide.current};
 }
 
 [[nodiscard]] bool zzProjectedRecordStateMatches(
@@ -1170,13 +1255,20 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::execute(
     const ZzWorkspaceShellPrivate::ZzPanelRecord expected = *sourceRecord;
     movedId_ = expected.id.value();
     const ZzSnapshot snapshot = zzCaptureSnapshot(shell_);
+    const int sidePanelTargetRow = shell_.sidePanelTargetRow(
+        targetArea, targetRow);
+    if (sidePanelTargetRow < 0) {
+        return false;
+    }
     const auto planned = ZzLayoutState::buildActivityMoveTarget(
-        snapshot, expected.id.value(), targetArea, targetRow);
+        snapshot, expected.id.value(), targetArea, sidePanelTargetRow);
     if (!planned.has_value()) {
         return false;
     }
     ZzProjection target = *planned;
     zzKeepReadyPhysicalProjection(shell_, snapshot, &target);
+    zzApplySingleActivityMoveProjection(
+        snapshot, expected.id.value(), targetArea, &target);
     const QStringList snapshotOrder = zzModelOrder(snapshotRows);
     const QStringList targetOrder = zzBuildTargetModelOrder(
         snapshotRows, target, expected.id.value(), targetArea);
@@ -1280,6 +1372,16 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             if (current != destinationGuard) {
                 if (current != nullptr) {
                     mutationObserver.allowParentChange(content);
+                    if (current->mode() == ZzFluentUI::ZzSidePaneMode::Single
+                        && current->currentWidget() == content) {
+                        for (QWidget *const candidate
+                             : current->panelStack()->panels()) {
+                            if (candidate != content) {
+                                mutationObserver.allowVisibilityChange(candidate);
+                                break;
+                            }
+                        }
+                    }
                     QWidget *const taken = current->takeWidget(content);
                     mutationObserver.finishMutation();
                     if (taken != content
@@ -1295,6 +1397,13 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                     }
                 }
                 mutationObserver.allowParentChange(content);
+                if (destinationGuard->mode()
+                        == ZzFluentUI::ZzSidePaneMode::Single
+                    && destinationGuard->currentWidget() != nullptr
+                    && destinationGuard->currentWidget() != content) {
+                    mutationObserver.allowVisibilityChange(
+                        destinationGuard->currentWidget());
+                }
                 const bool added = destinationGuard != nullptr
                     && destinationGuard->addWidget(content, record->title);
                 mutationObserver.finishMutation();
@@ -1416,6 +1525,16 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                 continue;
             }
             mutationObserver.allowVisibilityChange(record->content);
+            if (visible && paneGuard->mode()
+                    == ZzFluentUI::ZzSidePaneMode::Single) {
+                for (QWidget *const candidate
+                     : paneGuard->panelStack()->panels()) {
+                    if (candidate != record->content
+                        && paneGuard->panelStack()->isPanelVisible(candidate)) {
+                        mutationObserver.allowVisibilityChange(candidate);
+                    }
+                }
+            }
             const bool visibilityApplied =
                 paneGuard->setWidgetVisible(record->content, visible);
             mutationObserver.finishMutation();
@@ -1510,6 +1629,15 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
         return false;
     }
 
+    shell_.leftCurrentPanel = ZzWorkspacePanelId(
+        projection.leftSide.current);
+    shell_.rightCurrentPanel = ZzWorkspacePanelId(
+        projection.rightSide.current);
+    shell_.leftPaneExpanded = !projection.leftSide.current.isEmpty()
+        && !projection.leftSide.collapsed;
+    shell_.rightPaneExpanded = !projection.rightSide.current.isEmpty()
+        && !projection.rightSide.collapsed;
+
     const QPointer<ZzFluentUI::ZzActivityBar> leftBar(shell_.leftActivityBar);
     const QPointer<ZzFluentUI::ZzActivityBar> rightBar(shell_.rightActivityBar);
     const auto stableAfterActivity = [&] {
@@ -1591,7 +1719,13 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
             && ((shell_.rightActivityBar != nullptr
                     && !shell_.rightActivityBar->isHidden())
                 == (!projection.activity.rightPrimary.isEmpty()
-                    || !projection.activity.rightSecondary.isEmpty()));
+                    || !projection.activity.rightSecondary.isEmpty()))
+            && ((shell_.leftSidePane != nullptr
+                    && !shell_.leftSidePane->isHidden())
+                == shell_.leftPaneExpanded)
+            && ((shell_.rightSidePane != nullptr
+                    && !shell_.rightSidePane->isHidden())
+                == shell_.rightPaneExpanded);
     }
     return complete;
 }

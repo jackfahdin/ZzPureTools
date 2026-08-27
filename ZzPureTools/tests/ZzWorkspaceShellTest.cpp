@@ -305,6 +305,23 @@ private:
     return {};
 }
 
+/** @brief 按显示标题查找 Activity 源模型中的稳定测试索引。 */
+[[nodiscard]] QModelIndex zzActivityIndex(
+    QAbstractItemModel *model,
+    const QString &title)
+{
+    if (model == nullptr) {
+        return {};
+    }
+    for (int row = 0; row < model->rowCount(); ++row) {
+        const QModelIndex index = model->index(row, 0);
+        if (index.data(Qt::DisplayRole).toString() == title) {
+            return index;
+        }
+    }
+    return {};
+}
+
 [[nodiscard]] QByteArray zzTestWorkspaceEnvelope(
     quint16 schemaVersion,
     const QByteArray &payload)
@@ -812,10 +829,362 @@ private Q_SLOTS:
         QCOMPARE(centerLayout->stretch(0), 1);
         QCOMPARE(
             fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)->mode(),
-            ZzFluentUI::ZzSidePaneMode::Stacked);
+            ZzFluentUI::ZzSidePaneMode::Single);
         QCOMPARE(
             fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Right)->mode(),
-            ZzFluentUI::ZzSidePaneMode::Stacked);
+            ZzFluentUI::ZzSidePaneMode::Single);
+    }
+
+    void sideUsesSingleModeAndShowsOnlyCurrentPanel()
+    {
+        ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QWidget *const firstRaw = first.get();
+        QWidget *const secondRaw = second.get();
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("single-first"), QStringLiteral("Single first"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("single-second"), QStringLiteral("Single second"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary, second.get()));
+        zzReleaseAfterAdoption(second);
+
+        QCOMPARE(pane->mode(), ZzFluentUI::ZzSidePaneMode::Single);
+        QVERIFY(!bar->isMultiActiveEnabled());
+        QCOMPARE(
+            pane->panelStack()->panels(),
+            QList<QWidget *>({firstRaw, secondRaw}));
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({secondRaw}));
+        QCOMPARE(pane->currentWidget(), secondRaw);
+        const QModelIndex current = zzActivityIndex(
+            bar->model(), QStringLiteral("Single second"));
+        QVERIFY(current.isValid());
+        QCOMPARE(bar->currentSourceIndex(), current);
+        QCOMPARE(bar->activeSourceIndexes(), QList<QModelIndex>({current}));
+    }
+
+    void reactivatingCurrentPanelCollapsesButKeepsCurrentIndicator()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QWidget *const contentRaw = content.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("collapse-current"), QStringLiteral("Collapse current"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        const QModelIndex current = zzActivityIndex(
+            bar->model(), QStringLiteral("Collapse current"));
+
+        Q_EMIT bar->collapseRequested(current);
+
+        QVERIFY(pane->isCollapsed());
+        QVERIFY(pane->isHidden());
+        QCOMPARE(pane->width(), 0);
+        QCOMPARE(pane->currentWidget(), contentRaw);
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contentRaw}));
+        QCOMPARE(bar->currentSourceIndex(), current);
+        QCOMPARE(bar->activeSourceIndexes(), QList<QModelIndex>({current}));
+
+        Q_EMIT bar->activationRequested(current);
+        QVERIFY(!pane->isCollapsed());
+        QVERIFY(!pane->isHidden());
+        QCOMPARE(pane->currentWidget(), contentRaw);
+        QCOMPARE(bar->currentSourceIndex(), current);
+    }
+
+    void switchingPanelHidesPreviousWithoutDestroyingEitherContent()
+    {
+        ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QPointer<QWidget> firstGuard(first.get());
+        QPointer<QWidget> secondGuard(second.get());
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("switch-first"), QStringLiteral("Switch first"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("switch-second"), QStringLiteral("Switch second"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        const QModelIndex firstIndex = zzActivityIndex(
+            bar->model(), QStringLiteral("Switch first"));
+
+        Q_EMIT bar->activationRequested(firstIndex);
+
+        QVERIFY(firstGuard != nullptr);
+        QVERIFY(secondGuard != nullptr);
+        QCOMPARE(pane->pageCount(), 2);
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({firstGuard.data()}));
+        QCOMPARE(pane->currentWidget(), firstGuard.data());
+        QCOMPARE(bar->currentSourceIndex(), firstIndex);
+        QCOMPARE(
+            bar->activeSourceIndexes(), QList<QModelIndex>({firstIndex}));
+    }
+
+    void movingCurrentAcrossSidesTransfersExpandedCurrent()
+    {
+        ZzShellFixture fixture;
+        auto leftFallback = std::make_unique<QWidget>();
+        auto moved = std::make_unique<QWidget>();
+        auto rightCurrent = std::make_unique<QWidget>();
+        QWidget *const leftFallbackRaw = leftFallback.get();
+        QWidget *const movedRaw = moved.get();
+        QWidget *const rightCurrentRaw = rightCurrent.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("move-fallback"), QStringLiteral("Move fallback"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary,
+            leftFallback.get()));
+        zzReleaseAfterAdoption(leftFallback);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("move-current"), QStringLiteral("Move current"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("move-target-current"),
+            QStringLiteral("Move target current"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, rightCurrent.get()));
+        zzReleaseAfterAdoption(rightCurrent);
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        const QModelIndex movedIndex = zzActivityIndex(
+            leftBar->model(), QStringLiteral("Move current"));
+
+        Q_EMIT leftBar->moveRequested(
+            movedIndex, ZzFluentUI::ZzActivityArea::RightSecondary, 0);
+
+        QCOMPARE(leftPane->currentWidget(), leftFallbackRaw);
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({leftFallbackRaw}));
+        QVERIFY(!leftPane->isCollapsed());
+        QCOMPARE(rightPane->currentWidget(), movedRaw);
+        QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QVERIFY(!rightPane->isCollapsed());
+        QVERIFY(rightCurrentRaw != nullptr);
+        QVERIFY(rightPane->isAncestorOf(rightCurrentRaw));
+        const QModelIndex movedAfter = zzActivityIndex(
+            rightBar->model(), QStringLiteral("Move current"));
+        const QModelIndex fallbackAfter = zzActivityIndex(
+            leftBar->model(), QStringLiteral("Move fallback"));
+        QCOMPARE(rightBar->currentSourceIndex(), movedAfter);
+        QCOMPARE(
+            rightBar->activeSourceIndexes(), QList<QModelIndex>({movedAfter}));
+        QCOMPARE(leftBar->currentSourceIndex(), fallbackAfter);
+        QCOMPARE(
+            leftBar->activeSourceIndexes(), QList<QModelIndex>({fallbackAfter}));
+    }
+
+    void movingLastRightEntryRemovesBarPaneWidthAndHitTarget()
+    {
+        ZzShellFixture fixture;
+        auto content = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("right-only"), QStringLiteral("Right only"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::RightPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+        QWidget *const root = fixture.shell->workspaceWidget();
+        fixture.host.setCentralWidget(root);
+        fixture.host.resize(1000, 640);
+        fixture.host.show();
+        QCoreApplication::processEvents();
+        auto *const center = fixture.shell->splitWorkspace()->parentWidget();
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        const QPoint rightEdge(root->width() - 1, root->height() / 2);
+        QWidget *const hitBefore = root->childAt(rightEdge);
+        QVERIFY(hitBefore == rightBar || rightBar->isAncestorOf(hitBefore));
+        QVERIFY(center->geometry().right() < root->rect().right());
+        const QModelIndex onlyIndex = zzActivityIndex(
+            rightBar->model(), QStringLiteral("Right only"));
+
+        Q_EMIT rightBar->moveRequested(
+            onlyIndex, ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
+        QCoreApplication::processEvents();
+
+        QVERIFY(rightBar->isHidden());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(rightPane->isHidden());
+        QCOMPARE(rightPane->width(), 0);
+        QCOMPARE(center->geometry().right(), root->rect().right());
+        QWidget *const hitAfter = root->childAt(rightEdge);
+        QVERIFY(hitAfter != rightBar);
+        QVERIFY(hitAfter == nullptr || !rightBar->isAncestorOf(hitAfter));
+        QVERIFY(hitAfter != rightPane);
+        QVERIFY(hitAfter == nullptr || !rightPane->isAncestorOf(hitAfter));
+    }
+
+    void movingEntryBackRestoresOnlyRightBarUntilActivation()
+    {
+        ZzShellFixture fixture;
+        auto current = std::make_unique<QWidget>();
+        auto moved = std::make_unique<QWidget>();
+        QWidget *const currentRaw = current.get();
+        QWidget *const movedRaw = moved.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("stay-left"), QStringLiteral("Stay left"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, current.get()));
+        zzReleaseAfterAdoption(current);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("move-right-collapsed"),
+            QStringLiteral("Move right collapsed"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        QVERIFY(fixture.shell->showPanel(zzPanelId("stay-left"), true));
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        const QModelIndex movedIndex = zzActivityIndex(
+            leftBar->model(), QStringLiteral("Move right collapsed"));
+
+        Q_EMIT leftBar->moveRequested(
+            movedIndex, ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+
+        QCOMPARE(leftPane->currentWidget(), currentRaw);
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({currentRaw}));
+        QVERIFY(!rightBar->isHidden());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(rightPane->isHidden());
+        QCOMPARE(rightPane->width(), 0);
+        QVERIFY(rightPane->visibleWidgets().isEmpty());
+        QVERIFY(!rightBar->currentSourceIndex().isValid());
+        QVERIFY(rightBar->activeSourceIndexes().isEmpty());
+        QVERIFY(rightPane->isAncestorOf(movedRaw));
+
+        const QModelIndex movedAfter = zzActivityIndex(
+            rightBar->model(), QStringLiteral("Move right collapsed"));
+        Q_EMIT rightBar->activationRequested(movedAfter);
+        QVERIFY(!rightPane->isCollapsed());
+        QVERIFY(!rightPane->isHidden());
+        QCOMPARE(rightPane->currentWidget(), movedRaw);
+        QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QCOMPARE(rightBar->currentSourceIndex(), movedAfter);
+    }
+
+    void fixedLeftActionKeepsBarButNeverKeepsEmptyPaneWidth()
+    {
+        ZzShellFixture fixture;
+        QAction settingsAction(QStringLiteral("Settings"));
+        QVERIFY(fixture.shell->registerFixedActivityAction(
+            zzActivityId("fixed-settings"), QStringLiteral("Fixed settings"),
+            zzActivityIcon(), ZzFluentUI::ZzActivityArea::LeftSecondary,
+            &settingsAction));
+        auto content = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("fixed-temporary"), QStringLiteral("Fixed temporary"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+        zzReleaseAfterAdoption(content);
+        auto *const pane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+
+        auto taken = fixture.shell->takePanel(zzPanelId("fixed-temporary"));
+        QVERIFY(taken);
+        std::unique_ptr<QWidget> returned(taken.value());
+
+        QVERIFY(!bar->isHidden());
+        QCOMPARE(bar->model()->rowCount(), 1);
+        QVERIFY(!bar->currentSourceIndex().isValid());
+        QVERIFY(bar->activeSourceIndexes().isEmpty());
+        QVERIFY(pane->isCollapsed());
+        QVERIFY(pane->isHidden());
+        QCOMPARE(pane->width(), 0);
+        QVERIFY(pane->visibleWidgets().isEmpty());
+    }
+
+    void failedMoveRestoresCurrentExpandedOwnershipAndEdgeVisibility()
+    {
+        ZzShellFixture fixture;
+        auto fallback = std::make_unique<QWidget>();
+        auto moved = std::make_unique<QWidget>();
+        QWidget *const fallbackRaw = fallback.get();
+        QWidget *const movedRaw = moved.get();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("rollback-fallback"),
+            QStringLiteral("Rollback fallback"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, fallback.get()));
+        zzReleaseAfterAdoption(fallback);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("rollback-moved"), QStringLiteral("Rollback moved"),
+            zzIcon(), ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
+        zzReleaseAfterAdoption(moved);
+        auto *const leftPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = fixture.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const leftBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightBar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QAbstractItemModel *const model = leftBar->model();
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QVERIFY(rightPane->visibleWidgets().isEmpty());
+        QVERIFY(rightPane->isHidden());
+        QVERIFY(rightBar->isHidden());
+        QWidget *const movedOwner = movedRaw->parentWidget();
+        QWidget *const fallbackOwner = fallbackRaw->parentWidget();
+        bool callbackEntered = false;
+        ZzShowEventFilter finalShowFilter;
+        finalShowFilter.shown = [&] {
+                if (!callbackEntered) {
+                    callbackEntered = true;
+                    rightBar->setCurrentSourceIndex({});
+                }
+            };
+        rightPane->installEventFilter(&finalShowFilter);
+        const QModelIndex movedIndex = zzActivityIndex(
+            model, QStringLiteral("Rollback moved"));
+
+        Q_EMIT leftBar->moveRequested(
+            movedIndex, ZzFluentUI::ZzActivityArea::RightSecondary, 0);
+
+        QVERIFY(callbackEntered);
+        QCOMPARE(movedRaw->parentWidget(), movedOwner);
+        QCOMPARE(fallbackRaw->parentWidget(), fallbackOwner);
+        QCOMPARE(leftPane->currentWidget(), movedRaw);
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QVERIFY(!leftPane->isCollapsed());
+        QVERIFY(rightPane->currentWidget() == nullptr);
+        QVERIFY(rightPane->visibleWidgets().isEmpty());
+        QVERIFY(rightPane->isCollapsed());
+        QVERIFY(rightPane->isHidden());
+        QVERIFY(!leftBar->isHidden());
+        QVERIFY(rightBar->isHidden());
+        const QModelIndex movedAfter = zzActivityIndex(
+            model, QStringLiteral("Rollback moved"));
+        QCOMPARE(
+            movedAfter.data(static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
+                .value<ZzFluentUI::ZzActivityArea>(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary);
+        QCOMPARE(leftBar->currentSourceIndex(), movedAfter);
+        QVERIFY(!rightBar->currentSourceIndex().isValid());
     }
 
     void hidesEmptySideEdgesAndRestoresOnlyTheOccupiedEdge()
@@ -2106,22 +2475,22 @@ private Q_SLOTS:
         const QString restoreError = restored
             ? QString{} : restored.error().technicalMessage();
         QVERIFY2(restored, qPrintable(restoreError));
-        const std::array<int, 4> expectedCalls = {1, 0, 1, 0};
+        const std::array<int, 4> expectedCalls = {0, 1, 0, 1};
         QCOMPARE(calls, expectedCalls);
         auto *const targetLeft = target.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Left);
         auto *const targetRight = target.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Right);
         QCOMPARE(targetLeft->panelStack()->panels(),
-            QList<QWidget *>({created.at(0)}));
+            QList<QWidget *>({created.at(1)}));
         QCOMPARE(targetRight->panelStack()->panels(),
-            QList<QWidget *>({created.at(2)}));
+            QList<QWidget *>({created.at(3)}));
         QCOMPARE(targetLeft->visibleWidgets(),
-            QList<QWidget *>({created.at(0)}));
+            QList<QWidget *>({created.at(1)}));
         QCOMPARE(targetRight->visibleWidgets(),
-            QList<QWidget *>({created.at(2)}));
-        QCOMPARE(targetLeft->currentWidget(), created.at(0));
-        QCOMPARE(targetRight->currentWidget(), created.at(2));
+            QList<QWidget *>({created.at(3)}));
+        QCOMPARE(targetLeft->currentWidget(), created.at(1));
+        QCOMPARE(targetRight->currentWidget(), created.at(3));
         QCOMPARE(targetLeft->panelStack()->panelSizes(),
             sourceLeft->panelStack()->panelSizes());
         QCOMPARE(targetRight->panelStack()->panelSizes(),
@@ -4024,13 +4393,12 @@ private Q_SLOTS:
                 .value<ZzFluentUI::ZzActivityArea>(), areas.at(row));
         }
 
-        QVERIFY(leftPane->panelStack()->setPanelSizes({111, 222, 333, 444}));
-        QVERIFY(rightPane->panelStack()->setPanelSizes({555, 666}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({444}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({555}));
         QCOMPARE(leftPane->visibleWidgets(),
-            QList<QWidget *>({leftPrimaryOneRaw, leftPrimaryTwoRaw,
-                leftSecondaryOneRaw, leftSecondaryTwoRaw}));
+            QList<QWidget *>({leftSecondaryTwoRaw}));
         QCOMPARE(rightPane->visibleWidgets(),
-            QList<QWidget *>({rightPrimaryOneRaw, rightSecondaryOneRaw}));
+            QList<QWidget *>({rightPrimaryOneRaw}));
         const auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
 
@@ -4088,16 +4456,12 @@ private Q_SLOTS:
         QCOMPARE(targetRightPane->panelStack()->panels(),
             QList<QWidget *>({targetRightPrimaryOneRaw,
                 targetRightSecondaryOneRaw}));
-        QCOMPARE(targetLeftPane->panelStack()->panelSizes(),
-            QList<int>({111, 222, 333, 444}));
-        QCOMPARE(targetRightPane->panelStack()->panelSizes(),
-            QList<int>({555, 666}));
+        QCOMPARE(targetLeftPane->panelStack()->panelSizes(), QList<int>({444}));
+        QCOMPARE(targetRightPane->panelStack()->panelSizes(), QList<int>({555}));
         QCOMPARE(targetLeftPane->visibleWidgets(),
-            QList<QWidget *>({targetLeftPrimaryOneRaw, targetLeftPrimaryTwoRaw,
-                targetLeftSecondaryOneRaw, targetLeftSecondaryTwoRaw}));
+            QList<QWidget *>({targetLeftSecondaryTwoRaw}));
         QCOMPARE(targetRightPane->visibleWidgets(),
-            QList<QWidget *>({targetRightPrimaryOneRaw,
-                targetRightSecondaryOneRaw}));
+            QList<QWidget *>({targetRightPrimaryOneRaw}));
         QCOMPARE(leftPane->currentWidget(), leftSecondaryTwoRaw);
         QCOMPARE(rightPane->currentWidget(), rightPrimaryOneRaw);
         QCOMPARE(targetLeftPane->currentWidget(), targetLeftSecondaryTwoRaw);
@@ -4114,13 +4478,9 @@ private Q_SLOTS:
             return activeTitles;
         };
         QCOMPARE(targetActiveTitles(targetLeftBar),
-            QList<QString>({QStringLiteral("Left primary one"),
-                QStringLiteral("Left primary two"),
-                QStringLiteral("Left secondary one"),
-                QStringLiteral("Left secondary two")}));
+            QList<QString>({QStringLiteral("Left secondary two")}));
         QCOMPARE(targetActiveTitles(targetRightBar),
-            QList<QString>({QStringLiteral("Right primary one"),
-                QStringLiteral("Right secondary one")}));
+            QList<QString>({QStringLiteral("Right primary one")}));
         for (QWidget *const content : targetLeftPane->panelStack()->panels()) {
             QVERIFY(targetLeftPane->isAncestorOf(content));
         }
@@ -4752,7 +5112,6 @@ private Q_SLOTS:
         auto leftTwo = std::make_unique<QWidget>();
         auto leftSecondary = std::make_unique<QWidget>();
         auto rightOne = std::make_unique<QWidget>();
-        QWidget *const leftOneRaw = leftOne.get();
         QWidget *const leftTwoRaw = leftTwo.get();
         QWidget *const leftSecondaryRaw = leftSecondary.get();
         QWidget *const rightOneRaw = rightOne.get();
@@ -4783,27 +5142,25 @@ private Q_SLOTS:
         auto *const rightBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
         QAbstractItemModel *const model = leftBar->model();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({111, 222, 333}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({333}));
         QVERIFY(rightPane->panelStack()->setPanelSizes({444}));
 
         Q_EMIT leftBar->moveRequested(
             model->index(1, 0),
             ZzFluentUI::ZzActivityArea::LeftPrimary,
             0);
-        QCOMPARE(
-            leftPane->visibleWidgets(),
-            QList<QWidget *>({leftTwoRaw, leftOneRaw, leftSecondaryRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({222, 111, 333}));
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({leftSecondaryRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({333}));
         QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("Left two"));
 
         Q_EMIT leftBar->moveRequested(
             model->index(2, 0),
             ZzFluentUI::ZzActivityArea::LeftPrimary,
             1);
-        QCOMPARE(
-            leftPane->visibleWidgets(),
-            QList<QWidget *>({leftTwoRaw, leftSecondaryRaw, leftOneRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({222, 333, 111}));
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({leftSecondaryRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({333}));
         QCOMPARE(
             model->index(1, 0).data(
                 static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
@@ -4814,14 +5171,11 @@ private Q_SLOTS:
             model->index(0, 0),
             ZzFluentUI::ZzActivityArea::RightPrimary,
             0);
-        QCOMPARE(
-            rightPane->visibleWidgets(),
-            QList<QWidget *>({leftTwoRaw, rightOneRaw}));
-        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({222, 444}));
-        QCOMPARE(
-            leftPane->visibleWidgets(),
-            QList<QWidget *>({leftSecondaryRaw, leftOneRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({333, 111}));
+        QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({rightOneRaw}));
+        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({444}));
+        QCOMPARE(leftPane->visibleWidgets(),
+            QList<QWidget *>({leftSecondaryRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({333}));
         QVERIFY(leftTwoRaw->parentWidget() != nullptr);
         QVERIFY(rightPane->isAncestorOf(leftTwoRaw));
 
@@ -4832,8 +5186,7 @@ private Q_SLOTS:
         QCOMPARE(leftActive.constFirst().data().toString(),
             QStringLiteral("Left secondary"));
         const auto rightActive = rightBar->activeSourceIndexes();
-        QCOMPARE(rightActive.size(), 2);
-        QVERIFY(rightActive.contains(model->index(0, 0)));
+        QCOMPARE(rightActive.size(), 1);
         QVERIFY(rightActive.contains(model->index(3, 0)));
     }
 
@@ -4938,7 +5291,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzSidePaneEdge::Right);
         auto *const rightBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
-        QVERIFY(pane->panelStack()->setPanelSizes({101, 202, 303, 404, 505, 606}));
+        QVERIFY(pane->panelStack()->setPanelSizes({606}));
         QList<QPointer<QWidget>> owners;
         QList<QWidget *> rawOwners;
         for (QWidget *content : contents) {
@@ -4958,9 +5311,8 @@ private Q_SLOTS:
         QCOMPARE(pane->panelStack()->panels(), QList<QWidget *>({contents.at(1),
             contents.at(2), contents.at(3), contents.at(4), contents.at(5),
             contents.at(0)}));
-        QCOMPARE(pane->visibleWidgets(), pane->panelStack()->panels());
-        QCOMPARE(pane->panelStack()->panelSizes(),
-            QList<int>({202, 303, 404, 505, 606, 101}));
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contents.at(5)}));
+        QCOMPARE(pane->panelStack()->panelSizes(), QList<int>({606}));
         QCOMPARE(model->index(5, 0).data().toString(), QStringLiteral("single-0"));
         QCOMPARE(model->index(5, 0).data(static_cast<int>(
             ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
@@ -4972,9 +5324,9 @@ private Q_SLOTS:
                 ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
                 ZzFluentUI::ZzActivityArea::LeftPrimary);
         }
-        QCOMPARE(pane->currentWidget(), contents.at(0));
-        QCOMPARE(bar->currentSourceIndex().data().toString(), QStringLiteral("single-0"));
-        QCOMPARE(bar->activeSourceIndexes().size(), 6);
+        QCOMPARE(pane->currentWidget(), contents.at(5));
+        QCOMPARE(bar->currentSourceIndex().data().toString(), QStringLiteral("single-5"));
+        QCOMPARE(bar->activeSourceIndexes().size(), 1);
         QVERIFY(rightPane->panelStack()->panels().isEmpty());
         QVERIFY(rightPane->visibleWidgets().isEmpty());
         QVERIFY(rightPane->panelStack()->panelSizes().isEmpty());
@@ -4994,8 +5346,7 @@ private Q_SLOTS:
         const QList<QPair<QWidget *, int>> movedToStart = {{contents.at(0), 0}};
         QCOMPARE(moves, movedToStart);
         QCOMPARE(pane->panelStack()->panels(), contents);
-        QCOMPARE(pane->panelStack()->panelSizes(),
-            QList<int>({101, 202, 303, 404, 505, 606}));
+        QCOMPARE(pane->panelStack()->panelSizes(), QList<int>({606}));
         for (int row = 0; row < 6; ++row) {
             QCOMPARE(model->index(row, 0).data().toString(),
                 QStringLiteral("single-%1").arg(row));
@@ -5005,8 +5356,8 @@ private Q_SLOTS:
         Q_EMIT bar->moveRequested(model->index(0, 0),
             ZzFluentUI::ZzActivityArea::LeftPrimary, 0);
         QVERIFY(moves.isEmpty());
-        QCOMPARE(pane->currentWidget(), contents.at(0));
-        QCOMPARE(bar->activeSourceIndexes().size(), 6);
+        QCOMPARE(pane->currentWidget(), contents.at(5));
+        QCOMPARE(bar->activeSourceIndexes().size(), 1);
         QVERIFY(fixture.shell->saveLayout());
     }
 
@@ -5041,7 +5392,7 @@ private Q_SLOTS:
         auto *const rightBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
         QVERIFY(leftPane->panelStack()->setPanelSizes({111}));
-        QVERIFY(rightPane->panelStack()->setPanelSizes({222, 333}));
+        QVERIFY(rightPane->panelStack()->setPanelSizes({333}));
         QPointer<QWidget> rightOneOwner = rightOneRaw->parentWidget();
         QPointer<QWidget> rightTwoOwner = rightTwoRaw->parentWidget();
         QWidget *const rawRightOneOwner = rightOneRaw->parentWidget();
@@ -5064,9 +5415,8 @@ private Q_SLOTS:
         QVERIFY(leftPane->panelStack()->panels().isEmpty());
         QCOMPARE(rightPane->panelStack()->panels(),
             QList<QWidget *>({rightOneRaw, movedRaw, rightTwoRaw}));
-        QCOMPARE(rightPane->visibleWidgets(),
-            QList<QWidget *>({rightOneRaw, movedRaw, rightTwoRaw}));
-        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({222, 111, 333}));
+        QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({111}));
         QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("Cross moved"));
         QCOMPARE(model->index(1, 0).data(static_cast<int>(
             ZzFluentUI::ZzActivityItemRole::Area)).value<ZzFluentUI::ZzActivityArea>(),
@@ -5079,7 +5429,7 @@ private Q_SLOTS:
         QVERIFY(bar->activeSourceIndexes().isEmpty());
         QCOMPARE(rightBar->currentSourceIndex().data().toString(),
             QStringLiteral("Cross moved"));
-        QCOMPARE(rightBar->activeSourceIndexes().size(), 3);
+        QCOMPARE(rightBar->activeSourceIndexes().size(), 1);
         const QStringList titles = {QStringLiteral("Right one"),
             QStringLiteral("Cross moved"), QStringLiteral("Right two")};
         for (int row = 0; row < titles.size(); ++row) {
@@ -5125,7 +5475,7 @@ private Q_SLOTS:
         auto *const bar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         auto *const model = bar->model();
-        QVERIFY(pane->panelStack()->setPanelSizes({101, 202}));
+        QVERIFY(pane->panelStack()->setPanelSizes({202}));
 
         Q_EMIT bar->moveRequested(model->index(3, 0),
             ZzFluentUI::ZzActivityArea::LeftSecondary, 0);
@@ -5133,9 +5483,8 @@ private Q_SLOTS:
         QCOMPARE(pane->panelStack()->panels(),
             QList<QWidget *>({contents.at(0), contents.at(1),
                 contents.at(3), contents.at(2)}));
-        QCOMPARE(pane->visibleWidgets(),
-            QList<QWidget *>({contents.at(0), contents.at(3)}));
-        QCOMPARE(pane->panelStack()->panelSizes(), QList<int>({101, 202}));
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contents.at(3)}));
+        QCOMPARE(pane->panelStack()->panelSizes(), QList<int>({202}));
         QCOMPARE(pane->currentWidget(), contents.at(3));
         const auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
@@ -5175,7 +5524,7 @@ private Q_SLOTS:
         auto *const rightBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
         auto *const model = rightBar->model();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({101, 202}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({202}));
         QVERIFY(rightPane->panelStack()->setPanelSizes({303}));
 
         Q_EMIT rightBar->moveRequested(model->index(4, 0),
@@ -5184,10 +5533,8 @@ private Q_SLOTS:
         QCOMPARE(leftPane->panelStack()->panels(),
             QList<QWidget *>({leftContents.at(0), leftContents.at(1), movedRaw,
                 leftContents.at(2), leftContents.at(3)}));
-        QCOMPARE(leftPane->visibleWidgets(),
-            QList<QWidget *>({leftContents.at(0), movedRaw, leftContents.at(3)}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(),
-            QList<int>({101, 303, 202}));
+        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({303}));
         QCOMPARE(leftPane->currentWidget(), movedRaw);
         QVERIFY(rightPane->panelStack()->panels().isEmpty());
         QVERIFY(rightPane->visibleWidgets().isEmpty());
@@ -5353,7 +5700,7 @@ private Q_SLOTS:
                 leftModel->index(0, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
             QCOMPARE(leftPane->visibleWidgets(),
-                QList<QWidget *>({leftSecondRaw, leftFirstRaw}));
+                QList<QWidget *>({leftSecondRaw}));
             QCOMPARE(leftPane->panelStack()->panels(),
                 QList<QWidget *>({leftSecondRaw, leftFirstRaw}));
             QCOMPARE(rightPane->panelStack()->panels(), baselineRightPanels);
@@ -5371,8 +5718,7 @@ private Q_SLOTS:
                 rightModel->rowCount());
             QCOMPARE(leftPane->visibleWidgets(),
                 QList<QWidget *>({leftSecondRaw}));
-            QCOMPARE(rightPane->visibleWidgets(),
-                QList<QWidget *>({rightRaw, leftFirstRaw}));
+            QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({rightRaw}));
             QCOMPARE(leftPane->panelStack()->panels(),
                 QList<QWidget *>({leftSecondRaw}));
             QCOMPARE(rightPane->panelStack()->panels(),
@@ -5454,8 +5800,7 @@ private Q_SLOTS:
         QVERIFY(bottomPane->setCurrentWidget(bottomSecondRaw));
         const auto saved = fixture.shell->saveLayout();
         QVERIFY(saved);
-        const QList<QWidget *> expectedVisible{
-            secondRaw, firstRaw};
+        const QList<QWidget *> expectedVisible{firstRaw};
         const QList<QWidget *> expectedPanels = pane->panelStack()->panels();
         const QList<QWidget *> mutatedPanels{
             firstRaw, secondRaw};
@@ -5485,7 +5830,7 @@ private Q_SLOTS:
             Q_EMIT bar->moveRequested(
                 model->index(0, 0),
                 ZzFluentUI::ZzActivityArea::LeftPrimary, 1);
-            QVERIFY(fixture.shell->showPanel(zzPanelId("first"), false));
+            QVERIFY(fixture.shell->showPanel(zzPanelId("second"), true));
             QVERIFY(pane->currentWidget() != expectedCurrent);
             bottomPane->setPaneHeight(240);
             bottomPane->setCollapsed(true);
@@ -5871,7 +6216,6 @@ private Q_SLOTS:
         auto first = std::make_unique<QWidget>();
         auto moved = std::make_unique<QWidget>();
         auto target = std::make_unique<QWidget>();
-        QWidget *const firstRaw = first.get();
         QWidget *const movedRaw = moved.get();
         QVERIFY(fixture.shell->registerSidePanel(
             zzPanelId("first"), QStringLiteral("First"), zzIcon(),
@@ -5893,7 +6237,7 @@ private Q_SLOTS:
         auto *const leftBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         QAbstractItemModel *const model = leftBar->model();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({123, 456}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({456}));
         leftPane->setPaneWidth(337);
         QPointer<ZzFluentUI::ZzSidePane> rightGuard(rightPane);
         bool callbackEntered = false;
@@ -5917,8 +6261,8 @@ private Q_SLOTS:
         QVERIFY(rightGuard.isNull());
         QCOMPARE(
             leftPane->visibleWidgets(),
-            QList<QWidget *>({firstRaw, movedRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({123, 456}));
+            QList<QWidget *>({movedRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({456}));
         QCOMPARE(leftPane->paneWidth(), 337);
         QVERIFY(!leftPane->isCollapsed());
         QVERIFY(leftPane->isAncestorOf(movedRaw));
@@ -5927,7 +6271,7 @@ private Q_SLOTS:
                 static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
                 .value<ZzFluentUI::ZzActivityArea>(),
             ZzFluentUI::ZzActivityArea::LeftPrimary);
-        QCOMPARE(leftBar->activeSourceIndexes().size(), 2);
+        QCOMPARE(leftBar->activeSourceIndexes().size(), 1);
     }
 
     void activityMoveRollbackDoesNotDetachNonMovedPanelFromLivePane()
@@ -6028,7 +6372,6 @@ private Q_SLOTS:
         QVERIFY(callbackEntered);
         QVERIFY(overwriteAccepted);
         QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({123}));
         QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({stayedRaw}));
         QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({789}));
         QCOMPARE(
@@ -6068,7 +6411,7 @@ private Q_SLOTS:
         auto *const leftBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         QAbstractItemModel *const model = leftBar->model();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({123, 456}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({456}));
         QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
         bool callbackEntered = false;
         QObject::connect(
@@ -6089,7 +6432,6 @@ private Q_SLOTS:
         QVERIFY(callbackEntered);
         QVERIFY(movedGuard.isNull());
         QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({firstRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({123}));
         QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({targetRaw}));
         QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({789}));
         QCOMPARE(model->rowCount(), 2);
@@ -6180,7 +6522,7 @@ private Q_SLOTS:
         auto *const leftBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         QAbstractItemModel *const model = leftBar->model();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({123, 456}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({456}));
         QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
         bool armed = true;
         movedRaw->parentRemoved = [&] {
@@ -6201,7 +6543,6 @@ private Q_SLOTS:
         QVERIFY(!leftPane->isAncestorOf(movedRaw));
         QVERIFY(!rightPane->isAncestorOf(movedRaw));
         QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({firstRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({123}));
         QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({targetRaw}));
         QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({789}));
         QCOMPARE(model->rowCount(), 2);
@@ -6376,22 +6717,21 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
         zzReleaseAfterAdoption(content);
 
-        auto *const leftBar = fixture.shell->activityBar(
-            ZzFluentUI::ZzSidePaneEdge::Left);
         QPointer<ZzFluentUI::ZzSidePane> leftPaneGuard(
             fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left));
+        QVERIFY(fixture.shell->showPanel(zzPanelId("side"), false));
         bool callbackEntered = false;
         QObject::connect(
-            leftBar, &ZzFluentUI::ZzActivityBar::activeSourceIndexesChanged,
-            fixture.shell.get(), [&](const QList<QModelIndex> &) {
-                if (callbackEntered) {
+            leftPaneGuard, &ZzFluentUI::ZzSidePane::collapsedChanged,
+            fixture.shell.get(), [&](bool collapsed) {
+                if (callbackEntered || collapsed) {
                     return;
                 }
                 callbackEntered = true;
                 delete leftPaneGuard.data();
             });
 
-        const auto hidden = fixture.shell->showPanel(zzPanelId("side"), false);
+        const auto hidden = fixture.shell->showPanel(zzPanelId("side"), true);
 
         QVERIFY(callbackEntered);
         QVERIFY(leftPaneGuard.isNull());
@@ -6400,63 +6740,7 @@ private Q_SLOTS:
         QCOMPARE(hidden.error().code(), ZzCore::ZzErrorCode::InvalidState);
     }
 
-    void activityMoveRejectsFinalSizesSignalOverride()
-    {
-        ZzShellFixture fixture;
-        auto moved = std::make_unique<QWidget>();
-        auto stayed = std::make_unique<QWidget>();
-        QWidget *const movedRaw = moved.get();
-        QWidget *const stayedRaw = stayed.get();
-        QVERIFY(fixture.shell->registerSidePanel(
-            zzPanelId("moved"), QStringLiteral("Moved"), zzIcon(),
-            ZzFluentUI::ZzActivityArea::LeftPrimary, moved.get()));
-        zzReleaseAfterAdoption(moved);
-        QVERIFY(fixture.shell->registerSidePanel(
-            zzPanelId("stayed"), QStringLiteral("Stayed"), zzIcon(),
-            ZzFluentUI::ZzActivityArea::RightPrimary, stayed.get()));
-        zzReleaseAfterAdoption(stayed);
-
-        auto *const leftPane = fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Left);
-        auto *const rightPane = fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Right);
-        auto *const leftBar = fixture.shell->activityBar(
-            ZzFluentUI::ZzSidePaneEdge::Left);
-        QAbstractItemModel *const model = leftBar->model();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({123}));
-        QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
-        bool callbackEntered = false;
-        bool overrideAccepted = false;
-        QObject::connect(
-            rightPane->panelStack(),
-            &ZzFluentUI::ZzPanelStack::panelSizesChanged,
-            fixture.shell.get(), [&](const QList<int> &sizes) {
-                if (callbackEntered || sizes != QList<int>({123, 789})) {
-                    return;
-                }
-                callbackEntered = true;
-                overrideAccepted = rightPane->setWidgetVisible(movedRaw, false);
-            });
-
-        Q_EMIT leftBar->moveRequested(
-            model->index(0, 0),
-            ZzFluentUI::ZzActivityArea::RightPrimary,
-            0);
-
-        QVERIFY(callbackEntered);
-        QVERIFY(overrideAccepted);
-        QCOMPARE(leftPane->visibleWidgets(), QList<QWidget *>({movedRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({123}));
-        QCOMPARE(rightPane->visibleWidgets(), QList<QWidget *>({stayedRaw}));
-        QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({789}));
-        QCOMPARE(
-            model->index(0, 0).data(
-                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
-                .value<ZzFluentUI::ZzActivityArea>(),
-            ZzFluentUI::ZzActivityArea::LeftPrimary);
-    }
-
-    void activityMoveRejectsFinalSizesActivityStateOverride()
+    void activityMoveKeepsSingleActiveAtDestination()
     {
         ZzShellFixture fixture;
         auto moved = std::make_unique<QWidget>();
@@ -6470,47 +6754,36 @@ private Q_SLOTS:
             ZzFluentUI::ZzActivityArea::RightPrimary, stayed.get()));
         zzReleaseAfterAdoption(stayed);
 
-        auto *const leftPane = fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Left);
-        auto *const rightPane = fixture.shell->sidePane(
-            ZzFluentUI::ZzSidePaneEdge::Right);
         auto *const leftBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         auto *const rightBar = fixture.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
-        QAbstractItemModel *const model = leftBar->model();
-        const QModelIndex originalRightCurrent =
-            rightBar->currentSourceIndex();
-        const QList<QModelIndex> originalRightActive =
-            rightBar->activeSourceIndexes();
-        QVERIFY(leftPane->panelStack()->setPanelSizes({123}));
-        QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
-        bool callbackEntered = false;
-        QObject::connect(
-            rightPane->panelStack(),
-            &ZzFluentUI::ZzPanelStack::panelSizesChanged,
-            fixture.shell.get(), [&](const QList<int> &sizes) {
-                if (callbackEntered || sizes != QList<int>({123, 789})) {
-                    return;
-                }
-                callbackEntered = true;
-                rightBar->setCurrentSourceIndex(model->index(0, 0));
-                rightBar->setActiveSourceIndexes({model->index(0, 0)});
-            });
-
         Q_EMIT leftBar->moveRequested(
-            model->index(0, 0),
-            ZzFluentUI::ZzActivityArea::RightPrimary,
-            0);
+            leftBar->model()->index(0, 0),
+            ZzFluentUI::ZzActivityArea::RightPrimary, 0);
+        QCOMPARE(rightBar->activeSourceIndexes().size(), 1);
+        QCOMPARE(rightBar->currentSourceIndex(),
+            rightBar->activeSourceIndexes().constFirst());
+    }
 
-        QVERIFY(callbackEntered);
-        QCOMPARE(rightBar->currentSourceIndex(), originalRightCurrent);
-        QCOMPARE(rightBar->activeSourceIndexes(), originalRightActive);
-        QCOMPARE(
-            model->index(0, 0).data(
-                static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
-                .value<ZzFluentUI::ZzActivityArea>(),
-            ZzFluentUI::ZzActivityArea::LeftPrimary);
+    void sideKeepsSingleActiveAfterRegistration()
+    {
+        ZzShellFixture fixture;
+        auto first = std::make_unique<QWidget>();
+        auto second = std::make_unique<QWidget>();
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("first"), QStringLiteral("First"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, first.get()));
+        zzReleaseAfterAdoption(first);
+        QVERIFY(fixture.shell->registerSidePanel(
+            zzPanelId("second"), QStringLiteral("Second"), zzIcon(),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, second.get()));
+        zzReleaseAfterAdoption(second);
+        auto *const bar = fixture.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        QCOMPARE(bar->activeSourceIndexes().size(), 1);
+        QCOMPARE(bar->currentSourceIndex(),
+            bar->activeSourceIndexes().constFirst());
     }
 
     void activityMoveSynchronizesEdgeVisibilityBothDirections()
@@ -6577,10 +6850,9 @@ private Q_SLOTS:
         QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
         bool callbackEntered = false;
         QObject::connect(
-            rightPane->panelStack(),
-            &ZzFluentUI::ZzPanelStack::panelSizesChanged,
-            fixture.shell.get(), [&](const QList<int> &sizes) {
-                if (callbackEntered || sizes != QList<int>({123, 789})) {
+            leftPane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current != nullptr) {
                     return;
                 }
                 callbackEntered = true;
@@ -6629,10 +6901,9 @@ private Q_SLOTS:
         QVERIFY(rightPane->panelStack()->setPanelSizes({789}));
         bool callbackEntered = false;
         QObject::connect(
-            rightPane->panelStack(),
-            &ZzFluentUI::ZzPanelStack::panelSizesChanged,
-            fixture.shell.get(), [&](const QList<int> &sizes) {
-                if (callbackEntered || sizes != QList<int>({123, 789})) {
+            leftPane, &ZzFluentUI::ZzSidePane::currentWidgetChanged,
+            fixture.shell.get(), [&](QWidget *current) {
+                if (callbackEntered || current != nullptr) {
                     return;
                 }
                 callbackEntered = true;
@@ -7005,7 +7276,6 @@ private Q_SLOTS:
         auto bottomOne = std::make_unique<QWidget>();
         auto bottomTwo = std::make_unique<QWidget>();
         auto dock = std::make_unique<QWidget>();
-        QWidget *const leftOneRaw = leftOne.get();
         QWidget *const leftTwoRaw = leftTwo.get();
         QWidget *const bottomOneRaw = bottomOne.get();
         QVERIFY(fixture.shell->registerSidePanel(
@@ -7037,7 +7307,7 @@ private Q_SLOTS:
             ZzFluentUI::ZzSidePaneEdge::Left);
         auto *const rightPane = fixture.shell->sidePane(
             ZzFluentUI::ZzSidePaneEdge::Right);
-        QVERIFY(leftPane->panelStack()->setPanelSizes({150, 350}));
+        QVERIFY(leftPane->panelStack()->setPanelSizes({350}));
         QVERIFY(rightPane->panelStack()->setPanelSizes({420}));
         leftPane->setPaneWidth(345);
         rightPane->setPaneWidth(456);
@@ -7095,8 +7365,8 @@ private Q_SLOTS:
         QVERIFY(fixture.shell->restoreLayout(saved.value()));
         QCOMPARE(
             leftPane->visibleWidgets(),
-            QList<QWidget *>({leftOneRaw, leftTwoRaw}));
-        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({150, 350}));
+            QList<QWidget *>({leftTwoRaw}));
+        QCOMPARE(leftPane->panelStack()->panelSizes(), QList<int>({350}));
         QCOMPARE(rightPane->panelStack()->panelSizes(), QList<int>({420}));
         QCOMPARE(leftPane->paneWidth(), 345);
         QCOMPARE(rightPane->paneWidth(), 456);
@@ -7259,7 +7529,7 @@ private Q_SLOTS:
         QTest::addColumn<bool>("accepted");
 
         QTest::newRow("visible-32") << 32 << 16 << true;
-        QTest::newRow("visible-33") << 33 << 16 << false;
+        QTest::newRow("visible-33") << 33 << 16 << true;
         QTest::newRow("id-256") << 1 << 256 << true;
         QTest::newRow("id-257") << 1 << 257 << false;
     }
@@ -7312,7 +7582,7 @@ private Q_SLOTS:
         auto *const stack = pane->panelStack();
         pane->setMaximumPaneWidth(800);
         pane->setPaneWidth(321);
-        QVERIFY(stack->setPanelSizes({111, 222}));
+        QVERIFY(stack->setPanelSizes({222}));
         QCOMPARE(pane->currentWidget(), secondRaw);
 
         ZzTestVersionTwoLayout layout;
@@ -7344,8 +7614,8 @@ private Q_SLOTS:
         QCOMPARE(currentSpy.count(), 0);
         QCOMPARE(pane->paneWidth(), 321);
         QCOMPARE(stack->panels(), QList<QWidget *>({firstRaw, secondRaw}));
-        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({firstRaw, secondRaw}));
-        QCOMPARE(stack->panelSizes(), QList<int>({111, 222}));
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({secondRaw}));
+        QCOMPARE(stack->panelSizes(), QList<int>({222}));
         QCOMPARE(pane->currentWidget(), secondRaw);
     }
 
@@ -9265,25 +9535,25 @@ private Q_SLOTS:
         QVERIFY2(
             physicalOccurrences == 1 && modelRows == 1 && saved,
             qPrintable(diagnostic));
-        QVERIFY(!survivesOnLeft);
-        QVERIFY(survivesOnRight);
+        QVERIFY(survivesOnLeft);
+        QVERIFY(!survivesOnRight);
         const QModelIndex sideIndex = model->index(0, 0);
         QCOMPARE(
             sideIndex.data(
                 static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
                 .value<ZzFluentUI::ZzActivityArea>(),
-            ZzFluentUI::ZzActivityArea::RightPrimary);
-        QCOMPARE(rightPane->currentWidget(), targetContentRaw);
+            ZzFluentUI::ZzActivityArea::LeftPrimary);
+        QCOMPARE(leftPane->currentWidget(), targetContentRaw);
         QCOMPARE(
-            rightPane->visibleWidgets(), QList<QWidget *>({targetContentRaw}));
+            leftPane->visibleWidgets(), QList<QWidget *>({targetContentRaw}));
         auto *const leftBar = target.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Left);
         auto *const rightBar = target.shell->activityBar(
             ZzFluentUI::ZzSidePaneEdge::Right);
-        QVERIFY(!leftBar->currentSourceIndex().isValid());
-        QVERIFY(leftBar->activeSourceIndexes().isEmpty());
-        QCOMPARE(rightBar->currentSourceIndex(), sideIndex);
-        QCOMPARE(rightBar->activeSourceIndexes(), QList<QModelIndex>({sideIndex}));
+        QCOMPARE(leftBar->currentSourceIndex(), sideIndex);
+        QCOMPARE(leftBar->activeSourceIndexes(), QList<QModelIndex>({sideIndex}));
+        QVERIFY(!rightBar->currentSourceIndex().isValid());
+        QVERIFY(rightBar->activeSourceIndexes().isEmpty());
 
         auto reclaimed = target.shell->takePanel(zzPanelId("side"));
         QVERIFY(reclaimed);
@@ -9734,7 +10004,11 @@ private Q_SLOTS:
             const QByteArray encoded = zzVersionTwoLayout(layout);
             QVERIFY(!encoded.isEmpty());
 
-            QVERIFY(fixture.shell->restoreLayout(encoded));
+            const auto restored = fixture.shell->restoreLayout(encoded);
+            const QString restoreDiagnostic = restored
+                ? QStringLiteral("restore accepted")
+                : restored.error().technicalMessage();
+            QVERIFY2(restored, qPrintable(restoreDiagnostic));
             QCOMPARE(pane->currentWidget(), twoRaw);
             QCOMPARE(
                 bar->currentSourceIndex().data().toString(),

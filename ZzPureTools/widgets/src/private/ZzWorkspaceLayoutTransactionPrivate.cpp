@@ -746,6 +746,16 @@ void zzKeepReadyPhysicalProjection(
         if (!side->visible.contains(side->current)) {
             side->current.clear();
         }
+        if (!side->current.isEmpty()) {
+            const qsizetype currentIndex = side->visible.indexOf(side->current);
+            const int currentSize = currentIndex >= 0
+                    && currentIndex < side->sizes.size()
+                ? std::max(side->sizes.at(currentIndex), 1) : 1;
+            // v2 persisted multiple visible panels; the shell now has one
+            // visible current panel per side.
+            side->visible = {side->current};
+            side->sizes = {currentSize};
+        }
         side->contents.clear();
         side->contents.reserve(side->order.size());
         for (const QString &id : std::as_const(side->order)) {
@@ -1937,7 +1947,19 @@ void zzSynchronizeAfterFailedRollback(
         if (identity.kind == ZzLayoutState::ZzPanelKind::Side) {
             ZzFluentUI::ZzSidePane *const pane =
                 zzOwningSide(shell, record.content);
-            if (pane == nullptr) {
+            const qsizetype occurrences = (shell.leftSidePane != nullptr
+                                        && shell.leftSidePane->panelStack()
+                                                   != nullptr
+                    ? shell.leftSidePane->panelStack()->panels().count(
+                          record.contentIdentity)
+                    : 0)
+                + (shell.rightSidePane != nullptr
+                                        && shell.rightSidePane->panelStack()
+                                                   != nullptr
+                    ? shell.rightSidePane->panelStack()->panels().count(
+                          record.contentIdentity)
+                    : 0);
+            if (pane == nullptr || occurrences != 1) {
                 removals.append({
                     record.id, record.content, record.contentIdentity,
                     record.registrationGeneration, identity.kind,

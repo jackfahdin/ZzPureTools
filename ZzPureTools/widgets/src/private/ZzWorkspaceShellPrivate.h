@@ -276,6 +276,11 @@ public:
     [[nodiscard]] bool replaceActivityRows(
         const QVector<ZzSideLayoutEntry> &rows);
 
+    /** @brief 将含 FixedAction 的区域投影行换算为纯 SidePanel 插入行。 */
+    [[nodiscard]] int sidePanelTargetRow(
+        ZzFluentUI::ZzActivityArea area,
+        int projectionRow) const noexcept;
+
     /** @brief 隐藏没有已注册内容的边缘，并收起其 Side Pane。 */
     void syncSideEdgeVisibility();
 
@@ -309,12 +314,16 @@ public:
     QPointer<QAbstractListModel> activityModel;
     QVector<ZzPanelRecord> panels;
     QVector<ZzFixedActivityRecord> fixedActivities;
+    ZzWorkspacePanelId leftCurrentPanel;
+    ZzWorkspacePanelId rightCurrentPanel;
     QString applicationTitle;
     QString customTitle;
     ZzWorkspaceTitleMode titleMode = ZzWorkspaceTitleMode::Application;
     std::uint64_t nextPanelRegistrationGeneration = 0;
     std::uint64_t titleRefreshGeneration = 0;
     int sideEdgeVisibilitySyncDepth = 0;
+    bool leftPaneExpanded = false;
+    bool rightPaneExpanded = false;
     ZzTransactionKind transactionKind = ZzTransactionKind::None;
     QMetaObject::Connection activeTabChangedConnection;
     QMetaObject::Connection activeTabPresentationConnection;

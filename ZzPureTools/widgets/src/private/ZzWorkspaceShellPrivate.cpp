@@ -666,7 +666,7 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
         ZzFluentUI::ZzSidePaneEdge::Left, workspaceRoot);
     leftSidePane = new ZzFluentUI::ZzSidePane(
         ZzFluentUI::ZzSidePaneEdge::Left, workspaceRoot);
-    leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+    leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
     centerHost = new QWidget(workspaceRoot);
     centerHost->setObjectName(QStringLiteral("zzWorkspaceCenterHost"));
     splitWorkspace = new ZzFluentUI::ZzSplitWorkspace(centerHost);
@@ -676,11 +676,11 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     bottomPane->setCollapsed(true);
     rightSidePane = new ZzFluentUI::ZzSidePane(
         ZzFluentUI::ZzSidePaneEdge::Right, workspaceRoot);
-    rightSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+    rightSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
     rightActivityBar = new ZzFluentUI::ZzActivityBar(
         ZzFluentUI::ZzSidePaneEdge::Right, workspaceRoot);
-    leftActivityBar->setMultiActiveEnabled(true);
-    rightActivityBar->setMultiActiveEnabled(true);
+    leftActivityBar->setMultiActiveEnabled(false);
+    rightActivityBar->setMultiActiveEnabled(false);
     palette = new ZzFluentUI::ZzCommandPalette(workspaceRoot);
     activityModel = new ZzWorkspaceActivityModel(q_ptr);
     leftActivityBar->setModel(activityModel);
@@ -1257,6 +1257,10 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
         leftBarGuard->activeSourceIndexes();
     const QList<QModelIndex> rightActiveBefore =
         rightBarGuard->activeSourceIndexes();
+    const ZzWorkspacePanelId leftCurrentPanelBefore = leftCurrentPanel;
+    const ZzWorkspacePanelId rightCurrentPanelBefore = rightCurrentPanel;
+    const bool leftPaneExpandedBefore = leftPaneExpanded;
+    const bool rightPaneExpandedBefore = rightPaneExpanded;
     QList<QPointer<QWidget>> appendOrder;
     appendOrder.reserve(panelsBefore.size() + 1);
     for (QWidget *const panel : panelsBefore) {
@@ -1362,6 +1366,10 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
             rightBarGuard->setCurrentSourceIndex(rightCurrentBefore);
             rightBarGuard->setActiveSourceIndexes(rightActiveBefore);
         }
+        leftCurrentPanel = leftCurrentPanelBefore;
+        rightCurrentPanel = rightCurrentPanelBefore;
+        leftPaneExpanded = leftPaneExpandedBefore;
+        rightPaneExpanded = rightPaneExpandedBefore;
         if (paneGuard != nullptr && stackGuard != nullptr) {
             for (QWidget *const existing : panelsBefore) {
                 if (existing != nullptr && stackGuard->panels().contains(existing)) {
@@ -1442,22 +1450,16 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::adoptSidePanelContent(
             return reject(QStringLiteral(
                 "Side panel activity registration was interrupted"));
         }
-        leftBarGuard->setCurrentSourceIndex(sourceIndex);
-        if (!audit(canonicalOrder, rowsAfter, true)) {
-            return reject(QStringLiteral(
-                "Side panel activity selection was interrupted"));
-        }
-        rightBarGuard->setCurrentSourceIndex(sourceIndex);
-        if (!audit(canonicalOrder, rowsAfter, true)) {
-            return reject(QStringLiteral(
-                "Side panel activity selection was interrupted"));
-        }
+        ZzWorkspacePanelId &currentPanel = zzIsLeftArea(expected.activityArea)
+            ? leftCurrentPanel : rightCurrentPanel;
+        bool &paneExpanded = zzIsLeftArea(expected.activityArea)
+            ? leftPaneExpanded : rightPaneExpanded;
+        currentPanel = id;
+        paneExpanded = true;
         ZzFluentUI::ZzActivityBar *const owningBar =
             zzIsLeftArea(expected.activityArea)
             ? leftBarGuard.data() : rightBarGuard.data();
-        QList<QModelIndex> activeIndexes = owningBar->activeSourceIndexes();
-        activeIndexes.append(sourceIndex);
-        owningBar->setActiveSourceIndexes(activeIndexes);
+        owningBar->setCurrentSourceIndex(sourceIndex);
         if (!audit(canonicalOrder, rowsAfter, true)) {
             return reject(QStringLiteral(
                 "Side panel activity state was interrupted"));
@@ -2268,21 +2270,27 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
         }
         return true;
     };
-    if (!pane->setWidgetVisible(contentGuard, visible)
-        || !stable()
-        || stack->isPanelVisible(contentGuard) != visible) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Side panel visibility update was interrupted"),
-            id.value());
+    const bool left = zzIsLeftArea(record.activityArea);
+    ZzWorkspacePanelId &currentPanel = left
+        ? leftCurrentPanel : rightCurrentPanel;
+    bool &paneExpanded = left ? leftPaneExpanded : rightPaneExpanded;
+    if (visible) {
+        if (!pane->setCurrentWidget(contentGuard)
+            || !stable() || pane->currentWidget() != contentGuard
+            || pane->visibleWidgets() != QList<QWidget *>({contentGuard})) {
+            return zzWorkspaceFailure<void>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Side panel activation was interrupted"),
+                id.value());
+        }
+        currentPanel = id;
+        paneExpanded = true;
+        pane->setCollapsed(false);
+    } else if (currentPanel == id || pane->currentWidget() == contentGuard) {
+        currentPanel = id;
+        paneExpanded = false;
+        pane->setCollapsed(true);
     }
-    if (visible && (!pane->setCurrentWidget(contentGuard)
-            || !stable() || pane->currentWidget() != contentGuard)) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Side panel activation was interrupted"), id.value());
-    }
-    pane->setCollapsed(pane->visibleWidgets().isEmpty());
     if (!stable()) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -2290,46 +2298,12 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
             id.value());
     }
 
-    const auto indexesFor = [this, &modelGuard](
-                                ZzFluentUI::ZzSidePane *sidePane) {
-        QList<QModelIndex> indexes;
-        for (QWidget *const widget : sidePane->visibleWidgets()) {
-            for (const ZzPanelRecord &candidate : std::as_const(panels)) {
-                if (candidate.kind == ZzPanelKind::Side
-                    && candidate.content == widget) {
-                    indexes.append(
-                        zzActivityModel(modelGuard)->indexFor(candidate.id));
-                    break;
-                }
-            }
-        }
-        return indexes;
-    };
-    leftBarGuard->setCurrentSourceIndex(
-        zzActivityModel(modelGuard)->indexFor(currentSideId(leftPaneGuard)));
-    if (!stable()) {
+    const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
+    syncSideEdgeVisibility();
+    if (shellGuard == nullptr || !stable()) {
         return zzWorkspaceFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Activity current state was interrupted"), id.value());
-    }
-    rightBarGuard->setCurrentSourceIndex(
-        zzActivityModel(modelGuard)->indexFor(currentSideId(rightPaneGuard)));
-    if (!stable()) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Activity current state was interrupted"), id.value());
-    }
-    leftBarGuard->setActiveSourceIndexes(indexesFor(leftPaneGuard));
-    if (!stable()) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Activity active state was interrupted"), id.value());
-    }
-    rightBarGuard->setActiveSourceIndexes(indexesFor(rightPaneGuard));
-    if (!stable()) {
-        return zzWorkspaceFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Activity active state was interrupted"), id.value());
     }
     return ZzCore::ZzResult<void>::success();
 }
@@ -2776,15 +2750,12 @@ void ZzWorkspaceShellPrivate::activateActivity(
         return;
     }
     const ZzPanelRecord &record = panels.at(panelIndex);
-    ZzFluentUI::ZzSidePane *const pane = zzIsLeftArea(record.activityArea)
-        ? leftSidePane.data() : rightSidePane.data();
-    if (collapse && pane != nullptr
-        && pane->currentWidget() == record.content
-        && !pane->isCollapsed()) {
-        pane->setCollapsed(true);
-        return;
-    }
-    static_cast<void>(showPanel(id, true));
+    const bool left = zzIsLeftArea(record.activityArea);
+    const ZzWorkspacePanelId &currentPanel = left
+        ? leftCurrentPanel : rightCurrentPanel;
+    const bool paneExpanded = left ? leftPaneExpanded : rightPaneExpanded;
+    const bool expand = !collapse || currentPanel != id || !paneExpanded;
+    static_cast<void>(showPanel(id, expand));
 }
 
 void ZzWorkspaceShellPrivate::handleFixedActivityActionDestroyed(
@@ -2915,6 +2886,32 @@ bool ZzWorkspaceShellPrivate::replaceActivityRows(
     return replaced && modelGuard != nullptr && activityModel == modelGuard;
 }
 
+int ZzWorkspaceShellPrivate::sidePanelTargetRow(
+    ZzFluentUI::ZzActivityArea area,
+    int projectionRow) const noexcept
+{
+    if (activityModel == nullptr || projectionRow < 0) {
+        return -1;
+    }
+    const auto *const model = zzActivityModel(activityModel);
+    int areaRow = 0;
+    int sidePanelRow = 0;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        const ZzActivityRow *const activityRow = model->rowAt(row);
+        if (activityRow == nullptr || activityRow->area != area) {
+            continue;
+        }
+        if (areaRow >= projectionRow) {
+            break;
+        }
+        if (activityRow->kind == ZzActivityRowKind::SidePanel) {
+            ++sidePanelRow;
+        }
+        ++areaRow;
+    }
+    return sidePanelRow;
+}
+
 void ZzWorkspaceShellPrivate::syncSideEdgeVisibility()
 {
     const QPointer<ZzWorkspaceShell> shellGuard(q_ptr);
@@ -2923,50 +2920,120 @@ void ZzWorkspaceShellPrivate::syncSideEdgeVisibility()
     const QPointer<ZzFluentUI::ZzActivityBar> leftBarGuard(leftActivityBar);
     const QPointer<ZzFluentUI::ZzActivityBar> rightBarGuard(rightActivityBar);
     const QPointer<QAbstractListModel> modelGuard(activityModel);
-    const auto hasPanelOnSide = [this](bool left) {
-        return std::any_of(
-            panels.cbegin(), panels.cend(), [left](const ZzPanelRecord &record) {
-                return record.kind == ZzPanelKind::Side
-                    && !record.removalInProgress
-                    && zzIsLeftArea(record.activityArea) == left;
-            });
-    };
-    const bool leftHasPanel = hasPanelOnSide(true);
-    const bool rightHasPanel = hasPanelOnSide(false);
     const bool leftHasActivity = modelGuard != nullptr
         && zzActivityModel(modelGuard)->hasRowsForSide(true);
     const bool rightHasActivity = modelGuard != nullptr
         && zzActivityModel(modelGuard)->hasRowsForSide(false);
     ++sideEdgeVisibilitySyncDepth;
 
-    const auto syncEdge = [&shellGuard](
+    const bool derivePhysicalState =
+        transactionKind == ZzTransactionKind::LayoutRestore;
+    const auto syncEdge = [this, &shellGuard, &modelGuard, derivePhysicalState](
+                              bool left,
                               const QPointer<ZzFluentUI::ZzSidePane> &pane,
                               const QPointer<ZzFluentUI::ZzActivityBar> &bar,
-                              bool hasPanel,
                               bool hasActivity) {
-        if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
+        const auto alive = [this, left, &shellGuard, &modelGuard, &pane, &bar] {
+            return shellGuard != nullptr && modelGuard != nullptr
+                && pane != nullptr && bar != nullptr
+                && activityModel == modelGuard
+                && (left ? leftSidePane == pane : rightSidePane == pane)
+                && (left ? leftActivityBar == bar : rightActivityBar == bar);
+        };
+        if (!alive() || pane->panelStack() == nullptr) {
+            return false;
+        }
+
+        ZzWorkspacePanelId currentPanel = left
+            ? leftCurrentPanel : rightCurrentPanel;
+        bool paneExpanded = left ? leftPaneExpanded : rightPaneExpanded;
+        if (derivePhysicalState) {
+            currentPanel = currentSideId(pane);
+            paneExpanded = currentPanel.isValid() && !pane->isCollapsed();
+        }
+
+        const auto readyRecord = [this, left](const ZzWorkspacePanelId &id)
+            -> const ZzPanelRecord * {
+            const int panelIndex = indexOf(id);
+            if (panelIndex < 0) {
+                return nullptr;
+            }
+            const ZzPanelRecord &record = panels.at(panelIndex);
+            return record.kind == ZzPanelKind::Side
+                    && record.materialization == ZzMaterializationState::Ready
+                    && !record.removalInProgress
+                    && zzIsLeftArea(record.activityArea) == left
+                    && record.content != nullptr
+                    && record.content.data() == record.contentIdentity
+                ? &record : nullptr;
+        };
+        const bool requestedCurrentWasInvalid = currentPanel.isValid()
+            && readyRecord(currentPanel) == nullptr;
+        if (requestedCurrentWasInvalid) {
+            currentPanel = {};
+            for (const ZzSideLayoutEntry &row : activityRows()) {
+                if (zzIsLeftArea(row.area) == left
+                    && readyRecord(row.id) != nullptr) {
+                    currentPanel = row.id;
+                    break;
+                }
+            }
+        }
+
+        const ZzPanelRecord *const currentRecord = readyRecord(currentPanel);
+        if (currentRecord == nullptr) {
+            currentPanel = {};
+            paneExpanded = false;
+        }
+        if (left) {
+            leftCurrentPanel = currentPanel;
+            leftPaneExpanded = paneExpanded;
+        } else {
+            rightCurrentPanel = currentPanel;
+            rightPaneExpanded = paneExpanded;
+        }
+
+        if (currentRecord != nullptr) {
+            const QPointer<QWidget> content(currentRecord->content);
+            if (pane->currentWidget() != content
+                || pane->visibleWidgets() != QList<QWidget *>({content.data()})) {
+                if (!pane->setCurrentWidget(content) || !alive()) {
+                    return false;
+                }
+            }
+        } else {
+            const QList<QWidget *> visible = pane->visibleWidgets();
+            for (QWidget *const content : visible) {
+                if (content != nullptr
+                    && (!pane->setWidgetVisible(content, false) || !alive())) {
+                    return false;
+                }
+            }
+        }
+
+        bar->setCurrentSourceIndex(
+            zzActivityModel(modelGuard)->indexFor(currentPanel));
+        if (!alive()) {
+            return false;
+        }
+        pane->setCollapsed(currentRecord == nullptr || !paneExpanded);
+        if (!alive()) {
+            return false;
+        }
+        pane->setVisible(currentRecord != nullptr && paneExpanded);
+        if (!alive()) {
             return false;
         }
         bar->setVisible(hasActivity);
-        if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
+        if (!alive()) {
             return false;
-        }
-        if (!hasPanel) {
-            bar->setCurrentSourceIndex({});
-            if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
-                return false;
-            }
-            pane->setCollapsed(true);
-            if (shellGuard == nullptr || pane == nullptr || bar == nullptr) {
-                return false;
-            }
         }
         return true;
     };
     if (!syncEdge(
-            leftPaneGuard, leftBarGuard, leftHasPanel, leftHasActivity)
+            true, leftPaneGuard, leftBarGuard, leftHasActivity)
         || !syncEdge(
-            rightPaneGuard, rightBarGuard, rightHasPanel, rightHasActivity)) {
+            false, rightPaneGuard, rightBarGuard, rightHasActivity)) {
         if (shellGuard != nullptr) {
             --sideEdgeVisibilitySyncDepth;
         }
