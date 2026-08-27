@@ -10,6 +10,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QLocale>
+#include <QtGui/QAction>
 #include <QtGui/QFontDatabase>
 #include <QtGui/QFontInfo>
 #include <QtGui/QImage>
@@ -19,6 +20,7 @@
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QListView>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
@@ -38,7 +40,11 @@
 #include <ZzFluentUI/ZzExplorerPane.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFontIcon.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include <ZzFluentUI/ZzSidePaneMode.h>
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -51,6 +57,16 @@ namespace {
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QSize zzNarrowWorkspaceSurfaceSize(480, 540);
 constexpr int zzChannelTolerance = 3;
+
+enum class ZzActivityContractScenario {
+    Default,
+    RightEmpty,
+    RightRestored,
+    Components,
+    Settings,
+    RightToLeft,
+    KeyboardFocus
+};
 
 constexpr qreal zzMaximumDifferenceRatio()
 {
@@ -171,7 +187,8 @@ public:
         bool denseWorkbench = false,
         bool collapseBottom = false,
         bool twoGroupWorkbench = false,
-        bool forceInvalidPanelSetup = false)
+        bool forceInvalidPanelSetup = false,
+        bool activityContract = false)
         : titleBar(&window)
     {
         window.setObjectName(QStringLiteral("zzWorkspaceScreenshotSurface"));
@@ -195,7 +212,9 @@ public:
         const auto sideResult = shell->registerSidePanel(
             ZzPureTools::ZzWorkspacePanelId(forceInvalidPanelSetup
                     ? QString() : QStringLiteral("explorer")),
-            QStringLiteral("Explorer"), {},
+            QStringLiteral("Explorer"), activityContract
+                ? zzActivityIcon(ZzFluentUI::ZzFontIcon::FolderOpen)
+                : ZzFluentUI::ZzIconDescriptor{},
             ZzFluentUI::ZzActivityArea::LeftPrimary, explorer.get());
         if (!requireResult(sideResult,
                 QStringLiteral("failed to register explorer side panel"))) {
@@ -216,6 +235,10 @@ public:
         shell->tabWidget()->addTab(new QWidget, QStringLiteral("Preview"));
         commandModel.appendRow(new QStandardItem(QStringLiteral("Build workspace")));
         shell->commandPalette()->setModel(&commandModel);
+        if (activityContract
+            && !configureActivityContract()) {
+            return;
+        }
         if (denseWorkbench) {
             static_cast<void>(configureDenseWorkbench(
                 collapseBottom, twoGroupWorkbench));
@@ -240,8 +263,83 @@ public:
 
     void hide()
     {
+        if (settingsWindow_ != nullptr) {
+            settingsWindow_->hide();
+        }
         shell.reset();
         window.hide();
+    }
+
+    [[nodiscard]] bool emptyRightEdge()
+    {
+        auto propertiesResult = shell->takePanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("properties")));
+        if (!requireResult(propertiesResult,
+                QStringLiteral("failed to take properties panel"))) {
+            return false;
+        }
+        detachedProperties_.reset(std::move(propertiesResult).value());
+        auto tasksResult = shell->takePanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("tasks")));
+        if (!requireResult(tasksResult,
+                QStringLiteral("failed to take tasks panel"))) {
+            return false;
+        }
+        detachedTasks_.reset(std::move(tasksResult).value());
+        QCoreApplication::processEvents();
+        return true;
+    }
+
+    [[nodiscard]] bool restoreRightEdge()
+    {
+        if (detachedProperties_ == nullptr || detachedTasks_ == nullptr) {
+            setupError_ = QStringLiteral(
+                "right panels must be emptied before restoration");
+            return false;
+        }
+        const auto propertiesResult = shell->registerSidePanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("properties")),
+            QStringLiteral("Properties"), zzActivityIcon(
+                ZzFluentUI::ZzFontIcon::Info),
+            ZzFluentUI::ZzActivityArea::RightPrimary,
+            detachedProperties_.get());
+        if (!requireResult(propertiesResult,
+                QStringLiteral("failed to restore properties panel"))) {
+            return false;
+        }
+        [[maybe_unused]] auto *ownedProperties = detachedProperties_.release();
+        const auto tasksResult = shell->registerSidePanel(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("tasks")),
+            QStringLiteral("Tasks"), zzActivityIcon(
+                ZzFluentUI::ZzFontIcon::ListCheck),
+            ZzFluentUI::ZzActivityArea::RightSecondary,
+            detachedTasks_.get());
+        if (!requireResult(tasksResult,
+                QStringLiteral("failed to restore tasks panel"))) {
+            return false;
+        }
+        [[maybe_unused]] auto *ownedTasks = detachedTasks_.release();
+        return requireResult(shell->showPanel(
+                ZzPureTools::ZzWorkspacePanelId(QStringLiteral("properties"))),
+            QStringLiteral("failed to show restored properties panel"));
+    }
+
+    [[nodiscard]] bool showComponents()
+    {
+        return requireResult(shell->showPanel(
+                ZzPureTools::ZzWorkspacePanelId(QStringLiteral("components"))),
+            QStringLiteral("failed to show components navigation"));
+    }
+
+    void showSettings()
+    {
+        settingsAction_->trigger();
+        QCoreApplication::processEvents();
+    }
+
+    [[nodiscard]] QMainWindow *settingsWindow() const noexcept
+    {
+        return settingsWindow_;
     }
 
     QMainWindow window;
@@ -251,6 +349,12 @@ public:
     QStandardItemModel commandModel;
 
 private:
+    [[nodiscard]] static ZzFluentUI::ZzIconDescriptor zzActivityIcon(
+        ZzFluentUI::ZzFontIcon icon)
+    {
+        return ZzFluentUI::ZzIconDescriptor::fromFontIcon(icon);
+    }
+
     template<typename ZzValue>
     [[nodiscard]] bool requireResult(
         const ZzValue &result,
@@ -458,7 +562,108 @@ private:
                 QStringLiteral("dense workspace has unexpected group count"));
     }
 
+    [[nodiscard]] bool configureActivityContract()
+    {
+        shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)->setMode(
+            ZzFluentUI::ZzSidePaneMode::Single);
+        shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Right)->setMode(
+            ZzFluentUI::ZzSidePaneMode::Single);
+        auto registerPanel = [this](const char *id, const QString &title,
+                                 ZzFluentUI::ZzFontIcon icon,
+                                 ZzFluentUI::ZzActivityArea area,
+                                 const QString &text,
+                                 const QString &objectName) {
+            auto panel = std::make_unique<QLabel>(text);
+            panel->setObjectName(objectName);
+            panel->setAlignment(Qt::AlignCenter);
+            const auto result = shell->registerSidePanel(
+                ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(id)),
+                title, zzActivityIcon(icon), area, panel.get());
+            if (!requireResult(result,
+                    QStringLiteral("failed to register %1 panel").arg(title))) {
+                return false;
+            }
+            [[maybe_unused]] auto *ownedPanel = panel.release();
+            return true;
+        };
+        if (!registerPanel("search", QStringLiteral("Search"),
+                ZzFluentUI::ZzFontIcon::MagnifyingGlass,
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                QStringLiteral("Search workspace"),
+                QStringLiteral("zzScreenshotSearchPanel"))
+            || !registerPanel("components", QStringLiteral("Components"),
+                ZzFluentUI::ZzFontIcon::PuzzlePiece,
+                ZzFluentUI::ZzActivityArea::LeftPrimary,
+                QStringLiteral("Application navigation\nComponents"),
+                QStringLiteral("zzScreenshotComponentsPanel"))) {
+            return false;
+        }
+
+        settingsAction_ = new QAction(QStringLiteral("Settings"), &window);
+        const auto settingsResult = shell->registerFixedActivityAction(
+            ZzPureTools::ZzWorkspaceActivityId(QStringLiteral("settings")),
+            QStringLiteral("Settings"),
+            zzActivityIcon(ZzFluentUI::ZzFontIcon::Gear),
+            ZzFluentUI::ZzActivityArea::LeftSecondary, settingsAction_);
+        if (!requireResult(settingsResult,
+                QStringLiteral("failed to register settings action"))) {
+            return false;
+        }
+        QObject::connect(settingsAction_, &QAction::triggered, &window,
+            [this] {
+                if (settingsWindow_ == nullptr) {
+                    settingsWindow_ = new QMainWindow(&window, Qt::Window);
+                    settingsWindow_->setObjectName(
+                        QStringLiteral("zzScreenshotSettingsWindow"));
+                    settingsWindow_->setWindowTitle(QStringLiteral("Settings"));
+                    settingsWindow_->setWindowModality(Qt::WindowModal);
+                    settingsWindow_->setFixedSize(480, 360);
+                    auto *content = new QWidget(settingsWindow_);
+                    auto *layout = new QVBoxLayout(content);
+                    auto *heading = new QLabel(QStringLiteral("Workspace settings"));
+                    QFont headingFont = heading->font();
+                    headingFont.setBold(true);
+                    headingFont.setPointSize(16);
+                    heading->setFont(headingFont);
+                    layout->addWidget(heading);
+                    layout->addWidget(new QLabel(
+                        QStringLiteral("Appearance\nKeyboard\nWindow behavior")));
+                    layout->addStretch();
+                    settingsWindow_->setCentralWidget(content);
+                }
+                settingsWindow_->show();
+                if (QGuiApplication::platformName()
+                    != QStringLiteral("offscreen")) {
+                    settingsWindow_->raise();
+                    settingsWindow_->activateWindow();
+                }
+            });
+
+        if (!registerPanel("properties", QStringLiteral("Properties"),
+                ZzFluentUI::ZzFontIcon::Info,
+                ZzFluentUI::ZzActivityArea::RightPrimary,
+                QStringLiteral("Selection properties"),
+                QStringLiteral("zzScreenshotPropertiesPanel"))
+            || !registerPanel("tasks", QStringLiteral("Tasks"),
+                ZzFluentUI::ZzFontIcon::ListCheck,
+                ZzFluentUI::ZzActivityArea::RightSecondary,
+                QStringLiteral("Workspace tasks"),
+                QStringLiteral("zzScreenshotTasksPanel"))) {
+            return false;
+        }
+        return requireResult(shell->showPanel(
+                    ZzPureTools::ZzWorkspacePanelId(QStringLiteral("explorer"))),
+                   QStringLiteral("failed to show default explorer panel"))
+            && requireResult(shell->showPanel(
+                    ZzPureTools::ZzWorkspacePanelId(QStringLiteral("properties"))),
+                QStringLiteral("failed to show default properties panel"));
+    }
+
     QString setupError_;
+    QAction *settingsAction_ = nullptr;
+    QMainWindow *settingsWindow_ = nullptr;
+    std::unique_ptr<QWidget> detachedProperties_;
+    std::unique_ptr<QWidget> detachedTasks_;
 };
 
 [[nodiscard]] QImage zzRenderWorkspaceSurface(
@@ -473,6 +678,13 @@ private:
     image.fill(Qt::transparent);
     QPainter painter(&image);
     surface->window.render(&painter);
+    if (QMainWindow *const settings = surface->settingsWindow();
+        settings != nullptr && settings->isVisible()) {
+        const QPoint settingsPosition(
+            (surface->window.width() - settings->width()) / 2,
+            (surface->window.height() - settings->height()) / 2);
+        settings->render(&painter, settingsPosition);
+    }
     return image;
 }
 
@@ -482,6 +694,18 @@ private:
     QWidget *surface)
 {
     return QRect(widget->mapTo(surface, rect.topLeft()), rect.size());
+}
+
+[[nodiscard]] int zzProjectedActivityRows(
+    const ZzFluentUI::ZzActivityBar &bar)
+{
+    int rows = 0;
+    for (const QListView *view : bar.findChildren<QListView *>()) {
+        if (view->model() != nullptr) {
+            rows += view->model()->rowCount();
+        }
+    }
+    return rows;
 }
 
 void zzVerifyNarrowWorkspaceGeometry(ZzWorkspaceScreenshotSurface &surface)
@@ -603,6 +827,133 @@ private Q_SLOTS:
         ZzWorkspaceScreenshotSurface surface;
         QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
+        const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
+        QCOMPARE(actual.size(), QSize(qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
+                                      qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));
+        surface.hide();
+        verifyScreenshot(fileStem, actual);
+    }
+
+    void rendersActivityContractThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<int>("scenario");
+        QTest::addColumn<QString>("fileStem");
+        struct ThemeRow final {
+            const char *name;
+            ZzFluentUI::ZzThemeMode mode;
+        };
+        constexpr std::array themes{
+            ThemeRow{"light", ZzFluentUI::ZzThemeMode::Light},
+            ThemeRow{"dark", ZzFluentUI::ZzThemeMode::Dark},
+            ThemeRow{"high-contrast", ZzFluentUI::ZzThemeMode::HighContrast}};
+        struct ScenarioRow final {
+            const char *name;
+            ZzActivityContractScenario scenario;
+        };
+        constexpr std::array scenarios{
+            ScenarioRow{"default", ZzActivityContractScenario::Default},
+            ScenarioRow{"right-empty", ZzActivityContractScenario::RightEmpty},
+            ScenarioRow{"right-restored", ZzActivityContractScenario::RightRestored},
+            ScenarioRow{"components", ZzActivityContractScenario::Components},
+            ScenarioRow{"settings", ZzActivityContractScenario::Settings},
+            ScenarioRow{"rtl", ZzActivityContractScenario::RightToLeft},
+            ScenarioRow{"keyboard-focus", ZzActivityContractScenario::KeyboardFocus}};
+        for (const ScenarioRow &scenario : scenarios) {
+            for (const ThemeRow &theme : themes) {
+                QTest::addRow("workspace-%s-%s", scenario.name, theme.name)
+                    << static_cast<int>(theme.mode)
+                    << static_cast<int>(scenario.scenario)
+                    << QStringLiteral("workspace-%1-%2")
+                           .arg(QString::fromLatin1(scenario.name),
+                               QString::fromLatin1(theme.name));
+            }
+        }
+    }
+
+    void rendersActivityContractThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(int, scenario);
+        QFETCH(QString, fileStem);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzWorkspaceScreenshotSurface surface(
+            zzLogicalSurfaceSize, QStringLiteral("Activity workspace"),
+            false, false, false, false, true);
+        QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
+        const auto contractScenario =
+            static_cast<ZzActivityContractScenario>(scenario);
+        if (contractScenario == ZzActivityContractScenario::RightToLeft) {
+            surface.window.setLayoutDirection(Qt::RightToLeft);
+            surface.shell->workspaceWidget()->setLayoutDirection(
+                Qt::LeftToRight);
+            for (const auto edge : {ZzFluentUI::ZzSidePaneEdge::Left,
+                     ZzFluentUI::ZzSidePaneEdge::Right}) {
+                surface.shell->activityBar(edge)->setLayoutDirection(
+                    Qt::RightToLeft);
+                surface.shell->sidePane(edge)->setLayoutDirection(
+                    Qt::RightToLeft);
+            }
+        }
+        surface.polish();
+
+        if (contractScenario == ZzActivityContractScenario::RightEmpty) {
+            QVERIFY2(surface.emptyRightEdge(), qPrintable(surface.setupError()));
+        } else if (contractScenario
+                == ZzActivityContractScenario::RightRestored) {
+            QVERIFY2(surface.emptyRightEdge(), qPrintable(surface.setupError()));
+            QVERIFY2(surface.restoreRightEdge(), qPrintable(surface.setupError()));
+        } else if (contractScenario
+                == ZzActivityContractScenario::Components) {
+            QVERIFY2(surface.showComponents(), qPrintable(surface.setupError()));
+        } else if (contractScenario
+                == ZzActivityContractScenario::Settings) {
+            surface.showSettings();
+        } else if (contractScenario
+                == ZzActivityContractScenario::KeyboardFocus) {
+            auto *const view = surface.shell->activityBar(
+                ZzFluentUI::ZzSidePaneEdge::Left)->findChild<QListView *>(
+                    QStringLiteral("zzActivityPrimaryView"));
+            QVERIFY(view != nullptr);
+            QVERIFY(view->model() != nullptr);
+            view->setCurrentIndex(view->model()->index(1, 0));
+            view->setFocus(Qt::TabFocusReason);
+            QVERIFY(view->hasFocus());
+        }
+        QCoreApplication::processEvents();
+
+        auto *const leftPane = surface.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const rightPane = surface.shell->sidePane(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        auto *const rightBar = surface.shell->activityBar(
+            ZzFluentUI::ZzSidePaneEdge::Right);
+        QCOMPARE(leftPane->mode(), ZzFluentUI::ZzSidePaneMode::Single);
+        QCOMPARE(rightPane->mode(), ZzFluentUI::ZzSidePaneMode::Single);
+        QVERIFY(leftPane->visibleWidgets().size() <= 1);
+        QVERIFY(rightPane->visibleWidgets().size() <= 1);
+        if (contractScenario == ZzActivityContractScenario::RightEmpty) {
+            QCOMPARE(zzProjectedActivityRows(*rightBar), 0);
+            QVERIFY(!rightBar->isVisibleTo(&surface.window));
+            QVERIFY(!rightPane->isVisibleTo(&surface.window));
+        } else {
+            QCOMPARE(zzProjectedActivityRows(*rightBar), 2);
+            QVERIFY(rightBar->isVisibleTo(&surface.window));
+            const QRect rightBarRect = zzMapToSurface(
+                rightBar, rightBar->rect(), &surface.window);
+            QVERIFY(rightBarRect.center().x() > surface.window.width() / 2);
+        }
+        if (contractScenario == ZzActivityContractScenario::Components) {
+            QCOMPARE(leftPane->currentWidget()->objectName(),
+                QStringLiteral("zzScreenshotComponentsPanel"));
+        }
+        if (contractScenario == ZzActivityContractScenario::Settings) {
+            QVERIFY(surface.settingsWindow() != nullptr);
+            QCOMPARE(surface.settingsWindow()->parentWidget(), &surface.window);
+            QCOMPARE(surface.settingsWindow()->windowModality(), Qt::WindowModal);
+            QVERIFY(surface.settingsWindow()->isVisible());
+        }
+
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
         QCOMPARE(actual.size(), QSize(qRound(zzLogicalSurfaceSize.width() * expectedDpr_),
                                       qRound(zzLogicalSurfaceSize.height() * expectedDpr_)));

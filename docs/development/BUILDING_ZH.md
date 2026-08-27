@@ -254,6 +254,28 @@ Command Palette、Dock、Tab 和最小 `ZzWorkspaceShell`。`PublicHeaderConsume
 逐个编译全部安装头，并显式要求 14 个工作区公开头存在。外部消费者与其 Qt
 依赖必须只从 relocation 后的 prefix B 解析。
 
+六入口工作区、右侧空态、组件导航、逐窗口设置与对象预算可用以下定向命令复验：
+
+```bash
+cmake --preset linux-gcc-benchmarks \
+  -DZZ_BUILD_EXAMPLES=ON -DZZ_BUILD_BENCHMARKS=ON \
+  -DZZ_PERFORMANCE_REFERENCE:BOOL=ON
+cmake --build --preset linux-gcc-benchmarks --parallel 2 --target \
+  ZzWorkspaceScreenshotTest ZzWorkspaceComponentsBenchmark \
+  ZzExampleWorkspaceSmokeTest ZzPureToolsExample
+ctest --preset linux-gcc-benchmarks -j1 --output-on-failure \
+  -R '^puretools\.workspace-screenshot-(100|125|150|200)$|^example\.workspace-smoke$|^benchmark\.workspace-components$'
+cmake --preset linux-gcc-debug -DZZ_BUILD_EXAMPLES=ON
+cmake --build --preset linux-gcc-debug --parallel 2 --target ZzPureToolsExample
+ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
+  -R '^example\.puretools-screenshot-(100|125|150|200)$'
+```
+
+截图比较必须关闭 `ZZ_UPDATE_SCREENSHOTS` 和 `ZZ_UPDATE_EXAMPLE_SCREENSHOTS`；
+只有在已审参考机上重建基线时才临时启用对应变量。`workspace-components` 报告中的
+`activity-row-widgets`、`fixed-action-steady-object-growth` 和
+`right-empty-layout-width` 必须为 0，`single-side-visible-panels` 不得大于 1。
+
 ## 正式发布配置
 
 `ZZ_RELEASE_BUILD=ON` 是失败关闭的正式发布模式。仓库根 `LICENSE`、Jackfahdin 所有者批准记录和两个 manifest 已完成审核；除普通工具链变量外，仍必须让 `ZZ_RELEASE_EVIDENCE_ROOT` 指向逐字节匹配的外部来源证据。Linux 捆绑 GNU runtime 时还需要：

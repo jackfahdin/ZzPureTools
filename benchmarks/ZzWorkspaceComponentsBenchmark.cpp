@@ -178,6 +178,59 @@ bool zzHasBoundedResultViewWidgets(const ZzWorkspaceObjectBudget &budget)
     return budget.resultViewWidgets <= zzMaximumResultViewWidgets;
 }
 
+/** @brief 统计 Activity 两侧投影视图为模型行创建的持久 QWidget。 */
+qsizetype zzActivityRowWidgetCount(const ZzPureTools::ZzWorkspaceShell &shell)
+{
+    qsizetype count = 0;
+    for (const auto edge : {ZzFluentUI::ZzSidePaneEdge::Left,
+             ZzFluentUI::ZzSidePaneEdge::Right}) {
+        const auto views = shell.activityBar(edge)->findChildren<QListView *>();
+        for (const QListView *view : views) {
+            if (view->model() == nullptr) {
+                continue;
+            }
+            for (int row = 0; row < view->model()->rowCount(); ++row) {
+                if (view->indexWidget(view->model()->index(row, 0)) != nullptr) {
+                    ++count;
+                }
+            }
+        }
+    }
+    return count;
+}
+
+/** @brief 返回指定物理侧两个固定投影视图中的活动入口总数。 */
+int zzProjectedActivityRows(const ZzFluentUI::ZzActivityBar &bar)
+{
+    int rows = 0;
+    for (const QListView *view : bar.findChildren<QListView *>()) {
+        if (view->model() != nullptr) {
+            rows += view->model()->rowCount();
+        }
+    }
+    return rows;
+}
+
+/** @brief 返回控件在宿主布局中实际可见时占用的横向宽度。 */
+int zzVisibleLayoutWidth(const QWidget &widget, const QWidget &host)
+{
+    return widget.isVisibleTo(&host) ? widget.width() : 0;
+}
+
+/** @brief 按公开展示角色查找 benchmark 注册的 Side panel 源索引。 */
+QModelIndex zzFindActivityIndex(
+    QAbstractItemModel &model,
+    const QString &title)
+{
+    for (int row = 0; row < model.rowCount(); ++row) {
+        const QModelIndex index = model.index(row, 0);
+        if (index.data(Qt::DisplayRole).toString() == title) {
+            return index;
+        }
+    }
+    return {};
+}
+
 /** @brief 提供不分配每行 QObject 的固定标记模型。 */
 class ZzBenchmarkMarkerModel final : public QAbstractTableModel
 {
@@ -440,16 +493,10 @@ int main(int argc, char *argv[])
 
     ZzFluentUI::ZzSidePane *const leftSidePane = shell->sidePane(
         ZzFluentUI::ZzSidePaneEdge::Left);
-    leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
-    for (QWidget *content : sidePanelContents) {
-        if (!leftSidePane->setWidgetVisible(content, true)) {
-            return zzFail(QStringLiteral(
-                "failed to expose all 32 side panels"));
-        }
-    }
-    if (leftSidePane->visibleWidgets().size() != zzSidePanelCount) {
+    leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
+    if (leftSidePane->visibleWidgets().size() > 1) {
         return zzFail(QStringLiteral(
-            "side pane did not retain 32 visible panels"));
+            "single side pane exposed more than one registered panel"));
     }
 
     QVector<ZzPureTools::ZzWorkspacePanelId> bottomPanelIds;
@@ -477,6 +524,94 @@ int main(int argc, char *argv[])
         return zzFail(showBottom.error().technicalMessage());
     }
 
+    QAction fixedAction(QStringLiteral("Benchmark settings"), &host);
+    int fixedActionTriggers = 0;
+    QObject::connect(&fixedAction, &QAction::triggered, &host,
+        [&fixedActionTriggers] { ++fixedActionTriggers; });
+    const auto fixedActionResult = shell->registerFixedActivityAction(
+        ZzPureTools::ZzWorkspaceActivityId(QStringLiteral("benchmark-settings")),
+        QStringLiteral("Benchmark settings"), fontActivityIcon,
+        ZzFluentUI::ZzActivityArea::LeftSecondary, &fixedAction);
+    if (!fixedActionResult) {
+        return zzFail(fixedActionResult.error().technicalMessage());
+    }
+    zzProcessGuiEvents();
+    auto *const leftActivityBar = shell->activityBar(
+        ZzFluentUI::ZzSidePaneEdge::Left);
+    QAbstractItemModel *const leftActivityModel = leftActivityBar->model();
+    const QModelIndex fixedActionIndex = zzFindActivityIndex(
+        *leftActivityModel, QStringLiteral("Benchmark settings"));
+    if (!fixedActionIndex.isValid()) {
+        return zzFail(QStringLiteral(
+            "fixed activity action index is unavailable"));
+    }
+    const qsizetype activityRowWidgets = zzActivityRowWidgetCount(*shell);
+    if (activityRowWidgets != 0) {
+        return zzFail(QStringLiteral(
+            "activity rows allocated %1 persistent widgets")
+                          .arg(activityRowWidgets));
+    }
+    const qsizetype fixedActionObjectsBefore =
+        host.findChildren<QObject *>().size();
+    for (int iteration = 0; iteration < zzStateToggleIterations; ++iteration) {
+        leftActivityBar->activationRequested(fixedActionIndex);
+    }
+    zzProcessGuiEvents();
+    const qsizetype fixedActionSteadyObjectGrowth =
+        host.findChildren<QObject *>().size() - fixedActionObjectsBefore;
+    if (fixedActionTriggers != zzStateToggleIterations
+        || fixedActionSteadyObjectGrowth != 0) {
+        return zzFail(QStringLiteral(
+            "fixed action changed steady object count by %1 after %2 triggers")
+                          .arg(fixedActionSteadyObjectGrowth)
+                          .arg(fixedActionTriggers));
+    }
+
+    auto *rightProbe = new QWidget;
+    const auto rightProbeResult = shell->registerSidePanel(
+        ZzPureTools::ZzWorkspacePanelId(QStringLiteral("benchmark-right-probe")),
+        QStringLiteral("Right probe"), svgActivityIcon,
+        ZzFluentUI::ZzActivityArea::RightPrimary, rightProbe);
+    if (!rightProbeResult) {
+        delete rightProbe;
+        return zzFail(rightProbeResult.error().technicalMessage());
+    }
+    zzProcessGuiEvents();
+    auto takenRightProbe = shell->takePanel(
+        ZzPureTools::ZzWorkspacePanelId(QStringLiteral("benchmark-right-probe")));
+    if (!takenRightProbe) {
+        return zzFail(takenRightProbe.error().technicalMessage());
+    }
+    std::unique_ptr<QWidget> detachedRightProbe(
+        std::move(takenRightProbe).value());
+    zzProcessGuiEvents();
+    auto *const rightActivityBar = shell->activityBar(
+        ZzFluentUI::ZzSidePaneEdge::Right);
+    auto *const rightSidePane = shell->sidePane(
+        ZzFluentUI::ZzSidePaneEdge::Right);
+    const int rightEmptyLayoutWidth =
+        zzVisibleLayoutWidth(*rightActivityBar, host)
+        + zzVisibleLayoutWidth(*rightSidePane, host);
+    const int rightProjectedRows = zzProjectedActivityRows(*rightActivityBar);
+    if (rightProjectedRows != 0
+        || rightEmptyLayoutWidth != 0) {
+        return zzFail(QStringLiteral(
+            "empty right edge retained %1 rows and %2 px layout width")
+                          .arg(rightProjectedRows)
+                          .arg(rightEmptyLayoutWidth));
+    }
+
+    leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
+    rightSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
+    zzProcessGuiEvents();
+    const qsizetype singleSideVisiblePanels = qMax(
+        leftSidePane->visibleWidgets().size(),
+        rightSidePane->visibleWidgets().size());
+    if (singleSideVisiblePanels > 1) {
+        return zzFail(QStringLiteral(
+            "single side mode exposed %1 panels")
+                          .arg(singleSideVisiblePanels));
+    }
     auto *commandBar = new ZzFluentUI::ZzCommandBar(&host);
     commandBar->resize(920, 40);
     for (int index = 0; index < zzCommandBarActionCount; ++index) {
@@ -564,6 +699,18 @@ int main(int argc, char *argv[])
     ZzBenchmarks::ZzPerformanceReporter reporter;
     reporter.setScenario(QStringLiteral("workspace-components"));
     reporter.setWarmupIterations(zzWarmupIterations);
+    reporter.addSample({QStringLiteral("activity-row-widgets"),
+                        QStringLiteral("count"),
+                        static_cast<double>(activityRowWidgets)});
+    reporter.addSample({QStringLiteral("fixed-action-steady-object-growth"),
+                        QStringLiteral("count"),
+                        static_cast<double>(fixedActionSteadyObjectGrowth)});
+    reporter.addSample({QStringLiteral("right-empty-layout-width"),
+                        QStringLiteral("px"),
+                        static_cast<double>(rightEmptyLayoutWidth)});
+    reporter.addSample({QStringLiteral("single-side-visible-panels"),
+                        QStringLiteral("count"),
+                        static_cast<double>(singleSideVisiblePanels)});
     const auto metadata = ZzBenchmarks::ZzBenchmarkMetadata::populate(
         reporter, host.screen());
     if (!metadata) {
@@ -649,15 +796,25 @@ int main(int argc, char *argv[])
                                 QStringLiteral("ms"),
                                 zzMilliseconds(timer.nsecsElapsed())});
         }
+        const QModelIndex activityIndex = zzFindActivityIndex(
+            *leftActivityModel,
+            QStringLiteral("Side panel %1").arg(
+                iteration % zzSidePanelCount));
+        if (!activityIndex.isValid()) {
+            return zzFail(QStringLiteral(
+                "activity source panel index is unavailable"));
+        }
         timer.restart();
-        auto *activityBar = shell->activityBar(
-            ZzFluentUI::ZzSidePaneEdge::Left);
-        QAbstractItemModel *activityModel = activityBar->model();
-        const QModelIndex activityIndex = activityModel->index(
-            iteration % zzSidePanelCount, 0);
-        activityBar->activationRequested(activityIndex);
-        if (activityBar->currentSourceIndex() != activityIndex) {
-            return zzFail(QStringLiteral("activity activation selected the wrong panel"));
+        leftActivityBar->activationRequested(activityIndex);
+        if (leftActivityBar->currentSourceIndex() != activityIndex) {
+            return zzFail(QStringLiteral(
+                "activity activation selected the wrong panel at iteration %1: "
+                "requested row/title=%2/%3, current row/title=%4/%5")
+                              .arg(iteration)
+                              .arg(activityIndex.row())
+                              .arg(activityIndex.data().toString())
+                              .arg(leftActivityBar->currentSourceIndex().row())
+                              .arg(leftActivityBar->currentSourceIndex().data().toString()));
         }
         if (measured) {
             reporter.addSample({QStringLiteral("activity-activation-time"),
@@ -672,9 +829,9 @@ int main(int argc, char *argv[])
             return zzFail(QStringLiteral("side panel visibility toggle failed"));
         }
         zzProcessGuiEvents();
-        if (leftSidePane->visibleWidgets().size() != zzSidePanelCount) {
+        if (leftSidePane->visibleWidgets().size() > 1) {
             return zzFail(QStringLiteral(
-                "side panel visibility did not return to 32"));
+                "side panel visibility exceeded the single-panel contract"));
         }
         if (measured) {
             reporter.addSample({QStringLiteral("panel-toggle-time"),
