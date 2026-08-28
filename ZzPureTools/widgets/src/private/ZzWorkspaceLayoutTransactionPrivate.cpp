@@ -388,10 +388,18 @@ void zzWriteSide(
     const QHash<QWidget *, QString> &ids,
     ZzFluentUI::ZzSidePane *pane,
     ZzSide *side,
-    ZzSideOwnerIndex *owners)
+    ZzSideOwnerIndex *owners,
+    const QString &sideName,
+    QString *failureContext)
 {
-    if (pane == nullptr || pane->panelStack() == nullptr) {
+    const auto fail = [&sideName, failureContext](const QString &reason) {
+        if (failureContext != nullptr) {
+            *failureContext = QStringLiteral("%1/%2").arg(sideName, reason);
+        }
         return false;
+    };
+    if (pane == nullptr || pane->panelStack() == nullptr) {
+        return fail(QStringLiteral("container-unavailable"));
     }
     ZzFluentUI::ZzPanelStack *const stack = pane->panelStack();
     side->paneIdentity = zzIdentity(pane);
@@ -402,9 +410,17 @@ void zzWriteSide(
         const QString id = ids.value(content);
         QWidget *const owner = content != nullptr
             ? content->parentWidget() : nullptr;
-        if (id.isEmpty() || owner == nullptr || owners->contains(id)
-            || !stack->isAncestorOf(owner)) {
-            return false;
+        if (id.isEmpty()) {
+            return fail(QStringLiteral("unregistered-content"));
+        }
+        if (owner == nullptr) {
+            return fail(QStringLiteral("owner-missing/%1").arg(id));
+        }
+        if (owners->contains(id)) {
+            return fail(QStringLiteral("duplicate-owner/%1").arg(id));
+        }
+        if (!stack->isAncestorOf(owner)) {
+            return fail(QStringLiteral("owner-outside-stack/%1").arg(id));
         }
         owners->insert(id, {owner, owner});
         side->order.append(id);
@@ -421,19 +437,29 @@ void zzWriteSide(
 }
 
 [[nodiscard]] std::optional<ZzRuntimeSnapshot> zzCaptureSnapshot(
-    const ZzWorkspaceShellPrivate &shell)
+    const ZzWorkspaceShellPrivate &shell,
+    QString *failureContext = nullptr)
 {
+    if (failureContext != nullptr) {
+        failureContext->clear();
+    }
+    const auto fail = [failureContext](const QString &reason) {
+        if (failureContext != nullptr) {
+            *failureContext = reason;
+        }
+        return std::optional<ZzRuntimeSnapshot>{};
+    };
     const QByteArray observed = zzObservedEnvelope(shell);
     if (observed.isEmpty()) {
-        return std::nullopt;
+        return fail(QStringLiteral("observed-envelope-empty"));
     }
     auto decoded = ZzWorkspaceLayoutCodecPrivate::decode(observed);
     if (!decoded) {
-        return std::nullopt;
+        return fail(QStringLiteral("observed-envelope-invalid"));
     }
     auto decodedRequest = std::move(decoded).value();
     if (!decodedRequest.projection.has_value()) {
-        return std::nullopt;
+        return fail(QStringLiteral("projection-missing"));
     }
 
     ZzRuntimeSnapshot result;
@@ -454,7 +480,7 @@ void zzWriteSide(
         const auto &record = shell.panels.at(row);
         const QString id = record.id.value();
         if (result.panelRows.contains(id)) {
-            return std::nullopt;
+            return fail(QStringLiteral("duplicate-panel-id/%1").arg(id));
         }
         result.panelRows.insert(id, static_cast<int>(row));
         if (record.contentIdentity != nullptr) {
@@ -485,10 +511,10 @@ void zzWriteSide(
     result.sideOwners.reserve(shell.panels.size());
     if (!zzCaptureSideRuntime(
             ids, shell.leftSidePane, &result.projection.leftSide,
-            &result.sideOwners)
+            &result.sideOwners, QStringLiteral("left-side"), failureContext)
         || !zzCaptureSideRuntime(
             ids, shell.rightSidePane, &result.projection.rightSide,
-            &result.sideOwners)) {
+            &result.sideOwners, QStringLiteral("right-side"), failureContext)) {
         return std::nullopt;
     }
     qsizetype readySideCount = 0;
@@ -501,7 +527,8 @@ void zzWriteSide(
             if (record.content != nullptr || record.contentIdentity != nullptr
                 || !record.factory || result.sideOwners.contains(
                     record.id.value())) {
-                return std::nullopt;
+                return fail(QStringLiteral("pending-panel-invalid/%1")
+                    .arg(record.id.value()));
             }
             continue;
         }
@@ -511,14 +538,15 @@ void zzWriteSide(
             || record.content.data() != record.contentIdentity
             || record.factory
             || !result.sideOwners.contains(record.id.value())) {
-            return std::nullopt;
+            return fail(QStringLiteral("ready-panel-invalid/%1")
+                .arg(record.id.value()));
         }
         ++readySideCount;
     }
     if (result.projection.leftSide.order.size()
             + result.projection.rightSide.order.size()
         != readySideCount) {
-        return std::nullopt;
+        return fail(QStringLiteral("ready-side-count-mismatch"));
     }
 
     result.projection.bottom.paneIdentity = zzIdentity(shell.bottomPane);
@@ -528,13 +556,13 @@ void zzWriteSide(
     result.projection.bottom.order.clear();
     result.projection.bottom.contents.clear();
     if (bottomStack == nullptr) {
-        return std::nullopt;
+        return fail(QStringLiteral("bottom-stack-unavailable"));
     }
     for (int index = 0; index < bottomStack->count(); ++index) {
         QWidget *const content = bottomStack->widget(index);
         const QString id = ids.value(content);
         if (id.isEmpty()) {
-            return std::nullopt;
+            return fail(QStringLiteral("bottom-content-unregistered"));
         }
         result.projection.bottom.order.append(id);
         result.projection.bottom.contents.append({
@@ -548,7 +576,7 @@ void zzWriteSide(
                 == ZzWorkspaceShellPrivate::ZzPanelKind::Bottom;
         });
     if (result.projection.bottom.order.size() != registeredBottomCount) {
-        return std::nullopt;
+        return fail(QStringLiteral("bottom-count-mismatch"));
     }
     result.projection.activity.modelIdentity = zzIdentity(shell.activityModel);
     result.projection.title.mode = zzTitleMode(shell.titleMode);
@@ -2488,10 +2516,12 @@ ZzWorkspaceLayoutTransactionPrivate::save() const
         return zzFailure<QByteArray>(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace panel transaction is in progress"));
     }
-    const auto captured = zzCaptureSnapshot(shell_);
+    QString captureFailure;
+    const auto captured = zzCaptureSnapshot(shell_, &captureFailure);
     if (!captured.has_value()) {
         return zzFailure<QByteArray>(ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace layout projection is invalid"));
+            QStringLiteral("Workspace layout projection is invalid"),
+            captureFailure);
     }
     if (!zzSideOrderMatchesActivity(*captured)) {
         return zzFailure<QByteArray>(ZzCore::ZzErrorCode::InvalidState,
@@ -2529,10 +2559,15 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("Workspace layout envelope is invalid"));
     }
-    const auto captured = zzCaptureSnapshot(shell_);
+    QString initialCaptureFailure;
+    const auto captured = zzCaptureSnapshot(shell_, &initialCaptureFailure);
     if (!captured.has_value()) {
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace host has been destroyed"));
+            QStringLiteral("Workspace host has been destroyed"),
+            initialCaptureFailure.isEmpty()
+                ? QStringLiteral("initial-capture")
+                : QStringLiteral("initial-capture/%1")
+                    .arg(initialCaptureFailure));
     }
     const ZzRuntimeSnapshot &initialSnapshot = *captured;
     ZzLayoutState::ZzLayoutRequest request = std::move(decoded).value();
@@ -2640,7 +2675,9 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
         }
     }
 
-    const auto preparedCaptured = zzCaptureSnapshot(shell_);
+    QString preparedCaptureFailure;
+    const auto preparedCaptured = zzCaptureSnapshot(
+        shell_, &preparedCaptureFailure);
     if (!preparedCaptured.has_value()) {
         const bool rolledBack = rollbackPreparation();
         return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
@@ -2649,7 +2686,10 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
                     "Workspace layout restore failed and was rolled back")
                 : QStringLiteral(
                     "Workspace layout restore failed and rollback failed"),
-            QStringLiteral("prepared-capture"));
+            preparedCaptureFailure.isEmpty()
+                ? QStringLiteral("prepared-capture")
+                : QStringLiteral("prepared-capture/%1")
+                    .arg(preparedCaptureFailure));
     }
     const ZzRuntimeSnapshot &snapshot = *preparedCaptured;
     const ZzSnapshot planningSnapshot = zzLogicalPlanningSnapshot(snapshot);

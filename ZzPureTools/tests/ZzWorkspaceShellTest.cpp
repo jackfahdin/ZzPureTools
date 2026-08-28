@@ -8778,6 +8778,8 @@ private Q_SLOTS:
 
         QVERIFY(!saved);
         QCOMPARE(saved.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(saved.error().context(),
+            QStringLiteral("left-side/unregistered-content"));
         std::unique_ptr<QWidget> reclaimed(pane->takeWidget(unknownRaw));
         QCOMPARE(reclaimed.get(), unknownRaw);
         QVERIFY(fixture.shell->saveLayout());
