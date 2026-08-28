@@ -433,7 +433,8 @@ audit_app_bundle() {
     while IFS= read -r rpath; do
       [[ -n $rpath ]] || continue
       case $rpath in
-        @rpath/*|@loader_path/*|@executable_path/*|/System/Library/*|/usr/lib/*) ;;
+        @loader_path|@loader_path/*|@executable_path|@executable_path/*|\
+          @rpath/*|/System/Library/*|/usr/lib/*) ;;
         *)
           echo "unexpected LC_RPATH in $binary: $rpath" >&2
           exit 1

@@ -42,6 +42,7 @@ set(required_script_tokens
     "load-command path leaked"
     "awk '/^[[:space:]]/ { print }'"
     "load_commands=\$(otool -l \"\$binary\" | awk '/^[[:space:]]/ { print }')"
+    "@loader_path|@loader_path/*|@executable_path|@executable_path/*"
     "lipo"
     "otool"
     "hdiutil"
