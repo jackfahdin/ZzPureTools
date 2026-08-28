@@ -149,6 +149,13 @@ add_test(NAME platform.windows-packaging-contract
 set_tests_properties(platform.windows-packaging-contract PROPERTIES
     LABELS "platform;contract;packaging;windows")
 
+add_test(NAME platform.macos-packaging-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzMacosPackagingContract.cmake")
+set_tests_properties(platform.macos-packaging-contract PROPERTIES
+    LABELS "platform;contract;packaging;macos")
+
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     add_test(NAME platform.governor-state
         COMMAND bash

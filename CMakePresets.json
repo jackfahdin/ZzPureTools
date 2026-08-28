@@ -338,6 +338,40 @@
       }
     },
     {
+      "name": "macos-continuous-arm64",
+      "inherits": "macos-clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_ARM64_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MACOS_ARM64_ROOT}",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_ENABLE_CLANG_TIDY": false,
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_EXAMPLES": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_RELEASE_BUILD": true
+      }
+    },
+    {
+      "name": "macos-continuous-x86_64",
+      "inherits": "macos-clang-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "$env{QT_MACOS_X86_64_ROOT}",
+        "ZZ_QT_PREFIX": "$env{QT_MACOS_X86_64_ROOT}",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_ENABLE_CLANG_TIDY": false,
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_EXAMPLES": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_RELEASE_BUILD": true
+      }
+    },
+    {
       "name": "macos-clang-static-arm64",
       "inherits": "macos-clang-base",
       "cacheVariables": {
@@ -394,6 +428,8 @@
     { "name": "windows-mingw-static", "configurePreset": "windows-mingw-static" },
     { "name": "macos-clang-release-arm64", "configurePreset": "macos-clang-release-arm64" },
     { "name": "macos-clang-release-x86_64", "configurePreset": "macos-clang-release-x86_64" },
+    { "name": "macos-continuous-arm64", "configurePreset": "macos-continuous-arm64" },
+    { "name": "macos-continuous-x86_64", "configurePreset": "macos-continuous-x86_64" },
     { "name": "macos-clang-static-arm64", "configurePreset": "macos-clang-static-arm64" },
     { "name": "macos-clang-static-x86_64", "configurePreset": "macos-clang-static-x86_64" }
   ],
@@ -678,6 +714,30 @@
       "execution": { "noTestsAction": "error" },
       "environment": {
         "ZZ_CMAKE_PRESET": "macos-clang-release-x86_64",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "macos-continuous-arm64",
+      "configurePreset": "macos-continuous-arm64",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "macos-continuous-arm64",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "macos-continuous-x86_64",
+      "configurePreset": "macos-continuous-x86_64",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "macos-continuous-x86_64",
         "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
