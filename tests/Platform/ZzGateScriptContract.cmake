@@ -180,6 +180,32 @@ foreach(requirement IN LISTS required_tokens)
     endif()
 endforeach()
 
+foreach(nested_build_contract IN ITEMS
+        "tests/InstallConsumer/RunInstallConsumer.cmake|2"
+        "tests/Platform/ZzPackageRelocationTest.cmake|3")
+    string(REPLACE "|" ";" nested_build_fields
+        "${nested_build_contract}")
+    list(GET nested_build_fields 0 nested_build_relative_path)
+    list(GET nested_build_fields 1 expected_build_count)
+    file(READ "${ZZ_SOURCE_DIR}/${nested_build_relative_path}"
+        nested_build_content)
+    string(FIND "${nested_build_content}"
+        "set(zz_nested_build_parallelism 2)" parallelism_position)
+    string(REGEX MATCHALL "--build" nested_build_commands
+        "${nested_build_content}")
+    string(REGEX MATCHALL "--parallel" nested_parallel_arguments
+        "${nested_build_content}")
+    list(LENGTH nested_build_commands nested_build_count)
+    list(LENGTH nested_parallel_arguments nested_parallel_count)
+    if(parallelism_position EQUAL -1
+       OR NOT nested_build_count EQUAL expected_build_count
+       OR NOT nested_parallel_count EQUAL nested_build_count)
+        message(FATAL_ERROR
+            "${nested_build_relative_path} must cap all ${expected_build_count} "
+            "nested builds at parallelism 2")
+    endif()
+endforeach()
+
 file(READ "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-gates.sh" linux_gates_content)
 if(linux_gates_content MATCHES "performance_scenarios[ \t]*\\(")
     message(FATAL_ERROR

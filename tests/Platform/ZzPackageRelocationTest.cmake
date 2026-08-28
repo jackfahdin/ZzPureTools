@@ -115,6 +115,7 @@ endif()
 
 set(build_config_args)
 set(ctest_config_args)
+set(zz_nested_build_parallelism 2)
 if(NOT "${ZZ_CONFIG}" STREQUAL "")
     list(APPEND build_config_args --config "${ZZ_CONFIG}")
     list(APPEND ctest_config_args -C "${ZZ_CONFIG}")
@@ -133,7 +134,8 @@ zz_run("producer configure" "${CMAKE_COMMAND}"
     -DZZ_BUILD_TESTS=OFF -DZZ_BUILD_EXAMPLES=OFF
     -DZZ_BUILD_BENCHMARKS=OFF -DZZ_WARNINGS_AS_ERRORS=ON)
 zz_run("producer build" "${CMAKE_COMMAND}"
-    --build "${producer}" ${build_config_args})
+    --build "${producer}" ${build_config_args}
+    --parallel "${zz_nested_build_parallelism}")
 zz_run("producer install" "${CMAKE_COMMAND}"
     --install "${producer}" --prefix "${prefix_a}" ${build_config_args})
 
@@ -161,7 +163,8 @@ zz_run("install consumer configure" "${CMAKE_COMMAND}"
     -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
     "-DZZ_PACKAGE_ROOT:PATH=${prefix_b}")
 zz_run("install consumer build" "${CMAKE_COMMAND}"
-    --build "${install_consumer}" ${build_config_args})
+    --build "${install_consumer}" ${build_config_args}
+    --parallel "${zz_nested_build_parallelism}")
 zz_run("install consumer test" "${ZZ_CTEST_COMMAND}"
     --test-dir "${install_consumer}" ${ctest_config_args}
     --output-on-failure)
@@ -176,7 +179,8 @@ zz_run("public header consumer configure" "${CMAKE_COMMAND}"
     "-DZZ_PACKAGE_ROOT:PATH=${prefix_b}")
 zz_run("public header consumer build" "${CMAKE_COMMAND}"
     --build "${header_consumer}" ${build_config_args}
-    --target ZzInstalledPublicHeaders)
+    --target ZzInstalledPublicHeaders
+    --parallel "${zz_nested_build_parallelism}")
 
 foreach(consumer_dir IN ITEMS "${install_consumer}" "${header_consumer}")
     file(STRINGS "${consumer_dir}/CMakeCache.txt" package_dir_entries

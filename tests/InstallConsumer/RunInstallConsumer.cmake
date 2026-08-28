@@ -116,6 +116,7 @@ endif()
 
 set(zz_config_args)
 set(zz_ctest_config_args)
+set(zz_nested_build_parallelism 2)
 if(NOT ZZ_CONFIG STREQUAL "")
     list(APPEND zz_config_args --config "${ZZ_CONFIG}")
     list(APPEND zz_ctest_config_args -C "${ZZ_CONFIG}")
@@ -139,7 +140,8 @@ zz_run_process("fresh producer configure"
 )
 
 zz_run_process("fresh producer build"
-    "${CMAKE_COMMAND}" --build "${zz_a_dir}" ${zz_config_args})
+    "${CMAKE_COMMAND}" --build "${zz_a_dir}" ${zz_config_args}
+    --parallel "${zz_nested_build_parallelism}")
 
 zz_run_process("fresh producer install"
     "${CMAKE_COMMAND}" --install "${zz_a_dir}"
@@ -202,7 +204,8 @@ zz_run_process("fresh consumer configure"
 )
 
 zz_run_process("fresh consumer build"
-    "${CMAKE_COMMAND}" --build "${zz_consumer_dir}" ${zz_config_args})
+    "${CMAKE_COMMAND}" --build "${zz_consumer_dir}" ${zz_config_args}
+    --parallel "${zz_nested_build_parallelism}")
 
 zz_run_process("fresh consumer test"
     "${ZZ_CTEST_COMMAND}"
