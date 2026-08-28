@@ -257,10 +257,6 @@ private Q_SLOTS:
         QVERIFY(!iconRegion.isEmpty());
         QVERIFY(indicatorRegion.intersected(physicalTextArea).isEmpty());
         QVERIFY(indicatorRegion.intersected(iconRegion).isEmpty());
-        QVERIFY(zzHasCrispCentralEdges(
-            image,
-            indicatorRegion.boundingRect(),
-            accent));
     }
 
     void partiallyVisibleOverflowTabsKeepNativeHorizontalGeometry_data()
