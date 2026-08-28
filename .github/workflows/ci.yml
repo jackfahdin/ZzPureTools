@@ -73,6 +73,7 @@ jobs:
             curl \
             desktop-file-utils \
             file \
+            fonts-noto-cjk \
             gcc-13 \
             g++-13 \
             libfuse2 \
@@ -95,6 +96,7 @@ jobs:
             xvfb
           test -x "$GCC_13"
           test -x "$GXX_13"
+          fc-match ':lang=zh-cn' | grep -F 'NotoSansCJK-Regular.ttc'
 
       - name: Set up Python for Qt installer
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
