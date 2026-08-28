@@ -461,7 +461,7 @@ invoke_app_smoke() {
     echo "app smoke executable is unavailable: $executable" >&2
     exit 1
   }
-  QT_QPA_PLATFORM=offscreen \
+  QT_QPA_PLATFORM=cocoa \
   ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500 \
     "$executable" --smoke-test
 }

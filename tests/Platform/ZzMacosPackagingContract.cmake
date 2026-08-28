@@ -48,7 +48,7 @@ set(required_script_tokens
     "hdiutil"
     "-readonly"
     "-nobrowse"
-    "QT_QPA_PLATFORM=offscreen"
+    "QT_QPA_PLATFORM=cocoa"
     "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500"
     "--smoke-test"
     "ZZ_QT_LICENSE_DIR"
