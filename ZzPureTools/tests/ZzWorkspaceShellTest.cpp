@@ -3090,8 +3090,9 @@ private Q_SLOTS:
             }));
 
         const auto restored = target.shell->restoreLayout(requested.value());
-        const QString restoreError = restored
-            ? QString{} : restored.error().technicalMessage();
+        const QString restoreError = restored ? QString{} : QStringLiteral(
+            "%1; stage=%2")
+            .arg(restored.error().technicalMessage(), restored.error().context());
         QVERIFY2(restored, qPrintable(restoreError));
         QCOMPARE(calls, 1);
         QVERIFY(created != nullptr);
@@ -3270,6 +3271,7 @@ private Q_SLOTS:
 
         const auto restored = target.shell->restoreLayout(requested.value());
         QVERIFY(!restored);
+        QCOMPARE(restored.error().context(), QStringLiteral("side"));
         QVERIFY(polluted);
         QCOMPARE(calls, 1);
         QVERIFY(created == nullptr);

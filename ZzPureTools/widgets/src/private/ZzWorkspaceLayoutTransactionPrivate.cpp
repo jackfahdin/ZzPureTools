@@ -52,10 +52,11 @@ constexpr qsizetype zzMaximumLayoutSize = qsizetype{1024} * 1024;
 template<typename ZzValue>
 [[nodiscard]] ZzCore::ZzResult<ZzValue> zzFailure(
     ZzCore::ZzErrorCode code,
-    QString message)
+    QString message,
+    QString context = {})
 {
     return ZzCore::ZzResult<ZzValue>::failure(
-        ZzCore::ZzError(code, std::move(message)));
+        ZzCore::ZzError(code, std::move(message), std::move(context)));
 }
 
 [[nodiscard]] ZzLayoutState::ZzPanelKind zzPanelKind(
@@ -2654,30 +2655,37 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     if (planned.has_value()) {
         zzKeepReadyPhysicalProjection(shell_, &*planned);
     }
+    const char *failedStage = "planning";
     bool committed = planned.has_value();
     if (committed) {
         const ZzProjection &target = *planned;
         ZzSideOwnerIndex targetOwners = snapshot.sideOwners;
         ZzSideOwnerObserver ownerObserver(target, &targetOwners);
+        failedStage = "dock";
         committed = zzApplyDock(shell_, snapshot, target.dock);
         if (committed) {
+            failedStage = "split";
             committed = zzApplySplit(
                 shell_, snapshot, target.split,
                 migrationGroup, migrationCurrent,
                 snapshot.projection.split.canonicalState);
         }
         if (committed) {
+            failedStage = "side";
             committed = zzApplySide(
                 shell_, snapshot, target, true,
                 ownerObserver, targetOwners);
         }
         if (committed) {
+            failedStage = "bottom";
             committed = zzApplyBottom(shell_, snapshot, target.bottom);
         }
         if (committed) {
+            failedStage = "activity-title";
             committed = zzApplyActivityAndTitle(shell_, snapshot, target);
         }
         if (committed) {
+            failedStage = "final-audit";
             committed = ownerObserver.isValid()
                 && zzAuditAll(
                     shell_, snapshot, target, targetOwners,
@@ -2700,7 +2708,8 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             ? QStringLiteral(
                 "Workspace layout restore failed and was rolled back")
             : QStringLiteral(
-                "Workspace layout restore failed and rollback failed"));
+                "Workspace layout restore failed and rollback failed"),
+        QString::fromLatin1(failedStage));
 }
 
 } // namespace ZzPureTools
