@@ -262,15 +262,19 @@ private Q_SLOTS:
 
         drawer.openDrawer();
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
-        QTest::qWait(24);
+        QVERIFY(QTest::qWaitFor([&drawer] {
+            const int x = panelHost(&drawer)->x();
+            return x >= -160 && x < 0;
+        }));
         const int openingX = panelHost(&drawer)->x();
-        QVERIFY(openingX > -200);
-        QVERIFY(openingX < 0);
 
         drawer.closeDrawer();
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         QCOMPARE(panelHost(&drawer)->x(), openingX);
-        QTest::qWait(12);
+        QVERIFY(QTest::qWaitFor([&drawer, openingX] {
+            const int x = panelHost(&drawer)->x();
+            return x < openingX && x > -200;
+        }));
         const int closingX = panelHost(&drawer)->x();
         drawer.openDrawer();
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
