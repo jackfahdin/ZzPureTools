@@ -5,17 +5,17 @@ if(NOT DEFINED ZZ_PACKAGE_ROOT OR "${ZZ_PACKAGE_ROOT}" STREQUAL "")
     message(FATAL_ERROR "ZZ_PACKAGE_ROOT is required")
 endif()
 file(GLOB_RECURSE package_configs LIST_DIRECTORIES FALSE
-    "${ZZ_PACKAGE_ROOT}/*/cmake/ZzPureToolsPro/ZzPureToolsProConfig.cmake")
+    "${ZZ_PACKAGE_ROOT}/*/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfig.cmake")
 list(LENGTH package_configs package_config_count)
 if(NOT "${package_config_count}" EQUAL 1)
     message(FATAL_ERROR
-        "Expected one ZzPureToolsProConfig.cmake below package root")
+        "Expected one ZzPureToolsFrameConfig.cmake below package root")
 endif()
 list(GET package_configs 0 package_config)
 cmake_path(GET package_config PARENT_PATH package_config_dir)
 set(CMAKE_FIND_USE_PACKAGE_REGISTRY FALSE)
 set(CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY FALSE)
-find_package(ZzPureToolsPro 0.1 CONFIG REQUIRED
+find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED
     PATHS "${package_config_dir}"
     NO_DEFAULT_PATH)
 

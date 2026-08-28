@@ -170,7 +170,7 @@ endif()
 
 file(GLOB_RECURSE zz_installed_configs
     LIST_DIRECTORIES FALSE
-    "${zz_b_dir}/ZzPureToolsProConfig.cmake"
+    "${zz_b_dir}/ZzPureToolsFrameConfig.cmake"
 )
 list(LENGTH zz_installed_configs zz_config_count)
 if(NOT zz_config_count EQUAL 1)

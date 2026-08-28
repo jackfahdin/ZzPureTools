@@ -4,9 +4,9 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 function(zz_install_package)
-    set(zz_export_name ZzPureToolsProTargets)
+    set(zz_export_name ZzPureToolsFrameTargets)
     set(zz_package_cmake_dir
-        "${CMAKE_INSTALL_LIBDIR}/cmake/ZzPureToolsPro")
+        "${CMAKE_INSTALL_LIBDIR}/cmake/ZzPureToolsFrame")
     set(zz_targets
         ZzCore
         ZzWindowKit
@@ -127,32 +127,32 @@ function(zz_install_package)
     endif()
 
     configure_package_config_file(
-        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ZzPureToolsProConfig.cmake.in"
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfig.cmake"
+        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ZzPureToolsFrameConfig.cmake.in"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfig.cmake"
         INSTALL_DESTINATION "${zz_package_cmake_dir}"
     )
     write_basic_package_version_file(
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfigVersion.cmake"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfigVersion.cmake"
         VERSION "${PROJECT_VERSION}"
         COMPATIBILITY SameMinorVersion
     )
 
     install(EXPORT ${zz_export_name}
-        FILE ZzPureToolsProTargets.cmake
+        FILE ZzPureToolsFrameTargets.cmake
         NAMESPACE Zz::
         DESTINATION "${zz_package_cmake_dir}"
         COMPONENT Development
     )
     install(FILES
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfig.cmake"
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfigVersion.cmake"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfig.cmake"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfigVersion.cmake"
         DESTINATION "${zz_package_cmake_dir}"
         COMPONENT Development
     )
 
     install(FILES
-        "${PROJECT_SOURCE_DIR}/docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md"
-        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/ZzPureToolsPro"
+        "${PROJECT_SOURCE_DIR}/docs/superpowers/specs/2026-08-02-zzpuretoolsframe-architecture-design.md"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/ZzPureToolsFrame"
         COMPONENT Development
     )
 
@@ -179,62 +179,62 @@ function(zz_install_package)
             "${ZZ_GNU_RUNTIME_LICENSE_DIR}/COPYING3"
             "${ZZ_GNU_RUNTIME_LICENSE_DIR}/COPYING.RUNTIME"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/gcc-runtime"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/gcc-runtime"
             COMPONENT Runtime)
     endif()
 
     if(ZZ_RELEASE_BUILD)
         install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses"
             RENAME PROJECT-LICENSE
             COMPONENT Runtime)
         install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/LICENSE"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/qwindowkit"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
             COMPONENT Runtime)
         install(FILES
             "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/LICENSE"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/qwindowkit"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
             RENAME qmsetup-LICENSE
             COMPONENT Runtime)
         install(FILES
             "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/src/syscmdline/LICENSE"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/qwindowkit"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
             RENAME syscmdline-LICENSE
             COMPONENT Runtime)
         install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/LICENSE"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/ZzLog"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/ZzLog"
             COMPONENT Runtime)
         install(FILES
             "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/licenses/spdlog/LICENSE.txt"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/ZzLog"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/ZzLog"
             RENAME spdlog-LICENSE.txt
             COMPONENT Runtime)
         install(FILES
             "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/licenses/fmt/LICENSE.txt"
             DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/licenses/ZzLog"
+                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/ZzLog"
             RENAME fmt-LICENSE.txt
             COMPONENT Runtime)
         install(FILES
             "${PROJECT_SOURCE_DIR}/docs/third-party/THIRD_PARTY_NOTICES.md"
             "${PROJECT_SOURCE_DIR}/docs/third-party/qwindowkit-vendor.json"
             "${PROJECT_SOURCE_DIR}/docs/third-party/release-evidence.json"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame"
             COMPONENT Runtime)
         install(FILES
             "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/project-license-approval.json"
             "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/qwindowkit-provenance-review.json"
             "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/windeployqt-redistribution-review.json"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsPro/reviews"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/reviews"
             COMPONENT Runtime)
     elseif(NOT EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
         message(STATUS
-            "ZzPureToolsPro LICENSE is absent; binary publication remains blocked")
+            "ZzPureToolsFrame LICENSE is absent; binary publication remains blocked")
     endif()
 endfunction()

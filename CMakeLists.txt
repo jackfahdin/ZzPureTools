@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 
-project(ZzPureToolsPro
+project(ZzPureToolsFrame
     VERSION 0.1.0
     DESCRIPTION "High-performance cross-platform Qt application framework"
     LANGUAGES CXX
@@ -10,9 +10,9 @@ include(CTest)
 include(GNUInstallDirs)
 
 option(BUILD_SHARED_LIBS "Build shared libraries by default" ON)
-option(ZZ_BUILD_TESTS "Build ZzPureToolsPro tests" ${BUILD_TESTING})
-option(ZZ_BUILD_EXAMPLES "Build ZzPureToolsPro examples" OFF)
-option(ZZ_BUILD_BENCHMARKS "Build ZzPureToolsPro benchmarks" OFF)
+option(ZZ_BUILD_TESTS "Build ZzPureToolsFrame tests" ${BUILD_TESTING})
+option(ZZ_BUILD_EXAMPLES "Build ZzPureToolsFrame examples" OFF)
+option(ZZ_BUILD_BENCHMARKS "Build ZzPureToolsFrame benchmarks" OFF)
 option(ZZ_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ZZ_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ZZ_ENABLE_CLANG_TIDY "Run clang-tidy on explicit first-party sources" OFF)

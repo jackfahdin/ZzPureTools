@@ -47,23 +47,23 @@ if(NOT install_result EQUAL 0)
 endif()
 
 set(required_files
-    share/ZzPureToolsPro/licenses/PROJECT-LICENSE
-    share/ZzPureToolsPro/licenses/qwindowkit/LICENSE
-    share/ZzPureToolsPro/licenses/qwindowkit/qmsetup-LICENSE
-    share/ZzPureToolsPro/licenses/qwindowkit/syscmdline-LICENSE
-    share/ZzPureToolsPro/licenses/ZzLog/LICENSE
-    share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt
-    share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt
-    share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md
-    share/ZzPureToolsPro/qwindowkit-vendor.json
-    share/ZzPureToolsPro/release-evidence.json
-    share/ZzPureToolsPro/reviews/project-license-approval.json
-    share/ZzPureToolsPro/reviews/qwindowkit-provenance-review.json
-    share/ZzPureToolsPro/reviews/windeployqt-redistribution-review.json)
+    share/ZzPureToolsFrame/licenses/PROJECT-LICENSE
+    share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE
+    share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE
+    share/ZzPureToolsFrame/licenses/qwindowkit/syscmdline-LICENSE
+    share/ZzPureToolsFrame/licenses/ZzLog/LICENSE
+    share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt
+    share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt
+    share/ZzPureToolsFrame/THIRD_PARTY_NOTICES.md
+    share/ZzPureToolsFrame/qwindowkit-vendor.json
+    share/ZzPureToolsFrame/release-evidence.json
+    share/ZzPureToolsFrame/reviews/project-license-approval.json
+    share/ZzPureToolsFrame/reviews/qwindowkit-provenance-review.json
+    share/ZzPureToolsFrame/reviews/windeployqt-redistribution-review.json)
 if(runtime_cache)
     list(APPEND required_files
-        share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3
-        share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME)
+        share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING3
+        share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING.RUNTIME)
 endif()
 
 foreach(relative_file IN LISTS required_files)
@@ -80,7 +80,7 @@ foreach(relative_file IN LISTS required_files)
 endforeach()
 
 set(runtime_license_root
-    "${install_root}/share/ZzPureToolsPro/licenses/gcc-runtime")
+    "${install_root}/share/ZzPureToolsFrame/licenses/gcc-runtime")
 if(NOT runtime_cache
    AND (EXISTS "${runtime_license_root}/COPYING3"
         OR EXISTS "${runtime_license_root}/COPYING.RUNTIME"))
@@ -90,12 +90,12 @@ endif()
 foreach(forbidden_tool IN ITEMS bin/qmcorecmd bin/qmcorecmd.exe)
     if(EXISTS "${install_root}/${forbidden_tool}")
         message(FATAL_ERROR
-            "Qt 派生构建工具不得进入 ZzPureToolsPro 安装包：${forbidden_tool}")
+            "Qt 派生构建工具不得进入 ZzPureToolsFrame 安装包：${forbidden_tool}")
     endif()
 endforeach()
 
 set(notices_path
-    "${install_root}/share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md")
+    "${install_root}/share/ZzPureToolsFrame/THIRD_PARTY_NOTICES.md")
 file(READ "${notices_path}" notices)
 set(required_notice_tokens
     QWindowKit
@@ -112,18 +112,18 @@ set(required_notice_tokens
     "d24088deaa441a79267df8ae3dbc567fbe2a5e03"
     "12.1.0"
     "SPDX"
-    "share/ZzPureToolsPro/licenses/PROJECT-LICENSE"
-    "share/ZzPureToolsPro/licenses/qwindowkit/LICENSE"
-    "share/ZzPureToolsPro/licenses/qwindowkit/qmsetup-LICENSE"
-    "share/ZzPureToolsPro/licenses/qwindowkit/syscmdline-LICENSE"
-    "share/ZzPureToolsPro/licenses/ZzLog/LICENSE"
-    "share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt"
-    "share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt"
-    "share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3"
-    "share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME"
-    "share/ZzPureToolsPro/reviews/project-license-approval.json"
-    "share/ZzPureToolsPro/reviews/qwindowkit-provenance-review.json"
-    "share/ZzPureToolsPro/reviews/windeployqt-redistribution-review.json")
+    "share/ZzPureToolsFrame/licenses/PROJECT-LICENSE"
+    "share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE"
+    "share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE"
+    "share/ZzPureToolsFrame/licenses/qwindowkit/syscmdline-LICENSE"
+    "share/ZzPureToolsFrame/licenses/ZzLog/LICENSE"
+    "share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt"
+    "share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt"
+    "share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING3"
+    "share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING.RUNTIME"
+    "share/ZzPureToolsFrame/reviews/project-license-approval.json"
+    "share/ZzPureToolsFrame/reviews/qwindowkit-provenance-review.json"
+    "share/ZzPureToolsFrame/reviews/windeployqt-redistribution-review.json")
 foreach(token IN LISTS required_notice_tokens)
     string(FIND "${notices}" "${token}" token_position)
     if(token_position EQUAL -1)

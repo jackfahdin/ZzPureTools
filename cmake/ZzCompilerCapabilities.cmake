@@ -6,28 +6,28 @@ function(zz_check_compiler_capabilities)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.1)
             message(FATAL_ERROR
-                "ZzPureToolsPro requires GCC 13.1 or newer")
+                "ZzPureToolsFrame requires GCC 13.1 or newer")
         endif()
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 17.0)
             message(FATAL_ERROR
-                "ZzPureToolsPro requires Clang 17 or newer")
+                "ZzPureToolsFrame requires Clang 17 or newer")
         endif()
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0)
             message(FATAL_ERROR
-                "ZzPureToolsPro requires Apple Clang 15 or newer")
+                "ZzPureToolsFrame requires Apple Clang 15 or newer")
         endif()
         if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET
            OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 13.3)
             message(FATAL_ERROR
-                "ZzPureToolsPro requires macOS deployment target 13.3 or "
+                "ZzPureToolsFrame requires macOS deployment target 13.3 or "
                 "newer for the C++20 format runtime")
         endif()
     elseif(MSVC)
         if(MSVC_VERSION LESS 1938)
             message(FATAL_ERROR
-                "ZzPureToolsPro requires MSVC 19.38 or newer")
+                "ZzPureToolsFrame requires MSVC 19.38 or newer")
         endif()
     else()
         message(FATAL_ERROR

@@ -105,7 +105,7 @@ zz_configure_library_target(ZzWindowKit
 
 if(NOT BUILD_SHARED_LIBS)
     set(zz_qwk_private_install_dir
-        "${CMAKE_INSTALL_LIBDIR}/zzpuretoolspro/private"
+        "${CMAKE_INSTALL_LIBDIR}/zzpuretoolsframe/private"
     )
     set(zz_qwk_core_file
         "ZzWindowKitBackendCore${CMAKE_STATIC_LIBRARY_SUFFIX}"

@@ -50,7 +50,7 @@ set(required_readme_links
     docs/release/MANUAL_LINUX_CHECKLIST_ZH.md
     docs/third-party/THIRD_PARTY_NOTICES.md
     docs/third-party/RELEASE_BLOCKERS_ZH.md
-    docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md)
+    docs/superpowers/specs/2026-08-02-zzpuretoolsframe-architecture-design.md)
 set(unknown_allowlist
     "docs/third-party/RELEASE_BLOCKERS_ZH.md|qwindowkit.upstream-provenance|qmsetup.windeployqt-5.15.2-derived-work|project.license"
     "docs/third-party/qwindowkit-vendor.json|qwindowkit.upstream-provenance|qmsetup.windeployqt-5.15.2-derived-work")

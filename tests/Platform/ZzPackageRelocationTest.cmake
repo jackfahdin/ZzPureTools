@@ -144,7 +144,7 @@ if(EXISTS "${prefix_a}")
     message(FATAL_ERROR "prefix A still exists after relocation")
 endif()
 file(GLOB_RECURSE package_configs LIST_DIRECTORIES FALSE
-    "${prefix_b}/*/cmake/ZzPureToolsPro/ZzPureToolsProConfig.cmake")
+    "${prefix_b}/*/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfig.cmake")
 list(LENGTH package_configs package_config_count)
 if(NOT "${package_config_count}" EQUAL 1)
     message(FATAL_ERROR "prefix B must contain exactly one package Config")
@@ -156,7 +156,7 @@ zz_run("install consumer configure" "${CMAKE_COMMAND}"
     -S "${ZZ_SOURCE_DIR}/tests/InstallConsumer"
     -B "${install_consumer}" ${generator_args} ${toolchain_args}
     "-DCMAKE_PREFIX_PATH:STRING=${consumer_prefix}"
-    "-DZzPureToolsPro_DIR:PATH=${package_config_dir}"
+    "-DZzPureToolsFrame_DIR:PATH=${package_config_dir}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
     -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
     "-DZZ_PACKAGE_ROOT:PATH=${prefix_b}")
@@ -170,7 +170,7 @@ zz_run("public header consumer configure" "${CMAKE_COMMAND}"
     -S "${ZZ_SOURCE_DIR}/tests/PublicHeaderConsumer"
     -B "${header_consumer}" ${generator_args} ${toolchain_args}
     "-DCMAKE_PREFIX_PATH:STRING=${consumer_prefix}"
-    "-DZzPureToolsPro_DIR:PATH=${package_config_dir}"
+    "-DZzPureToolsFrame_DIR:PATH=${package_config_dir}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
     -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
     "-DZZ_PACKAGE_ROOT:PATH=${prefix_b}")
@@ -180,14 +180,14 @@ zz_run("public header consumer build" "${CMAKE_COMMAND}"
 
 foreach(consumer_dir IN ITEMS "${install_consumer}" "${header_consumer}")
     file(STRINGS "${consumer_dir}/CMakeCache.txt" package_dir_entries
-        REGEX "^ZzPureToolsPro_DIR:[^=]*=")
+        REGEX "^ZzPureToolsFrame_DIR:[^=]*=")
     list(LENGTH package_dir_entries package_dir_entry_count)
     if(NOT "${package_dir_entry_count}" EQUAL 1)
         message(FATAL_ERROR
-            "${consumer_dir} must contain exactly one ZzPureToolsPro_DIR")
+            "${consumer_dir} must contain exactly one ZzPureToolsFrame_DIR")
     endif()
     list(GET package_dir_entries 0 package_dir_entry)
-    string(REGEX REPLACE "^ZzPureToolsPro_DIR:[^=]*=" ""
+    string(REGEX REPLACE "^ZzPureToolsFrame_DIR:[^=]*=" ""
         resolved_package_dir "${package_dir_entry}")
     file(TO_CMAKE_PATH "${package_config_dir}" expected_package_dir)
     file(TO_CMAKE_PATH "${resolved_package_dir}" resolved_package_dir)

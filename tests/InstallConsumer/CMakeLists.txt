@@ -5,7 +5,7 @@ project(ZzInstallConsumer LANGUAGES CXX)
 include(GNUInstallDirs)
 enable_testing()
 
-find_package(ZzPureToolsPro 0.1 CONFIG REQUIRED)
+find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)
 
 set(zz_installed_header_specs
     "Zz::Core|ZzCore/ZzCoreVersion.h"
