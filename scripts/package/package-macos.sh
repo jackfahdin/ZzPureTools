@@ -276,12 +276,29 @@ install_component() {
     --component "$component"
 }
 
+stage_offscreen_plugin() {
+  local bundle=$1
+  local plugin_dir="$bundle/Contents/PlugIns/platforms"
+  local plugin="$plugin_dir/libqoffscreen.dylib"
+  mkdir -p "$plugin_dir"
+  ditto "$offscreen_plugin" "$plugin"
+  [[ -f $plugin && ! -L $plugin ]] || {
+    echo "failed to stage the offscreen platform plugin" >&2
+    exit 1
+  }
+}
+
 invoke_macdeployqt() {
   local bundle=$1
+  local plugin="$bundle/Contents/PlugIns/platforms/libqoffscreen.dylib"
+  [[ -f $plugin && ! -L $plugin ]] || {
+    echo "staged offscreen platform plugin is unavailable" >&2
+    exit 1
+  }
   "$macdeployqt" "$bundle" \
     -always-overwrite \
     "-libpath=$install_root/lib" \
-    "-extra-plugins=$qt_root/plugins/platforms"
+    "-executable=$plugin"
 }
 
 audit_app_bundle() {
@@ -513,6 +530,7 @@ app_resources="$app_bundle/Contents/Resources"
   exit 1
 }
 
+stage_offscreen_plugin "$app_bundle"
 invoke_macdeployqt "$app_bundle"
 audit_app_bundle "$app_bundle"
 invoke_app_smoke "$app_executable"
