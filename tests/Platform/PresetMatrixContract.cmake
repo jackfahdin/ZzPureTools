@@ -347,6 +347,17 @@ foreach(index RANGE 0 ${last_test_preset})
                 "MSVC test preset ${name} must select Release")
         endif()
     endif()
+    if("${name}" MATCHES "^windows-(msvc2022|mingw)-continuous$")
+        string(JSON force_stderr ERROR_VARIABLE force_stderr_error GET
+            "${presets_json}" testPresets ${index}
+            environment QT_FORCE_STDERR_LOGGING)
+        if(NOT "${force_stderr_error}" STREQUAL "NOTFOUND"
+           OR NOT "${force_stderr}" STREQUAL "1")
+            message(FATAL_ERROR
+                "Windows continuous test preset ${name} must set "
+                "QT_FORCE_STDERR_LOGGING=1 so CTest retains Qt Test failures")
+        endif()
+    endif()
 endforeach()
 
 get_filename_component(preset_source_dir "${ZZ_PRESETS_FILE}" DIRECTORY)
