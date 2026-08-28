@@ -158,13 +158,26 @@ require_cache_value() {
   }
 }
 
+require_cache_true() {
+  local key=$1
+  local actual
+  actual=$(cache_value "$key")
+  case $actual in
+    1|ON|YES|TRUE|Y) ;;
+    *)
+      echo "$key must be enabled; found $actual" >&2
+      exit 1
+      ;;
+  esac
+}
+
 require_cache_value CMAKE_BUILD_TYPE Release
-require_cache_value BUILD_SHARED_LIBS ON
-require_cache_value ZZ_ENABLE_LTO ON
-require_cache_value ZZ_BUILD_TESTS ON
-require_cache_value ZZ_BUILD_EXAMPLES ON
-require_cache_value ZZ_RELEASE_BUILD ON
-require_cache_value ZZ_BUNDLE_GNU_RUNTIME ON
+require_cache_true BUILD_SHARED_LIBS
+require_cache_true ZZ_ENABLE_LTO
+require_cache_true ZZ_BUILD_TESTS
+require_cache_true ZZ_BUILD_EXAMPLES
+require_cache_true ZZ_RELEASE_BUILD
+require_cache_true ZZ_BUNDLE_GNU_RUNTIME
 
 cached_qt_root=$(realpath "$(cache_value ZZ_QT_PREFIX)")
 cached_evidence_root=$(realpath "$(cache_value ZZ_RELEASE_EVIDENCE_ROOT)")

@@ -26,6 +26,94 @@ if(no_argument_result EQUAL 0)
     message(FATAL_ERROR "Linux AppImage script accepted missing arguments")
 endif()
 
+if(NOT DEFINED ZZ_TEST_ROOT OR "${ZZ_TEST_ROOT}" STREQUAL "")
+    set(ZZ_TEST_ROOT
+        "${source_dir}/build/contracts/linux-appimage-packaging-contract")
+endif()
+file(REMOVE_RECURSE "${ZZ_TEST_ROOT}")
+file(MAKE_DIRECTORY
+    "${ZZ_TEST_ROOT}/source/scripts/package"
+    "${ZZ_TEST_ROOT}/source/build/linux-continuous-release"
+    "${ZZ_TEST_ROOT}/qt/bin"
+    "${ZZ_TEST_ROOT}/evidence/qt-6.8.3/LICENSES"
+    "${ZZ_TEST_ROOT}/gnu-licenses"
+    "${ZZ_TEST_ROOT}/other-qt"
+    "${ZZ_TEST_ROOT}/tools"
+    "${ZZ_TEST_ROOT}/output"
+    "${ZZ_TEST_ROOT}/bin")
+file(COPY_FILE "${package_script}"
+    "${ZZ_TEST_ROOT}/source/scripts/package/package-linux-appimage.sh")
+
+file(WRITE "${ZZ_TEST_ROOT}/qt/bin/qmake" [=[#!/usr/bin/env bash
+set -euo pipefail
+[[ ${1:-} == -query && ${2:-} == QT_VERSION ]]
+printf '%s\n' 6.8.3
+]=])
+file(WRITE "${ZZ_TEST_ROOT}/bin/xvfb-run" [=[#!/usr/bin/env bash
+exit 0
+]=])
+foreach(tool_name IN ITEMS linuxdeploy qt-plugin appimagetool)
+    file(WRITE "${ZZ_TEST_ROOT}/tools/${tool_name}" [=[#!/usr/bin/env bash
+exit 0
+]=])
+endforeach()
+file(CHMOD
+    "${ZZ_TEST_ROOT}/qt/bin/qmake"
+    "${ZZ_TEST_ROOT}/bin/xvfb-run"
+    "${ZZ_TEST_ROOT}/tools/linuxdeploy"
+    "${ZZ_TEST_ROOT}/tools/qt-plugin"
+    "${ZZ_TEST_ROOT}/tools/appimagetool"
+    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+file(WRITE "${ZZ_TEST_ROOT}/gnu-licenses/COPYING3" "GPL test fixture\n")
+file(WRITE "${ZZ_TEST_ROOT}/gnu-licenses/COPYING.RUNTIME"
+    "Runtime exception test fixture\n")
+
+foreach(true_spelling IN ITEMS ON TRUE YES 1 Y)
+    file(WRITE
+        "${ZZ_TEST_ROOT}/source/build/linux-continuous-release/CMakeCache.txt"
+        "CMAKE_BUILD_TYPE:STRING=Release\n"
+        "BUILD_SHARED_LIBS:BOOL=${true_spelling}\n"
+        "ZZ_ENABLE_LTO:BOOL=${true_spelling}\n"
+        "ZZ_BUILD_TESTS:BOOL=${true_spelling}\n"
+        "ZZ_BUILD_EXAMPLES:BOOL=${true_spelling}\n"
+        "ZZ_RELEASE_BUILD:BOOL=${true_spelling}\n"
+        "ZZ_BUNDLE_GNU_RUNTIME:BOOL=${true_spelling}\n"
+        "ZZ_QT_PREFIX:PATH=${ZZ_TEST_ROOT}/other-qt\n"
+        "ZZ_RELEASE_EVIDENCE_ROOT:PATH=${ZZ_TEST_ROOT}/evidence\n"
+        "ZZ_GNU_RUNTIME_LICENSE_DIR:PATH=${ZZ_TEST_ROOT}/gnu-licenses\n")
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E env
+            "PATH=${ZZ_TEST_ROOT}/bin:$ENV{PATH}"
+            bash
+            "${ZZ_TEST_ROOT}/source/scripts/package/package-linux-appimage.sh"
+            --build-dir
+            "${ZZ_TEST_ROOT}/source/build/linux-continuous-release"
+            --qt-root "${ZZ_TEST_ROOT}/qt"
+            --evidence-root "${ZZ_TEST_ROOT}/evidence"
+            --gnu-license-dir "${ZZ_TEST_ROOT}/gnu-licenses"
+            --linuxdeploy "${ZZ_TEST_ROOT}/tools/linuxdeploy"
+            --qt-plugin "${ZZ_TEST_ROOT}/tools/qt-plugin"
+            --appimagetool "${ZZ_TEST_ROOT}/tools/appimagetool"
+            --output-dir "${ZZ_TEST_ROOT}/output"
+            --commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            --built-at-utc 2026-08-28T00:00:00Z
+        RESULT_VARIABLE boolean_result
+        OUTPUT_VARIABLE boolean_stdout
+        ERROR_VARIABLE boolean_stderr)
+    if(boolean_result EQUAL 0)
+        message(FATAL_ERROR
+            "Linux AppImage script passed the intentional path mismatch for ${true_spelling}")
+    endif()
+    string(FIND "${boolean_stderr}"
+        "qt-root does not match configured ZZ_QT_PREFIX"
+        path_mismatch_position)
+    if(path_mismatch_position EQUAL -1)
+        message(FATAL_ERROR
+            "Linux AppImage script rejected CMake true spelling ${true_spelling} "
+            "before the path-mismatch sentinel; stderr=${boolean_stderr}")
+    endif()
+endforeach()
+
 file(READ "${package_script}" package_script_content)
 set(required_script_tokens
     "realpath"
