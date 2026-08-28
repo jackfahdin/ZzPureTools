@@ -76,6 +76,13 @@ done
 
 source_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")/../..")
 build_root=$(realpath "$source_dir/build")
+architecture_policy="$source_dir/scripts/package/ZzMacosArchitecturePolicy.sh"
+[[ -f $architecture_policy && ! -L $architecture_policy ]] || {
+  echo "macOS architecture policy is unavailable: $architecture_policy" >&2
+  exit 1
+}
+# shellcheck source=ZzMacosArchitecturePolicy.sh
+source "$architecture_policy"
 
 resolve_directory() {
   local label=$1
@@ -150,8 +157,8 @@ qt_core_file_status=$?
 qt_core_archs=$(lipo -archs "$qt_core" 2>&1)
 qt_core_lipo_status=$?
 set -e
-if [[ $qt_core_file_status -ne 0 || $qt_core_lipo_status -ne 0 \
-      || $qt_core_archs != "$architecture" ]]; then
+if [[ $qt_core_file_status -ne 0 || $qt_core_lipo_status -ne 0 ]] \
+    || ! zz_macos_arch_list_contains "$qt_core_archs" "$architecture"; then
   echo "QtCore architecture check failed" >&2
   printf '%s\n' \
     "QtCore path: $qt_core" \
@@ -301,10 +308,20 @@ audit_app_bundle() {
     esac
 
     archs=$(lipo -archs "$binary")
-    [[ $archs == "$architecture" ]] || {
-      echo "unexpected architecture in $binary: $archs" >&2
-      exit 1
-    }
+    case $binary in
+      */Contents/MacOS/ZzPureToolsExample|*/Contents/Frameworks/libZz*.dylib)
+        zz_macos_arch_list_is_exact "$archs" "$architecture" || {
+          echo "unexpected first-party architecture in $binary: $archs" >&2
+          exit 1
+        }
+        ;;
+      *)
+        zz_macos_arch_list_contains "$archs" "$architecture" || {
+          echo "missing $architecture architecture in $binary: $archs" >&2
+          exit 1
+        }
+        ;;
+    esac
     links=$(otool -L "$binary")
     load_commands=$(otool -l "$binary")
     for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do

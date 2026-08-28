@@ -28,6 +28,7 @@ endif()
 file(READ "${package_script}" package_script_content)
 set(required_script_tokens
     "arm64|x86_64"
+    "ZzMacosArchitecturePolicy.sh"
     "macdeployqt"
     "-always-overwrite"
     "-extra-plugins="

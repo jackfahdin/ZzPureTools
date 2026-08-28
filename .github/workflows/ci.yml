@@ -514,7 +514,9 @@ jobs:
           [[ "$(uname -m)" == "$ZZ_EXPECTED_ARCH" ]]
           qt_core="$QT_ROOT_DIR/lib/QtCore.framework/QtCore"
           [[ -f "$qt_core" ]]
-          [[ "$(lipo -archs "$qt_core")" == "$ZZ_EXPECTED_ARCH" ]]
+          source scripts/package/ZzMacosArchitecturePolicy.sh
+          zz_macos_arch_list_contains \
+            "$(lipo -archs "$qt_core")" "$ZZ_EXPECTED_ARCH"
           if [[ "$ZZ_EXPECTED_ARCH" == arm64 ]]; then
             echo "QT_MACOS_ARM64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
           else
