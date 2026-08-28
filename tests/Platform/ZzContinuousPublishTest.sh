@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 report_failure() {
   local status=$1
@@ -57,13 +57,17 @@ esac
 rm -rf -- "$test_root"
 mkdir -p "$test_root"
 
-if [[ ${ZZ_CONTINUOUS_PUBLISH_TEST_DIAGNOSTIC_PROBE:-0} == 1 ]]; then
+run_diagnostic_probe() {
   mkdir -p "$test_root/diagnostic-probe"
   printf '%s\n' 'diagnostic stderr fixture' \
     > "$test_root/diagnostic-probe/stderr.log"
   printf '%s\n' 'diagnostic gh fixture' \
     > "$test_root/diagnostic-probe/gh.log"
   false
+}
+
+if [[ ${ZZ_CONTINUOUS_PUBLISH_TEST_DIAGNOSTIC_PROBE:-0} == 1 ]]; then
+  run_diagnostic_probe
 fi
 
 commit=0123456789abcdef0123456789abcdef01234567
