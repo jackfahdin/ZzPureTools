@@ -153,6 +153,27 @@ constexpr qreal zzMaximumDifferenceRatio()
 #endif
 }
 
+/** @brief 返回总览截图当前 Qt minor 对应的基线根目录。 */
+QString zzOverviewBaselineRoot()
+{
+    const QString root = QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR);
+#if QT_VERSION_MAJOR == 6 && QT_VERSION_MINOR == 8
+    return QDir(root).filePath(QStringLiteral("qt-6.8"));
+#else
+    return root;
+#endif
+}
+
+/** @brief 返回总览截图在专属或兼容基线上的差异上限。 */
+constexpr qreal zzOverviewMaximumDifferenceRatio()
+{
+#if QT_VERSION_MAJOR == 6 && QT_VERSION_MINOR == 8
+    return 0.005;
+#else
+    return zzMaximumDifferenceRatio();
+#endif
+}
+
 /** @brief 保存截图进程移除 Qt Test 未知参数后的确定配置。 */
 struct ZzScreenshotArguments final
 {
@@ -7009,28 +7030,28 @@ private Q_SLOTS:
                            .arg(missingCoverage)));
         surface.hide();
 
-        const QString baselineDirectory = QDir(
-            QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
-                                              .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
+        const QString overviewBaselineDirectory = QDir(
+            zzOverviewBaselineRoot()).filePath(baselineSubdirectory_);
+        const QString overviewBaselinePath = QDir(
+            overviewBaselineDirectory).filePath(
             fileStem + QStringLiteral(".png"));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
-                QDir().mkpath(baselineDirectory),
+                QDir().mkpath(overviewBaselineDirectory),
                 qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
-                               .arg(baselineDirectory)));
+                               .arg(overviewBaselineDirectory)));
             QVERIFY2(
-                actual.save(baselinePath, "PNG"),
+                actual.save(overviewBaselinePath, "PNG"),
                 qPrintable(QStringLiteral("无法写入 baseline：%1")
-                               .arg(baselinePath)));
+                               .arg(overviewBaselinePath)));
             return;
         }
 
-        QImage expected(baselinePath);
+        QImage expected(overviewBaselinePath);
         QVERIFY2(
             !expected.isNull(),
             qPrintable(QStringLiteral("缺少或无法读取 baseline：%1")
-                           .arg(baselinePath)));
+                           .arg(overviewBaselinePath)));
         QCOMPARE(expected.size(), actual.size());
         const ZzImageComparison comparison = zzCompareImages(
             expected,
@@ -7040,7 +7061,8 @@ private Q_SLOTS:
         const qreal differenceRatio =
             static_cast<qreal>(comparison.differentPixels)
             / static_cast<qreal>(comparison.comparedPixels);
-        const qreal maximumDifferenceRatio = zzMaximumDifferenceRatio();
+        const qreal maximumDifferenceRatio =
+            zzOverviewMaximumDifferenceRatio();
         if (differenceRatio <= maximumDifferenceRatio) {
             return;
         }
