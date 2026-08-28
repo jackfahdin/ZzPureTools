@@ -642,6 +642,7 @@
       "environment": {
         "ZZ_CMAKE_PRESET": "windows-msvc2022-continuous",
         "QT_FORCE_STDERR_LOGGING": "1",
+        "QT_QPA_FONTDIR": "$penv{WINDIR}/Fonts",
         "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
@@ -680,6 +681,7 @@
       "environment": {
         "ZZ_CMAKE_PRESET": "windows-mingw-continuous",
         "QT_FORCE_STDERR_LOGGING": "1",
+        "QT_QPA_FONTDIR": "$penv{WINDIR}/Fonts",
         "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"

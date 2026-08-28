@@ -351,11 +351,20 @@ foreach(index RANGE 0 ${last_test_preset})
         string(JSON force_stderr ERROR_VARIABLE force_stderr_error GET
             "${presets_json}" testPresets ${index}
             environment QT_FORCE_STDERR_LOGGING)
+        string(JSON font_directory ERROR_VARIABLE font_directory_error GET
+            "${presets_json}" testPresets ${index}
+            environment QT_QPA_FONTDIR)
         if(NOT "${force_stderr_error}" STREQUAL "NOTFOUND"
            OR NOT "${force_stderr}" STREQUAL "1")
             message(FATAL_ERROR
                 "Windows continuous test preset ${name} must set "
                 "QT_FORCE_STDERR_LOGGING=1 so CTest retains Qt Test failures")
+        endif()
+        if(NOT "${font_directory_error}" STREQUAL "NOTFOUND"
+           OR NOT "${font_directory}" STREQUAL "\$penv{WINDIR}/Fonts")
+            message(FATAL_ERROR
+                "Windows continuous test preset ${name} must set "
+                "QT_QPA_FONTDIR to the native Windows font directory")
         endif()
     endif()
 endforeach()
