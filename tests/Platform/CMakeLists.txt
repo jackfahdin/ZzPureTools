@@ -127,6 +127,14 @@ add_test(NAME platform.example-application-metadata-contract
 set_tests_properties(platform.example-application-metadata-contract PROPERTIES
     LABELS "platform;contract;packaging")
 
+add_test(NAME platform.release-packaging-support-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        "-DZZ_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/release-packaging-support-contract"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzReleasePackagingSupportContract.cmake")
+set_tests_properties(platform.release-packaging-support-contract PROPERTIES
+    LABELS "platform;contract;packaging")
+
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     add_test(NAME platform.governor-state
         COMMAND bash
