@@ -398,7 +398,7 @@ audit_app_bundle() {
         }
         ;;
     esac
-    links=$(otool -L "$binary")
+    links=$(otool -L "$binary" | awk '/^[[:space:]]/ { print }')
     load_commands=$(otool -l "$binary")
     for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
       if [[ $links == *"$forbidden_path"* ]]; then

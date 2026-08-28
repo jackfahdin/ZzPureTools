@@ -40,6 +40,7 @@ set(required_script_tokens
     "strip_transient_rpaths"
     "dependency path leaked"
     "load-command path leaked"
+    "awk '/^[[:space:]]/ { print }'"
     "lipo"
     "otool"
     "hdiutil"
