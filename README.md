@@ -7,7 +7,7 @@ ZzPureToolsFrame 是面向 Qt 6.8+ 与 C++20 的高性能跨平台 Qt Widgets
 目标平台为 Linux、Windows 和 macOS。Linux 是当前主要实现与自动验证平台；
 GitHub 托管 CI 已产生三个平台的真实诊断结果，但尚无同一提交完整成功的矩阵。
 Windows、macOS 以及 Linux 桌面会话的真机交互状态以
-[平台支持与验收状态](docs/development/PLATFORM_SUPPORT_ZH.md)为准。
+[平台支持与验收状态](docs/development/PLATFORM_SUPPORT_ZH.md) 为准。
 
 ## 组件
 
@@ -18,20 +18,47 @@ Windows、macOS 以及 Linux 桌面会话的真机交互状态以
 | `ZzFluentUI` | `Zz::FluentFoundation`、`Zz::FluentUI` | Fluent 主题令牌、样式、绘制原语和 Widgets 基础控件 |
 | `ZzPureTools` | `Zz::AppCore`、`Zz::PureTools` | 模块生命周期、路由、页面、导航、多窗口和应用装配 |
 
-`ZzFluentUI` 当前公开 37 个可组合组件：
+`ZzFluentUI` 当前公开 37 个可组合组件，按职责划分如下：
 
-- 基础与布局：`ZzPushButton`、`ZzSplitButton`、`ZzIconButton`、
-  `ZzToggleSwitch`、`ZzProgressRing`、`ZzSpinBox`、`ZzDoubleSpinBox`、
-  `ZzScrollBar`、`ZzScrollArea`、`ZzFlowLayout`。
-- 输入与选择：`ZzPasswordBox`、`ZzKeyBinder`、`ZzColorPicker`、
-  `ZzRatingControl`、`ZzSuggestBox`、
-  `ZzMultiSelectComboBox`、`ZzRoller`、`ZzRollerPicker`、`ZzCalendar`、
-  `ZzCalendarPicker`。
-- 导航与内容：`ZzBreadcrumbBar`、`ZzNavigationView`、`ZzNavigationPane`、
-  `ZzTabBar`、`ZzTabWidget`、`ZzPivot`、`ZzCarouselView`、`ZzExpander`、
-  `ZzDrawer`、`ZzFluentItemDelegate`。
-- 反馈与表面：`ZzMessageBar`、`ZzInfoBadge`、`ZzContentDialog`、
-  `ZzTeachingTip`、`ZzActionCard`、`ZzImageCard`、`ZzFluentTitleBar`。
+| 分类 | 组件 | 用途 |
+|---|---|---|
+| 基础与布局 | `ZzPushButton` | 支持命令、检查和 Fluent 状态的按钮 |
+| 基础与布局 | `ZzSplitButton` | 主命令与下拉命令组合 |
+| 基础与布局 | `ZzIconButton` | 图标优先的紧凑操作 |
+| 基础与布局 | `ZzToggleSwitch` | 二态开关轨道与键盘语义 |
+| 基础与布局 | `ZzProgressRing` | 不确定进度的环形指示 |
+| 基础与布局 | `ZzSpinBox` | 整数步进输入 |
+| 基础与布局 | `ZzDoubleSpinBox` | 浮点步进输入 |
+| 基础与布局 | `ZzScrollBar` | Fluent 滚动条和滚动标记 |
+| 基础与布局 | `ZzScrollArea` | 带主题滚动策略的内容容器 |
+| 基础与布局 | `ZzFlowLayout` | 自适应换行布局 |
+| 输入与选择 | `ZzPasswordBox` | 密码输入、显示和隐藏 |
+| 输入与选择 | `ZzKeyBinder` | 键盘快捷键录入与格式化 |
+| 输入与选择 | `ZzColorPicker` | 颜色选择和预览 |
+| 输入与选择 | `ZzRatingControl` | 星级或精度评分输入 |
+| 输入与选择 | `ZzSuggestBox` | 可异步提供建议的文本输入 |
+| 输入与选择 | `ZzMultiSelectComboBox` | 多选下拉与标签展示 |
+| 输入与选择 | `ZzRoller` | 滚轮式离散选项选择 |
+| 输入与选择 | `ZzRollerPicker` | 带弹出滚轮的选择器 |
+| 输入与选择 | `ZzCalendar` | 月视图日期选择 |
+| 输入与选择 | `ZzCalendarPicker` | 日期输入与日历弹出层 |
+| 导航与内容 | `ZzBreadcrumbBar` | 层级路径导航 |
+| 导航与内容 | `ZzNavigationView` | 应用级导航容器 |
+| 导航与内容 | `ZzNavigationPane` | 可折叠的导航面板 |
+| 导航与内容 | `ZzTabBar` | 标签页标题和拖拽排序 |
+| 导航与内容 | `ZzTabWidget` | 标签页内容管理 |
+| 导航与内容 | `ZzPivot` | 横向枢轴视图 |
+| 导航与内容 | `ZzCarouselView` | 可循环或分页的内容轮播 |
+| 导航与内容 | `ZzExpander` | 可展开/折叠的内容区块 |
+| 导航与内容 | `ZzDrawer` | 从边缘滑出的临时面板 |
+| 导航与内容 | `ZzFluentItemDelegate` | 列表/树视图的 Fluent 绘制委托 |
+| 反馈与表面 | `ZzMessageBar` | 页面内状态和操作反馈 |
+| 反馈与表面 | `ZzInfoBadge` | 数量、状态或提醒徽标 |
+| 反馈与表面 | `ZzContentDialog` | 模态确认和输入对话框 |
+| 反馈与表面 | `ZzTeachingTip` | 关联控件的上下文提示 |
+| 反馈与表面 | `ZzActionCard` | 带操作入口的内容卡片 |
+| 反馈与表面 | `ZzImageCard` | 图像与摘要组合卡片 |
+| 反馈与表面 | `ZzFluentTitleBar` | 无边框窗口标题栏控件 |
 
 标准 Qt Widgets 由应用级 `ZzFluentStyle` 统一提供 Fluent 外观和尺寸契约，
 包括 `QCheckBox`、`QRadioButton`、`QSlider`、`QLineEdit`、
@@ -98,7 +125,7 @@ cmake --build --preset linux-gcc-debug \
   多窗口和关闭守卫的完整桌面应用入口。
 
 示例只演示组件契约，不承载业务逻辑。基础装配可从
-[`examples/ZzPureToolsDemo/main.cpp`](examples/ZzPureToolsDemo/main.cpp)开始阅读；
+[`examples/ZzPureToolsDemo/main.cpp`](examples/ZzPureToolsDemo/main.cpp) 开始阅读；
 完整集成入口位于
 [`examples/ZzPureToolsExample/main.cpp`](examples/ZzPureToolsExample/main.cpp)。
 
