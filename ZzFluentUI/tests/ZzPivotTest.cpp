@@ -241,7 +241,7 @@ private Q_SLOTS:
         const QRect textArea = style.subElementRect(
             QStyle::SE_TabBarTabText,
             &(*selected),
-            &pivot).intersected(tab);
+            &pivot).intersected(selected->rect).intersected(tab);
         const QColor accent = controller.snapshot()->color(
             ZzFluentUI::ZzColorToken::Accent);
         const QRect physicalTab = zzPhysicalCoverageRect(
