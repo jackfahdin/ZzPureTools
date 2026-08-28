@@ -23,5 +23,6 @@ add_test(
 set_tests_properties(install.consumer PROPERTIES
     LABELS "install"
     RUN_SERIAL TRUE
-    TIMEOUT 600
+    # MSVC Release 的全新生产者与消费者双重构建在托管机上会超过 600 秒。
+    TIMEOUT 900
 )
