@@ -1,4 +1,4 @@
-FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzCarouselView.cpp|25|setMinimumSize
+FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzCarouselView.cpp|26|setMinimumSize
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzRoller.cpp|357|drawRoundedRect
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzBreadcrumbBarPrivate.cpp|26|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzFluentStylePrivate.cpp|477|drawRoundedRect
