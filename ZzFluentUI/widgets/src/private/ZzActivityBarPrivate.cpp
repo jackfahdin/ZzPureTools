@@ -820,7 +820,7 @@ bool ZzActivityBarPrivate::handleKey(QListView *view, int key)
         QModelIndex sourceIndex;
     };
     QList<ZzKeyboardEntry> entries;
-    for (const auto [candidateView, projection] :
+    for (const auto &[candidateView, projection] :
          {std::pair{primaryView, primaryProjection},
           std::pair{secondaryView, secondaryProjection}}) {
         for (int row = 0; row < projection->rowCount(); ++row) {
