@@ -276,6 +276,36 @@ install_component() {
     --component "$component"
 }
 
+stage_first_party_libraries() {
+  local bundle=$1
+  local framework_dir="$bundle/Contents/Frameworks"
+  local library
+  local regular_library_count=0
+  local -a source_libraries=()
+  shopt -s nullglob
+  source_libraries=("$install_root/lib"/libZz*.dylib)
+  shopt -u nullglob
+  [[ ${#source_libraries[@]} -gt 0 ]] || {
+    echo "installed runtime contains no first-party libraries" >&2
+    exit 1
+  }
+  mkdir -p "$framework_dir"
+  for library in "${source_libraries[@]}"; do
+    [[ -f $library ]] || {
+      echo "invalid first-party runtime library: $library" >&2
+      exit 1
+    }
+    ditto "$library" "$framework_dir/${library##*/}"
+    if [[ ! -L $library ]]; then
+      regular_library_count=$((regular_library_count + 1))
+    fi
+  done
+  [[ $regular_library_count -gt 0 ]] || {
+    echo "installed runtime lacks regular first-party library files" >&2
+    exit 1
+  }
+}
+
 stage_offscreen_plugin() {
   local bundle=$1
   local plugin_dir="$bundle/Contents/PlugIns/platforms"
@@ -530,6 +560,7 @@ app_resources="$app_bundle/Contents/Resources"
   exit 1
 }
 
+stage_first_party_libraries "$app_bundle"
 stage_offscreen_plugin "$app_bundle"
 invoke_macdeployqt "$app_bundle"
 audit_app_bundle "$app_bundle"

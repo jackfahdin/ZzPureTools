@@ -31,6 +31,8 @@ set(required_script_tokens
     "ZzMacosArchitecturePolicy.sh"
     "macdeployqt"
     "-always-overwrite"
+    "stage_first_party_libraries"
+    "Contents/Frameworks"
     "Contents/PlugIns/platforms/libqoffscreen.dylib"
     "-executable="
     "lipo"
@@ -58,6 +60,7 @@ endforeach()
 set(ordered_pipeline_tokens
     "install_component Runtime"
     "install_component ExampleRuntime"
+    "stage_first_party_libraries \"\$app_bundle\""
     "stage_offscreen_plugin \"\$app_bundle\""
     "invoke_macdeployqt \"\$app_bundle\""
     "audit_app_bundle \"\$app_bundle\""
