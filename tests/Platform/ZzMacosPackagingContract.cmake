@@ -39,6 +39,7 @@ set(required_script_tokens
     "QT_QPA_PLATFORM=offscreen"
     "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500"
     "--smoke-test"
+    "ZZ_QT_LICENSE_DIR"
     "StageRuntimeLicenses.cmake"
     "WriteBuildInfo.cmake"
     "macos-arm64"

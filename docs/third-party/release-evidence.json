@@ -19,6 +19,37 @@
         "sha256": "949dda0f8742e6edddaa829840f09c714ecd6317844a00b8431c78f5f59f5d77"
       }
     },
+    "qtRuntimeLicenses": {
+      "upstreamProject": "Qt",
+      "upstreamVersion": "6.8.3",
+      "files": {
+        "GPL-2.0-only.txt": {
+          "scope": "external",
+          "path": "qt-6.8.3/LICENSES/GPL-2.0-only.txt",
+          "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+        },
+        "GPL-3.0-only.txt": {
+          "scope": "external",
+          "path": "qt-6.8.3/LICENSES/GPL-3.0-only.txt",
+          "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        "LGPL-3.0-only.txt": {
+          "scope": "external",
+          "path": "qt-6.8.3/LICENSES/LGPL-3.0-only.txt",
+          "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+        },
+        "LicenseRef-Qt-Commercial.txt": {
+          "scope": "external",
+          "path": "qt-6.8.3/LICENSES/LicenseRef-Qt-Commercial.txt",
+          "sha256": "9b1f50aae6267f9d5e0ceb6775ee86450262c25ec7c0573e151fe5d3f18a4700"
+        },
+        "Qt-GPL-exception-1.0.txt": {
+          "scope": "external",
+          "path": "qt-6.8.3/LICENSES/Qt-GPL-exception-1.0.txt",
+          "sha256": "40678d338ce53cd93f8b22b281a2ecbcaa3ee65ce60b25ffb0c462b0530846b2"
+        }
+      }
+    },
     "windeployqtDerivedWork": {
       "upstreamProject": "Qt",
       "upstreamVersion": "5.15.2",

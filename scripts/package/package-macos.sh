@@ -124,16 +124,14 @@ preset="macos-continuous-$architecture"
 
 qmake=$(resolve_executable qmake "$qt_root/bin/qmake")
 macdeployqt=$(resolve_executable macdeployqt "$qt_root/bin/macdeployqt")
-[[ -d $qt_root/LICENSES && ! -L $qt_root/LICENSES ]] || {
-  echo "qt-root must contain a regular LICENSES directory" >&2
-  exit 1
-}
 queried_qt_root=$("$qmake" -query QT_INSTALL_PREFIX)
 [[ $(realpath "$queried_qt_root") == "$qt_root" ]] || {
   echo "qmake prefix does not match qt-root" >&2
   exit 1
 }
 qt_version=$("$qmake" -query QT_VERSION)
+qt_license_dir=$(resolve_directory qt-license-dir \
+  "$evidence_root/qt-$qt_version/LICENSES")
 qmake_xspec=$("$qmake" -query QMAKE_XSPEC)
 [[ -n $qt_version && $qmake_xspec == macx-clang* ]] || {
   echo "qt-root is not a macOS Clang Qt kit" >&2
@@ -359,7 +357,7 @@ stage_runtime_licenses() {
   }
   cmake \
     "-DZZ_STAGE_ROOT=$contents" \
-    "-DZZ_QT_ROOT=$qt_root" \
+    "-DZZ_QT_LICENSE_DIR=$qt_license_dir" \
     -P "$source_dir/scripts/package/StageRuntimeLicenses.cmake"
   [[ ! -e $resources/licenses &&
      ! -e $resources/THIRD_PARTY_NOTICES.md ]] || {

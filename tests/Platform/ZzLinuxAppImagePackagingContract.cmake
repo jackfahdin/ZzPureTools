@@ -34,6 +34,7 @@ set(required_script_tokens
     "--component ExampleRuntime"
     "--plugin qt"
     "QMAKE="
+    "ZZ_QT_LICENSE_DIR"
     "StageRuntimeLicenses.cmake"
     "appimagetool"
     "--appimage-extract"

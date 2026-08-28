@@ -112,10 +112,17 @@ esac
   echo "build-dir must come from linux-continuous-release" >&2
   exit 1
 }
-[[ -x $qt_root/bin/qmake && -d $qt_root/LICENSES ]] || {
-  echo "qt-root must contain qmake and LICENSES" >&2
+[[ -x $qt_root/bin/qmake ]] || {
+  echo "qt-root must contain qmake" >&2
   exit 1
 }
+qt_version=$("$qt_root/bin/qmake" -query QT_VERSION)
+[[ -n $qt_version ]] || {
+  echo "qmake failed to query QT_VERSION" >&2
+  exit 1
+}
+qt_license_dir=$(resolve_directory qt-license-dir \
+  "$evidence_root/qt-$qt_version/LICENSES")
 for license_file in COPYING3 COPYING.RUNTIME; do
   [[ -s $gnu_license_dir/$license_file && ! -L $gnu_license_dir/$license_file ]] || {
     echo "GNU runtime license is unavailable: $license_file" >&2
@@ -241,7 +248,7 @@ APPIMAGE_EXTRACT_AND_RUN=1 \
 
 cmake \
   "-DZZ_STAGE_ROOT=$appdir" \
-  "-DZZ_QT_ROOT=$qt_root" \
+  "-DZZ_QT_LICENSE_DIR=$qt_license_dir" \
   "-DZZ_GNU_RUNTIME_LICENSE_DIR=$gnu_license_dir" \
   -P "$source_dir/scripts/package/StageRuntimeLicenses.cmake"
 
@@ -272,7 +279,6 @@ xvfb-run -a env \
   ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500 \
   "$package_path" --smoke-test
 
-qt_version=$("$qt_root/bin/qmake" -query QT_VERSION)
 compiler_path=$(realpath "$(cache_value CMAKE_CXX_COMPILER)")
 compiler_version=$("$compiler_path" -dumpfullversion -dumpversion)
 cmake \

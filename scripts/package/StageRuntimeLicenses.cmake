@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 
-foreach(required_variable IN ITEMS ZZ_STAGE_ROOT ZZ_QT_ROOT)
+foreach(required_variable IN ITEMS ZZ_STAGE_ROOT ZZ_QT_LICENSE_DIR)
     if(NOT DEFINED ${required_variable}
        OR "${${required_variable}}" STREQUAL "")
         message(FATAL_ERROR "${required_variable} is required")
@@ -9,15 +9,17 @@ endforeach()
 
 cmake_path(ABSOLUTE_PATH ZZ_STAGE_ROOT
     NORMALIZE OUTPUT_VARIABLE stage_root)
-cmake_path(ABSOLUTE_PATH ZZ_QT_ROOT
-    NORMALIZE OUTPUT_VARIABLE qt_root_input)
+cmake_path(ABSOLUTE_PATH ZZ_QT_LICENSE_DIR
+    NORMALIZE OUTPUT_VARIABLE qt_license_dir_input)
 if(NOT IS_DIRECTORY "${stage_root}" OR IS_SYMLINK "${stage_root}")
     message(FATAL_ERROR "ZZ_STAGE_ROOT must identify a regular directory")
 endif()
-if(NOT IS_DIRECTORY "${qt_root_input}")
-    message(FATAL_ERROR "ZZ_QT_ROOT must identify an existing directory")
+if(NOT IS_DIRECTORY "${qt_license_dir_input}"
+   OR IS_SYMLINK "${qt_license_dir_input}")
+    message(FATAL_ERROR
+        "ZZ_QT_LICENSE_DIR must identify a regular directory")
 endif()
-file(REAL_PATH "${qt_root_input}" qt_root)
+file(REAL_PATH "${qt_license_dir_input}" qt_license_dir)
 
 foreach(stale_output IN ITEMS
     "${stage_root}/licenses"
@@ -65,11 +67,6 @@ if(NOT deployed_qt_modules)
         "Deployment stage contains no recognizable Qt runtime module")
 endif()
 
-set(qt_license_dir "${qt_root}/LICENSES")
-if(NOT IS_DIRECTORY "${qt_license_dir}" OR IS_SYMLINK "${qt_license_dir}")
-    message(FATAL_ERROR
-        "Qt SDK must provide a regular LICENSES directory: ${qt_license_dir}")
-endif()
 file(GLOB qt_license_files LIST_DIRECTORIES false "${qt_license_dir}/*")
 if(NOT qt_license_files)
     message(FATAL_ERROR "Qt LICENSES directory is empty")

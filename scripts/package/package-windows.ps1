@@ -233,7 +233,7 @@ function Assert-PeDependencies([string]$StageRoot) {
 function Invoke-StageRuntimeLicenses([string]$StageRoot) {
     Invoke-Native -File 'cmake' -Arguments @(
         "-DZZ_STAGE_ROOT=$StageRoot",
-        "-DZZ_QT_ROOT=$script:ResolvedQtRoot",
+        "-DZZ_QT_LICENSE_DIR=$script:QtLicenseDir",
         '-P', (Join-Path $script:SourceDir `
             'scripts/package/StageRuntimeLicenses.cmake'))
 }
@@ -328,6 +328,9 @@ $script:QtVersion = (Invoke-NativeCapture `
 if ([string]::IsNullOrWhiteSpace($script:QtVersion)) {
     throw 'qmake failed to query QT_VERSION'
 }
+$script:QtLicenseDir = Resolve-RequiredDirectory `
+    (Join-Path $resolvedEvidenceRoot `
+        "qt-$script:QtVersion/LICENSES") 'Qt license directory'
 $qmakeXspec = (Invoke-NativeCapture `
     -File $qmake -Arguments @('-query', 'QMAKE_XSPEC')).Trim()
 if (($Mode -eq 'msvc' -and $qmakeXspec -notmatch '^win32-msvc') -or

@@ -171,11 +171,11 @@ if(tampered_result EQUAL 0)
     message(FATAL_ERROR "Artifact verifier accepted modified package bytes")
 endif()
 
-set(qt_root "${test_root}/qt")
-file(MAKE_DIRECTORY "${qt_root}/LICENSES")
-file(WRITE "${qt_root}/LICENSES/LICENSE.LGPLv3"
+set(qt_license_dir "${test_root}/qt-licenses")
+file(MAKE_DIRECTORY "${qt_license_dir}")
+file(WRITE "${qt_license_dir}/LGPL-3.0-only.txt"
     "GNU LESSER GENERAL PUBLIC LICENSE Version 3 fixture\n")
-file(WRITE "${qt_root}/LICENSES/LICENSE.GPLv3"
+file(WRITE "${qt_license_dir}/GPL-3.0-only.txt"
     "GNU GENERAL PUBLIC LICENSE Version 3 fixture\n")
 set(stage_root "${test_root}/valid-stage")
 file(MAKE_DIRECTORY "${stage_root}/bin")
@@ -183,7 +183,7 @@ file(WRITE "${stage_root}/bin/Qt6Core.dll" "Qt runtime fixture\n")
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_STAGE_ROOT=${stage_root}"
-        "-DZZ_QT_ROOT=${qt_root}"
+        "-DZZ_QT_LICENSE_DIR=${qt_license_dir}"
         -P "${stage_licenses_script}"
     RESULT_VARIABLE stage_result
     OUTPUT_VARIABLE stage_stdout
@@ -197,8 +197,8 @@ foreach(staged_path IN ITEMS
     licenses/ZzPureToolsFrame/LICENSE
     licenses/QWindowKit/LICENSE
     licenses/ZzLog/spdlog-LICENSE.txt
-    licenses/Qt/LICENSE.LGPLv3
-    licenses/Qt/LICENSE.GPLv3
+    licenses/Qt/LGPL-3.0-only.txt
+    licenses/Qt/GPL-3.0-only.txt
     licenses/Qt/DEPLOYED_MODULES.txt
     THIRD_PARTY_NOTICES.md)
     set(full_staged_path "${stage_root}/${staged_path}")
@@ -212,9 +212,9 @@ foreach(staged_path IN ITEMS
     endif()
 endforeach()
 
-set(incomplete_qt_root "${test_root}/qt-without-lgpl")
-file(MAKE_DIRECTORY "${incomplete_qt_root}/LICENSES")
-file(WRITE "${incomplete_qt_root}/LICENSES/LICENSE.GPLv3"
+set(incomplete_qt_license_dir "${test_root}/qt-licenses-without-lgpl")
+file(MAKE_DIRECTORY "${incomplete_qt_license_dir}")
+file(WRITE "${incomplete_qt_license_dir}/GPL-3.0-only.txt"
     "GNU GENERAL PUBLIC LICENSE Version 3 fixture\n")
 set(incomplete_stage "${test_root}/stage-without-lgpl")
 file(MAKE_DIRECTORY "${incomplete_stage}/bin")
@@ -222,12 +222,27 @@ file(WRITE "${incomplete_stage}/bin/Qt6Core.dll" "Qt runtime fixture\n")
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_STAGE_ROOT=${incomplete_stage}"
-        "-DZZ_QT_ROOT=${incomplete_qt_root}"
+        "-DZZ_QT_LICENSE_DIR=${incomplete_qt_license_dir}"
         -P "${stage_licenses_script}"
     RESULT_VARIABLE incomplete_stage_result
     OUTPUT_QUIET ERROR_QUIET)
 if(incomplete_stage_result EQUAL 0)
     message(FATAL_ERROR "StageRuntimeLicenses accepted a missing Qt LGPL text")
+endif()
+
+set(missing_qt_license_stage "${test_root}/stage-without-qt-license-input")
+file(MAKE_DIRECTORY "${missing_qt_license_stage}/bin")
+file(WRITE "${missing_qt_license_stage}/bin/Qt6Core.dll"
+    "Qt runtime fixture\n")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_STAGE_ROOT=${missing_qt_license_stage}"
+        -P "${stage_licenses_script}"
+    RESULT_VARIABLE missing_qt_license_result
+    OUTPUT_QUIET ERROR_QUIET)
+if(missing_qt_license_result EQUAL 0)
+    message(FATAL_ERROR
+        "StageRuntimeLicenses accepted a missing Qt license input")
 endif()
 
 set(gnu_license_dir "${test_root}/gnu-licenses")
@@ -241,7 +256,7 @@ file(WRITE "${gnu_stage}/lib/libQt6Core.so.6" "Qt runtime fixture\n")
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_STAGE_ROOT=${gnu_stage}"
-        "-DZZ_QT_ROOT=${qt_root}"
+        "-DZZ_QT_LICENSE_DIR=${qt_license_dir}"
         "-DZZ_GNU_RUNTIME_LICENSE_DIR=${gnu_license_dir}"
         -P "${stage_licenses_script}"
     RESULT_VARIABLE gnu_stage_result
@@ -277,7 +292,7 @@ if(UNIX)
     execute_process(
         COMMAND "${CMAKE_COMMAND}"
             "-DZZ_STAGE_ROOT=${symlink_stage}"
-            "-DZZ_QT_ROOT=${qt_root}"
+            "-DZZ_QT_LICENSE_DIR=${qt_license_dir}"
             -P "${stage_licenses_script}"
         RESULT_VARIABLE symlink_stage_result
         OUTPUT_QUIET ERROR_QUIET)

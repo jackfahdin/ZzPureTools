@@ -66,6 +66,15 @@
 - fmt：来源 `https://github.com/fmtlib/fmt`，版本 12.1.0，源码归档 SHA-256 为 `ea7de4299689e12b6dddd392f9896f08fb0777ac7168897a244a6d6085043fea`，SPDX 结论为 `MIT`；发布包许可证位置为 `share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt`。
 - 版本和源码身份同时记录于 `ZzThirdParty/ZzLog/DEPENDENCIES.md` 及对应 vendored 源码；正式发布仍须经过安装许可证审计。
 
+## Qt 运行库
+
+- 版本：continuous build 当前固定为 Qt 6.8.3，实际版本同时写入每个平台产物的 `build-info.json`。
+- 上游：https://github.com/qt/qt5/tree/v6.8.3。
+- 分发方式：ZzPureToolsExample 以共享方式部署其实际依赖的 Qt 运行库，不把 Qt 静态链接进应用。
+- 许可证：Qt 6.8.3 顶层 GPL-2.0、GPL-3.0、LGPL-3.0、Qt GPL Exception 与商业许可证说明均由 `release-evidence.json` 锁定官方文件 SHA-256。
+- 发布包许可证位置：`licenses/Qt/`；同目录的 `DEPLOYED_MODULES.txt` 由最终部署树生成，记录该包实际包含的 Qt 模块。
+- 构建边界：aqt 二进制 SDK 不保证携带源码树的 `LICENSES/`，因此打包只消费 release evidence 中按 Qt 版本准备的许可证，不从 runner 主机临时选择文件。
+
 ## GNU C++ 运行库
 
 - Linux 发布构建可从经过审核的 Ubuntu 22.04 不可变构建镜像中随包安装 `libstdc++.so.6` 和 `libgcc_s.so.1`。

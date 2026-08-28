@@ -93,6 +93,24 @@ zz_download_manifest_evidence(
     "qwindowkit/qwindowkit-${qwindowkit_commit}.tar.gz"
     "https://github.com/stdware/qwindowkit/archive/${qwindowkit_commit}.tar.gz"
     evidence qwindowkit sourceArchive)
+string(JSON qt_runtime_version ERROR_VARIABLE qt_runtime_version_error
+    GET "${manifest_json}" evidence qtRuntimeLicenses upstreamVersion)
+if(NOT "${qt_runtime_version_error}" STREQUAL "NOTFOUND"
+   OR NOT "${qt_runtime_version}" MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR
+        "Manifest has no valid Qt runtime license version")
+endif()
+foreach(qt_license_name IN ITEMS
+    GPL-2.0-only.txt
+    GPL-3.0-only.txt
+    LGPL-3.0-only.txt
+    LicenseRef-Qt-Commercial.txt
+    Qt-GPL-exception-1.0.txt)
+    zz_download_manifest_evidence(
+        "qt-${qt_runtime_version}/LICENSES/${qt_license_name}"
+        "https://raw.githubusercontent.com/qt/qt5/v${qt_runtime_version}/LICENSES/${qt_license_name}"
+        evidence qtRuntimeLicenses files "${qt_license_name}")
+endforeach()
 zz_download_manifest_evidence(
     "qt-5.15.2/qttools-src-shared-winutils-utils.cpp"
     "https://raw.githubusercontent.com/qt/qttools/v5.15.2/src/shared/winutils/utils.cpp"

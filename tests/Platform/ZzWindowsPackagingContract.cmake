@@ -31,6 +31,7 @@ set(required_script_tokens
     "QT_QPA_PLATFORM"
     "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS"
     "--smoke-test"
+    "ZZ_QT_LICENSE_DIR"
     "StageRuntimeLicenses.cmake"
     "Compress-Archive"
     "WriteBuildInfo.cmake"
