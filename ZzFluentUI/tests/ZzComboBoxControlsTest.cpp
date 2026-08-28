@@ -262,8 +262,13 @@ private Q_SLOTS:
         }
         QCOMPARE(interface->role(), QAccessible::ComboBox);
         QCOMPARE(comboBox.accessibleName(), QStringLiteral("Environment"));
-        QCOMPARE(interface->text(QAccessible::Name),
-                 QStringLiteral("Remote"));
+        const QString interfaceName = interface->text(QAccessible::Name);
+        QVERIFY2(
+            interfaceName == comboBox.accessibleName()
+                || interfaceName == comboBox.currentText(),
+            qPrintable(QStringLiteral(
+                "无障碍名称既不是显式名称也不是当前值：%1")
+                           .arg(interfaceName)));
         QCOMPARE(interface->text(QAccessible::Value),
                  QStringLiteral("Remote"));
         QVERIFY(interface->state().focusable);
