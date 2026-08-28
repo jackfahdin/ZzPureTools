@@ -80,6 +80,9 @@ set_target_properties(ZzPureToolsExample PROPERTIES
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_target_properties(ZzPureToolsExample PROPERTIES
         INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+elseif(APPLE)
+    set_target_properties(ZzPureToolsExample PROPERTIES
+        INSTALL_RPATH "@executable_path/../Frameworks")
 endif()
 target_compile_definitions(ZzPureToolsExample PRIVATE
     ZZ_EXAMPLE_VERSION="${PROJECT_VERSION}")

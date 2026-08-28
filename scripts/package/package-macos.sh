@@ -320,14 +320,16 @@ stage_offscreen_plugin() {
 
 invoke_macdeployqt() {
   local bundle=$1
+  local framework_dir="$bundle/Contents/Frameworks"
   local plugin="$bundle/Contents/PlugIns/platforms/libqoffscreen.dylib"
-  [[ -f $plugin && ! -L $plugin ]] || {
-    echo "staged offscreen platform plugin is unavailable" >&2
+  [[ -d $framework_dir && ! -L $framework_dir &&
+     -f $plugin && ! -L $plugin ]] || {
+    echo "staged macOS deployment inputs are unavailable" >&2
     exit 1
   }
   "$macdeployqt" "$bundle" \
     -always-overwrite \
-    "-libpath=$install_root/lib" \
+    "-libpath=$framework_dir" \
     "-executable=$plugin"
 }
 

@@ -168,6 +168,21 @@ add_subdirectory(ZzWindowKit)
 add_subdirectory(ZzFluentUI)
 add_subdirectory(ZzPureTools)
 
+if(APPLE AND BUILD_SHARED_LIBS)
+    # 安装后的第一方 dylib 从自身目录解析同级依赖，避免携带构建树 RPATH。
+    foreach(zz_runtime_target IN ITEMS
+        ZzLog
+        ZzCore
+        ZzWindowKit
+        ZzFluentFoundation
+        ZzFluentUI
+        ZzAppCore
+        ZzPureTools)
+        set_property(TARGET ${zz_runtime_target} PROPERTY
+            INSTALL_RPATH "@loader_path")
+    endforeach()
+endif()
+
 if(ZZ_BUNDLE_GNU_RUNTIME)
     foreach(zz_runtime_target IN ITEMS
         ZzLog

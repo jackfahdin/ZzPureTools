@@ -33,6 +33,7 @@ set(required_script_tokens
     "-always-overwrite"
     "stage_first_party_libraries"
     "Contents/Frameworks"
+    "-libpath=\$framework_dir"
     "Contents/PlugIns/platforms/libqoffscreen.dylib"
     "-executable="
     "lipo"
@@ -56,6 +57,27 @@ foreach(required_token IN LISTS required_script_tokens)
             "macOS package script is missing token: ${required_token}")
     endif()
 endforeach()
+
+set(root_cmake "${source_dir}/CMakeLists.txt")
+set(example_cmake
+    "${source_dir}/examples/ZzPureToolsExample/CMakeLists.txt")
+file(READ "${root_cmake}" root_cmake_content)
+file(READ "${example_cmake}" example_cmake_content)
+set(runtime_rpath_token "INSTALL_RPATH \"@loader_path\"")
+string(FIND "${root_cmake_content}"
+    "${runtime_rpath_token}" runtime_rpath_position)
+if(runtime_rpath_position EQUAL -1)
+    message(FATAL_ERROR
+        "macOS runtime RPATH contract is missing: ${runtime_rpath_token}")
+endif()
+set(example_rpath_token
+    "INSTALL_RPATH \"@executable_path/../Frameworks\"")
+string(FIND "${example_cmake_content}"
+    "${example_rpath_token}" example_rpath_position)
+if(example_rpath_position EQUAL -1)
+    message(FATAL_ERROR
+        "macOS example RPATH contract is missing: ${example_rpath_token}")
+endif()
 
 set(ordered_pipeline_tokens
     "install_component Runtime"
