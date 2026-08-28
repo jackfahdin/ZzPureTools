@@ -17,6 +17,8 @@
 #include <QtGui/QPainter>
 #include <QtGui/QScreen>
 #include <QtGui/QStandardItemModel>
+#include <QtGui/QTextBlock>
+#include <QtGui/QTextCursor>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
@@ -27,6 +29,7 @@
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleFactory>
+#include <QtWidgets/QTabBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 
@@ -57,6 +60,7 @@ namespace {
 constexpr QSize zzLogicalSurfaceSize(1200, 800);
 constexpr QSize zzNarrowWorkspaceSurfaceSize(480, 540);
 constexpr int zzChannelTolerance = 3;
+constexpr int zzTextMaskPadding = 3;
 
 enum class ZzActivityContractScenario {
     Default,
@@ -151,13 +155,19 @@ struct ZzImageComparison final
 
 [[nodiscard]] ZzImageComparison zzCompareImages(
     const QImage &expected,
-    const QImage &actual)
+    const QImage &actual,
+    const QImage *mask = nullptr)
 {
     ZzImageComparison result;
     result.difference = QImage(actual.size(), QImage::Format_ARGB32_Premultiplied);
     result.difference.fill(Qt::transparent);
     for (int y = 0; y < actual.height(); ++y) {
+        const uchar *maskLine = mask == nullptr
+            ? nullptr : mask->constScanLine(y);
         for (int x = 0; x < actual.width(); ++x) {
+            if (maskLine != nullptr && maskLine[x] != 0) {
+                continue;
+            }
             ++result.comparedPixels;
             const QColor expectedColor = expected.pixelColor(x, y);
             const QColor actualColor = actual.pixelColor(x, y);
@@ -696,6 +706,156 @@ private:
     return QRect(widget->mapTo(surface, rect.topLeft()), rect.size());
 }
 
+/** @brief 保存 dense 工作区文字遮罩和覆盖类别。 */
+struct ZzWorkspaceTextMask final
+{
+    QImage image;
+    int labels = 0;
+    int tabBars = 0;
+    int plainTextEdits = 0;
+};
+
+/** @brief 将控件文字矩形映射到工作区并加入物理像素遮罩。 */
+void zzPaintWorkspaceTextMask(
+    QPainter *painter,
+    const QWidget *widget,
+    const QRect &rect,
+    QWidget *surface)
+{
+    if (rect.isEmpty()) {
+        return;
+    }
+    painter->fillRect(
+        zzMapToSurface(widget, rect, surface).adjusted(
+            -zzTextMaskPadding,
+            -zzTextMaskPadding,
+            zzTextMaskPadding,
+            zzTextMaskPadding),
+        Qt::white);
+}
+
+/** @brief 计算控件给定范围内实际文字边界。 */
+[[nodiscard]] QRect zzWorkspaceTextBounds(
+    const QWidget *widget,
+    const QRect &bounds,
+    int flags,
+    const QString &text)
+{
+    if (bounds.isEmpty() || text.isEmpty()) {
+        return {};
+    }
+    return widget->fontMetrics().boundingRect(bounds, flags, text);
+}
+
+/** @brief 仅遮罩 QPlainTextEdit 当前可见行的字形区域。 */
+void zzMaskVisiblePlainText(
+    QPainter *painter,
+    QPlainTextEdit *editor,
+    QWidget *surface)
+{
+    const QRect viewportRect = editor->viewport()->rect();
+    for (QTextBlock block = editor->document()->begin();
+         block.isValid();
+         block = block.next()) {
+        QTextCursor cursor(block);
+        const QRect cursorRect = editor->cursorRect(cursor);
+        if (cursorRect.bottom() < viewportRect.top()) {
+            continue;
+        }
+        if (cursorRect.top() > viewportRect.bottom()) {
+            break;
+        }
+        const QString text = block.text();
+        const QRect textRect(
+            cursorRect.left(),
+            cursorRect.top(),
+            editor->fontMetrics().horizontalAdvance(text),
+            editor->fontMetrics().height());
+        zzPaintWorkspaceTextMask(
+            painter,
+            editor->viewport(),
+            textRect.intersected(viewportRect),
+            surface);
+    }
+}
+
+/** @brief 为 dense 工作区建立不覆盖面板背景和边界的文字遮罩。 */
+[[nodiscard]] ZzWorkspaceTextMask zzBuildDenseWorkspaceTextMask(
+    QWidget *surface,
+    qreal dpr)
+{
+    ZzWorkspaceTextMask result{
+        QImage(
+            QSize(
+                qRound(surface->width() * dpr),
+                qRound(surface->height() * dpr)),
+            QImage::Format_Grayscale8)};
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(0);
+    QPainter painter(&result.image);
+    for (QWidget *widget : surface->findChildren<QWidget *>()) {
+        if (!widget->isVisible()) {
+            continue;
+        }
+        if (auto *label = qobject_cast<QLabel *>(widget);
+            label != nullptr && !label->text().isEmpty()) {
+            int flags = static_cast<int>(label->alignment());
+            if (label->wordWrap()) {
+                flags |= Qt::TextWordWrap;
+            }
+            zzPaintWorkspaceTextMask(
+                &painter,
+                label,
+                zzWorkspaceTextBounds(
+                    label,
+                    label->contentsRect(),
+                    flags,
+                    label->text()),
+                surface);
+            ++result.labels;
+            continue;
+        }
+        if (auto *tabs = qobject_cast<QTabBar *>(widget);
+            tabs != nullptr) {
+            for (int index = 0; index < tabs->count(); ++index) {
+                zzPaintWorkspaceTextMask(
+                    &painter,
+                    tabs,
+                    zzWorkspaceTextBounds(
+                        tabs,
+                        tabs->tabRect(index),
+                        Qt::AlignCenter,
+                        tabs->tabText(index)),
+                    surface);
+            }
+            ++result.tabBars;
+            continue;
+        }
+        if (auto *editor = qobject_cast<QPlainTextEdit *>(widget);
+            editor != nullptr && !editor->toPlainText().isEmpty()) {
+            zzMaskVisiblePlainText(&painter, editor, surface);
+            ++result.plainTextEdits;
+        }
+    }
+    painter.end();
+    return result;
+}
+
+/** @brief 统计遮罩覆盖的物理像素数量。 */
+[[nodiscard]] qsizetype zzWorkspaceMaskedPixelCount(const QImage &mask)
+{
+    qsizetype result = 0;
+    for (int y = 0; y < mask.height(); ++y) {
+        const uchar *line = mask.constScanLine(y);
+        for (int x = 0; x < mask.width(); ++x) {
+            if (line[x] != 0) {
+                ++result;
+            }
+        }
+    }
+    return result;
+}
+
 [[nodiscard]] int zzProjectedActivityRows(
     const ZzFluentUI::ZzActivityBar &bar)
 {
@@ -1035,8 +1195,19 @@ private Q_SLOTS:
         QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
         const QImage actual = zzRenderWorkspaceSurface(&surface, actualDpr_);
+        const ZzWorkspaceTextMask mask = zzBuildDenseWorkspaceTextMask(
+            &surface.window, actualDpr_);
+        QVERIFY(mask.labels > 0);
+        QVERIFY(mask.tabBars > 0);
+        QVERIFY(mask.plainTextEdits > 0);
+        const qsizetype totalPixels =
+            static_cast<qsizetype>(mask.image.width())
+            * static_cast<qsizetype>(mask.image.height());
+        const qsizetype maskedPixels = zzWorkspaceMaskedPixelCount(mask.image);
+        QVERIFY(maskedPixels > 0);
+        QVERIFY(maskedPixels * 3 < totalPixels);
         surface.hide();
-        verifyScreenshot(fileStem, actual);
+        verifyScreenshot(fileStem, actual, &mask.image);
     }
 
     void rendersTwoGroupWorkbenchThemes_data()
@@ -1087,7 +1258,10 @@ private Q_SLOTS:
     }
 
 private:
-    void verifyScreenshot(const QString &fileStem, const QImage &actual)
+    void verifyScreenshot(
+        const QString &fileStem,
+        const QImage &actual,
+        const QImage *mask = nullptr)
     {
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_PURETOOLS_WORKSPACE_SCREENSHOT_BASELINE_DIR))
@@ -1102,7 +1276,11 @@ private:
         const QImage expected(baselinePath);
         QVERIFY2(!expected.isNull(), qPrintable(QStringLiteral("缺少 baseline：%1").arg(baselinePath)));
         QCOMPARE(expected.size(), actual.size());
-        const ZzImageComparison comparison = zzCompareImages(expected, actual);
+        if (mask != nullptr) {
+            QCOMPARE(mask->size(), actual.size());
+        }
+        const ZzImageComparison comparison = zzCompareImages(
+            expected, actual, mask);
         QVERIFY(comparison.comparedPixels > 0);
         const qreal ratio = static_cast<qreal>(comparison.differentPixels)
             / static_cast<qreal>(comparison.comparedPixels);
@@ -1119,6 +1297,11 @@ private:
             fileStem + QStringLiteral("-diff.png"));
         QVERIFY(actual.save(actualPath, "PNG"));
         QVERIFY(comparison.difference.save(diffPath, "PNG"));
+        if (mask != nullptr) {
+            const QString maskPath = QDir(reportDirectory).filePath(
+                fileStem + QStringLiteral("-mask.png"));
+            QVERIFY(mask->save(maskPath, "PNG"));
+        }
         QFAIL(qPrintable(QStringLiteral("workspace screenshot differs: ratio=%1 actual=%2 diff=%3")
             .arg(ratio, 0, 'f', 6).arg(actualPath, diffPath)));
     }
