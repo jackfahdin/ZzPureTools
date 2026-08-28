@@ -16,7 +16,7 @@
         "os": "Ubuntu 26.04.1 LTS",
         "qtVersion": "6.11.1",
         "refreshRateHz": 60,
-        "runnerImageDigest": "sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c",
+        "runnerImageDigest": "sha256:18b3c573eb8ae733ed4f1992b3d0dc2d2c6e265cf975fe1975a7103701a8ec0b",
         "windowSystem": "xcb"
     },
     "metrics": {

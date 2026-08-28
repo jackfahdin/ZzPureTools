@@ -65,7 +65,7 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 | 身份字段 | 固定值 |
 |---|---|
 | 被测源码 HEAD | `5ee0e57d5477c6636be9597e3d5a7207f9fe3087` |
-| runner 档案 SHA-256 | `e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c` |
+| runner 档案 SHA-256 | `18b3c573eb8ae733ed4f1992b3d0dc2d2c6e265cf975fe1975a7103701a8ec0b` |
 | renderer identity | `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` |
 | reference CTest | 42/42 通过，包含 12 个正式报告生产者与全部参考门禁 |
 | Clang ASan/UBSan | 独立门禁记录保持通过；本次参考基线重采集未重复运行该构建 |
@@ -106,7 +106,7 @@ reporter 基线。
 
 2026-08-26 在当前活动档案 `local-release-xvfb` 上完成一次可逆 governor 对照实验。
 实验源码 HEAD 为 `d2c255055fec9ba856c7efee36bf86aeba00efd5`，runner 档案 digest 为
-`sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c`。实验只对
+`sha256:18b3c573eb8ae733ed4f1992b3d0dc2d2c6e265cf975fe1975a7103701a8ec0b`。实验只对
 CPU 8、10 的 `scaling_governor` 做事务性切换，EPP、频率上下限、CPU online 状态和
 power profile 均保持不变；普通用户 benchmark 通过 `setpriv` 执行，不创建第二层 PAM
 会话。
@@ -270,7 +270,7 @@ benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100%
 三轮共享 GNU 15.2、Qt 6.11.1、Ubuntu 26.04.1 LTS、Xvfb/`xcb`、DPR 1、
 Release/shared/LTO、`linux-gcc-reference`、归一内存指纹 32,682,016,768 bytes、
 runner digest
-`sha256:e02fd21ed50cbcc2a20c12cf7cc8173d8dca81da2288ab077169150963e90b6c` 和
+`sha256:18b3c573eb8ae733ed4f1992b3d0dc2d2c6e265cf975fe1975a7103701a8ec0b` 和
 `Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24` renderer identity。
 
 每项每轮采集 80 个样本，时间指标单位为 ms，结构指标单位为 count，资源指标单位为
