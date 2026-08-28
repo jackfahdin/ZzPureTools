@@ -24,12 +24,16 @@ Windows 的原生 Mica/Acrylic、macOS 的原生 Blur 仍由现有私有 QWindow
 
 当前只有一台可用机器，因此项目选用 `local-release-xvfb` 作为活动 Linux 发布参考环境。它是 Ubuntu 26.04.1、Qt 6.11.1、GCC 15.2.0 的本机档案，已经保存 Xvfb 性能基线和四个 GCC 发布组合的自动测试记录。主机没有物理显示器，所以这些记录不能提升下方 KDE/GNOME 真机会话行。
 
-原规划的 `ubuntu2204-github-ci` 继续作为 Ubuntu 22.04 兼容参考档案保留，等待用户上传 GitHub 或购置替代主机后独立验证。它不再是当前本机自动发布门禁的前置条件；提供受审核 immutable image 后，Linux runner 会追加兼容检查。两个档案的工具链、显示指纹和性能 JSON 不得混用，切换活动档案前必须提交新档案的独立证据。
+原规划的 `ubuntu2204-github-ci` 继续作为 Ubuntu 22.04 immutable 性能参考档案保留，
+等待受审核镜像或替代主机后独立验证。continuous build 使用 Ubuntu 22.04 GitHub 托管
+runner 生成 AppImage，但托管镜像、CPU 和负载会变化，因此该构建记录不能填充或更新
+这份性能档案。两个档案的工具链、显示指纹和性能 JSON 不得混用，切换活动性能档案
+前必须提交新档案的独立证据。
 
 | 档案 | 角色 | 结构化记录 | 性能记录 |
 |---|---|---|---|
 | `local-release-xvfb` | 当前活动本机发布参考环境 | `docs/performance/profiles/local-release-xvfb.json` | `docs/performance/reference/linux/` |
-| `ubuntu2204-github-ci` | 保留的未来 CI/替代主机参考环境 | `docs/performance/profiles/ubuntu2204-github-ci.json` | 独立验证后新增，不覆盖本机记录 |
+| `ubuntu2204-github-ci` | 保留的 immutable 性能/替代主机参考环境 | `docs/performance/profiles/ubuntu2204-github-ci.json` | 独立验证后新增，不覆盖本机记录 |
 
 这项选择只说明当前从哪台机器执行 Linux 自动发布门禁，不解除项目许可证、第三方来源、Windows/macOS 原生 runner 或三平台人工交互证据要求。
 
@@ -69,7 +73,28 @@ ArchitectureAudit 只提供源码/静态合同，不能替代这些原生记录�
 
 ## GitHub 托管 CI 状态
 
-`.github/workflows/ci.yml` 已在 GitHub 上启动 Ubuntu 24.04、Windows Server 2022 MSVC/Qt MinGW、macOS 15 arm64/x86_64 矩阵。前三次运行已依次验证配置契约和全部平台 Qt 安装路径，并暴露出仍需修复的编译与工具链校验问题；目前还没有同一提交的完整成功矩阵，所以下方平台行继续保持“未执行”。工作流通过后先记录为 GitHub 托管兼容证据；Windows Server 2022 不替代 Windows 10/11，Ubuntu offscreen 不替代 KDE/GNOME X11/Wayland，只有 OS、架构和 ABI 完全匹配的原生日志才能把对应行提升为“静态验证通过”。详细边界和日志处理见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+`.github/workflows/ci.yml` 现在定义五个平台的 continuous build：Ubuntu 22.04
+x86_64、Windows Server 2022 MSVC/Qt MinGW x86_64，以及 macOS 15 arm64/x86_64。
+固定下载页为
+<https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build>。它是滚动更新、
+未签名的 `Pre-release`，只有五个平台同一提交的构建、CTest、部署审计和 smoke 全部
+通过后才更新。
+
+五个发布平台 ID 和自动证据分别为：
+
+- `linux-x86_64`：AppImage，执行 Ubuntu 22.04 ELF/runtime 审计与 Xvfb smoke。
+- `windows-msvc2022-x86_64`：MSVC 2022 ZIP，执行 PE/runtime 审计与 offscreen smoke。
+- `windows-mingw-x86_64`：Qt MinGW ZIP，执行 PE/runtime 审计与 offscreen smoke。
+- `macos-arm64`：Apple Silicon DMG，执行 Mach-O 审计、DMG 挂载与 smoke。
+- `macos-x86_64`：Intel DMG，执行 Mach-O 审计、DMG 挂载与 smoke。
+
+每个平台包都有相邻 `SHA-256` 和独立 build info，发布 job 先验证五组文件属于同一
+commit。首次完整工作流结果尚未登记，因此下方目标平台行保持原状态。CI smoke 不等于真机验收；
+Windows Server 2022 不替代 Windows 10/11，Ubuntu Xvfb 不替代
+KDE/GNOME X11/Wayland，macOS 托管 runner 也不提供已签署的真实显示器交互证据。
+远端通过后只能按实际匹配的 OS、架构、ABI 和证据提升“静态验证通过”，不能直接
+提升为“真机验收通过”。详细权限、事务和日志处理见
+`docs/development/GITHUB_ACTIONS_ZH.md`。
 
 ## Windows 矩阵
 

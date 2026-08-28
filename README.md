@@ -9,6 +9,26 @@ GitHub 托管 CI 已产生三个平台的真实诊断结果，但尚无同一提
 Windows、macOS 以及 Linux 桌面会话的真机交互状态以
 [平台支持与验收状态](docs/development/PLATFORM_SUPPORT_ZH.md) 为准。
 
+## 持续构建下载
+
+桌面示例的固定下载页为
+[continuous-build Pre-release](https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build)。
+每次 `master` 的五个平台构建、CTest、部署检查和启动 smoke 全部成功后，该页面会被
+同一提交的新产物整体更新；首次完整矩阵通过前，页面可能尚无可下载资产。
+
+| 平台 | 可分发包 |
+|---|---|
+| Ubuntu 22.04 x86_64 | `ZzPureToolsExample-continuous-linux-x86_64-<short-sha>.AppImage` |
+| Windows MSVC 2022 x86_64 | `ZzPureToolsExample-continuous-windows-msvc2022-x86_64-<short-sha>.zip` |
+| Windows Qt MinGW x86_64 | `ZzPureToolsExample-continuous-windows-mingw-x86_64-<short-sha>.zip` |
+| macOS Apple Silicon | `ZzPureToolsExample-continuous-macos-arm64-<short-sha>.dmg` |
+| macOS Intel | `ZzPureToolsExample-continuous-macos-x86_64-<short-sha>.dmg` |
+
+这些包是滚动更新、未签名的开发预览，不是稳定版本。每个平台同时发布相邻的
+`SHA-256` 文件和 `<package>.build-info.json`，下载后应先核对摘要与提交身份。CI smoke 不等于真机验收；
+自动启动只能证明 runner 上的部署包可以启动和退出，不能替代
+Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
+
 ## 组件
 
 | 组件 | CMake 目标 | 职责 |

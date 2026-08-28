@@ -8,10 +8,13 @@
 |---|---|---|
 | Linux 日常开发 | `linux-gcc-debug` | GCC Debug、完整单元测试和示例调试 |
 | Linux 发布候选 | `linux-gcc-release`、`linux-static-release` | GCC shared/static Release 和安装消费 |
+| Linux 持续发布包 | `linux-continuous-release` | Ubuntu 22.04 AppImage、shared、LTO 和部署 smoke |
 | Linux 质量检查 | `linux-clang-tidy-release`、`linux-clang-asan` | clang-tidy、ASan/UBSan 和边界检查 |
 | Windows 动态库 | `windows-msvc2022-release`、`windows-mingw-release` | MSVC 或 Qt 官方 MinGW shared 构建 |
 | Windows 静态库 | `windows-msvc2022-static`、`windows-mingw-static` | 对应 ABI 的 static 构建 |
+| Windows 持续发布包 | `windows-msvc2022-continuous`、`windows-mingw-continuous` | 两种 ABI 各自部署和生成 ZIP |
 | macOS | `macos-clang-release-*`、`macos-clang-static-*` | Apple Clang 的 arm64/x86_64 构建 |
+| macOS 持续发布包 | `macos-continuous-arm64`、`macos-continuous-x86_64` | 两种原生架构各自生成 DMG |
 
 构建并安装后，外部项目使用 `find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)`，链接目标仍为 `Zz::Core`、`Zz::WindowKit`、`Zz::FluentUI` 和 `Zz::PureTools`。
 
@@ -229,9 +232,165 @@ executed`，结论是“跳过”，不是“通过”。同理，未设置 `ZZ_
 时 runner 可以完成活动本机档案，但 `ubuntu2204-github-ci` 必须继续登记为
 `pending-user-validation`，不能由本机 Ubuntu 26.04 结果替代。
 
-## GitHub Actions CI
+## Continuous Build 本地复现
 
-`.github/workflows/ci.yml` 使用固定版本的 Ubuntu、Windows、macOS arm64 和 macOS Intel runner 执行跨平台矩阵。它复用本文件定义的 CMake Preset，但不执行本机性能基线、不创建发布包，也不替代真机验收。工作流结构、Action 固定摘要、ABI 隔离方法和远端运行处理流程见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+固定下载页是
+<https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build>。以下命令与远端
+五个平台通道使用相同 preset 和打包脚本。各 `output-dir` 必须事先存在且为空，
+`commit` 必须是 40 位小写提交，`built-at-utc` 必须是 UTC 时间。打包结果固定为
+一个包、一个相邻 `SHA-256` 文件和一个 `build-info.json`。
+
+发布证据目录需要先用公共脚本准备。每个平台应使用自己的空目录：
+
+```bash
+export ZZ_RELEASE_EVIDENCE_ROOT="$PWD/build/local-continuous/evidence"
+mkdir -p "$ZZ_RELEASE_EVIDENCE_ROOT"
+cmake "-DZZ_OUTPUT_DIR=$ZZ_RELEASE_EVIDENCE_ROOT" \
+  -P scripts/package/PrepareReleaseEvidence.cmake
+```
+
+### Ubuntu 22.04 x86_64 AppImage
+
+AppImage 脚本只接受 Ubuntu 22.04。除项目编译环境外，还需要经过固定摘要校验的
+`linuxdeploy`、`linuxdeploy-plugin-qt`、`appimagetool`，以及包含 `COPYING3` 和
+`COPYING.RUNTIME` 的 GNU runtime 许可证目录：
+
+```bash
+export ZZ_GNU_RUNTIME_LICENSE_DIR=/path/to/reviewed-gcc-licenses
+export ZZ_APPIMAGE_TOOLS=/path/to/verified-appimage-tools
+export ZZ_ARTIFACT_DIR="$PWD/build/local-continuous/linux-artifacts"
+export ZZ_COMMIT="$(git rev-parse HEAD)"
+export ZZ_BUILT_AT_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+mkdir -p "$ZZ_ARTIFACT_DIR"
+
+cmake --preset linux-continuous-release \
+  "-DZZ_RELEASE_EVIDENCE_ROOT=$ZZ_RELEASE_EVIDENCE_ROOT" \
+  "-DZZ_GNU_RUNTIME_LICENSE_DIR=$ZZ_GNU_RUNTIME_LICENSE_DIR"
+cmake --build --preset linux-continuous-release --parallel 2
+ctest --preset linux-continuous-release --output-on-failure
+
+scripts/package/package-linux-appimage.sh \
+  --build-dir "$PWD/build/linux-continuous-release" \
+  --qt-root "$QT_ROOT" \
+  --evidence-root "$ZZ_RELEASE_EVIDENCE_ROOT" \
+  --gnu-license-dir "$ZZ_GNU_RUNTIME_LICENSE_DIR" \
+  --linuxdeploy "$ZZ_APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage" \
+  --qt-plugin "$ZZ_APPIMAGE_TOOLS/linuxdeploy-plugin-qt-x86_64.AppImage" \
+  --appimagetool "$ZZ_APPIMAGE_TOOLS/appimagetool-x86_64.AppImage" \
+  --output-dir "$ZZ_ARTIFACT_DIR" \
+  --commit "$ZZ_COMMIT" \
+  --built-at-utc "$ZZ_BUILT_AT_UTC"
+```
+
+### Windows MSVC 2022 x86_64 ZIP
+
+在 Visual Studio 2022 x64 Developer PowerShell 中执行：
+
+```powershell
+$preset = 'windows-msvc2022-continuous'
+$evidenceRoot = "$PWD/build/local-continuous/msvc-evidence"
+$artifactDir = "$PWD/build/local-continuous/msvc-artifacts"
+$commit = (git rev-parse HEAD).Trim()
+$builtAtUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+New-Item -ItemType Directory -Force -Path $evidenceRoot, $artifactDir |
+    Out-Null
+cmake "-DZZ_OUTPUT_DIR=$evidenceRoot" `
+    -P scripts/package/PrepareReleaseEvidence.cmake
+
+cmake --preset $preset "-DZZ_RELEASE_EVIDENCE_ROOT=$evidenceRoot"
+cmake --build --preset $preset --parallel 2
+ctest --preset $preset --output-on-failure
+pwsh -NoProfile -File scripts/package/package-windows.ps1 `
+    -Mode msvc `
+    -BuildDir "$PWD/build/$preset" `
+    -QtRoot $env:QT_MSVC_ROOT `
+    -EvidenceRoot $evidenceRoot `
+    -OutputDir $artifactDir `
+    -Commit $commit `
+    -BuiltAtUtc $builtAtUtc `
+    -DumpBin (Get-Command dumpbin.exe -ErrorAction Stop).Source
+```
+
+### Windows Qt MinGW x86_64 ZIP
+
+先按“Windows MinGW preset”一节设置同一 Qt SDK 的环境变量并运行 kit 检查：
+
+```powershell
+$preset = 'windows-mingw-continuous'
+$evidenceRoot = "$PWD/build/local-continuous/mingw-evidence"
+$artifactDir = "$PWD/build/local-continuous/mingw-artifacts"
+$commit = (git rev-parse HEAD).Trim()
+$builtAtUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+New-Item -ItemType Directory -Force -Path $evidenceRoot, $artifactDir |
+    Out-Null
+cmake "-DZZ_OUTPUT_DIR=$evidenceRoot" `
+    -P scripts/package/PrepareReleaseEvidence.cmake
+pwsh -NoProfile -File scripts/ci/Assert-QtMinGWKit.ps1
+
+cmake --preset $preset "-DZZ_RELEASE_EVIDENCE_ROOT=$evidenceRoot"
+cmake --build --preset $preset --parallel 2
+ctest --preset $preset --output-on-failure
+pwsh -NoProfile -File scripts/package/package-windows.ps1 `
+    -Mode mingw `
+    -BuildDir "$PWD/build/$preset" `
+    -QtRoot $env:QT_MINGW_ROOT `
+    -EvidenceRoot $evidenceRoot `
+    -OutputDir $artifactDir `
+    -Commit $commit `
+    -BuiltAtUtc $builtAtUtc `
+    -ObjDump "$env:QT_MINGW_TOOLCHAIN_ROOT/bin/objdump.exe"
+```
+
+### macOS arm64 与 x86_64 DMG
+
+在对应原生架构主机上设置匹配的 Qt SDK。下面的函数每次只处理一个架构：
+
+```bash
+package_macos() {
+  architecture=$1
+  qt_root=$2
+  preset="macos-continuous-$architecture"
+  evidence_root="$PWD/build/local-continuous/macos-$architecture-evidence"
+  artifact_dir="$PWD/build/local-continuous/macos-$architecture-artifacts"
+  commit=$(git rev-parse HEAD)
+  built_at_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+  mkdir -p "$evidence_root" "$artifact_dir"
+  cmake "-DZZ_OUTPUT_DIR=$evidence_root" \
+    -P scripts/package/PrepareReleaseEvidence.cmake
+
+  cmake --preset "$preset" \
+    "-DZZ_RELEASE_EVIDENCE_ROOT=$evidence_root"
+  cmake --build --preset "$preset" --parallel 2
+  ctest --preset "$preset" --output-on-failure
+  scripts/package/package-macos.sh \
+    --build-dir "$PWD/build/$preset" \
+    --qt-root "$qt_root" \
+    --evidence-root "$evidence_root" \
+    --output-dir "$artifact_dir" \
+    --commit "$commit" \
+    --built-at-utc "$built_at_utc" \
+    --architecture "$architecture"
+}
+
+package_macos arm64 "$QT_MACOS_ARM64_ROOT"
+package_macos x86_64 "$QT_MACOS_X86_64_ROOT"
+```
+
+上述命令用于复现原生构建和部署 smoke。CI smoke 不等于真机验收；DMG 挂载、ZIP
+离线启动或 AppImage 的 Xvfb 启动成功，都不能替代目标桌面的人工交互清单。
+
+## GitHub Actions CI/CD
+
+`.github/workflows/ci.yml` 只为桌面应用运行五个实际发布 preset：
+`linux-continuous-release`、`windows-msvc2022-continuous`、
+`windows-mingw-continuous`、`macos-continuous-arm64` 和
+`macos-continuous-x86_64`。全部通过后，唯一发布 job 才更新固定 Pre-release；PR 只
+验证，不发布。它不执行本机性能基线，也不替代真机验收。工作流结构、Action 固定
+摘要、发布事务和远端处理流程见 `docs/development/GITHUB_ACTIONS_ZH.md`。
+
+Qt 采用集中升级规则：五个平台统一读取 workflow 顶层 `QT_VERSION`，不得在 job 中
+分别写版本。升级时只修改该值，同时审查 Qt 可用架构、MinGW 工具链、截图跨 minor
+容差和许可证，再让完整五平台 workflow 重新通过；不得只验证一个平台后发布。
 
 上传 GitHub 前可在任意具备 CMake 3.23+ 的环境运行静态契约：
 

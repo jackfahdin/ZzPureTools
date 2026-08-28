@@ -9,6 +9,7 @@ set(required_docs
     README.md
     docs/development/CODING_STANDARD_ZH.md
     docs/development/BUILDING_ZH.md
+    docs/development/GITHUB_ACTIONS_ZH.md
     docs/development/PLATFORM_SUPPORT_ZH.md
     docs/release/MANUAL_WINDOWS_CHECKLIST_ZH.md
     docs/release/MANUAL_MACOS_CHECKLIST_ZH.md
@@ -205,6 +206,86 @@ foreach(required_token IN ITEMS
     string(FIND "${readme_content}" "${required_token}" token_position)
     if(token_position EQUAL -1)
         message(FATAL_ERROR "README 缺少必需说明：${required_token}")
+    endif()
+endforeach()
+
+set(continuous_release_url
+    "https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build")
+set(continuous_package_names
+    "ZzPureToolsExample-continuous-linux-x86_64-<short-sha>.AppImage"
+    "ZzPureToolsExample-continuous-windows-msvc2022-x86_64-<short-sha>.zip"
+    "ZzPureToolsExample-continuous-windows-mingw-x86_64-<short-sha>.zip"
+    "ZzPureToolsExample-continuous-macos-arm64-<short-sha>.dmg"
+    "ZzPureToolsExample-continuous-macos-x86_64-<short-sha>.dmg")
+
+function(zz_require_document_tokens relative_path)
+    set(document_path "${source_root}/${relative_path}")
+    file(READ "${document_path}" document_content)
+    foreach(required_token IN LISTS ARGN)
+        string(FIND "${document_content}" "${required_token}"
+            token_position)
+        if(token_position EQUAL -1)
+            message(FATAL_ERROR
+                "${relative_path} 缺少持续发布说明：${required_token}")
+        endif()
+    endforeach()
+endfunction()
+
+zz_require_document_tokens(README.md
+    "${continuous_release_url}"
+    "Pre-release"
+    "未签名"
+    "SHA-256"
+    "CI smoke 不等于真机验收"
+    ${continuous_package_names})
+zz_require_document_tokens(docs/development/BUILDING_ZH.md
+    "${continuous_release_url}"
+    "linux-continuous-release"
+    "windows-msvc2022-continuous"
+    "windows-mingw-continuous"
+    "macos-continuous-arm64"
+    "macos-continuous-x86_64"
+    "scripts/package/package-linux-appimage.sh"
+    "scripts/package/package-windows.ps1"
+    "scripts/package/package-macos.sh"
+    "集中升级"
+    "CI smoke 不等于真机验收")
+zz_require_document_tokens(docs/development/GITHUB_ACTIONS_ZH.md
+    "${continuous_release_url}"
+    "Ubuntu 22.04"
+    "publish-continuous-build"
+    "contents: read"
+    "contents: write"
+    "Pre-release"
+    "SHA-256"
+    "失败时保留上一轮完整 Release"
+    "集中升级"
+    "CI smoke 不等于真机验收")
+zz_require_document_tokens(docs/development/PLATFORM_SUPPORT_ZH.md
+    "${continuous_release_url}"
+    "Ubuntu 22.04"
+    "Pre-release"
+    "未签名"
+    "SHA-256"
+    "CI smoke 不等于真机验收"
+    "linux-x86_64"
+    "windows-msvc2022-x86_64"
+    "windows-mingw-x86_64"
+    "macos-arm64"
+    "macos-x86_64")
+
+set(actions_document_path
+    "${source_root}/docs/development/GITHUB_ACTIONS_ZH.md")
+file(READ "${actions_document_path}" actions_document)
+foreach(obsolete_remote_claim IN ITEMS
+    "ubuntu-24.04"
+    "GCC Debug/Release、shared/static/LTO"
+    "工作流不发布包")
+    string(FIND "${actions_document}" "${obsolete_remote_claim}"
+        obsolete_claim_position)
+    if(NOT obsolete_claim_position EQUAL -1)
+        message(FATAL_ERROR
+            "GitHub Actions 文档仍包含旧远端矩阵声明：${obsolete_remote_claim}")
     endif()
 endforeach()
 foreach(relative_path IN LISTS required_readme_links)

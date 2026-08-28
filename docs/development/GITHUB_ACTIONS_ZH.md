@@ -1,54 +1,89 @@
-# GitHub Actions 持续集成手册
+# GitHub Actions 持续构建与发布手册
 
-## 当前状态
+## 当前定义
 
-`.github/workflows/ci.yml` 已在 GitHub 托管 runner 上产生真实运行记录。首次运行暴露了 CMake 3.23 策略声明问题，第二次运行暴露了 aqt 可选模块参数问题，第三次运行已经证明全部平台的 Qt 6.8.3 安装成功，并继续暴露 Qt 6.8 严格告警、MSVC UTF-8 和 MinGW 路径校验问题。当前定义已逐项修复这些问题，在同一提交的完整矩阵变绿前仍不得记为“GitHub 托管 CI 通过”，也不能据此修改 `PLATFORM_SUPPORT_ZH.md` 中的原生平台状态。
+`.github/workflows/ci.yml` 将 `ZzPureToolsExample` 的验证和可分发包合并为同一条
+continuous build 流程。固定下载页为
+<https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build>。该页面是滚动
+更新的 `Pre-release`，不是稳定版本；首次五平台同提交运行全部成功前，不登记远端
+通过结论，也不预填运行地址。
 
-Windows 构建把项目 DLL 与测试/示例可执行文件统一输出到构建树的 `bin` 目录，多配置生成器继续在其下使用 `Release` 子目录，避免 MinGW shared 测试因找不到同批项目 DLL 而退出。公共头独立编译探针使用“所属 target 与 include 名”的 SHA-256 前 12 位作为内部 target 和源文件名，避免 Windows Ninja 生成超长依赖文件路径；摘要只影响内部构建标识，不改变安装头文件名。MinGW 与 macOS Ninja preset 显式生成编译数据库，以支撑生成代码 flags 审计和 clang-tidy；Visual Studio 生成器不提供该数据库，因此 MSVC 不注册这一项测试，仍保留 `/analyze`。ZzLog 对 vendored fmt/spdlog 的私有 include 使用 CMake `SYSTEM` 语义，并由 `/analyze:external-` 排除外部头的代码分析诊断；第三方头告警不进入第一方 `/WX`，ZzLog 自有翻译单元仍执行 `/analyze` 和严格告警。
+工作流在推送到 `master`、pull request 和手工 `workflow_dispatch` 时运行。PR 执行
+配置合同、原生构建、CTest、部署审计和包内 smoke，但不上传 Release artifact，也不
+进入发布 job。`master` 和手工运行只有在目标 ref 为 `master` 时才允许发布。
 
-截图基线由当前 Linux 参考发布机的 Qt 6.11 维护，该 Qt minor 使用 `0.5%` 非文字像素严格上限。托管 Linux CI 固定 Qt 6.8.3，Fusion 在不同 Qt minor 间存在稳定绘制差异，因此它只执行 `2%` 的跨 minor 兼容上限，不能更新或批准参考基线；尺寸、DPR、字体、文字遮罩和单通道容差仍执行相同检查。截图失败时工作流上传 `reports/fluent-screenshots` 下的 actual/diff PNG，必须查看证据后才能修改阈值或基线。
+## 权限与依赖固定
 
-Qt 6.8 的 `QTranslator::installTranslator()` 会拒绝内部为空的 translator，即使测试子类覆写了 `translate()`；翻译边界测试先加载同一真实 `.qm`，再由覆写方法限制外部标记行为。LLVM 18 对 Qt 6.8 `QPointer` 销毁路径产生 `clang-analyzer-cplusplus.NewDelete` 释放后使用误报，项目只关闭这一项 analyzer 检查；其他 clang analyzer、严格编译告警和 ASan/UBSan 门禁保持启用。
+工作流顶层权限为 `contents: read`。只有 `publish-continuous-build` job 使用
+`contents: write`，其余 job 没有仓库写权限；工作流不使用 `pull_request_target`，也
+不需要仓库 secret。所有外部 Action 使用 40 位提交，下载工具使用固定 release URL
+和硬编码 `SHA-256`，不得改为可移动的 `@v4`、`@main`、`latest` 或 continuous 下载。
 
-macOS 托管 job 使用 macOS 15 runner 构建 deployment target 13.3。Qt 6.8 自身可支持 macOS 12，但 ZzLog 公共 API 使用 `std::format_string`，Apple libc++ 的 C++20 format 运行库要求 deployment target 13.3 或更高；不得通过关闭标准库能力探针伪装 macOS 12 兼容。Xcode 16.4 的 Apple libc++ 尚未提供 `std::stop_source`，因此 ZzCore 使用仅共享原子状态的 `ZzStopSource`/`ZzStopToken` 保持取消语义与跨平台 ABI，不在公共 API 暴露缺失的标准库类型。
+Qt 采用集中升级规则：五个平台都读取 workflow 顶层的 `QT_VERSION`，当前是
+`6.8.3`。升级 Qt 时只修改这一处版本入口，然后同步审查可用 runner/架构、Qt MinGW
+工具链、截图跨 minor 阈值和许可证内容，并重新运行完整五平台工作流。不得分别修改
+job 形成不同 Qt 版本，也不得只凭一个平台通过就更新 Release。
 
-该工作流只执行配置、编译、示例构建、静态分析、CTest、安装消费、重定位和二进制依赖检查。Linux 还在 offscreen 平台启动并自动关闭四个示例；Windows 和 macOS 只编译示例，不把托管 runner 上的进程启动视为交互验收。工作流不发布包、不创建 tag、不上传可分发二进制，也不启用 `ZZ_RELEASE_BUILD=ON`。正式发布仍要求仓库外合规证据和人工真机清单。
+## 发布矩阵
 
-## 触发条件与权限
-
-工作流在以下情况运行：
-
-- 推送到 `master` 或 `main`。
-- 任意 pull request。
-- GitHub 页面手工执行 `workflow_dispatch`。
-
-顶层权限固定为 `contents: read`，禁止使用 `pull_request_target`。外部 Action 使用 40 位提交固定，不使用可移动的 `@v4`、`@main` 或 `latest` runner 标签。更新 Action 时必须核对上游来源、替换静态契约中的摘要并重新运行本地契约。
-
-## 托管矩阵
-
-| Job | 固定 runner | Qt/工具链 | 自动覆盖 |
+| Job | 原生 runner | Preset | 产物与自动验证 |
 |---|---|---|---|
-| `contracts` | `ubuntu-24.04` | runner 自带 CMake | Preset、原生脚本和工作流静态契约 |
-| `linux` | `ubuntu-24.04` | Qt 6.8.3、GCC 14、Clang 18、offscreen | GCC Debug/Release、shared/static/LTO、clang-tidy shared/static、ASan+UBSan、四示例编译与冒烟 |
-| `windows-msvc` | `windows-2022` | Qt 6.8.3 MSVC 2022 x64 | MSVC shared/static、`/analyze`、LTO、四示例编译、dumpbin ABI 检查 |
-| `windows-mingw` | `windows-2022` | Qt 6.8.3 MinGW 13.1.0 | 官方 Qt MinGW shared/static、LTO、四示例编译、objdump ABI 检查 |
-| `macos arm64` | `macos-15` | Qt 6.8.3、Apple Clang、LLVM 18 tidy | arm64 shared/static、LTO、clang-tidy、四示例编译、`lipo` 精确架构检查 |
-| `macos x86_64` | `macos-15-intel` | Qt 6.8.3、Apple Clang、LLVM 18 tidy | x86_64 shared/static、LTO、clang-tidy、四示例编译、`lipo` 精确架构检查 |
+| `contracts` | Ubuntu 22.04 | 无编译 preset | Preset、打包脚本、workflow 和发布事务合同 |
+| `linux` | Ubuntu 22.04 x86_64 | `linux-continuous-release` | shared/LTO AppImage、ELF 审计、Xvfb smoke |
+| `windows-msvc` | Windows Server 2022 x86_64 | `windows-msvc2022-continuous` | MSVC ZIP、PE/runtime 审计、offscreen smoke |
+| `windows-mingw` | Windows Server 2022 x86_64 | `windows-mingw-continuous` | Qt MinGW ZIP、PE/runtime 审计、offscreen smoke |
+| `macos` / `arm64` | macOS 15 arm64 | `macos-continuous-arm64` | 单架构 DMG、挂载后 smoke、Mach-O 审计 |
+| `macos` / `x86_64` | macOS 15 Intel | `macos-continuous-x86_64` | 单架构 DMG、挂载后 smoke、Mach-O 审计 |
+| `publish-continuous-build` | Ubuntu 22.04 | 无编译 preset | 聚合五组 artifact 并事务式更新固定 Release |
 
-Qt 6.8.3 桌面基础套件已经包含 `QtSvg` 和提供 `Qt6::LinguistTools` 的 Qt Tools 包。`aqtinstall 3.3.0` 的可选模块清单不包含 `qtsvg` 或 `qttools`，因此 Action 不得通过 `modules` 参数重复请求它们；CMake 配置阶段仍会用 `find_package` 验证所需组件确实存在。Windows MinGW job 还从同一 Qt SDK 安装 `tools_mingw1310` 和 `tools_ninja`，然后用 `Assert-QtMinGWKit.ps1` 验证 target triple、GCC 精确版本、qmake prefix 和 xspec，禁止混用 MSVC Qt 或系统 MinGW。
+远端 Linux 只运行实际发布的 `linux-continuous-release`。Debug、static、Clang、
+clang-tidy、ASan/UBSan 和性能门禁仍是本机专项 preset，不再宣称由日常 GitHub Linux
+job 执行。GitHub 托管机器也不更新 `local-release-xvfb` 性能参考报告。
 
-## 与本机性能档案的边界
+## Artifact 与 Release 事务
 
-GitHub 托管机器的 CPU、内存、GPU、负载和镜像会变化，不能执行或更新 `local-release-xvfb` 的绝对性能基线。因此托管 CI 不运行 `linux-gcc-benchmarks`、不设置 `ZZ_PERFORMANCE_REFERENCE=ON`，也不修改 `docs/performance/reference/linux/`。
+五个平台 job 各自产生一个独立 artifact 目录，其中恰好有：
 
-本机 `run-linux-gates.sh` 继续是当前活动性能参考门禁。`ubuntu2204-github-ci` 仍是独立的未来兼容参考档案；普通 `ubuntu-24.04` CI 通过不能替代该档案的 immutable image digest 和性能审核。
+1. 平台包：AppImage、ZIP 或 DMG。
+2. `<package>.sha256`：包的 SHA-256 摘要。
+3. `build-info.json`：commit、runner、架构、Qt、编译器、preset、链接方式和 LTO 身份。
 
-## 远端运行后的处理
+发布 job 使用固定提交的 `actions/download-artifact` 下载五组文件。调用 GitHub API 前，
+`VerifyArtifactSet.cmake` 必须确认五个平台齐全、commit 完全一致、文件名与架构匹配且
+摘要可重新计算。发布时五份 `build-info.json` 重命名为
+`<package>.build-info.json`，因此 Release 最终精确包含 5 个包和 15 个互不重名资产。
 
-1. 在 GitHub Actions 页面确认所有逻辑矩阵组都实际启动，没有因账户额度或 runner 可用性跳过。
-2. 任一 job 失败时下载对应的 `*-failure-logs` artifact，并保留完整 Actions 日志和运行 URL。
-3. 只根据失败平台修改对应代码、Preset、runner 或依赖声明；不得使用 `continue-on-error` 隐藏失败。
-4. 修复后重新运行完整 workflow，并把同一提交的全绿结果记录为“GitHub 托管 CI 通过”。只有 runner 的 OS、架构和 ABI 与目标平台行完全一致时，才能进一步提升为“静态验证通过”。Windows Server 2022 不能替代 Windows 10/11，Ubuntu offscreen 也不能替代 KDE/GNOME X11/Wayland 行。
-5. Windows、macOS 和 Linux 窗口系统仍须按 `docs/release/` 下的清单真机签署，托管 CI 不得将状态提升为“真机验收通过”。
+固定 `continuous-build` tag 的更新顺序如下：
 
-该工作流不需要仓库 secret。若 Qt 在线归档、GitHub runner 标签或固定 Action 提交失效，应先保存失败证据，再更新依赖；不得临时切到未固定的版本或降低门禁。
+1. 校验本地五平台集合，缺包或摘要错误时不访问 GitHub。
+2. 首次运行创建未签名的 `Pre-release`；已有 Release 则先保留旧资产。
+3. 上传并从 API 读取全部 15 个新资产，确认每个新资产只出现一次。
+4. 更新说明和目标提交，再验证固定 tag 已指向本次 commit。
+5. 只有上述步骤全部成功后才删除不属于本提交的旧资产。
+
+因此，上传、API 可见性或 tag 更新失败时保留上一轮完整 Release。并发组
+`continuous-build-release` 使用 `cancel-in-progress: false`，避免进入写入阶段的运行被
+下一次推送中断。再次运行同一提交时可复用已经完整上传的 15 个资产。
+
+## 安全与验收边界
+
+所有 continuous build 都是未签名开发预览。Windows 和 macOS 可能显示系统安全提示；
+项目不得引导用户关闭整机安全机制。下载者应核对相邻 SHA-256 和
+`<package>.build-info.json` 中的提交，再决定是否运行。
+
+CI smoke 不等于真机验收。offscreen、Xvfb、DMG 挂载或部署目录启动成功，只能说明该
+原生 runner 上的包可以加载和退出，不能证明真实显示器上的鼠标命中、IME、DPI、窗口
+材质、系统菜单、拖放和桌面集成。平台状态只能按
+`docs/development/PLATFORM_SUPPORT_ZH.md` 和对应人工清单提升。
+
+## 远端失败处理
+
+1. 确认 `contracts`、五个平台通道和 `publish-continuous-build` 都实际启动，没有因额度或 runner 可用性跳过。
+2. 任一平台失败时下载其 `*-failure-logs`，保存完整日志和 workflow URL；不得使用 `continue-on-error` 隐藏失败。
+3. 只修改失败平台对应的代码、preset、打包脚本或固定依赖，并重新运行完整工作流。
+4. 发布 job 失败时先核对旧 Release 仍完整，再检查本次五组 artifact、API 可见性和 tag 更新步骤。
+5. 同一 commit 的全部 job 通过后，核对 Release 为 `prerelease=true`、`latest=false`、目标 commit 正确且只有 15 个新资产。
+6. 下载五个包并重新计算 SHA-256；完成后把 workflow URL、commit 和五平台结论追加到本文件。
+
+本机只能验证 YAML、脚本和事务合同，不能用 Linux 静态合同替代 Windows 或 macOS 原生
+runner 的结果。
