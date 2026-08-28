@@ -127,17 +127,19 @@ set -euo pipefail
 EOF
 chmod +x "$smoke_executable"
 
-QT_PLUGIN_PATH=/poison/plugins \
-QT_QPA_PLATFORM_PLUGIN_PATH=/poison/platforms \
-QML2_IMPORT_PATH=/poison/qml2 \
-QML_IMPORT_PATH=/poison/qml \
-DYLD_LIBRARY_PATH=/poison/lib \
-DYLD_FRAMEWORK_PATH=/poison/frameworks \
-DYLD_FALLBACK_LIBRARY_PATH=/poison/fallback-lib \
-DYLD_FALLBACK_FRAMEWORK_PATH=/poison/fallback-frameworks \
-DYLD_INSERT_LIBRARIES=/poison/injected.dylib \
-ZZ_SMOKE_CAPTURE=$smoke_capture \
+(
+  export QT_PLUGIN_PATH=/poison/plugins
+  export QT_QPA_PLATFORM_PLUGIN_PATH=/poison/platforms
+  export QML2_IMPORT_PATH=/poison/qml2
+  export QML_IMPORT_PATH=/poison/qml
+  export DYLD_LIBRARY_PATH=/poison/lib
+  export DYLD_FRAMEWORK_PATH=/poison/frameworks
+  export DYLD_FALLBACK_LIBRARY_PATH=/poison/fallback-lib
+  export DYLD_FALLBACK_FRAMEWORK_PATH=/poison/fallback-frameworks
+  export DYLD_INSERT_LIBRARIES=/poison/injected.dylib
+  export ZZ_SMOKE_CAPTURE=$smoke_capture
   zz_macos_invoke_app_smoke "$smoke_bundle"
+)
 
 expected_smoke_log=$(cat <<EOF
 QT_PLUGIN_PATH=<unset>
