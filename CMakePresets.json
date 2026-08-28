@@ -219,6 +219,19 @@
       }
     },
     {
+      "name": "windows-msvc2022-continuous",
+      "inherits": "windows-msvc-base",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_EXAMPLES": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_RELEASE_BUILD": true,
+        "ZZ_ENABLE_MSVC_ANALYZE": false
+      }
+    },
+    {
       "name": "windows-msvc2022-static",
       "inherits": "windows-msvc-base",
       "cacheVariables": {
@@ -257,6 +270,19 @@
       "inherits": "windows-mingw-base",
       "cacheVariables": {
         "BUILD_SHARED_LIBS": true
+      }
+    },
+    {
+      "name": "windows-mingw-continuous",
+      "inherits": "windows-mingw-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_EXAMPLES": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_RELEASE_BUILD": true
       }
     },
     {
@@ -354,11 +380,17 @@
       "configuration": "Release"
     },
     {
+      "name": "windows-msvc2022-continuous",
+      "configurePreset": "windows-msvc2022-continuous",
+      "configuration": "Release"
+    },
+    {
       "name": "windows-msvc2022-static",
       "configurePreset": "windows-msvc2022-static",
       "configuration": "Release"
     },
     { "name": "windows-mingw-release", "configurePreset": "windows-mingw-release" },
+    { "name": "windows-mingw-continuous", "configurePreset": "windows-mingw-continuous" },
     { "name": "windows-mingw-static", "configurePreset": "windows-mingw-static" },
     { "name": "macos-clang-release-arm64", "configurePreset": "macos-clang-release-arm64" },
     { "name": "macos-clang-release-x86_64", "configurePreset": "macos-clang-release-x86_64" },
@@ -566,6 +598,19 @@
       }
     },
     {
+      "name": "windows-msvc2022-continuous",
+      "configurePreset": "windows-msvc2022-continuous",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "windows-msvc2022-continuous",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
       "name": "windows-msvc2022-static",
       "configurePreset": "windows-msvc2022-static",
       "configuration": "Release",
@@ -585,6 +630,18 @@
       "execution": { "noTestsAction": "error" },
       "environment": {
         "ZZ_CMAKE_PRESET": "windows-mingw-release",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "windows-mingw-continuous",
+      "configurePreset": "windows-mingw-continuous",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "windows-mingw-continuous",
         "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
