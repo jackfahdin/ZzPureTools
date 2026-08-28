@@ -275,7 +275,9 @@ private Q_SLOTS:
                         qPrintable(QStringLiteral(
                             "Activity Bar row has no renderable icon: %1")
                                        .arg(index.data().toString())));
-                    const auto descriptor = index.data(Qt::DecorationRole)
+                    const QVariant descriptorValue =
+                        index.data(Qt::DecorationRole);
+                    const auto descriptor = descriptorValue
                                                 .value<ZzFluentUI::ZzIconDescriptor>();
                     if (index.data().toString() == QStringLiteral("设置")) {
                         QCOMPARE(

@@ -114,11 +114,11 @@ private Q_SLOTS:
                          ZzPureTools::ZzNavigationRole::Route))
                 .value<ZzPureTools::ZzRouteId>(),
             ZzPureTools::ZzRouteId(QStringLiteral("settings")));
-        const auto icon = model.data(
-                                   index,
-                                   static_cast<int>(
-                                       ZzPureTools::ZzNavigationRole::Icon))
-                              .value<ZzFluentUI::ZzIconDescriptor>();
+        const QVariant iconValue = model.data(
+            index,
+            static_cast<int>(ZzPureTools::ZzNavigationRole::Icon));
+        const auto icon =
+            iconValue.value<ZzFluentUI::ZzIconDescriptor>();
         QCOMPARE(icon.resourceId, expectedIcon.resourceId);
         QCOMPARE(icon.mirroredInRightToLeft, true);
         QCOMPARE(
