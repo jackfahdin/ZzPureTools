@@ -66,8 +66,8 @@ esac
   exit 1
 }
 
-for tool in awk bash cmake ditto env file find grep hdiutil lipo ln \
-            mkdir mktemp mv otool realpath rm sed sw_vers; do
+for tool in awk bash cmake ditto env file find grep hdiutil install_name_tool \
+            lipo ln mkdir mktemp mv otool realpath rm sed sw_vers; do
   command -v "$tool" >/dev/null || {
     echo "required tool is unavailable: $tool" >&2
     exit 69
@@ -333,6 +333,33 @@ invoke_macdeployqt() {
     "-executable=$plugin"
 }
 
+strip_transient_rpaths() {
+  local bundle=$1
+  local binary description load_commands rpath forbidden_path
+  while IFS= read -r -d '' binary; do
+    description=$(file -b "$binary")
+    case $description in
+      *Mach-O*) ;;
+      *) continue ;;
+    esac
+    load_commands=$(otool -l "$binary")
+    while IFS= read -r rpath; do
+      [[ -n $rpath ]] || continue
+      for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
+        case $rpath in
+          "$forbidden_path"|"$forbidden_path"/*)
+            install_name_tool -delete_rpath "$rpath" "$binary"
+            break
+            ;;
+        esac
+      done
+    done < <(printf '%s\n' "$load_commands" | awk '
+      $1 == "cmd" && $2 == "LC_RPATH" { want_path = 1; next }
+      want_path && $1 == "path" { print $2; want_path = 0 }
+    ')
+  done < <(find "$bundle" -type f -print0)
+}
+
 audit_app_bundle() {
   local bundle=$1
   local macho_count=0
@@ -374,11 +401,16 @@ audit_app_bundle() {
     links=$(otool -L "$binary")
     load_commands=$(otool -l "$binary")
     for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
-      [[ $links != *"$forbidden_path"* &&
-         $load_commands != *"$forbidden_path"* ]] || {
-        echo "build path leaked into $binary: $forbidden_path" >&2
+      if [[ $links == *"$forbidden_path"* ]]; then
+        echo "build dependency path leaked into $binary: $forbidden_path" >&2
+        printf '%s\n' "$links" | grep -F "$forbidden_path" >&2
         exit 1
-      }
+      fi
+      if [[ $load_commands == *"$forbidden_path"* ]]; then
+        echo "build load-command path leaked into $binary: $forbidden_path" >&2
+        printf '%s\n' "$load_commands" | grep -F "$forbidden_path" >&2
+        exit 1
+      fi
     done
 
     while IFS= read -r dependency; do
@@ -565,6 +597,7 @@ app_resources="$app_bundle/Contents/Resources"
 stage_first_party_libraries "$app_bundle"
 stage_offscreen_plugin "$app_bundle"
 invoke_macdeployqt "$app_bundle"
+strip_transient_rpaths "$app_bundle"
 audit_app_bundle "$app_bundle"
 invoke_app_smoke "$app_executable"
 stage_runtime_licenses "$app_bundle"
