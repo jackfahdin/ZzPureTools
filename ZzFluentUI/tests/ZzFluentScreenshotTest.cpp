@@ -941,12 +941,13 @@ private:
 
         layout->addWidget(new QLabel(QStringLiteral("Calendar"), container));
         auto *calendar = new ZzFluentUI::ZzCalendar(container);
+        calendar->setObjectName(QStringLiteral("zzScreenshotCalendar"));
         calendar->setLocale(QLocale::c());
         calendar->setFirstDayOfWeek(Qt::Monday);
         calendar->setDateRange(
-            QDate(2026, 8, 3),
-            QDate(2026, 8, 28));
-        calendar->setSelectedDate(QDate(2026, 8, 6));
+            QDate(2000, 8, 3),
+            QDate(2000, 8, 28));
+        calendar->setSelectedDate(QDate(2000, 8, 6));
         calendar->setFixedHeight(270);
         layout->addWidget(calendar);
 
@@ -6983,6 +6984,11 @@ private Q_SLOTS:
         surface.window.setPalette(QApplication::palette());
         surface.menu.setPalette(QApplication::palette());
         surface.polish();
+        const auto *calendar = surface.window.findChild<
+            ZzFluentUI::ZzCalendar *>(QStringLiteral("zzScreenshotCalendar"));
+        QVERIFY(calendar != nullptr);
+        QVERIFY(QDate::currentDate() < calendar->minimumDate()
+            || QDate::currentDate() > calendar->maximumDate());
         const QImage actual = zzRenderSurface(&surface, actualDpr_);
         QCOMPARE(
             actual.size(),
