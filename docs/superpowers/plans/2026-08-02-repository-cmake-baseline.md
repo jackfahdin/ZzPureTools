@@ -12,8 +12,8 @@
 
 ## 执行约束
 
-- 所有命令都从内层仓库 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro` 执行。
-- 开始前阅读 `docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md`，不得修改 `ZzThirdParty/qwindowkit`。
+- 所有命令都从内层仓库 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame` 执行。
+- 开始前阅读 `docs/superpowers/specs/2026-08-02-zzpuretoolsframe-architecture-design.md`，不得修改 `ZzThirdParty/qwindowkit`。
 - 执行机必须让 `g++-13` 可从 `PATH` 找到，且版本不低于 13.1；`QT_ROOT` 必须指向 Qt 6.8 或更高版本的当前编译器套件前缀。
 - 每个任务都先执行明确的红灯命令，再写最小实现；红灯只用于证明缺口，不得在红灯状态提交。
 - 每次 `git commit` 前必须重新运行该任务列出的绿灯 configure/build/test，任何 configure 失败都必须先修复。
@@ -34,7 +34,7 @@
 - `cmake/ZzLibraryTarget.cmake`：统一六个库的导出宏、可见性、build/install include 和静态宏。
 - `cmake/ZzArchitectureChecks.cmake`：定义 `ZzPublicHeadersTest` 及公共头逐文件编译规则。
 - `cmake/ZzInstallPackage.cmake`：安装六个 target、全部产物、公开头、Config 和 Version 文件。
-- `cmake/ZzPureToolsProConfig.cmake.in`：声明已安装包的 Qt 依赖并导入 `Zz::` target。
+- `cmake/ZzPureToolsFrameConfig.cmake.in`：声明已安装包的 Qt 依赖并导入 `Zz::` target。
 - `examples/CMakeLists.txt`：作为唯一示例聚合入口，由后续组件计划按执行顺序追加子目录。
 - `tests/Architecture/`：版本 API、生成代码边界、公共头和架构扫描门禁。
 - `tests/InstallConsumer/`：全新 A/B/consumer 安装消费驱动和真正的外部消费者。
@@ -81,7 +81,7 @@ Create `CMakeLists.txt` with:
 ```cmake
 cmake_minimum_required(VERSION 3.23)
 
-project(ZzPureToolsPro
+project(ZzPureToolsFrame
     VERSION 0.1.0
     DESCRIPTION "High-performance cross-platform Qt application framework"
     LANGUAGES CXX
@@ -91,9 +91,9 @@ include(CTest)
 include(GNUInstallDirs)
 
 option(BUILD_SHARED_LIBS "Build shared libraries by default" ON)
-option(ZZ_BUILD_TESTS "Build ZzPureToolsPro tests" ${BUILD_TESTING})
-option(ZZ_BUILD_EXAMPLES "Build ZzPureToolsPro examples" OFF)
-option(ZZ_BUILD_BENCHMARKS "Build ZzPureToolsPro benchmarks" OFF)
+option(ZZ_BUILD_TESTS "Build ZzPureToolsFrame tests" ${BUILD_TESTING})
+option(ZZ_BUILD_EXAMPLES "Build ZzPureToolsFrame examples" OFF)
+option(ZZ_BUILD_BENCHMARKS "Build ZzPureToolsFrame benchmarks" OFF)
 option(ZZ_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ZZ_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ZZ_ENABLE_CLANG_TIDY "Run clang-tidy on explicit first-party sources" OFF)
@@ -1900,7 +1900,7 @@ git commit -m "测试：建立公共头与架构门禁" \
 
 **Files:**
 - Create: `cmake/ZzInstallPackage.cmake`
-- Create: `cmake/ZzPureToolsProConfig.cmake.in`
+- Create: `cmake/ZzPureToolsFrameConfig.cmake.in`
 - Modify: `CMakeLists.txt`
 
 - [ ] **Step 1: 运行缺少 Config Package 的红灯**
@@ -1910,14 +1910,14 @@ Run:
 ```bash
 cmake --build --preset linux-gcc-debug
 cmake --install build/linux-gcc-debug --prefix build/linux-gcc-debug/red-install
-test -f build/linux-gcc-debug/red-install/lib/cmake/ZzPureToolsPro/ZzPureToolsProConfig.cmake
+test -f build/linux-gcc-debug/red-install/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfig.cmake
 ```
 
-Expected: build 和空安装命令可以返回 0，但最后的 `test` 必须 FAIL，因为当前没有 ZzPureToolsPro 安装规则和 Config 文件。红灯原因是包缺失，不是现有工程配置失败。
+Expected: build 和空安装命令可以返回 0，但最后的 `test` 必须 FAIL，因为当前没有 ZzPureToolsFrame 安装规则和 Config 文件。红灯原因是包缺失，不是现有工程配置失败。
 
 - [ ] **Step 2: 写入包配置模板**
 
-Create `cmake/ZzPureToolsProConfig.cmake.in` with:
+Create `cmake/ZzPureToolsFrameConfig.cmake.in` with:
 
 ```cmake
 @PACKAGE_INIT@
@@ -1931,9 +1931,9 @@ find_dependency(Qt6 6.8 REQUIRED COMPONENTS
     Concurrent
 )
 
-include("${CMAKE_CURRENT_LIST_DIR}/ZzPureToolsProTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/ZzPureToolsFrameTargets.cmake")
 
-check_required_components(ZzPureToolsPro)
+check_required_components(ZzPureToolsFrame)
 ```
 
 模板只记录逻辑依赖，不写 Qt SDK 路径。Qt minor 精确匹配将在 QWindowKit 私有后端进入二进制包的计划中增加；当前总体约束仍是 Qt 6.8 或更高版本。
@@ -1949,9 +1949,9 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 function(zz_install_package)
-    set(zz_export_name ZzPureToolsProTargets)
+    set(zz_export_name ZzPureToolsFrameTargets)
     set(zz_package_cmake_dir
-        "${CMAKE_INSTALL_LIBDIR}/cmake/ZzPureToolsPro")
+        "${CMAKE_INSTALL_LIBDIR}/cmake/ZzPureToolsFrame")
     set(zz_targets
         ZzCore
         ZzWindowKit
@@ -2024,43 +2024,43 @@ function(zz_install_package)
     endforeach()
 
     configure_package_config_file(
-        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ZzPureToolsProConfig.cmake.in"
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfig.cmake"
+        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ZzPureToolsFrameConfig.cmake.in"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfig.cmake"
         INSTALL_DESTINATION "${zz_package_cmake_dir}"
     )
     write_basic_package_version_file(
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfigVersion.cmake"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfigVersion.cmake"
         VERSION "${PROJECT_VERSION}"
         COMPATIBILITY SameMinorVersion
     )
 
     install(EXPORT ${zz_export_name}
-        FILE ZzPureToolsProTargets.cmake
+        FILE ZzPureToolsFrameTargets.cmake
         NAMESPACE Zz::
         DESTINATION "${zz_package_cmake_dir}"
         COMPONENT Development
     )
     install(FILES
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfig.cmake"
-        "${PROJECT_BINARY_DIR}/ZzPureToolsProConfigVersion.cmake"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfig.cmake"
+        "${PROJECT_BINARY_DIR}/ZzPureToolsFrameConfigVersion.cmake"
         DESTINATION "${zz_package_cmake_dir}"
         COMPONENT Development
     )
 
     install(FILES
-        "${PROJECT_SOURCE_DIR}/docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md"
-        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/ZzPureToolsPro"
+        "${PROJECT_SOURCE_DIR}/docs/superpowers/specs/2026-08-02-zzpuretoolsframe-architecture-design.md"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/ZzPureToolsFrame"
         COMPONENT Development
     )
 
     if(EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
         install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
-            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/ZzPureToolsPro"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/licenses/ZzPureToolsFrame"
             COMPONENT Runtime
         )
     else()
         message(STATUS
-            "ZzPureToolsPro LICENSE is absent; binary publication remains blocked")
+            "ZzPureToolsFrame LICENSE is absent; binary publication remains blocked")
     endif()
 endfunction()
 ```
@@ -2085,9 +2085,9 @@ set -euo pipefail
 cmake --preset linux-gcc-debug
 cmake --build --preset linux-gcc-debug
 cmake --install build/linux-gcc-debug --prefix install/linux-gcc-debug
-test -f install/linux-gcc-debug/lib/cmake/ZzPureToolsPro/ZzPureToolsProConfig.cmake
-test -f install/linux-gcc-debug/lib/cmake/ZzPureToolsPro/ZzPureToolsProConfigVersion.cmake
-test -f install/linux-gcc-debug/lib/cmake/ZzPureToolsPro/ZzPureToolsProTargets.cmake
+test -f install/linux-gcc-debug/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfig.cmake
+test -f install/linux-gcc-debug/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfigVersion.cmake
+test -f install/linux-gcc-debug/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameTargets.cmake
 test -f install/linux-gcc-debug/include/ZzCore/ZzCoreVersion.h
 test -f install/linux-gcc-debug/include/ZzCore/ZzCoreExport.h
 test -f install/linux-gcc-debug/include/ZzWindowKit/ZzWindowKitExport.h
@@ -2095,8 +2095,8 @@ test -f install/linux-gcc-debug/include/ZzFluentUI/ZzFluentFoundationExport.h
 test -f install/linux-gcc-debug/include/ZzFluentUI/ZzFluentUIExport.h
 test -f install/linux-gcc-debug/include/ZzPureTools/ZzAppCoreExport.h
 test -f install/linux-gcc-debug/include/ZzPureTools/ZzPureToolsExport.h
-if rg -n -F "$PWD" install/linux-gcc-debug/lib/cmake/ZzPureToolsPro; then exit 1; fi
-if rg -n -F "$QT_ROOT" install/linux-gcc-debug/lib/cmake/ZzPureToolsPro; then exit 1; fi
+if rg -n -F "$PWD" install/linux-gcc-debug/lib/cmake/ZzPureToolsFrame; then exit 1; fi
+if rg -n -F "$QT_ROOT" install/linux-gcc-debug/lib/cmake/ZzPureToolsFrame; then exit 1; fi
 ```
 
 Expected: 所有 `test -f` 返回 0；安装树包含共享库、公开头、六个生成导出头和三个 package 文件；两个绝对路径负向扫描都无匹配。`@PACKAGE_INIT@` 生成的 `_IMPORT_PREFIX` 相对计算允许存在。
@@ -2104,7 +2104,7 @@ Expected: 所有 `test -f` 返回 0；安装树包含共享库、公开头、六
 - [ ] **Step 6: 提交安装实现**
 
 ```bash
-git add CMakeLists.txt cmake/ZzInstallPackage.cmake cmake/ZzPureToolsProConfig.cmake.in
+git add CMakeLists.txt cmake/ZzInstallPackage.cmake cmake/ZzPureToolsFrameConfig.cmake.in
 git commit -m "构建：实现可重定位安装包" \
   -m "完整安装六个导出 target 的产物、源公共头与生成导出头。" \
   -m "生成使用 Zz 命名空间的 Config 和 SameMinorVersion 版本文件。"
@@ -2175,7 +2175,7 @@ project(ZzInstallConsumer LANGUAGES CXX)
 include(GNUInstallDirs)
 enable_testing()
 
-find_package(ZzPureToolsPro 0.1 CONFIG REQUIRED)
+find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)
 
 set(zz_installed_header_specs
     "Zz::Core|ZzCore/ZzCoreVersion.h"
@@ -2410,7 +2410,7 @@ zz_run_process("fresh producer install"
 
 file(GLOB_RECURSE zz_installed_configs
     LIST_DIRECTORIES FALSE
-    "${zz_b_dir}/ZzPureToolsProConfig.cmake"
+    "${zz_b_dir}/ZzPureToolsFrameConfig.cmake"
 )
 list(LENGTH zz_installed_configs zz_config_count)
 if(NOT zz_config_count EQUAL 1)
@@ -2642,7 +2642,7 @@ Expected: `git diff --check` 返回 0；状态中没有 `build/`、`install/`、
 - 六个 target 以 `Zz::Core`、`Zz::WindowKit`、`Zz::FluentFoundation`、`Zz::FluentUI`、`Zz::AppCore`、`Zz::PureTools` 导出，依赖方向符合架构规范。
 - 一方 `.cpp` 在严格 preset 下使用 `-Werror` 或 `/WX`；AUTOMOC/AUTORCC 和第三方源码不继承这些选项，clang-tidy 也不扫描生成源码。
 - `ZzPublicHeadersTest` 在 build tree 中逐个编译全部源公共头和生成导出头；外部 consumer 在 install tree 中再次逐个编译十二个已安装头。
-- `zz_install_package()` 安装 Windows DLL、import library、Unix/macOS shared library、static archive、源公共头、生成导出头、`ZzPureToolsProTargets.cmake`、Config 和 SameMinorVersion 文件。
+- `zz_install_package()` 安装 Windows DLL、import library、Unix/macOS shared library、static archive、源公共头、生成导出头、`ZzPureToolsFrameTargets.cmake`、Config 和 SameMinorVersion 文件。
 - `install.consumer` 每次删除并重建隔离的 `A`、`B`、`consumer` 三棵树；它保留 Qt prefix，并透传 configuration、compiler、generator platform/toolset 与 macOS architecture/deployment target。
 - 已安装 CMake 文件不包含源码树、主构建树、producer A 或本机 Qt SDK 的绝对路径。
 - LTO 由 verbose 命令中的真实 `-flto` 证明；clang-tidy 由 `ZzClangTidy` 的真实组件源码命令证明。

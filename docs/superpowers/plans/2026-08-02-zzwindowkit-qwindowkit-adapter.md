@@ -64,7 +64,7 @@
 - Modify: `ZzWindowKit/CMakeLists.txt`
 - Modify: `CMakeLists.txt`
 - Modify: `cmake/ZzInstallPackage.cmake`
-- Modify: `cmake/ZzPureToolsProConfig.cmake.in`
+- Modify: `cmake/ZzPureToolsFrameConfig.cmake.in`
 - Create: `cmake/ZzWindowKitPrivateTargets.cmake.in`
 - Create: `tests/Architecture/CheckZzWindowKitBoundaries.cmake`
 - Create: `docs/third-party/qwindowkit-vendor.json`
@@ -830,7 +830,7 @@ git commit -m "测试：验证 Linux 无边框窗口生命周期" \
 - Modify: `ZzWindowKit/CMakeLists.txt`
 - Create: `cmake/ZzWindowKitPrivateTargets.cmake.in`
 - Modify: `cmake/ZzInstallPackage.cmake`
-- Modify: `cmake/ZzPureToolsProConfig.cmake.in`
+- Modify: `cmake/ZzPureToolsFrameConfig.cmake.in`
 - Modify: `tests/InstallConsumer/RunInstallConsumer.cmake`
 
 - [ ] **Step 1: 添加静态安装泄漏失败检查**
@@ -919,7 +919,7 @@ Expected: build interface 含 `QWindowKit::Core`/`QWindowKit::Widgets`，install
 ```cmake
 if(NOT BUILD_SHARED_LIBS)
     set(zz_qwk_private_install_dir
-        "${CMAKE_INSTALL_LIBDIR}/zzpuretoolspro/private"
+        "${CMAKE_INSTALL_LIBDIR}/zzpuretoolsframe/private"
     )
     set(zz_qwk_core_file
         "ZzWindowKitBackendCore${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -1035,7 +1035,7 @@ IMPORTED_LOCATION
     "${PACKAGE_PREFIX_DIR}/@ZZ_QWK_PRIVATE_INSTALL_DIR@/@ZZ_QWK_CORE_FILE@"
 ```
 
-Widgets backend 同样使用该目录 property，不能再次硬编码 `@CMAKE_INSTALL_LIBDIR@/zzpuretoolspro/private`。以上 `configure_package_config_file()` 依赖前文已设置的 `ZZ_QWK_PLATFORM_LIBRARIES`；static 模式缺少任一 target property 必须在 configure 阶段失败，不能生成带 `-NOTFOUND` 的安装包。
+Widgets backend 同样使用该目录 property，不能再次硬编码 `@CMAKE_INSTALL_LIBDIR@/zzpuretoolsframe/private`。以上 `configure_package_config_file()` 依赖前文已设置的 `ZZ_QWK_PLATFORM_LIBRARIES`；static 模式缺少任一 target property 必须在 configure 阶段失败，不能生成带 `-NOTFOUND` 的安装包。
 
 Apple 分支禁止把 `find_library()` 得到的 Xcode SDK 绝对路径写入已安装 Config；由消费者当前 SDK 解析 framework 名称。不增加 X11/Wayland link，因为上游运行时动态加载它们。此静态封装支持“静态 Zz + Qt 官方动态 SDK”，不承诺静态 Qt SDK。
 
@@ -1050,7 +1050,7 @@ set(ZZ_WINDOWKIT_BUILD_QT_MAJOR ${Qt6_VERSION_MAJOR})
 set(ZZ_WINDOWKIT_BUILD_QT_MINOR ${Qt6_VERSION_MINOR})
 ```
 
-生成 Config 后比较消费者 `Qt6_VERSION_MAJOR/MINOR`；不一致时 `set(ZzPureToolsPro_FOUND FALSE)` 并给出明确原因。静态模式先 include private targets，再 include 主 Targets。
+生成 Config 后比较消费者 `Qt6_VERSION_MAJOR/MINOR`；不一致时 `set(ZzPureToolsFrame_FOUND FALSE)` 并给出明确原因。静态模式先 include private targets，再 include 主 Targets。
 
 - [ ] **Step 6: 验证 shared/static 安装消费者**
 

@@ -26,7 +26,7 @@
 
 ## 2. 旧版逐行审计结论
 
-审计来源固定为旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzFluentUI`，只读取交互意图，不复制实现。
+审计来源固定为旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzFluentUI`，只读取交互意图，不复制实现。
 
 ### 2.1 `ZzFlowLayout.h`
 

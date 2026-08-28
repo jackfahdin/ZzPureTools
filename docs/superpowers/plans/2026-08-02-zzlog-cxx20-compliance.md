@@ -13,7 +13,7 @@
 ## 前置条件
 
 - 完成 `2026-08-02-repository-cmake-baseline.md`。
-- 工作目录：`/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录：`/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 保留现有轮转文件、控制台等级、线程安全写入和独立 package 能力。
 - API 允许破坏性改名，不增加旧 `zz::log` compatibility namespace。
 - 生命周期契约固定为：`initialize()` 与 `shutdown()` 只能由应用生命周期线程调用，且调用期间其他线程不得进入任何日志 API；普通写入、等级修改、`flush()`、`flushAndWait()` 和观测 API 彼此可并发。
@@ -32,7 +32,7 @@
 - Modify: `ZzThirdParty/ZzLog/README.md`
 - Modify: `ZzThirdParty/ZzLog/BUILDING-MULTIPLATFORM.md`
 - Modify: `CMakeLists.txt`
-- Modify: `cmake/ZzPureToolsProConfig.cmake.in`
+- Modify: `cmake/ZzPureToolsFrameConfig.cmake.in`
 - Modify: `ZzCore/CMakeLists.txt`
 
 ## Task 1: 建立新 API 的编译失败测试
@@ -684,7 +684,7 @@ git commit -m "日志：增加异步队列观测与有界等待" \
 - Modify: `ZzThirdParty/ZzLog/CMakeLists.txt`
 - Modify: `CMakeLists.txt`
 - Modify: `ZzCore/CMakeLists.txt`
-- Modify: `cmake/ZzPureToolsProConfig.cmake.in`
+- Modify: `cmake/ZzPureToolsFrameConfig.cmake.in`
 
 - [ ] **Step 1: 将 ZzLog target 改为遵循 BUILD_SHARED_LIBS**
 
@@ -732,7 +732,7 @@ add_subdirectory(ZzThirdParty/ZzLog EXCLUDE_FROM_ALL)
 target_link_libraries(ZzCore PRIVATE ZzLog::ZzLog)
 ```
 
-在 `ZzPureToolsProConfig.cmake.in` 的 Qt dependency 后增加：
+在 `ZzPureToolsFrameConfig.cmake.in` 的 Qt dependency 后增加：
 
 ```cmake
 find_dependency(ZzLog 0.1 CONFIG REQUIRED)
@@ -769,7 +769,7 @@ Expected: PASS；consumer 通过 `find_dependency(ZzLog)` 解析 Core 的 link-o
 - [ ] **Step 6: 提交构建集成**
 
 ```bash
-git add CMakeLists.txt cmake/ZzPureToolsProConfig.cmake.in ZzCore/CMakeLists.txt ZzThirdParty/ZzLog
+git add CMakeLists.txt cmake/ZzPureToolsFrameConfig.cmake.in ZzCore/CMakeLists.txt ZzThirdParty/ZzLog
 git commit -m "构建：统一 ZzLog 的共享与静态模式" \
     -m "让日志组件遵循顶层 BUILD_SHARED_LIBS，并从公共安装接口移除 fmt。" \
     -m "顶层包显式发现 ZzLog，保证共享运行时唯一且静态消费者依赖完整。"

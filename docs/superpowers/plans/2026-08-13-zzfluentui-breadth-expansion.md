@@ -2,7 +2,7 @@
 
 计划日期：2026-08-13  
 目标分支：master  
-实施目录：/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro  
+实施目录：/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame
 主验证平台：Linux 参考机、Qt 6.11.1、GCC 15.2.0、C++20、CMake Presets  
 跨平台边界：Windows MSVC、Windows Qt MinGW、macOS arm64/x86_64 在没有原生 runner 时只做静态检查，不把静态检查写成真实构建或真机验收通过。
 
@@ -10,7 +10,7 @@
 
 当前 ZzFluentUI 已有 37 个公开可组合组件，组件深度已经覆盖主题、输入、导航、反馈、弹层、卡片、标签页、滚动和日期等核心路径。下一阶段重点从继续增加单个复杂控件切换为扩大可用场景覆盖面，让标准 Qt Widgets、旧版示例中常见的交互类型，以及新项目的 Gallery/Example 形成完整 Fluent 使用面。
 
-本计划不把旧版头文件数量当作目标。旧版 /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzFluentUI 中存在大量以下模式：
+本计划不把旧版头文件数量当作目标。旧版 /home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzFluentUI 中存在大量以下模式：
 
 - 仅为换颜色、圆角或尺寸而继承 QCheckBox、QComboBox、QSlider、QProgressBar、QMenu、QToolBar 等标准控件；
 - 每个控件创建独立 QProxyStyle、stylesheet、事件过滤器或动画对象；

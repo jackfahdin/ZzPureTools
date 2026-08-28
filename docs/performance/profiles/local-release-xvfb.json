@@ -40,7 +40,7 @@
     "gccPath": "/usr/bin/gcc-15",
     "gxxPath": "/usr/bin/g++-15",
     "qtRoot": "/home/zz/Qt/6.11.1/gcc_64",
-    "xkbcommonInclude": "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro/build/dependencies/xkbcommon/root/usr/include",
+    "xkbcommonInclude": "/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame/build/dependencies/xkbcommon/root/usr/include",
     "xkbcommonLibrary": "/usr/lib/x86_64-linux-gnu/libxkbcommon.so.0"
   },
   "build": {

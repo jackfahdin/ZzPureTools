@@ -17,7 +17,7 @@
 - Windows/macOS 第一阶段必须在原生 runner 编译所有条件分支，完成严格警告、公开头、安装消费和二进制依赖检查。
 - Windows Snap Layout/DPI/多屏/材质和 macOS 原生按钮/全屏/Retina/blur 仍是人工真机验收，禁止把“编译通过”写成“功能验收通过”。
 - qwindowkit 准确上游 commit、归档摘要和具名来源审核已经固定；摘要变化时 `ZZ_RELEASE_BUILD=ON` 必须重新失败关闭。
-- Qt 5.15.2 派生构建工具已按 GPLv3 加 Qt GPL Exception 完成具名审核，并由安装门禁保证不进入 ZzPureToolsPro 包。
+- Qt 5.15.2 派生构建工具已按 GPLv3 加 Qt GPL Exception 完成具名审核，并由安装门禁保证不进入 ZzPureToolsFrame 包。
 - 仓库根项目许可证已由 Jackfahdin 选择并批准为 MIT，许可证正文和批准记录摘要均由 manifest 锁定。
 
 ## 八份计划的执行顺序
@@ -219,7 +219,7 @@ cmake \
   -DZZ_SOURCE_DIR="$PWD" \
   -DZZ_QT_PREFIX="$QT_ROOT" \
   -DZZ_REJECTED_CXX="$(command -v g++-12)" \
-  -DZZ_WORK_DIR="/tmp/zzpuretoolspro-gcc12-contract" \
+  -DZZ_WORK_DIR="/tmp/zzpuretoolsframe-gcc12-contract" \
   -P tests/Platform/CompilerCapabilitiesContract.cmake
 ```
 
@@ -236,19 +236,19 @@ include(CheckCXXSourceCompiles)
 function(zz_check_compiler_capabilities)
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         if("${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS 13.1)
-            message(FATAL_ERROR "ZzPureToolsPro requires GCC 13.1 or newer")
+            message(FATAL_ERROR "ZzPureToolsFrame requires GCC 13.1 or newer")
         endif()
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         if("${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS 17.0)
-            message(FATAL_ERROR "ZzPureToolsPro requires Clang 17 or newer")
+            message(FATAL_ERROR "ZzPureToolsFrame requires Clang 17 or newer")
         endif()
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
         if("${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS 15.0)
-            message(FATAL_ERROR "ZzPureToolsPro requires Apple Clang 15 or newer")
+            message(FATAL_ERROR "ZzPureToolsFrame requires Apple Clang 15 or newer")
         endif()
     elseif(MSVC)
         if("${MSVC_VERSION}" LESS 1938)
-            message(FATAL_ERROR "ZzPureToolsPro requires MSVC 19.38 or newer")
+            message(FATAL_ERROR "ZzPureToolsFrame requires MSVC 19.38 or newer")
         endif()
     else()
         message(FATAL_ERROR
@@ -489,7 +489,7 @@ cmake \
   -DZZ_SOURCE_DIR="$PWD" \
   -DZZ_QT_PREFIX="$QT_ROOT" \
   -DZZ_REJECTED_CXX="$(command -v g++-12)" \
-  -DZZ_WORK_DIR="/tmp/zzpuretoolspro-gcc12-contract" \
+  -DZZ_WORK_DIR="/tmp/zzpuretoolsframe-gcc12-contract" \
   -P tests/Platform/CompilerCapabilitiesContract.cmake
 ```
 
@@ -2640,17 +2640,17 @@ if(NOT DEFINED ZZ_PACKAGE_ROOT OR "${ZZ_PACKAGE_ROOT}" STREQUAL "")
     message(FATAL_ERROR "ZZ_PACKAGE_ROOT is required")
 endif()
 file(GLOB_RECURSE package_configs LIST_DIRECTORIES FALSE
-    "${ZZ_PACKAGE_ROOT}/*/cmake/ZzPureToolsPro/ZzPureToolsProConfig.cmake")
+    "${ZZ_PACKAGE_ROOT}/*/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfig.cmake")
 list(LENGTH package_configs package_config_count)
 if(NOT "${package_config_count}" EQUAL 1)
     message(FATAL_ERROR
-        "Expected one ZzPureToolsProConfig.cmake below package root")
+        "Expected one ZzPureToolsFrameConfig.cmake below package root")
 endif()
 list(GET package_configs 0 package_config)
 cmake_path(GET package_config PARENT_PATH package_config_dir)
 set(CMAKE_FIND_USE_PACKAGE_REGISTRY FALSE)
 set(CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY FALSE)
-find_package(ZzPureToolsPro 0.1 CONFIG REQUIRED
+find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED
     PATHS "${package_config_dir}"
     NO_DEFAULT_PATH)
 
@@ -2850,7 +2850,7 @@ if(EXISTS "${prefix_a}")
     message(FATAL_ERROR "prefix A still exists after relocation")
 endif()
 file(GLOB_RECURSE package_configs LIST_DIRECTORIES FALSE
-    "${prefix_b}/*/cmake/ZzPureToolsPro/ZzPureToolsProConfig.cmake")
+    "${prefix_b}/*/cmake/ZzPureToolsFrame/ZzPureToolsFrameConfig.cmake")
 list(LENGTH package_configs package_config_count)
 if(NOT "${package_config_count}" EQUAL 1)
     message(FATAL_ERROR "prefix B must contain exactly one package Config")
@@ -2862,7 +2862,7 @@ zz_run("install consumer configure" "${CMAKE_COMMAND}"
     -S "${ZZ_SOURCE_DIR}/tests/InstallConsumer"
     -B "${install_consumer}" ${generator_args} ${toolchain_args}
     "-DCMAKE_PREFIX_PATH:STRING=${consumer_prefix}"
-    "-DZzPureToolsPro_DIR:PATH=${package_config_dir}"
+    "-DZzPureToolsFrame_DIR:PATH=${package_config_dir}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
     -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
     "-DZZ_PACKAGE_ROOT:PATH=${prefix_b}")
@@ -2875,7 +2875,7 @@ zz_run("public header consumer configure" "${CMAKE_COMMAND}"
     -S "${ZZ_SOURCE_DIR}/tests/PublicHeaderConsumer"
     -B "${header_consumer}" ${generator_args} ${toolchain_args}
     "-DCMAKE_PREFIX_PATH:STRING=${consumer_prefix}"
-    "-DZzPureToolsPro_DIR:PATH=${package_config_dir}"
+    "-DZzPureToolsFrame_DIR:PATH=${package_config_dir}"
     -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
     -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
     "-DZZ_PACKAGE_ROOT:PATH=${prefix_b}")
@@ -2890,12 +2890,12 @@ Append these executable assertions after the sequence. They require exactly one 
 foreach(consumer_dir IN ITEMS "${install_consumer}" "${header_consumer}")
     file(READ "${consumer_dir}/CMakeCache.txt" consumer_cache)
     string(REGEX MATCHALL
-        "ZzPureToolsPro_DIR:[^=\\r\\n]*=[^\\r\\n]*"
+        "ZzPureToolsFrame_DIR:[^=\\r\\n]*=[^\\r\\n]*"
         package_dir_entries "${consumer_cache}")
     list(LENGTH package_dir_entries package_dir_entry_count)
     if(NOT "${package_dir_entry_count}" EQUAL 1)
         message(FATAL_ERROR
-            "${consumer_dir} must contain exactly one ZzPureToolsPro_DIR")
+            "${consumer_dir} must contain exactly one ZzPureToolsFrame_DIR")
     endif()
     list(GET package_dir_entries 0 package_dir_entry)
     file(TO_CMAKE_PATH "${package_config_dir}" expected_package_dir)
@@ -3212,7 +3212,7 @@ Every full `ctest` includes `platform.compile`、`platform.package-relocation`�
 
 CI provisioning 必须提供 `ZZ_UBUNTU2204_BUILD_IMAGE`，其值是带 registry/repository 的不可变 `@sha256:<64 lowercase hex>` 引用。该镜像以 Ubuntu 22.04 为 runtime root，预装 GCC/G++ 13.1+、CMake 3.23+、Ninja、binutils、`file`、Qt 6.8+ x86_64 SDK 于 `/opt/qt`，以及 GCC 对应 `COPYING3`/`COPYING.RUNTIME` 于 `/opt/gcc-runtime-licenses`。Qt SDK 和 GCC runtime 必须在 Ubuntu 22.04 基线上构建；禁止在门禁时从 mutable `ubuntu:22.04` tag、PPA 或滚动仓库临时拼装镜像。
 
-Add `ZZ_BUNDLE_GNU_RUNTIME` (default OFF) and `ZZ_GNU_RUNTIME_LICENSE_DIR` cache path to root `CMakeLists.txt`. When bundling is ON, configure requires Linux、GNU compiler、shared build、Release、an absolute existing license directory containing nonempty `COPYING3` and `COPYING.RUNTIME`. Query the selected compiler with `-print-file-name=libstdc++.so.6` and `-print-file-name=libgcc_s.so.1`, resolve both real files, reject unresolved names/non-files, and pass the two exact paths to `cmake/ZzInstallPackage.cmake`. Install their resolved bytes renamed exactly `libstdc++.so.6` and `libgcc_s.so.1` below `${CMAKE_INSTALL_LIBDIR}`，并安装两份许可证到 `share/ZzPureToolsPro/licenses/gcc-runtime/`。Linux shared Zz libraries use install RPATH `$ORIGIN` so their own `DT_NEEDED` lookup selects the adjacent deployed runtime. `THIRD_PARTY_NOTICES.md` records GCC version/source、GPL-3.0-or-later with GCC Runtime Library Exception、the two installed runtime filenames and both license paths; Task 8 的 installed-license verifier 同步要求这些文件和 notice tokens。
+Add `ZZ_BUNDLE_GNU_RUNTIME` (default OFF) and `ZZ_GNU_RUNTIME_LICENSE_DIR` cache path to root `CMakeLists.txt`. When bundling is ON, configure requires Linux、GNU compiler、shared build、Release、an absolute existing license directory containing nonempty `COPYING3` and `COPYING.RUNTIME`. Query the selected compiler with `-print-file-name=libstdc++.so.6` and `-print-file-name=libgcc_s.so.1`, resolve both real files, reject unresolved names/non-files, and pass the two exact paths to `cmake/ZzInstallPackage.cmake`. Install their resolved bytes renamed exactly `libstdc++.so.6` and `libgcc_s.so.1` below `${CMAKE_INSTALL_LIBDIR}`，并安装两份许可证到 `share/ZzPureToolsFrame/licenses/gcc-runtime/`。Linux shared Zz libraries use install RPATH `$ORIGIN` so their own `DT_NEEDED` lookup selects the adjacent deployed runtime. `THIRD_PARTY_NOTICES.md` records GCC version/source、GPL-3.0-or-later with GCC Runtime Library Exception、the two installed runtime filenames and both license paths; Task 8 的 installed-license verifier 同步要求这些文件和 notice tokens。
 
 Create `scripts/ci/run-ubuntu2204-release-gates.sh` with:
 
@@ -3672,18 +3672,18 @@ Use bracket-quoted templates plus `string(CONFIGURE ... @ONLY)` so JSON backslas
 Update `cmake/ZzInstallPackage.cmake` so a release install includes:
 
 ```text
-share/ZzPureToolsPro/licenses/PROJECT-LICENSE
-share/ZzPureToolsPro/licenses/qwindowkit/LICENSE
-share/ZzPureToolsPro/licenses/qwindowkit/qmsetup-LICENSE
-share/ZzPureToolsPro/licenses/qwindowkit/syscmdline-LICENSE
-share/ZzPureToolsPro/licenses/ZzLog/LICENSE
-share/ZzPureToolsPro/licenses/ZzLog/spdlog-LICENSE.txt
-share/ZzPureToolsPro/licenses/ZzLog/fmt-LICENSE.txt
-share/ZzPureToolsPro/licenses/gcc-runtime/COPYING3
-share/ZzPureToolsPro/licenses/gcc-runtime/COPYING.RUNTIME
-share/ZzPureToolsPro/THIRD_PARTY_NOTICES.md
-share/ZzPureToolsPro/qwindowkit-vendor.json
-share/ZzPureToolsPro/release-evidence.json
+share/ZzPureToolsFrame/licenses/PROJECT-LICENSE
+share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE
+share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE
+share/ZzPureToolsFrame/licenses/qwindowkit/syscmdline-LICENSE
+share/ZzPureToolsFrame/licenses/ZzLog/LICENSE
+share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt
+share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt
+share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING3
+share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING.RUNTIME
+share/ZzPureToolsFrame/THIRD_PARTY_NOTICES.md
+share/ZzPureToolsFrame/qwindowkit-vendor.json
+share/ZzPureToolsFrame/release-evidence.json
 ```
 
 Create `cmake/ZzVerifyInstalledLicenses.cmake` to accept `ZZ_BUILD_DIR`、`ZZ_INSTALL_ROOT` and optional `ZZ_CONFIG`. It must reject an unsafe install root, remove only that test root, run `cmake --install ZZ_BUILD_DIR --prefix ZZ_INSTALL_ROOT [--config ZZ_CONFIG]`, require each exact relative file above to be regular/nonempty, and require the notices document to contain `QWindowKit`、`FramelessHelper`、`qmsetup`、`syscmdline`、`spdlog`、`fmt`、`GCC Runtime Library Exception`, version/source, SPDX conclusion, and installed license path. The two GCC license files are required when the producer cache has `ZZ_BUNDLE_GNU_RUNTIME:BOOL=ON`; otherwise they must be absent so a stale runtime cannot enter a non-bundled package. Register only for `ZZ_RELEASE_BUILD=ON`:

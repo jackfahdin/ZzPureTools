@@ -1,4 +1,4 @@
-# ZzPureToolsPro 通用工作区组件设计
+# ZzPureToolsFrame 通用工作区组件设计
 
 > 文档状态：已确认，等待书面规格审查
 >

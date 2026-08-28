@@ -12,7 +12,7 @@
 
 ## 前置条件
 
-- 工作目录是 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录是 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 已依次完成仓库基线、ZzLog、ZzCore 与 ZzWindowKit 计划。
 - `Zz::FluentFoundation`、`Zz::FluentUI`、公共导出宏、安装包和 Linux presets 已存在。
 - 本计划只建立主题与样式基础；不实现按钮、输入、导航、标题栏或 Qt Quick/QML 控件。
@@ -2576,7 +2576,7 @@ cmake --build --preset linux-gcc-release
 ctest --preset linux-gcc-release -R "(fluent|install.consumer)"
 ```
 
-Expected: 全部返回 0；installed consumer 只通过 `find_package(ZzPureToolsPro)` 获得两个 Fluent targets。
+Expected: 全部返回 0；installed consumer 只通过 `find_package(ZzPureToolsFrame)` 获得两个 Fluent targets。
 
 - [ ] **Step 5: 验证 Linux static 安装消费和 Sanitizer**
 
@@ -2600,7 +2600,7 @@ Run:
 ```bash
 rg -n "QtWidgets/|QWidget|QProxyStyle|QtQuick|QML" install/linux-gcc-release/include/ZzFluentUI/ZzThemeMode.h install/linux-gcc-release/include/ZzFluentUI/ZzThemeSnapshot.h install/linux-gcc-release/include/ZzFluentUI/ZzThemeController.h
 rg -n "ZzPureTools|ZzWindowKit|QWK|Qt.*/private|repository|database|network|domain" install/linux-gcc-release/include/ZzFluentUI
-rg -n "/home/|/Users/|[A-Za-z]:[/\\\\]" install/linux-gcc-release/lib/cmake/ZzPureToolsPro
+rg -n "/home/|/Users/|[A-Za-z]:[/\\\\]" install/linux-gcc-release/lib/cmake/ZzPureToolsFrame
 ```
 
 Expected: 三条扫描均无匹配；Foundation 公开头可由非 Widgets 消费者独立包含。

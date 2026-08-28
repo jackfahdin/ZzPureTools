@@ -12,7 +12,7 @@
 
 - 证据：Qt 5.15.2 `qttools/src/shared/winutils/utils.cpp`、`LICENSE.GPL3-EXCEPT` 和本地派生文件的 SHA-256 已写入 manifest；原文件明确采用 GPLv3 加 Qt GPL Exception。
 - 审核记录：`docs/third-party/reviews/windeployqt-redistribution-review.json`。
-- 当前状态：已按 `GPL-3.0-only WITH Qt-GPL-exception-1.0` 解决，审核人为 Jackfahdin，结论为 `approved`。该代码仅限 vendored qmsetup 构建工具，不进入 ZzPureToolsPro 运行时或开发安装包，也不得被描述为 MIT 代码。
+- 当前状态：已按 `GPL-3.0-only WITH Qt-GPL-exception-1.0` 解决，审核人为 Jackfahdin，结论为 `approved`。该代码仅限 vendored qmsetup 构建工具，不进入 ZzPureToolsFrame 运行时或开发安装包，也不得被描述为 MIT 代码。
 
 ## project.license
 

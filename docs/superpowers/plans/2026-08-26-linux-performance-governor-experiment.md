@@ -464,7 +464,7 @@ governor、恢复原 governor，并拒绝 EPP/min/max 未恢复或 CPU/driver �
 - [ ] **步骤 2：由用户执行唯一 sudo 命令。**
 
   ```bash
-  cd /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro/.worktrees/command-bar
+  cd /home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame/.worktrees/command-bar
   sudo scripts/ci/run-linux-startup-governor-experiment.sh
   ```
 

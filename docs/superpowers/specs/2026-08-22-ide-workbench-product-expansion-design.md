@@ -4,7 +4,7 @@
 
 **状态：** 设计已确认，尚未开始实现
 
-**适用仓库：** `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`
+**适用仓库：** `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`
 
 **当前代码基线：** `be6267a`
 

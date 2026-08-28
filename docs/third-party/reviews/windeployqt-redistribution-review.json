@@ -14,10 +14,10 @@
   },
   "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp",
   "localSourceSha256": "7009e6061c21dcfcf838960249fbc165d05adcca2b944a85d6fd2d65eb2f5957",
-  "distributionScope": "Vendored build-time qmsetup tool only; excluded from ZzPureToolsPro runtime and development installation packages",
+  "distributionScope": "Vendored build-time qmsetup tool only; excluded from ZzPureToolsFrame runtime and development installation packages",
   "conditions": [
     "Retain the Qt origin and license expression in THIRD_PARTY_NOTICES.md",
     "Do not describe the Qt-derived section as MIT-licensed",
-    "Do not install qmcorecmd or the Qt-derived source in ZzPureToolsPro binary packages"
+    "Do not install qmcorecmd or the Qt-derived source in ZzPureToolsFrame binary packages"
   ]
 }

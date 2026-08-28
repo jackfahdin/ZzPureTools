@@ -34,7 +34,7 @@
 
 ## 3. 旧版逐行审计
 
-审计来源为旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzFluentUI`，只读取行为意图，不复制实现。
+审计来源为旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzFluentUI`，只读取行为意图，不复制实现。
 
 ### 3.1 `ZzPromotionView.h`
 

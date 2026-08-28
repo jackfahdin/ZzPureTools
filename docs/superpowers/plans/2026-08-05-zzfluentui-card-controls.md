@@ -10,9 +10,9 @@
 
 ## 1. 边界与旧版审计
 
-- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 本批次属于总体设计阶段 10，在已完成 Calendar 批次后实施；可撕标签页继续使用后续独立计划。
-- 旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzFluentUI` 仅用于核对外观意图，不复制宏属性系统、全局主题单例或固定尺寸。
+- 旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzFluentUI` 仅用于核对外观意图，不复制宏属性系统、全局主题单例或固定尺寸。
 - 旧版 `ZzInteractiveCard`、`ZzReminderCard` 和 `ZzPopularCard` 的共同能力收敛为 `ZzActionCard`。
 - 旧版 `ZzImageCard` 和 `ZzPromotionCard` 的共同能力收敛为新的 `ZzImageCard`。
 - 旧版 `ZzAcrylicUrlCard` 的 URL 打开行为不进入 UI 组件；调用方连接 `QAbstractButton::clicked` 后自行调用平台服务。

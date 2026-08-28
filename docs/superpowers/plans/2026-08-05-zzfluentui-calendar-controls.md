@@ -12,10 +12,10 @@
 
 ## 1. 前置条件与执行边界
 
-- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 阶段 0-9 的工程、Foundation、基础控件、应用框架和本机 Linux 门禁已经完成。
 - 本批次属于总体设计的阶段 10，只实现日历与日期选择器；复杂卡片和可撕标签页必须使用后续独立计划。
-- 旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzFluentUI` 只用于核对用户可见行为和命名，不复制其自建 model/delegate、全局主题单例、宏属性系统、固定尺寸或动画截图方案。
+- 旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzFluentUI` 只用于核对用户可见行为和命名，不复制其自建 model/delegate、全局主题单例、宏属性系统、固定尺寸或动画截图方案。
 - 不引入 Qt Private API，不依赖内部对象名，不查找 `qt_calendar_*` 子控件，不访问 `QCalendarModel` 等实现类型。
 - 不新增日历业务模型、节假日服务、农历、网络、数据库或领域对象。业务层通过 Qt 已有 `QDate`、范围和信号 API 与控件交互。
 - 日历选择模式保持 Qt 的单日期语义。本批次不实现日期区间、多选、时间选择或时区转换。

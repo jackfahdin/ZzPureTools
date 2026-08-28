@@ -1,9 +1,9 @@
-# ZzPureToolsPro 原生平台验收与发布候选计划
+# ZzPureToolsFrame 原生平台验收与发布候选计划
 
 **状态：** 阶段 A 已完成，阶段 B 等待物理桌面终端执行。
 
 **目标：** 在不继续扩充组件数量的前提下，把已经完成 Linux 自动质量门禁的
-ZzPureToolsPro 推进到可审计的 Linux 物理桌面验收，并为 Windows MSVC、Windows
+ZzPureToolsFrame 推进到可审计的 Linux 物理桌面验收，并为 Windows MSVC、Windows
 Qt SDK MinGW、macOS arm64/x86_64 原生验收建立同一套证据闭环。任何平台问题都先
 形成可复现证据，再做最小修复和原平台复验。
 

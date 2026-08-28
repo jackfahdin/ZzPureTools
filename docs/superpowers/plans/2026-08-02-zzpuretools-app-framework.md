@@ -12,7 +12,7 @@
 
 ## 前置条件与硬边界
 
-- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 先完成工程基线、ZzLog、ZzCore、ZzWindowKit、FluentFoundation 和基础控件计划。
 - `Zz::AppCore` 禁止 include/link Qt Gui、Widgets、Quick、ZzWindowKit 和 ZzFluentUI。
 - `main.cpp` 是唯一了解具体业务模块与页面 factory 的 composition root。
@@ -1748,7 +1748,7 @@ target_link_libraries(ZzInstallConsumer PRIVATE
 )
 ```
 
-只通过 `find_package(ZzPureToolsPro)` 获取 target，不增加源码树或 build tree include path；`Zz::PureTools` 的安装 interface 必须传递其公开 `ZzNavigationNode` 所需的 FluentFoundation 和 Qt 头依赖。WindowKit 与 FluentUI Widgets 实现依赖只允许以 static 闭合所需的 link-only 形式出现，不得向 consumer 暴露 private include path。
+只通过 `find_package(ZzPureToolsFrame)` 获取 target，不增加源码树或 build tree include path；`Zz::PureTools` 的安装 interface 必须传递其公开 `ZzNavigationNode` 所需的 FluentFoundation 和 Qt 头依赖。WindowKit 与 FluentUI Widgets 实现依赖只允许以 static 闭合所需的 link-only 形式出现，不得向 consumer 暴露 private include path。
 
 - [ ] **Step 6: 运行边界、AppCore link 和 public-header 检查**
 
@@ -1779,7 +1779,7 @@ cmake --build --preset linux-static-release
 ctest --preset linux-static-release -R '^install\.consumer$' --output-on-failure
 ```
 
-Expected: 两种模式 PASS；consumer 只通过 `find_package(ZzPureToolsPro)` 获取导出 target。
+Expected: 两种模式 PASS；consumer 只通过 `find_package(ZzPureToolsFrame)` 获取导出 target。
 
 - [ ] **Step 8: 执行最终一致性检查**
 
@@ -1793,9 +1793,9 @@ comm -12 \
     <(rg -l '#[[:space:]]*include.*ZzWindowKit/' ZzPureTools/widgets | sort) \
     <(rg -l '#[[:space:]]*include.*ZzFluentUI/' ZzPureTools/widgets | sort)
 rg -n -A20 'set_target_properties\(Zz::PureTools PROPERTIES' \
-    install/linux-gcc-release/lib/cmake/ZzPureToolsPro/ZzPureToolsProTargets.cmake
+    install/linux-gcc-release/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameTargets.cmake
 rg -n -A20 'set_target_properties\(Zz::PureTools PROPERTIES' \
-    install/linux-static-release/lib/cmake/ZzPureToolsPro/ZzPureToolsProTargets.cmake
+    install/linux-static-release/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameTargets.cmake
 git diff --check
 ```
 

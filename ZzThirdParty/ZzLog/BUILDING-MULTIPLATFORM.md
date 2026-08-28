@@ -9,7 +9,7 @@ ZzLog 主要以源码组件交付，由消费项目的 CMake 使用同一编译�
 - CMake 3.23 或更高版本。
 - 完整支持 C++20 `std::format` 与 `std::source_location` 的编译器和标准库。
 - 可用的线程库。
-- ZzPureToolsPro 顶层工程额外要求 Qt 6.8 或更高版本。
+- ZzPureToolsFrame 顶层工程额外要求 Qt 6.8 或更高版本。
 
 shared/static 只由 `BUILD_SHARED_LIBS` 控制。正式支持的桌面组合为 Linux GCC 13.1+、
 Windows MSVC 2022、Qt 官方 SDK 配套 MinGW，以及 macOS Apple Clang。

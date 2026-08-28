@@ -1,6 +1,6 @@
 # ZzLog
 
-ZzLog 是面向 ZzPureToolsPro 的 C++20 日志组件。它把固定版本的 fmt 与 spdlog
+ZzLog 是面向 ZzPureToolsFrame 的 C++20 日志组件。它把固定版本的 fmt 与 spdlog
 源码快照编译进唯一的 `ZzLog::ZzLog` target，但公共头只依赖 C++ 标准库。配置和
 构建过程不下载依赖，也不会把 fmt/spdlog 头安装给消费者。
 

@@ -4,7 +4,7 @@
 >
 > 确认日期：2026-08-06
 >
-> 目标仓库：`/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`
+> 目标仓库：`/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`
 >
 > 旧版参考：仓库父目录中的 `ZzPureToolsExample`
 

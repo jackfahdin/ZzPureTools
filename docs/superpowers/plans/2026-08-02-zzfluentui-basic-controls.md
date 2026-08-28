@@ -12,7 +12,7 @@
 
 ## 前置条件与执行边界
 
-- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 先完成 `docs/superpowers/plans/2026-08-02-repository-cmake-baseline.md` 与阶段 5 的 FluentFoundation 计划。
 - `Zz::FluentUI` 已公开 `ZzFluentStyle`、`ZzFluentPainter`；`ZzFluentStyle` 由应用显式安装并持有非空 `ZzThemeController`。
 - 本计划不修改 Foundation token 值、主题模式解析、图标缓存 key/淘汰算法、资源许可清单或 `ZzThemeController` 生命周期。

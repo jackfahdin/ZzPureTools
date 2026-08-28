@@ -1225,7 +1225,7 @@ cmake --build --preset linux-gcc-debug
 ctest --preset linux-gcc-debug -L core
 cmake --build --preset linux-gcc-debug --target ZzPublicHeadersTest
 cmake --build --preset linux-gcc-debug --target install
-rg -n "Qt6::(Gui|Widgets|Quick)" install/linux-gcc-debug/lib/cmake/ZzPureToolsPro/ZzPureToolsProTargets.cmake
+rg -n "Qt6::(Gui|Widgets|Quick)" install/linux-gcc-debug/lib/cmake/ZzPureToolsFrame/ZzPureToolsFrameTargets.cmake
 ```
 
 Expected: contract 中 good PASS、bad 被拒绝；Core tests 与逐头编译 PASS。Targets 文件中其他组件可以出现 Gui/Widgets，但 `Zz::Core` 对应段不得出现它们；shared interface 不含裸的 ZzLog，static interface 最多只有 CMake 生成的 `LINK_ONLY` ZzLog 链接闭包。人工读取相邻 target block 确认；configure-time guard 已单独保证 PRIVATE link 不含 UI target 且 ZzLog 没有升格为公开依赖。

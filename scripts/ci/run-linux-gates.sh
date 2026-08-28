@@ -29,7 +29,7 @@ if command -v g++-12 >/dev/null 2>&1; then
     -DZZ_SOURCE_DIR="$source_dir" \
     -DZZ_QT_PREFIX="$QT_ROOT" \
     -DZZ_REJECTED_CXX="$(command -v g++-12)" \
-    -DZZ_WORK_DIR="${ZZ_COMPILER_CONTRACT_WORK_DIR:-/tmp/zzpuretoolspro-gcc12-contract}" \
+    -DZZ_WORK_DIR="${ZZ_COMPILER_CONTRACT_WORK_DIR:-/tmp/zzpuretoolsframe-gcc12-contract}" \
     -P tests/Platform/CompilerCapabilitiesContract.cmake
 else
   echo "note: g++-12 unavailable; compiler capabilities contract not executed" >&2

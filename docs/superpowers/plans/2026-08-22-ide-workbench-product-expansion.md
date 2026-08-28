@@ -16,7 +16,7 @@
 
 ## 执行前约束
 
-- 只在 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro` 中修改和提交。
+- 只在 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame` 中修改和提交。
 - 不删除、不修改、不暂存 `temp_image/`。
 - 本机使用现有 Qt，不下载新的 Qt SDK：
 

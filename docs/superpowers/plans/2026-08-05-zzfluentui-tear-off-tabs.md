@@ -10,9 +10,9 @@
 
 ## 1. 边界与旧版审计
 
-- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`。
+- 工作目录固定为 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`。
 - 本批次属于总体设计阶段 10，在 Calendar 和 Card 批次之后实施。
-- 旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzFluentUI` 与 `/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzWindowKit` 只用于核对交互意图，不复制实现。
+- 旧仓库 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzFluentUI` 与 `/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzWindowKit` 只用于核对交互意图，不复制实现。
 - 旧版直接包含 `private/qtabbar_p.h`，并读写 `QTabBarPrivate::pressedIndex`、`tabList`、`dragOffset` 和内部布局；新版只使用 `tabAt()`、`tabRect()`、`moveTab()` 等公开 API。
 - 旧版通过 `QMimeData::setProperty()` 传播 `QWidget*`、`ZzTabBar*`、`ZzTabWidget*` 和浮窗指针；新版 MIME 字节不含地址，外部进程伪造相同格式也不能触发页面转移。
 - 旧版依赖全局 `ZzDragMonitor` 单例；新版一次拖拽只拥有一个栈式/RAII 会话，不保留跨拖拽状态。

@@ -1,10 +1,10 @@
-# ZzPureToolsPro 重构架构设计
+# ZzPureToolsFrame 重构架构设计
 
 > 文档状态：已确认，可用于编写分阶段实施计划
 >
 > 确认日期：2026-08-02
 >
-> 目标仓库：`/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro`
+> 目标仓库：`/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame`
 >
 > 基线提交：`a2737073d5a916d54a5b21339635cd9c1019b79d`
 >
@@ -12,7 +12,7 @@
 
 ## 1. 文档目的
 
-本文定义 ZzPureToolsPro 新版本的代码级架构、模块边界、公共接口方向、线程与所有权规则、构建矩阵、性能指标和分阶段交付条件。
+本文定义 ZzPureToolsFrame 新版本的代码级架构、模块边界、公共接口方向、线程与所有权规则、构建矩阵、性能指标和分阶段交付条件。
 
 本文必须能够直接交给另一位开发者或 AI 作为后续实施依据。实施者不得用个人偏好替换本文中的硬性约束；如发现无法实现、相互矛盾或需要扩大范围的条目，必须先补充 ADR 并取得确认。
 
@@ -56,7 +56,7 @@
 
 第一阶段不做以下工作：
 
-- 不保证旧版 ZzPureToolsPro 的源码兼容或二进制兼容。
+- 不保证既有版本的源码兼容或二进制兼容；本次产品标识迁移不提供旧包名兼容入口。
 - 不实现 Qt Quick/QML 控件，只保留未来 `ZzFluentQuick` 的依赖边界。
 - 不实现可动态加载或卸载的外部插件。
 - 不恢复旧版全局 EventBus、全局撤销栈或永久服务定位器。
@@ -133,7 +133,7 @@ Zz::Core + Zz::AppCore + Zz::FluentFoundation
 目标目录结构：
 
 ```text
-ZzPureToolsPro/
+ZzPureToolsFrame/
 ├── CMakeLists.txt
 ├── CMakePresets.json
 ├── CMakeUserPresets.json.example
@@ -997,7 +997,7 @@ prepare window attributes
 ```cmake
 cmake_minimum_required(VERSION 3.23)
 
-project(ZzPureToolsPro
+project(ZzPureToolsFrame
     VERSION 0.1.0
     LANGUAGES CXX
 )
@@ -1360,7 +1360,7 @@ Linux 必须分别验证：
 最终文档集合：
 
 ```text
-docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md
+docs/superpowers/specs/2026-08-02-zzpuretoolsframe-architecture-design.md
 docs/development/CODING_STANDARD_ZH.md
 docs/development/BUILDING_ZH.md
 docs/development/PLATFORM_SUPPORT_ZH.md
@@ -1379,7 +1379,7 @@ docs/adr/
 提交格式：
 
 ```text
-文档：确定 ZzPureToolsPro 重构架构
+文档：确定 ZzPureToolsFrame 重构架构
 
 记录组件边界、公共接口、线程模型和性能目标。
 明确 Linux、Windows、macOS 的构建与验证范围。

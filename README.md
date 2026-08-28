@@ -1,6 +1,6 @@
-# ZzPureToolsPro
+# ZzPureToolsFrame
 
-ZzPureToolsPro 是面向 Qt 6.8+ 与 C++20 的高性能跨平台 Qt Widgets
+ZzPureToolsFrame 是面向 Qt 6.8+ 与 C++20 的高性能跨平台 Qt Widgets
 组件库和应用框架。项目采用前后端分离架构，当前版本为 `0.1.0`，处于第一期
 基础能力完成后的开发阶段。
 
@@ -46,7 +46,7 @@ RTL 语义，因此不会为了“组件名一一对应”重复创建同义的 
 
 QWindowKit 类型不会暴露到 Zz 公共 API；UI 组件不直接访问领域模型、数据库、
 网络客户端或业务服务。完整依赖规则见
-[架构设计](docs/superpowers/specs/2026-08-02-zzpuretoolspro-architecture-design.md)。
+[架构设计](docs/superpowers/specs/2026-08-02-zzpuretoolsframe-architecture-design.md)。
 
 ## 构建要求
 
@@ -127,6 +127,6 @@ macOS arm64 与 macOS x86_64 托管矩阵，但托管 CI 不替代真实窗口�
 
 ## 许可证
 
-ZzPureToolsPro 采用 [MIT License](LICENSE)，版权所有者为 Jackfahdin。
+ZzPureToolsFrame 采用 [MIT License](LICENSE)，版权所有者为 Jackfahdin。
 第三方组件继续适用各自许可证；来源、版本、构建期工具边界和安装通知以
 [第三方软件通知](docs/third-party/THIRD_PARTY_NOTICES.md)为准。

@@ -1,7 +1,7 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-08-23-workspace-shell-transaction-redesign.md
 
 Branch base: 09d5005
-Worktree: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsPro/.worktrees/workspace-shell-transaction-redesign
+Worktree: /home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame/.worktrees/workspace-shell-transaction-redesign
 Baseline: puretools.workspace-shell 1/1 passed (2026-08-23)
 
 Task 1: fix round 1/5 (3 addressed, 0 open; commits 3d8de54..ff4af19)
