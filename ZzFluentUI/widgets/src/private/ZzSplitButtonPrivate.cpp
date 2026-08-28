@@ -142,14 +142,15 @@ void ZzSplitButtonPrivate::showMenu()
     }
 
     target->ensurePolished();
-    const QSize popupSize = target->sizeHint();
+    target->adjustSize();
+    const int popupWidth = target->width();
     const QRect bounds = q_ptr->rect();
     QPoint anchor = q_ptr->mapToGlobal(
         QPoint(bounds.left(), bounds.bottom() + 1));
     if (q_ptr->layoutDirection() == Qt::RightToLeft) {
         anchor.setX(q_ptr->mapToGlobal(
             QPoint(bounds.right() + 1, bounds.bottom() + 1)).x()
-            - popupSize.width());
+            - popupWidth);
     }
     menuOpen = true;
     q_ptr->update();

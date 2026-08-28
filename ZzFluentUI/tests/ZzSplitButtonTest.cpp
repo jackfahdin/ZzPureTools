@@ -21,6 +21,20 @@
 
 namespace {
 
+/** @brief 模拟平台样式返回大于固定菜单宽度的建议尺寸。 */
+class ZzConstrainedMenu final : public QMenu
+{
+public:
+    using QMenu::QMenu;
+
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        QSize result = QMenu::sizeHint();
+        result.rwidth() += 20;
+        return result;
+    }
+};
+
 /** @brief 创建应用级 Fluent style 供绘制和命中测试复用。 */
 std::unique_ptr<ZzFluentUI::ZzFluentStyle> zzCreateStyle(
     ZzFluentUI::ZzThemeController *controller)
@@ -453,7 +467,7 @@ private Q_SLOTS:
     {
         QWidget host;
         ZzFluentUI::ZzSplitButton button(QStringLiteral("Publish"), &host);
-        QMenu menu;
+        ZzConstrainedMenu menu;
         menu.setFixedWidth(140);
         menu.addAction(QStringLiteral("Preview release"));
         button.setMenu(&menu);
