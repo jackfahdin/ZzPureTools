@@ -470,11 +470,11 @@ private Q_SLOTS:
         zzCloseMenu(&menu);
 
         button.setLayoutDirection(Qt::RightToLeft);
-        const int rtlExpected = button.mapToGlobal(
-            QPoint(button.width(), 0)).x() - menu.width();
+        const int rtlExpectedRight = button.mapToGlobal(
+            QPoint(button.width(), 0)).x();
         button.showMenu();
         ZZ_VERIFY_EVENTUALLY(menu.isVisible());
-        QCOMPARE(menu.geometry().left(), rtlExpected);
+        QCOMPARE(menu.geometry().right() + 1, rtlExpectedRight);
         zzCloseMenu(&menu);
     }
 
