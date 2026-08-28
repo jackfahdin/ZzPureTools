@@ -12,6 +12,7 @@
 #include <QtGui/QRegion>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QStyleFactory>
@@ -591,7 +592,7 @@ private Q_SLOTS:
         QTest::qWait(24);
         pivot.setCurrentIndex(2);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
 
         pivot.clearFocus();
         QTest::mouseMove(

@@ -11,6 +11,7 @@
 #include <QtGui/QScreen>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
@@ -396,18 +397,18 @@ private Q_SLOTS:
         QCOMPARE(group->state(), QAbstractAnimation::Running);
         tip.dismiss();
         QCOMPARE(group->state(), QAbstractAnimation::Running);
-        QTRY_VERIFY(!tip.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!tip.isVisible());
         QCOMPARE(dismissedSpy.count(), 1);
 
         tip.showForTarget();
         QVERIFY(tip.isVisible());
-        QTRY_COMPARE(group->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(group->state(), QAbstractAnimation::Stopped);
         QCOMPARE(tip.windowOpacity(), 1.0);
         QCOMPARE(
             tip.findChildren<QAbstractAnimation *>().size(),
             animationCount);
         tip.dismiss();
-        QTRY_VERIFY(!tip.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!tip.isVisible());
         QCOMPARE(dismissedSpy.count(), 2);
     }
 };

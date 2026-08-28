@@ -1,3 +1,5 @@
+include_directories("${PROJECT_SOURCE_DIR}/tests/support")
+
 add_executable(ZzExampleWorkspaceSmokeTest
     ZzExampleWorkspaceSmokeTest.cpp
     ../ZzExampleActivityModel.cpp

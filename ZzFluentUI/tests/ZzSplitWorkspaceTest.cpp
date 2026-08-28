@@ -17,6 +17,7 @@
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QSplitter>
@@ -4438,7 +4439,7 @@ private Q_SLOTS:
         workspace.resize(800, 400);
         workspace.show();
         workspace.tabWidget(root)->setFocus(Qt::OtherFocusReason);
-        QTRY_COMPARE(workspace.activeGroupId(), root);
+        ZZ_COMPARE_EVENTUALLY(workspace.activeGroupId(), root);
         QCOMPARE(activeSpy.size(), 2);
     }
 

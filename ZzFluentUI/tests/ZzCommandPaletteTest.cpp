@@ -1,5 +1,6 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 
 #include <QtGui/QStandardItemModel>
 #include <QtWidgets/QApplication>
@@ -109,9 +110,9 @@ private slots:
         palette.setQuery(QStringLiteral("open"));
         QCOMPARE(palette.resultCount(), 1);
         model.insertRow(0, command(QStringLiteral("open zero")));
-        QTRY_COMPARE(palette.resultCount(), 2);
+        ZZ_COMPARE_EVENTUALLY(palette.resultCount(), 2);
         model.removeRow(1);
-        QTRY_COMPARE(palette.resultCount(), 1);
+        ZZ_COMPARE_EVENTUALLY(palette.resultCount(), 1);
         QCOMPARE(palette.resultView()->model()->index(0, 0).data().toString(), QStringLiteral("open zero"));
     }
 
@@ -152,7 +153,7 @@ private slots:
         const qsizetype objectsBefore = palette.findChildren<QObject *>().size();
         palette.open();
         QVERIFY(palette.isOpen());
-        QTRY_COMPARE(QApplication::focusWidget(), palette.searchEdit());
+        ZZ_COMPARE_EVENTUALLY(QApplication::focusWidget(), palette.searchEdit());
         palette.setQuery(QString(600, u'x'));
         QCOMPARE(palette.query().size(), 512);
         palette.setQuery(QStringLiteral("command 9999"));
@@ -160,7 +161,7 @@ private slots:
         QVERIFY(!palette.activateCurrent());
         QTest::keyClick(palette.searchEdit(), Qt::Key_Escape);
         QVERIFY(!palette.isOpen());
-        QTRY_COMPARE(QApplication::focusWidget(), &initial);
+        ZZ_COMPARE_EVENTUALLY(QApplication::focusWidget(), &initial);
         QSignalSpy activated(&palette, &ZzFluentUI::ZzCommandPalette::commandActivated);
         palette.open();
         palette.setQuery(QStringLiteral("command 1"));

@@ -10,6 +10,7 @@
 #include <QtCore/QVariantAnimation>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -217,20 +218,20 @@ private Q_SLOTS:
 
         expander->setExpanded(true);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
-        QTRY_VERIFY(contentHost(expander)->maximumHeight() > 0);
+        ZZ_VERIFY_EVENTUALLY(contentHost(expander)->maximumHeight() > 0);
         const int expandingHeight = contentHost(expander)->maximumHeight();
         QVERIFY(expandingHeight < QWIDGETSIZE_MAX);
 
         expander->setExpanded(false);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         QCOMPARE(contentHost(expander)->maximumHeight(), expandingHeight);
-        QTRY_VERIFY(contentHost(expander)->maximumHeight() < expandingHeight);
+        ZZ_VERIFY_EVENTUALLY(contentHost(expander)->maximumHeight() < expandingHeight);
         const int collapsingHeight = contentHost(expander)->maximumHeight();
         expander->setExpanded(true);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         QCOMPARE(contentHost(expander)->maximumHeight(), collapsingHeight);
 
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
         QCOMPARE(contentHost(expander)->maximumHeight(), QWIDGETSIZE_MAX);
         QVERIFY(contentHost(expander)->isVisible());
     }

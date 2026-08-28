@@ -3,6 +3,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QToolButton>
 
@@ -114,11 +115,11 @@ private Q_SLOTS:
         QCOMPARE(host.dockWidgetArea(panel), Qt::LeftDockWidgetArea);
         QVERIFY(!panel->isFloating());
         panel->setFloating(true);
-        QTRY_VERIFY(panel->isFloating());
+        ZZ_VERIFY_EVENTUALLY(panel->isFloating());
 
         host.addDockWidget(Qt::RightDockWidgetArea, panel);
         panel->setFloating(false);
-        QTRY_VERIFY(!panel->isFloating());
+        ZZ_VERIFY_EVENTUALLY(!panel->isFloating());
         QCOMPARE(host.dockWidgetArea(panel), Qt::RightDockWidgetArea);
     }
 

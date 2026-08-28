@@ -1,3 +1,5 @@
+include_directories("${PROJECT_SOURCE_DIR}/tests/support")
+
 add_executable(ZzModuleGraphTest ZzModuleGraphTest.cpp)
 target_link_libraries(ZzModuleGraphTest PRIVATE Qt6::Test Zz::AppCore)
 set_target_properties(ZzModuleGraphTest PROPERTIES AUTOMOC ON)

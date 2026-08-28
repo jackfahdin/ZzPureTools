@@ -21,6 +21,7 @@
 #include <QtGui/QAction>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QDockWidget>
 #include <QtWidgets/QMainWindow>
@@ -1590,9 +1591,9 @@ private Q_SLOTS:
         const QModelIndex index = bar->model()->index(0, 0);
 
         settingsAction.setEnabled(false);
-        QTRY_COMPARE(index.flags(), Qt::NoItemFlags);
+        ZZ_COMPARE_EVENTUALLY(index.flags(), Qt::NoItemFlags);
         settingsAction.setEnabled(true);
-        QTRY_COMPARE(index.flags(), Qt::ItemFlags(Qt::ItemIsEnabled));
+        ZZ_COMPARE_EVENTUALLY(index.flags(), Qt::ItemFlags(Qt::ItemIsEnabled));
 
         settingsAction.trigger();
         QCOMPARE(triggeredSpy.count(), 1);
@@ -1706,7 +1707,7 @@ private Q_SLOTS:
         QVERIFY(callbackEntered);
         QVERIFY(!registered);
         QVERIFY(fixture.shell == nullptr);
-        QTRY_VERIFY(workspaceGuard.isNull());
+        ZZ_VERIFY_EVENTUALLY(workspaceGuard.isNull());
     }
 
     void fixedActivityRegistrationStopsWhenBarShowDestroysAction()
@@ -1788,7 +1789,7 @@ private Q_SLOTS:
 
         delete action;
 
-        QTRY_COMPARE(bar->model()->rowCount(), 1);
+        ZZ_COMPARE_EVENTUALLY(bar->model()->rowCount(), 1);
         QCOMPARE(bar->model()->index(0, 0).data().toString(), QStringLiteral("Sessions"));
         QCOMPARE(bar->currentSourceIndex(), QModelIndex(currentBefore));
         QCOMPARE(
@@ -2216,7 +2217,7 @@ private Q_SLOTS:
         QVERIFY(leftPane->visibleWidgets().contains(created));
 
         if (workerThread.isRunning()) {
-            QTRY_VERIFY(wrongThreadContent == nullptr);
+            ZZ_VERIFY_EVENTUALLY(wrongThreadContent == nullptr);
             workerThread.quit();
             QVERIFY(workerThread.wait());
         } else {
@@ -5094,7 +5095,7 @@ private Q_SLOTS:
         survivingPrimary->setParent(nullptr);
         delete thirdPartyOwner.data();
         primary.reset(survivingPrimary);
-        QTRY_VERIFY(frameOwner.isNull());
+        ZZ_VERIFY_EVENTUALLY(frameOwner.isNull());
     }
 
     void sideRegistrationDoesNotDetachOwnerThatWouldReattachInsideFrame()
@@ -5162,7 +5163,7 @@ private Q_SLOTS:
         survivingPrimary->setParent(nullptr);
         delete thirdPartyOwner.data();
         primary.reset(survivingPrimary);
-        QTRY_VERIFY(frameOwner.isNull());
+        ZZ_VERIFY_EVENTUALLY(frameOwner.isNull());
     }
 
     void sideRegistrationEscrowSurvivesQueuedOwnerReattachment()

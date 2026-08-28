@@ -6,6 +6,7 @@
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QStyleFactory>
@@ -139,7 +140,7 @@ private Q_SLOTS:
         QCOMPARE(toggledSpy.count(), 1);
         QCOMPARE(clickedSpy.count(), 1);
         QCOMPARE(requestedSpy.count(), 1);
-        QTRY_VERIFY(menu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu->isVisible());
         zzCloseMenu(menu);
 
         QTest::keyClick(&button, Qt::Key_Space);
@@ -151,7 +152,7 @@ private Q_SLOTS:
         QVERIFY(!button.isChecked());
         QCOMPARE(toggledSpy.count(), 2);
         QCOMPARE(requestedSpy.count(), 2);
-        QTRY_VERIFY(menu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu->isVisible());
         zzCloseMenu(menu);
 
         QTest::keyClick(&button, Qt::Key_Return);
@@ -163,7 +164,7 @@ private Q_SLOTS:
         QVERIFY(button.isChecked());
         QCOMPARE(toggledSpy.count(), 3);
         QCOMPARE(requestedSpy.count(), 3);
-        QTRY_VERIFY(menu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu->isVisible());
         zzCloseMenu(menu);
 
         QTest::keyClick(&button, Qt::Key_Enter);
@@ -335,7 +336,7 @@ private Q_SLOTS:
             QPoint(button.width() - 12, 20));
         QCOMPARE(clickedSpy.count(), 1);
         QCOMPARE(requestedSpy.count(), 1);
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         zzCloseMenu(&menu);
 
         QTest::mousePress(
@@ -372,7 +373,7 @@ private Q_SLOTS:
             QPoint(12, 20));
         QCOMPARE(clickedSpy.count(), 1);
         QCOMPARE(requestedSpy.count(), 2);
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         zzCloseMenu(&menu);
 
         QTest::mouseClick(
@@ -404,7 +405,7 @@ private Q_SLOTS:
         button.showMenu();
         QCOMPARE(button.menu(), &menu);
         QCOMPARE(menu.actions().size(), 1);
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         zzCloseMenu(&menu);
     }
 
@@ -426,7 +427,7 @@ private Q_SLOTS:
         QTest::keyClick(&button, Qt::Key_Down);
         QCOMPARE(requestedSpy.count(), 1);
         QCOMPARE(clickedSpy.count(), 0);
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         zzCloseMenu(&menu);
 
         QTest::keyClick(
@@ -435,7 +436,7 @@ private Q_SLOTS:
             Qt::AltModifier);
         QCOMPARE(requestedSpy.count(), 2);
         QCOMPARE(clickedSpy.count(), 0);
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         zzCloseMenu(&menu);
 
         QTest::keyClick(&button, Qt::Key_Space);
@@ -464,7 +465,7 @@ private Q_SLOTS:
         button.setLayoutDirection(Qt::LeftToRight);
         const int ltrExpected = button.mapToGlobal(QPoint(0, 0)).x();
         button.showMenu();
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         QCOMPARE(menu.geometry().left(), ltrExpected);
         zzCloseMenu(&menu);
 
@@ -472,7 +473,7 @@ private Q_SLOTS:
         const int rtlExpected = button.mapToGlobal(
             QPoint(button.width(), 0)).x() - menu.width();
         button.showMenu();
-        QTRY_VERIFY(menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(menu.isVisible());
         QCOMPARE(menu.geometry().left(), rtlExpected);
         zzCloseMenu(&menu);
     }

@@ -13,6 +13,7 @@
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
@@ -466,18 +467,18 @@ private Q_SLOTS:
         menu.setActiveAction(submenu->menuAction());
         QCoreApplication::processEvents();
         QTest::keyClick(&menu, Qt::Key_Right);
-        QTRY_VERIFY(submenu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(submenu->isVisible());
         QTest::keyClick(submenu, Qt::Key_Escape);
-        QTRY_VERIFY(!submenu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(!submenu->isVisible());
         QTest::keyClick(&menu, Qt::Key_Escape);
-        QTRY_VERIFY(!menu.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!menu.isVisible());
 
         QSignalSpy openTriggeredSpy(open, &QAction::triggered);
         menu.show();
         menu.setFocus();
         QCoreApplication::processEvents();
         QTest::keyClick(&menu, Qt::Key_O);
-        QTRY_COMPARE(openTriggeredSpy.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(openTriggeredSpy.count(), 1);
         QVERIFY(!menu.isVisible());
     }
 
@@ -510,9 +511,9 @@ private Q_SLOTS:
         QTest::keyClick(&menuBar, Qt::Key_Left);
         QCOMPARE(menuBar.activeAction(), fileMenu->menuAction());
         QTest::keyClick(&menuBar, Qt::Key_Return);
-        QTRY_VERIFY(fileMenu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(fileMenu->isVisible());
         QTest::keyClick(fileMenu, Qt::Key_Escape);
-        QTRY_VERIFY(!fileMenu->isVisible());
+        ZZ_VERIFY_EVENTUALLY(!fileMenu->isVisible());
 
         QAccessibleInterface *menuInterface =
             QAccessible::queryAccessibleInterface(fileMenu);
@@ -546,7 +547,7 @@ private Q_SLOTS:
         const QString plainText = QStringLiteral(
             "A standard tooltip with enough text to exercise sizing.");
         QToolTip::showText(position, plainText, &host, host.rect(), 2500);
-        QTRY_VERIFY(zzVisibleToolTipWindow() != nullptr);
+        ZZ_VERIFY_EVENTUALLY(zzVisibleToolTipWindow() != nullptr);
         QWidget *tipWindow = zzVisibleToolTipWindow();
         QVERIFY(tipWindow != nullptr);
         auto *label = qobject_cast<QLabel *>(tipWindow);
@@ -565,14 +566,14 @@ private Q_SLOTS:
 
         const QString richText = QStringLiteral("<b>Build</b> complete");
         QToolTip::showText(position, richText, &host, host.rect(), 2500);
-        QTRY_VERIFY(zzVisibleToolTipWindow() != nullptr);
+        ZZ_VERIFY_EVENTUALLY(zzVisibleToolTipWindow() != nullptr);
         QWidget *richTipWindow = zzVisibleToolTipWindow();
         QVERIFY(richTipWindow != nullptr);
         auto *richLabel = qobject_cast<QLabel *>(richTipWindow);
         QVERIFY(richLabel != nullptr);
         QCOMPARE(richLabel->text(), richText);
         QToolTip::hideText();
-        QTRY_VERIFY(zzVisibleToolTipWindow() == nullptr);
+        ZZ_VERIFY_EVENTUALLY(zzVisibleToolTipWindow() == nullptr);
         QCOMPARE(host.toolTip(), QStringLiteral("Host tooltip"));
     }
 

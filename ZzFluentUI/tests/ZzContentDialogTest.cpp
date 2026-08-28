@@ -10,6 +10,7 @@
 #include <QtGui/QAccessible>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -173,7 +174,7 @@ private Q_SLOTS:
         dialog.open();
         QCoreApplication::processEvents();
         QTest::keyClick(&dialog, Qt::Key_Return);
-        QTRY_VERIFY(!dialog.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!dialog.isVisible());
         QCOMPARE(
             dialog.dialogResult(),
             ZzFluentUI::ZzContentDialogResult::Secondary);
@@ -189,7 +190,7 @@ private Q_SLOTS:
         QTest::keyClick(&dialog, Qt::Key_Return);
         QVERIFY(dialog.isVisible());
         QTest::keyClick(&dialog, Qt::Key_Escape);
-        QTRY_VERIFY(!dialog.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!dialog.isVisible());
         QCOMPARE(
             dialog.dialogResult(),
             ZzFluentUI::ZzContentDialogResult::Close);
@@ -203,7 +204,7 @@ private Q_SLOTS:
             &dialog, "zzContentDialogPrimaryButton");
         QVERIFY(primary != nullptr);
         QTest::mouseClick(primary, Qt::LeftButton);
-        QTRY_VERIFY(!dialog.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!dialog.isVisible());
         QCOMPARE(
             dialog.dialogResult(),
             ZzFluentUI::ZzContentDialogResult::Primary);

@@ -9,6 +9,7 @@
 #include <QtGui/QAction>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QWidget>
@@ -828,7 +829,7 @@ private:
     {
         QVERIFY(window != nullptr);
         window->close();
-        QTRY_COMPARE(zzApplication().windowCount(), baselineWindowCount_);
+        ZZ_COMPARE_EVENTUALLY(zzApplication().windowCount(), baselineWindowCount_);
     }
 
     ZzWindowSetup currentSetup_;

@@ -1,5 +1,6 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 
 #include <QtCore/QTimer>
 #include <QtGui/QStandardItemModel>
@@ -46,13 +47,13 @@ private slots:
         pane.setSearchDelay(0);
         for (const QString &query : {QStringLiteral("needle.txt"), QStringLiteral("prefix"), QStringLiteral("fix-it")}) {
             pane.setSearchText(query);
-            QTRY_COMPARE(pane.treeView()->model()->rowCount(), 1);
+            ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 1);
             const QModelIndex proxy = pane.treeView()->model()->index(0, 0);
             QCOMPARE(pane.sourceIndex(proxy).data().toString(), QStringLiteral("Folder"));
             QVERIFY(pane.proxyIndex(model.index(0, 0)).isValid());
         }
         pane.setSearchText({});
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 2);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 2);
     }
 
     void persistentSixtyMillisecondDebounceAndModelLifecycle()
@@ -66,19 +67,19 @@ private slots:
         QSignalSpy spy(&pane, &ZzFluentUI::ZzExplorerPane::searchTextChanged);
         pane.setSearchText(QStringLiteral("n"));
         pane.setSearchText(QStringLiteral("ne"));
-        QTRY_COMPARE_WITH_TIMEOUT(pane.treeView()->model()->rowCount(), 1, 250);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(pane.treeView()->model()->rowCount(), 1, 250);
         QCOMPARE(spy.count(), 2);
         QCOMPARE(pane.findChildren<QTimer *>().size(), 1);
         model.appendRow(new QStandardItem(QStringLiteral("new needle")));
         pane.setSearchDelay(0);
         pane.setSearchText(QStringLiteral("needle"));
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 2);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 2);
         model.removeRow(2);
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 1);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 1);
         model.setData(model.index(1, 0), QStringLiteral("needle changed"));
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 2);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 2);
         model.clear();
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 0);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 0);
     }
 
     void modelDestructionAndHundredThousandNodeObjectBudget()
@@ -98,9 +99,9 @@ private slots:
         const qsizetype widgetsBefore = QApplication::allWidgets().size();
         const qsizetype timersBefore = pane.findChildren<QTimer *>().size();
         pane.setSearchText(QStringLiteral("node-99999"));
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 1);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 1);
         pane.setSearchText(QStringLiteral("absent"));
-        QTRY_COMPARE(pane.treeView()->model()->rowCount(), 0);
+        ZZ_COMPARE_EVENTUALLY(pane.treeView()->model()->rowCount(), 0);
         QCOMPARE(QApplication::allWidgets().size(), widgetsBefore);
         QCOMPARE(pane.findChildren<QTimer *>().size(), timersBefore);
     }

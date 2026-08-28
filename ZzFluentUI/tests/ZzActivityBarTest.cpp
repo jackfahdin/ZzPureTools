@@ -16,6 +16,7 @@
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QListView>
@@ -762,7 +763,7 @@ private Q_SLOTS:
             secondary->viewport(), Qt::LeftButton, Qt::NoModifier,
             secondary->visualRect(secondary->model()->index(0, 0)).center());
 
-        QTRY_COMPARE(activationSpy.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(activationSpy.count(), 1);
         QCOMPARE(collapseSpy.count(), 0);
         QCOMPARE(bar.currentSourceIndex(), model.index(0, 0));
         QCOMPARE(
@@ -798,7 +799,7 @@ private Q_SLOTS:
             primary->viewport(), Qt::LeftButton, Qt::NoModifier,
             primary->visualRect(primary->model()->index(1, 0)).center());
 
-        QTRY_VERIFY(barGuard.isNull());
+        ZZ_VERIFY_EVENTUALLY(barGuard.isNull());
         QCOMPARE(activationCount, 0);
     }
 
@@ -825,7 +826,7 @@ private Q_SLOTS:
             primary->viewport(), Qt::LeftButton, Qt::NoModifier,
             primary->visualRect(primary->model()->index(1, 0)).center());
 
-        QTRY_VERIFY(model == nullptr);
+        ZZ_VERIFY_EVENTUALLY(model == nullptr);
         QCOMPARE(bar.model(), nullptr);
         QCOMPARE(activationSpy.count(), 0);
     }
@@ -853,7 +854,7 @@ private Q_SLOTS:
             secondary->viewport(), Qt::LeftButton, Qt::NoModifier,
             secondary->visualRect(secondary->model()->index(0, 0)).center());
 
-        QTRY_VERIFY(barGuard.isNull());
+        ZZ_VERIFY_EVENTUALLY(barGuard.isNull());
     }
 
     void collapseActivationMayDestroyBarAfterMouseRelease()
@@ -876,7 +877,7 @@ private Q_SLOTS:
             primary->viewport(), Qt::LeftButton, Qt::NoModifier,
             primary->visualRect(primary->model()->index(0, 0)).center());
 
-        QTRY_VERIFY(barGuard.isNull());
+        ZZ_VERIFY_EVENTUALLY(barGuard.isNull());
     }
 
     void queuedMouseActivationRejectsChangedRowState()
@@ -1170,7 +1171,7 @@ private Q_SLOTS:
             QPointer<QMenu> menu = zzOpenContextMenu(primary, 0);
             QVERIFY(menu != nullptr);
             zzCloseContextMenu(menu);
-            QTRY_VERIFY(menu.isNull());
+            ZZ_VERIFY_EVENTUALLY(menu.isNull());
             QCOMPARE(bar.findChildren<QObject *>().size(), objectCount);
             QCOMPARE(moveSpy.count(), 0);
         }
@@ -1198,7 +1199,7 @@ private Q_SLOTS:
 
         QCOMPARE(moveSpy.count(), 0);
         zzCloseContextMenu(root);
-        QTRY_VERIFY(root.isNull());
+        ZZ_VERIFY_EVENTUALLY(root.isNull());
     }
 
     void contextMenuCancelsMoveWhenSourceAreaChanges()
@@ -1233,7 +1234,7 @@ private Q_SLOTS:
 
         QCOMPARE(moveSpy.count(), 0);
         zzCloseContextMenu(root);
-        QTRY_VERIFY(root.isNull());
+        ZZ_VERIFY_EVENTUALLY(root.isNull());
     }
 
     void activatesOtherRowsAndCollapsesTheCurrentRow()
@@ -1253,14 +1254,14 @@ private Q_SLOTS:
         QTest::mouseClick(
             view->viewport(), Qt::LeftButton, Qt::NoModifier,
             view->visualRect(view->model()->index(0, 0)).center());
-        QTRY_COMPARE(collapseSpy.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(collapseSpy.count(), 1);
         QCOMPARE(activationSpy.count(), 0);
 
         bar.setCurrentSourceIndex(model.index(2, 0));
         QTest::mouseClick(
             view->viewport(), Qt::LeftButton, Qt::NoModifier,
             view->visualRect(view->model()->index(0, 0)).center());
-        QTRY_COMPARE(activationSpy.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(activationSpy.count(), 1);
         QCOMPARE(
             activationSpy.first().at(0).value<QModelIndex>(), model.index(0, 0));
     }

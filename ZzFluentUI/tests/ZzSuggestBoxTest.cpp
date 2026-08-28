@@ -15,6 +15,7 @@
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QListView>
@@ -295,7 +296,7 @@ private Q_SLOTS:
         box.setFocus();
         box.setText(QStringLiteral("Al"));
         box.showSuggestions();
-        QTRY_VERIFY(box.isSuggestionPopupVisible());
+        ZZ_VERIFY_EVENTUALLY(box.isSuggestionPopupVisible());
         QAbstractItemView *popup = box.completer()->popup();
         QVERIFY(popup != nullptr);
         auto *popupList = qobject_cast<QListView *>(popup);
@@ -313,7 +314,7 @@ private Q_SLOTS:
         QVERIFY(box.completer()->setCurrentRow(0));
         popup->setCurrentIndex(box.completer()->currentIndex());
         QTest::keyClick(popup, Qt::Key_Return);
-        QTRY_COMPARE(activatedSpy.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(activatedSpy.count(), 1);
         const ZzFluentUI::ZzSuggestion keyboardActivation =
             zzSuggestionArgument(activatedSpy.takeFirst());
         QCOMPARE(keyboardActivation.key, QStringLiteral("alpha"));
@@ -321,7 +322,7 @@ private Q_SLOTS:
 
         box.setText(QStringLiteral("Al"));
         box.showSuggestions();
-        QTRY_VERIFY(box.isSuggestionPopupVisible());
+        ZZ_VERIFY_EVENTUALLY(box.isSuggestionPopupVisible());
         const QModelIndex second = popup->model()->index(1, 0);
         QVERIFY(second.isValid());
         const QRect secondRect = popup->visualRect(second);
@@ -331,15 +332,15 @@ private Q_SLOTS:
             Qt::LeftButton,
             Qt::NoModifier,
             secondRect.center());
-        QTRY_COMPARE(activatedSpy.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(activatedSpy.count(), 1);
         QCOMPARE(zzSuggestionArgument(activatedSpy.takeFirst()).key,
                  QStringLiteral("alpine"));
 
         box.setText(QStringLiteral("Al"));
         box.showSuggestions();
-        QTRY_VERIFY(box.isSuggestionPopupVisible());
+        ZZ_VERIFY_EVENTUALLY(box.isSuggestionPopupVisible());
         QTest::keyClick(popup, Qt::Key_Escape);
-        QTRY_VERIFY(!box.isSuggestionPopupVisible());
+        ZZ_VERIFY_EVENTUALLY(!box.isSuggestionPopupVisible());
         QCOMPARE(box.windowFlags(), originalFlags);
         QCOMPARE(box.pos(), originalPosition);
         box.hideSuggestions();

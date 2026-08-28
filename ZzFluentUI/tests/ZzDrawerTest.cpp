@@ -10,6 +10,7 @@
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
@@ -274,7 +275,7 @@ private Q_SLOTS:
         drawer.openDrawer();
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         QCOMPARE(panelHost(&drawer)->x(), closingX);
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
         QCOMPARE(panelHost(&drawer)->geometry(), QRect(0, 0, 200, 400));
 
         drawer.closeDrawer();

@@ -9,6 +9,7 @@
 #include <QtGui/QAction>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
@@ -354,8 +355,8 @@ private Q_SLOTS:
         QCOMPARE(window->findChild<QWidget *>(
                      QStringLiteral("zzExampleTasksPanel")), nullptr);
         QVERIFY(!leftPane->isCollapsed());
-        QTRY_COMPARE(leftPane->currentWidget(), window->navigationPane());
-        QTRY_COMPARE(leftPane->visibleWidgets(),
+        ZZ_COMPARE_EVENTUALLY(leftPane->currentWidget(), window->navigationPane());
+        ZZ_COMPARE_EVENTUALLY(leftPane->visibleWidgets(),
             QList<QWidget *>({window->navigationPane()}));
         QVERIFY(rightPane->isCollapsed());
         QVERIFY(rightPane->visibleWidgets().isEmpty());
@@ -363,12 +364,12 @@ private Q_SLOTS:
         window->show();
         window->activateWindow();
         QCoreApplication::processEvents();
-        QTRY_VERIFY(window->isActiveWindow());
+        ZZ_VERIFY_EVENTUALLY(window->isActiveWindow());
         QTest::mouseClick(
             leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             leftPrimaryView->visualRect(
                 leftPrimaryView->model()->index(0, 0)).center());
-        QTRY_VERIFY(window->findChild<QWidget *>(
+        ZZ_VERIFY_EVENTUALLY(window->findChild<QWidget *>(
             QStringLiteral("zzExampleSessionPanel")) != nullptr);
         QWidget *const sessionsPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSessionPanel"));
@@ -384,7 +385,7 @@ private Q_SLOTS:
             leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             leftPrimaryView->visualRect(
                 leftPrimaryView->model()->index(1, 0)).center());
-        QTRY_VERIFY(window->findChild<QWidget *>(
+        ZZ_VERIFY_EVENTUALLY(window->findChild<QWidget *>(
             QStringLiteral("zzExampleSftpPanel")) != nullptr);
         QWidget *const filesPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleSftpPanel"));
@@ -403,15 +404,15 @@ private Q_SLOTS:
             leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             leftPrimaryView->visualRect(
                 leftPrimaryView->model()->index(2, 0)).center());
-        QTRY_COMPARE(leftPane->currentWidget(), window->navigationPane());
-        QTRY_COMPARE(leftPane->visibleWidgets(),
+        ZZ_COMPARE_EVENTUALLY(leftPane->currentWidget(), window->navigationPane());
+        ZZ_COMPARE_EVENTUALLY(leftPane->visibleWidgets(),
             QList<QWidget *>({window->navigationPane()}));
 
         QTest::mouseClick(
             rightPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             rightPrimaryView->visualRect(
                 rightPrimaryView->model()->index(0, 0)).center());
-        QTRY_VERIFY(window->findChild<QWidget *>(
+        ZZ_VERIFY_EVENTUALLY(window->findChild<QWidget *>(
             QStringLiteral("zzExamplePropertiesPanel")) != nullptr);
         QWidget *const propertiesPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExamplePropertiesPanel"));
@@ -428,7 +429,7 @@ private Q_SLOTS:
             rightPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             rightPrimaryView->visualRect(
                 rightPrimaryView->model()->index(1, 0)).center());
-        QTRY_VERIFY(window->findChild<QWidget *>(
+        ZZ_VERIFY_EVENTUALLY(window->findChild<QWidget *>(
             QStringLiteral("zzExampleTasksPanel")) != nullptr);
         QWidget *const tasksPanel = window->findChild<QWidget *>(
             QStringLiteral("zzExampleTasksPanel"));
@@ -538,7 +539,7 @@ private Q_SLOTS:
                      QStringLiteral("zzExampleSettingsWindow"),
                      Qt::FindDirectChildrenOnly).size(), 1);
         QVERIFY(first->isVisible());
-        QTRY_VERIFY(first->isActiveWindow());
+        ZZ_VERIFY_EVENTUALLY(first->isActiveWindow());
 
         closeSettings(first);
         closeApplicationWindow(window);
@@ -555,7 +556,7 @@ private Q_SLOTS:
         QVERIFY(!first.isNull());
 
         first->close();
-        QTRY_VERIFY(first.isNull());
+        ZZ_VERIFY_EVENTUALLY(first.isNull());
         QCOMPARE(settingsWindow(window), nullptr);
 
         action->trigger();
@@ -627,7 +628,7 @@ private Q_SLOTS:
         window->raise();
         window->activateWindow();
         QCoreApplication::processEvents();
-        QTRY_VERIFY(window->isActiveWindow());
+        ZZ_VERIFY_EVENTUALLY(window->isActiveWindow());
         QModelIndex settingsIndex;
         for (int row = 0; row < activityView->model()->rowCount(); ++row) {
             const QModelIndex candidate = activityView->model()->index(row, 0);
@@ -640,7 +641,7 @@ private Q_SLOTS:
         QTest::mouseClick(
             activityView->viewport(), Qt::LeftButton, Qt::NoModifier,
             activityView->visualRect(settingsIndex).center());
-        QTRY_COMPARE(triggered.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(triggered.count(), 1);
 
         auto *palette = window->findChild<ZzFluentUI::ZzCommandPalette *>();
         QVERIFY(palette != nullptr);
@@ -673,8 +674,8 @@ private Q_SLOTS:
         QVERIFY(!secondSettings.isNull());
 
         firstWindow->close();
-        QTRY_VERIFY(firstWindowGuard.isNull());
-        QTRY_VERIFY(firstSettings.isNull());
+        ZZ_VERIFY_EVENTUALLY(firstWindowGuard.isNull());
+        ZZ_VERIFY_EVENTUALLY(firstSettings.isNull());
         QVERIFY(!secondSettings.isNull());
         QVERIFY(secondSettings->isVisible());
 
@@ -717,7 +718,7 @@ private:
         QVERIFY(settings != nullptr);
         QPointer<QMainWindow> guard(settings);
         settings->close();
-        QTRY_VERIFY(guard.isNull());
+        ZZ_VERIFY_EVENTUALLY(guard.isNull());
     }
 
     void closeApplicationWindow(
@@ -730,7 +731,7 @@ private:
         window->close();
         const qsizetype expected = expectedWindowCount < 0
             ? baselineWindowCount_ : expectedWindowCount;
-        QTRY_COMPARE(application->windowCount(), expected);
+        ZZ_COMPARE_EVENTUALLY(application->windowCount(), expected);
     }
 
     std::shared_ptr<ZzExample::ZzExampleApplicationContext> context_;
