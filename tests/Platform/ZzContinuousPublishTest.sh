@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+report_failure() {
+  local status=$1
+  local line=$2
+  local command=$3
+  local bash_lines=$4
+  local log_path relative_path
+
+  trap - ERR
+  set +e
+  printf 'continuous publish test failed: exit=%s line=%s command=%s bash-lines=%s\n' \
+    "$status" "$line" "$command" "$bash_lines" >&2
+  if [[ -n ${test_root:-} && -d ${test_root:-} ]]; then
+    while IFS= read -r log_path; do
+      relative_path=${log_path#"$test_root"/}
+      printf '%s\n' "--- $relative_path ---" >&2
+      cat "$log_path" >&2
+    done < <(find "$test_root" -type f \
+      \( -name stderr.log -o -name gh.log \) -print | LC_ALL=C sort)
+  fi
+  exit "$status"
+}
+
+trap 'report_failure "$?" "$LINENO" "$BASH_COMMAND" "${BASH_LINENO[*]}"' ERR
+
 if [[ $# -ne 2 ]]; then
   echo "usage: $0 <source-dir> <test-root>" >&2
   exit 64
@@ -32,6 +56,15 @@ esac
 }
 rm -rf -- "$test_root"
 mkdir -p "$test_root"
+
+if [[ ${ZZ_CONTINUOUS_PUBLISH_TEST_DIAGNOSTIC_PROBE:-0} == 1 ]]; then
+  mkdir -p "$test_root/diagnostic-probe"
+  printf '%s\n' 'diagnostic stderr fixture' \
+    > "$test_root/diagnostic-probe/stderr.log"
+  printf '%s\n' 'diagnostic gh fixture' \
+    > "$test_root/diagnostic-probe/gh.log"
+  false
+fi
 
 commit=0123456789abcdef0123456789abcdef01234567
 old_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

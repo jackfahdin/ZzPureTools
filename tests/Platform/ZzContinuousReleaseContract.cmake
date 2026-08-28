@@ -75,6 +75,54 @@ foreach(required_token IN LISTS required_publish_tokens)
     endif()
 endforeach()
 
+file(READ "${publish_test}" publish_test_content)
+foreach(required_diagnostic_token IN ITEMS
+        "report_failure()"
+        "BASH_LINENO"
+        "BASH_COMMAND"
+        "stderr.log"
+        "gh.log")
+    string(FIND "${publish_test_content}"
+        "${required_diagnostic_token}" diagnostic_token_position)
+    if(diagnostic_token_position EQUAL -1)
+        message(FATAL_ERROR
+            "Continuous publish test lacks failure diagnostic token: "
+            "${required_diagnostic_token}")
+    endif()
+endforeach()
+
+set(diagnostic_test_root
+    "${source_dir}/build/continuous-publish-diagnostic-contract")
+file(REMOVE_RECURSE "${diagnostic_test_root}")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env
+        ZZ_CONTINUOUS_PUBLISH_TEST_DIAGNOSTIC_PROBE=1
+        bash "${publish_test}" "${source_dir}" "${diagnostic_test_root}"
+    RESULT_VARIABLE diagnostic_result
+    OUTPUT_VARIABLE diagnostic_stdout
+    ERROR_VARIABLE diagnostic_stderr)
+if(diagnostic_result EQUAL 0)
+    message(FATAL_ERROR
+        "Continuous publish diagnostic probe unexpectedly succeeded")
+endif()
+foreach(expected_diagnostic IN ITEMS
+        "exit=1"
+        "line="
+        "command=false"
+        "bash-lines="
+        "diagnostic-probe/stderr.log"
+        "diagnostic stderr fixture"
+        "diagnostic-probe/gh.log"
+        "diagnostic gh fixture")
+    string(FIND "${diagnostic_stderr}"
+        "${expected_diagnostic}" expected_diagnostic_position)
+    if(expected_diagnostic_position EQUAL -1)
+        message(FATAL_ERROR
+            "Continuous publish diagnostic probe lacks output: "
+            "${expected_diagnostic}\nstderr:\n${diagnostic_stderr}")
+    endif()
+endforeach()
+
 foreach(forbidden_token IN ITEMS
     "curl "
     "wget "
