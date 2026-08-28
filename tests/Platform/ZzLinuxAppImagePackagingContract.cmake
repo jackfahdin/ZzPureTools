@@ -52,6 +52,9 @@ printf '%s\n' 6.8.3
 file(WRITE "${ZZ_TEST_ROOT}/bin/xvfb-run" [=[#!/usr/bin/env bash
 exit 0
 ]=])
+file(WRITE "${ZZ_TEST_ROOT}/bin/readelf" [=[#!/usr/bin/env bash
+exit 0
+]=])
 foreach(tool_name IN ITEMS linuxdeploy qt-plugin appimagetool)
     file(WRITE "${ZZ_TEST_ROOT}/tools/${tool_name}" [=[#!/usr/bin/env bash
 exit 0
@@ -60,6 +63,7 @@ endforeach()
 file(CHMOD
     "${ZZ_TEST_ROOT}/qt/bin/qmake"
     "${ZZ_TEST_ROOT}/bin/xvfb-run"
+    "${ZZ_TEST_ROOT}/bin/readelf"
     "${ZZ_TEST_ROOT}/tools/linuxdeploy"
     "${ZZ_TEST_ROOT}/tools/qt-plugin"
     "${ZZ_TEST_ROOT}/tools/appimagetool"
