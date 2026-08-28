@@ -156,6 +156,21 @@ add_test(NAME platform.macos-packaging-contract
 set_tests_properties(platform.macos-packaging-contract PROPERTIES
     LABELS "platform;contract;packaging;macos")
 
+add_test(NAME platform.continuous-publish
+    COMMAND bash
+        "${CMAKE_CURRENT_SOURCE_DIR}/ZzContinuousPublishTest.sh"
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_BINARY_DIR}/continuous-publish-test")
+set_tests_properties(platform.continuous-publish PROPERTIES
+    LABELS "platform;contract;release")
+
+add_test(NAME platform.continuous-release-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzContinuousReleaseContract.cmake")
+set_tests_properties(platform.continuous-release-contract PROPERTIES
+    LABELS "platform;contract;release")
+
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     add_test(NAME platform.governor-state
         COMMAND bash
