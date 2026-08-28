@@ -3082,6 +3082,7 @@ private Q_SLOTS:
                 ++calls;
                 auto content =
                     std::make_unique<ZzDeferredVisibilityAuditWidget>(stack);
+                content->setAttribute(Qt::WA_DontShowOnScreen);
                 content->show();
                 created = content.get();
                 return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
