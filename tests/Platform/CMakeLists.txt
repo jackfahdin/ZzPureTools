@@ -135,6 +135,13 @@ add_test(NAME platform.release-packaging-support-contract
 set_tests_properties(platform.release-packaging-support-contract PROPERTIES
     LABELS "platform;contract;packaging")
 
+add_test(NAME platform.linux-appimage-packaging-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzLinuxAppImagePackagingContract.cmake")
+set_tests_properties(platform.linux-appimage-packaging-contract PROPERTIES
+    LABELS "platform;contract;packaging;linux")
+
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     add_test(NAME platform.governor-state
         COMMAND bash

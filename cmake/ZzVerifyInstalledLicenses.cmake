@@ -20,13 +20,27 @@ if("${install_root}" STREQUAL "${install_anchor}"
     message(FATAL_ERROR "拒绝不安全的许可证审计安装目录：${install_root}")
 endif()
 
-file(STRINGS "${build_dir}/CMakeCache.txt" release_cache
-    REGEX "^ZZ_RELEASE_BUILD:BOOL=ON$")
+function(zz_read_cache_bool cache_path cache_key output_variable)
+    file(STRINGS "${cache_path}" cache_lines
+        REGEX "^${cache_key}:BOOL=" LIMIT_COUNT 1)
+    set(cache_enabled FALSE)
+    if(cache_lines)
+        list(GET cache_lines 0 cache_line)
+        string(REGEX REPLACE "^[^=]*=" "" cache_value "${cache_line}")
+        if(cache_value)
+            set(cache_enabled TRUE)
+        endif()
+    endif()
+    set(${output_variable} "${cache_enabled}" PARENT_SCOPE)
+endfunction()
+
+zz_read_cache_bool(
+    "${build_dir}/CMakeCache.txt" ZZ_RELEASE_BUILD release_cache)
 if(NOT release_cache)
     message(FATAL_ERROR "许可证安装审计只接受 ZZ_RELEASE_BUILD=ON 的构建")
 endif()
-file(STRINGS "${build_dir}/CMakeCache.txt" runtime_cache
-    REGEX "^ZZ_BUNDLE_GNU_RUNTIME:BOOL=ON$")
+zz_read_cache_bool(
+    "${build_dir}/CMakeCache.txt" ZZ_BUNDLE_GNU_RUNTIME runtime_cache)
 
 file(REMOVE_RECURSE "${install_root}")
 set(install_command

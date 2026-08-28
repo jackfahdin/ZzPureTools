@@ -39,6 +39,17 @@ function(zz_install_package)
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     )
 
+    # ZzLog 的上游安装规则没有 component；在项目集成层补齐应用运行时组件。
+    install(TARGETS ZzLog
+        RUNTIME
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            COMPONENT Runtime
+        LIBRARY
+            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            COMPONENT Runtime
+            NAMELINK_COMPONENT Development
+    )
+
     set(zz_public_include_roots
         "${PROJECT_SOURCE_DIR}/ZzCore/include"
         "${PROJECT_SOURCE_DIR}/ZzWindowKit/include"

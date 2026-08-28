@@ -101,6 +101,20 @@
       }
     },
     {
+      "name": "linux-continuous-release",
+      "inherits": "linux-gcc13-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": true,
+        "ZZ_ENABLE_LTO": true,
+        "ZZ_BUILD_TESTS": true,
+        "ZZ_BUILD_EXAMPLES": true,
+        "ZZ_BUILD_BENCHMARKS": false,
+        "ZZ_RELEASE_BUILD": true,
+        "ZZ_BUNDLE_GNU_RUNTIME": true
+      }
+    },
+    {
       "name": "linux-static-release-lto",
       "inherits": "linux-gcc13-base",
       "cacheVariables": {
@@ -325,6 +339,7 @@
     { "name": "linux-clang-release", "configurePreset": "linux-clang-release" },
     { "name": "linux-clang-asan", "configurePreset": "linux-clang-asan" },
     { "name": "linux-gcc-release-lto", "configurePreset": "linux-gcc-release-lto" },
+    { "name": "linux-continuous-release", "configurePreset": "linux-continuous-release" },
     { "name": "linux-static-release-lto", "configurePreset": "linux-static-release-lto" },
     { "name": "linux-clang-tidy-release", "configurePreset": "linux-clang-tidy-release" },
     { "name": "linux-clang-tidy-static", "configurePreset": "linux-clang-tidy-static" },
@@ -421,6 +436,18 @@
       "execution": { "noTestsAction": "error" },
       "environment": {
         "ZZ_CMAKE_PRESET": "linux-gcc-release-lto",
+        "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
+        "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
+        "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"
+      }
+    },
+    {
+      "name": "linux-continuous-release",
+      "configurePreset": "linux-continuous-release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" },
+      "environment": {
+        "ZZ_CMAKE_PRESET": "linux-continuous-release",
         "ZZ_BENCHMARK_COMMIT": "$penv{ZZ_BENCHMARK_COMMIT}",
         "ZZ_RUNNER_IMAGE_DIGEST": "$penv{ZZ_RUNNER_IMAGE_DIGEST}",
         "ZZ_GPU_IDENTITY": "$penv{ZZ_GPU_IDENTITY}"

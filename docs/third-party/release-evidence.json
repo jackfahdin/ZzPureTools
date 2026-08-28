@@ -39,7 +39,7 @@
       "reviewRecord": {
         "scope": "repository",
         "path": "docs/third-party/reviews/windeployqt-redistribution-review.json",
-        "sha256": "ed0c50afb8a3451a9cd7265b0d5208a2a6d955db5008d7d91fdafc0b45b6a682"
+        "sha256": "7225ece3cde2b8a23d8263988cbc48d892f32175f629a1b90904a57033a069d0"
       }
     },
     "projectLicense": {

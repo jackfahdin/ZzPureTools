@@ -77,6 +77,10 @@ set_target_properties(ZzPureToolsExample PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_ICON_FILE ZzPureToolsExample.icns)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set_target_properties(ZzPureToolsExample PROPERTIES
+        INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
 target_compile_definitions(ZzPureToolsExample PRIVATE
     ZZ_EXAMPLE_VERSION="${PROJECT_VERSION}")
 
