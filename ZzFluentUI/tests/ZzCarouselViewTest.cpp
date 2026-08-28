@@ -253,6 +253,13 @@ private Q_SLOTS:
     QTest::keyClick(view, Qt::Key_Return);
     QCOMPARE(activatedSpy.count(), 1);
     QCOMPARE(activatedSpy.at(0).at(0).toModelIndex(), model.index(1, 0));
+    QTest::keyClick(view, Qt::Key_Enter);
+    QCOMPARE(activatedSpy.count(), 2);
+    QCOMPARE(activatedSpy.at(1).at(0).toModelIndex(), model.index(1, 0));
+    model.item(1)->setEnabled(false);
+    QTest::keyClick(view, Qt::Key_Return);
+    QCOMPARE(activatedSpy.count(), 2);
+    model.item(1)->setEnabled(true);
 
     view->setLayoutDirection(Qt::RightToLeft);
     QTest::keyClick(view, Qt::Key_Right);

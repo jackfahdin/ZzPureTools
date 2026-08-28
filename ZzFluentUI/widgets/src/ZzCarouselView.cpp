@@ -5,6 +5,7 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QItemSelectionModel>
 #include <QtGui/QHideEvent>
+#include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QResizeEvent>
 #include <QtGui/QWheelEvent>
@@ -258,6 +259,24 @@ void ZzCarouselView::wheelEvent(QWheelEvent *event) {
   } else {
     event->ignore();
   }
+}
+
+void ZzCarouselView::keyPressEvent(QKeyEvent *event) {
+  if (event == nullptr) {
+    return;
+  }
+  const bool activatesCurrent =
+      (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) &&
+      event->modifiers() == Qt::NoModifier;
+  if (activatesCurrent) {
+    const QModelIndex current = currentIndex();
+    if (current.isValid() && current.flags().testFlag(Qt::ItemIsEnabled)) {
+      Q_EMIT activated(current);
+    }
+    event->accept();
+    return;
+  }
+  QAbstractItemView::keyPressEvent(event);
 }
 
 void ZzCarouselView::changeEvent(QEvent *event) {

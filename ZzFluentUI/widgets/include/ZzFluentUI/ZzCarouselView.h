@@ -8,6 +8,7 @@
 
 class QEvent;
 class QHideEvent;
+class QKeyEvent;
 class QPaintEvent;
 class QResizeEvent;
 class QWheelEvent;
@@ -181,6 +182,9 @@ protected:
 
   /** @brief 将有效滚轮步进转换为一次前后导航。 */
   void wheelEvent(QWheelEvent *event) override;
+
+  /** @brief 统一 Enter 与 Return 对当前可用项的键盘激活语义。 */
+  void keyPressEvent(QKeyEvent *event) override;
 
   /** @brief 响应语言、布局方向、style、palette 和 enabled 变化。 */
   void changeEvent(QEvent *event) override;
