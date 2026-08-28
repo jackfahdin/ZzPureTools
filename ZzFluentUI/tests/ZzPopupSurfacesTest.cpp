@@ -477,7 +477,12 @@ private Q_SLOTS:
         menu.show();
         menu.setFocus();
         QCoreApplication::processEvents();
+#if defined(Q_OS_MACOS)
+        menu.setActiveAction(open);
+        QTest::keyClick(&menu, Qt::Key_Return);
+#else
         QTest::keyClick(&menu, Qt::Key_O);
+#endif
         ZZ_COMPARE_EVENTUALLY(openTriggeredSpy.count(), 1);
         QVERIFY(!menu.isVisible());
     }
