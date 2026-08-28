@@ -177,6 +177,16 @@ function Invoke-DeployedSmokeTest([string]$Executable) {
     }
 }
 
+function Test-MsvcRedistributableBootstrapper(
+    [IO.FileInfo]$File,
+    [string]$StageRoot
+) {
+    $expectedPath = [IO.Path]::GetFullPath(
+        (Join-Path $StageRoot 'bin/vc_redist.x64.exe'))
+    return $File.FullName.Equals(
+        $expectedPath, [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Assert-PeDependencies([string]$StageRoot) {
     $peFiles = @(Get-ChildItem -LiteralPath $StageRoot -Recurse -File |
         Where-Object { $_.Extension -in @('.exe', '.dll') })
@@ -189,7 +199,16 @@ function Assert-PeDependencies([string]$StageRoot) {
         if ($script:Mode -eq 'msvc') {
             $headers = Invoke-NativeCapture -File $script:DependencyTool `
                 -Arguments @('/headers', $peFile.FullName)
-            if ($headers -notmatch '(?i)machine \(x64\)') {
+            $isRedistributableBootstrapper =
+                Test-MsvcRedistributableBootstrapper `
+                    -File $peFile -StageRoot $StageRoot
+            if ($isRedistributableBootstrapper -and
+                $headers -notmatch '(?i)machine \((x86|x64)\)') {
+                throw "MSVC redistributable has an unsupported PE " +
+                    "architecture: $($peFile.FullName)"
+            }
+            if (-not $isRedistributableBootstrapper -and
+                $headers -notmatch '(?i)machine \(x64\)') {
                 throw "MSVC package contains a non-x64 PE: $($peFile.FullName)"
             }
             $dependencyText += Invoke-NativeCapture `

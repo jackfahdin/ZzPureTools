@@ -24,6 +24,8 @@ set(required_script_tokens
     "windeployqt.exe"
     "dumpbin"
     "objdump"
+    "Test-MsvcRedistributableBootstrapper"
+    "bin/vc_redist.x64.exe"
     "libgcc_s"
     "libstdc++"
     "vcruntime"
