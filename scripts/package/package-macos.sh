@@ -101,7 +101,10 @@ build_dir=$(resolve_directory build-dir "$build_dir_arg")
 qt_root=$(resolve_directory qt-root "$qt_root_arg")
 evidence_root=$(resolve_directory evidence-root "$evidence_root_arg")
 output_dir=$(resolve_directory output-dir "$output_dir_arg")
-[[ -z $(find "$output_dir" -mindepth 1 -maxdepth 1 -print -quit) ]] || {
+shopt -s nullglob dotglob
+output_entries=("$output_dir"/*)
+shopt -u nullglob dotglob
+[[ ${#output_entries[@]} -eq 0 ]] || {
   echo "output-dir must be empty" >&2
   exit 1
 }

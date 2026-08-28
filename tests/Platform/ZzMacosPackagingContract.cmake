@@ -79,6 +79,8 @@ foreach(forbidden_token IN ITEMS
     "curl "
     "wget "
     "releases/download/continuous"
+    "-mindepth"
+    "-maxdepth"
     "rm -rf \"\$output_dir\""
     "temp_image")
     string(FIND "${package_script_content}"
