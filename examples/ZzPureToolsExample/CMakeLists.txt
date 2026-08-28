@@ -201,7 +201,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
         COMPONENT ExampleRuntime)
     install(FILES "${zz_example_application_icon}"
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/200x200/apps"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps"
         RENAME io.github.jackfahdin.ZzPureToolsExample.png
         COMPONENT ExampleRuntime)
 endif()

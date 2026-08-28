@@ -38,7 +38,8 @@ set(required_cmake_tokens
     "MACOSX_BUNDLE_GUI_IDENTIFIER"
     "io.github.jackfahdin.ZzPureToolsExample"
     [=[ZZ_EXAMPLE_VERSION="${PROJECT_VERSION}"]=]
-    "install(TARGETS ZzPureToolsExample")
+    "install(TARGETS ZzPureToolsExample"
+    "icons/hicolor/256x256/apps")
 foreach(required_token IN LISTS required_cmake_tokens)
     string(FIND "${example_cmake_content}" "${required_token}" token_index)
     if(token_index EQUAL -1)
@@ -121,5 +122,24 @@ foreach(icon_extension IN ITEMS png ico icns)
         message(FATAL_ERROR "Application icon is empty: ${icon_path}")
     endif()
 endforeach()
+
+set(application_png
+    "${application_resource_dir}/ZzPureToolsExample.png")
+file(READ "${application_png}" png_header_hex OFFSET 0 LIMIT 24 HEX)
+string(TOLOWER "${png_header_hex}" png_header_hex)
+string(SUBSTRING "${png_header_hex}" 0 32 png_signature_and_ihdr)
+if(NOT png_signature_and_ihdr STREQUAL
+   "89504e470d0a1a0a0000000d49484452")
+    message(FATAL_ERROR
+        "Linux application icon is not a canonical PNG: ${application_png}")
+endif()
+string(SUBSTRING "${png_header_hex}" 32 8 png_width_hex)
+string(SUBSTRING "${png_header_hex}" 40 8 png_height_hex)
+math(EXPR png_width "0x${png_width_hex}")
+math(EXPR png_height "0x${png_height_hex}")
+if(NOT png_width EQUAL 256 OR NOT png_height EQUAL 256)
+    message(FATAL_ERROR
+        "Linux application icon must be 256x256; found ${png_width}x${png_height}")
+endif()
 
 message(STATUS "PASS ZzPureToolsExample application metadata contract")

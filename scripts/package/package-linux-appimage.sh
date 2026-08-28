@@ -233,7 +233,7 @@ cmake --install "$build_dir" --prefix "$appdir/usr" --component ExampleRuntime
 
 example_executable="$appdir/usr/bin/ZzPureToolsExample"
 desktop_file="$appdir/usr/share/applications/io.github.jackfahdin.ZzPureToolsExample.desktop"
-icon_file="$appdir/usr/share/icons/hicolor/200x200/apps/io.github.jackfahdin.ZzPureToolsExample.png"
+icon_file="$appdir/usr/share/icons/hicolor/256x256/apps/io.github.jackfahdin.ZzPureToolsExample.png"
 for installed_file in "$example_executable" "$desktop_file" "$icon_file"; do
   [[ -s $installed_file && ! -L $installed_file ]] || {
     echo "installed Example runtime file is unavailable: $installed_file" >&2
