@@ -888,7 +888,7 @@ struct ZzRestoreMaterialization final
             QStringLiteral("Side panel content is not hidden for restore"));
     }
     ZzWorkspacePanelFactory factory =
-        std::move(shell.panels[panelIndex].factory);
+        std::exchange(shell.panels[panelIndex].factory, {});
     auto adopted = shell.adoptSidePanelContent(
         id, generation, content.get(), false);
     if (!adopted) {
