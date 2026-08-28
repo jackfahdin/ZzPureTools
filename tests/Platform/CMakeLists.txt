@@ -120,6 +120,13 @@ add_test(NAME platform.github-actions-contract
 set_tests_properties(platform.github-actions-contract PROPERTIES
     LABELS "platform;contract")
 
+add_test(NAME platform.example-application-metadata-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzExampleApplicationMetadataContract.cmake")
+set_tests_properties(platform.example-application-metadata-contract PROPERTIES
+    LABELS "platform;contract;packaging")
+
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     add_test(NAME platform.governor-state
         COMMAND bash

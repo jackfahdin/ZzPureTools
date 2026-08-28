@@ -13,6 +13,7 @@
 #include <QtCore/QString>
 #include <QtCore/QTimer>
 #include <QtGui/QFont>
+#include <QtGui/QIcon>
 #include <QtWidgets/QApplication>
 
 #include <ZzCore/ZzError.h>
@@ -73,7 +74,10 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName(QStringLiteral("Jackfahdin"));
     QCoreApplication::setApplicationName(
         QStringLiteral("ZzPureToolsExample"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
+    QCoreApplication::setApplicationVersion(
+        QStringLiteral(ZZ_EXAMPLE_VERSION));
+    QApplication::setWindowIcon(QIcon(QStringLiteral(
+        ":/ZzPureToolsExample/application/ZzPureToolsExample.png")));
 
     bool timeoutValid = false;
     const int timeout = qEnvironmentVariableIntValue(

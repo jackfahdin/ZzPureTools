@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ZzPureToolsExample
+Comment=ZzPureToolsFrame component gallery and desktop workspace example
+Exec=ZzPureToolsExample
+TryExec=ZzPureToolsExample
+Icon=io.github.jackfahdin.ZzPureToolsExample
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true

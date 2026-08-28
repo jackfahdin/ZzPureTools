@@ -40,7 +40,45 @@ if(ZZ_BUILD_BENCHMARKS)
     )
 endif()
 
+set(zz_example_application_resource_dir
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/application")
+set(zz_example_application_icon
+    "${zz_example_application_resource_dir}/ZzPureToolsExample.png")
+
+if(WIN32)
+    set(ZZ_EXAMPLE_WINDOWS_ICON
+        "${zz_example_application_resource_dir}/ZzPureToolsExample.ico")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    set(zz_example_windows_resource
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/ZzPureToolsExample.rc")
+    configure_file(
+        "${zz_example_application_resource_dir}/ZzPureToolsExample.rc.in"
+        "${zz_example_windows_resource}"
+        @ONLY)
+    list(APPEND zz_pure_tools_example_sources
+        "${zz_example_windows_resource}")
+elseif(APPLE)
+    set(zz_example_macos_icon
+        "${zz_example_application_resource_dir}/ZzPureToolsExample.icns")
+    set_source_files_properties(
+        "${zz_example_macos_icon}"
+        PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    list(APPEND zz_pure_tools_example_sources
+        "${zz_example_macos_icon}")
+endif()
+
 add_executable(ZzPureToolsExample ${zz_pure_tools_example_sources})
+set_target_properties(ZzPureToolsExample PROPERTIES
+    WIN32_EXECUTABLE TRUE
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_GUI_IDENTIFIER
+        io.github.jackfahdin.ZzPureToolsExample
+    MACOSX_BUNDLE_BUNDLE_NAME ZzPureToolsExample
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_ICON_FILE ZzPureToolsExample.icns)
+target_compile_definitions(ZzPureToolsExample PRIVATE
+    ZZ_EXAMPLE_VERSION="${PROJECT_VERSION}")
 
 set(zz_example_workspace_icons
     resources/Sessions.svg
@@ -107,10 +145,15 @@ foreach(zz_example_workspace_icon IN LISTS zz_example_workspace_icons)
         PROPERTIES QT_RESOURCE_ALIAS
             "ZzPureToolsExample/workspace-icons/${zz_example_workspace_icon_name}")
 endforeach()
+set_source_files_properties(
+    "${zz_example_application_icon}"
+    PROPERTIES QT_RESOURCE_ALIAS
+        "ZzPureToolsExample/application/ZzPureToolsExample.png")
 qt_add_resources(ZzPureToolsExample "zz_example_resources"
     PREFIX "/"
     FILES
         "${zz_pure_tools_example_english_qm}"
+        "${zz_example_application_icon}"
         ${zz_example_workspace_icons}
 )
 
@@ -128,6 +171,36 @@ endif()
 
 zz_configure_first_party_target(ZzPureToolsExample
     SOURCES ${zz_pure_tools_example_sources})
+
+install(TARGETS ZzPureToolsExample
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT ExampleRuntime
+    BUNDLE DESTINATION . COMPONENT ExampleRuntime)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(zz_example_desktop_file
+        "${CMAKE_CURRENT_BINARY_DIR}/io.github.jackfahdin.ZzPureToolsExample.desktop")
+    set(zz_example_appdata_file
+        "${CMAKE_CURRENT_BINARY_DIR}/io.github.jackfahdin.ZzPureToolsExample.appdata.xml")
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/packaging/linux/io.github.jackfahdin.ZzPureToolsExample.desktop.in"
+        "${zz_example_desktop_file}"
+        @ONLY)
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/packaging/linux/io.github.jackfahdin.ZzPureToolsExample.appdata.xml.in"
+        "${zz_example_appdata_file}"
+        @ONLY)
+    install(FILES "${zz_example_desktop_file}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+        COMPONENT ExampleRuntime)
+    install(FILES "${zz_example_appdata_file}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
+        COMPONENT ExampleRuntime)
+    install(FILES "${zz_example_application_icon}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/200x200/apps"
+        RENAME io.github.jackfahdin.ZzPureToolsExample.png
+        COMPONENT ExampleRuntime)
+endif()
 
 if(ZZ_BUILD_TESTS)
     add_subdirectory(tests)
