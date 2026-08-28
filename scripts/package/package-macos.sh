@@ -66,7 +66,7 @@ esac
   exit 1
 }
 
-for tool in awk bash chmod cmake ditto env file find grep hdiutil \
+for tool in awk bash chmod cmake ditto file find grep hdiutil \
             install_name_tool lipo ln mkdir mktemp mv otool realpath rm sed \
             stat sw_vers uname; do
   command -v "$tool" >/dev/null || {

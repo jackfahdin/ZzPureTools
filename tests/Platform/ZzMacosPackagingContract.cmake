@@ -87,13 +87,14 @@ set(required_bundle_policy_tokens
     "zz_macos_invoke_app_smoke"
     "lipo \"\$binary\" -thin \"\$architecture\""
     "zz_macos_extract_rpaths"
-    "-u QT_PLUGIN_PATH"
-    "-u QML2_IMPORT_PATH"
-    "-u DYLD_LIBRARY_PATH"
-    "QT_QPA_PLATFORM=cocoa"
-    "QT_QPA_PLATFORM_PLUGIN_PATH=\"\$plugin_dir\""
-    "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500"
-    "\"\$executable\" --smoke-test")
+    "unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH"
+    "unset QML2_IMPORT_PATH QML_IMPORT_PATH"
+    "unset DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH"
+    "unset DYLD_INSERT_LIBRARIES"
+    "export QT_QPA_PLATFORM=cocoa"
+    "export QT_QPA_PLATFORM_PLUGIN_PATH=\"\$plugin_dir\""
+    "export ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500"
+    "exec \"\$executable\" --smoke-test")
 foreach(required_token IN LISTS required_bundle_policy_tokens)
     string(FIND "${bundle_policy_script_content}"
         "${required_token}" required_token_position)

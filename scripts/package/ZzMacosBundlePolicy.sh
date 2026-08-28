@@ -121,18 +121,15 @@ zz_macos_invoke_app_smoke() {
     return 1
   }
 
-  env \
-    -u QT_PLUGIN_PATH \
-    -u QT_QPA_PLATFORM_PLUGIN_PATH \
-    -u QML2_IMPORT_PATH \
-    -u QML_IMPORT_PATH \
-    -u DYLD_LIBRARY_PATH \
-    -u DYLD_FRAMEWORK_PATH \
-    -u DYLD_FALLBACK_LIBRARY_PATH \
-    -u DYLD_FALLBACK_FRAMEWORK_PATH \
-    -u DYLD_INSERT_LIBRARIES \
-    QT_QPA_PLATFORM=cocoa \
-    QT_QPA_PLATFORM_PLUGIN_PATH="$plugin_dir" \
-    ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500 \
-    "$executable" --smoke-test
+  (
+    unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH
+    unset QML2_IMPORT_PATH QML_IMPORT_PATH
+    unset DYLD_LIBRARY_PATH DYLD_FRAMEWORK_PATH
+    unset DYLD_FALLBACK_LIBRARY_PATH DYLD_FALLBACK_FRAMEWORK_PATH
+    unset DYLD_INSERT_LIBRARIES
+    export QT_QPA_PLATFORM=cocoa
+    export QT_QPA_PLATFORM_PLUGIN_PATH="$plugin_dir"
+    export ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500
+    exec "$executable" --smoke-test
+  )
 }
