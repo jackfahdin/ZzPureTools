@@ -297,8 +297,15 @@ run_publish() {
   local fail_upload_at=${4:-0}
   local selected_run_url=${5:-$run_url}
   local view_error=${6:-}
+  local fake_bin resolved_gh
+  fake_bin=$(cd "$case_root/bin" && pwd -P)
+  resolved_gh=$(PATH="$fake_bin:$PATH" command -v gh)
+  [[ $resolved_gh == "$fake_bin/gh" ]] || {
+    echo "fake gh is not first on PATH: $resolved_gh" >&2
+    return 1
+  }
   : > "$case_root/gh.log"
-  PATH="$case_root/bin:$PATH" \
+  PATH="$fake_bin:$PATH" \
   FAKE_GH_LOG="$case_root/gh.log" \
   FAKE_GH_STATE="$state" \
   FAKE_GH_FAIL_UPLOAD_AT="$fail_upload_at" \
