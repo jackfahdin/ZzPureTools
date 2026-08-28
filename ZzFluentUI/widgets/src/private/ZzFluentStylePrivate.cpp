@@ -1108,8 +1108,15 @@ void ZzFluentStylePrivate::drawItemViewRow(
             }
         }
     }
-    if (!adjusted.features.testFlag(
-            QStyleOptionViewItem::IsDecorationForRootColumn)
+    const bool isDecorationForRootColumn =
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+        adjusted.features.testFlag(
+            QStyleOptionViewItem::IsDecorationForRootColumn);
+#else
+        treeView != nullptr && adjusted.features.testFlag(
+            QStyleOptionViewItem::HasDecoration);
+#endif
+    if (!isDecorationForRootColumn
         || (!selected && !hovered)) {
         // 保留 QCommonStyle 的交替行背景；其余情形不再填充整色高亮。
         if (adjusted.features.testFlag(QStyleOptionViewItem::Alternate)) {

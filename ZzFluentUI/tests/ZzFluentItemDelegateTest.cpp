@@ -443,7 +443,11 @@ private Q_SLOTS:
             tree.indentation(),
             rowRect.height());
         option.state = QStyle::State_Enabled;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
         option.features = QStyleOptionViewItem::IsDecorationForRootColumn;
+#else
+        option.features = QStyleOptionViewItem::HasDecoration;
+#endif
         option.palette = style.standardPalette();
         option.widget = useViewportWidget ? tree.viewport() : &tree;
         QVERIFY(!option.index.isValid());
@@ -459,6 +463,33 @@ private Q_SLOTS:
             image.pixelColor(rowRect.center()),
             controller.snapshot()->color(
                 ZzFluentUI::ZzColorToken::ControlFillPressed));
+    }
+
+    void ignoresDecorationFeatureForNonTreeRowPrimitive()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget widget;
+        QImage image(120, 32, QImage::Format_ARGB32_Premultiplied);
+        const QColor base = style.standardPalette().color(QPalette::Base);
+        image.fill(base);
+
+        QPainter painter(&image);
+        QStyleOptionViewItem option;
+        option.rect = image.rect();
+        option.state = QStyle::State_Enabled | QStyle::State_Selected;
+        option.features = QStyleOptionViewItem::HasDecoration;
+        option.palette = style.standardPalette();
+        option.widget = &widget;
+
+        style.drawPrimitive(
+            QStyle::PE_PanelItemViewRow,
+            &option,
+            &painter,
+            &widget);
+        painter.end();
+
+        QCOMPARE(image.pixelColor(image.rect().center()), base);
     }
 };
 
