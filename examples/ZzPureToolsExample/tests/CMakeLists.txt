@@ -63,8 +63,12 @@ add_test(
     NAME example.workspace-smoke
     COMMAND ZzExampleWorkspaceSmokeTest
 )
+set(zz_example_workspace_environment "QT_QPA_PLATFORM=offscreen")
+if(APPLE)
+    set(zz_example_workspace_environment "QT_QPA_PLATFORM=cocoa")
+endif()
 set_tests_properties(example.workspace-smoke PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${zz_example_workspace_environment}"
     LABELS "example;smoke"
     TIMEOUT 20
 )
