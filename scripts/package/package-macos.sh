@@ -66,8 +66,9 @@ esac
   exit 1
 }
 
-for tool in awk bash cmake ditto env file find grep hdiutil install_name_tool \
-            lipo ln mkdir mktemp mv otool realpath rm sed sw_vers; do
+for tool in awk bash chmod cmake ditto env file find grep hdiutil \
+            install_name_tool lipo ln mkdir mktemp mv otool realpath rm sed \
+            stat sw_vers uname; do
   command -v "$tool" >/dev/null || {
     echo "required tool is unavailable: $tool" >&2
     exit 69
@@ -77,12 +78,19 @@ done
 source_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")/../..")
 build_root=$(realpath "$source_dir/build")
 architecture_policy="$source_dir/scripts/package/ZzMacosArchitecturePolicy.sh"
+bundle_policy="$source_dir/scripts/package/ZzMacosBundlePolicy.sh"
 [[ -f $architecture_policy && ! -L $architecture_policy ]] || {
   echo "macOS architecture policy is unavailable: $architecture_policy" >&2
   exit 1
 }
 # shellcheck source=ZzMacosArchitecturePolicy.sh
 source "$architecture_policy"
+[[ -f $bundle_policy && ! -L $bundle_policy ]] || {
+  echo "macOS bundle policy is unavailable: $bundle_policy" >&2
+  exit 1
+}
+# shellcheck source=ZzMacosBundlePolicy.sh
+source "$bundle_policy"
 
 resolve_directory() {
   local label=$1
@@ -333,39 +341,14 @@ invoke_macdeployqt() {
     "-executable=$plugin"
 }
 
-strip_transient_rpaths() {
-  local bundle=$1
-  local binary description load_commands rpath forbidden_path
-  while IFS= read -r -d '' binary; do
-    description=$(file -b "$binary")
-    case $description in
-      *Mach-O*) ;;
-      *) continue ;;
-    esac
-    load_commands=$(otool -l "$binary" | awk '/^[[:space:]]/ { print }')
-    while IFS= read -r rpath; do
-      [[ -n $rpath ]] || continue
-      for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
-        case $rpath in
-          "$forbidden_path"|"$forbidden_path"/*)
-            install_name_tool -delete_rpath "$rpath" "$binary"
-            break
-            ;;
-        esac
-      done
-    done < <(printf '%s\n' "$load_commands" | awk '
-      $1 == "cmd" && $2 == "LC_RPATH" { want_path = 1; next }
-      want_path && $1 == "path" { print $2; want_path = 0 }
-    ')
-  done < <(find "$bundle" -type f -print0)
-}
-
 audit_app_bundle() {
   local bundle=$1
   local macho_count=0
   local first_party_count=0
   local qt_framework_count=0
-  local binary description archs links load_commands dependency rpath
+  local binary description archs links load_commands dependency rpath forbidden_path
+  local -a transient_roots=(
+    "$source_dir" "$build_dir" "$qt_root" "$work_dir" "$install_root" "$bundle")
 
   while IFS= read -r -d '' binary; do
     description=$(file -b "$binary")
@@ -384,23 +367,15 @@ audit_app_bundle() {
     esac
 
     archs=$(lipo -archs "$binary")
-    case $binary in
-      */Contents/MacOS/ZzPureToolsExample|*/Contents/Frameworks/libZz*.dylib)
-        zz_macos_arch_list_is_exact "$archs" "$architecture" || {
-          echo "unexpected first-party architecture in $binary: $archs" >&2
-          exit 1
-        }
-        ;;
-      *)
-        zz_macos_arch_list_contains "$archs" "$architecture" || {
-          echo "missing $architecture architecture in $binary: $archs" >&2
-          exit 1
-        }
-        ;;
-    esac
-    links=$(otool -L "$binary" | awk '/^[[:space:]]/ { print }')
-    load_commands=$(otool -l "$binary" | awk '/^[[:space:]]/ { print }')
-    for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
+    zz_macos_arch_list_is_exact "$archs" "$architecture" || {
+      echo "unexpected architecture in $binary: $archs" >&2
+      exit 1
+    }
+    links=$(otool -arch "$architecture" -L "$binary" |
+      awk '/^[[:space:]]/ { print }')
+    load_commands=$(otool -arch "$architecture" -l "$binary" |
+      awk '/^[[:space:]]/ { print }')
+    for forbidden_path in "${transient_roots[@]}"; do
       if [[ $links == *"$forbidden_path"* ]]; then
         echo "build dependency path leaked into $binary: $forbidden_path" >&2
         printf '%s\n' "$links" | grep -F "$forbidden_path" >&2
@@ -440,10 +415,7 @@ audit_app_bundle() {
           exit 1
           ;;
       esac
-    done < <(printf '%s\n' "$load_commands" | awk '
-      $1 == "cmd" && $2 == "LC_RPATH" { want_path = 1; next }
-      want_path && $1 == "path" { print $2; want_path = 0 }
-    ')
+    done < <(printf '%s\n' "$load_commands" | zz_macos_extract_rpaths)
   done < <(find "$bundle" -type f -print0)
 
   [[ $macho_count -gt 0 &&
@@ -453,17 +425,6 @@ audit_app_bundle() {
       "all=$macho_count first-party=$first_party_count Qt=$qt_framework_count" >&2
     exit 1
   }
-}
-
-invoke_app_smoke() {
-  local executable=$1
-  [[ -x $executable && ! -L $executable ]] || {
-    echo "app smoke executable is unavailable: $executable" >&2
-    exit 1
-  }
-  QT_QPA_PLATFORM=cocoa \
-  ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500 \
-    "$executable" --smoke-test
 }
 
 stage_runtime_licenses() {
@@ -598,15 +559,19 @@ app_resources="$app_bundle/Contents/Resources"
 stage_first_party_libraries "$app_bundle"
 stage_offscreen_plugin "$app_bundle"
 invoke_macdeployqt "$app_bundle"
-strip_transient_rpaths "$app_bundle"
+zz_macos_thin_bundle "$app_bundle" "$architecture" "$work_dir"
+transient_roots=(
+  "$source_dir" "$build_dir" "$qt_root" "$work_dir" "$install_root" "$app_bundle")
+zz_macos_strip_transient_rpaths \
+  "$app_bundle" "$architecture" "${transient_roots[@]}"
 audit_app_bundle "$app_bundle"
-invoke_app_smoke "$app_executable"
+zz_macos_invoke_app_smoke "$app_bundle"
 stage_runtime_licenses "$app_bundle"
 create_dmg "$app_bundle"
 attach_dmg "$working_package"
 
-mounted_executable="$mount_dir/ZzPureToolsExample.app/Contents/MacOS/ZzPureToolsExample"
-invoke_app_smoke "$mounted_executable"
+mounted_bundle="$mount_dir/ZzPureToolsExample.app"
+zz_macos_invoke_app_smoke "$mounted_bundle"
 detach_dmg "$mount_dir"
 write_build_info "$working_package"
 

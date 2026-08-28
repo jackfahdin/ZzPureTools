@@ -6,15 +6,27 @@ endif()
 file(REAL_PATH "${ZZ_SOURCE_DIR}" source_dir)
 
 set(package_script "${source_dir}/scripts/package/package-macos.sh")
+set(bundle_policy_script
+    "${source_dir}/scripts/package/ZzMacosBundlePolicy.sh")
 if(NOT EXISTS "${package_script}"
    OR IS_DIRECTORY "${package_script}"
    OR IS_SYMLINK "${package_script}")
     message(FATAL_ERROR
         "macOS package script is missing: ${package_script}")
 endif()
+if(NOT EXISTS "${bundle_policy_script}"
+   OR IS_DIRECTORY "${bundle_policy_script}"
+   OR IS_SYMLINK "${bundle_policy_script}")
+    message(FATAL_ERROR
+        "macOS bundle policy is missing: ${bundle_policy_script}")
+endif()
 file(SIZE "${package_script}" package_script_size)
 if(package_script_size EQUAL 0)
     message(FATAL_ERROR "macOS package script is empty")
+endif()
+file(SIZE "${bundle_policy_script}" bundle_policy_script_size)
+if(bundle_policy_script_size EQUAL 0)
+    message(FATAL_ERROR "macOS bundle policy is empty")
 endif()
 
 execute_process(
@@ -26,9 +38,11 @@ if(no_argument_result EQUAL 0)
 endif()
 
 file(READ "${package_script}" package_script_content)
+file(READ "${bundle_policy_script}" bundle_policy_script_content)
 set(required_script_tokens
     "arm64|x86_64"
     "ZzMacosArchitecturePolicy.sh"
+    "ZzMacosBundlePolicy.sh"
     "macdeployqt"
     "-always-overwrite"
     "stage_first_party_libraries"
@@ -37,20 +51,22 @@ set(required_script_tokens
     "Contents/PlugIns/platforms/libqoffscreen.dylib"
     "-executable="
     "install_name_tool"
-    "strip_transient_rpaths"
+    "zz_macos_thin_bundle"
+    "zz_macos_strip_transient_rpaths"
+    "zz_macos_invoke_app_smoke"
+    "transient_roots=("
     "dependency path leaked"
     "load-command path leaked"
-    "awk '/^[[:space:]]/ { print }'"
-    "load_commands=\$(otool -l \"\$binary\" | awk '/^[[:space:]]/ { print }')"
+    "links=\$(otool -arch \"\$architecture\" -L \"\$binary\" |"
+    "load_commands=\$(otool -arch \"\$architecture\" -l \"\$binary\" |"
+    "zz_macos_extract_rpaths"
+    "zz_macos_arch_list_is_exact"
     "@loader_path|@loader_path/*|@executable_path|@executable_path/*"
     "lipo"
     "otool"
     "hdiutil"
     "-readonly"
     "-nobrowse"
-    "QT_QPA_PLATFORM=cocoa"
-    "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500"
-    "--smoke-test"
     "ZZ_QT_LICENSE_DIR"
     "StageRuntimeLicenses.cmake"
     "WriteBuildInfo.cmake"
@@ -65,22 +81,27 @@ foreach(required_token IN LISTS required_script_tokens)
     endif()
 endforeach()
 
-set(filtered_load_commands_token
-    "load_commands=\$(otool -l \"\$binary\" | awk '/^[[:space:]]/ { print }')")
-string(FIND "${package_script_content}"
-    "${filtered_load_commands_token}" first_filtered_load_commands_position)
-string(LENGTH "${filtered_load_commands_token}"
-    filtered_load_commands_token_length)
-math(EXPR second_filtered_load_commands_start
-    "${first_filtered_load_commands_position} + ${filtered_load_commands_token_length}")
-string(SUBSTRING "${package_script_content}"
-    ${second_filtered_load_commands_start} -1 package_script_remainder)
-string(FIND "${package_script_remainder}"
-    "${filtered_load_commands_token}" second_filtered_load_commands_position)
-if(second_filtered_load_commands_position EQUAL -1)
-    message(FATAL_ERROR
-        "macOS package script must filter both LC_RPATH and audit load-command output")
-endif()
+set(required_bundle_policy_tokens
+    "zz_macos_thin_bundle"
+    "zz_macos_strip_transient_rpaths"
+    "zz_macos_invoke_app_smoke"
+    "lipo \"\$binary\" -thin \"\$architecture\""
+    "zz_macos_extract_rpaths"
+    "-u QT_PLUGIN_PATH"
+    "-u QML2_IMPORT_PATH"
+    "-u DYLD_LIBRARY_PATH"
+    "QT_QPA_PLATFORM=cocoa"
+    "QT_QPA_PLATFORM_PLUGIN_PATH=\"\$plugin_dir\""
+    "ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=1500"
+    "\"\$executable\" --smoke-test")
+foreach(required_token IN LISTS required_bundle_policy_tokens)
+    string(FIND "${bundle_policy_script_content}"
+        "${required_token}" required_token_position)
+    if(required_token_position EQUAL -1)
+        message(FATAL_ERROR
+            "macOS bundle policy is missing token: ${required_token}")
+    endif()
+endforeach()
 
 set(root_cmake "${source_dir}/CMakeLists.txt")
 set(example_cmake
@@ -109,13 +130,14 @@ set(ordered_pipeline_tokens
     "stage_first_party_libraries \"\$app_bundle\""
     "stage_offscreen_plugin \"\$app_bundle\""
     "invoke_macdeployqt \"\$app_bundle\""
-    "strip_transient_rpaths \"\$app_bundle\""
+    "zz_macos_thin_bundle \"\$app_bundle\""
+    "zz_macos_strip_transient_rpaths"
     "audit_app_bundle \"\$app_bundle\""
-    "invoke_app_smoke \"\$app_executable\""
+    "zz_macos_invoke_app_smoke \"\$app_bundle\""
     "stage_runtime_licenses \"\$app_bundle\""
     "create_dmg \"\$app_bundle\""
     "attach_dmg \"\$working_package\""
-    "invoke_app_smoke \"\$mounted_executable\""
+    "zz_macos_invoke_app_smoke \"\$mounted_bundle\""
     "detach_dmg \"\$mount_dir\""
     "write_build_info \"\$working_package\"")
 set(previous_position -1)

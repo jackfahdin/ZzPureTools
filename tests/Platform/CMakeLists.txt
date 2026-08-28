@@ -163,6 +163,13 @@ add_test(NAME platform.macos-architecture-policy
 set_tests_properties(platform.macos-architecture-policy PROPERTIES
     LABELS "platform;contract;packaging;macos")
 
+add_test(NAME platform.macos-bundle-policy
+    COMMAND bash
+        "${CMAKE_CURRENT_SOURCE_DIR}/ZzMacosBundlePolicyTest.sh"
+        "${PROJECT_SOURCE_DIR}")
+set_tests_properties(platform.macos-bundle-policy PROPERTIES
+    LABELS "platform;contract;packaging;macos")
+
 add_test(NAME platform.continuous-publish
     COMMAND bash
         "${CMAKE_CURRENT_SOURCE_DIR}/ZzContinuousPublishTest.sh"
