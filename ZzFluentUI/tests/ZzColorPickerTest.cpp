@@ -28,6 +28,12 @@
 class ZzColorPickerTranslator final : public QTranslator
 {
 public:
+    /** @brief 声明测试翻译器包含可安装的内存翻译。 */
+    [[nodiscard]] bool isEmpty() const override
+    {
+        return false;
+    }
+
     /** @brief 翻译色板名称，其余文本保持原文。 */
     [[nodiscard]] QString translate(
         const char *context,
@@ -303,6 +309,7 @@ private Q_SLOTS:
         QListView *view = paletteView(&picker);
         QCOMPARE(view->accessibleName(), QStringLiteral("颜色色板"));
         ZzColorPickerTranslator translator;
+        QVERIFY(!translator.isEmpty());
         QVERIFY(QCoreApplication::installTranslator(&translator));
         QEvent languageChange(QEvent::LanguageChange);
         QCoreApplication::sendEvent(&picker, &languageChange);

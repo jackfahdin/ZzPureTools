@@ -22,6 +22,12 @@
 class ZzPasswordBoxTranslator final : public QTranslator
 {
 public:
+    /** @brief 声明测试翻译器包含可安装的内存翻译。 */
+    [[nodiscard]] bool isEmpty() const override
+    {
+        return false;
+    }
+
     /** @brief 翻译查看按钮的名称、说明和 tooltip。 */
     [[nodiscard]] QString translate(
         const char *context,
@@ -224,6 +230,7 @@ private Q_SLOTS:
         QCOMPARE(button->accessibleName(), QStringLiteral("显示密码"));
 
         ZzPasswordBoxTranslator translator;
+        QVERIFY(!translator.isEmpty());
         QVERIFY(QCoreApplication::installTranslator(&translator));
         QEvent languageChange(QEvent::LanguageChange);
         QCoreApplication::sendEvent(&box, &languageChange);

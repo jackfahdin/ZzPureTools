@@ -17,6 +17,12 @@
 class ZzKeyBinderTranslator final : public QTranslator
 {
 public:
+    /** @brief 声明测试翻译器包含可安装的内存翻译。 */
+    [[nodiscard]] bool isEmpty() const override
+    {
+        return false;
+    }
+
     /** @brief 翻译录制、取消和清空提示。 */
     [[nodiscard]] QString translate(
         const char *context,
@@ -264,6 +270,7 @@ private Q_SLOTS:
         QCOMPARE(binder.toolTip(), binder.accessibleDescription());
 
         ZzKeyBinderTranslator translator;
+        QVERIFY(!translator.isEmpty());
         QVERIFY(QCoreApplication::installTranslator(&translator));
         QEvent languageChange(QEvent::LanguageChange);
         QCoreApplication::sendEvent(&binder, &languageChange);
