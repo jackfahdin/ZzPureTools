@@ -24,10 +24,13 @@ if(NOT EXISTS "${verify_script}")
 endif()
 set(write_info_script "${package_script_dir}/WriteBuildInfo.cmake")
 set(stage_licenses_script "${package_script_dir}/StageRuntimeLicenses.cmake")
+set(stage_msvc_runtime_script
+    "${package_script_dir}/StageMsvcRuntime.cmake")
 set(prepare_evidence_script "${package_script_dir}/PrepareReleaseEvidence.cmake")
 foreach(script_path IN ITEMS
     "${write_info_script}"
     "${stage_licenses_script}"
+    "${stage_msvc_runtime_script}"
     "${prepare_evidence_script}")
     if(NOT EXISTS "${script_path}")
         message(FATAL_ERROR
@@ -37,6 +40,72 @@ endforeach()
 
 file(REMOVE_RECURSE "${test_root}")
 file(MAKE_DIRECTORY "${test_root}")
+
+set(msvc_redist_root "${test_root}/msvc-redist")
+set(msvc_crt_dir "${msvc_redist_root}/x64/Microsoft.VC143.CRT")
+set(msvc_stage "${test_root}/msvc-stage")
+file(MAKE_DIRECTORY "${msvc_crt_dir}" "${msvc_stage}/bin")
+foreach(runtime_name IN ITEMS
+        concrt140.dll
+        msvcp140.dll
+        vcruntime140.dll)
+    file(WRITE "${msvc_crt_dir}/${runtime_name}"
+        "${runtime_name} fixture\n")
+endforeach()
+file(WRITE "${msvc_crt_dir}/vc_redist.x64.exe"
+    "bootstrapper fixture must not be staged\n")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_MSVC_REDIST_DIR=${msvc_redist_root}"
+        "-DZZ_STAGE_ROOT=${msvc_stage}"
+        -P "${stage_msvc_runtime_script}"
+    RESULT_VARIABLE msvc_stage_result
+    OUTPUT_VARIABLE msvc_stage_stdout
+    ERROR_VARIABLE msvc_stage_stderr)
+if(NOT msvc_stage_result EQUAL 0)
+    message(FATAL_ERROR
+        "StageMsvcRuntime rejected a valid VS 2022 CRT fixture\n"
+        "stdout:\n${msvc_stage_stdout}\nstderr:\n${msvc_stage_stderr}")
+endif()
+foreach(runtime_name IN ITEMS
+        concrt140.dll
+        msvcp140.dll
+        vcruntime140.dll)
+    set(staged_runtime "${msvc_stage}/bin/${runtime_name}")
+    if(NOT EXISTS "${staged_runtime}" OR IS_DIRECTORY "${staged_runtime}")
+        message(FATAL_ERROR
+            "StageMsvcRuntime omitted CRT file: ${runtime_name}")
+    endif()
+    file(SIZE "${staged_runtime}" staged_runtime_size)
+    if(staged_runtime_size EQUAL 0)
+        message(FATAL_ERROR
+            "StageMsvcRuntime produced an empty CRT file: ${runtime_name}")
+    endif()
+endforeach()
+if(EXISTS "${msvc_stage}/bin/vc_redist.x64.exe")
+    message(FATAL_ERROR
+        "StageMsvcRuntime copied the installer instead of app-local CRT DLLs")
+endif()
+
+set(incomplete_msvc_redist_root "${test_root}/incomplete-msvc-redist")
+set(incomplete_msvc_crt_dir
+    "${incomplete_msvc_redist_root}/x64/Microsoft.VC143.CRT")
+set(incomplete_msvc_stage "${test_root}/incomplete-msvc-stage")
+file(MAKE_DIRECTORY
+    "${incomplete_msvc_crt_dir}" "${incomplete_msvc_stage}/bin")
+file(WRITE "${incomplete_msvc_crt_dir}/vcruntime140.dll"
+    "vcruntime fixture\n")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_MSVC_REDIST_DIR=${incomplete_msvc_redist_root}"
+        "-DZZ_STAGE_ROOT=${incomplete_msvc_stage}"
+        -P "${stage_msvc_runtime_script}"
+    RESULT_VARIABLE incomplete_msvc_stage_result
+    OUTPUT_QUIET ERROR_QUIET)
+if(incomplete_msvc_stage_result EQUAL 0)
+    message(FATAL_ERROR
+        "StageMsvcRuntime accepted an incomplete CRT directory")
+endif()
 
 set(expected_commit 0123456789abcdef0123456789abcdef01234567)
 string(SUBSTRING "${expected_commit}" 0 12 short_commit)

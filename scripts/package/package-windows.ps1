@@ -143,12 +143,33 @@ function Install-Component([string]$Name) {
 }
 
 function Invoke-WinDeployQt([string]$Executable) {
+    $compilerRuntimeOption = if ($script:Mode -eq 'msvc') {
+        '--no-compiler-runtime'
+    } else {
+        '--compiler-runtime'
+    }
     Invoke-Native -File $script:WinDeployQt -Arguments @(
         '--release',
-        '--compiler-runtime',
+        $compilerRuntimeOption,
         '--include-plugins', 'qoffscreen',
         '--dir', (Split-Path -Parent $Executable),
         $Executable)
+}
+
+function Invoke-StageMsvcRuntime([string]$StageRoot) {
+    if ($script:Mode -ne 'msvc') {
+        return
+    }
+    $redistRoot = [Environment]::GetEnvironmentVariable(
+        'VCToolsRedistDir', 'Process')
+    if ([string]::IsNullOrWhiteSpace($redistRoot)) {
+        throw 'VCToolsRedistDir is required for MSVC packaging'
+    }
+    Invoke-Native -File 'cmake' -Arguments @(
+        "-DZZ_MSVC_REDIST_DIR=$redistRoot",
+        "-DZZ_STAGE_ROOT=$StageRoot",
+        '-P', (Join-Path $script:SourceDir `
+            'scripts/package/StageMsvcRuntime.cmake'))
 }
 
 function Invoke-DeployedSmokeTest([string]$Executable) {
@@ -177,16 +198,6 @@ function Invoke-DeployedSmokeTest([string]$Executable) {
     }
 }
 
-function Test-MsvcRedistributableBootstrapper(
-    [IO.FileInfo]$File,
-    [string]$StageRoot
-) {
-    $expectedPath = [IO.Path]::GetFullPath(
-        (Join-Path $StageRoot 'bin/vc_redist.x64.exe'))
-    return $File.FullName.Equals(
-        $expectedPath, [StringComparison]::OrdinalIgnoreCase)
-}
-
 function Assert-PeDependencies([string]$StageRoot) {
     $peFiles = @(Get-ChildItem -LiteralPath $StageRoot -Recurse -File |
         Where-Object { $_.Extension -in @('.exe', '.dll') })
@@ -199,16 +210,7 @@ function Assert-PeDependencies([string]$StageRoot) {
         if ($script:Mode -eq 'msvc') {
             $headers = Invoke-NativeCapture -File $script:DependencyTool `
                 -Arguments @('/headers', $peFile.FullName)
-            $isRedistributableBootstrapper =
-                Test-MsvcRedistributableBootstrapper `
-                    -File $peFile -StageRoot $StageRoot
-            if ($isRedistributableBootstrapper -and
-                $headers -notmatch '(?i)machine \((x86|x64)\)') {
-                throw "MSVC redistributable has an unsupported PE " +
-                    "architecture: $($peFile.FullName)"
-            }
-            if (-not $isRedistributableBootstrapper -and
-                $headers -notmatch '(?i)machine \(x64\)') {
+            if ($headers -notmatch '(?i)machine \(x64\)') {
                 throw "MSVC package contains a non-x64 PE: $($peFile.FullName)"
             }
             $dependencyText += Invoke-NativeCapture `
@@ -412,6 +414,7 @@ try {
         (Join-Path $script:StageRoot 'bin/ZzPureToolsExample.exe') `
         'installed ZzPureToolsExample.exe'
     Invoke-WinDeployQt -Executable $exampleExecutable
+    Invoke-StageMsvcRuntime -StageRoot $script:StageRoot
     Invoke-DeployedSmokeTest -Executable $exampleExecutable
     Assert-PeDependencies -StageRoot $script:StageRoot
     Invoke-StageRuntimeLicenses -StageRoot $script:StageRoot
