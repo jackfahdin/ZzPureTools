@@ -342,7 +342,7 @@ strip_transient_rpaths() {
       *Mach-O*) ;;
       *) continue ;;
     esac
-    load_commands=$(otool -l "$binary")
+    load_commands=$(otool -l "$binary" | awk '/^[[:space:]]/ { print }')
     while IFS= read -r rpath; do
       [[ -n $rpath ]] || continue
       for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
@@ -399,7 +399,7 @@ audit_app_bundle() {
         ;;
     esac
     links=$(otool -L "$binary" | awk '/^[[:space:]]/ { print }')
-    load_commands=$(otool -l "$binary")
+    load_commands=$(otool -l "$binary" | awk '/^[[:space:]]/ { print }')
     for forbidden_path in "$source_dir" "$build_dir" "$qt_root"; do
       if [[ $links == *"$forbidden_path"* ]]; then
         echo "build dependency path leaked into $binary: $forbidden_path" >&2

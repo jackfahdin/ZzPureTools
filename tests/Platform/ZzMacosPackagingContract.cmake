@@ -41,6 +41,7 @@ set(required_script_tokens
     "dependency path leaked"
     "load-command path leaked"
     "awk '/^[[:space:]]/ { print }'"
+    "load_commands=\$(otool -l \"\$binary\" | awk '/^[[:space:]]/ { print }')"
     "lipo"
     "otool"
     "hdiutil"
@@ -62,6 +63,23 @@ foreach(required_token IN LISTS required_script_tokens)
             "macOS package script is missing token: ${required_token}")
     endif()
 endforeach()
+
+set(filtered_load_commands_token
+    "load_commands=\$(otool -l \"\$binary\" | awk '/^[[:space:]]/ { print }')")
+string(FIND "${package_script_content}"
+    "${filtered_load_commands_token}" first_filtered_load_commands_position)
+string(LENGTH "${filtered_load_commands_token}"
+    filtered_load_commands_token_length)
+math(EXPR second_filtered_load_commands_start
+    "${first_filtered_load_commands_position} + ${filtered_load_commands_token_length}")
+string(SUBSTRING "${package_script_content}"
+    ${second_filtered_load_commands_start} -1 package_script_remainder)
+string(FIND "${package_script_remainder}"
+    "${filtered_load_commands_token}" second_filtered_load_commands_position)
+if(second_filtered_load_commands_position EQUAL -1)
+    message(FATAL_ERROR
+        "macOS package script must filter both LC_RPATH and audit load-command output")
+endif()
 
 set(root_cmake "${source_dir}/CMakeLists.txt")
 set(example_cmake
