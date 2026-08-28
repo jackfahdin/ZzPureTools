@@ -2589,7 +2589,8 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
                 ? QStringLiteral(
                     "Workspace layout restore failed and was rolled back")
                 : QStringLiteral(
-                    "Workspace layout restore failed and rollback failed"));
+                    "Workspace layout restore failed and rollback failed"),
+            QStringLiteral("validation"));
     }
 
     QStringList materializationIds = validatedTarget->leftSide.visible
@@ -2634,7 +2635,8 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
             }
             return zzFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral(
-                    "Workspace layout restore failed and rollback failed"));
+                    "Workspace layout restore failed and rollback failed"),
+                QStringLiteral("materialization"));
         }
     }
 
@@ -2646,7 +2648,8 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
                 ? QStringLiteral(
                     "Workspace layout restore failed and was rolled back")
                 : QStringLiteral(
-                    "Workspace layout restore failed and rollback failed"));
+                    "Workspace layout restore failed and rollback failed"),
+            QStringLiteral("prepared-capture"));
     }
     const ZzRuntimeSnapshot &snapshot = *preparedCaptured;
     const ZzSnapshot planningSnapshot = zzLogicalPlanningSnapshot(snapshot);
@@ -2695,6 +2698,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     if (committed) {
         return ZzCore::ZzResult<void>::success();
     }
+    const QString failureContext = QString::fromLatin1(failedStage);
     const QByteArray alternateSplitCanonical = planned.has_value()
         ? planned->split.canonicalState : QByteArray{};
     const bool preparedRolledBack = zzRollback(
@@ -2709,7 +2713,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
                 "Workspace layout restore failed and was rolled back")
             : QStringLiteral(
                 "Workspace layout restore failed and rollback failed"),
-        QString::fromLatin1(failedStage));
+        failureContext);
 }
 
 } // namespace ZzPureTools
