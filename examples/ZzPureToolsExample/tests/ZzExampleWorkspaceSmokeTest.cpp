@@ -200,7 +200,14 @@ private Q_SLOTS:
                 return ZzExample::ZzExampleWindowShell::attach(
                     window, context_, *application, false);
             }));
-        QVERIFY(builder.build(*application));
+        const auto buildResult = builder.build(*application);
+        if (!buildResult) {
+            const QString diagnostic = QStringLiteral("%1; %2")
+                .arg(
+                    buildResult.error().technicalMessage(),
+                    buildResult.error().context());
+            QFAIL(qPrintable(diagnostic));
+        }
         baselineWindowCount_ = application->windowCount();
         QCOMPARE(baselineWindowCount_, 1);
 
