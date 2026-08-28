@@ -138,10 +138,30 @@ qmake_xspec=$("$qmake" -query QMAKE_XSPEC)
   exit 1
 }
 qt_core="$qt_root/lib/QtCore.framework/QtCore"
-[[ -f $qt_core && "$(lipo -archs "$qt_core")" == "$architecture" ]] || {
-  echo "QtCore does not contain exactly $architecture" >&2
+if [[ ! -f $qt_core ]]; then
+  echo "QtCore architecture check failed: binary is missing" >&2
+  printf 'QtCore path: %s\nexpected architecture: %s\n' \
+    "$qt_core" "$architecture" >&2
   exit 1
-}
+fi
+set +e
+qt_core_file_output=$(file "$qt_core" 2>&1)
+qt_core_file_status=$?
+qt_core_archs=$(lipo -archs "$qt_core" 2>&1)
+qt_core_lipo_status=$?
+set -e
+if [[ $qt_core_file_status -ne 0 || $qt_core_lipo_status -ne 0 \
+      || $qt_core_archs != "$architecture" ]]; then
+  echo "QtCore architecture check failed" >&2
+  printf '%s\n' \
+    "QtCore path: $qt_core" \
+    "file exit: $qt_core_file_status" \
+    "file output: $qt_core_file_output" \
+    "lipo exit: $qt_core_lipo_status" \
+    "lipo architectures: $qt_core_archs" \
+    "expected architecture: $architecture" >&2
+  exit 1
+fi
 offscreen_plugin="$qt_root/plugins/platforms/libqoffscreen.dylib"
 [[ -f $offscreen_plugin ]] || {
   echo "Qt kit lacks the offscreen platform plugin" >&2
