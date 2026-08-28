@@ -223,6 +223,9 @@ jobs:
           path: |
             build/linux-continuous-release/CMakeFiles/CMakeConfigureLog.yaml
             build/linux-continuous-release/Testing/Temporary/LastTest.log
+            build/linux-continuous-release/ZzFluentUI/tests/reports/fluent-screenshots/**
+            build/linux-continuous-release/ZzPureTools/tests/reports/workspace-screenshots/**
+            build/linux-continuous-release/examples/ZzPureToolsExample/reports/fluent-screenshots/**
           if-no-files-found: ignore
           retention-days: 14
 
