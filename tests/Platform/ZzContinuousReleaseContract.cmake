@@ -9,7 +9,9 @@ set(publish_script
     "${source_dir}/scripts/release/publish-continuous-build.sh")
 set(publish_test
     "${source_dir}/tests/Platform/ZzContinuousPublishTest.sh")
-foreach(required_file IN ITEMS "${publish_script}" "${publish_test}")
+set(workflow_file "${source_dir}/.github/workflows/ci.yml")
+foreach(required_file IN ITEMS
+        "${publish_script}" "${publish_test}" "${workflow_file}")
     if(NOT EXISTS "${required_file}"
        OR IS_DIRECTORY "${required_file}"
        OR IS_SYMLINK "${required_file}")
@@ -20,6 +22,24 @@ foreach(required_file IN ITEMS "${publish_script}" "${publish_test}")
     if(required_file_size EQUAL 0)
         message(FATAL_ERROR
             "Continuous release file is empty: ${required_file}")
+    endif()
+endforeach()
+
+file(READ "${workflow_file}" workflow_content)
+foreach(required_workflow_token IN ITEMS
+        "publish-continuous-build:"
+        "contents: write"
+        "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093"
+        "scripts/release/publish-continuous-build.sh"
+        "--artifact-root"
+        "github.repository"
+        "github.sha"
+        "github.run_id")
+    string(FIND "${workflow_content}"
+        "${required_workflow_token}" workflow_token_position)
+    if(workflow_token_position EQUAL -1)
+        message(FATAL_ERROR
+            "Continuous workflow lacks token: ${required_workflow_token}")
     endif()
 endforeach()
 

@@ -25,6 +25,7 @@ set(required_names
     linux-clang-release
     linux-clang-asan
     linux-gcc-release-lto
+    linux-continuous-release
     linux-static-release-lto
     linux-clang-tidy-release
     linux-clang-tidy-static
@@ -34,11 +35,15 @@ set(required_names
     linux-gcc-reference
     linux-clang-asan-benchmarks
     windows-msvc2022-release
+    windows-msvc2022-continuous
     windows-msvc2022-static
     windows-mingw-release
+    windows-mingw-continuous
     windows-mingw-static
     macos-clang-release-arm64
     macos-clang-release-x86_64
+    macos-continuous-arm64
+    macos-continuous-x86_64
     macos-clang-static-arm64
     macos-clang-static-x86_64
 )
@@ -174,8 +179,10 @@ endif()
 
 foreach(windows_contract IN ITEMS
         "windows-msvc2022-release|windows-msvc-base|ON"
+        "windows-msvc2022-continuous|windows-msvc-base|ON"
         "windows-msvc2022-static|windows-msvc-base|OFF"
         "windows-mingw-release|windows-mingw-base|ON"
+        "windows-mingw-continuous|windows-mingw-base|ON"
         "windows-mingw-static|windows-mingw-base|OFF")
     string(REPLACE "|" ";" windows_fields "${windows_contract}")
     list(GET windows_fields 0 windows_name)
@@ -189,6 +196,62 @@ foreach(windows_contract IN ITEMS
     if(NOT "${windows_base}" STREQUAL "${expected_base}"
        OR NOT "${windows_shared}" STREQUAL "${expected_shared}")
         message(FATAL_ERROR "Invalid Windows identity in ${windows_name}")
+    endif()
+endforeach()
+
+foreach(continuous_contract IN ITEMS
+        "linux-continuous-release|linux-gcc13-base|x86_64|ON"
+        "windows-msvc2022-continuous|windows-msvc-base|x86_64|OFF"
+        "windows-mingw-continuous|windows-mingw-base|x86_64|OFF"
+        "macos-continuous-arm64|macos-clang-base|arm64|OFF"
+        "macos-continuous-x86_64|macos-clang-base|x86_64|OFF")
+    string(REPLACE "|" ";" continuous_fields "${continuous_contract}")
+    list(GET continuous_fields 0 continuous_name)
+    list(GET continuous_fields 1 continuous_base)
+    list(GET continuous_fields 2 expected_architecture)
+    list(GET continuous_fields 3 expected_gnu_runtime)
+    zz_find_configure_preset_index(continuous_index "${continuous_name}")
+    string(JSON inherited_base GET "${presets_json}"
+        configurePresets ${continuous_index} inherits)
+    foreach(required_bool IN ITEMS
+            BUILD_SHARED_LIBS
+            ZZ_ENABLE_LTO
+            ZZ_BUILD_TESTS
+            ZZ_BUILD_EXAMPLES
+            ZZ_RELEASE_BUILD)
+        string(JSON bool_value GET "${presets_json}"
+            configurePresets ${continuous_index} cacheVariables ${required_bool})
+        if(NOT bool_value)
+            message(FATAL_ERROR
+                "${continuous_name} must enable ${required_bool}")
+        endif()
+    endforeach()
+    string(JSON benchmark_enabled GET "${presets_json}"
+        configurePresets ${continuous_index} cacheVariables ZZ_BUILD_BENCHMARKS)
+    if(benchmark_enabled OR NOT "${inherited_base}" STREQUAL "${continuous_base}")
+        message(FATAL_ERROR
+            "${continuous_name} has an invalid base or benchmark mode")
+    endif()
+    if("${continuous_name}" STREQUAL "linux-continuous-release")
+        string(JSON gnu_runtime GET "${presets_json}"
+            configurePresets ${continuous_index} cacheVariables
+            ZZ_BUNDLE_GNU_RUNTIME)
+        if(NOT "${gnu_runtime}" STREQUAL "${expected_gnu_runtime}")
+            message(FATAL_ERROR
+                "linux-continuous-release must bundle the GNU runtime")
+        endif()
+    elseif("${continuous_name}" MATCHES "^macos-continuous-")
+        string(JSON configured_architecture GET "${presets_json}"
+            configurePresets ${continuous_index} cacheVariables
+            CMAKE_OSX_ARCHITECTURES)
+        string(JSON tidy_enabled GET "${presets_json}"
+            configurePresets ${continuous_index} cacheVariables
+            ZZ_ENABLE_CLANG_TIDY)
+        if(NOT "${configured_architecture}" STREQUAL "${expected_architecture}"
+           OR tidy_enabled)
+            message(FATAL_ERROR
+                "${continuous_name} has an invalid architecture or tidy mode")
+        endif()
     endif()
 endforeach()
 

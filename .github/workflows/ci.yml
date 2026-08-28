@@ -1,19 +1,14 @@
-name: Cross-platform CI
+name: Cross-platform continuous build
 
 on:
   push:
     branches:
       - master
-      - main
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   QT_VERSION: '6.8.3'
@@ -21,13 +16,13 @@ env:
 jobs:
   contracts:
     name: Configuration contracts
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Verify presets and runner contracts
+      - name: Verify presets, packaging, and workflow contracts
         shell: bash
         run: |
           cmake -DZZ_PRESETS_FILE="$PWD/CMakePresets.json" \
@@ -36,49 +31,51 @@ jobs:
             -P tests/Platform/ZzGateScriptContract.cmake
           cmake -DZZ_SOURCE_DIR="$PWD" \
             -P tests/Platform/ZzGitHubActionsContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -DZZ_TEST_ROOT="$PWD/build/contracts/release-packaging-support" \
+            -P tests/Platform/ZzReleasePackagingSupportContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -P tests/Platform/ZzLinuxAppImagePackagingContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -P tests/Platform/ZzWindowsPackagingContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -P tests/Platform/ZzMacosPackagingContract.cmake
+          cmake -DZZ_SOURCE_DIR="$PWD" \
+            -P tests/Platform/ZzContinuousReleaseContract.cmake
 
   linux:
-    name: Linux / ${{ matrix.id }}
+    name: Linux / Ubuntu 22.04 / x86_64
     needs: contracts
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - id: gcc
-            presets: linux-gcc-debug linux-gcc-release linux-static-release
-            run_tidy: 'false'
-          - id: gcc-lto
-            presets: linux-gcc-release-lto linux-static-release-lto
-            run_tidy: 'false'
-          - id: clang-tidy
-            presets: linux-clang-tidy-release linux-clang-tidy-static
-            run_tidy: 'true'
-          - id: clang-sanitizers
-            presets: linux-clang-asan
-            run_tidy: 'false'
     env:
-      GCC_13: /usr/bin/gcc-14
-      GXX_13: /usr/bin/g++-14
-      GCC_13_TOOLCHAIN_ROOT: /usr
-      CLANG_17: /usr/bin/clang-18
-      CLANGXX_17: /usr/bin/clang++-18
+      GCC_13: /usr/bin/gcc-13
+      GXX_13: /usr/bin/g++-13
       QT_QPA_PLATFORM: offscreen
+      ZZ_RELEASE_EVIDENCE_ROOT: ${{ github.workspace }}/build/ci-release/linux/evidence
+      ZZ_GNU_RUNTIME_LICENSE_DIR: ${{ github.workspace }}/build/ci-release/linux/gcc-licenses
+      ZZ_APPIMAGE_TOOLS: ${{ github.workspace }}/build/ci-release/linux/tools
+      ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/linux/artifacts
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Install Linux build tools
+      - name: Install Linux build and deployment tools
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            clang-18 \
-            clang-tidy-18 \
-            clang-tools-18 \
-            gcc-14 \
-            g++-14 \
+            software-properties-common
+          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            binutils \
+            curl \
+            desktop-file-utils \
+            file \
+            gcc-13 \
+            g++-13 \
+            libfuse2 \
             libgl1-mesa-dev \
             libx11-xcb-dev \
             libxkbcommon-dev \
@@ -91,14 +88,20 @@ jobs:
             libxcb-render-util0-dev \
             libxcb-shape0-dev \
             libxcb-xinerama0-dev \
-            libxcb-xkb-dev
+            libxcb-xkb-dev \
+            ninja-build \
+            patchelf \
+            xauth \
+            xvfb
+          test -x "$GCC_13"
+          test -x "$GXX_13"
 
       - name: Set up Python for Qt installer
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
 
-      - name: Install Qt
+      - name: Install Linux Qt kit
         uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -114,38 +117,123 @@ jobs:
           test -x "$QT_ROOT_DIR/bin/qmake"
           echo "QT_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
 
-      - name: Configure, build, and test
+      - name: Prepare immutable release inputs
+        shell: bash
+        run: |
+          mkdir -p \
+            "$ZZ_RELEASE_EVIDENCE_ROOT" \
+            "$ZZ_GNU_RUNTIME_LICENSE_DIR" \
+            "$ZZ_APPIMAGE_TOOLS" \
+            "$ZZ_ARTIFACT_DIR"
+          cmake "-DZZ_OUTPUT_DIR=$ZZ_RELEASE_EVIDENCE_ROOT" \
+            -P scripts/package/PrepareReleaseEvidence.cmake
+
+          curl --fail --location --retry 3 \
+            --output "$ZZ_APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage" \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          printf '%s  %s\n' \
+            c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d \
+            "$ZZ_APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage" |
+            sha256sum --check -
+
+          curl --fail --location --retry 3 \
+            --output "$ZZ_APPIMAGE_TOOLS/linuxdeploy-plugin-qt-x86_64.AppImage" \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage
+          printf '%s  %s\n' \
+            15106be885c1c48a021198e7e1e9a48ce9d02a86dd0a1848f00bdbf3c1c92724 \
+            "$ZZ_APPIMAGE_TOOLS/linuxdeploy-plugin-qt-x86_64.AppImage" |
+            sha256sum --check -
+
+          curl --fail --location --retry 3 \
+            --output "$ZZ_APPIMAGE_TOOLS/appimagetool-x86_64.AppImage" \
+            https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+          printf '%s  %s\n' \
+            ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 \
+            "$ZZ_APPIMAGE_TOOLS/appimagetool-x86_64.AppImage" |
+            sha256sum --check -
+          chmod 755 "$ZZ_APPIMAGE_TOOLS/"*.AppImage
+
+          curl --fail --location --retry 3 \
+            --output "$ZZ_GNU_RUNTIME_LICENSE_DIR/COPYING3" \
+            https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-13.3.0/COPYING3
+          printf '%s  %s\n' \
+            8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903 \
+            "$ZZ_GNU_RUNTIME_LICENSE_DIR/COPYING3" |
+            sha256sum --check -
+
+          curl --fail --location --retry 3 \
+            --output "$ZZ_GNU_RUNTIME_LICENSE_DIR/COPYING.RUNTIME" \
+            https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-13.3.0/COPYING.RUNTIME
+          printf '%s  %s\n' \
+            9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74 \
+            "$ZZ_GNU_RUNTIME_LICENSE_DIR/COPYING.RUNTIME" |
+            sha256sum --check -
+
+      - name: Configure, build, and test Linux release
+        shell: bash
+        run: |
+          cmake --preset linux-continuous-release \
+            "-DZZ_RELEASE_EVIDENCE_ROOT=$ZZ_RELEASE_EVIDENCE_ROOT" \
+            "-DZZ_GNU_RUNTIME_LICENSE_DIR=$ZZ_GNU_RUNTIME_LICENSE_DIR"
+          cmake --build --preset linux-continuous-release --parallel 2
+          ctest --preset linux-continuous-release --output-on-failure
+
+      - name: Package and smoke-test AppImage
         shell: bash
         env:
-          ZZ_PRESETS: ${{ matrix.presets }}
-          ZZ_RUN_TIDY: ${{ matrix.run_tidy }}
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: |
-          for preset in $ZZ_PRESETS; do
-            cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
-            cmake --build --preset "$preset" --parallel 2
-            if [[ "$ZZ_RUN_TIDY" == true ]]; then
-              cmake --build --preset "$preset" --target ZzClangTidy
-            fi
-            ctest --preset "$preset" --output-on-failure
-          done
+          scripts/package/package-linux-appimage.sh \
+            --build-dir "$PWD/build/linux-continuous-release" \
+            --qt-root "$QT_ROOT" \
+            --evidence-root "$ZZ_RELEASE_EVIDENCE_ROOT" \
+            --gnu-license-dir "$ZZ_GNU_RUNTIME_LICENSE_DIR" \
+            --linuxdeploy "$ZZ_APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage" \
+            --qt-plugin "$ZZ_APPIMAGE_TOOLS/linuxdeploy-plugin-qt-x86_64.AppImage" \
+            --appimagetool "$ZZ_APPIMAGE_TOOLS/appimagetool-x86_64.AppImage" \
+            --output-dir "$ZZ_ARTIFACT_DIR" \
+            --commit "$GITHUB_SHA" \
+            --built-at-utc "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          file_count=$(find "$ZZ_ARTIFACT_DIR" \
+            -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
+          [[ $file_count -eq 3 ]]
+          [[ $(find "$ZZ_ARTIFACT_DIR" -maxdepth 1 -type f \
+            -name '*.AppImage' | wc -l) -eq 1 ]]
+          [[ $(find "$ZZ_ARTIFACT_DIR" -maxdepth 1 -type f \
+            -name '*.AppImage.sha256' | wc -l) -eq 1 ]]
+          [[ -f "$ZZ_ARTIFACT_DIR/build-info.json" ]]
+
+      - name: Upload Linux continuous artifact
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: continuous-linux-x86_64
+          path: ${{ github.workspace }}/build/ci-release/linux/artifacts/*
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload Linux failure logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: linux-${{ matrix.id }}-failure-logs
+          name: linux-x86_64-failure-logs
           path: |
-            build/**/CMakeFiles/CMakeConfigureLog.yaml
-            build/**/Testing/Temporary/LastTest.log
-            build/**/reports/fluent-screenshots/**/*.png
+            build/linux-continuous-release/CMakeFiles/CMakeConfigureLog.yaml
+            build/linux-continuous-release/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
           retention-days: 14
 
   windows-msvc:
-    name: Windows / MSVC 2022
+    name: Windows / MSVC 2022 / x86_64
     needs: contracts
     runs-on: windows-2022
     timeout-minutes: 120
+    env:
+      ZZ_RELEASE_EVIDENCE_ROOT: ${{ github.workspace }}/build/ci-release/msvc/evidence
+      ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/msvc/artifacts
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -179,43 +267,89 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $qtXspec -notmatch '^win32-msvc') {
               throw "Installed Qt kit is not an MSVC kit: $qtXspec"
           }
-          if ((Resolve-Path $qtPrefix).Path -ne (Resolve-Path $env:QT_ROOT_DIR).Path) {
+          if ((Resolve-Path $qtPrefix).Path -ne
+              (Resolve-Path $env:QT_ROOT_DIR).Path) {
               throw 'MSVC qmake prefix does not match QT_ROOT_DIR'
           }
           $dumpbin = (Get-Command dumpbin.exe -ErrorAction Stop).Source
-          "QT_MSVC_ROOT=$env:QT_ROOT_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "ZZ_DUMPBIN=$dumpbin" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_MSVC_ROOT=$env:QT_ROOT_DIR" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
+          "ZZ_DUMPBIN=$dumpbin" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Configure, build, and test MSVC
+      - name: Prepare release evidence
         shell: pwsh
         run: |
-          foreach ($preset in @(
-              'windows-msvc2022-release',
-              'windows-msvc2022-static')) {
-              cmake --preset $preset -DZZ_BUILD_EXAMPLES=ON
-              if ($LASTEXITCODE -ne 0) { throw "Configure failed: $preset" }
-              cmake --build --preset $preset --parallel 2
-              if ($LASTEXITCODE -ne 0) { throw "Build failed: $preset" }
-              ctest --preset $preset --output-on-failure
-              if ($LASTEXITCODE -ne 0) { throw "CTest failed: $preset" }
+          New-Item -ItemType Directory -Force `
+              -Path $env:ZZ_RELEASE_EVIDENCE_ROOT, $env:ZZ_ARTIFACT_DIR |
+              Out-Null
+          cmake "-DZZ_OUTPUT_DIR=$env:ZZ_RELEASE_EVIDENCE_ROOT" `
+              -P scripts/package/PrepareReleaseEvidence.cmake
+          if ($LASTEXITCODE -ne 0) { throw 'Release evidence failed' }
+
+      - name: Configure, build, test, and package MSVC
+        shell: pwsh
+        run: |
+          $preset = 'windows-msvc2022-continuous'
+          cmake --preset $preset `
+              "-DZZ_RELEASE_EVIDENCE_ROOT=$env:ZZ_RELEASE_EVIDENCE_ROOT"
+          if ($LASTEXITCODE -ne 0) { throw 'MSVC configure failed' }
+          cmake --build --preset $preset --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'MSVC build failed' }
+          ctest --preset $preset --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw 'MSVC CTest failed' }
+
+          $builtAtUtc = [DateTime]::UtcNow.ToString(
+              'yyyy-MM-ddTHH:mm:ssZ')
+          pwsh -NoProfile -File scripts/package/package-windows.ps1 `
+              -Mode msvc `
+              -BuildDir "$PWD/build/$preset" `
+              -QtRoot $env:QT_MSVC_ROOT `
+              -EvidenceRoot $env:ZZ_RELEASE_EVIDENCE_ROOT `
+              -OutputDir $env:ZZ_ARTIFACT_DIR `
+              -Commit $env:GITHUB_SHA `
+              -BuiltAtUtc $builtAtUtc `
+              -DumpBin $env:ZZ_DUMPBIN
+          if ($LASTEXITCODE -ne 0) { throw 'MSVC packaging failed' }
+
+          $files = @(Get-ChildItem -LiteralPath $env:ZZ_ARTIFACT_DIR -File)
+          if ($files.Count -ne 3 -or
+              @($files | Where-Object Name -Like '*.zip').Count -ne 1 -or
+              @($files | Where-Object Name -Like '*.zip.sha256').Count -ne 1 -or
+              @($files | Where-Object Name -EQ 'build-info.json').Count -ne 1) {
+              throw 'MSVC artifact group must contain exactly three files'
           }
+
+      - name: Upload MSVC continuous artifact
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: continuous-windows-msvc-x86_64
+          path: ${{ github.workspace }}/build/ci-release/msvc/artifacts/*
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload MSVC failure logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: windows-msvc-failure-logs
+          name: windows-msvc-x86_64-failure-logs
           path: |
-            build/**/CMakeFiles/CMakeConfigureLog.yaml
-            build/**/Testing/Temporary/LastTest.log
+            build/windows-msvc2022-continuous/CMakeFiles/CMakeConfigureLog.yaml
+            build/windows-msvc2022-continuous/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
           retention-days: 14
 
   windows-mingw:
-    name: Windows / Qt MinGW
+    name: Windows / Qt MinGW / x86_64
     needs: contracts
     runs-on: windows-2022
     timeout-minutes: 120
+    env:
+      ZZ_RELEASE_EVIDENCE_ROOT: ${{ github.workspace }}/build/ci-release/mingw/evidence
+      ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/mingw/artifacts
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -245,12 +379,16 @@ jobs:
           $sdkRoot = Split-Path -Parent $versionRoot
           $toolchainRoot = Join-Path $sdkRoot 'Tools/mingw1310_64'
           $ninja = Join-Path $sdkRoot 'Tools/Ninja/ninja.exe'
-          "QT_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "QT_MINGW_ROOT=$env:QT_ROOT_DIR" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "QT_MINGW_TOOLCHAIN_ROOT=$toolchainRoot" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_SDK_ROOT=$sdkRoot" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_MINGW_ROOT=$env:QT_ROOT_DIR" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
+          "QT_MINGW_TOOLCHAIN_ROOT=$toolchainRoot" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
           'QT_MINGW_EXPECTED_GCC_VERSION=13.1.0' |
               Out-File -FilePath $env:GITHUB_ENV -Append
-          "NINJA_EXE=$ninja" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "NINJA_EXE=$ninja" |
+              Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Verify Qt MinGW ABI identity
         shell: pwsh
@@ -260,28 +398,68 @@ jobs:
           "ZZ_MINGW_OBJDUMP=$($kit.ObjDump)" |
               Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Configure, build, and test MinGW
+      - name: Prepare release evidence
         shell: pwsh
         run: |
-          foreach ($preset in @(
-              'windows-mingw-release',
-              'windows-mingw-static')) {
-              cmake --preset $preset -DZZ_BUILD_EXAMPLES=ON
-              if ($LASTEXITCODE -ne 0) { throw "Configure failed: $preset" }
-              cmake --build --preset $preset --parallel 2
-              if ($LASTEXITCODE -ne 0) { throw "Build failed: $preset" }
-              ctest --preset $preset --output-on-failure
-              if ($LASTEXITCODE -ne 0) { throw "CTest failed: $preset" }
+          New-Item -ItemType Directory -Force `
+              -Path $env:ZZ_RELEASE_EVIDENCE_ROOT, $env:ZZ_ARTIFACT_DIR |
+              Out-Null
+          cmake "-DZZ_OUTPUT_DIR=$env:ZZ_RELEASE_EVIDENCE_ROOT" `
+              -P scripts/package/PrepareReleaseEvidence.cmake
+          if ($LASTEXITCODE -ne 0) { throw 'Release evidence failed' }
+
+      - name: Configure, build, test, and package MinGW
+        shell: pwsh
+        run: |
+          $preset = 'windows-mingw-continuous'
+          cmake --preset $preset `
+              "-DZZ_RELEASE_EVIDENCE_ROOT=$env:ZZ_RELEASE_EVIDENCE_ROOT"
+          if ($LASTEXITCODE -ne 0) { throw 'MinGW configure failed' }
+          cmake --build --preset $preset --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'MinGW build failed' }
+          ctest --preset $preset --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw 'MinGW CTest failed' }
+
+          $builtAtUtc = [DateTime]::UtcNow.ToString(
+              'yyyy-MM-ddTHH:mm:ssZ')
+          pwsh -NoProfile -File scripts/package/package-windows.ps1 `
+              -Mode mingw `
+              -BuildDir "$PWD/build/$preset" `
+              -QtRoot $env:QT_MINGW_ROOT `
+              -EvidenceRoot $env:ZZ_RELEASE_EVIDENCE_ROOT `
+              -OutputDir $env:ZZ_ARTIFACT_DIR `
+              -Commit $env:GITHUB_SHA `
+              -BuiltAtUtc $builtAtUtc `
+              -ObjDump $env:ZZ_MINGW_OBJDUMP
+          if ($LASTEXITCODE -ne 0) { throw 'MinGW packaging failed' }
+
+          $files = @(Get-ChildItem -LiteralPath $env:ZZ_ARTIFACT_DIR -File)
+          if ($files.Count -ne 3 -or
+              @($files | Where-Object Name -Like '*.zip').Count -ne 1 -or
+              @($files | Where-Object Name -Like '*.zip.sha256').Count -ne 1 -or
+              @($files | Where-Object Name -EQ 'build-info.json').Count -ne 1) {
+              throw 'MinGW artifact group must contain exactly three files'
           }
+
+      - name: Upload MinGW continuous artifact
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: continuous-windows-mingw-x86_64
+          path: ${{ github.workspace }}/build/ci-release/mingw/artifacts/*
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload MinGW failure logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: windows-mingw-failure-logs
+          name: windows-mingw-x86_64-failure-logs
           path: |
-            build/**/CMakeFiles/CMakeConfigureLog.yaml
-            build/**/Testing/Temporary/LastTest.log
+            build/windows-mingw-continuous/CMakeFiles/CMakeConfigureLog.yaml
+            build/windows-mingw-continuous/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
           retention-days: 14
 
@@ -296,12 +474,15 @@ jobs:
         include:
           - arch: arm64
             runner: macos-15
-            shared_preset: macos-clang-release-arm64
-            static_preset: macos-clang-static-arm64
+            preset: macos-continuous-arm64
+            artifact: continuous-macos-arm64
           - arch: x86_64
             runner: macos-15-intel
-            shared_preset: macos-clang-release-x86_64
-            static_preset: macos-clang-static-x86_64
+            preset: macos-continuous-x86_64
+            artifact: continuous-macos-x86_64
+    env:
+      ZZ_RELEASE_EVIDENCE_ROOT: ${{ github.workspace }}/build/ci-release/macos-${{ matrix.arch }}/evidence
+      ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/macos-${{ matrix.arch }}/artifacts
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -311,7 +492,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install universal macOS Qt kit
+      - name: Install native macOS Qt kit
         uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -328,39 +509,61 @@ jobs:
           [[ "$(uname -m)" == "$ZZ_EXPECTED_ARCH" ]]
           qt_core="$QT_ROOT_DIR/lib/QtCore.framework/QtCore"
           [[ -f "$qt_core" ]]
-          lipo -archs "$qt_core" | tr ' ' '\n' | grep -Fx "$ZZ_EXPECTED_ARCH"
-          llvm_bin="$(brew --prefix llvm@18)/bin"
-          [[ -x "$llvm_bin/clang-tidy" ]]
-          [[ -x "$llvm_bin/run-clang-tidy" ]]
-          echo "$llvm_bin" >> "$GITHUB_PATH"
-          echo "QT_MACOS_ARM64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
-          echo "QT_MACOS_X86_64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          [[ "$(lipo -archs "$qt_core")" == "$ZZ_EXPECTED_ARCH" ]]
+          if [[ "$ZZ_EXPECTED_ARCH" == arm64 ]]; then
+            echo "QT_MACOS_ARM64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          else
+            echo "QT_MACOS_X86_64_ROOT=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          fi
           echo "APPLE_CLANG=$(xcrun --find clang)" >> "$GITHUB_ENV"
           echo "APPLE_CLANGXX=$(xcrun --find clang++)" >> "$GITHUB_ENV"
 
-      - name: Configure, build, analyze, and test macOS
+      - name: Prepare release evidence
+        shell: bash
+        run: |
+          mkdir -p "$ZZ_RELEASE_EVIDENCE_ROOT" "$ZZ_ARTIFACT_DIR"
+          cmake "-DZZ_OUTPUT_DIR=$ZZ_RELEASE_EVIDENCE_ROOT" \
+            -P scripts/package/PrepareReleaseEvidence.cmake
+
+      - name: Configure, build, test, and package macOS
         shell: bash
         env:
-          ZZ_SHARED_PRESET: ${{ matrix.shared_preset }}
-          ZZ_STATIC_PRESET: ${{ matrix.static_preset }}
+          ZZ_PRESET: ${{ matrix.preset }}
           ZZ_EXPECTED_ARCH: ${{ matrix.arch }}
         run: |
-          for preset in "$ZZ_SHARED_PRESET" "$ZZ_STATIC_PRESET"; do
-            cmake --preset "$preset" -DZZ_BUILD_EXAMPLES=ON
-            cmake --build --preset "$preset" --parallel 2
-            cmake --build --preset "$preset" --target ZzClangTidy
-            ctest --preset "$preset" --output-on-failure
+          cmake --preset "$ZZ_PRESET" \
+            "-DZZ_RELEASE_EVIDENCE_ROOT=$ZZ_RELEASE_EVIDENCE_ROOT"
+          cmake --build --preset "$ZZ_PRESET" --parallel 2
+          ctest --preset "$ZZ_PRESET" --output-on-failure
+          scripts/package/package-macos.sh \
+            --build-dir "$PWD/build/$ZZ_PRESET" \
+            --qt-root "$QT_ROOT_DIR" \
+            --evidence-root "$ZZ_RELEASE_EVIDENCE_ROOT" \
+            --output-dir "$ZZ_ARTIFACT_DIR" \
+            --commit "$GITHUB_SHA" \
+            --built-at-utc "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --architecture "$ZZ_EXPECTED_ARCH"
 
-            probe_count=0
-            probe_path=
-            while IFS= read -r candidate; do
-              probe_path=$candidate
-              probe_count=$((probe_count + 1))
-            done < <(find "build/$preset" -type f \
-              -name ZzPlatformCompileTest -perm -111)
-            [[ $probe_count -eq 1 ]]
-            [[ "$(lipo -archs "$probe_path")" == "$ZZ_EXPECTED_ARCH" ]]
-          done
+          shopt -s nullglob dotglob
+          files=("$ZZ_ARTIFACT_DIR"/*)
+          dmg_files=("$ZZ_ARTIFACT_DIR"/*.dmg)
+          checksum_files=("$ZZ_ARTIFACT_DIR"/*.dmg.sha256)
+          shopt -u nullglob dotglob
+          [[ ${#files[@]} -eq 3 ]]
+          [[ ${#dmg_files[@]} -eq 1 ]]
+          [[ ${#checksum_files[@]} -eq 1 ]]
+          [[ -f "$ZZ_ARTIFACT_DIR/build-info.json" ]]
+
+      - name: Upload macOS continuous artifact
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ github.workspace }}/build/ci-release/macos-${{ matrix.arch }}/artifacts/*
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload macOS failure logs
         if: failure()
@@ -368,7 +571,69 @@ jobs:
         with:
           name: macos-${{ matrix.arch }}-failure-logs
           path: |
-            build/**/CMakeFiles/CMakeConfigureLog.yaml
-            build/**/Testing/Temporary/LastTest.log
+            build/${{ matrix.preset }}/CMakeFiles/CMakeConfigureLog.yaml
+            build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
           retention-days: 14
+
+  publish-continuous-build:
+    name: Publish continuous-build
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/master'
+    needs: [linux, windows-msvc, windows-mingw, macos]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    concurrency:
+      group: continuous-build-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ZZ_ARTIFACT_ROOT: ${{ github.workspace }}/build/continuous-artifacts
+      ZZ_REPOSITORY: ${{ github.repository }}
+      ZZ_COMMIT: ${{ github.sha }}
+      ZZ_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: continuous-linux-x86_64
+          path: ${{ github.workspace }}/build/continuous-artifacts/linux-x86_64
+
+      - name: Download MSVC artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: continuous-windows-msvc-x86_64
+          path: ${{ github.workspace }}/build/continuous-artifacts/windows-msvc-x86_64
+
+      - name: Download MinGW artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: continuous-windows-mingw-x86_64
+          path: ${{ github.workspace }}/build/continuous-artifacts/windows-mingw-x86_64
+
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: continuous-macos-arm64
+          path: ${{ github.workspace }}/build/continuous-artifacts/macos-arm64
+
+      - name: Download macOS x86_64 artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: continuous-macos-x86_64
+          path: ${{ github.workspace }}/build/continuous-artifacts/macos-x86_64
+
+      - name: Publish transactional continuous release
+        shell: bash
+        run: |
+          scripts/release/publish-continuous-build.sh \
+            --artifact-root "$ZZ_ARTIFACT_ROOT" \
+            --repository "$ZZ_REPOSITORY" \
+            --commit "$ZZ_COMMIT" \
+            --run-url "$ZZ_RUN_URL"
