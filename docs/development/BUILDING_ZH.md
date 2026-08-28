@@ -1,5 +1,20 @@
 # ZzPureToolsFrame 构建手册
 
+本手册描述从源码配置、编译、测试到安装消费的完整流程。所有命令均在仓库根目录执行；`build/` 和 `install/` 下的目录是可删除的本机构建产物，不应提交。
+
+## 快速导航
+
+| 目标 | 推荐入口 | 适用场景 |
+|---|---|---|
+| Linux 日常开发 | `linux-gcc-debug` | GCC Debug、完整单元测试和示例调试 |
+| Linux 发布候选 | `linux-gcc-release`、`linux-static-release` | GCC shared/static Release 和安装消费 |
+| Linux 质量检查 | `linux-clang-tidy-release`、`linux-clang-asan` | clang-tidy、ASan/UBSan 和边界检查 |
+| Windows 动态库 | `windows-msvc2022-release`、`windows-mingw-release` | MSVC 或 Qt 官方 MinGW shared 构建 |
+| Windows 静态库 | `windows-msvc2022-static`、`windows-mingw-static` | 对应 ABI 的 static 构建 |
+| macOS | `macos-clang-release-*`、`macos-clang-static-*` | Apple Clang 的 arm64/x86_64 构建 |
+
+构建并安装后，外部项目使用 `find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)`，链接目标仍为 `Zz::Core`、`Zz::WindowKit`、`Zz::FluentUI` 和 `Zz::PureTools`。
+
 ## 构建事实源
 
 根 `CMakeLists.txt` 定义项目选项、依赖和安装规则，`CMakePresets.json` 定义受支持的平台矩阵。`CMakeUserPresets.json.example` 只展示如何从父进程环境传值；本机可将其内容用于 `CMakeUserPresets.json`，后者已由 `.gitignore` 排除，不得提交本机 SDK 绝对路径。
@@ -128,10 +143,16 @@ foreach ($preset in @(
     'windows-msvc2022-static')) {
     cmake --preset $preset
     cmake --build --preset $preset
-    ctest --preset $preset --output-on-failure
+    ctest --preset $preset -C Release --output-on-failure
     cmake --install "build/$preset" --config Release --prefix "install/$preset"
 }
 ```
+
+只编译示例而跳过测试时，在配置命令追加
+`-DZZ_BUILD_TESTS=OFF -DZZ_BUILD_EXAMPLES=ON`，然后将构建目标改为
+`cmake --build --preset windows-msvc2022-release --target ZzPureToolsExample`。
+MSVC 工程必须在 x64 Developer PowerShell 中执行，源码和 Qt SDK 的字符集统一为
+UTF-8；不要把 MSVC 生成的库与 MinGW 目录混用。
 
 ## Windows MinGW preset
 
@@ -148,12 +169,13 @@ pwsh -NoProfile -File scripts/ci/Assert-QtMinGWKit.ps1
 foreach ($preset in @('windows-mingw-release', 'windows-mingw-static')) {
     cmake --preset $preset
     cmake --build --preset $preset
-    ctest --preset $preset --output-on-failure
+    ctest --preset $preset -C Release --output-on-failure
     cmake --install "build/$preset" --prefix "install/$preset"
 }
 ```
 
 `Assert-QtMinGWKit.ps1` 会验证 target triple、GCC 精确版本、qmake prefix、`win32-g++` xspec、Ninja 和受控 SDK 根。验证失败不得绕过。
+MinGW 静态构建仍需要 Qt kit 提供与编译器匹配的静态库；若 SDK 只有 shared Qt，配置阶段应明确失败。
 
 ## macOS preset
 
@@ -172,11 +194,19 @@ for preset in \
   macos-clang-static-x86_64; do
   cmake --preset "$preset"
   cmake --build --preset "$preset"
-  cmake --build --preset "$preset" --target ZzClangTidy
   ctest --preset "$preset" --output-on-failure
   cmake --install "build/$preset" --prefix "install/$preset"
 done
 ```
+
+`ZzClangTidy` 只在启用 clang-tidy 的 preset 中执行：
+
+```bash
+cmake --build --preset macos-clang-release-arm64 --target ZzClangTidy
+```
+
+每个 macOS preset 的 `CMAKE_OSX_ARCHITECTURES` 必须与 Qt SDK 架构一致；使用
+`file` 或 `lipo -archs` 检查最终库和示例的架构，不能用 Rosetta 结果替代原生验证。
 
 ## 原生平台 runner
 
@@ -275,6 +305,43 @@ ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
 只有在已审参考机上重建基线时才临时启用对应变量。`workspace-components` 报告中的
 `activity-row-widgets`、`fixed-action-steady-object-growth` 和
 `right-empty-layout-width` 必须为 0，`single-side-visible-panels` 不得大于 1。
+
+## 常见问题
+
+### Qt 版本或私有头不匹配
+
+项目要求配置时发现的 Qt 主版本和次版本与构建目标一致。`ZzWindowKit` 的静态
+构建还需要同一 Qt SDK 提供 `Qt6::GuiPrivate`；缺少对应开发文件时应安装与 Qt
+版本完全匹配的私有开发包，不能把另一个 Qt 版本的头目录临时加入
+`CMAKE_PREFIX_PATH`。
+
+### 包名或安装路径不正确
+
+安装结果应包含：
+
+```text
+<prefix>/lib/cmake/ZzPureToolsFrame/
+  ZzPureToolsFrameConfig.cmake
+  ZzPureToolsFrameConfigVersion.cmake
+  ZzPureToolsFrameTargets.cmake
+```
+
+消费者只设置 `CMAKE_PREFIX_PATH=<prefix>`，不要直接引用构建目录中的生成文件。
+如果同时存在多个 Qt 或多个安装前缀，先清理消费者的 CMakeCache，再使用
+`cmake --debug-find-pkg=ZzPureToolsFrame` 检查实际命中的配置文件。
+
+### Windows 编译器与字符集
+
+MSVC 构建出现 fmt 的 UTF-8 静态断言时，确认 CMake 使用了 `/utf-8` 编译选项，并
+从 Visual Studio 2022 x64 Developer PowerShell 重新配置。MinGW 构建出现 kit
+检查失败时，重新运行 `Assert-QtMinGWKit.ps1`，不要把 MSYS2 的 Qt 或 Ninja 混入
+官方 Qt SDK。
+
+### macOS 架构不一致
+
+`lipo -archs` 显示的架构必须与 preset 后缀一致。删除该 preset 的 build 目录后
+重新配置，不能在同一目录中切换 arm64 与 x86_64，也不能用 Rosetta 运行结果代替
+另一架构的构建验证。
 
 ## 正式发布配置
 

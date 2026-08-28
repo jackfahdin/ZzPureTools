@@ -157,7 +157,7 @@ rg -n '"name"|QT_ROOT|GCC_13|CLANG_17|QT_MSVC_ROOT|QT_MINGW|QT_MACOS|APPLE_CLANG
 - [ ] **步骤 3：校验手册**
 
 ```bash
-rg -n -i -E 'ZzPureToolsP[r]o|zzpuretoolspr[o]' docs/development/BUILDING_ZH.md
+rg -n -i 'ZzPureToolsP[r]o|zzpuretoolspr[o]' docs/development/BUILDING_ZH.md
 git diff --check -- docs/development/BUILDING_ZH.md
 ```
 
@@ -195,7 +195,7 @@ find ZzFluentUI/widgets/include/ZzFluentUI -maxdepth 1 -name 'Zz*.h' -printf '%f
 - [ ] **步骤 3：执行 README 格式检查**
 
 ```bash
-rg -n -i -E 'ZzPureToolsP[r]o|zzpuretoolspr[o]' README.md
+rg -n -i 'ZzPureToolsP[r]o|zzpuretoolspr[o]' README.md
 git diff --check -- README.md
 ```
 
@@ -250,4 +250,3 @@ git status --short
 - [ ] **步骤 4：提交必要修正**
 
 若验证发现文档链接、安装路径或测试断言遗漏，只修改对应任务文件，使用新的中文 `fix(...)` 提交，并在正文列出失败原因、修正内容和重新运行的命令。不得通过保留旧 alias 绕过失败。
-
