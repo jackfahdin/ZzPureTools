@@ -24,6 +24,11 @@
 
 除明确写入性能参考档案的受审环境外，构建文档、preset 和已安装 CMake 文件都不得保存开发者绝对路径。
 
+如果某个 preset 曾在没有设置编译器或 Qt 变量时配置失败，不要只在同一个目录中补变量后
+重复配置。CMake 会保留失败探测结果，例如 `CMAKE_EXECUTABLE_FORMAT=Unknown`，随后
+Ninja 可能在生成安装规则时报告无法修改 RPATH。此时应删除或移动该 preset 对应的
+精确 `build/<preset>` 目录，再从干净目录重新配置；不要删除整个 `build/` 根目录。
+
 ## 先决条件
 
 所有平台需要：
@@ -94,7 +99,8 @@ for preset in \
   linux-clang-tidy-release \
   linux-clang-tidy-static \
   linux-clang-asan; do
-  cmake --preset "$preset"
+  cmake --preset "$preset" \
+    -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
   cmake --build --preset "$preset"
   ctest --preset "$preset" --output-on-failure
   cmake --install "build/$preset" --prefix "install/$preset"
