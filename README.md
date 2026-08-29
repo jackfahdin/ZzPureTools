@@ -164,6 +164,7 @@ macOS arm64 与 macOS x86_64 托管矩阵，但托管 CI 不替代真实窗口�
 ## 开发资料
 
 - [中文编码规范](docs/development/CODING_STANDARD_ZH.md)
+- [通用应用接入指南](docs/development/FRAMEWORK_INTEGRATION_ZH.md)
 - [图标资源所有权与维护记录](docs/development/ICON_ASSETS_ZH.md)
 - [性能基线与测量规则](docs/performance/PERFORMANCE_BASELINE_ZH.md)
 - [Windows 人工验收清单](docs/release/MANUAL_WINDOWS_CHECKLIST_ZH.md)
