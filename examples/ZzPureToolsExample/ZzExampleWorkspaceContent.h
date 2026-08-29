@@ -9,7 +9,7 @@ class QWidget;
 
 namespace ZzExample {
 
-/** @brief 创建 SSH 风格工作区的纯本地 QWidget 展示内容。 */
+/** @brief 创建通用工作区演示使用的纯本地 QWidget 展示内容。 */
 class ZzExampleWorkspaceContent final
 {
 public:
