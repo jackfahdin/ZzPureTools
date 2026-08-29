@@ -11,6 +11,8 @@
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QStatusBar>
@@ -132,8 +134,12 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         "ZzPureToolsExample", "设置"));
     auto *themeAction = new QAction(q_ptr);
     themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
+    themeAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExampleTitleBar", "切换主题"));
     auto *newWindowAction = new QAction(q_ptr);
     newWindowAction->setObjectName(QStringLiteral("zzExampleNewWindowAction"));
+    newWindowAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExampleTitleBar", "新建窗口"));
     auto *openPaletteAction = new QAction(q_ptr);
     openPaletteAction->setText(QCoreApplication::translate(
         "ZzPureToolsExample", "命令面板"));
@@ -144,10 +150,68 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         "ZzPureToolsExample", "新建终端"));
     newTerminalAction->setShortcut(QKeySequence::AddTab);
     auto *closeTerminalAction = new QAction(q_ptr);
+    closeTerminalAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExampleTitleBar", "关闭终端"));
     closeTerminalAction->setShortcut(QKeySequence::Close);
+    backAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExampleTitleBar", "后退"));
+    forwardAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExampleTitleBar", "前进"));
     window->addActions({backAction, forwardAction, settingsAction, themeAction,
         newWindowAction, openPaletteAction, newTerminalAction,
         closeTerminalAction});
+
+    auto *const titleBar = window->titleBar();
+    auto *const theme = application->themeController();
+    if (titleBar == nullptr || theme == nullptr) {
+        return zzInvalidState(
+            QStringLiteral("example window title bar is unavailable"));
+    }
+    QMenuBar *const titleMenuBar = titleBar->menuBar();
+    if (titleMenuBar == nullptr) {
+        return zzInvalidState(
+            QStringLiteral("example title bar menu is unavailable"));
+    }
+    QMenu *const fileMenu = titleMenuBar->addMenu(
+        QCoreApplication::translate("ZzPureToolsExampleTitleBar", "文件"));
+    QMenu *const navigationMenu = titleMenuBar->addMenu(
+        QCoreApplication::translate("ZzPureToolsExampleTitleBar", "导航"));
+    QMenu *const viewMenu = titleMenuBar->addMenu(
+        QCoreApplication::translate("ZzPureToolsExampleTitleBar", "视图"));
+    if (fileMenu == nullptr || navigationMenu == nullptr || viewMenu == nullptr) {
+        return zzInvalidState(
+            QStringLiteral("example title bar menu creation failed"));
+    }
+    fileMenu->addAction(newTerminalAction);
+    fileMenu->addAction(closeTerminalAction);
+    fileMenu->addSeparator();
+    fileMenu->addAction(newWindowAction);
+    navigationMenu->addAction(backAction);
+    navigationMenu->addAction(forwardAction);
+    navigationMenu->addSeparator();
+    navigationMenu->addAction(openPaletteAction);
+    viewMenu->addAction(settingsAction);
+    viewMenu->addAction(themeAction);
+    titleBar->setThemeMode(theme->mode());
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
+        q_ptr,
+        [this](ZzFluentUI::ZzThemeMode mode) {
+            if (application != nullptr
+                && application->themeController() != nullptr) {
+                application->themeController()->setMode(mode);
+            }
+        });
+    QObject::connect(
+        theme,
+        &ZzFluentUI::ZzThemeController::snapshotChanged,
+        q_ptr,
+        [titleBar, theme] {
+            if (titleBar != nullptr && theme != nullptr) {
+                titleBar->setThemeMode(theme->mode());
+            }
+        });
     searchEdit = workspace->commandPalette()->searchEdit();
     searchEdit->setObjectName(QStringLiteral("zzExamplePageSearch"));
     searchEdit->setAccessibleName(QCoreApplication::translate(

@@ -1411,4 +1411,47 @@
         <translation>Window close canceled</translation>
     </message>
 </context>
+<context>
+    <name>ZzPureToolsExampleTitleBar</name>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="139"/>
+        <source>切换主题</source>
+        <translation>Switch Theme</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="143"/>
+        <source>新建窗口</source>
+        <translation>New Window</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="154"/>
+        <source>关闭终端</source>
+        <translation>Close Terminal</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="157"/>
+        <source>后退</source>
+        <translation>Back</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="159"/>
+        <source>前进</source>
+        <translation>Forward</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="178"/>
+        <source>文件</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="180"/>
+        <source>导航</source>
+        <translation>Navigation</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="182"/>
+        <source>视图</source>
+        <translation>View</translation>
+    </message>
+</context>
 </TS>

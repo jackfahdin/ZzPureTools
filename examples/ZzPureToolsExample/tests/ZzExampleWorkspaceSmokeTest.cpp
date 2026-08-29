@@ -7,13 +7,17 @@
 #include <QtCore/QPointer>
 #include <QtCore/QStandardPaths>
 #include <QtGui/QAction>
+#include <QtGui/QIcon>
+#include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QMenuBar>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
@@ -26,6 +30,7 @@
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzBottomPane.h>
+#include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
@@ -214,6 +219,32 @@ private Q_SLOTS:
         auto *window = initialWindow_;
         QVERIFY(window != nullptr);
         QVERIFY(ZzExample::ZzExampleWindowShell::attachedTo(*window) != nullptr);
+        auto *titleBar = window->titleBar();
+        QVERIFY(titleBar != nullptr);
+        QCOMPARE(window->menuWidget(), titleBar);
+        QCOMPARE(titleBar->title(), window->windowTitle());
+        auto *iconLabel = qobject_cast<QLabel *>(titleBar->windowIconWidget());
+        QVERIFY(iconLabel != nullptr);
+        QVERIFY(!iconLabel->pixmap().isNull());
+        auto *titleMenuBar = titleBar->menuBar();
+        QVERIFY(titleMenuBar != nullptr);
+        QCOMPARE(titleMenuBar->actions().size(), 3);
+        const QStringList expectedMenus{
+            QStringLiteral("文件"),
+            QStringLiteral("导航"),
+            QStringLiteral("视图")};
+        QStringList actualMenus;
+        for (QAction *const action : titleMenuBar->actions()) {
+            actualMenus.append(action->text());
+        }
+        QCOMPARE(actualMenus, expectedMenus);
+        for (QAction *const action : titleMenuBar->actions()) {
+            QVERIFY(action->menu() != nullptr);
+            if (action->menu() == nullptr) {
+                continue;
+            }
+            QVERIFY(!action->menu()->actions().isEmpty());
+        }
         auto *palette = window->findChild<ZzFluentUI::ZzCommandPalette *>();
         QVERIFY(palette != nullptr);
         auto *commandBar = window->findChild<ZzFluentUI::ZzCommandBar *>(
@@ -756,6 +787,9 @@ int main(int argc, char *argv[])
     }
     QStandardPaths::setTestModeEnabled(true);
     ZzPureTools::ZzPureApplication application(argc, argv);
+    QPixmap testIcon(QSize(16, 16));
+    testIcon.fill(Qt::green);
+    QApplication::setWindowIcon(QIcon(testIcon));
     ZzExampleWorkspaceSmokeTest test;
     return QTest::qExec(&test, argc, argv);
 }
