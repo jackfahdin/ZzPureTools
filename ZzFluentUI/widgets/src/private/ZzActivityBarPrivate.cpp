@@ -523,11 +523,17 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
                 scheduleSourceActivation(projection->mapToSource(index));
             });
     }
+    QObject::connect(
+        secondaryProjection,
+        &QAbstractItemModel::modelReset,
+        q_ptr,
+        [this] { updateSecondaryViewGeometry(); });
     auto *layout = new QVBoxLayout(q_ptr);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
     layout->addWidget(primaryView, 1);
     layout->addWidget(secondaryView);
+    updateSecondaryViewGeometry();
 }
 
 ZzActivityBarPrivate::~ZzActivityBarPrivate()
@@ -536,6 +542,15 @@ ZzActivityBarPrivate::~ZzActivityBarPrivate()
     for (const QMetaObject::Connection &connection : activeModelConnections) {
         QObject::disconnect(connection);
     }
+}
+
+void ZzActivityBarPrivate::updateSecondaryViewGeometry()
+{
+    if (secondaryView == nullptr || secondaryProjection == nullptr) {
+        return;
+    }
+    secondaryView->setFixedHeight(
+        secondaryProjection->rowCount() * zzActivityItemHeight);
 }
 
 void ZzActivityBarPrivate::setEdge(ZzSidePaneEdge newEdge)
@@ -1021,8 +1036,13 @@ bool ZzActivityBarPrivate::handleDrop(
         return true;
     }
     const QModelIndex target = targetView->indexAt(QPoint(0, y));
-    const int targetRow = target.isValid() ? target.row()
-        : targetView->model()->rowCount();
+    const int rowCount = targetView->model()->rowCount();
+    const QRect lastRect = rowCount > 0
+        ? targetView->visualRect(targetView->model()->index(rowCount - 1, 0))
+        : QRect();
+    const bool appendAtBottom = !lastRect.isEmpty() && y >= lastRect.bottom();
+    const int targetRow = target.isValid() && !appendAtBottom
+        ? target.row() : rowCount;
     const QModelIndex sourceIndex = tokenIt.value();
     dragTokens.remove(token);
     if (dragTokens.isEmpty()) {

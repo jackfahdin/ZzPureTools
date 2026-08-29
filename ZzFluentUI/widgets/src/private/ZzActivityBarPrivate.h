@@ -38,6 +38,9 @@ public:
     /** @brief 切换物理侧并刷新两个区域投影。 */
     void setEdge(ZzSidePaneEdge newEdge);
 
+    /** @brief 按 Secondary 投影行数将底部视图锚定到 Activity Bar 底边。 */
+    void updateSecondaryViewGeometry();
+
     /** @brief 更换非拥有模型并清空当前源索引。 */
     void setModel(QAbstractItemModel *model);
 

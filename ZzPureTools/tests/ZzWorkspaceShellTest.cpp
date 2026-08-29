@@ -24,6 +24,7 @@
 #include <ZzTestEventLoop.h>
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QDockWidget>
+#include <QtWidgets/QListView>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QTabBar>
@@ -1599,7 +1600,7 @@ private Q_SLOTS:
         QCOMPARE(triggeredSpy.count(), 1);
         Q_EMIT bar->activationRequested(index);
         QCOMPARE(triggeredSpy.count(), 2);
-        QVERIFY(!bar->currentSourceIndex().isValid());
+        QCOMPARE(bar->currentSourceIndex(), index);
     }
 
     void fixedActivityPublishesActionChangeReceivedDuringInsertion()

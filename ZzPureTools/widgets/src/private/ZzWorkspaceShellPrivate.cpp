@@ -3171,6 +3171,11 @@ void ZzWorkspaceShellPrivate::activateActivity(
     if (activityRow->kind == ZzActivityRowKind::FixedAction) {
         const QPointer<QAction> action(activityRow->action);
         if (!collapse && action != nullptr && action->isEnabled()) {
+            ZzFluentUI::ZzActivityBar *const owningBar = zzIsLeftArea(
+                activityRow->area) ? leftActivityBar : rightActivityBar;
+            if (owningBar != nullptr) {
+                owningBar->setCurrentSourceIndex(sourceIndex);
+            }
             action->trigger();
         }
         return;

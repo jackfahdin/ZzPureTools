@@ -450,6 +450,28 @@ private Q_SLOTS:
         QCOMPARE(sibling->width(), 432);
     }
 
+    void anchorsSecondaryItemsAtBottom()
+    {
+        ZzActivityRowsModel model;
+        model.rows[1].enabled = true;
+        model.rows[1].selectable = true;
+        model.rows[2].area = ZzFluentUI::ZzActivityArea::LeftSecondary;
+        ZzFluentUI::ZzActivityBar bar(
+            ZzFluentUI::ZzSidePaneEdge::Left);
+        bar.setModel(&model);
+        QListView *const secondary = zzActivityView(
+            &bar, QStringLiteral("zzActivitySecondaryView"));
+        zzShow(&bar);
+
+        QCOMPARE(secondary->model()->rowCount(), 2);
+        const QModelIndex lastIndex = secondary->model()->index(1, 0);
+        const QRect lastRect = secondary->visualRect(lastIndex);
+        QVERIFY(!lastRect.isEmpty());
+        QVERIFY2(
+            lastRect.bottom() >= secondary->viewport()->rect().bottom() - 1,
+            "Activity Bar Secondary 项目没有从底部向上排列");
+    }
+
     void projectsOnlyTheConfiguredPhysicalSide()
     {
         ZzActivityRowsModel model;
