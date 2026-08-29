@@ -764,6 +764,68 @@ private Q_SLOTS:
         }
     }
 
+    void hidesSelectionVisualWithoutChangingSemanticState()
+    {
+        const QColor indicatorColor(QStringLiteral("#00ff55"));
+        ZzFluentUI::ZzThemeController controller;
+        controller.setAccentColor(indicatorColor);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzActivityRowsModel model;
+        model.rows[0].badge = 0;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setModel(&model);
+        const QModelIndex selected = model.index(0, 0);
+        bar.setCurrentSourceIndex(selected);
+        QListView *const view = zzActivityView(
+            &bar, QStringLiteral("zzActivityPrimaryView"));
+        QPalette palette = view->palette();
+        palette.setColor(QPalette::Highlight, indicatorColor);
+        view->setPalette(palette);
+        view->setStyle(&style);
+        view->viewport()->setStyle(&style);
+        view->setFocusPolicy(Qt::NoFocus);
+        zzShow(&bar);
+
+        const QRect rowRect =
+            view->visualRect(view->model()->index(0, 0));
+        QVERIFY(!rowRect.isEmpty());
+        const QImage selectedImage = zzRenderWidget(view->viewport());
+        QVERIFY2(
+            !zzPixelBoundsNearColor(
+                 selectedImage, rowRect, indicatorColor)
+                 .isEmpty(),
+            "选中入口没有绘制指示条");
+
+        const QList<QModelIndex> activeBefore = bar.activeSourceIndexes();
+        bar.setSelectionVisible(false);
+        QCoreApplication::processEvents();
+        const QImage hiddenImage = zzRenderWidget(view->viewport());
+
+        QVERIFY2(
+            zzPixelBoundsNearColor(hiddenImage, rowRect, indicatorColor)
+                .isEmpty(),
+            "侧边栏收缩后仍然绘制 ActivityBar 指示条");
+        const QPoint surfaceProbe(
+            rowRect.left() + rowRect.width() / 2,
+            rowRect.top() + 3);
+        QVERIFY(rowRect.contains(surfaceProbe));
+        QVERIFY2(
+            selectedImage.pixelColor(surfaceProbe)
+                != hiddenImage.pixelColor(surfaceProbe),
+            "侧边栏收缩后仍然绘制 ActivityBar 选中背板");
+        QCOMPARE(bar.currentSourceIndex(), selected);
+        QCOMPARE(bar.activeSourceIndexes(), activeBefore);
+
+        bar.setSelectionVisible(true);
+        QCoreApplication::processEvents();
+        const QImage restoredImage = zzRenderWidget(view->viewport());
+        QVERIFY2(
+            !zzPixelBoundsNearColor(
+                 restoredImage, rowRect, indicatorColor)
+                 .isEmpty(),
+            "恢复 ActivityBar 视觉选择后没有重新绘制指示条");
+    }
+
     void enabledNonSelectableRowOnlyRequestsActivation()
     {
         ZzActivityRowsModel model;

@@ -32,6 +32,8 @@ struct ZzItemViewVisualOptions final
     bool ownsIndicator = true;
     /** @brief 未选中的旧 item 是否仍需绘制收缩中的强调条。 */
     bool forceIndicator = false;
+    /** @brief 是否绘制选中背景和强调条，但不影响模型选择语义。 */
+    bool showSelection = true;
     /** @brief 强调条沿长轴绘制的比例，自动收敛到 0 至 1。 */
     qreal indicatorScale = 1.0;
     /** @brief 强调条的逻辑或固定物理边放置策略。 */

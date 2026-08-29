@@ -39,6 +39,11 @@ class ZZ_FLUENT_UI_EXPORT ZzActivityBar final : public QWidget
         READ isMultiActiveEnabled
         WRITE setMultiActiveEnabled
         NOTIFY multiActiveEnabledChanged)
+    Q_PROPERTY(
+        bool selectionVisible
+        READ isSelectionVisible
+        WRITE setSelectionVisible
+        NOTIFY selectionVisibleChanged)
 
 public:
     /**
@@ -86,6 +91,15 @@ public:
     /** @brief 启用或关闭多个活动入口指示条。 */
     void setMultiActiveEnabled(bool enabled);
 
+    /** @brief 返回是否绘制当前活动入口的选中背景和指示条。 */
+    [[nodiscard]] bool isSelectionVisible() const noexcept;
+
+    /**
+     * @brief 设置是否绘制当前活动入口的选中背景和指示条。
+     * @param visible 为 false 时保留语义索引，但隐藏视觉选中状态。
+     */
+    void setSelectionVisible(bool visible);
+
     /** @brief 返回按输入顺序去重后的当前有效活动源索引。 */
     [[nodiscard]] QList<QModelIndex> activeSourceIndexes() const;
 
@@ -104,6 +118,9 @@ Q_SIGNALS:
 
     /** @brief 多活动指示条开关实际变化后发出。 */
     void multiActiveEnabledChanged(bool enabled);
+
+    /** @brief 视觉选中状态开关实际变化后发出。 */
+    void selectionVisibleChanged(bool visible);
 
     /** @brief 活动源索引集合实际变化后发出。 */
     void activeSourceIndexesChanged(const QList<QModelIndex> &sourceIndexes);

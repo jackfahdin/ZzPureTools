@@ -688,6 +688,21 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     leftActivityBar->setModel(activityModel);
     rightActivityBar->setModel(activityModel);
 
+    QObject::connect(
+        leftSidePane, &ZzFluentUI::ZzSidePane::collapsedChanged,
+        q_ptr, [bar = leftActivityBar](bool collapsed) {
+            if (bar != nullptr) {
+                bar->setSelectionVisible(!collapsed);
+            }
+        });
+    QObject::connect(
+        rightSidePane, &ZzFluentUI::ZzSidePane::collapsedChanged,
+        q_ptr, [bar = rightActivityBar](bool collapsed) {
+            if (bar != nullptr) {
+                bar->setSelectionVisible(!collapsed);
+            }
+        });
+
     auto *centerLayout = new QVBoxLayout(centerHost);
     centerLayout->setContentsMargins(0, 0, 0, 0);
     centerLayout->setSpacing(0);
@@ -3174,6 +3189,7 @@ void ZzWorkspaceShellPrivate::activateActivity(
             ZzFluentUI::ZzActivityBar *const owningBar = zzIsLeftArea(
                 activityRow->area) ? leftActivityBar : rightActivityBar;
             if (owningBar != nullptr) {
+                owningBar->setSelectionVisible(true);
                 owningBar->setCurrentSourceIndex(sourceIndex);
             }
             action->trigger();
@@ -3453,6 +3469,10 @@ void ZzWorkspaceShellPrivate::syncSideEdgeVisibility()
             return false;
         }
         pane->setCollapsed(currentRecord == nullptr || !paneExpanded);
+        if (!alive()) {
+            return false;
+        }
+        bar->setSelectionVisible(!pane->isCollapsed());
         if (!alive()) {
             return false;
         }

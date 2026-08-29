@@ -53,6 +53,9 @@ public:
     /** @brief 设置按输入顺序去重的多个活动源索引。 */
     void setActiveSourceIndexes(const QList<QModelIndex> &indexes);
 
+    /** @brief 设置是否绘制 ActivityBar 的选中背景和指示条。 */
+    void setSelectionVisible(bool visible);
+
     /** @brief 清除当前模型或物理侧投影外的失效活动索引。 */
     void sanitizeActiveIndexes();
 
@@ -101,6 +104,7 @@ public:
     QPointer<QAbstractItemModel> sourceModel;
     QPersistentModelIndex currentSourceIndex;
     bool multiActiveEnabled = false;
+    bool selectionVisible = true;
     QList<QPersistentModelIndex> activeSourceIndexes;
     QMetaObject::Connection modelDestroyedConnection;
     QList<QMetaObject::Connection> activeModelConnections;

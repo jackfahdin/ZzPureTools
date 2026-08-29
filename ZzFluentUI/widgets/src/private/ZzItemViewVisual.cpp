@@ -141,7 +141,8 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
     if (painter == nullptr || snapshot == nullptr) {
         return result;
     }
-    const bool selected = option.state.testFlag(QStyle::State_Selected);
+    const bool selected = options.showSelection
+        && option.state.testFlag(QStyle::State_Selected);
     const bool hovered = option.state.testFlag(QStyle::State_MouseOver);
     const qreal indicatorScale = std::clamp(
         options.indicatorScale,

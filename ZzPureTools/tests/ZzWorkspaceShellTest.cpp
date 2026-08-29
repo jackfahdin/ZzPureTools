@@ -904,12 +904,14 @@ private Q_SLOTS:
         QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contentRaw}));
         QCOMPARE(bar->currentSourceIndex(), current);
         QCOMPARE(bar->activeSourceIndexes(), QList<QModelIndex>({current}));
+        QVERIFY(!bar->isSelectionVisible());
 
         Q_EMIT bar->activationRequested(current);
         QVERIFY(!pane->isCollapsed());
         QVERIFY(!pane->isHidden());
         QCOMPARE(pane->currentWidget(), contentRaw);
         QCOMPARE(bar->currentSourceIndex(), current);
+        QVERIFY(bar->isSelectionVisible());
     }
 
     void switchingPanelHidesPreviousWithoutDestroyingEitherContent()

@@ -86,6 +86,20 @@ void ZzActivityBar::setMultiActiveEnabled(bool enabled)
     Q_EMIT multiActiveEnabledChanged(enabled);
 }
 
+bool ZzActivityBar::isSelectionVisible() const noexcept
+{
+    return d_ptr->selectionVisible;
+}
+
+void ZzActivityBar::setSelectionVisible(bool visible)
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (QThread::currentThread() != thread()) {
+        return;
+    }
+    d_ptr->setSelectionVisible(visible);
+}
+
 QList<QModelIndex> ZzActivityBar::activeSourceIndexes() const
 {
     QList<QModelIndex> result;

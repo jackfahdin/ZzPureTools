@@ -153,8 +153,9 @@ public:
         painter->save();
         ZzItemViewVisualOptions visualOptions;
         if (owner_ != nullptr) {
-            visualOptions.forceIndicator =
-                owner_->isProjectionIndexActive(index);
+            visualOptions.showSelection = owner_->selectionVisible;
+            visualOptions.forceIndicator = owner_->selectionVisible
+                && owner_->isProjectionIndexActive(index);
             visualOptions.indicatorPlacement =
                 owner_->edge == ZzSidePaneEdge::Left
                 ? ZzItemIndicatorPlacement::PhysicalLeft
@@ -702,6 +703,17 @@ void ZzActivityBarPrivate::setActiveSourceIndexes(
         publicIndexes.append(index);
     }
     Q_EMIT q_ptr->activeSourceIndexesChanged(publicIndexes);
+}
+
+void ZzActivityBarPrivate::setSelectionVisible(bool visible)
+{
+    if (selectionVisible == visible) {
+        return;
+    }
+    selectionVisible = visible;
+    primaryView->viewport()->update();
+    secondaryView->viewport()->update();
+    Q_EMIT q_ptr->selectionVisibleChanged(visible);
 }
 
 void ZzActivityBarPrivate::sanitizeActiveIndexes()
