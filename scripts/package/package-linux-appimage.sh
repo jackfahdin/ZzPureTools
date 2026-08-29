@@ -201,8 +201,7 @@ source /etc/os-release
   exit 1
 }
 
-short_commit=${commit:0:12}
-package_name="ZzPureToolsExample-continuous-linux-x86_64-${short_commit}.AppImage"
+package_name="ZzPureToolsExample-continuous-linux-x86_64.AppImage"
 final_package="$output_dir/$package_name"
 final_checksum="$final_package.sha256"
 final_build_info="$output_dir/build-info.json"

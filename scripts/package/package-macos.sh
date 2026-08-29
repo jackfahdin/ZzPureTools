@@ -505,8 +505,7 @@ if [[ $architecture == arm64 ]]; then
 else
   platform_id=macos-x86_64
 fi
-short_commit=${commit:0:12}
-package_name="ZzPureToolsExample-continuous-${platform_id}-${short_commit}.dmg"
+package_name="ZzPureToolsExample-continuous-${platform_id}.dmg"
 final_package="$output_dir/$package_name"
 final_checksum="$final_package.sha256"
 final_build_info="$output_dir/build-info.json"

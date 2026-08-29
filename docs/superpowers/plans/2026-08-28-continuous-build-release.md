@@ -254,7 +254,7 @@ compilerId, compilerVersion, preset, linkage, lto
 
 输出 JSON 和相邻 `<package>.sha256`；`dirty` 在 CI 固定为 false，本机调用必须显式
 传入。`VerifyArtifactSet.cmake` 精确接受五种平台 id，要求每种一个 package、一个
-checksum、一个 build-info，校验文件名 short SHA 与完整 commit 对应。
+checksum、一个 build-info，校验稳定文件名与完整 commit 元数据对应。
 
 - [ ] **步骤 6：运行公共脚本合同**
 

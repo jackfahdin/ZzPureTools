@@ -212,11 +212,11 @@ endforeach()
 set(continuous_release_url
     "https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build")
 set(continuous_package_names
-    "ZzPureToolsExample-continuous-linux-x86_64-<short-sha>.AppImage"
-    "ZzPureToolsExample-continuous-windows-msvc2022-x86_64-<short-sha>.zip"
-    "ZzPureToolsExample-continuous-windows-mingw-x86_64-<short-sha>.zip"
-    "ZzPureToolsExample-continuous-macos-arm64-<short-sha>.dmg"
-    "ZzPureToolsExample-continuous-macos-x86_64-<short-sha>.dmg")
+    "ZzPureToolsExample-continuous-linux-x86_64.AppImage"
+    "ZzPureToolsExample-continuous-windows-msvc2022-x86_64.zip"
+    "ZzPureToolsExample-continuous-windows-mingw-x86_64.zip"
+    "ZzPureToolsExample-continuous-macos-arm64.dmg"
+    "ZzPureToolsExample-continuous-macos-x86_64.dmg")
 
 function(zz_require_document_tokens relative_path)
     set(document_path "${source_root}/${relative_path}")

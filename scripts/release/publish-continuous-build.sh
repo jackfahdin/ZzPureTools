@@ -233,7 +233,7 @@ if [[ $release_exists == true ]]; then
   if [[ $tag_sha == "$commit" && $desired_present -eq 15 ]]; then
     reuse_uploaded_assets=true
   else
-    # 清除上一轮失败遗留的同提交临时资产；旧提交的完整资产仍保持可下载。
+    # 稳定资产名无法与旧内容并存，先删除上一轮资产再上传本轮内容。
     while IFS= read -r asset_name; do
       if asset_is_desired "$asset_name"; then
         gh release delete-asset "$tag" "$asset_name" \
@@ -262,7 +262,7 @@ uploaded_assets="$work_dir/uploaded-assets.txt"
 fetch_remote_assets "$uploaded_assets"
 verify_desired_assets_present "$uploaded_assets"
 
-# 先更新发布说明，再移动固定 tag；两者都成功后才清除上一提交资产。
+# 先确认本轮资产上传完整，再更新发布说明和固定 tag。
 gh release edit "$tag" \
   --repo "$repository" \
   --target "$commit" \

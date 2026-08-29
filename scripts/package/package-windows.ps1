@@ -393,9 +393,8 @@ $script:PlatformId = if ($Mode -eq 'msvc') {
 } else {
     'windows-mingw-x86_64'
 }
-$shortCommit = $Commit.Substring(0, 12)
 $packageName =
-    "ZzPureToolsExample-continuous-$($script:PlatformId)-$shortCommit.zip"
+    "ZzPureToolsExample-continuous-$($script:PlatformId).zip"
 $finalPackage = Join-Path $resolvedOutputDir $packageName
 $finalChecksum = "$finalPackage.sha256"
 $finalBuildInfo = Join-Path $resolvedOutputDir 'build-info.json'

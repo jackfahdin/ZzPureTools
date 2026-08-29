@@ -18,11 +18,11 @@ Windows、macOS 以及 Linux 桌面会话的真机交互状态以
 
 | 平台 | 可分发包 |
 |---|---|
-| Ubuntu 22.04 x86_64 | `ZzPureToolsExample-continuous-linux-x86_64-<short-sha>.AppImage` |
-| Windows MSVC 2022 x86_64 | `ZzPureToolsExample-continuous-windows-msvc2022-x86_64-<short-sha>.zip` |
-| Windows Qt MinGW x86_64 | `ZzPureToolsExample-continuous-windows-mingw-x86_64-<short-sha>.zip` |
-| macOS Apple Silicon | `ZzPureToolsExample-continuous-macos-arm64-<short-sha>.dmg` |
-| macOS Intel | `ZzPureToolsExample-continuous-macos-x86_64-<short-sha>.dmg` |
+| Ubuntu 22.04 x86_64 | `ZzPureToolsExample-continuous-linux-x86_64.AppImage` |
+| Windows MSVC 2022 x86_64 | `ZzPureToolsExample-continuous-windows-msvc2022-x86_64.zip` |
+| Windows Qt MinGW x86_64 | `ZzPureToolsExample-continuous-windows-mingw-x86_64.zip` |
+| macOS Apple Silicon | `ZzPureToolsExample-continuous-macos-arm64.dmg` |
+| macOS Intel | `ZzPureToolsExample-continuous-macos-x86_64.dmg` |
 
 这些包是滚动更新、未签名的开发预览，不是稳定版本。每个平台同时发布相邻的
 `SHA-256` 文件和 `<package>.build-info.json`，下载后应先核对摘要与提交身份。CI smoke 不等于真机验收；

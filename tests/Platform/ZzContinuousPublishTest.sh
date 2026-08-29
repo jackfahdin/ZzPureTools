@@ -101,12 +101,11 @@ architecture_for() {
 write_expected_asset_names() {
   local output=$1
   local expected_commit=$2
-  local short_commit=${expected_commit:0:12}
   local platform extension package_name
   : > "$output"
   for platform in "${platforms[@]}"; do
     extension=$(extension_for "$platform")
-    package_name="ZzPureToolsExample-continuous-${platform}-${short_commit}.${extension}"
+    package_name="ZzPureToolsExample-continuous-${platform}.${extension}"
     printf '%s\n' \
       "$package_name" \
       "$package_name.sha256" \
@@ -122,7 +121,7 @@ create_artifacts() {
   for platform in "${platforms[@]}"; do
     extension=$(extension_for "$platform")
     architecture=$(architecture_for "$platform")
-    package_name="ZzPureToolsExample-continuous-${platform}-${commit:0:12}.${extension}"
+    package_name="ZzPureToolsExample-continuous-${platform}.${extension}"
     package_path="$root/$platform/$package_name"
     mkdir -p "$(dirname "$package_path")"
     printf 'fixture package bytes for %s\n' "$platform" > "$package_path"
@@ -358,13 +357,13 @@ first_delete=$(grep -nF 'release delete-asset' "$update_case/gh.log" |
   head -n 1 | cut -d: -f1)
 patch_line=$(grep -nF 'api --method PATCH' "$update_case/gh.log" |
   head -n 1 | cut -d: -f1)
-[[ $first_delete -gt $last_upload && $first_delete -gt $patch_line ]]
+[[ $first_delete -lt $last_upload && $first_delete -lt $patch_line ]]
 
 resume_case="$test_root/resume-partial-upload"
 mkdir -p "$resume_case"
 create_fake_gh "$resume_case/bin"
 initialize_existing_release "$resume_case/state"
-current_linux_package="ZzPureToolsExample-continuous-linux-x86_64-${commit:0:12}.AppImage"
+current_linux_package="ZzPureToolsExample-continuous-linux-x86_64.AppImage"
 printf '%s\n' \
   "$current_linux_package" \
   "$current_linux_package.sha256" >> "$resume_case/state/assets"
@@ -377,12 +376,9 @@ resume_first_upload=$(grep -nF 'release upload' "$resume_case/gh.log" |
   head -n 1 | cut -d: -f1)
 resume_patch=$(grep -nF 'api --method PATCH' "$resume_case/gh.log" |
   head -n 1 | cut -d: -f1)
-old_linux_package="ZzPureToolsExample-continuous-linux-x86_64-${old_commit:0:12}.AppImage"
-old_asset_delete=$(grep -nF \
-  "release delete-asset continuous-build $old_linux_package" \
-  "$resume_case/gh.log" | head -n 1 | cut -d: -f1)
+old_linux_package="ZzPureToolsExample-continuous-linux-x86_64.AppImage"
 [[ $residual_delete -lt $resume_first_upload &&
-   $old_asset_delete -gt $resume_patch ]]
+   $residual_delete -lt $resume_patch ]]
 
 missing_case="$test_root/missing"
 mkdir -p "$missing_case/artifacts"
@@ -407,9 +403,11 @@ if run_publish "$upload_failure_case" "$valid_artifacts" \
   exit 1
 fi
 [[ "$(cat "$upload_failure_case/state/tag-sha")" == "$old_commit" ]]
-old_linux_package="ZzPureToolsExample-continuous-linux-x86_64-${old_commit:0:12}.AppImage"
-grep -Fxq "$old_linux_package" "$upload_failure_case/state/assets"
-if grep -Eq 'release edit|api --method PATCH|release delete-asset' \
+if [[ $(wc -l < "$upload_failure_case/state/assets") -ge 15 ]]; then
+  echo "failed stable-name upload unexpectedly produced a complete asset set" >&2
+  exit 1
+fi
+if grep -Eq 'release edit|api --method PATCH' \
     "$upload_failure_case/gh.log"; then
   echo "failed upload modified the existing release transaction" >&2
   exit 1

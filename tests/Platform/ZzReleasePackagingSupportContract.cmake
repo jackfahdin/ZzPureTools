@@ -108,14 +108,13 @@ if(incomplete_msvc_stage_result EQUAL 0)
 endif()
 
 set(expected_commit 0123456789abcdef0123456789abcdef01234567)
-string(SUBSTRING "${expected_commit}" 0 12 short_commit)
 set(valid_root "${test_root}/valid-artifacts")
 
 function(zz_create_artifact platform_id extension architecture)
     set(artifact_dir "${valid_root}/${platform_id}")
     file(MAKE_DIRECTORY "${artifact_dir}")
     set(package_name
-        "ZzPureToolsExample-continuous-${platform_id}-${short_commit}.${extension}")
+        "ZzPureToolsExample-continuous-${platform_id}.${extension}")
     set(package_path "${artifact_dir}/${package_name}")
     file(WRITE "${package_path}"
         "fixture package bytes for ${platform_id}\n")
@@ -174,7 +173,7 @@ if(NOT "${sample_json_error}" STREQUAL "NOTFOUND"
 endif()
 string(JSON sample_sha GET "${sample_json}" packageSha256)
 set(sample_package
-    "${valid_root}/linux-x86_64/ZzPureToolsExample-continuous-linux-x86_64-${short_commit}.AppImage")
+    "${valid_root}/linux-x86_64/ZzPureToolsExample-continuous-linux-x86_64.AppImage")
 file(SHA256 "${sample_package}" expected_sample_sha)
 if(NOT "${sample_sha}" STREQUAL "${expected_sample_sha}")
     message(FATAL_ERROR "WriteBuildInfo package digest is incorrect")
@@ -227,7 +226,7 @@ set(tampered_root "${test_root}/tampered-package")
 file(MAKE_DIRECTORY "${tampered_root}")
 file(COPY "${valid_root}/" DESTINATION "${tampered_root}")
 set(tampered_package
-    "${tampered_root}/windows-mingw-x86_64/ZzPureToolsExample-continuous-windows-mingw-x86_64-${short_commit}.zip")
+    "${tampered_root}/windows-mingw-x86_64/ZzPureToolsExample-continuous-windows-mingw-x86_64.zip")
 file(APPEND "${tampered_package}" "tampered bytes\n")
 execute_process(
     COMMAND "${CMAKE_COMMAND}"

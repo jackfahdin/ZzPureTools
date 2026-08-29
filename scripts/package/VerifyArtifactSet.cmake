@@ -19,8 +19,6 @@ if(NOT expected_commit_length EQUAL 40
     message(FATAL_ERROR
         "ZZ_EXPECTED_COMMIT must be 40 lowercase hexadecimal characters")
 endif()
-string(SUBSTRING "${ZZ_EXPECTED_COMMIT}" 0 12 expected_short_commit)
-
 set(expected_platforms
     linux-x86_64
     windows-msvc2022-x86_64
@@ -146,7 +144,7 @@ foreach(build_info_file IN LISTS build_info_files)
         set(expected_architecture x86_64)
     endif()
     set(expected_package_file
-        "ZzPureToolsExample-continuous-${platformId}-${expected_short_commit}.${expected_extension}")
+        "ZzPureToolsExample-continuous-${platformId}.${expected_extension}")
     if(NOT "${packageFile}" STREQUAL "${expected_package_file}")
         message(FATAL_ERROR
             "Unexpected package filename for ${platformId}: ${packageFile}")

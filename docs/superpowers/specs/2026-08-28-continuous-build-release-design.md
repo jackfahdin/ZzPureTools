@@ -126,7 +126,7 @@ Qt 升级可能同时改变 Qt MinGW 工具 ID、MinGW GCC 版本、macOS 架构
 产物名：
 
 ```text
-ZzPureToolsExample-continuous-linux-x86_64-<short-sha>.AppImage
+ZzPureToolsExample-continuous-linux-x86_64.AppImage
 ```
 
 ### Windows MSVC x64
@@ -140,7 +140,7 @@ ZzPureToolsExample-continuous-linux-x86_64-<short-sha>.AppImage
 产物名：
 
 ```text
-ZzPureToolsExample-continuous-windows-msvc2022-x86_64-<short-sha>.zip
+ZzPureToolsExample-continuous-windows-msvc2022-x86_64.zip
 ```
 
 ### Windows Qt MinGW x64
@@ -155,7 +155,7 @@ ZzPureToolsExample-continuous-windows-msvc2022-x86_64-<short-sha>.zip
 产物名：
 
 ```text
-ZzPureToolsExample-continuous-windows-mingw-x86_64-<short-sha>.zip
+ZzPureToolsExample-continuous-windows-mingw-x86_64.zip
 ```
 
 ### macOS arm64 与 x86_64
@@ -172,8 +172,8 @@ ZzPureToolsExample-continuous-windows-mingw-x86_64-<short-sha>.zip
 产物名：
 
 ```text
-ZzPureToolsExample-continuous-macos-arm64-<short-sha>.dmg
-ZzPureToolsExample-continuous-macos-x86_64-<short-sha>.dmg
+ZzPureToolsExample-continuous-macos-arm64.dmg
+ZzPureToolsExample-continuous-macos-x86_64.dmg
 ```
 
 ## Example 应用身份与安装边界
@@ -237,11 +237,11 @@ build-info.json
 
 publish job 下载五个平台 artifact 后执行以下顺序：
 
-1. 拒绝缺少、重复或文件名提交号不一致的包。
+1. 拒绝缺少、重复或平台后缀不一致的包。
 2. 重新计算所有 SHA-256，并与各 job 清单比较。
 3. 验证五份 `build-info.json` 的完整 commit 完全一致且等于 workflow commit。
 4. 生成中文 Release 正文，列出五个产物、校验值、工具链和未签名提示。
-5. 使用带 short SHA 的唯一文件名上传本轮全部资产。
+5. 使用不含提交号的稳定文件名上传本轮全部资产；提交号仅保留在 Release 标题和 build-info 中。
 6. 确认 GitHub API 能列出本轮五个包及其校验/构建信息资产。
 7. 将 `continuous-build` tag 指向本轮 commit，更新标题、正文和 Pre-release 状态。
 8. 最后删除不属于本轮 commit 的旧资产。
