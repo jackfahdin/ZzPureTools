@@ -52,6 +52,9 @@ public:
     /** @brief 同步最大化或还原按钮的视觉状态。 */
     void syncWindowState();
 
+    /** @brief 同步宿主窗口图标到自绘标题栏。 */
+    void syncWindowIcon();
+
     /** @brief 按控制器当前强类型路由同步导航面板唯一选择。 */
     void syncNavigationSelection();
 

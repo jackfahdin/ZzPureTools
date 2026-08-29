@@ -96,6 +96,12 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
 
     theme = themeController;
     titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
+    syncWindowIcon();
+    QObject::connect(
+        q_ptr,
+        &QWidget::windowIconChanged,
+        q_ptr,
+        [this](const QIcon &) { syncWindowIcon(); });
     q_ptr->setMenuWidget(titleBar);
     body = new QWidget(q_ptr);
     bodyIdentity = body;
@@ -243,6 +249,13 @@ void ZzApplicationWindowPrivate::syncWindowState()
 {
     if (titleBar != nullptr) {
         titleBar->setMaximized(q_ptr->isMaximized());
+    }
+}
+
+void ZzApplicationWindowPrivate::syncWindowIcon()
+{
+    if (titleBar != nullptr) {
+        titleBar->setWindowIcon(q_ptr->windowIcon());
     }
 }
 

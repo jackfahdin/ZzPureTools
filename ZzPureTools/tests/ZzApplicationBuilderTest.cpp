@@ -2,8 +2,14 @@
 #include <utility>
 
 #include <QtCore/QMetaObject>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QStringList>
+#include <QtGui/QColor>
+#include <QtGui/QIcon>
+#include <QtGui/QPixmap>
 #include <QtTest/QTest>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QWidget>
 
@@ -443,6 +449,41 @@ private Q_SLOTS:
             [](ZzPureTools::ZzApplicationWindow &) {
                 return ZzCore::ZzResult<void>::success();
             }));
+        application.beginShutdown();
+    }
+
+    void synchronizesApplicationIconToTitleBar()
+    {
+        auto &application = zzApplication();
+        const QIcon previousIcon = QApplication::windowIcon();
+        const auto iconGuard = qScopeGuard(
+            [previousIcon] { QApplication::setWindowIcon(previousIcon); });
+        QPixmap source(QSize(16, 16));
+        source.fill(Qt::green);
+        QApplication::setWindowIcon(QIcon(source));
+
+        ZzPureTools::ZzApplicationBuilder builder;
+        zzConfigureSinglePage(builder);
+        QVERIFY(builder.build(application));
+
+        auto *const window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        QVERIFY(window->titleBar() != nullptr);
+        auto *const iconLabel = qobject_cast<QLabel *>(
+            window->titleBar()->windowIconWidget());
+        QVERIFY(iconLabel != nullptr);
+        const QPixmap icon = iconLabel->pixmap();
+        QVERIFY(!icon.isNull());
+        QCOMPARE(icon.toImage().pixelColor(8, 8), QColor(Qt::green));
+
+        QPixmap updatedSource(QSize(16, 16));
+        updatedSource.fill(Qt::blue);
+        window->setWindowIcon(QIcon(updatedSource));
+        QCoreApplication::processEvents();
+        const QPixmap updatedIcon = iconLabel->pixmap();
+        QVERIFY(!updatedIcon.isNull());
+        QCOMPARE(updatedIcon.toImage().pixelColor(8, 8), QColor(Qt::blue));
+
         application.beginShutdown();
     }
 
