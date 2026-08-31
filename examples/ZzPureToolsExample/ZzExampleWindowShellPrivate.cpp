@@ -5,6 +5,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDebug>
 #include <QtCore/QEvent>
+#include <QtCore/QtGlobal>
 #include <QtCore/QTime>
 #include <QtGui/QAction>
 #include <QtGui/QKeySequence>
@@ -21,6 +22,7 @@
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
+#include <ZzCore/ZzSettingsStore.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzCommandBar.h>
@@ -207,10 +209,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
         q_ptr,
         [this](ZzFluentUI::ZzThemeMode mode) {
-            if (application != nullptr
-                && application->themeController() != nullptr) {
-                application->themeController()->setMode(mode);
-            }
+            static_cast<void>(applyThemeMode(mode));
         });
     QObject::connect(
         theme,
@@ -525,22 +524,54 @@ void ZzExampleWindowShellPrivate::navigateFromSearch()
 void ZzExampleWindowShellPrivate::cycleTheme()
 {
     auto *theme = application->themeController();
-    switch (theme->mode()) {
-    case ZzFluentUI::ZzThemeMode::System:
-        theme->setMode(ZzFluentUI::ZzThemeMode::Light);
-        break;
-    case ZzFluentUI::ZzThemeMode::Light:
-        theme->setMode(ZzFluentUI::ZzThemeMode::Dark);
-        break;
-    case ZzFluentUI::ZzThemeMode::Dark:
-        theme->setMode(ZzFluentUI::ZzThemeMode::HighContrast);
-        break;
-    case ZzFluentUI::ZzThemeMode::HighContrast:
-        theme->setMode(ZzFluentUI::ZzThemeMode::System);
-        break;
+    const auto nextMode = [mode = theme->mode()] {
+        switch (mode) {
+        case ZzFluentUI::ZzThemeMode::System:
+            return ZzFluentUI::ZzThemeMode::Light;
+        case ZzFluentUI::ZzThemeMode::Light:
+            return ZzFluentUI::ZzThemeMode::Dark;
+        case ZzFluentUI::ZzThemeMode::Dark:
+            return ZzFluentUI::ZzThemeMode::HighContrast;
+        case ZzFluentUI::ZzThemeMode::HighContrast:
+            return ZzFluentUI::ZzThemeMode::System;
+        }
+        Q_UNREACHABLE();
+    }();
+    const bool persisted = applyThemeMode(nextMode);
+    statusBar->showMessage(
+        persisted
+            ? QCoreApplication::translate(
+                  "ZzPureToolsExample", "主题已切换")
+            : QCoreApplication::translate(
+                  "ZzPureToolsExample", "主题已切换，但设置保存失败"),
+        2500);
+}
+
+bool ZzExampleWindowShellPrivate::applyThemeMode(
+    ZzFluentUI::ZzThemeMode mode)
+{
+    if (application == nullptr || application->themeController() == nullptr) {
+        return false;
     }
-    statusBar->showMessage(QCoreApplication::translate(
-        "ZzPureToolsExample", "主题已切换"), 1800);
+    application->themeController()->setMode(mode);
+    if (context == nullptr) {
+        return false;
+    }
+    const auto result = context->settingsStore().write(
+        QStringView(QStringLiteral("appearance/themeMode")),
+        static_cast<int>(mode));
+    if (!result) {
+        qWarning().noquote()
+            << "ZzPureToolsExample title bar theme write failed:"
+            << result.error().technicalMessage()
+            << result.error().context();
+        if (statusBar != nullptr) {
+            statusBar->showMessage(QCoreApplication::translate(
+                "ZzPureToolsExample", "主题设置保存失败"), 3000);
+        }
+        return false;
+    }
+    return true;
 }
 
 void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(

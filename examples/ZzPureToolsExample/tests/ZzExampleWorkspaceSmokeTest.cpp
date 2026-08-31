@@ -29,6 +29,8 @@
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
+#include <ZzCore/ZzSettingsStore.h>
+
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzActivityBar.h>
@@ -668,6 +670,76 @@ private Q_SLOTS:
             == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
 
         closeSettings(settings);
+        closeApplicationWindow(window);
+    }
+
+    void titleBarThemeChangeIsPreservedWhenSettingsWindowOpens()
+    {
+        auto *const window = createAdditionalWindow();
+        QVERIFY(window != nullptr);
+        auto *const application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        QVERIFY(context_ != nullptr);
+
+        const auto persistedLight = context_->settingsStore().write(
+            QStringView(QStringLiteral("appearance/themeMode")),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+        QVERIFY(persistedLight);
+
+        QAction *themeMenuAction = nullptr;
+        if (auto *const menu = window->titleBar()->themeMenu(); menu != nullptr) {
+            for (QAction *const candidate : menu->actions()) {
+                if (candidate != nullptr
+                    && candidate->data().toInt()
+                        == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)) {
+                    themeMenuAction = candidate;
+                    break;
+                }
+            }
+        }
+        QVERIFY(themeMenuAction != nullptr);
+        if (themeMenuAction == nullptr) {
+            closeApplicationWindow(window);
+            return;
+        }
+
+        themeMenuAction->trigger();
+        ZZ_VERIFY_EVENTUALLY(
+            window->titleBar()->themeMode()
+            == ZzFluentUI::ZzThemeMode::HighContrast);
+        const auto persistedTheme = context_->settingsStore().read(
+            QStringView(QStringLiteral("appearance/themeMode")), -1);
+        QVERIFY(persistedTheme);
+        QCOMPARE(
+            persistedTheme.value().toInt(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+
+        QAction *const settings = settingsAction(window);
+        QVERIFY(settings != nullptr);
+        settings->trigger();
+        QCoreApplication::processEvents();
+        auto *const settingsWindow = this->settingsWindow(window);
+        QVERIFY(settingsWindow != nullptr);
+        if (settingsWindow == nullptr) {
+            closeApplicationWindow(window);
+            return;
+        }
+        auto *const settingsThemeBox = settingsWindow->findChild<QComboBox *>();
+        QVERIFY(settingsThemeBox != nullptr);
+        if (settingsThemeBox == nullptr) {
+            closeSettings(settingsWindow);
+            closeApplicationWindow(window);
+            return;
+        }
+
+        QCOMPARE(
+            static_cast<int>(window->titleBar()->themeMode()),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+        QCOMPARE(
+            settingsThemeBox->currentIndex(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+
+        closeSettings(settingsWindow);
         closeApplicationWindow(window);
     }
 

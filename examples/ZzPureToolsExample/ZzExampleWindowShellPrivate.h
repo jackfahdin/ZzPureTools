@@ -6,6 +6,8 @@
 
 #include <ZzCore/ZzResult.h>
 
+#include <ZzFluentUI/ZzThemeMode.h>
+
 class QAction;
 class QEvent;
 class QLabel;
@@ -57,6 +59,12 @@ public:
 
     /** @brief 循环切换 System、Light、Dark 与 HighContrast。 */
     void cycleTheme();
+
+    /**
+     * @brief 应用并持久化来自标题栏的主题模式请求。
+     * @return 设置写入成功时返回 true，否则返回 false。
+     */
+    [[nodiscard]] bool applyThemeMode(ZzFluentUI::ZzThemeMode mode);
 
     /** @brief 执行命令模型选中的窗口级展示意图。 */
     void dispatchWorkspaceCommand(ZzExampleCommandId command);
