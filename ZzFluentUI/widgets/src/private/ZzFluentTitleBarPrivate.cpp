@@ -15,6 +15,7 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QSizePolicy>
 #include <QtWidgets/QToolButton>
 
@@ -118,6 +119,7 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     , minimizeButton(new QToolButton(q))
     , maximizeButton(new QToolButton(q))
     , closeButton(new QToolButton(q))
+    , separator(new QFrame(q))
     , menuDisplayMode(ZzTitleBarMenuDisplayMode::Adaptive)
     , themeMode(ZzThemeMode::System)
     , themeInteractionMode(ZzTitleBarThemeInteractionMode::Menu)
@@ -172,6 +174,11 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     minimizeButton->setObjectName(QStringLiteral("zzTitleBarMinimizeButton"));
     maximizeButton->setObjectName(QStringLiteral("zzTitleBarMaximizeButton"));
     closeButton->setObjectName(QStringLiteral("zzTitleBarCloseButton"));
+    separator->setObjectName(QStringLiteral("zzTitleBarSeparator"));
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Plain);
+    separator->setLineWidth(1);
+    separator->setMidLineWidth(0);
 
     for (QToolButton *button : {
              compactMenuButton,
@@ -312,9 +319,12 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     highContrastThemeAction->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::ComputerSystem));
 
-    minimizeButton->setVisible(systemButtonsVisible);
-    maximizeButton->setVisible(systemButtonsVisible);
-    closeButton->setVisible(systemButtonsVisible);
+    minimizeButton->setVisible(minimizeButtonVisible);
+    maximizeButton->setVisible(maximizeButtonVisible);
+    closeButton->setVisible(closeButtonVisible);
+    themeButton->setVisible(commandButtonsVisible);
+    alwaysOnTopButton->setVisible(commandButtonsVisible);
+    separator->setVisible(true);
     themeButton->setChecked(themeMode != ZzThemeMode::System);
     alwaysOnTopButton->setChecked(alwaysOnTop);
     refreshThemeActions();
@@ -339,13 +349,19 @@ void ZzFluentTitleBarPrivate::refreshTitle()
 
 int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
 {
-    const int systemWidth = systemButtonsVisible
-        ? (3 * zzTitleBarSystemButtonWidth + 2 * zzTitleBarSpacing)
+    const int visibleSystemButtons = static_cast<int>(minimizeButtonVisible)
+        + static_cast<int>(maximizeButtonVisible)
+        + static_cast<int>(closeButtonVisible);
+    const int systemWidth = visibleSystemButtons > 0
+        ? visibleSystemButtons * zzTitleBarSystemButtonWidth
+            + (visibleSystemButtons - 1) * zzTitleBarSpacing
         : 0;
-    const int rightGroupWidth =
-        (2 * zzTitleBarCommandExtent)
-        + zzTitleBarSpacing
-        + (systemWidth > 0 ? zzTitleBarSpacing + systemWidth : 0);
+    const int commandWidth = commandButtonsVisible
+        ? (2 * zzTitleBarCommandExtent + zzTitleBarSpacing)
+        : 0;
+    const int rightGroupWidth = commandWidth
+        + ((commandWidth > 0 && systemWidth > 0) ? zzTitleBarSpacing : 0)
+        + systemWidth;
     const int desiredMenuWidth = qMax(1, menuBar->sizeHint().width());
     const int expandedLeftGroupWidth =
         zzTitleBarIconExtent + zzTitleBarSpacing + desiredMenuWidth;
@@ -357,7 +373,7 @@ int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
     return 2 * qMax(expandedLeftGroupWidth, rightGroupWidth)
         + adaptiveTitleWidth
         + (2 * zzTitleBarSpacing)
-        + (2 * zzTitleBarMargin);
+        + zzTitleBarMargin;
 }
 
 void ZzFluentTitleBarPrivate::restoreWindowMinimumWidth() noexcept
@@ -406,13 +422,19 @@ void ZzFluentTitleBarPrivate::updateLayout()
 {
     const int availableWidth = q_ptr->width();
     const int availableHeight = q_ptr->height();
-    const int systemWidth = systemButtonsVisible
-        ? (3 * zzTitleBarSystemButtonWidth + 2 * zzTitleBarSpacing)
+    const int visibleSystemButtons = static_cast<int>(minimizeButtonVisible)
+        + static_cast<int>(maximizeButtonVisible)
+        + static_cast<int>(closeButtonVisible);
+    const int systemWidth = visibleSystemButtons > 0
+        ? visibleSystemButtons * zzTitleBarSystemButtonWidth
+            + (visibleSystemButtons - 1) * zzTitleBarSpacing
         : 0;
-    const int rightGroupWidth =
-        (2 * zzTitleBarCommandExtent)
-        + zzTitleBarSpacing
-        + (systemWidth > 0 ? zzTitleBarSpacing + systemWidth : 0);
+    const int commandWidth = commandButtonsVisible
+        ? (2 * zzTitleBarCommandExtent + zzTitleBarSpacing)
+        : 0;
+    const int rightGroupWidth = commandWidth
+        + ((commandWidth > 0 && systemWidth > 0) ? zzTitleBarSpacing : 0)
+        + systemWidth;
     const QSize menuSizeHint = menuBar->sizeHint();
     const int desiredMenuWidth = qMax(1, menuSizeHint.width());
     // 标题以窗口中心为锚点；短标题只按实际宽度预留，避免菜单过早折叠。
@@ -445,7 +467,7 @@ void ZzFluentTitleBarPrivate::updateLayout()
     const int maximumMenuWidth = qMax(
         1,
         availableWidth
-            - (2 * zzTitleBarMargin)
+            - zzTitleBarMargin
             - zzTitleBarIconExtent
             - zzTitleBarSpacing
             - rightGroupWidth
@@ -472,7 +494,7 @@ void ZzFluentTitleBarPrivate::updateLayout()
     leftCursor += activeMenuWidth;
     const int leftGroupEnd = leftCursor;
 
-    int rightCursor = availableWidth - zzTitleBarMargin;
+    int rightCursor = availableWidth;
     const auto placeRight = [availableHeight, &rightCursor](
                                 QWidget *widget,
                                 int width) {
@@ -480,14 +502,23 @@ void ZzFluentTitleBarPrivate::updateLayout()
         widget->setGeometry(rightCursor, 0, width, availableHeight);
         rightCursor -= zzTitleBarSpacing;
     };
-    if (systemButtonsVisible) {
+    if (closeButtonVisible) {
         placeRight(closeButton, zzTitleBarSystemButtonWidth);
+    }
+    if (maximizeButtonVisible) {
         placeRight(maximizeButton, zzTitleBarSystemButtonWidth);
+    }
+    if (minimizeButtonVisible) {
         placeRight(minimizeButton, zzTitleBarSystemButtonWidth);
     }
-    placeRight(alwaysOnTopButton, zzTitleBarCommandExtent);
-    placeRight(themeButton, zzTitleBarCommandExtent);
-    const int rightGroupStart = rightCursor + zzTitleBarSpacing;
+    if (commandButtonsVisible) {
+        placeRight(alwaysOnTopButton, zzTitleBarCommandExtent);
+        placeRight(themeButton, zzTitleBarCommandExtent);
+    }
+    const bool hasRightGroup = commandButtonsVisible || visibleSystemButtons > 0;
+    const int rightGroupStart = hasRightGroup
+        ? rightCursor + zzTitleBarSpacing
+        : availableWidth;
 
     const std::array<QWidget *, 8> chromeWidgets{
         iconLabel,
@@ -535,6 +566,7 @@ void ZzFluentTitleBarPrivate::updateLayout()
     }
     refreshTitle();
     syncWindowMinimumWidth(adaptiveThreshold);
+    separator->setGeometry(0, qMax(0, availableHeight - 1), availableWidth, 1);
 }
 
 void ZzFluentTitleBarPrivate::rebuildCompactMenu()

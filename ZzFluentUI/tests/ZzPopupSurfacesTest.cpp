@@ -215,6 +215,10 @@ private Q_SLOTS:
             controller.setMode(mode);
             const auto snapshot = controller.snapshot();
             const QPalette palette = style.standardPalette();
+            const QColor menuStateFill = mode
+                == ZzFluentUI::ZzThemeMode::HighContrast
+                ? snapshot->color(ZzFluentUI::ZzColorToken::Accent)
+                : snapshot->color(ZzFluentUI::ZzColorToken::ControlFillHover);
 
             QStyleOption panel;
             panel.rect = QRect(0, 0, 220, 140);
@@ -250,7 +254,7 @@ private Q_SLOTS:
             image = zzRenderMenuItem(&style, item, &menu);
             QVERIFY(zzContainsColor(
                 image,
-                snapshot->color(ZzFluentUI::ZzColorToken::ControlFillHover)));
+                menuStateFill));
             QVERIFY(zzContainsColor(
                 image,
                 snapshot->color(ZzFluentUI::ZzColorToken::Accent)));
@@ -297,9 +301,7 @@ private Q_SLOTS:
                 &menuBarItem,
                 &painter);
             painter.end();
-            QCOMPARE(
-                menuBarImage.pixelColor(menuBarItem.rect.center()),
-                snapshot->color(ZzFluentUI::ZzColorToken::ControlFillHover));
+            QVERIFY(zzContainsColor(menuBarImage, menuStateFill));
 
             QStyleOption toolTip;
             toolTip.rect = QRect(0, 0, 180, 40);
@@ -322,6 +324,30 @@ private Q_SLOTS:
                 palette.color(QPalette::ToolTipBase),
                 snapshot->color(ZzFluentUI::ZzColorToken::SurfaceSecondary));
         }
+    }
+
+    void keepsRoundedMenuCornersTransparentAfterEmptyAreaPaint()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QMenu menu;
+        menu.setStyle(&style);
+
+        QStyleOption panel;
+        panel.rect = QRect(0, 0, 220, 140);
+        panel.state = QStyle::State_Enabled;
+        panel.palette = style.standardPalette();
+        QImage image(panel.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawPrimitive(QStyle::PE_PanelMenu, &panel, &painter, &menu);
+        style.drawControl(QStyle::CE_MenuEmptyArea, &panel, &painter, &menu);
+        painter.end();
+
+        QVERIFY(image.pixelColor(0, 0).alpha() == 0);
+        QVERIFY(image.pixelColor(image.width() - 1, 0).alpha() == 0);
+        QVERIFY(image.pixelColor(0, image.height() - 1).alpha() == 0);
+        QVERIFY(image.pixelColor(image.width() - 1, image.height() - 1).alpha() == 0);
     }
 
     void mirrorsSubmenuChevronWithoutChangingActionState()

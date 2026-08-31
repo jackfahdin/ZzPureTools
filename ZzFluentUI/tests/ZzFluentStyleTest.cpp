@@ -91,6 +91,18 @@ private Q_SLOTS:
         }
     }
 
+    void providesHighContrastMenuStateColor()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        const auto snapshot = controller.snapshot();
+
+        // 高对比度普通控件沿用黑色底色；菜单由样式专门使用强调色，
+        // 因而这里验证菜单可用的强调色与菜单面板确实可区分。
+        QVERIFY(snapshot->color(ZzFluentUI::ZzColorToken::Accent)
+                != snapshot->color(ZzFluentUI::ZzColorToken::SurfaceSecondary));
+    }
+
     void appliesPaletteOnConstruction()
     {
         // 模拟 Windows 深色模式下残留的深色应用 palette：构造样式后

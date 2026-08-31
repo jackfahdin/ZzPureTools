@@ -158,11 +158,27 @@ private Q_SLOTS:
         if (closeButton == nullptr) {
             return;
         }
-        QTest::mouseClick(closeButton, Qt::LeftButton);
+        closeButton->click();
         QCOMPARE(closeSpy.count(), 1);
         QCOMPARE(closeSpy.at(0).at(0).value<QWidget *>(), terminal);
         QCOMPARE(pane.currentWidget(), terminal);
         QCOMPARE(pane.widgetCount(), 2);
+    }
+
+    void bottomPaneDoesNotShowCloseButtonInItsHeader()
+    {
+        ZzFluentUI::ZzBottomPane pane;
+        QVERIFY(pane.addWidget(new QWidget, QStringLiteral("Terminal")));
+        pane.show();
+        QCoreApplication::processEvents();
+
+        auto *closeButton = pane.findChild<QToolButton *>(
+            QStringLiteral("zzBottomPaneCloseButton"));
+        QVERIFY(closeButton != nullptr);
+        if (closeButton == nullptr) {
+            return;
+        }
+        QVERIFY(closeButton->isHidden());
     }
 
     // 此测试捕获唯一当前工具被外部销毁后遗漏 nullptr 状态通知的回归。

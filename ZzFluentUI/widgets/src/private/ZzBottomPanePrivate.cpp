@@ -60,12 +60,12 @@ ZzBottomPanePrivate::ZzBottomPanePrivate(ZzBottomPane *publicObject)
     closeButton->setToolTip(ZzBottomPane::tr("关闭当前工具"));
     qobject_cast<ZzIconButton *>(closeButton)->setIconDescriptor(
         ZzIconDescriptor::fromBundledSvg(ZzBundledSvgIcon::Close));
+    closeButton->hide();
 
     auto *headerLayout = new QHBoxLayout(header);
     headerLayout->setContentsMargins(0, 0, 0, 0);
     headerLayout->setSpacing(0);
     headerLayout->addWidget(pivot, 1);
-    headerLayout->addWidget(closeButton);
 
     stackedWidget = new QStackedWidget(q_ptr);
     stackedWidget->setObjectName(QStringLiteral("zzBottomPaneStack"));

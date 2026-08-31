@@ -52,6 +52,12 @@ public:
     /** @brief 按稳定顺序返回全部逻辑可见内容。 */
     [[nodiscard]] QList<QWidget *> visiblePanels() const;
 
+    /** @brief 返回固定面板标题头是否可见。 */
+    [[nodiscard]] bool areHeadersVisible() const noexcept;
+
+    /** @brief 更新所有固定面板标题头可见性。 */
+    void setHeadersVisible(bool visible);
+
     /** @brief 重排已注册内容及其固定框架。 */
     bool movePanel(QWidget *content, int targetIndex);
 
@@ -114,6 +120,7 @@ public:
     QPointer<QWidget> currentPanel;
     quint64 currentNotificationRevision = 0;
     bool applyingSizes = false;
+    bool headersVisible = true;
 };
 
 } // namespace ZzFluentUI

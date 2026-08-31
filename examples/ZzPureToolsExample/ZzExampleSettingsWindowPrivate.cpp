@@ -119,7 +119,11 @@ ZzCore::ZzResult<void> ZzExampleSettingsWindowPrivate::initialize(
     }
     const bool nativeSystemButtons = agent->capabilities().testFlag(
         ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
-    titleBar->setSystemButtonsVisible(!nativeSystemButtons);
+    titleBar->setWindowButtonsVisible(
+        false,
+        false,
+        !nativeSystemButtons);
+    titleBar->setCommandButtonsVisible(false);
     ZzWindowKit::ZzWindowChromeConfiguration chrome;
     chrome.titleBar = titleBar;
     chrome.windowIcon = titleBar->windowIconWidget();

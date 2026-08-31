@@ -38,6 +38,27 @@ private Q_SLOTS:
         QCOMPARE(foreign->parentWidget(), &foreignOwner);
     }
 
+    void sidePaneContentDoesNotExposePanelHeaderChrome()
+    {
+        ZzFluentUI::ZzSidePane pane;
+        QVERIFY(pane.addWidget(new QLabel(QStringLiteral("Page")),
+                              QStringLiteral("Sessions")));
+        pane.show();
+        QCoreApplication::processEvents();
+
+        auto *header = pane.findChild<QWidget *>(
+            QStringLiteral("zzPanelStackHeader"));
+        auto *closeButton = pane.findChild<QWidget *>(
+            QStringLiteral("zzPanelStackCloseButton"));
+        QVERIFY(header != nullptr);
+        QVERIFY(closeButton != nullptr);
+        if (header == nullptr || closeButton == nullptr) {
+            return;
+        }
+        QVERIFY(header->isHidden());
+        QVERIFY(closeButton->isHidden());
+    }
+
     void keepsSingleCompatibilityAndRestoresStackedVisiblePanels()
     {
         ZzFluentUI::ZzSidePane pane;

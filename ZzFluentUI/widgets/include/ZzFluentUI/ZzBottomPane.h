@@ -17,7 +17,8 @@ class ZzBottomPanePrivate;
  * @brief 提供可切换、可折叠且可调整高度的中央底部工具区。
  *
  * addWidget() 只接管无父对象的页面；takeWidget() 解除父子关系并归还所有权。
- * 关闭按钮只发送关闭意图，不会删除、隐藏或转移当前工具页面。
+ * 工具标题通过 Pivot 展示；关闭意图仍由组件保留，但默认不绘制独立关闭按钮，
+ * 宿主可以根据自己的工具栏布局决定是否提供关闭入口。
  */
 class ZZ_FLUENT_UI_EXPORT ZzBottomPane final : public QWidget
 {
@@ -33,7 +34,7 @@ public:
      */
     explicit ZzBottomPane(QWidget *parent = nullptr);
 
-    /** @brief 销毁固定标题区、页面堆栈、把手及仍被接管的工具页面。 */
+    /** @brief 销毁工具 Pivot、页面堆栈、把手及仍被接管的工具页面。 */
     ~ZzBottomPane() override;
 
     /** @brief 返回当前已注册工具数量。 */

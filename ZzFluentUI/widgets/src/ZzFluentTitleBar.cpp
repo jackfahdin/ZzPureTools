@@ -158,11 +158,38 @@ void ZzFluentTitleBar::setMaximized(bool maximized)
 
 void ZzFluentTitleBar::setSystemButtonsVisible(bool visible)
 {
-    if (d_ptr->systemButtonsVisible == visible) {
+    setWindowButtonsVisible(visible, visible, visible);
+}
+
+void ZzFluentTitleBar::setWindowButtonsVisible(
+    bool minimizeVisible,
+    bool maximizeVisible,
+    bool closeVisible)
+{
+    if (d_ptr->minimizeButtonVisible == minimizeVisible
+        && d_ptr->maximizeButtonVisible == maximizeVisible
+        && d_ptr->closeButtonVisible == closeVisible) {
         return;
     }
-    d_ptr->systemButtonsVisible = visible;
+    d_ptr->minimizeButtonVisible = minimizeVisible;
+    d_ptr->maximizeButtonVisible = maximizeVisible;
+    d_ptr->closeButtonVisible = closeVisible;
     d_ptr->refreshPresentation();
+}
+
+void ZzFluentTitleBar::setCommandButtonsVisible(bool visible)
+{
+    if (d_ptr->commandButtonsVisible == visible) {
+        return;
+    }
+    d_ptr->commandButtonsVisible = visible;
+    d_ptr->refreshPresentation();
+    Q_EMIT commandButtonsVisibleChanged(visible);
+}
+
+bool ZzFluentTitleBar::areCommandButtonsVisible() const noexcept
+{
+    return d_ptr->commandButtonsVisible;
 }
 
 QWidget *ZzFluentTitleBar::windowIconWidget() const noexcept

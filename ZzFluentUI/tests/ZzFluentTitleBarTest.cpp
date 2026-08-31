@@ -15,6 +15,7 @@
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QToolButton>
 
@@ -691,6 +692,8 @@ private Q_SLOTS:
     void exposesOnlyDescendantChromeWidgets()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.show();
+        QCoreApplication::processEvents();
         const QList<QWidget *> chrome{
             titleBar.windowIconWidget(),
             titleBar.minimizeButton(),
@@ -725,6 +728,55 @@ private Q_SLOTS:
         QVERIFY(titleBar.minimizeButton()->isHidden());
         QVERIFY(titleBar.maximizeButton()->isHidden());
         QVERIFY(titleBar.closeButton()->isHidden());
+
+        titleBar.setWindowButtonsVisible(false, false, true);
+        QVERIFY(titleBar.minimizeButton()->isHidden());
+        QVERIFY(titleBar.maximizeButton()->isHidden());
+        QVERIFY(titleBar.closeButton()->isVisible());
+    }
+
+    void supportsACompactSecondaryWindowChrome()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.show();
+        QCoreApplication::processEvents();
+
+        titleBar.setCommandButtonsVisible(false);
+
+        QVERIFY(titleBar.findChild<QToolButton *>(
+                    QStringLiteral("zzTitleBarThemeButton"))->isHidden());
+        QVERIFY(titleBar.findChild<QToolButton *>(
+                    QStringLiteral("zzTitleBarAlwaysOnTopButton"))->isHidden());
+        QVERIFY(titleBar.minimizeButton()->isVisible());
+        QVERIFY(titleBar.maximizeButton()->isVisible());
+        QVERIFY(titleBar.closeButton()->isVisible());
+
+        titleBar.setWindowButtonsVisible(false, false, true);
+        QCoreApplication::processEvents();
+        QVERIFY(titleBar.minimizeButton()->isHidden());
+        QVERIFY(titleBar.maximizeButton()->isHidden());
+        QVERIFY(titleBar.closeButton()->isVisible());
+        QCOMPARE(
+            titleBar.closeButton()->geometry().right(),
+            titleBar.width() - 1);
+    }
+
+    void placesCloseButtonAtTheEdgeAndDrawsBodySeparator()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.resize(900, titleBar.height());
+        titleBar.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(titleBar.closeButton()->geometry().right(), titleBar.width() - 1);
+        auto *separator = titleBar.findChild<QFrame *>(
+            QStringLiteral("zzTitleBarSeparator"));
+        QVERIFY(separator != nullptr);
+        if (separator == nullptr) {
+            return;
+        }
+        QCOMPARE(separator->geometry().bottom(), titleBar.height() - 1);
+        QCOMPARE(separator->frameShape(), QFrame::HLine);
     }
 
     void updatesTitleIconAndMaximizedAccessibility()

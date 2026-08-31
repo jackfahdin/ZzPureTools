@@ -166,6 +166,20 @@ bool zzIsKeyboardInput(const QKeyEvent *event)
         primitiveRect.height());
 }
 
+/** @brief 返回菜单状态专用填充色，保证高对比度下选中项可辨识。 */
+[[nodiscard]] QColor zzMenuStateFill(
+    const ZzThemeSnapshot &snapshot,
+    bool pressed)
+{
+    if (snapshot.mode() == ZzThemeMode::HighContrast) {
+        return snapshot.color(ZzColorToken::Accent);
+    }
+    return snapshot.color(
+        pressed
+            ? ZzColorToken::ControlFillPressed
+            : ZzColorToken::ControlFillHover);
+}
+
 } // namespace
 
 ZzFluentStylePrivate::ZzFluentStylePrivate(
@@ -981,10 +995,7 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(snapshot->color(
-            selected
-                ? ZzColorToken::ControlFillPressed
-                : ZzColorToken::ControlFillHover));
+        painter->setBrush(zzMenuStateFill(*snapshot, selected));
         painter->drawRoundedRect(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
@@ -1040,10 +1051,7 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(snapshot->color(
-            current
-                ? ZzColorToken::ControlFillPressed
-                : ZzColorToken::ControlFillHover));
+        painter->setBrush(zzMenuStateFill(*snapshot, current));
         painter->drawRoundedRect(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
@@ -1401,9 +1409,10 @@ void ZzFluentStylePrivate::drawMenuEmptyArea(
     const QStyleOption *option,
     QPainter *painter) const
 {
-    painter->fillRect(
-        option->rect,
-        snapshot->color(ZzColorToken::SurfaceSecondary));
+    Q_UNUSED(option)
+    Q_UNUSED(painter)
+    // PE_PanelMenu 已绘制带透明圆角的完整面板。这里不再用矩形填充，
+    // 避免 CE_MenuEmptyArea 覆盖四角的透明裁剪区域。
 }
 
 void ZzFluentStylePrivate::drawMenuBarPanel(
@@ -1440,10 +1449,7 @@ void ZzFluentStylePrivate::drawMenuBarItem(
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(snapshot->color(
-            pressed
-                ? ZzColorToken::ControlFillPressed
-                : ZzColorToken::ControlFillHover));
+        painter->setBrush(zzMenuStateFill(*snapshot, pressed));
         painter->drawRoundedRect(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
@@ -1452,6 +1458,16 @@ void ZzFluentStylePrivate::drawMenuBarItem(
     }
 
     QStyleOptionMenuItem adjusted = *option;
+    if ((pressed || hovered)
+        && snapshot->mode() == ZzThemeMode::HighContrast) {
+        const QColor pressedText = snapshot->color(ZzColorToken::AccentText);
+        adjusted.palette.setColor(
+            QPalette::All, QPalette::Text, pressedText);
+        adjusted.palette.setColor(
+            QPalette::All, QPalette::WindowText, pressedText);
+        adjusted.palette.setColor(
+            QPalette::All, QPalette::ButtonText, pressedText);
+    }
     adjusted.state.setFlag(QStyle::State_Sunken, false);
     adjusted.state.setFlag(QStyle::State_Selected, false);
     adjusted.state.setFlag(QStyle::State_MouseOver, false);
@@ -1798,6 +1814,16 @@ void ZzFluentStylePrivate::drawMenuItem(
     const bool pressed = adjusted.state.testFlag(QStyle::State_Sunken);
     const bool hovered = adjusted.state.testFlag(QStyle::State_Selected)
         || adjusted.state.testFlag(QStyle::State_MouseOver);
+    if ((pressed || hovered)
+        && snapshot->mode() == ZzThemeMode::HighContrast) {
+        const QColor pressedText = snapshot->color(ZzColorToken::AccentText);
+        adjusted.palette.setColor(
+            QPalette::All, QPalette::Text, pressedText);
+        adjusted.palette.setColor(
+            QPalette::All, QPalette::WindowText, pressedText);
+        adjusted.palette.setColor(
+            QPalette::All, QPalette::ButtonText, pressedText);
+    }
     if (adjusted.menuItemType == QStyleOptionMenuItem::Separator) {
         if (adjusted.text.isEmpty()) {
             const QRect lineBounds = adjusted.rect.adjusted(8, 0, -8, 0);
@@ -1831,10 +1857,7 @@ void ZzFluentStylePrivate::drawMenuItem(
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(snapshot->color(
-            pressed
-                ? ZzColorToken::ControlFillPressed
-                : ZzColorToken::ControlFillHover));
+        painter->setBrush(zzMenuStateFill(*snapshot, pressed));
         painter->drawRoundedRect(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),

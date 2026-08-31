@@ -9,6 +9,7 @@
 class QAction;
 class QActionEvent;
 class QActionGroup;
+class QFrame;
 class QLabel;
 class QMenu;
 class QMenuBar;
@@ -79,13 +80,17 @@ public:
     QToolButton *minimizeButton = nullptr;
     QToolButton *maximizeButton = nullptr;
     QToolButton *closeButton = nullptr;
+    QFrame *separator = nullptr;
     QString title;
     QIcon windowIcon;
     ZzTitleBarMenuDisplayMode menuDisplayMode;
     ZzThemeMode themeMode;
     ZzTitleBarThemeInteractionMode themeInteractionMode;
     bool maximized = false;
-    bool systemButtonsVisible = true;
+    bool minimizeButtonVisible = true;
+    bool maximizeButtonVisible = true;
+    bool closeButtonVisible = true;
+    bool commandButtonsVisible = true;
     bool alwaysOnTop = false;
     bool menuCollapseEnabled = true;
     bool adaptiveExpanded = true;

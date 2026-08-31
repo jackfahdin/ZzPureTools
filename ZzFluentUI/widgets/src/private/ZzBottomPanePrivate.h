@@ -17,7 +17,7 @@ namespace ZzFluentUI {
 class ZzBottomPane;
 class ZzPivot;
 
-/** @brief 管理固定工具标题、页面堆栈、折叠高度和 4 px 把手。 */
+/** @brief 管理工具 Pivot、页面堆栈、折叠高度和 4 px 把手。 */
 class ZzBottomPanePrivate final
 {
 public:

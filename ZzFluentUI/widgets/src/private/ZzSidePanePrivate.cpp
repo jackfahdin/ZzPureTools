@@ -27,6 +27,7 @@ ZzSidePanePrivate::ZzSidePanePrivate(
     contentHost = new QWidget(q_ptr);
     panelStack = new ZzPanelStack(contentHost);
     panelStack->setObjectName(QStringLiteral("zzSidePanePanelStack"));
+    panelStack->setHeadersVisible(false);
     resizeHandle = new QWidget(q_ptr);
     resizeHandle->setObjectName(QStringLiteral("zzSidePaneResizeHandle"));
     resizeHandle->setFixedWidth(zzSidePaneHandleWidth);

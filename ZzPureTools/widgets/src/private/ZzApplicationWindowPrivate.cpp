@@ -96,6 +96,21 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
 
     theme = themeController;
     titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
+    titleBar->setThemeMode(themeController->mode());
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
+        themeController,
+        &ZzFluentUI::ZzThemeController::setMode);
+    QObject::connect(
+        themeController,
+        &ZzFluentUI::ZzThemeController::snapshotChanged,
+        q_ptr,
+        [this] {
+            if (titleBar != nullptr && theme != nullptr) {
+                titleBar->setThemeMode(theme->mode());
+            }
+        });
     syncWindowIcon();
     QObject::connect(
         q_ptr,

@@ -7,15 +7,18 @@
 #include <QtCore/QPointer>
 #include <QtCore/QStandardPaths>
 #include <QtGui/QAction>
+#include <QtGui/QGuiApplication>
 #include <QtGui/QIcon>
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QToolBar>
@@ -577,14 +580,69 @@ private Q_SLOTS:
         }
         auto *const settingsPinButton = settingsTitleBar->findChild<
             QToolButton *>(QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        auto *const settingsThemeButton = settingsTitleBar->findChild<
+            QToolButton *>(QStringLiteral("zzTitleBarThemeButton"));
+        auto *const settingsMinimizeButton = settingsTitleBar->findChild<
+            QToolButton *>(QStringLiteral("zzTitleBarMinimizeButton"));
+        auto *const settingsMaximizeButton = settingsTitleBar->findChild<
+            QToolButton *>(QStringLiteral("zzTitleBarMaximizeButton"));
+        auto *const settingsCloseButton = settingsTitleBar->findChild<
+            QToolButton *>(QStringLiteral("zzTitleBarCloseButton"));
         QVERIFY(settingsPinButton != nullptr);
+        QVERIFY(settingsThemeButton != nullptr);
+        QVERIFY(settingsMinimizeButton != nullptr);
+        QVERIFY(settingsMaximizeButton != nullptr);
+        QVERIFY(settingsCloseButton != nullptr);
         if (settingsPinButton == nullptr) {
             return;
         }
-        QVERIFY(settingsPinButton->isVisible());
-        QTest::mouseClick(settingsPinButton, Qt::LeftButton);
-        ZZ_VERIFY_EVENTUALLY(settingsTitleBar->isAlwaysOnTop());
-        QVERIFY(settings->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+        if (settingsThemeButton == nullptr) {
+            return;
+        }
+        if (settingsMinimizeButton == nullptr
+            || settingsMaximizeButton == nullptr
+            || settingsCloseButton == nullptr) {
+            return;
+        }
+        QVERIFY(settingsPinButton->isHidden());
+        QVERIFY(settingsThemeButton->isHidden());
+        QVERIFY(settingsMinimizeButton->isHidden());
+        QVERIFY(settingsMaximizeButton->isHidden());
+        // macOS 使用原生标题栏关闭按钮；其他平台由组件提供自绘关闭按钮。
+        if (QGuiApplication::platformName() != QStringLiteral("cocoa")) {
+            QVERIFY(settingsCloseButton->isVisible());
+        }
+        auto *const settingsThemeBox = settings->findChild<QComboBox *>();
+        QVERIFY(settingsThemeBox != nullptr);
+        if (settingsThemeBox == nullptr) {
+            return;
+        }
+        settingsThemeBox->setCurrentIndex(
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
+        ZZ_VERIFY_EVENTUALLY(
+            settingsTitleBar->themeMode() == ZzFluentUI::ZzThemeMode::Dark);
+        ZZ_VERIFY_EVENTUALLY(
+            window->titleBar()->themeMode() == ZzFluentUI::ZzThemeMode::Dark);
+
+        QAction *themeMenuAction = nullptr;
+        if (auto *const menu = window->titleBar()->themeMenu(); menu != nullptr) {
+            for (QAction *const candidate : menu->actions()) {
+                if (candidate != nullptr
+                    && candidate->data().toInt()
+                        == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)) {
+                    themeMenuAction = candidate;
+                    break;
+                }
+            }
+        }
+        QVERIFY(themeMenuAction != nullptr);
+        if (themeMenuAction == nullptr) {
+            return;
+        }
+        themeMenuAction->trigger();
+        ZZ_VERIFY_EVENTUALLY(
+            settingsThemeBox->currentIndex()
+            == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
 
         closeSettings(settings);
         closeApplicationWindow(window);

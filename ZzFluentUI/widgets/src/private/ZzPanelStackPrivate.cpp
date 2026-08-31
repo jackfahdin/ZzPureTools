@@ -122,6 +122,16 @@ public:
                 : ZzPanelStack::tr("关闭 %1").arg(title));
     }
 
+    /** @brief 设置面板头展示状态并同步其子控件的可见性。 */
+    void setHeaderVisible(bool visible)
+    {
+        headerVisible_ = visible;
+        header_->setVisible(visible);
+        titleLabel_->setVisible(visible);
+        closeButton_->setVisible(visible);
+        refreshIcon();
+    }
+
     void setIconDescriptor(const ZzIconDescriptor &icon)
     {
         icon_ = icon;
@@ -319,7 +329,7 @@ private:
     void refreshIcon()
     {
         const bool hasIcon = zzHasIcon(icon_);
-        iconLabel_->setVisible(hasIcon);
+        iconLabel_->setVisible(hasIcon && headerVisible_);
         if (!hasIcon) {
             iconLabel_->clear();
             return;
@@ -354,6 +364,7 @@ private:
     QPointer<QWidget> retainedForeignBranch_;
     QMetaObject::Connection retainedBranchDestroyedConnection_;
     bool retainedCleanupScheduled_ = false;
+    bool headerVisible_ = true;
 };
 
 ZzPanelStackPrivate::ZzPanelStackPrivate(ZzPanelStack *publicObject)
@@ -416,6 +427,7 @@ bool ZzPanelStackPrivate::addPanel(
         }
         return false;
     }
+    frameGuard->setHeaderVisible(headersVisible);
 
     ZzPanelRecord record;
     record.content = content;
@@ -502,6 +514,24 @@ QList<QWidget *> ZzPanelStackPrivate::visiblePanels() const
         }
     }
     return result;
+}
+
+bool ZzPanelStackPrivate::areHeadersVisible() const noexcept
+{
+    return headersVisible;
+}
+
+void ZzPanelStackPrivate::setHeadersVisible(bool visible)
+{
+    if (headersVisible == visible) {
+        return;
+    }
+    headersVisible = visible;
+    for (const ZzPanelRecord &record : std::as_const(panels)) {
+        if (record.frame != nullptr) {
+            record.frame->setHeaderVisible(visible);
+        }
+    }
 }
 
 bool ZzPanelStackPrivate::movePanel(

@@ -17,8 +17,10 @@ class ZzSidePanePrivate;
 class ZzPanelStack;
 
 /**
- * @brief 提供标题、页面堆栈、折叠和物理边缘宽度调整的可复用侧面板。
+ * @brief 提供页面堆栈、折叠和物理边缘宽度调整的可复用侧面板。
  *
+ * 侧面板默认隐藏页面堆栈的固定标题头，使侧栏内容直接与 Activity 导航对齐；
+ * 页面标题仍由堆栈保存，可通过 panelStack() 按需恢复标题头。
  * addWidget() 只接管无父对象页面；takeWidget() 解除父子关系并归还所有权。
  * 因此失败的页面转移不会改变原有 QWidget 的父子关系。
  */
@@ -45,7 +47,7 @@ public:
         ZzSidePaneEdge edge = ZzSidePaneEdge::Left,
         QWidget *parent = nullptr);
 
-    /** @brief 销毁固定标题区、页面堆栈、把手及仍被接管的页面。 */
+    /** @brief 销毁页面堆栈、把手及仍被接管的页面。 */
     ~ZzSidePane() override;
 
     /** @brief 返回以配置展开宽度为横向首选值的布局建议尺寸。 */
@@ -78,7 +80,7 @@ public:
     /**
      * @brief 接管一个无父对象页面并使其成为当前页。
      * @param widget 必须非空且没有 QObject 父对象。
-     * @param title 显示在固定标题区的页面标题。
+     * @param title 由页面堆栈保存的页面标题。
      * @return 页面接管成功时为 true；失败时 widget 所有权和当前页保持不变。
      */
     bool addWidget(QWidget *widget, const QString &title);

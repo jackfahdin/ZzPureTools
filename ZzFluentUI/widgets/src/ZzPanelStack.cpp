@@ -34,6 +34,16 @@ QList<QWidget *> ZzPanelStack::visiblePanels() const
     return d_ptr->visiblePanels();
 }
 
+bool ZzPanelStack::areHeadersVisible() const noexcept
+{
+    return d_ptr->areHeadersVisible();
+}
+
+void ZzPanelStack::setHeadersVisible(bool visible)
+{
+    d_ptr->setHeadersVisible(visible);
+}
+
 bool ZzPanelStack::addPanel(
     QWidget *content,
     const QString &title,

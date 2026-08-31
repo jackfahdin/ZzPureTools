@@ -46,6 +46,17 @@ public:
     /** @brief 按稳定布局顺序返回逻辑可见内容。 */
     [[nodiscard]] QList<QWidget *> visiblePanels() const;
 
+    /** @brief 返回固定面板标题头是否可见。 */
+    [[nodiscard]] bool areHeadersVisible() const noexcept;
+
+    /**
+     * @brief 设置所有固定面板标题头的可见性。
+     *
+     * 标题和关闭意图仍保留在记录中，隐藏时只改变展示层并释放头部占用空间。
+     * @param visible 为 false 时隐藏标题、图标和关闭按钮。
+     */
+    void setHeadersVisible(bool visible);
+
     /**
      * @brief 接管无父对象内容并创建固定标题框架。
      * @param content 必须非空、位于控件线程且没有 QObject 父对象。
