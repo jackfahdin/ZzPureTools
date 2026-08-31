@@ -157,6 +157,21 @@ ZzCore::ZzResult<void> ZzExampleSettingsWindowPrivate::initialize(
         &QWidget::close);
     QObject::connect(
         titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested,
+        q_ptr,
+        [this](bool requested) {
+            if (agent == nullptr) {
+                return;
+            }
+            const auto result = agent->setAlwaysOnTop(requested);
+            if (!result) {
+                return;
+            }
+            titleBar->setAlwaysOnTop(q_ptr->windowFlags().testFlag(
+                Qt::WindowStaysOnTopHint));
+        });
+    QObject::connect(
+        titleBar,
         &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
         theme,
         &ZzFluentUI::ZzThemeController::setMode);

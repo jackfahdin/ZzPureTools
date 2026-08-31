@@ -30,6 +30,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QTabBar>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzCore/ZzErrorCode.h>
@@ -7559,6 +7560,40 @@ private Q_SLOTS:
         QCOMPARE(host.showCount, showCountBefore);
         QCOMPARE(host.windowState(), stateBefore);
         QVERIFY(host.isVisible());
+    }
+
+    void appliesAlwaysOnTopFromTitleBarButtonClick()
+    {
+        ZzShellFixture fixture;
+        fixture.host.setMenuWidget(&fixture.titleBar);
+        fixture.host.resize(900, 600);
+        fixture.host.show();
+        QCoreApplication::processEvents();
+
+        auto *const button = fixture.titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        QVERIFY(button != nullptr);
+        if (button == nullptr) {
+            return;
+        }
+        QVERIFY(button->isVisible());
+        QVERIFY(!fixture.shell->isAlwaysOnTop());
+
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCoreApplication::processEvents();
+
+        QVERIFY(fixture.shell->isAlwaysOnTop());
+        QVERIFY(fixture.host.windowFlags().testFlag(
+            Qt::WindowStaysOnTopHint));
+        QVERIFY(button->isChecked());
+
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCoreApplication::processEvents();
+
+        QVERIFY(!fixture.shell->isAlwaysOnTop());
+        QVERIFY(!fixture.host.windowFlags().testFlag(
+            Qt::WindowStaysOnTopHint));
+        QVERIFY(!button->isChecked());
     }
 
     void migratesVersionOneLayoutToVersionTwo()

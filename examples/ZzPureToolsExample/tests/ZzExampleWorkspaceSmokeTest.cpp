@@ -408,6 +408,19 @@ private Q_SLOTS:
         window->activateWindow();
         QCoreApplication::processEvents();
         ZZ_VERIFY_EVENTUALLY(window->isActiveWindow());
+        auto *const alwaysOnTopButton = titleBar->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        QVERIFY(alwaysOnTopButton != nullptr);
+        if (alwaysOnTopButton == nullptr) {
+            return;
+        }
+        QVERIFY(alwaysOnTopButton->isVisible());
+        QTest::mouseClick(alwaysOnTopButton, Qt::LeftButton);
+        ZZ_VERIFY_EVENTUALLY(titleBar->isAlwaysOnTop());
+        QVERIFY(window->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+        QTest::mouseClick(alwaysOnTopButton, Qt::LeftButton);
+        ZZ_VERIFY_EVENTUALLY(!titleBar->isAlwaysOnTop());
+        QVERIFY(!window->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
         QTest::mouseClick(
             leftPrimaryView->viewport(), Qt::LeftButton, Qt::NoModifier,
             leftPrimaryView->visualRect(
@@ -555,6 +568,23 @@ private Q_SLOTS:
         QVERIFY(!settings->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
         QVERIFY(settings->testAttribute(Qt::WA_DeleteOnClose));
         QVERIFY(settings->isVisible());
+
+        auto *const settingsTitleBar =
+            settings->findChild<ZzFluentUI::ZzFluentTitleBar *>();
+        QVERIFY(settingsTitleBar != nullptr);
+        if (settingsTitleBar == nullptr) {
+            return;
+        }
+        auto *const settingsPinButton = settingsTitleBar->findChild<
+            QToolButton *>(QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        QVERIFY(settingsPinButton != nullptr);
+        if (settingsPinButton == nullptr) {
+            return;
+        }
+        QVERIFY(settingsPinButton->isVisible());
+        QTest::mouseClick(settingsPinButton, Qt::LeftButton);
+        ZZ_VERIFY_EVENTUALLY(settingsTitleBar->isAlwaysOnTop());
+        QVERIFY(settings->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
 
         closeSettings(settings);
         closeApplicationWindow(window);
