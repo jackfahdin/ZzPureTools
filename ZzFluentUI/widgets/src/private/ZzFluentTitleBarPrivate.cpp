@@ -318,7 +318,9 @@ void ZzFluentTitleBarPrivate::refreshTitle()
         titleLabel->setVisible(false);
         return;
     }
-    const int textWidth = qMax(0, titleLabel->width() - 4);
+    // 标题几何已经由安全区计算预留了内边距，省略宽度必须使用同一安全区。
+    // 额外扣除像素会让恰好放得下的标题错误地显示省略号。
+    const int textWidth = qMax(0, titleLabel->contentsRect().width());
     titleLabel->setText(q_ptr->fontMetrics().elidedText(
         title, Qt::ElideRight, textWidth));
     titleLabel->setVisible(true);
