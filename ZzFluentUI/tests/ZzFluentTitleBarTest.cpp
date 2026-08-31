@@ -13,6 +13,7 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QMainWindow>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
@@ -248,6 +249,48 @@ private Q_SLOTS:
         QVERIFY(menuBar->isVisible());
         QCOMPARE(
             titleBar.findChildren<QMenu *>().size(), menuObjectCount);
+    }
+
+    void keepsCompleteTitleWhenInteractiveSafeAreaFitsText()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        const QString title = QStringLiteral("ZzPureToolsExample");
+        titleBar.setTitle(title);
+        titleBar.resize(1280, titleBar.height());
+        titleBar.show();
+        QCoreApplication::processEvents();
+
+        auto *titleLabel = titleBar.findChild<QLabel *>(
+            QStringLiteral("zzTitleBarTitle"));
+        QVERIFY(titleLabel != nullptr);
+        if (titleLabel == nullptr) {
+            return;
+        }
+        QVERIFY(titleLabel->isVisible());
+        QCOMPARE(titleLabel->text(), title);
+    }
+
+    void expandsMenuAfterWindowReceivesFinalGeometry()
+    {
+        QMainWindow window;
+        auto *titleBar = new ZzFluentUI::ZzFluentTitleBar(&window);
+        window.setMenuWidget(titleBar);
+        titleBar->menuBar()->addMenu(QStringLiteral("File"));
+        titleBar->menuBar()->addMenu(QStringLiteral("Navigation"));
+        titleBar->menuBar()->addMenu(QStringLiteral("View"));
+
+        window.resize(1280, 800);
+        window.show();
+        QCoreApplication::processEvents();
+
+        auto *compactButton = titleBar->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCompactMenuButton"));
+        QVERIFY(compactButton != nullptr);
+        if (compactButton == nullptr) {
+            return;
+        }
+        QVERIFY(titleBar->menuBar()->isVisible());
+        QVERIFY(compactButton->isHidden());
     }
 
     void keepsTitleCenteredInsideInteractiveSafeArea()
