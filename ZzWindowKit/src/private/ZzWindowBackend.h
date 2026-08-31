@@ -60,6 +60,14 @@ public:
         ZzWindowColorScheme colorScheme) = 0;
 
     /**
+     * @brief 设置窗口置顶状态。
+     * @param alwaysOnTop 是否保持窗口位于其他普通窗口之上。
+     * @return 成功应用或后端错误。
+     */
+    [[nodiscard]] virtual ZzCore::ZzResult<void> setAlwaysOnTop(
+        bool alwaysOnTop) = 0;
+
+    /**
      * @brief 请求在全局坐标显示系统菜单。
      * @param globalPosition 全局屏幕坐标。
      * @return 请求已提交时成功，否则返回错误。

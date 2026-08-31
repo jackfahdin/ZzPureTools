@@ -91,6 +91,13 @@ public:
         ZzWindowColorScheme colorScheme);
 
     /**
+     * @brief 设置已绑定顶层窗口的置顶状态。
+     * @param alwaysOnTop 是否保持窗口位于其他普通窗口之上。
+     * @return 成功应用或状态、线程及后端错误。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> setAlwaysOnTop(bool alwaysOnTop);
+
+    /**
      * @brief 请求在指定全局坐标显示系统窗口菜单。
      * @param globalPosition 屏幕全局坐标。
      * @return 请求已提交时成功，否则返回状态或后端错误。

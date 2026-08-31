@@ -155,6 +155,17 @@ ZzWindowAgentPrivate::setColorScheme(ZzWindowColorScheme colorScheme)
     return backend->setColorScheme(colorScheme);
 }
 
+ZzCore::ZzResult<void> ZzWindowAgentPrivate::setAlwaysOnTop(
+    bool alwaysOnTop)
+{
+    auto active = validateActiveOperation(
+        QStringLiteral("set always-on-top state"));
+    if (!active) {
+        return active;
+    }
+    return backend->setAlwaysOnTop(alwaysOnTop);
+}
+
 ZzCore::ZzResult<void> ZzWindowAgentPrivate::showSystemMenu(
     const QPoint &globalPosition)
 {

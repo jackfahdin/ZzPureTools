@@ -8,6 +8,7 @@
 #include <QtCore/QVariant>
 #include <QtCore/QtGlobal>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QWindow>
 #include <QtGui/QStyleHints>
 #include <QtWidgets/QWidget>
 
@@ -452,6 +453,33 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzQWindowKitBackend::setColorScheme(
     Q_UNUSED(colorScheme);
     return zzUnsupportedApplyState();
 #endif
+}
+
+ZzCore::ZzResult<void> ZzQWindowKitBackend::setAlwaysOnTop(
+    bool alwaysOnTop)
+{
+    if (agent_ == nullptr || host_.isNull()) {
+        return zzBackendFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("QWindowKit backend is not attached"));
+    }
+
+    const Qt::WindowFlags requestedFlags = [&] {
+        Qt::WindowFlags flags = host_->windowFlags();
+        flags.setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+        return flags;
+    }();
+    QWindow *const windowHandle = host_->windowHandle();
+    if (host_->isVisible() && windowHandle != nullptr) {
+        // QWindow 更新原生标志不会触发 QWidget 的隐藏/显示重建。
+        windowHandle->setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+        host_->overrideWindowFlags(requestedFlags);
+        return ZzCore::ZzResult<void>::success();
+    }
+
+    // 不可见窗口尚未暴露原生句柄，使用 QWidget API 不会造成可见闪烁。
+    host_->setWindowFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+    return ZzCore::ZzResult<void>::success();
 }
 
 ZzCore::ZzResult<void> ZzQWindowKitBackend::showSystemMenu(

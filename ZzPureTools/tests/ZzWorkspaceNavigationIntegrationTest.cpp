@@ -48,6 +48,24 @@ namespace {
 using ZzWindowSetup = std::function<ZzCore::ZzResult<void>(
     ZzPureTools::ZzApplicationWindow &)>;
 
+class ZzVisibilityEventFilter final : public QObject
+{
+public:
+    int hideCount = 0;
+    int showCount = 0;
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event != nullptr && event->type() == QEvent::Hide) {
+            ++hideCount;
+        } else if (event != nullptr && event->type() == QEvent::Show) {
+            ++showCount;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+
 [[nodiscard]] ZzCore::ZzResult<void> zzFailure(QString message)
 {
     return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
@@ -225,6 +243,22 @@ private Q_SLOTS:
         QCOMPARE(routeAfter, routeBefore);
         QCOMPARE(window->centralWidget(), workspace.data());
         QCOMPARE(workspace->parentWidget(), window);
+        ZzVisibilityEventFilter visibilityAudit;
+        window->installEventFilter(&visibilityAudit);
+        window->show();
+        QCoreApplication::processEvents();
+        const int hideCountBefore = visibilityAudit.hideCount;
+        const int showCountBefore = visibilityAudit.showCount;
+        QVERIFY(shell->setAlwaysOnTop(true));
+        QCoreApplication::processEvents();
+        QCOMPARE(visibilityAudit.hideCount, hideCountBefore);
+        QCOMPARE(visibilityAudit.showCount, showCountBefore);
+        QVERIFY(window->isVisible());
+        QVERIFY(shell->setAlwaysOnTop(false));
+        QCoreApplication::processEvents();
+        QCOMPARE(visibilityAudit.hideCount, hideCountBefore);
+        QCOMPARE(visibilityAudit.showCount, showCountBefore);
+        window->removeEventFilter(&visibilityAudit);
         shell.reset();
         QVERIFY(workspace != nullptr);
         QCOMPARE(window->centralWidget(), workspace.data());

@@ -34,6 +34,7 @@ public:
         ZzWindowBackdrop backdrop);
     [[nodiscard]] ZzCore::ZzResult<ZzWindowApplyState> setColorScheme(
         ZzWindowColorScheme colorScheme);
+    [[nodiscard]] ZzCore::ZzResult<void> setAlwaysOnTop(bool alwaysOnTop);
     [[nodiscard]] ZzCore::ZzResult<void> showSystemMenu(
         const QPoint &globalPosition);
 

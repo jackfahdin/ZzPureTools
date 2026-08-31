@@ -56,6 +56,11 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzWindowAgent::setColorScheme(
     return d_ptr->setColorScheme(colorScheme);
 }
 
+ZzCore::ZzResult<void> ZzWindowAgent::setAlwaysOnTop(bool alwaysOnTop)
+{
+    return d_ptr->setAlwaysOnTop(alwaysOnTop);
+}
+
 ZzCore::ZzResult<void> ZzWindowAgent::showSystemMenu(
     const QPoint &globalPosition)
 {

@@ -10,6 +10,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QThread>
 #include <QtGui/QAction>
+#include <QtGui/QWindow>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QVBoxLayout>
@@ -28,7 +29,9 @@
 #include <ZzFluentUI/ZzSidePaneMode.h>
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
+#include <ZzWindowKit/ZzWindowAgent.h>
 
 #include "ZzWorkspaceActivityMoveTransactionPrivate.h"
 #include "ZzWorkspaceLayoutTransactionPrivate.h"
@@ -2792,14 +2795,33 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setAlwaysOnTop(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace host has been destroyed"));
     }
-    const bool wasVisible = host->isVisible();
-    const Qt::WindowStates previousState = host->windowState();
-    host->setWindowFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
-    host->setWindowState(previousState);
-    if (wasVisible) {
-        host->show();
-    } else {
-        host->hide();
+    bool appliedByWindowKit = false;
+    if (auto *const applicationWindow =
+            qobject_cast<ZzApplicationWindow *>(host.data());
+        applicationWindow != nullptr) {
+        if (auto *const windowAgent = applicationWindow->windowAgent();
+            windowAgent != nullptr) {
+            auto result = windowAgent->setAlwaysOnTop(alwaysOnTop);
+            if (!result) {
+                return result;
+            }
+            appliedByWindowKit = true;
+        }
+    }
+    if (!appliedByWindowKit) {
+        const Qt::WindowFlags requestedFlags = [&] {
+            Qt::WindowFlags flags = host->windowFlags();
+            flags.setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+            return flags;
+        }();
+        QWindow *const windowHandle = host->windowHandle();
+        if (host->isVisible() && windowHandle != nullptr) {
+            // 已显示窗口直接修改 QWindow，避免 QWidget 隐藏再显示。
+            windowHandle->setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+            host->overrideWindowFlags(requestedFlags);
+        } else {
+            host->setWindowFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+        }
     }
     const bool applied = host->windowFlags().testFlag(
         Qt::WindowStaysOnTopHint);
