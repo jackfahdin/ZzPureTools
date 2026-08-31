@@ -17,7 +17,7 @@
 - 修改：`ZzFluentUI/widgets/include/ZzFluentUI/ZzFluentTitleBar.h`
 - 修改：`ZzFluentUI/tests/ZzFluentTitleBarTest.cpp`
 
-- [ ] **步骤 1：先在测试中声明目标行为**
+- [x] **步骤 1：先在测试中声明目标行为**
 
 在测试中包含 `ZzTitleBarThemeInteractionMode.h`，增加以下测试：
 
@@ -59,7 +59,7 @@ void emitsThemeIntentForSelectedInteractionMode()
 }
 ```
 
-- [ ] **步骤 2：运行测试确认接口缺失导致失败**
+- [x] **步骤 2：运行测试确认接口缺失导致失败**
 
 运行：
 
@@ -69,11 +69,11 @@ cmake --build --preset linux-gcc-debug --target ZzFluentTitleBarTest --parallel 
 
 预期：编译失败，指出主题交互枚举、属性访问器或信号尚未定义。
 
-- [ ] **步骤 3：提交测试与枚举文件**
+- [x] **步骤 3：提交测试与枚举文件**
 
 创建带 `Q_DECLARE_METATYPE` 的 `ZzTitleBarThemeInteractionMode.h`，在标题栏头文件中加入属性、访问器声明和两个信号，使下一任务可以实现其行为。
 
-- [ ] **步骤 4：提交**
+- [x] **步骤 4：提交**
 
 ```bash
 git add ZzFluentUI/foundation/include/ZzFluentUI/ZzTitleBarThemeInteractionMode.h \
@@ -91,15 +91,15 @@ git commit -m "test(标题栏): 增加主题交互模式契约测试" \
 - 修改：`ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp`
 - 修改：`ZzFluentUI/tests/ZzFluentTitleBarTest.cpp`
 
-- [ ] **步骤 1：完成红灯测试覆盖菜单和 Toggle 分支**
+- [x] **步骤 1：完成红灯测试覆盖菜单和 Toggle 分支**
 
 测试通过 `themeMenu()` 获取长期存在的菜单，验证四个 action 的 `ZzThemeMode` 数据；在 `Menu` 模式触发 action 断言 `themeModeRequested()`，在 `Toggle` 模式断言 `themeToggleRequested()` 且不发出模式请求。
 
-- [ ] **步骤 2：实现最少状态和信号转发**
+- [x] **步骤 2：实现最少状态和信号转发**
 
 在私有类中增加 `themeInteractionMode` 字段；构造时将默认值设为 `Menu`。主题按钮点击处理按模式分支：`Menu` 仅让 Qt 打开已有菜单，`Toggle` 发出 `themeToggleRequested()` 并恢复按钮的确认勾选状态。新增高对比度 action，并在 `refreshThemeActions()` 中同步四项。
 
-- [ ] **步骤 3：运行标题栏测试确认通过**
+- [x] **步骤 3：运行标题栏测试确认通过**
 
 运行：
 
@@ -110,7 +110,7 @@ ctest --test-dir build/linux-gcc-debug -R ZzFluentTitleBarTest --output-on-failu
 
 预期：标题栏测试全部通过，系统按钮意图测试保持原有计数。
 
-- [ ] **步骤 4：提交**
+- [x] **步骤 4：提交**
 
 ```bash
 git add ZzFluentUI/widgets/src/ZzFluentTitleBar.cpp \
@@ -127,15 +127,15 @@ git commit -m "feat(标题栏): 支持菜单与浅深切换主题模式" \
 - 修改：`ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp`
 - 修改：`ZzFluentUI/tests/ZzFluentTitleBarTest.cpp`
 
-- [ ] **步骤 1：增加 SVG 图标行为测试**
+- [x] **步骤 1：增加 SVG 图标行为测试**
 
 断言置顶状态在 `Pin.svg` 与 `PinFill.svg` 间变化，最大化状态在 `Maximize.svg` 与 `Restore.svg` 间变化；检查按钮图标非空，并在标题栏调色板改变后图标像素使用新的文字色。
 
-- [ ] **步骤 2：实现 SVG 渲染 helper**
+- [x] **步骤 2：实现 SVG 渲染 helper**
 
 用 `ZzIconDescriptor::fromBundledSvg()` 创建描述；若 `q_ptr->style()` 是 `ZzFluentStyle`，调用 `iconPixmap(descriptor, QSize(16, 16), devicePixelRatioF(), palette().color(QPalette::ButtonText), layoutDirection())`。否则用 `QIcon` 加载相同 `:/zzfluent/icons/*.svg`，通过 `CompositionMode_SourceIn` 做一次回退着色。`refreshPresentation()` 只在状态、主题、调色板或 DPR 变化时调用，复用样式缓存，不在 `paintEvent()` 中解析 SVG。
 
-- [ ] **步骤 3：运行测试与构建**
+- [x] **步骤 3：运行测试与构建**
 
 运行：
 
@@ -145,7 +145,7 @@ ctest --test-dir build/linux-gcc-debug -R ZzFluentTitleBarTest --output-on-failu
 cmake --build --preset linux-gcc-debug --target ZzPureToolsExample --parallel 2
 ```
 
-- [ ] **步骤 4：提交**
+- [x] **步骤 4：提交**
 
 ```bash
 git add ZzFluentUI/widgets/src/private/ZzFluentTitleBarPrivate.cpp \
@@ -158,18 +158,18 @@ git commit -m "feat(标题栏): 统一使用内嵌SVG系统按钮图标" \
 
 **文件：** 无新增代码文件；仅检查前述提交。
 
-- [ ] **步骤 1：运行完整 Linux 回归**
+- [x] **步骤 1：运行完整 Linux 回归**
 
 ```bash
 cmake --build --preset linux-gcc-debug --parallel 2
 ctest --preset linux-gcc-debug --output-on-failure
 ```
 
-- [ ] **步骤 2：检查静态平台契约**
+- [x] **步骤 2：检查静态平台契约**
 
 确认新增接口只使用 Qt 6.8+ 公共 API、C++20 标准库和 Qt Resource，不引入 Linux、Windows 或 macOS 专用代码；确认 `temp_image/` 未被读取、添加或提交。
 
-- [ ] **步骤 3：提交前验证工作树与提交记录**
+- [x] **步骤 3：提交前验证工作树与提交记录**
 
 ```bash
 git diff --check
