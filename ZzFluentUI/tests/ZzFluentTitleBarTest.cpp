@@ -196,7 +196,7 @@ private Q_SLOTS:
         QVERIFY(menuBar->isVisible());
         QVERIFY(compactButton->isHidden());
 
-        titleBar.resize(520, titleBar.height());
+        titleBar.resize(420, titleBar.height());
         QCoreApplication::processEvents();
         QVERIFY(menuBar->isHidden());
         QVERIFY(compactButton->isVisible());
@@ -275,11 +275,12 @@ private Q_SLOTS:
         QMainWindow window;
         auto *titleBar = new ZzFluentUI::ZzFluentTitleBar(&window);
         window.setMenuWidget(titleBar);
-        titleBar->menuBar()->addMenu(QStringLiteral("File"));
-        titleBar->menuBar()->addMenu(QStringLiteral("Navigation"));
-        titleBar->menuBar()->addMenu(QStringLiteral("View"));
+        window.resize(620, 560);
+        titleBar->setTitle(QStringLiteral("ZzPureToolsExample"));
+        titleBar->menuBar()->addMenu(QStringLiteral("文件"));
+        titleBar->menuBar()->addMenu(QStringLiteral("导航"));
+        titleBar->menuBar()->addMenu(QStringLiteral("视图"));
 
-        window.resize(1280, 800);
         window.show();
         QCoreApplication::processEvents();
 

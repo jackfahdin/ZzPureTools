@@ -32,7 +32,7 @@ constexpr int zzTitleBarIconExtent = 20;
 constexpr int zzTitleBarCommandExtent = 36;
 constexpr int zzTitleBarSystemButtonWidth = 46;
 constexpr int zzTitleBarCompactMenuWidth = 36;
-constexpr int zzTitleBarMinimumTitleWidth = 160;
+constexpr int zzTitleBarAdaptiveTitleWidthCap = 160;
 constexpr int zzTitleBarAdaptiveHysteresis = 24;
 
 /** @brief 标识需要按主题文本色绘制的标题栏图标。 */
@@ -340,9 +340,15 @@ void ZzFluentTitleBarPrivate::updateLayout()
     const int desiredMenuWidth = qMax(1, menuBar->sizeHint().width());
     const int expandedLeftGroupWidth =
         zzTitleBarIconExtent + zzTitleBarSpacing + desiredMenuWidth;
+    // 标题以窗口中心为锚点；短标题只按实际宽度预留，避免菜单过早折叠。
+    const int requestedTitleWidth = q_ptr->fontMetrics().horizontalAdvance(title)
+        + 4;
+    const int adaptiveTitleWidth = qMin(
+        zzTitleBarAdaptiveTitleWidthCap,
+        qMax(0, requestedTitleWidth));
     const int adaptiveThreshold =
         2 * qMax(expandedLeftGroupWidth, rightGroupWidth)
-        + zzTitleBarMinimumTitleWidth
+        + adaptiveTitleWidth
         + (2 * zzTitleBarSpacing)
         + (2 * zzTitleBarMargin);
     const int hysteresisHalf = zzTitleBarAdaptiveHysteresis / 2;
