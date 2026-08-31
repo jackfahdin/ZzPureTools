@@ -95,6 +95,35 @@ private Q_SLOTS:
         QCOMPARE(toggleSpy.count(), 1);
     }
 
+    void emitsThemeModeIntentFromMenuAction()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        QSignalSpy modeSpy(
+            &titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::themeModeRequested);
+        QVERIFY(titleBar.themeMenu() != nullptr);
+        if (titleBar.themeMenu() == nullptr) {
+            return;
+        }
+        QAction *highContrastAction = nullptr;
+        for (QAction *action : titleBar.themeMenu()->actions()) {
+            if (action->data().toInt()
+                == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)) {
+                highContrastAction = action;
+                break;
+            }
+        }
+        QVERIFY(highContrastAction != nullptr);
+        if (highContrastAction == nullptr) {
+            return;
+        }
+        highContrastAction->trigger();
+        QCOMPARE(modeSpy.count(), 1);
+        QCOMPARE(
+            modeSpy.first().first().toInt(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+    }
+
     void preservesCompactMenuOrderForMiddleInsertions()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
@@ -169,7 +198,7 @@ private Q_SLOTS:
         QVERIFY(!second->isEnabled());
     }
 
-    void presentsConfirmedHighContrastWithoutAddingShortcutAction()
+    void presentsConfirmedHighContrastWithThemeAction()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
         auto *themeButton = titleBar.findChild<QToolButton *>(
@@ -182,7 +211,7 @@ private Q_SLOTS:
         if (themeButton->menu() == nullptr) {
             return;
         }
-        QCOMPARE(themeButton->menu()->actions().size(), 3);
+        QCOMPARE(themeButton->menu()->actions().size(), 4);
 
         titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::HighContrast);
 
@@ -192,13 +221,11 @@ private Q_SLOTS:
         QVERIFY(themeButton->toolTip().contains(QStringLiteral("高对比度")));
         QVERIFY(themeButton->accessibleName().contains(
             QStringLiteral("高对比度")));
-        QCOMPARE(themeButton->menu()->actions().size(), 3);
+        QCOMPARE(themeButton->menu()->actions().size(), 4);
         for (QAction *action : themeButton->menu()->actions()) {
-            QVERIFY(
-                action->data().toInt()
-                != static_cast<int>(
-                    ZzFluentUI::ZzThemeMode::HighContrast));
-            QVERIFY(!action->isChecked());
+            const auto mode = static_cast<ZzFluentUI::ZzThemeMode>(
+                action->data().toInt());
+            QCOMPARE(action->isChecked(), mode == ZzFluentUI::ZzThemeMode::HighContrast);
         }
     }
 

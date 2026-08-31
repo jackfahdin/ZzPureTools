@@ -110,6 +110,28 @@ void ZzFluentTitleBar::setThemeMode(ZzThemeMode mode)
     Q_EMIT themeModeChanged(mode);
 }
 
+ZzTitleBarThemeInteractionMode
+ZzFluentTitleBar::themeInteractionMode() const noexcept
+{
+    return d_ptr->themeInteractionMode;
+}
+
+void ZzFluentTitleBar::setThemeInteractionMode(
+    ZzTitleBarThemeInteractionMode mode)
+{
+    if (d_ptr->themeInteractionMode == mode) {
+        return;
+    }
+    d_ptr->themeInteractionMode = mode;
+    d_ptr->refreshPresentation();
+    Q_EMIT themeInteractionModeChanged(mode);
+}
+
+QMenu *ZzFluentTitleBar::themeMenu() const noexcept
+{
+    return d_ptr->themeMenu;
+}
+
 bool ZzFluentTitleBar::isAlwaysOnTop() const noexcept
 {
     return d_ptr->alwaysOnTop;

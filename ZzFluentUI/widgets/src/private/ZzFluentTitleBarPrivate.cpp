@@ -20,6 +20,7 @@
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 namespace ZzFluentUI {
@@ -144,6 +145,7 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     , closeButton(new QToolButton(q))
     , menuDisplayMode(ZzTitleBarMenuDisplayMode::Adaptive)
     , themeMode(ZzThemeMode::System)
+    , themeInteractionMode(ZzTitleBarThemeInteractionMode::Menu)
 {
     Q_ASSERT(q_ptr != nullptr);
     q_ptr->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -184,6 +186,8 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
         ZzFluentTitleBar::tr("浅色"), ZzThemeMode::Light);
     darkThemeAction = addThemeAction(
         ZzFluentTitleBar::tr("深色"), ZzThemeMode::Dark);
+    highContrastThemeAction = addThemeAction(
+        ZzFluentTitleBar::tr("高对比度"), ZzThemeMode::HighContrast);
 
     alwaysOnTopButton->setObjectName(
         QStringLiteral("zzTitleBarAlwaysOnTopButton"));
@@ -221,6 +225,10 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
         &QToolButton::clicked,
         q_ptr,
         [this] {
+            if (themeInteractionMode
+                == ZzTitleBarThemeInteractionMode::Toggle) {
+                Q_EMIT q_ptr->themeToggleRequested();
+            }
             const QSignalBlocker blocker(themeButton);
             themeButton->setChecked(themeMode != ZzThemeMode::System);
         });
@@ -276,6 +284,7 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     systemThemeAction->setText(ZzFluentTitleBar::tr("跟随系统"));
     lightThemeAction->setText(ZzFluentTitleBar::tr("浅色"));
     darkThemeAction->setText(ZzFluentTitleBar::tr("深色"));
+    highContrastThemeAction->setText(ZzFluentTitleBar::tr("高对比度"));
 
     compactMenuButton->setToolTip(menuText);
     compactMenuButton->setAccessibleName(menuText);
@@ -289,6 +298,11 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     maximizeButton->setAccessibleName(maximizeText);
     closeButton->setToolTip(closeText);
     closeButton->setAccessibleName(closeText);
+
+    themeButton->setPopupMode(
+        themeInteractionMode == ZzTitleBarThemeInteractionMode::Menu
+            ? QToolButton::InstantPopup
+            : QToolButton::DelayedPopup);
 
     compactMenuButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzTitleBarGlyph::Menu));
@@ -573,6 +587,8 @@ void ZzFluentTitleBarPrivate::refreshThemeActions()
     systemThemeAction->setChecked(themeMode == ZzThemeMode::System);
     lightThemeAction->setChecked(themeMode == ZzThemeMode::Light);
     darkThemeAction->setChecked(themeMode == ZzThemeMode::Dark);
+    highContrastThemeAction->setChecked(
+        themeMode == ZzThemeMode::HighContrast);
     themeActionGroup->setExclusive(true);
 }
 

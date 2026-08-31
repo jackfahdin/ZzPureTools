@@ -19,6 +19,7 @@ namespace ZzFluentUI {
 
 class ZzFluentTitleBar;
 enum class ZzThemeMode : std::uint8_t;
+enum class ZzTitleBarThemeInteractionMode : std::uint8_t;
 enum class ZzTitleBarMenuDisplayMode : std::uint8_t;
 
 /** @brief 管理标题栏纯视觉子控件、翻译和状态，不执行窗口命令。 */
@@ -73,6 +74,7 @@ public:
     QAction *systemThemeAction = nullptr;
     QAction *lightThemeAction = nullptr;
     QAction *darkThemeAction = nullptr;
+    QAction *highContrastThemeAction = nullptr;
     QToolButton *alwaysOnTopButton = nullptr;
     QToolButton *minimizeButton = nullptr;
     QToolButton *maximizeButton = nullptr;
@@ -81,6 +83,7 @@ public:
     QIcon windowIcon;
     ZzTitleBarMenuDisplayMode menuDisplayMode;
     ZzThemeMode themeMode;
+    ZzTitleBarThemeInteractionMode themeInteractionMode;
     bool maximized = false;
     bool systemButtonsVisible = true;
     bool alwaysOnTop = false;
