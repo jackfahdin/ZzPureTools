@@ -18,6 +18,7 @@
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 /** @brief 为标题栏 LanguageChange 测试提供确定翻译。 */
@@ -53,6 +54,47 @@ class ZzFluentTitleBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void exposesConfigurableThemeInteractionMode()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        QCOMPARE(
+            titleBar.themeInteractionMode(),
+            ZzFluentUI::ZzTitleBarThemeInteractionMode::Menu);
+        QSignalSpy spy(
+            &titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::themeInteractionModeChanged);
+        titleBar.setThemeInteractionMode(
+            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(
+            spy.first()
+                .first()
+                .value<ZzFluentUI::ZzTitleBarThemeInteractionMode>(),
+            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
+    }
+
+    void emitsThemeIntentForSelectedInteractionMode()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *button = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarThemeButton"));
+        QVERIFY(button != nullptr);
+        if (button == nullptr) {
+            return;
+        }
+        QSignalSpy modeSpy(
+            &titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::themeModeRequested);
+        QSignalSpy toggleSpy(
+            &titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested);
+        titleBar.setThemeInteractionMode(
+            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(modeSpy.count(), 0);
+        QCOMPARE(toggleSpy.count(), 1);
+    }
+
     void preservesCompactMenuOrderForMiddleInsertions()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
