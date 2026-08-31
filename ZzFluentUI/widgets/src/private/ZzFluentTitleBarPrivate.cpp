@@ -251,6 +251,11 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     refreshPresentation();
 }
 
+ZzFluentTitleBarPrivate::~ZzFluentTitleBarPrivate()
+{
+    restoreWindowMinimumWidth();
+}
+
 void ZzFluentTitleBarPrivate::refreshPresentation()
 {
     iconLabel->setAccessibleName(title);
@@ -326,6 +331,71 @@ void ZzFluentTitleBarPrivate::refreshTitle()
     titleLabel->setVisible(true);
 }
 
+int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
+{
+    const int systemWidth = systemButtonsVisible
+        ? (3 * zzTitleBarSystemButtonWidth + 2 * zzTitleBarSpacing)
+        : 0;
+    const int rightGroupWidth =
+        (2 * zzTitleBarCommandExtent)
+        + zzTitleBarSpacing
+        + (systemWidth > 0 ? zzTitleBarSpacing + systemWidth : 0);
+    const int desiredMenuWidth = qMax(1, menuBar->sizeHint().width());
+    const int expandedLeftGroupWidth =
+        zzTitleBarIconExtent + zzTitleBarSpacing + desiredMenuWidth;
+    const int requestedTitleWidth =
+        q_ptr->fontMetrics().horizontalAdvance(title) + 4;
+    const int adaptiveTitleWidth = qMin(
+        zzTitleBarAdaptiveTitleWidthCap,
+        qMax(0, requestedTitleWidth));
+    return 2 * qMax(expandedLeftGroupWidth, rightGroupWidth)
+        + adaptiveTitleWidth
+        + (2 * zzTitleBarSpacing)
+        + (2 * zzTitleBarMargin);
+}
+
+void ZzFluentTitleBarPrivate::restoreWindowMinimumWidth() noexcept
+{
+    QWidget *const host = minimumWidthHost.data();
+    if (host != nullptr
+        && host->minimumWidth() == enforcedHostMinimumWidth) {
+        host->setMinimumWidth(originalHostMinimumWidth);
+    }
+    minimumWidthHost.clear();
+    originalHostMinimumWidth = 0;
+    enforcedHostMinimumWidth = 0;
+}
+
+void ZzFluentTitleBarPrivate::syncWindowMinimumWidth(int requiredWidth)
+{
+    if (menuCollapseEnabled) {
+        restoreWindowMinimumWidth();
+        return;
+    }
+
+    QWidget *const host = q_ptr->window();
+    if (host == nullptr) {
+        return;
+    }
+    if (minimumWidthHost != host) {
+        restoreWindowMinimumWidth();
+        minimumWidthHost = host;
+        originalHostMinimumWidth = host->minimumWidth();
+        // 初次绑定时把宿主现值标记为已观察值，避免被误认为外部变更。
+        enforcedHostMinimumWidth = originalHostMinimumWidth;
+    } else if (host->minimumWidth() != enforcedHostMinimumWidth) {
+        // 组件上次同步后宿主值发生变化，视为外部约束并在恢复时保留。
+        originalHostMinimumWidth = host->minimumWidth();
+    }
+
+    const int targetWidth = qMax(originalHostMinimumWidth, requiredWidth);
+    // 先记录组件将要写入的值，QWidget 可能同步触发下一次布局回调。
+    enforcedHostMinimumWidth = targetWidth;
+    if (host->minimumWidth() < targetWidth) {
+        host->setMinimumWidth(targetWidth);
+    }
+}
+
 void ZzFluentTitleBarPrivate::updateLayout()
 {
     const int availableWidth = q_ptr->width();
@@ -338,23 +408,14 @@ void ZzFluentTitleBarPrivate::updateLayout()
         + zzTitleBarSpacing
         + (systemWidth > 0 ? zzTitleBarSpacing + systemWidth : 0);
     const int desiredMenuWidth = qMax(1, menuBar->sizeHint().width());
-    const int expandedLeftGroupWidth =
-        zzTitleBarIconExtent + zzTitleBarSpacing + desiredMenuWidth;
     // 标题以窗口中心为锚点；短标题只按实际宽度预留，避免菜单过早折叠。
-    const int requestedTitleWidth = q_ptr->fontMetrics().horizontalAdvance(title)
-        + 4;
-    const int adaptiveTitleWidth = qMin(
-        zzTitleBarAdaptiveTitleWidthCap,
-        qMax(0, requestedTitleWidth));
-    const int adaptiveThreshold =
-        2 * qMax(expandedLeftGroupWidth, rightGroupWidth)
-        + adaptiveTitleWidth
-        + (2 * zzTitleBarSpacing)
-        + (2 * zzTitleBarMargin);
+    const int adaptiveThreshold = minimumExpandedWidth();
     const int hysteresisHalf = zzTitleBarAdaptiveHysteresis / 2;
 
-    bool expanded = menuDisplayMode == ZzTitleBarMenuDisplayMode::Expanded;
-    if (menuDisplayMode == ZzTitleBarMenuDisplayMode::Adaptive) {
+    bool expanded = !menuCollapseEnabled
+        || menuDisplayMode == ZzTitleBarMenuDisplayMode::Expanded;
+    if (menuCollapseEnabled
+        && menuDisplayMode == ZzTitleBarMenuDisplayMode::Adaptive) {
         if (adaptiveExpanded) {
             adaptiveExpanded = availableWidth
                 >= adaptiveThreshold - hysteresisHalf;
@@ -455,6 +516,7 @@ void ZzFluentTitleBarPrivate::updateLayout()
             availableHeight);
     }
     refreshTitle();
+    syncWindowMinimumWidth(adaptiveThreshold);
 }
 
 void ZzFluentTitleBarPrivate::rebuildCompactMenu()

@@ -36,6 +36,11 @@ class ZZ_FLUENT_UI_EXPORT ZzFluentTitleBar final : public QWidget
         WRITE setMenuDisplayMode
         NOTIFY menuDisplayModeChanged)
     Q_PROPERTY(
+        bool menuCollapseEnabled
+        READ isMenuCollapseEnabled
+        WRITE setMenuCollapseEnabled
+        NOTIFY menuCollapseEnabledChanged)
+    Q_PROPERTY(
         ZzFluentUI::ZzThemeMode themeMode
         READ themeMode
         WRITE setThemeMode
@@ -98,6 +103,24 @@ public:
      */
     void setMenuDisplayMode(ZzTitleBarMenuDisplayMode mode);
 
+    /** @brief 返回是否允许自适应菜单折叠。 */
+    [[nodiscard]] bool isMenuCollapseEnabled() const noexcept;
+
+    /**
+     * @brief 设置是否允许自适应菜单折叠。
+     *
+     * 关闭时强制显示完整菜单，并将宿主顶层窗口的最小宽度提升到
+     * 完整菜单所需值；重新开启时恢复宿主此前确认的最小宽度。
+     * @param enabled 为 true 时允许 Adaptive 模式按宽度折叠。
+     */
+    void setMenuCollapseEnabled(bool enabled);
+
+    /**
+     * @brief 返回当前菜单、标题和窗口按钮完整展示所需的最小宽度。
+     * @return 逻辑像素宽度，不包含自适应迟滞余量。
+     */
+    [[nodiscard]] int minimumExpandedWidth() const noexcept;
+
     /** @brief 返回应用最后确认的主题模式。 */
     [[nodiscard]] ZzThemeMode themeMode() const noexcept;
 
@@ -150,6 +173,9 @@ Q_SIGNALS:
     /** @brief 菜单展示策略实际变化后发出。 */
     void menuDisplayModeChanged(ZzTitleBarMenuDisplayMode mode);
 
+    /** @brief 菜单自动折叠开关实际变化后发出。 */
+    void menuCollapseEnabledChanged(bool enabled);
+
     /** @brief 应用确认的主题状态实际变化后发出。 */
     void themeModeChanged(ZzThemeMode mode);
 
@@ -180,6 +206,9 @@ protected:
 
     /** @brief 窗口宽度变化时重新计算菜单形态和全窗口居中标题。 */
     void resizeEvent(QResizeEvent *event) override;
+
+    /** @brief 宿主关系变化后重新绑定最小宽度约束。 */
+    bool event(QEvent *event) override;
 
 private:
     std::unique_ptr<ZzFluentTitleBarPrivate> d_ptr;

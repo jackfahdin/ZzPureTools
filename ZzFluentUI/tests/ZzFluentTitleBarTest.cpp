@@ -317,11 +317,16 @@ private Q_SLOTS:
         QVERIFY(titleBar->menuBar()->isHidden());
         QVERIFY(compactButton->isVisible());
 
+        QSignalSpy collapseSpy(
+            titleBar,
+            &ZzFluentUI::ZzFluentTitleBar::menuCollapseEnabledChanged);
         const int originalMinimumWidth = window.minimumWidth();
         titleBar->setMenuCollapseEnabled(false);
         QCoreApplication::processEvents();
 
         QVERIFY(!titleBar->isMenuCollapseEnabled());
+        QCOMPARE(collapseSpy.count(), 1);
+        QCOMPARE(collapseSpy.at(0).at(0).toBool(), false);
         QVERIFY(titleBar->menuBar()->isVisible());
         QVERIFY(compactButton->isHidden());
         QVERIFY(titleBar->minimumExpandedWidth() > originalMinimumWidth);
@@ -331,12 +336,71 @@ private Q_SLOTS:
         titleBar->setMenuCollapseEnabled(true);
         QCoreApplication::processEvents();
         QVERIFY(titleBar->isMenuCollapseEnabled());
+        QCOMPARE(collapseSpy.count(), 2);
+        QCOMPARE(collapseSpy.at(1).at(0).toBool(), true);
         QCOMPARE(window.minimumWidth(), originalMinimumWidth);
+
+        titleBar->setMenuCollapseEnabled(true);
+        QCOMPARE(collapseSpy.count(), 2);
 
         window.resize(420, 560);
         QCoreApplication::processEvents();
         QVERIFY(titleBar->menuBar()->isHidden());
         QVERIFY(compactButton->isVisible());
+    }
+
+    void preservesExternalMinimumWidthAcrossRequirementChanges()
+    {
+        QMainWindow window;
+        window.setMinimumWidth(0);
+        auto *titleBar = new ZzFluentUI::ZzFluentTitleBar(&window);
+        window.setMenuWidget(titleBar);
+        titleBar->setTitle(QStringLiteral("Workspace"));
+        titleBar->menuBar()->addMenu(QStringLiteral("文件"));
+        window.resize(420, 560);
+        window.show();
+        QCoreApplication::processEvents();
+
+        titleBar->setMenuCollapseEnabled(false);
+        QCoreApplication::processEvents();
+        const int enforcedMinimum = titleBar->minimumExpandedWidth();
+        const int externalMinimum = enforcedMinimum + 80;
+        window.setMinimumWidth(externalMinimum);
+
+        titleBar->menuBar()->addMenu(QString(300, QLatin1Char('x')));
+        QCoreApplication::processEvents();
+        QVERIFY(titleBar->minimumExpandedWidth() > externalMinimum);
+
+        titleBar->setMenuCollapseEnabled(true);
+        QCoreApplication::processEvents();
+        QCOMPARE(window.minimumWidth(), externalMinimum);
+    }
+
+    void transfersMinimumWidthConstraintAfterReparenting()
+    {
+        auto *titleBar = new ZzFluentUI::ZzFluentTitleBar;
+        titleBar->setTitle(QStringLiteral("Workspace"));
+        titleBar->menuBar()->addMenu(QStringLiteral("文件"));
+        titleBar->resize(420, titleBar->height());
+        titleBar->show();
+        QCoreApplication::processEvents();
+
+        titleBar->setMenuCollapseEnabled(false);
+        QCoreApplication::processEvents();
+        const int titleBarMinimum = titleBar->minimumWidth();
+        QVERIFY(titleBarMinimum >= titleBar->minimumExpandedWidth());
+
+        QMainWindow window;
+        window.setMinimumWidth(0);
+        window.setMenuWidget(titleBar);
+        window.resize(720, 560);
+        window.show();
+        QCoreApplication::processEvents();
+        QVERIFY(window.minimumWidth() >= titleBar->minimumExpandedWidth());
+
+        titleBar->setMenuCollapseEnabled(true);
+        QCoreApplication::processEvents();
+        QCOMPARE(window.minimumWidth(), 0);
     }
 
     void keepsTitleCenteredInsideInteractiveSafeArea()

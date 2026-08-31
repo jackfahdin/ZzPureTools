@@ -75,6 +75,26 @@ void ZzFluentTitleBar::setMenuDisplayMode(
     Q_EMIT menuDisplayModeChanged(mode);
 }
 
+bool ZzFluentTitleBar::isMenuCollapseEnabled() const noexcept
+{
+    return d_ptr->menuCollapseEnabled;
+}
+
+void ZzFluentTitleBar::setMenuCollapseEnabled(bool enabled)
+{
+    if (d_ptr->menuCollapseEnabled == enabled) {
+        return;
+    }
+    d_ptr->menuCollapseEnabled = enabled;
+    d_ptr->updateLayout();
+    Q_EMIT menuCollapseEnabledChanged(enabled);
+}
+
+int ZzFluentTitleBar::minimumExpandedWidth() const noexcept
+{
+    return d_ptr->minimumExpandedWidth();
+}
+
 ZzThemeMode ZzFluentTitleBar::themeMode() const noexcept
 {
     return d_ptr->themeMode;
@@ -190,6 +210,15 @@ void ZzFluentTitleBar::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
     d_ptr->updateLayout();
+}
+
+bool ZzFluentTitleBar::event(QEvent *event)
+{
+    const bool handled = QWidget::event(event);
+    if (event != nullptr && event->type() == QEvent::ParentChange) {
+        d_ptr->updateLayout();
+    }
+    return handled;
 }
 
 } // namespace ZzFluentUI
