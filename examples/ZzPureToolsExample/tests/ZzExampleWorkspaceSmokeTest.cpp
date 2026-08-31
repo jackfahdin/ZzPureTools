@@ -228,6 +228,9 @@ private Q_SLOTS:
         QVERIFY(!iconLabel->pixmap().isNull());
         auto *titleMenuBar = titleBar->menuBar();
         QVERIFY(titleMenuBar != nullptr);
+        for (auto *button : titleMenuBar->findChildren<QToolButton *>()) {
+            QVERIFY(!button->isVisible());
+        }
         QCOMPARE(titleMenuBar->actions().size(), 3);
         const QStringList expectedMenus{
             QStringLiteral("文件"),

@@ -407,7 +407,8 @@ void ZzFluentTitleBarPrivate::updateLayout()
         (2 * zzTitleBarCommandExtent)
         + zzTitleBarSpacing
         + (systemWidth > 0 ? zzTitleBarSpacing + systemWidth : 0);
-    const int desiredMenuWidth = qMax(1, menuBar->sizeHint().width());
+    const QSize menuSizeHint = menuBar->sizeHint();
+    const int desiredMenuWidth = qMax(1, menuSizeHint.width());
     // 标题以窗口中心为锚点；短标题只按实际宽度预留，避免菜单过早折叠。
     const int adaptiveThreshold = minimumExpandedWidth();
     const int hysteresisHalf = zzTitleBarAdaptiveHysteresis / 2;
@@ -449,8 +450,19 @@ void ZzFluentTitleBarPrivate::updateLayout()
     QWidget *const activeMenu = expanded
         ? static_cast<QWidget *>(menuBar)
         : static_cast<QWidget *>(compactMenuButton);
+    // 菜单 action 的完整高度可能超过标题栏固定高度，保留 sizeHint 高度
+    // 让 Qt 基于完整菜单区域进行溢出判定，外围像素由标题栏自然裁剪。
+    const int activeMenuHeight = expanded
+        ? qMax(availableHeight, menuSizeHint.height())
+        : availableHeight;
+    const int activeMenuTop = expanded
+        ? (availableHeight - activeMenuHeight) / 2
+        : 0;
     activeMenu->setGeometry(
-        leftCursor, 0, activeMenuWidth, availableHeight);
+        leftCursor,
+        activeMenuTop,
+        activeMenuWidth,
+        activeMenuHeight);
     leftCursor += activeMenuWidth;
     const int leftGroupEnd = leftCursor;
 
