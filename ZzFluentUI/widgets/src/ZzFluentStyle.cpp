@@ -344,7 +344,7 @@ void ZzFluentStyle::drawPrimitive(
     }
     if (element == PE_PanelButtonTool
         && option != nullptr && painter != nullptr) {
-        d_ptr->drawToolButtonPanel(option, painter);
+        d_ptr->drawToolButtonPanel(option, painter, widget);
         return;
     }
     if (element == PE_PanelToolBar

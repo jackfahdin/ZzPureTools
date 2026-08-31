@@ -593,12 +593,16 @@ void ZzFluentStylePrivate::drawPushButton(
 
 void ZzFluentStylePrivate::drawToolButtonPanel(
     const QStyleOption *option,
-    QPainter *painter) const
+    QPainter *painter,
+    const QWidget *widget) const
 {
     const bool enabled = option->state.testFlag(QStyle::State_Enabled);
     const bool pressed = option->state.testFlag(QStyle::State_Sunken);
     const bool hovered = option->state.testFlag(QStyle::State_MouseOver);
-    const bool checked = option->state.testFlag(QStyle::State_On);
+    // 标题栏按钮仍保留 checked 状态供交互和无障碍使用，但不绘制选中面板。
+    const bool checked = option->state.testFlag(QStyle::State_On)
+        && !(widget != nullptr
+             && widget->property("zzFluentSuppressCheckedSurface").toBool());
     if (!enabled || (!pressed && !hovered && !checked)) {
         return;
     }

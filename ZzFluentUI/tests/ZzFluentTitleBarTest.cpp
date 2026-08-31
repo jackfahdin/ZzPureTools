@@ -7,6 +7,7 @@
 #include <QtGui/QColor>
 #include <QtGui/QImage>
 #include <QtGui/QPalette>
+#include <QtGui/QPainter>
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -14,9 +15,12 @@
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QStyleOption>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
@@ -566,6 +570,50 @@ private Q_SLOTS:
             titleBar.themeMode(), ZzFluentUI::ZzThemeMode::HighContrast);
         QVERIFY(titleBar.isAlwaysOnTop());
         QVERIFY(alwaysOnTopButton->isChecked());
+    }
+
+    void doesNotPaintCheckedSurfaceForThemeAndAlwaysOnTop()
+    {
+        ZzFluentUI::ZzThemeController themeController;
+        ZzFluentUI::ZzFluentStyle fluentStyle(&themeController);
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.setStyle(&fluentStyle);
+        auto *themeButton = qobject_cast<QToolButton *>(
+            titleBar.findChild<QWidget *>(
+                QStringLiteral("zzTitleBarThemeButton")));
+        auto *alwaysOnTopButton = qobject_cast<QToolButton *>(
+            titleBar.findChild<QWidget *>(
+                QStringLiteral("zzTitleBarAlwaysOnTopButton")));
+        QVERIFY(themeButton != nullptr);
+        QVERIFY(alwaysOnTopButton != nullptr);
+        if (themeButton == nullptr || alwaysOnTopButton == nullptr) {
+            return;
+        }
+
+        const auto renderPanel = [&fluentStyle](
+                                    QToolButton *button,
+                                    bool checked) {
+            QImage image(button->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            QStyleOptionToolButton option;
+            option.initFrom(button);
+            option.rect = button->rect();
+            option.state.setFlag(QStyle::State_On, checked);
+            fluentStyle.drawPrimitive(
+                QStyle::PE_PanelButtonTool,
+                &option,
+                &painter,
+                button);
+            return image;
+        };
+
+        QCOMPARE(
+            renderPanel(themeButton, true),
+            renderPanel(themeButton, false));
+        QCOMPARE(
+            renderPanel(alwaysOnTopButton, true),
+            renderPanel(alwaysOnTopButton, false));
     }
 
     void mirrorsChromeGroupsForRightToLeftLayouts()

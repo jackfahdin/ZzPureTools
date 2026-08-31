@@ -73,7 +73,8 @@ public:
     /** @brief 绘制标准工具按钮的轻量交互表面。 */
     void drawToolButtonPanel(
         const QStyleOption *option,
-        QPainter *painter) const;
+        QPainter *painter,
+        const QWidget *widget) const;
     /** @brief 绘制标准工具栏背景和停靠方向边界。 */
     void drawToolBarPanel(
         const QStyleOption *option,

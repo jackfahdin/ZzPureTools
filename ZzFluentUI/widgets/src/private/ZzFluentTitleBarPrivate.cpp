@@ -39,6 +39,9 @@ constexpr int zzTitleBarSystemButtonWidth = 46;
 constexpr int zzTitleBarCompactMenuWidth = 36;
 constexpr int zzTitleBarAdaptiveTitleWidthCap = 160;
 constexpr int zzTitleBarAdaptiveHysteresis = 24;
+/** @brief 保留状态语义但隐藏标题栏工具按钮的 checked 面板。 */
+constexpr char zzSuppressCheckedSurfaceProperty[] =
+    "zzFluentSuppressCheckedSurface";
 
 /** @brief 使用样式缓存渲染标题栏内嵌 SVG，必要时执行轻量回退着色。 */
 QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon)
@@ -139,6 +142,7 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
 
     themeButton->setObjectName(QStringLiteral("zzTitleBarThemeButton"));
     themeButton->setCheckable(true);
+    themeButton->setProperty(zzSuppressCheckedSurfaceProperty, true);
     themeMenu->setObjectName(QStringLiteral("zzTitleBarThemeMenu"));
     themeButton->setMenu(themeMenu);
     themeButton->setPopupMode(QToolButton::InstantPopup);
@@ -164,6 +168,7 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     alwaysOnTopButton->setObjectName(
         QStringLiteral("zzTitleBarAlwaysOnTopButton"));
     alwaysOnTopButton->setCheckable(true);
+    alwaysOnTopButton->setProperty(zzSuppressCheckedSurfaceProperty, true);
     minimizeButton->setObjectName(QStringLiteral("zzTitleBarMinimizeButton"));
     maximizeButton->setObjectName(QStringLiteral("zzTitleBarMaximizeButton"));
     closeButton->setObjectName(QStringLiteral("zzTitleBarCloseButton"));
