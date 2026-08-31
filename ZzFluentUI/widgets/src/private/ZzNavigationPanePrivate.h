@@ -8,12 +8,14 @@
 
 class QAbstractItemModel;
 class QModelIndex;
+class QTreeView;
 class QWidget;
 
 namespace ZzFluentUI {
 
 class ZzNavigationPane;
 class ZzNavigationProjectionModel;
+class ZzNavigationTreeModel;
 class ZzNavigationView;
 
 /** @brief 管理固定双投影、选择映射和自适应顶层窗口观察。 */
@@ -55,11 +57,19 @@ public:
     /** @brief 应用实际 compact 状态并同步两个 view 和 pane 宽度。 */
     void applyCompact(bool compact);
 
+    /** @brief 切换统一侧栏使用的树导航展示。 */
+    void setTreeMode(bool enabled);
+
+    /** @brief 从 Tree View 叶节点发出源模型导航意图。 */
+    void activateTreeIndex(const QModelIndex &index);
+
     ZzNavigationPane *const q_ptr;
     ZzNavigationProjectionModel *primaryProjection = nullptr;
     ZzNavigationProjectionModel *footerProjection = nullptr;
+    ZzNavigationTreeModel *treeProjection = nullptr;
     ZzNavigationView *primaryView = nullptr;
     ZzNavigationView *footerView = nullptr;
+    QTreeView *treeView = nullptr;
     QPointer<QAbstractItemModel> sourceModel;
     QPersistentModelIndex currentSourceIndex;
     QPointer<QWidget> adaptiveWindow;
@@ -68,6 +78,7 @@ public:
         ZzNavigationDisplayMode::Adaptive;
     int adaptiveThreshold = 900;
     bool compact = false;
+    bool treeMode = false;
 };
 
 } // namespace ZzFluentUI

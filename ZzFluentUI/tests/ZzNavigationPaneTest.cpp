@@ -6,8 +6,10 @@
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
+#include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzNavigationDisplayMode.h>
 #include <ZzFluentUI/ZzNavigationItemRole.h>
@@ -269,6 +271,86 @@ private Q_SLOTS:
         QVERIFY(footerResetSpy.count() >= 1);
         QCOMPARE(primaryModel->rowCount(), 1);
         QCOMPARE(footerModel->rowCount(), 1);
+    }
+
+    void treeModeBuildsExpandableSectionRows()
+    {
+        QStandardItemModel model;
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("Buttons"), QStringLiteral("Controls")));
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("Inputs"), QStringLiteral("Controls")));
+
+        ZzFluentUI::ZzNavigationPane pane;
+        pane.setTreeMode(true);
+        pane.setModel(&model);
+
+        QTreeView *const tree = pane.treeView();
+        QVERIFY(tree != nullptr);
+        if (tree == nullptr) {
+            return;
+        }
+        QCOMPARE(tree->model()->rowCount(), 1);
+        const QModelIndex section = tree->model()->index(0, 0);
+        QVERIFY(section.isValid());
+        QCOMPARE(tree->model()->rowCount(section), 2);
+        QCOMPARE(
+            tree->model()->index(0, 0, section).data().toString(),
+            QStringLiteral("Buttons"));
+    }
+
+    void treeModeActivatesLeafOnSingleClick()
+    {
+        QStandardItemModel model;
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("Buttons"), QStringLiteral("Controls")));
+        ZzFluentUI::ZzNavigationPane pane;
+        pane.setTreeMode(true);
+        pane.setModel(&model);
+        pane.resize(280, 320);
+        pane.show();
+        QCoreApplication::processEvents();
+
+        QSignalSpy navigationSpy(
+            &pane, &ZzFluentUI::ZzNavigationPane::navigationRequested);
+        QTreeView *const tree = pane.treeView();
+        QVERIFY(tree != nullptr);
+        if (tree == nullptr) {
+            return;
+        }
+        const QModelIndex section = tree->model()->index(0, 0);
+        const QModelIndex leaf = tree->model()->index(0, 0, section);
+        QVERIFY(leaf.isValid());
+        QTest::mouseClick(
+            tree->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            tree->visualRect(leaf).center());
+        QCOMPARE(navigationSpy.count(), 1);
+        QCOMPARE(
+            navigationSpy.first().at(0).value<QModelIndex>(),
+            model.index(0, 0));
+    }
+
+    void treeModeFillsAvailableHostWidth()
+    {
+        QStandardItemModel model;
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("Buttons"), QStringLiteral("Controls")));
+
+        QWidget host;
+        auto *layout = new QHBoxLayout(&host);
+        auto *pane = new ZzFluentUI::ZzNavigationPane(&host);
+        pane->setTreeMode(true);
+        pane->setModel(&model);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addWidget(pane, 1);
+        host.resize(420, 320);
+        host.show();
+        QCoreApplication::processEvents();
+
+        QCOMPARE(pane->width(), host.width());
+        QCOMPARE(pane->treeView()->width(), pane->width());
     }
 
     void tracksAdaptiveTopLevelWidthWithoutAnimation()

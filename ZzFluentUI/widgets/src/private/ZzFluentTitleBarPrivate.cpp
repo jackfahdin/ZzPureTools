@@ -19,6 +19,7 @@
 #include <QtWidgets/QSizePolicy>
 #include <QtWidgets/QToolButton>
 
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconAssets.h>
@@ -27,6 +28,7 @@
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 namespace ZzFluentUI {
 
@@ -43,6 +45,28 @@ constexpr int zzTitleBarAdaptiveHysteresis = 24;
 /** @brief 保留状态语义但隐藏标题栏工具按钮的 checked 面板。 */
 constexpr char zzSuppressCheckedSurfaceProperty[] =
     "zzFluentSuppressCheckedSurface";
+
+/** @brief 将标题栏分隔线混合到表面色，避免与主体形成生硬高对比。 */
+QColor zzSubtleSeparatorColor(const ZzFluentStyle *style)
+{
+    if (style == nullptr || style->themeSnapshot() == nullptr) {
+        return {};
+    }
+    const auto snapshot = style->themeSnapshot();
+    const QColor surface = snapshot->color(ZzColorToken::Surface);
+    const QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
+    constexpr qreal strokeWeight = 0.35;
+    QColor result;
+    result.setRgbF(
+        static_cast<float>(surface.redF() * (1.0 - strokeWeight)
+            + stroke.redF() * strokeWeight),
+        static_cast<float>(surface.greenF() * (1.0 - strokeWeight)
+            + stroke.greenF() * strokeWeight),
+        static_cast<float>(surface.blueF() * (1.0 - strokeWeight)
+            + stroke.blueF() * strokeWeight),
+        1.0);
+    return result;
+}
 
 /** @brief 使用样式缓存渲染标题栏内嵌 SVG，必要时执行轻量回退着色。 */
 QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon)
@@ -318,6 +342,26 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
         q_ptr, ZzBundledSvgIcon::Sun));
     highContrastThemeAction->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::ComputerSystem));
+
+    if (auto *const fluentStyle = qobject_cast<ZzFluentStyle *>(
+            q_ptr->style()); fluentStyle != nullptr) {
+        const QColor separatorColor = zzSubtleSeparatorColor(fluentStyle);
+        if (separatorColor.isValid()) {
+            QPalette separatorPalette = separator->palette();
+            for (const QPalette::ColorRole role : {
+                     QPalette::WindowText,
+                     QPalette::Text,
+                     QPalette::ButtonText,
+                     QPalette::Light,
+                     QPalette::Midlight,
+                     QPalette::Mid,
+                     QPalette::Dark,
+                     QPalette::Shadow}) {
+                separatorPalette.setColor(role, separatorColor);
+            }
+            separator->setPalette(separatorPalette);
+        }
+    }
 
     minimizeButton->setVisible(minimizeButtonVisible);
     maximizeButton->setVisible(maximizeButtonVisible);

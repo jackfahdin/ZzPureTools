@@ -90,6 +90,21 @@ QModelIndex ZzNavigationPane::currentSourceIndex() const
     return d_ptr->currentSourceIndex;
 }
 
+void ZzNavigationPane::setTreeMode(bool enabled)
+{
+    d_ptr->setTreeMode(enabled);
+}
+
+bool ZzNavigationPane::isTreeMode() const noexcept
+{
+    return d_ptr->treeMode;
+}
+
+QTreeView *ZzNavigationPane::treeView() const noexcept
+{
+    return d_ptr->treeView;
+}
+
 bool ZzNavigationPane::event(QEvent *event)
 {
     const bool handled = QWidget::event(event);

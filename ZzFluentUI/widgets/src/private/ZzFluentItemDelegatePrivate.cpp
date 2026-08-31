@@ -67,7 +67,7 @@ void ZzFluentItemDelegatePrivate::paint(
             adjusted.widget,
             index);
         ZzItemViewVisualOptions visualOptions{
-            .drawSurface = !isTreeView,
+            .drawSurface = true,
             .ownsIndicator = ownsIndicator};
         if (navigationView != nullptr) {
             visualOptions.forceIndicator =

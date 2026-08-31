@@ -10,6 +10,7 @@
 
 class QAbstractItemModel;
 class QEvent;
+class QTreeView;
 
 namespace ZzFluentUI {
 
@@ -86,6 +87,18 @@ public:
     /** @brief 返回最近一次同步或激活的 source model 索引。 */
     [[nodiscard]] QModelIndex currentSourceIndex() const;
 
+    /**
+     * @brief 切换为按分区展示的纵向 Tree View 导航。
+     * @param enabled 为 true 时隐藏旧的主区/页脚列表并显示树视图。
+     */
+    void setTreeMode(bool enabled);
+
+    /** @brief 返回是否启用了纵向 Tree View 导航模式。 */
+    [[nodiscard]] bool isTreeMode() const noexcept;
+
+    /** @brief 返回 Tree View 模式使用的非拥有树视图。 */
+    [[nodiscard]] QTreeView *treeView() const noexcept;
+
 Q_SIGNALS:
     /** @brief 非拥有 source model 实际变化或被销毁后发出。 */
     void modelChanged(QAbstractItemModel *model);
@@ -104,6 +117,9 @@ Q_SIGNALS:
      * @param sourceIndex 当前非拥有 model 中的临时顶层索引。
      */
     void navigationRequested(const QModelIndex &sourceIndex);
+
+    /** @brief Tree View 导航模式实际变化后发出。 */
+    void treeModeChanged(bool enabled);
 
 protected:
     /** @brief 在父级或显示状态变化后重新绑定自适应顶层窗口。 */

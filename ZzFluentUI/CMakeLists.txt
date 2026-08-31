@@ -117,6 +117,7 @@ set(zz_fluent_ui_sources
     widgets/src/ZzNavigationPane.cpp
     widgets/src/private/ZzNavigationPanePrivate.cpp
     widgets/src/private/ZzNavigationProjectionModel.cpp
+    widgets/src/private/ZzNavigationTreeModel.cpp
     widgets/src/ZzActivityBar.cpp
     widgets/src/private/ZzActivityBarPrivate.cpp
     widgets/src/ZzPanelStack.cpp

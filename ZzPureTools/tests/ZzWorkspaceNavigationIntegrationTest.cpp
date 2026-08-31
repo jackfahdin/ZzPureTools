@@ -210,6 +210,9 @@ private Q_SLOTS:
                 && window.centralWidget() == nullptr
                 && leftPane != nullptr
                 && leftPane->isAncestorOf(navigationBefore)
+                && navigationBefore != nullptr
+                && navigationBefore->isTreeMode()
+                && navigationBefore->treeView() != nullptr
                 && tabs != nullptr && pageIndex >= 0
                 && tabs->isTabPinned(pageIndex)
                 && !tabs->isTabCloseEnabled(pageIndex)

@@ -15,7 +15,8 @@ namespace ZzFluentUI {
 enum class ZzNavigationProjection : std::uint8_t
 {
     Primary,
-    Footer
+    Footer,
+    All
 };
 
 /** @brief 保存一个合成分区行或一个 source model 目标行。 */

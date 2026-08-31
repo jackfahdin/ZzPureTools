@@ -20,9 +20,11 @@
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
@@ -777,6 +779,37 @@ private Q_SLOTS:
         }
         QCOMPARE(separator->geometry().bottom(), titleBar.height() - 1);
         QCOMPARE(separator->frameShape(), QFrame::HLine);
+    }
+
+    void drawsTitleSeparatorAsSubtleSurfaceStroke()
+    {
+        ZzFluentUI::ZzThemeController themeController;
+        themeController.setMode(ZzFluentUI::ZzThemeMode::Light);
+        ZzFluentUI::ZzFluentStyle fluentStyle(&themeController);
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.setStyle(&fluentStyle);
+        titleBar.resize(900, titleBar.height());
+        titleBar.show();
+        QCoreApplication::processEvents();
+
+        auto *const separator = titleBar.findChild<QFrame *>(
+            QStringLiteral("zzTitleBarSeparator"));
+        QVERIFY(separator != nullptr);
+        if (separator == nullptr) {
+            return;
+        }
+        QImage image(titleBar.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(fluentStyle.themeSnapshot()->color(
+            ZzFluentUI::ZzColorToken::Surface));
+        titleBar.render(&image);
+        const QColor line = image.pixelColor(
+            image.width() / 2,
+            separator->geometry().center().y());
+        const QColor stroke = fluentStyle.themeSnapshot()->color(
+            ZzFluentUI::ZzColorToken::ControlStroke);
+        QVERIFY(line.isValid());
+        QVERIFY(line != stroke);
+        QVERIFY(line.lightness() > stroke.lightness());
     }
 
     void updatesTitleIconAndMaximizedAccessibility()

@@ -124,6 +124,7 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     bodyLayout->setSpacing(0);
     navigationPane = new ZzFluentUI::ZzNavigationPane(body);
+    navigationPane->setTreeMode(true);
     host = new ZzPageHost(body);
     bodyLayout->addWidget(navigationPane);
     bodyLayout->addWidget(host, 1);
