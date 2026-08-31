@@ -1,16 +1,31 @@
 #include "ZzQWindowKitBackend.h"
 
+#include <cstdint>
 #include <utility>
 
+#include <QtCore/QByteArray>
 #include <QtCore/QOperatingSystemVersion>
 #include <QtCore/QPoint>
 #include <QtCore/QString>
 #include <QtCore/QVariant>
 #include <QtCore/QtGlobal>
 #include <QtGui/QGuiApplication>
+#include <QtGui/qguiapplication_platform.h>
 #include <QtGui/QWindow>
 #include <QtGui/QStyleHints>
 #include <QtWidgets/QWidget>
+
+#if defined(Q_OS_WIN)
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <windows.h>
+#endif
+
+#if defined(Q_OS_LINUX) && defined(ZZ_WINDOWKIT_HAS_XCB) \
+    && QT_CONFIG(xcb)
+#  include <cstdlib>
+#  include <xcb/xcb.h>
+#endif
 
 #include <QWKWidgets/widgetwindowagent.h>
 
@@ -42,6 +57,114 @@ zzUnsupportedApplyState()
     return ZzCore::ZzResult<ZzWindowApplyState>::success(
         ZzWindowApplyState::Unsupported);
 }
+
+#if defined(Q_OS_WIN)
+[[nodiscard]] bool zzSetWindowsAlwaysOnTop(
+    QWidget *host,
+    bool alwaysOnTop)
+{
+    if (host == nullptr) {
+        return false;
+    }
+    const HWND windowHandle = reinterpret_cast<HWND>(host->winId());
+    if (windowHandle == nullptr) {
+        return false;
+    }
+    const HWND insertAfter = alwaysOnTop ? HWND_TOPMOST : HWND_NOTOPMOST;
+    return SetWindowPos(
+               windowHandle,
+               insertAfter,
+               0,
+               0,
+               0,
+               0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                   | SWP_NOOWNERZORDER)
+        != FALSE;
+}
+#endif
+
+#if defined(Q_OS_LINUX) && defined(ZZ_WINDOWKIT_HAS_XCB) \
+    && QT_CONFIG(xcb)
+[[nodiscard]] bool zzSetX11AlwaysOnTop(
+    QWidget *host,
+    bool alwaysOnTop)
+{
+    if (host == nullptr || host->windowHandle() == nullptr
+        || !QGuiApplication::platformName().startsWith(
+            QStringLiteral("xcb"), Qt::CaseInsensitive)) {
+        return false;
+    }
+    auto *const guiApplication = qobject_cast<QGuiApplication *>(
+        QCoreApplication::instance());
+    if (guiApplication == nullptr) {
+        return false;
+    }
+    auto *const nativeApplication =
+        guiApplication->nativeInterface<QNativeInterface::QX11Application>();
+    if (nativeApplication == nullptr || nativeApplication->connection() == nullptr) {
+        return false;
+    }
+
+    xcb_connection_t *const connection = nativeApplication->connection();
+    const QByteArray stateName = QByteArrayLiteral("_NET_WM_STATE");
+    const QByteArray aboveName = QByteArrayLiteral("_NET_WM_STATE_ABOVE");
+    const auto stateReply = xcb_intern_atom_reply(
+        connection,
+        xcb_intern_atom(
+            connection,
+            0,
+            static_cast<std::uint16_t>(stateName.size()),
+            stateName.constData()),
+        nullptr);
+    const auto aboveReply = xcb_intern_atom_reply(
+        connection,
+        xcb_intern_atom(
+            connection,
+            0,
+            static_cast<std::uint16_t>(aboveName.size()),
+            aboveName.constData()),
+        nullptr);
+    if (stateReply == nullptr || aboveReply == nullptr) {
+        std::free(stateReply);
+        std::free(aboveReply);
+        return false;
+    }
+
+    const xcb_setup_t *const setup = xcb_get_setup(connection);
+    const auto screenIterator = xcb_setup_roots_iterator(setup);
+    if (screenIterator.data == nullptr) {
+        std::free(stateReply);
+        std::free(aboveReply);
+        return false;
+    }
+
+    xcb_client_message_event_t event{};
+    event.response_type = XCB_CLIENT_MESSAGE;
+    event.format = 32;
+    event.window = static_cast<xcb_window_t>(host->windowHandle()->winId());
+    event.type = stateReply->atom;
+    event.data.data32[0] = alwaysOnTop ? 1U : 0U;
+    event.data.data32[1] = aboveReply->atom;
+    event.data.data32[2] = XCB_ATOM_NONE;
+    event.data.data32[3] = 1U;
+    event.data.data32[4] = 0U;
+    const auto cookie = xcb_send_event_checked(
+        connection,
+        0,
+        screenIterator.data->root,
+        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
+            | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
+        reinterpret_cast<const char *>(&event));
+    auto *const error = xcb_request_check(connection, cookie);
+    xcb_flush(connection);
+    std::free(stateReply);
+    std::free(aboveReply);
+    const bool sent = error == nullptr;
+    std::free(error);
+    return sent;
+}
+#endif
 
 #if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
 [[nodiscard]] bool zzUsesDarkColors(ZzWindowColorScheme colorScheme)
@@ -474,6 +597,24 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::setAlwaysOnTop(
         // QWindow 更新原生标志不会触发 QWidget 的隐藏/显示重建。
         windowHandle->setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
         host_->overrideWindowFlags(requestedFlags);
+#if defined(Q_OS_WIN)
+        if (!zzSetWindowsAlwaysOnTop(host_, alwaysOnTop)) {
+            return zzBackendFailure<void>(
+                ZzCore::ZzErrorCode::Backend,
+                QStringLiteral(
+                    "Windows failed to update the topmost window state"));
+        }
+#elif defined(Q_OS_LINUX) && defined(ZZ_WINDOWKIT_HAS_XCB) \
+    && QT_CONFIG(xcb)
+        if (QGuiApplication::platformName().startsWith(
+                QStringLiteral("xcb"), Qt::CaseInsensitive)
+            && !zzSetX11AlwaysOnTop(host_, alwaysOnTop)) {
+            return zzBackendFailure<void>(
+                ZzCore::ZzErrorCode::Backend,
+                QStringLiteral(
+                    "X11 failed to submit the topmost window request"));
+        }
+#endif
         return ZzCore::ZzResult<void>::success();
     }
 

@@ -69,6 +69,19 @@ endif()
 add_library(ZzWindowKit ${zz_window_kit_sources})
 add_library(Zz::WindowKit ALIAS ZzWindowKit)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_path(ZZ_WINDOWKIT_XCB_INCLUDE_DIR xcb/xcb.h)
+    find_library(ZZ_WINDOWKIT_XCB_LIBRARY NAMES xcb)
+    if(ZZ_WINDOWKIT_XCB_INCLUDE_DIR AND ZZ_WINDOWKIT_XCB_LIBRARY)
+        target_include_directories(ZzWindowKit PRIVATE
+            "${ZZ_WINDOWKIT_XCB_INCLUDE_DIR}")
+        target_link_libraries(ZzWindowKit PRIVATE
+            "${ZZ_WINDOWKIT_XCB_LIBRARY}")
+        target_compile_definitions(ZzWindowKit PRIVATE
+            ZZ_WINDOWKIT_HAS_XCB=1)
+    endif()
+endif()
+
 target_link_libraries(ZzWindowKit
     PUBLIC
         Zz::Core
