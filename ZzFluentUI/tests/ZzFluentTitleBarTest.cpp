@@ -294,6 +294,51 @@ private Q_SLOTS:
         QVERIFY(compactButton->isHidden());
     }
 
+    void disablesAdaptiveCollapseAndConstrainsHostMinimumWidth()
+    {
+        QMainWindow window;
+        window.setMinimumWidth(0);
+        auto *titleBar = new ZzFluentUI::ZzFluentTitleBar(&window);
+        window.setMenuWidget(titleBar);
+        titleBar->setTitle(QStringLiteral("ZzPureToolsExample"));
+        titleBar->menuBar()->addMenu(QStringLiteral("文件"));
+        titleBar->menuBar()->addMenu(QStringLiteral("导航"));
+        titleBar->menuBar()->addMenu(QStringLiteral("视图"));
+        window.resize(420, 560);
+        window.show();
+        QCoreApplication::processEvents();
+
+        auto *compactButton = titleBar->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCompactMenuButton"));
+        QVERIFY(compactButton != nullptr);
+        if (compactButton == nullptr) {
+            return;
+        }
+        QVERIFY(titleBar->menuBar()->isHidden());
+        QVERIFY(compactButton->isVisible());
+
+        const int originalMinimumWidth = window.minimumWidth();
+        titleBar->setMenuCollapseEnabled(false);
+        QCoreApplication::processEvents();
+
+        QVERIFY(!titleBar->isMenuCollapseEnabled());
+        QVERIFY(titleBar->menuBar()->isVisible());
+        QVERIFY(compactButton->isHidden());
+        QVERIFY(titleBar->minimumExpandedWidth() > originalMinimumWidth);
+        QCOMPARE(window.minimumWidth(), titleBar->minimumExpandedWidth());
+        QVERIFY(window.width() >= window.minimumWidth());
+
+        titleBar->setMenuCollapseEnabled(true);
+        QCoreApplication::processEvents();
+        QVERIFY(titleBar->isMenuCollapseEnabled());
+        QCOMPARE(window.minimumWidth(), originalMinimumWidth);
+
+        window.resize(420, 560);
+        QCoreApplication::processEvents();
+        QVERIFY(titleBar->menuBar()->isHidden());
+        QVERIFY(compactButton->isVisible());
+    }
+
     void keepsTitleCenteredInsideInteractiveSafeArea()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
