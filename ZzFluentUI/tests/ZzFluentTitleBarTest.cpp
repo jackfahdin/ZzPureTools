@@ -223,6 +223,7 @@ private Q_SLOTS:
             QStringLiteral("高对比度")));
         QCOMPARE(themeButton->menu()->actions().size(), 4);
         for (QAction *action : themeButton->menu()->actions()) {
+            QVERIFY(!action->icon().isNull());
             const auto mode = static_cast<ZzFluentUI::ZzThemeMode>(
                 action->data().toInt());
             QCOMPARE(action->isChecked(), mode == ZzFluentUI::ZzThemeMode::HighContrast);
@@ -699,6 +700,43 @@ private Q_SLOTS:
         QCOMPARE(
             titleBar.maximizeButton()->accessibleName(),
             QStringLiteral("还原"));
+    }
+
+    void switchesBundledSvgIconsWithSystemStates()
+    {
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        auto *themeButton = qobject_cast<QToolButton *>(
+            titleBar.findChild<QWidget *>(
+                QStringLiteral("zzTitleBarThemeButton")));
+        auto *pinButton = qobject_cast<QToolButton *>(
+            titleBar.findChild<QWidget *>(
+                QStringLiteral("zzTitleBarAlwaysOnTopButton")));
+        auto *maximizeButton = qobject_cast<QToolButton *>(
+            titleBar.findChild<QWidget *>(
+                QStringLiteral("zzTitleBarMaximizeButton")));
+        QVERIFY(themeButton != nullptr);
+        QVERIFY(pinButton != nullptr);
+        QVERIFY(maximizeButton != nullptr);
+        if (themeButton == nullptr
+            || pinButton == nullptr
+            || maximizeButton == nullptr) {
+            return;
+        }
+        QVERIFY(!themeButton->icon().isNull());
+        QVERIFY(!pinButton->icon().isNull());
+        QVERIFY(!maximizeButton->icon().isNull());
+
+        const qint64 systemThemeKey = themeButton->icon().cacheKey();
+        const qint64 unpinnedKey = pinButton->icon().cacheKey();
+        const qint64 normalKey = maximizeButton->icon().cacheKey();
+
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Light);
+        titleBar.setAlwaysOnTop(true);
+        titleBar.setMaximized(true);
+
+        QVERIFY(themeButton->icon().cacheKey() != systemThemeKey);
+        QVERIFY(pinButton->icon().cacheKey() != unpinnedKey);
+        QVERIFY(maximizeButton->icon().cacheKey() != normalKey);
     }
 
     void refreshesTranslatedChromeText()

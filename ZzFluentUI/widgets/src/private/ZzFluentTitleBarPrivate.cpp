@@ -9,8 +9,8 @@
 #include <QtGui/QActionEvent>
 #include <QtGui/QActionGroup>
 #include <QtGui/QFontMetrics>
+#include <QtGui/QImage>
 #include <QtGui/QPainter>
-#include <QtGui/QPen>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
@@ -19,6 +19,10 @@
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzIconAssets.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzBundledSvgIcon.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
@@ -36,78 +40,46 @@ constexpr int zzTitleBarCompactMenuWidth = 36;
 constexpr int zzTitleBarAdaptiveTitleWidthCap = 160;
 constexpr int zzTitleBarAdaptiveHysteresis = 24;
 
-/** @brief 标识需要按主题文本色绘制的标题栏图标。 */
-enum class ZzTitleBarGlyph
+/** @brief 使用样式缓存渲染标题栏内嵌 SVG，必要时执行轻量回退着色。 */
+QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon)
 {
-    Menu,
-    Theme,
-    AlwaysOnTop,
-    Minimize,
-    Maximize,
-    Restore,
-    Close
-};
-
-/** @brief 为当前调色板与 DPR 生成清晰、可访问的标题栏图标。 */
-QIcon zzTitleBarIcon(const QWidget *widget, ZzTitleBarGlyph glyph)
-{
-    constexpr int logicalExtent = 16;
-    const qreal dpr = qMax(qreal(1.0), widget->devicePixelRatioF());
-    QPixmap pixmap(
-        qMax(1, qRound(logicalExtent * dpr)),
-        qMax(1, qRound(logicalExtent * dpr)));
-    pixmap.setDevicePixelRatio(dpr);
-    pixmap.fill(Qt::transparent);
-
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setPen(QPen(
-        widget->palette().color(QPalette::ButtonText),
-        1.4,
-        Qt::SolidLine,
-        Qt::SquareCap,
-        Qt::MiterJoin));
-    switch (glyph) {
-    case ZzTitleBarGlyph::Menu:
-        for (const qreal y : {4.0, 8.0, 12.0}) {
-            painter.drawLine(QPointF(3.0, y), QPointF(13.0, y));
-        }
-        break;
-    case ZzTitleBarGlyph::Theme:
-        painter.drawEllipse(QPointF(8.0, 8.0), 4.0, 4.0);
-        for (const auto &line : std::array<QLineF, 4>{
-                 QLineF(8.0, 1.5, 8.0, 3.0),
-                 QLineF(8.0, 13.0, 8.0, 14.5),
-                 QLineF(1.5, 8.0, 3.0, 8.0),
-                 QLineF(13.0, 8.0, 14.5, 8.0)}) {
-            painter.drawLine(line);
-        }
-        break;
-    case ZzTitleBarGlyph::AlwaysOnTop:
-        painter.drawLine(QPointF(4.0, 5.0), QPointF(12.0, 5.0));
-        painter.drawLine(QPointF(6.0, 5.0), QPointF(6.0, 9.0));
-        painter.drawLine(QPointF(10.0, 5.0), QPointF(10.0, 9.0));
-        painter.drawLine(QPointF(4.5, 9.0), QPointF(11.5, 9.0));
-        painter.drawLine(QPointF(8.0, 9.0), QPointF(8.0, 14.0));
-        break;
-    case ZzTitleBarGlyph::Minimize:
-        painter.drawLine(QPointF(3.0, 11.5), QPointF(13.0, 11.5));
-        break;
-    case ZzTitleBarGlyph::Maximize:
-        painter.drawRect(QRectF(3.5, 3.5, 9.0, 9.0));
-        break;
-    case ZzTitleBarGlyph::Restore:
-        painter.drawRect(QRectF(3.5, 5.5, 7.0, 7.0));
-        painter.drawLine(QPointF(5.5, 3.5), QPointF(12.5, 3.5));
-        painter.drawLine(QPointF(12.5, 3.5), QPointF(12.5, 10.5));
-        painter.drawLine(QPointF(10.5, 5.5), QPointF(10.5, 3.5));
-        break;
-    case ZzTitleBarGlyph::Close:
-        painter.drawLine(QPointF(4.0, 4.0), QPointF(12.0, 12.0));
-        painter.drawLine(QPointF(12.0, 4.0), QPointF(4.0, 12.0));
-        break;
+    if (widget == nullptr) {
+        return {};
     }
-    painter.end();
+    const auto descriptor = ZzIconDescriptor::fromBundledSvg(icon);
+    const QSize logicalSize(16, 16);
+    const qreal devicePixelRatio = qMax(
+        qreal(1.0), widget->devicePixelRatioF());
+    const QColor color = widget->palette().color(QPalette::ButtonText);
+    if (auto *style = qobject_cast<ZzFluentStyle *>(widget->style());
+        style != nullptr) {
+        const QPixmap pixmap = style->iconPixmap(
+            descriptor,
+            logicalSize,
+            devicePixelRatio,
+            color,
+            widget->layoutDirection());
+        if (!pixmap.isNull()) {
+            return QIcon(pixmap);
+        }
+    }
+
+    if (!ZzIconAssets::ensureInitialized()) {
+        return {};
+    }
+    QPixmap pixmap = QIcon(descriptor.resourceId).pixmap(
+        logicalSize, devicePixelRatio);
+    if (pixmap.isNull()) {
+        return {};
+    }
+    QImage image = pixmap.toImage().convertToFormat(
+        QImage::Format_ARGB32_Premultiplied);
+    QPainter tintPainter(&image);
+    tintPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    tintPainter.fillRect(image.rect(), color);
+    tintPainter.end();
+    pixmap = QPixmap::fromImage(std::move(image));
+    pixmap.setDevicePixelRatio(devicePixelRatio);
     return QIcon(pixmap);
 }
 
@@ -305,20 +277,35 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
             : QToolButton::DelayedPopup);
 
     compactMenuButton->setIcon(zzTitleBarIcon(
-        q_ptr, ZzTitleBarGlyph::Menu));
-    themeButton->setIcon(zzTitleBarIcon(
-        q_ptr, ZzTitleBarGlyph::Theme));
+        q_ptr, ZzBundledSvgIcon::MoreLine));
+    const ZzBundledSvgIcon themeIcon = themeMode == ZzThemeMode::Light
+        ? ZzBundledSvgIcon::Moon
+        : themeMode == ZzThemeMode::Dark
+        ? ZzBundledSvgIcon::Sun
+        : ZzBundledSvgIcon::ComputerSystem;
+    themeButton->setIcon(zzTitleBarIcon(q_ptr, themeIcon));
     alwaysOnTopButton->setIcon(zzTitleBarIcon(
-        q_ptr, ZzTitleBarGlyph::AlwaysOnTop));
+        q_ptr,
+        alwaysOnTop
+            ? ZzBundledSvgIcon::PinFill
+            : ZzBundledSvgIcon::Pin));
     minimizeButton->setIcon(zzTitleBarIcon(
-        q_ptr, ZzTitleBarGlyph::Minimize));
+        q_ptr, ZzBundledSvgIcon::Minimize));
     maximizeButton->setIcon(zzTitleBarIcon(
         q_ptr,
         maximized
-            ? ZzTitleBarGlyph::Restore
-            : ZzTitleBarGlyph::Maximize));
+            ? ZzBundledSvgIcon::Restore
+            : ZzBundledSvgIcon::Maximize));
     closeButton->setIcon(zzTitleBarIcon(
-        q_ptr, ZzTitleBarGlyph::Close));
+        q_ptr, ZzBundledSvgIcon::Close));
+    systemThemeAction->setIcon(zzTitleBarIcon(
+        q_ptr, ZzBundledSvgIcon::ComputerSystem));
+    lightThemeAction->setIcon(zzTitleBarIcon(
+        q_ptr, ZzBundledSvgIcon::Moon));
+    darkThemeAction->setIcon(zzTitleBarIcon(
+        q_ptr, ZzBundledSvgIcon::Sun));
+    highContrastThemeAction->setIcon(zzTitleBarIcon(
+        q_ptr, ZzBundledSvgIcon::ComputerSystem));
 
     minimizeButton->setVisible(systemButtonsVisible);
     maximizeButton->setVisible(systemButtonsVisible);
