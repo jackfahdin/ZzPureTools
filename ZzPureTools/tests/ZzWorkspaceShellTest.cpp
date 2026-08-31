@@ -19,6 +19,8 @@
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtGui/QAction>
+#include <QtGui/QHideEvent>
+#include <QtGui/QShowEvent>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <ZzTestEventLoop.h>
@@ -124,6 +126,26 @@ struct ZzShellFixture final
             &host, &titleBar);
         Q_ASSERT(result);
         shell = std::move(result).value();
+    }
+};
+
+class ZzVisibilityAuditWindow final : public QMainWindow
+{
+public:
+    int hideCount = 0;
+    int showCount = 0;
+
+protected:
+    void hideEvent(QHideEvent *event) override
+    {
+        ++hideCount;
+        QMainWindow::hideEvent(event);
+    }
+
+    void showEvent(QShowEvent *event) override
+    {
+        ++showCount;
+        QMainWindow::showEvent(event);
     }
 };
 
@@ -7507,6 +7529,36 @@ private Q_SLOTS:
         QVERIFY(fixture.host.isVisible());
         QCOMPARE(fixture.host.windowState(), originalState);
         QVERIFY(!fixture.titleBar.isAlwaysOnTop());
+    }
+
+    void togglesAlwaysOnTopWithoutVisibilityTransitions()
+    {
+        ZzVisibilityAuditWindow host;
+        ZzFluentUI::ZzFluentTitleBar titleBar(&host);
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(
+            &host, &titleBar);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+
+        host.show();
+        QCoreApplication::processEvents();
+        const int hideCountBefore = host.hideCount;
+        const int showCountBefore = host.showCount;
+        const Qt::WindowStates stateBefore = host.windowState();
+
+        QVERIFY(shell->setAlwaysOnTop(true));
+        QCoreApplication::processEvents();
+        QCOMPARE(host.hideCount, hideCountBefore);
+        QCOMPARE(host.showCount, showCountBefore);
+        QCOMPARE(host.windowState(), stateBefore);
+        QVERIFY(host.isVisible());
+
+        QVERIFY(shell->setAlwaysOnTop(false));
+        QCoreApplication::processEvents();
+        QCOMPARE(host.hideCount, hideCountBefore);
+        QCOMPARE(host.showCount, showCountBefore);
+        QCOMPARE(host.windowState(), stateBefore);
+        QVERIFY(host.isVisible());
     }
 
     void migratesVersionOneLayoutToVersionTwo()

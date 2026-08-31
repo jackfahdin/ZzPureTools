@@ -52,6 +52,14 @@ ZzCore::ZzResult<ZzWindowApplyState> ZzFakeWindowBackend::setColorScheme(
     return colorSchemeResult_;
 }
 
+ZzCore::ZzResult<void> ZzFakeWindowBackend::setAlwaysOnTop(bool alwaysOnTop)
+{
+    Q_UNUSED(alwaysOnTop);
+    ++alwaysOnTopCalls_;
+    calls_.append(QStringLiteral("always-on-top"));
+    return alwaysOnTopResult_;
+}
+
 ZzCore::ZzResult<void> ZzFakeWindowBackend::showSystemMenu(
     const QPoint &globalPosition)
 {
@@ -79,6 +87,11 @@ int ZzFakeWindowBackend::backdropCalls() const noexcept
 int ZzFakeWindowBackend::colorSchemeCalls() const noexcept
 {
     return colorSchemeCalls_;
+}
+
+int ZzFakeWindowBackend::alwaysOnTopCalls() const noexcept
+{
+    return alwaysOnTopCalls_;
 }
 
 int ZzFakeWindowBackend::systemMenuCalls() const noexcept
@@ -124,6 +137,12 @@ void ZzFakeWindowBackend::setColorSchemeResult(
     ZzCore::ZzResult<ZzWindowApplyState> result)
 {
     colorSchemeResult_ = std::move(result);
+}
+
+void ZzFakeWindowBackend::setAlwaysOnTopResult(
+    ZzCore::ZzResult<void> result)
+{
+    alwaysOnTopResult_ = std::move(result);
 }
 
 void ZzFakeWindowBackend::setSystemMenuResult(

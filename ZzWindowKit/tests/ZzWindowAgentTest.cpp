@@ -297,6 +297,21 @@ private Q_SLOTS:
         QCOMPARE(backendPointer->colorSchemeCalls(), 1);
         QCOMPARE(backendPointer->systemMenuCalls(), 1);
     }
+
+    void forwardsAlwaysOnTopAfterAttach()
+    {
+        QWidget host;
+        auto backend = std::make_unique<ZzWindowKit::ZzFakeWindowBackend>();
+        auto *backendPointer = backend.get();
+        auto agent = ZzWindowKit::ZzWindowAgentTestAccess::create(
+            std::move(backend));
+        QVERIFY(agent->attach(&host));
+
+        QVERIFY(agent->setAlwaysOnTop(true));
+        QCOMPARE(backendPointer->alwaysOnTopCalls(), 1);
+        QCOMPARE(
+            backendPointer->calls().last(), QStringLiteral("always-on-top"));
+    }
 };
 
 QTEST_MAIN(ZzWindowAgentTest)

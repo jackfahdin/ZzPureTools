@@ -25,6 +25,8 @@ public:
         ZzWindowBackdrop backdrop) override;
     [[nodiscard]] ZzCore::ZzResult<ZzWindowApplyState> setColorScheme(
         ZzWindowColorScheme colorScheme) override;
+    [[nodiscard]] ZzCore::ZzResult<void> setAlwaysOnTop(
+        bool alwaysOnTop) override;
     [[nodiscard]] ZzCore::ZzResult<void> showSystemMenu(
         const QPoint &globalPosition) override;
 
@@ -32,6 +34,7 @@ public:
     [[nodiscard]] int configureCalls() const noexcept;
     [[nodiscard]] int backdropCalls() const noexcept;
     [[nodiscard]] int colorSchemeCalls() const noexcept;
+    [[nodiscard]] int alwaysOnTopCalls() const noexcept;
     [[nodiscard]] int systemMenuCalls() const noexcept;
     [[nodiscard]] const QStringList &calls() const noexcept;
     [[nodiscard]] const ZzWindowChromeConfiguration &lastConfiguration()
@@ -44,6 +47,7 @@ public:
         ZzCore::ZzResult<ZzWindowApplyState> result);
     void setColorSchemeResult(
         ZzCore::ZzResult<ZzWindowApplyState> result);
+    void setAlwaysOnTopResult(ZzCore::ZzResult<void> result);
     void setSystemMenuResult(ZzCore::ZzResult<void> result);
 
 private:
@@ -51,6 +55,7 @@ private:
     int configureCalls_ = 0;
     int backdropCalls_ = 0;
     int colorSchemeCalls_ = 0;
+    int alwaysOnTopCalls_ = 0;
     int systemMenuCalls_ = 0;
     QStringList calls_;
     ZzWindowChromeConfiguration lastConfiguration_;
@@ -65,6 +70,8 @@ private:
     ZzCore::ZzResult<ZzWindowApplyState> colorSchemeResult_ =
         ZzCore::ZzResult<ZzWindowApplyState>::success(
             ZzWindowApplyState::Applied);
+    ZzCore::ZzResult<void> alwaysOnTopResult_ =
+        ZzCore::ZzResult<void>::success();
     ZzCore::ZzResult<void> systemMenuResult_ =
         ZzCore::ZzResult<void>::success();
 };
