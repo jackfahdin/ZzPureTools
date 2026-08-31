@@ -28,6 +28,7 @@ class ZzWorkspaceShell;
 namespace ZzExample {
 
 class ZzExampleApplicationContext;
+class ZzExampleAboutWindow;
 enum class ZzExampleCommandId : int;
 class ZzExampleSessionModel;
 class ZzExampleSettingsWindow;
@@ -94,7 +95,9 @@ public:
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
     QAction *settingsAction = nullptr;
+    QAction *aboutAction = nullptr;
     QPointer<QWidget> settingsWindow;
+    QPointer<QWidget> aboutWindow;
     QLineEdit *searchEdit = nullptr;
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;

@@ -35,7 +35,7 @@ public:
     /** @brief 禁止实例化只读静态路由目录。 */
     ZzExampleRouteCatalog() = delete;
 
-    /** @brief 返回按导航展示顺序排列的十二条路由。 */
+    /** @brief 返回按导航展示顺序排列的十条路由。 */
     [[nodiscard]] static std::span<const ZzExampleRouteDescriptor>
     routes() noexcept;
 };

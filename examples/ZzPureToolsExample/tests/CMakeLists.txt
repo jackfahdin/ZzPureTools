@@ -5,6 +5,10 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleActivityModel.cpp
     ../ZzExampleActivityModel.h
     ../ZzExampleActivityModelPrivate.h
+    ../ZzExampleAboutWindow.cpp
+    ../ZzExampleAboutWindow.h
+    ../ZzExampleAboutWindowPrivate.cpp
+    ../ZzExampleAboutWindowPrivate.h
     ../ZzExampleApplicationContext.cpp
     ../ZzExampleApplicationContext.h
     ../ZzExampleApplicationContextPrivate.cpp

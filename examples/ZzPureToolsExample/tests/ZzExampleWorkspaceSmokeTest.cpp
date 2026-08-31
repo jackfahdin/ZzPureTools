@@ -15,12 +15,14 @@
 #include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QTableView>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
@@ -57,6 +59,8 @@
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSettingsWindow.h"
+#include "ZzExampleSystemPage.h"
+#include "ZzExampleSystemViewModel.h"
 #include "ZzExampleWindowShell.h"
 
 namespace {
@@ -180,6 +184,29 @@ private Q_SLOTS:
         QCOMPARE(bottomPane->paneHeight(), 260);
     }
 
+    void systemSnapshotKeepsNameColumnUserResizable()
+    {
+        ZzExample::ZzExampleSystemViewModel model;
+        ZzExample::ZzExampleSystemPage page(
+            ZzExample::ZzExampleSystemPageKind::About,
+            QStringLiteral("About"),
+            &model,
+            nullptr);
+        auto *const snapshot = page.findChild<QTableView *>(
+            QStringLiteral("zzExampleSystemSnapshot"));
+        QVERIFY(snapshot != nullptr);
+        if (snapshot == nullptr) {
+            return;
+        }
+        QCOMPARE(
+            snapshot->horizontalHeader()->sectionResizeMode(0),
+            QHeaderView::Interactive);
+        QCOMPARE(
+            snapshot->horizontalHeader()->sectionResizeMode(1),
+            QHeaderView::Stretch);
+        QVERIFY(snapshot->horizontalHeader()->sectionSize(0) >= 180);
+    }
+
     void actualWindowShellShowsRegisteredFilesPanelForSftpCommand()
     {
         auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
@@ -234,11 +261,12 @@ private Q_SLOTS:
         for (auto *button : titleMenuBar->findChildren<QToolButton *>()) {
             QVERIFY(!button->isVisible());
         }
-        QCOMPARE(titleMenuBar->actions().size(), 3);
+        QCOMPARE(titleMenuBar->actions().size(), 4);
         const QStringList expectedMenus{
             QStringLiteral("文件"),
             QStringLiteral("导航"),
-            QStringLiteral("视图")};
+            QStringLiteral("视图"),
+            QStringLiteral("帮助")};
         QStringList actualMenus;
         for (QAction *const action : titleMenuBar->actions()) {
             actualMenus.append(action->text());
@@ -360,16 +388,11 @@ private Q_SLOTS:
 
         auto *navigationModel = window->navigationModel();
         QVERIFY(navigationModel != nullptr);
-        QCOMPARE(navigationModel->rowCount(), 11);
+        QCOMPARE(navigationModel->rowCount(), 10);
         QVERIFY(!navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
-        const auto aboutIndex = navigationModel->indexForRoute(
-            ZzPureTools::ZzRouteId(QStringLiteral("about")));
-        QVERIFY(aboutIndex);
-        QCOMPARE(aboutIndex.value().data(static_cast<int>(
-                     ZzPureTools::ZzNavigationRole::Placement))
-                     .value<ZzFluentUI::ZzNavigationPlacement>(),
-            ZzFluentUI::ZzNavigationPlacement::Footer);
+        QVERIFY(!navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("about"))));
         QVERIFY(!window->navigationController()->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
 
@@ -388,10 +411,10 @@ private Q_SLOTS:
             ZzPureTools::ZzRouteId(QStringLiteral("controls"))));
         QCOMPARE(window->pageHost()->currentRoute(),
             ZzPureTools::ZzRouteId(QStringLiteral("controls")));
-        QVERIFY(window->navigationController()->navigate(
+        QVERIFY(!window->navigationController()->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("about"))));
         QCOMPARE(window->pageHost()->currentRoute(),
-            ZzPureTools::ZzRouteId(QStringLiteral("about")));
+            ZzPureTools::ZzRouteId(QStringLiteral("controls")));
         QCOMPARE(window->findChild<QWidget *>(
                      QStringLiteral("zzExampleSessionPanel")), nullptr);
         QCOMPARE(window->findChild<QWidget *>(
@@ -648,6 +671,77 @@ private Q_SLOTS:
         closeApplicationWindow(window);
     }
 
+    void aboutActionCreatesResizableWindowWithOneCloseCommand()
+    {
+        auto *window = createAdditionalWindow();
+        QAction *const action = aboutAction(window);
+        QVERIFY(action != nullptr);
+        if (action == nullptr) {
+            closeApplicationWindow(window);
+            return;
+        }
+
+        action->trigger();
+        QCoreApplication::processEvents();
+
+        QMainWindow *const about = aboutWindow(window);
+        QVERIFY(about != nullptr);
+        if (about == nullptr) {
+            closeApplicationWindow(window);
+            return;
+        }
+        QCOMPARE(about->parentWidget(), window);
+        QCOMPARE(about->windowModality(), Qt::WindowModal);
+        QVERIFY(about->testAttribute(Qt::WA_DeleteOnClose));
+        QVERIFY(about->isVisible());
+
+        auto *const titleBar =
+            about->findChild<ZzFluentUI::ZzFluentTitleBar *>();
+        QVERIFY(titleBar != nullptr);
+        auto *const snapshot = about->findChild<QTableView *>(
+            QStringLiteral("zzExampleSystemSnapshot"));
+        QVERIFY(snapshot != nullptr);
+        if (titleBar == nullptr || snapshot == nullptr) {
+            closeSettings(about);
+            closeApplicationWindow(window);
+            return;
+        }
+        auto *const iconLabel = qobject_cast<QLabel *>(
+            titleBar->windowIconWidget());
+        QVERIFY(iconLabel != nullptr);
+        QVERIFY(!iconLabel->pixmap().isNull());
+        auto *const minimizeButton = titleBar->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarMinimizeButton"));
+        auto *const maximizeButton = titleBar->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarMaximizeButton"));
+        auto *const closeButton = titleBar->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCloseButton"));
+        QVERIFY(minimizeButton != nullptr);
+        QVERIFY(maximizeButton != nullptr);
+        QVERIFY(closeButton != nullptr);
+        QVERIFY(minimizeButton->isHidden());
+        QVERIFY(maximizeButton->isHidden());
+        if (QGuiApplication::platformName() != QStringLiteral("cocoa")) {
+            QVERIFY(closeButton->isVisible());
+        }
+        QCOMPARE(
+            snapshot->horizontalHeader()->sectionResizeMode(0),
+            QHeaderView::Interactive);
+        QCOMPARE(
+            snapshot->horizontalHeader()->sectionResizeMode(1),
+            QHeaderView::Stretch);
+        QVERIFY(snapshot->horizontalHeader()->sectionSize(0) >= 180);
+
+        action->trigger();
+        QCOMPARE(aboutWindow(window), about);
+        QCOMPARE(window->findChildren<QMainWindow *>(
+                     QStringLiteral("zzExampleAboutWindow"),
+                     Qt::FindDirectChildrenOnly).size(), 1);
+
+        closeSettings(about);
+        closeApplicationWindow(window);
+    }
+
     void repeatedSettingsActivationRaisesExistingWindow()
     {
         auto *window = createAdditionalWindow();
@@ -834,6 +928,15 @@ private:
                   QStringLiteral("zzExampleSettingsAction"));
     }
 
+    [[nodiscard]] static QAction *aboutAction(
+        ZzPureTools::ZzApplicationWindow *window)
+    {
+        return window == nullptr
+            ? nullptr
+            : window->findChild<QAction *>(
+                  QStringLiteral("zzExampleAboutAction"));
+    }
+
     [[nodiscard]] static QMainWindow *settingsWindow(
         ZzPureTools::ZzApplicationWindow *window)
     {
@@ -841,6 +944,16 @@ private:
             ? nullptr
             : window->findChild<QMainWindow *>(
                   QStringLiteral("zzExampleSettingsWindow"),
+                  Qt::FindDirectChildrenOnly);
+    }
+
+    [[nodiscard]] static QMainWindow *aboutWindow(
+        ZzPureTools::ZzApplicationWindow *window)
+    {
+        return window == nullptr
+            ? nullptr
+            : window->findChild<QMainWindow *>(
+                  QStringLiteral("zzExampleAboutWindow"),
                   Qt::FindDirectChildrenOnly);
     }
 

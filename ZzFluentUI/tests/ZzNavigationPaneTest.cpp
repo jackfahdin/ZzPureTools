@@ -299,6 +299,123 @@ private Q_SLOTS:
             QStringLiteral("Buttons"));
     }
 
+    void treeModeShowsFooterRowsOnceAndHidesFlatViews()
+    {
+        QStandardItemModel model;
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("Buttons"), QStringLiteral("Controls")));
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("About"), {}, {},
+            ZzFluentUI::ZzNavigationPlacement::Footer));
+
+        ZzFluentUI::ZzNavigationPane pane;
+        pane.setTreeMode(true);
+        pane.setModel(&model);
+        pane.resize(280, 320);
+        pane.show();
+        QCoreApplication::processEvents();
+
+        QTreeView *const tree = pane.treeView();
+        QVERIFY(tree != nullptr);
+        if (tree == nullptr) {
+            return;
+        }
+        QCOMPARE(tree->model()->rowCount(), 2);
+        const QModelIndex section = tree->model()->index(0, 0);
+        QCOMPARE(section.data().toString(), QStringLiteral("Controls"));
+        QCOMPARE(tree->model()->rowCount(section), 1);
+        QCOMPARE(
+            tree->model()->index(0, 0, section).data().toString(),
+            QStringLiteral("Buttons"));
+        QCOMPARE(
+            tree->model()->index(1, 0).data().toString(),
+            QStringLiteral("About"));
+
+        const auto flatViews =
+            pane.findChildren<ZzFluentUI::ZzNavigationView *>(
+                QString(), Qt::FindDirectChildrenOnly);
+        QCOMPARE(flatViews.size(), 2);
+        for (const auto *view : flatViews) {
+            QVERIFY(view->isHidden());
+        }
+    }
+
+    void treeModeSuppressesNodeToolTips()
+    {
+        QStandardItemModel model;
+        auto *item = zzNavigationItem(
+            QStringLiteral("Buttons"), QStringLiteral("Controls"));
+        item->setToolTip(QStringLiteral("Buttons tooltip"));
+        item->setData(
+            QStringLiteral("Buttons accessible"),
+            Qt::AccessibleTextRole);
+        model.appendRow(item);
+
+        ZzFluentUI::ZzNavigationPane pane;
+        pane.setTreeMode(true);
+        pane.setModel(&model);
+        QTreeView *const tree = pane.treeView();
+        QVERIFY(tree != nullptr);
+        if (tree == nullptr) {
+            return;
+        }
+
+        const QModelIndex section = tree->model()->index(0, 0);
+        const QModelIndex leaf = tree->model()->index(0, 0, section);
+        QCOMPARE(section.data(Qt::ToolTipRole), QVariant());
+        QCOMPARE(leaf.data(Qt::ToolTipRole), QVariant());
+        QCOMPARE(
+            leaf.data(Qt::AccessibleTextRole).toString(),
+            QStringLiteral("Buttons accessible"));
+    }
+
+    void treeModeTogglesSectionsOnDoubleClick()
+    {
+        QStandardItemModel model;
+        model.appendRow(zzNavigationItem(
+            QStringLiteral("Buttons"), QStringLiteral("Controls")));
+
+        ZzFluentUI::ZzNavigationPane pane;
+        pane.setTreeMode(true);
+        pane.setModel(&model);
+        pane.resize(280, 320);
+        pane.show();
+        QCoreApplication::processEvents();
+
+        QTreeView *const tree = pane.treeView();
+        QVERIFY(tree != nullptr);
+        if (tree == nullptr) {
+            return;
+        }
+        const QModelIndex section = tree->model()->index(0, 0);
+        QVERIFY(tree->isExpanded(section));
+        QTest::mouseClick(
+            tree->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            tree->visualRect(section).center());
+        QTest::mouseDClick(
+            tree->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            tree->visualRect(section).center());
+        QCoreApplication::processEvents();
+        QVERIFY(!tree->isExpanded(section));
+
+        QTest::mouseClick(
+            tree->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            tree->visualRect(section).center());
+        QTest::mouseDClick(
+            tree->viewport(),
+            Qt::LeftButton,
+            Qt::NoModifier,
+            tree->visualRect(section).center());
+        QCoreApplication::processEvents();
+        QVERIFY(tree->isExpanded(section));
+    }
+
     void treeModeActivatesLeafOnSingleClick()
     {
         QStandardItemModel model;

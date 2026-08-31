@@ -11,7 +11,7 @@ namespace {
 using ZzLifetime = ZzPureTools::ZzPageLifetimePolicy;
 using ZzPlacement = ZzFluentUI::ZzNavigationPlacement;
 
-constexpr std::array<ZzExampleRouteDescriptor, 11> zzRoutes{{
+constexpr std::array<ZzExampleRouteDescriptor, 10> zzRoutes{{
     {"home", QT_TRANSLATE_NOOP("ZzPureToolsExample", "首页"),
      QT_TRANSLATE_NOOP("ZzPureToolsExample", "工作区"),
      ZzLifetime::Persistent,
@@ -49,9 +49,6 @@ constexpr std::array<ZzExampleRouteDescriptor, 11> zzRoutes{{
      QT_TRANSLATE_NOOP("ZzPureToolsExample", "系统"),
      ZzLifetime::Persistent,
      ZzPlacement::Primary},
-    {"about", QT_TRANSLATE_NOOP("ZzPureToolsExample", "关于"), "",
-     ZzLifetime::Persistent,
-     ZzPlacement::Footer},
 }};
 
 } // namespace

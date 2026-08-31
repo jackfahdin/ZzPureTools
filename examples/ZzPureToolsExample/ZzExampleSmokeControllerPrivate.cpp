@@ -827,7 +827,7 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
         auto firstRoute = firstNavigation->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("controls")));
         auto secondRoute = secondNavigation->navigate(
-            ZzPureTools::ZzRouteId(QStringLiteral("about")));
+            ZzPureTools::ZzRouteId(QStringLiteral("platform")));
         auto *secondSettingsAction = secondWindow->findChild<QAction *>(
             QStringLiteral("zzExampleSettingsAction"));
         if (secondSettingsAction != nullptr) {
@@ -843,7 +843,7 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
             || firstNavigation->currentRoute().value()
                 != QStringLiteral("controls")
             || secondNavigation->currentRoute().value()
-                != QStringLiteral("about")
+                != QStringLiteral("platform")
             || secondSettingsAction == nullptr
             || secondSettingsWindow == nullptr
             || !secondSettingsWindow->isVisible()

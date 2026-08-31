@@ -397,6 +397,41 @@ private Q_SLOTS:
             QAbstractAnimation::Running);
     }
 
+    void paintsTreeSelectionSurfaceOnceAcrossIndentation()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QTreeView tree;
+        tree.setStyle(&style);
+        tree.resize(280, 120);
+        tree.header()->hide();
+        tree.setIndentation(24);
+        tree.setSelectionBehavior(QAbstractItemView::SelectRows);
+        QStandardItemModel model;
+        auto *section = new QStandardItem(QStringLiteral("Controls"));
+        section->appendRow(new QStandardItem(QStringLiteral("Buttons")));
+        model.appendRow(section);
+        tree.setModel(&model);
+        tree.setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(&tree));
+        tree.expand(model.index(0, 0));
+        const QModelIndex child = model.index(0, 0, model.index(0, 0));
+        tree.setCurrentIndex(child);
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        QCoreApplication::processEvents();
+
+        const QRect childRect = tree.visualRect(child);
+        QVERIFY(childRect.isValid());
+        const QImage image = tree.viewport()->grab().toImage();
+        const QPoint indentationBoundary(
+            childRect.left() + 1,
+            childRect.center().y());
+        QCOMPARE(
+            image.pixelColor(indentationBoundary),
+            controller.snapshot()->color(
+                ZzFluentUI::ZzColorToken::ControlFillPressed));
+    }
+
     void drawsTreeRowFromGeometryWhenPrimitiveOmitsIndexAndSelection_data()
     {
         QTest::addColumn<bool>("useViewportWidget");

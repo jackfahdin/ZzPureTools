@@ -41,6 +41,7 @@
 #include <ZzLog/ZzLog.h>
 
 #include "ZzExampleActivityModel.h"
+#include "ZzExampleAboutWindow.h"
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSettingsWindow.h"
@@ -132,6 +133,10 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     settingsAction->setObjectName(QStringLiteral("zzExampleSettingsAction"));
     settingsAction->setText(QCoreApplication::translate(
         "ZzPureToolsExample", "设置"));
+    aboutAction = new QAction(q_ptr);
+    aboutAction->setObjectName(QStringLiteral("zzExampleAboutAction"));
+    aboutAction->setText(QCoreApplication::translate(
+        "ZzPureToolsExampleTitleBar", "关于 ZzPureTools"));
     auto *themeAction = new QAction(q_ptr);
     themeAction->setObjectName(QStringLiteral("zzExampleThemeAction"));
     themeAction->setText(QCoreApplication::translate(
@@ -157,8 +162,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         "ZzPureToolsExampleTitleBar", "后退"));
     forwardAction->setText(QCoreApplication::translate(
         "ZzPureToolsExampleTitleBar", "前进"));
-    window->addActions({backAction, forwardAction, settingsAction, themeAction,
-        newWindowAction, openPaletteAction, newTerminalAction,
+    window->addActions({backAction, forwardAction, settingsAction, aboutAction,
+        themeAction, newWindowAction, openPaletteAction, newTerminalAction,
         closeTerminalAction});
 
     auto *const titleBar = window->titleBar();
@@ -178,7 +183,10 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         QCoreApplication::translate("ZzPureToolsExampleTitleBar", "导航"));
     QMenu *const viewMenu = titleMenuBar->addMenu(
         QCoreApplication::translate("ZzPureToolsExampleTitleBar", "视图"));
-    if (fileMenu == nullptr || navigationMenu == nullptr || viewMenu == nullptr) {
+    QMenu *const helpMenu = titleMenuBar->addMenu(
+        QCoreApplication::translate("ZzPureToolsExampleTitleBar", "帮助"));
+    if (fileMenu == nullptr || navigationMenu == nullptr || viewMenu == nullptr
+        || helpMenu == nullptr) {
         return zzInvalidState(
             QStringLiteral("example title bar menu creation failed"));
     }
@@ -192,6 +200,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     navigationMenu->addAction(openPaletteAction);
     viewMenu->addAction(settingsAction);
     viewMenu->addAction(themeAction);
+    helpMenu->addAction(aboutAction);
     titleBar->setThemeMode(theme->mode());
     QObject::connect(
         titleBar,
@@ -423,6 +432,30 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
             settingsWindow->show();
             settingsWindow->raise();
             settingsWindow->activateWindow();
+        });
+    QObject::connect(aboutAction, &QAction::triggered,
+        q_ptr, [this] {
+            if (aboutWindow.isNull()) {
+                auto aboutCreated = ZzExampleAboutWindow::create(
+                    window, context, application, q_ptr);
+                if (!aboutCreated) {
+                    reportFailure(aboutCreated.error());
+                    return;
+                }
+                ZzExampleAboutWindow *const identity =
+                    aboutCreated.value();
+                aboutWindow = identity;
+                QObject::connect(
+                    identity, &QObject::destroyed, q_ptr,
+                    [this, identity] {
+                        if (aboutWindow.data() == identity) {
+                            aboutWindow.clear();
+                        }
+                    });
+            }
+            aboutWindow->show();
+            aboutWindow->raise();
+            aboutWindow->activateWindow();
         });
     QObject::connect(newWindowAction, &QAction::triggered,
         q_ptr, [this] {

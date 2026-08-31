@@ -85,7 +85,7 @@ ZzNavigationPanePrivate::ZzNavigationPanePrivate(
     treeView->setRootIsDecorated(true);
     treeView->setIndentation(16);
     treeView->setItemsExpandable(true);
-    treeView->setExpandsOnDoubleClick(false);
+    treeView->setExpandsOnDoubleClick(true);
     treeView->setAnimated(false);
     treeView->setUniformRowHeights(true);
     treeView->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -283,6 +283,12 @@ void ZzNavigationPanePrivate::restoreCurrentSelection()
 
 void ZzNavigationPanePrivate::updateFooterGeometry()
 {
+    if (treeMode) {
+        footerView->hide();
+        footerView->setFocusPolicy(Qt::NoFocus);
+        footerView->setFixedHeight(0);
+        return;
+    }
     const int rows = footerProjection->rowCount();
     if (rows <= 0) {
         footerView->hide();

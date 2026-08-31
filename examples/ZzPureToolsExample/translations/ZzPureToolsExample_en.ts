@@ -687,9 +687,14 @@
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../ZzExampleRouteCatalog.cpp" line="52"/>
+        <location filename="../ZzExampleAboutWindowPrivate.cpp" line="99"/>
         <source>关于</source>
         <translation>About</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleAboutWindowPrivate.cpp" line="152"/>
+        <source>关于 ZzPureTools</source>
+        <translation>About ZzPureTools</translation>
     </message>
     <message>
         <location filename="../ZzExampleShowcasePagePrivate.cpp" line="172"/>
@@ -1415,6 +1420,11 @@
     <name>ZzPureToolsExampleTitleBar</name>
     <message>
         <location filename="../ZzExampleWindowShellPrivate.cpp" line="139"/>
+        <source>关于 ZzPureTools</source>
+        <translation>About ZzPureTools</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="139"/>
         <source>切换主题</source>
         <translation>Switch Theme</translation>
     </message>
@@ -1452,6 +1462,11 @@
         <location filename="../ZzExampleWindowShellPrivate.cpp" line="182"/>
         <source>视图</source>
         <translation>View</translation>
+    </message>
+    <message>
+        <location filename="../ZzExampleWindowShellPrivate.cpp" line="187"/>
+        <source>帮助</source>
+        <translation>Help</translation>
     </message>
 </context>
 </TS>

@@ -148,10 +148,12 @@ QVariant ZzNavigationTreeModel::data(
         return {};
     }
     if (!node->section) {
+        if (role == Qt::ToolTipRole) {
+            return {};
+        }
         return node->sourceIndex.data(role);
     }
-    if (role == Qt::DisplayRole || role == Qt::ToolTipRole
-        || role == Qt::AccessibleTextRole) {
+    if (role == Qt::DisplayRole || role == Qt::AccessibleTextRole) {
         return node->title;
     }
     if (role == zzNavigationSectionHeaderRole

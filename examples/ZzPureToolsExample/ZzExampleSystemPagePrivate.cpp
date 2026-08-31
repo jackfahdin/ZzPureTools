@@ -88,9 +88,10 @@ void ZzExampleSystemPagePrivate::initialize(
     snapshot->setSelectionBehavior(QAbstractItemView::SelectRows);
     snapshot->verticalHeader()->hide();
     snapshot->horizontalHeader()->setSectionResizeMode(
-        0, QHeaderView::ResizeToContents);
+        0, QHeaderView::Interactive);
     snapshot->horizontalHeader()->setSectionResizeMode(
         1, QHeaderView::Stretch);
+    snapshot->horizontalHeader()->resizeSection(0, 180);
     snapshot->setMinimumHeight(
         kind == ZzExampleSystemPageKind::Settings ? 180 : 420);
     layout->addWidget(snapshot);
