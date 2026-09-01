@@ -164,7 +164,8 @@ bool ZzCalendarPickerPrivate::eventFilter(QObject *watched, QEvent *event)
             popupCommitByMouse = true;
         }
         popupMousePress = false;
-    } else if (event->type() == QEvent::KeyRelease) {
+    } else if (event->type() == QEvent::KeyPress
+        || event->type() == QEvent::KeyRelease) {
         const auto *keyEvent = static_cast<const QKeyEvent *>(event);
         if (keyEvent->key() == Qt::Key_Return
             || keyEvent->key() == Qt::Key_Enter) {
