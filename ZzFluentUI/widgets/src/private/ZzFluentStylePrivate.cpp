@@ -1187,7 +1187,9 @@ void ZzFluentStylePrivate::drawSpinBox(
             QStyle::State_Sunken);
 
         QColor fill = Qt::transparent;
-        if (pressed) {
+        if (!widgetEnabled || !stepEnabled) {
+            fill = snapshot->color(ZzColorToken::ControlFillDisabled);
+        } else if (pressed) {
             fill = snapshot->color(ZzColorToken::ControlFillPressed);
         } else if (hovered) {
             fill = snapshot->color(ZzColorToken::ControlFillHover);
@@ -1206,9 +1208,13 @@ void ZzFluentStylePrivate::drawSpinBox(
         painter->setBrush(fill);
         painter->drawRect(rect);
         painter->setBrush(Qt::NoBrush);
+        const qreal devicePixelRatio = painter->device() != nullptr
+            ? painter->device()->devicePixelRatioF()
+            : 1.0;
+        const qreal pixelWidth = 1.0 / std::max(1.0, devicePixelRatio);
         painter->setPen(QPen(
             glyph,
-            1.5,
+            pixelWidth,
             Qt::SolidLine,
             Qt::RoundCap,
             Qt::RoundJoin));
@@ -1242,6 +1248,32 @@ void ZzFluentStylePrivate::drawSpinBox(
         QStyle::SC_SpinBoxDown,
         QAbstractSpinBox::StepDownEnabled,
         false);
+
+    if (option->state.testFlag(QStyle::State_HasFocus)) {
+        const QRect edit = spinBoxSubControlRect(
+            option,
+            QStyle::SC_SpinBoxEditField);
+        if (!edit.isEmpty()) {
+            const qreal devicePixelRatio = painter->device() != nullptr
+                ? painter->device()->devicePixelRatioF()
+                : 1.0;
+            const qreal pixelWidth = 1.0 / std::max(1.0, devicePixelRatio);
+            const QPalette::ColorGroup group = option->state.testFlag(
+                QStyle::State_Enabled)
+                ? QPalette::Normal
+                : QPalette::Disabled;
+            painter->save();
+            painter->setPen(QPen(
+                option->palette.color(group, QPalette::Highlight),
+                pixelWidth,
+                Qt::SolidLine,
+                Qt::SquareCap));
+            painter->drawLine(
+                QPointF(edit.left(), edit.bottom() + pixelWidth / 2.0),
+                QPointF(edit.right(), edit.bottom() + pixelWidth / 2.0));
+            painter->restore();
+        }
+    }
 }
 
 QRect ZzFluentStylePrivate::spinBoxSubControlRect(

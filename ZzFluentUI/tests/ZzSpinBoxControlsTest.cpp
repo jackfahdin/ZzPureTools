@@ -11,7 +11,10 @@
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QStyleOption>
 
+#include <memory>
+
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -30,6 +33,21 @@ bool zzContainsOpaquePixel(const QImage &image)
     for (int y = 0; y < image.height(); ++y) {
         for (int x = 0; x < image.width(); ++x) {
             if (image.pixelColor(x, y).alpha() > 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/** @brief 判断图像是否包含区别于给定背板的绘制像素。 */
+bool zzContainsNonBackgroundPixel(
+    const QImage &image,
+    const QColor &background)
+{
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y) != background) {
                 return true;
             }
         }
@@ -274,6 +292,91 @@ private Q_SLOTS:
             QStyle::CT_SpinBox,
             nullptr,
             QSize(1, 1)).height() >= 32);
+    }
+
+    void unifiesValueSurfaceStates()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const QSize size(132, 36);
+
+        for (QAbstractSpinBox *spinBox : {
+                 static_cast<QAbstractSpinBox *>(
+                     new ZzFluentUI::ZzSpinBox),
+                 static_cast<QAbstractSpinBox *>(
+                     new ZzFluentUI::ZzDoubleSpinBox)}) {
+            std::unique_ptr<QAbstractSpinBox> owner(spinBox);
+            spinBox->resize(size);
+            spinBox->setStyle(&style);
+            spinBox->setButtonSymbols(QAbstractSpinBox::UpDownArrows);
+
+            QStyleOptionSpinBox option;
+            option.initFrom(spinBox);
+            option.rect = QRect(QPoint(0, 0), size);
+            option.subControls = QStyle::SC_All;
+            option.buttonSymbols = spinBox->buttonSymbols();
+            option.stepEnabled = QAbstractSpinBox::StepUpEnabled
+                | QAbstractSpinBox::StepDownEnabled;
+
+            const QRect edit = style.subControlRect(
+                QStyle::CC_SpinBox, &option,
+                QStyle::SC_SpinBoxEditField);
+            const QRect up = style.subControlRect(
+                QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxUp);
+            const QRect down = style.subControlRect(
+                QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxDown);
+            QVERIFY(!edit.intersects(up));
+            QVERIFY(!edit.intersects(down));
+            QVERIFY(up.width() <= 28);
+            QVERIFY(down.width() <= 28);
+            QCOMPARE(style.hitTestComplexControl(
+                         QStyle::CC_SpinBox, &option, up.center()),
+                     QStyle::SC_SpinBoxUp);
+            QCOMPARE(style.hitTestComplexControl(
+                         QStyle::CC_SpinBox, &option, down.center()),
+                     QStyle::SC_SpinBoxDown);
+
+            option.direction = Qt::RightToLeft;
+            const QRect rtlUp = style.subControlRect(
+                QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxUp);
+            QVERIFY(rtlUp.center().x() < option.rect.center().x());
+
+            const QSize unfocusedHint = spinBox->sizeHint();
+            QImage unfocused(size, QImage::Format_ARGB32_Premultiplied);
+            unfocused.fill(option.palette.color(QPalette::Window));
+            QPainter unfocusedPainter(&unfocused);
+            option.direction = Qt::LeftToRight;
+            option.state &= ~QStyle::State_HasFocus;
+            style.drawComplexControl(
+                QStyle::CC_SpinBox, &option, &unfocusedPainter, spinBox);
+            unfocusedPainter.end();
+
+            QImage focused(size, QImage::Format_ARGB32_Premultiplied);
+            focused.fill(option.palette.color(QPalette::Window));
+            QPainter focusedPainter(&focused);
+            option.state |= QStyle::State_HasFocus;
+            style.drawComplexControl(
+                QStyle::CC_SpinBox, &option, &focusedPainter, spinBox);
+            focusedPainter.end();
+            QVERIFY(unfocused != focused);
+            QCOMPARE(spinBox->sizeHint(), unfocusedHint);
+
+            for (const ZzFluentUI::ZzThemeMode mode : {
+                     ZzFluentUI::ZzThemeMode::Light,
+                     ZzFluentUI::ZzThemeMode::Dark,
+                     ZzFluentUI::ZzThemeMode::HighContrast}) {
+                controller.setMode(mode);
+                option.palette = style.standardPalette();
+                QImage image(size, QImage::Format_ARGB32_Premultiplied);
+                const QColor background = option.palette.color(
+                    QPalette::Window);
+                image.fill(background);
+                QPainter painter(&image);
+                style.drawComplexControl(
+                    QStyle::CC_SpinBox, &option, &painter, spinBox);
+                QVERIFY(zzContainsNonBackgroundPixel(image, background));
+            }
+        }
     }
 
     void preservesAccessibleValueInterface()
