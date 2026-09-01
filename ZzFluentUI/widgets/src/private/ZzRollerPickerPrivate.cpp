@@ -144,7 +144,8 @@ ZzRollerPickerPrivate::ZzRollerPickerPrivate(ZzRollerPicker *q)
 {
     rollerHost->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     rollerLayout->setContentsMargins(0, 0, 0, 0);
-    rollerLayout->setSpacing(0);
+    // Reserve a real pixel between columns for the single popup divider.
+    rollerLayout->setSpacing(1);
     popupLayout->setContentsMargins(
         ZzPopupMargin,
         ZzPopupMargin,

@@ -779,16 +779,37 @@ private Q_SLOTS:
         QVERIFY(popup != nullptr);
         QVERIFY(popup->isVisible());
         QVERIFY(popup->width() >= picker.width());
-        QVERIFY(popup->width() >= 96 * 2 + 80);
         QScreen *screen = popup->screen();
         QVERIFY(screen != nullptr);
         QVERIFY(screen->availableGeometry().contains(popup->geometry()));
         const QList<ZzFluentUI::ZzRoller *> rollers =
             picker.findChildren<ZzFluentUI::ZzRoller *>();
         QCOMPARE(rollers.size(), 3);
+        int rollerWidthTotal = 0;
         for (const auto *roller : rollers) {
             QVERIFY(!roller->hasFrame());
+            rollerWidthTotal += roller->width();
         }
+        QVERIFY(popup->width() >= rollerWidthTotal);
+        QImage popupImage(popup->size(), QImage::Format_ARGB32_Premultiplied);
+        popupImage.fill(Qt::transparent);
+        popup->render(&popupImage);
+        int dividerCount = 0;
+        for (int x = 1; x + 1 < popupImage.width(); ++x) {
+            int vertical = 0;
+            for (int y = 0; y < popupImage.height(); ++y) {
+                if (popupImage.pixelColor(x, y)
+                        != popupImage.pixelColor(x - 1, y)
+                    && popupImage.pixelColor(x, y)
+                        != popupImage.pixelColor(x + 1, y)) {
+                    ++vertical;
+                }
+            }
+            if (vertical > popupImage.height() / 2) {
+                ++dividerCount;
+            }
+        }
+        QVERIFY(dividerCount >= 2);
         QDialogButtonBox *buttons =
             picker.findChild<QDialogButtonBox *>();
         QVERIFY(buttons != nullptr);

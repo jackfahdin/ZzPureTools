@@ -10,6 +10,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QTableView>
+#include <QtWidgets/QLineEdit>
 
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
@@ -197,6 +198,10 @@ private Q_SLOTS:
 
         QCOMPARE(picker.calendarWidget(), calendar);
         QVERIFY(picker.calendarPopup());
+        QVERIFY(!picker.hasFrame());
+        if (auto *edit = picker.findChild<QLineEdit *>()) {
+            QVERIFY(!edit->hasFrame());
+        }
         QVERIFY(picker.isAccelerated());
         QVERIFY(!picker.wrapping());
         QCOMPARE(

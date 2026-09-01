@@ -26,3 +26,10 @@
 - 移除构造阶段对内部 QLineEdit 的显式 palette 复制，避免主题切换后锁死 palette。
 - 红灯：新增 RTL/事务断言初次运行因取消计数预期未更新而失败（实际 5，旧预期 4）。
 - 绿灯命令及结果：构建三测试目标成功；`ctest --preset linux-gcc-debug -R 'fluent\\.(calendar-controls|roller-controls|popup-surfaces)' --output-on-failure`，3/3 通过；`git diff --check` 通过。
+
+## 第 2 轮审查修复
+
+- 将滚轮列布局间距设为明确 1px，使分隔线落在列间空隙而不被子控件覆盖；保留 popup 单次面板绘制和低对比线。
+- Roller 测试渲染实际 popup，依据实际 Roller 几何检查宽度与连续竖向分隔线；Calendar 测试增加无 frame 输入表面断言。
+- 红灯：新增像素/RTL 契约首次运行因取消计数预期未同步而失败；修正后绿灯。
+- 绿灯：构建 `ZzCalendarControlsTest`、`ZzRollerControlsTest`、`ZzPopupSurfacesTest` 成功；ctest 3/3 通过；`git diff --check` 通过。
