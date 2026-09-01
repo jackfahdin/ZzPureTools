@@ -5,6 +5,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QPalette>
 #include <QtGui/QPen>
+#include <QtGui/QCursor>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyle>
 
@@ -69,6 +70,8 @@ void ZzCalendarPrivate::paintCell(
         cellRect.center().y() - diameter / 2.0,
         diameter,
         diameter);
+    const QPoint cursorPosition = q_ptr->mapFromGlobal(QCursor::pos());
+    const bool hovered = q_ptr->underMouse() && rect.contains(cursorPosition);
 
     painter->save();
     painter->setRenderHints(
@@ -87,6 +90,14 @@ void ZzCalendarPrivate::paintCell(
         painter->setPen(QPen(
             q_ptr->palette().color(activeGroup, QPalette::Highlight),
             strokeWidth));
+        painter->drawEllipse(stateRect);
+    } else if (hovered && enabled) {
+        QColor hoverColor = q_ptr->palette().color(
+            activeGroup,
+            QPalette::Highlight);
+        hoverColor.setAlpha(32);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(hoverColor);
         painter->drawEllipse(stateRect);
     }
 
@@ -116,7 +127,11 @@ void ZzCalendarPrivate::paintCell(
     const QPalette::ColorGroup colorGroup = selected
         ? activeGroup
         : textGroup;
-    painter->setPen(q_ptr->palette().color(colorGroup, textRole));
+    QColor textColor = q_ptr->palette().color(colorGroup, textRole);
+    if (!enabled || adjacentMonth) {
+        textColor.setAlpha(150);
+    }
+    painter->setPen(textColor);
     painter->drawText(
         rect,
         Qt::AlignCenter,
