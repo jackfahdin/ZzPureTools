@@ -19,6 +19,6 @@ fluent.screenshot-150 Passed
 fluent.screenshot-200 Passed
 ```
 
-提交哈希：`8a552ed`。
+提交哈希：`b6c071b`（实现提交）。
 
 疑虑：Qt offscreen 下 `QCalendarWidget` 内部视图会复用 `Highlight` 绘制底层选区，无法稳定从最终截图按颜色隔离日期单元格前景；因此未保留该脆弱像素测试。现有日期模型、信号、键盘语义和对象数量回归均通过。
