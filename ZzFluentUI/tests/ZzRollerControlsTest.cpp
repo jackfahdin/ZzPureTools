@@ -8,6 +8,7 @@
 #include <QtCore/QTimer>
 #include <QtGui/QAccessible>
 #include <QtGui/QImage>
+#include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QScreen>
 #include <QtGui/QWheelEvent>
@@ -357,6 +358,79 @@ private Q_SLOTS:
         QCOMPARE(valueInterface->maximumValue().toInt(), 3);
         roller.setEnabled(false);
         QVERIFY(interface->state().disabled);
+    }
+
+    void rendersSubtleCenterBandAndStableRows()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzRoller roller;
+        roller.setStyle(&style);
+        roller.setPalette(style.standardPalette());
+        roller.setItems({QStringLiteral("0"), QStringLiteral("1"),
+                         QStringLiteral("2"), QStringLiteral("3"),
+                         QStringLiteral("4")});
+        roller.setCurrentIndex(2);
+        roller.setItemHeight(32);
+        roller.setVisibleItemCount(5);
+        roller.resize(roller.sizeHint());
+
+        const QImage image = zzRenderRoller(&roller);
+        const int centerY = image.height() / 2;
+        const QColor center = image.pixelColor(image.width() / 8, centerY);
+        const QColor base = roller.palette().color(QPalette::Base);
+        const QColor highlight = roller.palette().color(QPalette::Highlight);
+        const auto distance = [](const QColor &left, const QColor &right) {
+            return std::abs(left.red() - right.red())
+                + std::abs(left.green() - right.green())
+                + std::abs(left.blue() - right.blue());
+        };
+        QVERIFY2(distance(center, base) < distance(highlight, base),
+                 "center band must be a low-saturation Highlight blend");
+
+        const QRect expectedCenter(
+            0,
+            2 * roller.itemHeight(),
+            roller.width(),
+            roller.itemHeight());
+        const QRect expectedAbove(
+            0,
+            roller.itemHeight(),
+            roller.width(),
+            roller.itemHeight());
+        QCOMPARE(expectedCenter.height(), roller.itemHeight());
+        QCOMPARE(expectedAbove.bottom() + 1, expectedCenter.top());
+        QCOMPARE(image.height(), roller.visibleItemCount() * roller.itemHeight());
+
+        const QImage beforeHover = image;
+        const QPoint hoverPosition(
+            roller.width() / 2,
+            expectedAbove.top() + roller.itemHeight() / 2);
+        QMouseEvent hoverEvent(
+            QEvent::MouseMove,
+            QPointF(hoverPosition),
+            QPointF(hoverPosition),
+            QPointF(hoverPosition),
+            Qt::NoButton,
+            Qt::NoButton,
+            Qt::NoModifier);
+        QCoreApplication::sendEvent(&roller, &hoverEvent);
+        const QImage afterHover = zzRenderRoller(&roller);
+        for (int row = 0; row < roller.visibleItemCount(); ++row) {
+            int differences = 0;
+            const int top = row * roller.itemHeight();
+            for (int y = top; y < top + roller.itemHeight(); ++y) {
+                for (int x = 0; x < roller.width(); ++x) {
+                    differences += beforeHover.pixelColor(x, y)
+                        != afterHover.pixelColor(x, y);
+                }
+            }
+            if (row == 1) {
+                QVERIFY(differences > 0);
+            } else {
+                QCOMPARE(differences, 0);
+            }
+        }
     }
 
     void normalizesPickerColumnsAndBulkSignals()

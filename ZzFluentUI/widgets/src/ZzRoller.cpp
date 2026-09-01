@@ -344,11 +344,12 @@ void ZzRoller::paintEvent(QPaintEvent *event)
         const int visualRow = offset + half;
         QRect rowRect(
             editRect.left(),
-            visualRow * d_ptr->itemHeight,
+            editRect.top() + visualRow * d_ptr->itemHeight,
             editRect.width(),
             d_ptr->itemHeight);
         if (offset == 0) {
             QColor highlight = palette().color(group, QPalette::Highlight);
+            highlight.setAlpha(48);
             if (!isEnabled()) {
                 highlight = zzWithScaledAlpha(highlight, 0.45);
             }
