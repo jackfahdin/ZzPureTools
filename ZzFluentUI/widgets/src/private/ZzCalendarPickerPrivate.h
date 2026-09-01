@@ -2,6 +2,11 @@
 
 #include <QtCore/QDate>
 #include <QtCore/QObject>
+#include <QtCore/QPointer>
+
+QT_BEGIN_NAMESPACE
+class QWidget;
+QT_END_NAMESPACE
 
 namespace ZzFluentUI {
 
@@ -20,11 +25,18 @@ public:
 
     bool eventFilter(QObject *watched, QEvent *event) override;
 
+private:
+    void observeVisiblePopup();
+    void attachPopup(QWidget *candidate);
+    void clearPopupTransaction();
+
+public:
     ZzCalendarPicker *const q_ptr;
     ZzCalendar *calendar = nullptr;
-    QObject *popup = nullptr;
+    QPointer<QWidget> popup;
     QDate openDate;
     bool popupCommitByMouse = false;
+    bool popupCommitByKeyboard = false;
     bool popupMousePress = false;
 };
 

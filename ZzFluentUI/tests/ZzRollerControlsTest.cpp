@@ -7,6 +7,7 @@
 #include <QtCore/QEvent>
 #include <QtCore/QTimer>
 #include <QtGui/QAccessible>
+#include <QtGui/QFontMetrics>
 #include <QtGui/QImage>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
@@ -1061,6 +1062,7 @@ private Q_SLOTS:
                 && widget->windowFlags().testFlag(Qt::Popup);
         }
         const qsizetype rollerCount = picker.findChildren<ZzFluentUI::ZzRoller *>().size();
+        const qsizetype popupChildren = popup->findChildren<QObject *>().size();
         const qsizetype animationCount = popup->findChildren<QAbstractAnimation *>().size();
         const qsizetype timerCount = popup->findChildren<QTimer *>().size();
         for (int i = 0; i < 24; ++i) {
@@ -1078,6 +1080,7 @@ private Q_SLOTS:
                 && widget->windowFlags().testFlag(Qt::Popup);
         }
         QCOMPARE(finalPopupCount, popupCount);
+        QCOMPARE(popup->findChildren<QObject *>().size(), popupChildren);
         QCOMPARE(picker.findChildren<ZzFluentUI::ZzRoller *>().size(), rollerCount);
         QCOMPARE(popup->findChildren<QAbstractAnimation *>().size(), animationCount);
         QCOMPARE(popup->findChildren<QTimer *>().size(), timerCount);
@@ -1105,8 +1108,23 @@ private Q_SLOTS:
         QRect unionBounds;
         const auto rollers = popup->findChildren<ZzFluentUI::ZzRoller *>();
         QCOMPARE(rollers.size(), 2);
-        for (const auto *roller : rollers) {
+        const auto columns = picker.columns();
+        QCOMPARE(columns.size(), rollers.size());
+        for (int index = 0; index < rollers.size(); ++index) {
+            const auto *roller = rollers.at(index);
             unionBounds |= QRect(roller->mapTo(popup, QPoint(0, 0)), roller->size());
+            QFontMetrics metrics(roller->font());
+            int longest = 0;
+            for (const QString &item : columns.at(index).items) {
+                longest = std::max(longest, metrics.horizontalAdvance(item));
+            }
+            const int expectedWidth = std::max(
+                columns.at(index).minimumWidth,
+                longest + 24);
+            QVERIFY2(
+                roller->width() >= expectedWidth,
+                qPrintable(QStringLiteral("column %1 width %2 < %3")
+                    .arg(index).arg(roller->width()).arg(expectedWidth)));
         }
         const QRect content = popup->rect().adjusted(
             margins.left(), margins.top(), -margins.right(), -margins.bottom());

@@ -561,7 +561,7 @@ void ZzRollerPickerPrivate::preparePopupGeometry()
         for (const QString &item : column.items) {
             contentWidth = std::max(contentWidth, metrics.horizontalAdvance(item));
         }
-        columnsWidth += std::max(column.minimumWidth, contentWidth + 16);
+        columnsWidth += std::max(column.minimumWidth, contentWidth + 24);
     }
     if (columns.size() > 1) {
         columnsWidth += static_cast<int>(columns.size() - 1)

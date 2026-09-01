@@ -307,13 +307,13 @@ private Q_SLOTS:
         const QDate committed = QDate(2026, 8, 12);
         const QModelIndex target = indexForDate(*typedCalendar, view, committed);
         QVERIFY(target.isValid());
-        calendar->setSelectedDate(committed);
-        QTest::mouseClick(popup, Qt::LeftButton, Qt::NoModifier,
-            popup->rect().center());
+        QCOMPARE(picker.date(), QDate(2026, 8, 5));
+        QSignalSpy dateChangedSpy(&picker, &QDateEdit::dateChanged);
+        QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::NoModifier,
+            view->visualRect(target).center());
         QCoreApplication::processEvents();
+        QVERIFY(dateChangedSpy.count() >= 1);
         QCOMPARE(picker.date(), committed);
-        popup->hide();
-        QCoreApplication::processEvents();
         QVERIFY(!popup->isVisible());
 
         picker.setDate(QDate(2026, 8, 5));
@@ -350,24 +350,81 @@ private Q_SLOTS:
         picker.show();
         QCoreApplication::processEvents();
 
-        QPalette palette = picker.palette();
-        palette.setColor(QPalette::Base, QColor(255, 244, 220));
-        palette.setColor(QPalette::Window, QColor(255, 244, 220));
-        palette.setColor(QPalette::Text, QColor(30, 30, 30));
-        picker.setPalette(palette);
         QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
             QPoint(picker.width() - 4, picker.height() / 2));
         QCoreApplication::processEvents();
         QWidget *popup = calendarPopupFor(&picker);
         QVERIFY(popup != nullptr && popup->isVisible());
+        QPalette palette = picker.palette();
+        palette.setColor(QPalette::Base, QColor(255, 244, 220));
+        palette.setColor(QPalette::Window, QColor(255, 244, 220));
+        palette.setColor(QPalette::Text, QColor(30, 30, 30));
+        picker.setPalette(palette);
+        QCoreApplication::processEvents();
         QCOMPARE(popup->palette().color(QPalette::Base),
             picker.palette().color(QPalette::Base));
         auto *edit = picker.findChild<QLineEdit *>();
         QVERIFY(edit != nullptr);
         QCOMPARE(edit->palette().color(QPalette::Base),
             picker.palette().color(QPalette::Base));
+        auto *calendar = picker.calendarWidget();
+        QVERIFY(calendar != nullptr);
+        QCOMPARE(calendar->palette().color(QPalette::Base),
+            picker.palette().color(QPalette::Base));
         popup->hide();
         QCoreApplication::processEvents();
+    }
+
+    void calendarPopupKeyboardOpenAndExternalHideRestoreSnapshot()
+    {
+        QWidget host;
+        ZzFluentUI::ZzCalendarPicker picker(&host);
+        const QDate original(2026, 8, 5);
+        picker.setDate(original);
+        picker.setGeometry(20, 20, 180, 32);
+        host.resize(360, 260);
+        host.show();
+        picker.show();
+        picker.setFocus();
+        QCoreApplication::processEvents();
+        QWidget *keyTarget = QApplication::focusWidget();
+        QVERIFY(keyTarget != nullptr);
+
+        QTest::keyClick(keyTarget, Qt::Key_Down, Qt::AltModifier);
+        QCoreApplication::processEvents();
+        QWidget *popup = calendarPopupFor(&picker);
+        if (popup == nullptr || !popup->isVisible()) {
+            QTest::keyClick(keyTarget, Qt::Key_Down);
+            QCoreApplication::processEvents();
+            popup = calendarPopupFor(&picker);
+        }
+        if (popup == nullptr || !popup->isVisible()) {
+            QTest::keyClick(keyTarget, Qt::Key_F4);
+            QCoreApplication::processEvents();
+            popup = calendarPopupFor(&picker);
+        }
+        if (popup == nullptr || !popup->isVisible()) {
+            QSKIP("The active Qt platform does not expose keyboard calendar popup");
+        }
+        auto *calendar = picker.calendarWidget();
+        QVERIFY(calendar != nullptr);
+        calendar->setSelectedDate(original.addDays(3));
+        QTest::keyClick(popup, Qt::Key_Escape);
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.date(), original);
+        QVERIFY(!popup->isVisible());
+
+        picker.setFocus();
+        keyTarget = QApplication::focusWidget();
+        QVERIFY(keyTarget != nullptr);
+        QTest::keyClick(keyTarget, Qt::Key_Down, Qt::AltModifier);
+        QCoreApplication::processEvents();
+        popup = calendarPopupFor(&picker);
+        QVERIFY(popup != nullptr && popup->isVisible());
+        calendar->setSelectedDate(original.addDays(4));
+        popup->hide();
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.date(), original);
     }
 
     void calendarPickerOwnsIndependentPopupObjectBudget()

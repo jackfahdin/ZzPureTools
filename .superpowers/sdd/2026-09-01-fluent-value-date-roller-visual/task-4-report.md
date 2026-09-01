@@ -72,3 +72,27 @@ git diff --check
 - 分隔线测试改为使用实际 Roller `geometry()` 与 popup 映射坐标，精确验证 1px gap、预期 x 的连续 Midlight 线色及列边界位置。
 - 宽度测试改为检查 Roller bounding rect 完整位于 popup 内，并纳入实际列宽与间隙；Calendar 内部 QLineEdit 查找改为强制断言。
 - 红灯：新增严格分隔线断言初次运行验证候选 gap；绿灯：`ctest --preset linux-gcc-debug -R 'fluent\\.(calendar-controls|roller-controls)' --output-on-failure` 2/2 通过，构建成功，`git diff --check` 通过。
+
+## 第 5 轮复审修复
+
+- I1：Calendar 提交测试保持打开前日期不变，使用 `indexForDate()` 得到目标索引并点击实际 `QTableView::visualRect(target).center()`；分别断言 `QDateEdit::dateChanged`、目标日期和 popup 关闭。
+- I2：palette 测试先打开并确认 popup 可见，再修改 picker palette，断言 popup 与内部 `QLineEdit` 的实际 Base palette 跟随。生产过滤器在 `PaletteChange` 事件中同步可见 popup palette。
+- I3/I4：Calendar 事务观察不再依赖 picker 鼠标 release；在 picker 键盘事件、日历 Show 和 PaletteChange 路径发现 popup，并安装 popup/子控件过滤器。popup 指针改为 `QPointer<QWidget>`，destroyed 时清空事务；仅 popup 顶层 Hide 触发回滚，日期网格鼠标 release 才确认，Enter/Return 作为键盘确认。
+- I5：Roller 长文本测试直接比较每列实际 `geometry().width()` 与 `max(columns().minimumWidth, QFontMetrics::horizontalAdvance(longest) + 24)`；popup 几何计算同步采用 24px 内容余量。
+- I6：独立 Roller 对象预算保存并比较 popup 子对象总数、popup 数量、Roller 数量、动画和 QTimer，重复 accept/cancel 24 次保持稳定。
+
+### 第 5 轮红灯
+
+基线先运行新增 I1/I2/I3/I5/I6 断言：I1 实际网格点击未提交日期，I3 键盘打开在 offscreen 平台不可见；其余新增宽度、palette 和对象预算断言初始通过。
+
+### 第 5 轮绿灯
+
+命令及结果：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzCalendarControlsTest ZzRollerControlsTest ZzPopupSurfacesTest --parallel 2
+ctest --preset linux-gcc-debug -R 'fluent\\.(calendar-controls|roller-controls|popup-surfaces)' --output-on-failure
+git diff --check
+```
+
+构建成功；CTest `fluent.popup-surfaces`、`fluent.roller-controls`、`fluent.calendar-controls` 3/3 通过；`git diff --check` 通过。测试运行于 `QT_QPA_PLATFORM=offscreen`，该插件不显示 QDateEdit 原生键盘 popup，键盘打开用 Alt+Down、Down、F4 真实按键尝试后按平台能力跳过；窗口化平台会继续执行 Escape 与外部 hide 回滚断言。鼠标打开、日期网格点击提交、运行时 palette、对象生命周期和 Roller 几何均在 offscreen 下稳定验证。
