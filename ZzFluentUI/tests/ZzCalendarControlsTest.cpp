@@ -199,9 +199,9 @@ private Q_SLOTS:
         QCOMPARE(picker.calendarWidget(), calendar);
         QVERIFY(picker.calendarPopup());
         QVERIFY(!picker.hasFrame());
-        if (auto *edit = picker.findChild<QLineEdit *>()) {
-            QVERIFY(!edit->hasFrame());
-        }
+        auto *edit = picker.findChild<QLineEdit *>();
+        QVERIFY(edit != nullptr);
+        QVERIFY(!edit->hasFrame());
         QVERIFY(picker.isAccelerated());
         QVERIFY(!picker.wrapping());
         QCOMPARE(

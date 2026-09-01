@@ -786,30 +786,31 @@ private Q_SLOTS:
             picker.findChildren<ZzFluentUI::ZzRoller *>();
         QCOMPARE(rollers.size(), 3);
         int rollerWidthTotal = 0;
+        QRect rollerBounds;
         for (const auto *roller : rollers) {
             QVERIFY(!roller->hasFrame());
             rollerWidthTotal += roller->width();
+            rollerBounds |= QRect(roller->mapTo(popup, QPoint(0, 0)), roller->size());
         }
-        QVERIFY(popup->width() >= rollerWidthTotal);
+        QVERIFY(popup->rect().contains(rollerBounds));
+        QVERIFY(popup->width() >= rollerWidthTotal + 2);
         QImage popupImage(popup->size(), QImage::Format_ARGB32_Premultiplied);
         popupImage.fill(Qt::transparent);
         popup->render(&popupImage);
-        int dividerCount = 0;
-        for (int x = 1; x + 1 < popupImage.width(); ++x) {
-            int vertical = 0;
-            for (int y = 0; y < popupImage.height(); ++y) {
-                if (popupImage.pixelColor(x, y)
-                        != popupImage.pixelColor(x - 1, y)
-                    && popupImage.pixelColor(x, y)
-                        != popupImage.pixelColor(x + 1, y)) {
-                    ++vertical;
+        const QColor divider = popup->palette().color(QPalette::Midlight);
+        for (int i = 1; i < rollers.size(); ++i) {
+            const QRect left(rollers.at(i - 1)->mapTo(popup, QPoint(0, 0)), rollers.at(i - 1)->size());
+            const QRect right(rollers.at(i)->mapTo(popup, QPoint(0, 0)), rollers.at(i)->size());
+            const int x = (left.right() + right.left()) / 2;
+            QCOMPARE(right.left() - left.right() - 1, 1);
+            int matches = 0;
+            for (int y = left.top(); y <= left.bottom(); ++y) {
+                if (popupImage.pixelColor(x, y) == divider) {
+                    ++matches;
                 }
             }
-            if (vertical > popupImage.height() / 2) {
-                ++dividerCount;
-            }
+            QVERIFY(matches > left.height() / 2);
         }
-        QVERIFY(dividerCount >= 2);
         QDialogButtonBox *buttons =
             picker.findChild<QDialogButtonBox *>();
         QVERIFY(buttons != nullptr);
