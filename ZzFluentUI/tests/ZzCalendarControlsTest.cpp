@@ -146,6 +146,13 @@ private Q_SLOTS:
             QPainter painter(&image);
             calendar.render(&painter);
             QVERIFY(!image.isNull() && !image.size().isEmpty());
+            int renderedPixels = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    renderedPixels += image.pixelColor(x, y).alpha() > 0;
+                }
+            }
+            QVERIFY(renderedPixels > 0);
             if (direction == Qt::LeftToRight) {
                 ltrSelected = calendar.selectedDate();
                 ltrImage = image;
