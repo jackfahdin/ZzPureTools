@@ -19,6 +19,39 @@
 
 `f94bf33 fix(选择器): 统一日期与滚轮弹层表面`
 
+## 第 4 轮复审修复
+
+- Roller 测试在 LTR/RTL 两个方向使用实际 popup/trigger global geometry、`QStyle::visualRect()` 和 availableGeometry clamp 校验镜像锚点；按视觉 x 排序实际 Roller 几何，验证 1px gap、预期 divider x、连续 Midlight 线色，并扫描确认没有额外同色连续竖线。
+- Roller 宽度测试读取 popup layout 实际 contentsMargins、rollerHost/所有 Roller union，使用 64/72 最小宽度及明显长文本确认内容完整位于 margin 内容区且 popup 宽度不小于触发器。
+- CalendarPicker 增加原生 calendar popup 的 show/geometry/渲染表面、日期提交、Escape 与外部 hide 恢复快照、重复打开关闭对象预算和运行时 palette 跟随断言。offscreen 平台不保证稳定像素细节，本轮仅断言可见性、几何、可渲染非透明表面、事务和对象计数。
+- 两个 Picker 分别统计 popup、Roller/calendar 子对象、动画和 QTimer 数量，重复 show/hide/accept/cancel 后计数保持不变。
+- 生产实现最小调整：`ZzCalendarPickerPrivate` 作为 QObject 安装事件过滤器，记录 popup 打开日期；鼠标选择视为提交，Escape/外部 hide 且未提交时恢复日期快照。未改变 QDateEdit 日期模型、公开 API 或信号顺序；无新增动画、QTimer、全局状态。
+
+### 第 4 轮红灯
+
+命令：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzCalendarControlsTest ZzRollerControlsTest --parallel 2
+ctest --preset linux-gcc-debug -R 'fluent\\.(calendar-controls|roller-controls)' --output-on-failure
+```
+
+新增断言首次运行失败：RTL/LTR 按钮方向与实际方向未匹配、RTL 列按创建顺序计算 gap 得到负值；Calendar 原生 popup Escape 不恢复日期快照。
+
+### 第 4 轮绿灯
+
+命令及结果：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzCalendarControlsTest ZzRollerControlsTest ZzPopupSurfacesTest --parallel 2
+ctest --preset linux-gcc-debug -R 'fluent\\.(calendar-controls|roller-controls|popup-surfaces)' --output-on-failure
+git diff --check
+```
+
+构建成功；CTest `fluent.popup-surfaces`、`fluent.roller-controls`、`fluent.calendar-controls` 3/3 通过；`git diff --check` 无输出且退出码为 0。
+
+第 4 轮提交前补充收紧 Calendar 鼠标提交判定：仅 popup 内实际 `QTableView` 日期网格的 release 视为确认，月份导航或其它 popup 点击不会阻止外部隐藏恢复快照；该修正后 `fluent.calendar-controls` 复测通过。
+
 ## 第 1 轮审查修复
 
 - 在 `ZzRollerControlsTest::commitsAndRollsBackReusablePopup` 增加实际 popup 宽度、列最小宽度、子 Roller frame、RTL popup/按钮几何及事务回滚断言。

@@ -11,11 +11,24 @@
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QCalendarWidget>
+#include <QtCore/QAbstractAnimation>
+#include <QtCore/QTimer>
 
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 
 namespace {
+
+QWidget *calendarPopupFor(ZzFluentUI::ZzCalendarPicker *picker)
+{
+    for (QWidget *widget : picker->findChildren<QWidget *>()) {
+        if (widget->isWindow() && widget->windowFlags().testFlag(Qt::Popup)) {
+            return widget;
+        }
+    }
+    return nullptr;
+}
 
 QDate dateForIndex(const ZzFluentUI::ZzCalendar &calendar,
     const QTableView *view,
@@ -255,6 +268,148 @@ private Q_SLOTS:
         QCOMPARE(pickerSpy.count(), 1);
         picker.setDate(selected.addDays(1));
         QCOMPARE(pickerSpy.count(), 1);
+    }
+
+    void calendarPopupCommitsAndRestoresTransactions()
+    {
+        QWidget host;
+        ZzFluentUI::ZzCalendarPicker picker(&host);
+        picker.setDate(QDate(2026, 8, 5));
+        picker.setGeometry(20, 20, 180, 32);
+        host.resize(360, 260);
+        host.show();
+        picker.show();
+        QCoreApplication::processEvents();
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        QWidget *popup = calendarPopupFor(&picker);
+        QVERIFY2(popup != nullptr, "QDateEdit calendar popup must exist");
+        QVERIFY(popup->isVisible());
+        QVERIFY(!popup->geometry().isEmpty());
+        QImage surface(popup->size(), QImage::Format_ARGB32_Premultiplied);
+        surface.fill(Qt::transparent);
+        popup->render(&surface);
+        int opaque = 0;
+        for (int y = 0; y < surface.height(); ++y) {
+            for (int x = 0; x < surface.width(); ++x) {
+                opaque += surface.pixelColor(x, y).alpha() > 0;
+            }
+        }
+        QVERIFY(opaque > 0);
+
+        auto *calendar = picker.calendarWidget();
+        QVERIFY(calendar != nullptr);
+        auto *typedCalendar = qobject_cast<ZzFluentUI::ZzCalendar *>(calendar);
+        QVERIFY(typedCalendar != nullptr);
+        auto *view = calendar->findChild<QTableView *>();
+        QVERIFY(view != nullptr);
+        const QDate committed = QDate(2026, 8, 12);
+        const QModelIndex target = indexForDate(*typedCalendar, view, committed);
+        QVERIFY(target.isValid());
+        calendar->setSelectedDate(committed);
+        QTest::mouseClick(popup, Qt::LeftButton, Qt::NoModifier,
+            popup->rect().center());
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.date(), committed);
+        popup->hide();
+        QCoreApplication::processEvents();
+        QVERIFY(!popup->isVisible());
+
+        picker.setDate(QDate(2026, 8, 5));
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        popup = calendarPopupFor(&picker);
+        QVERIFY(popup != nullptr && popup->isVisible());
+        calendar->setSelectedDate(QDate(2026, 8, 18));
+        QTest::keyClick(popup, Qt::Key_Escape);
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.date(), QDate(2026, 8, 5));
+        QVERIFY(!popup->isVisible());
+
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        popup = calendarPopupFor(&picker);
+        QVERIFY(popup != nullptr && popup->isVisible());
+        calendar->setSelectedDate(QDate(2026, 8, 20));
+        popup->hide();
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.date(), QDate(2026, 8, 5));
+    }
+
+    void calendarPopupPaletteFollowsRuntimePalette()
+    {
+        QWidget host;
+        ZzFluentUI::ZzCalendarPicker picker(&host);
+        picker.setDate(QDate(2026, 8, 5));
+        picker.setGeometry(20, 20, 180, 32);
+        host.resize(360, 260);
+        host.show();
+        picker.show();
+        QCoreApplication::processEvents();
+
+        QPalette palette = picker.palette();
+        palette.setColor(QPalette::Base, QColor(255, 244, 220));
+        palette.setColor(QPalette::Window, QColor(255, 244, 220));
+        palette.setColor(QPalette::Text, QColor(30, 30, 30));
+        picker.setPalette(palette);
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        QWidget *popup = calendarPopupFor(&picker);
+        QVERIFY(popup != nullptr && popup->isVisible());
+        QCOMPARE(popup->palette().color(QPalette::Base),
+            picker.palette().color(QPalette::Base));
+        auto *edit = picker.findChild<QLineEdit *>();
+        QVERIFY(edit != nullptr);
+        QCOMPARE(edit->palette().color(QPalette::Base),
+            picker.palette().color(QPalette::Base));
+        popup->hide();
+        QCoreApplication::processEvents();
+    }
+
+    void calendarPickerOwnsIndependentPopupObjectBudget()
+    {
+        QWidget host;
+        ZzFluentUI::ZzCalendarPicker picker(&host);
+        picker.setGeometry(20, 20, 180, 32);
+        host.show();
+        picker.show();
+        QCoreApplication::processEvents();
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            picker.rect().center());
+        QCoreApplication::processEvents();
+        QWidget *popup = calendarPopupFor(&picker);
+        QVERIFY(popup != nullptr);
+        const qsizetype popupChildren = popup->findChildren<QObject *>().size();
+        qsizetype popupCount = 0;
+        for (QWidget *widget : picker.findChildren<QWidget *>()) {
+            popupCount += widget->isWindow()
+                && widget->windowFlags().testFlag(Qt::Popup);
+        }
+        const qsizetype animations = popup->findChildren<QAbstractAnimation *>().size();
+        const qsizetype timers = popup->findChildren<QTimer *>().size();
+        popup->hide();
+        for (int i = 0; i < 16; ++i) {
+            QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+                QPoint(picker.width() - 4, picker.height() / 2));
+            QCoreApplication::processEvents();
+            popup = calendarPopupFor(&picker);
+            QVERIFY(popup != nullptr);
+            popup->hide();
+            QCoreApplication::processEvents();
+        }
+        QCOMPARE(popup->findChildren<QObject *>().size(), popupChildren);
+        qsizetype finalPopupCount = 0;
+        for (QWidget *widget : picker.findChildren<QWidget *>()) {
+            finalPopupCount += widget->isWindow()
+                && widget->windowFlags().testFlag(Qt::Popup);
+        }
+        QCOMPARE(finalPopupCount, popupCount);
+        QCOMPARE(popup->findChildren<QAbstractAnimation *>().size(), animations);
+        QCOMPARE(popup->findChildren<QTimer *>().size(), timers);
     }
 
     void repeatedRenderingDoesNotAllocateChildren()

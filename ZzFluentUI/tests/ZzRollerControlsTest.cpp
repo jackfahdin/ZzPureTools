@@ -19,6 +19,7 @@
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QStyleOptionSpinBox>
 #include <QtWidgets/QWidget>
+#include <QtWidgets/QLayout>
 
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzRoller.h>
@@ -866,14 +867,93 @@ private Q_SLOTS:
         QCOMPARE(picker.currentIndex(0), 1);
         QCOMPARE(acceptedSpy.size(), 2);
 
-        picker.setLayoutDirection(Qt::RightToLeft);
-        picker.showPopup();
-        zzFlushRollerEvents();
-        popup = zzRollerPopup(&picker);
-        QVERIFY(popup->layoutDirection() == Qt::RightToLeft);
-        QVERIFY(buttons->button(QDialogButtonBox::Cancel)->geometry().left()
-            <= buttons->button(QDialogButtonBox::Ok)->geometry().left());
-        picker.cancelPopup();
+        // Validate visual anchoring and divider geometry in both directions.
+        for (const Qt::LayoutDirection direction : {
+                 Qt::LeftToRight, Qt::RightToLeft}) {
+            picker.setLayoutDirection(direction);
+            picker.setGeometry(direction == Qt::LeftToRight ? 20 : 250, 20,
+                direction == Qt::LeftToRight ? 320 : 96, 36);
+            picker.showPopup();
+            zzFlushRollerEvents();
+            popup = zzRollerPopup(&picker);
+            QVERIFY(popup != nullptr);
+            QVERIFY(popup->layoutDirection() == direction);
+            const QRect triggerGlobal(
+                picker.mapToGlobal(QPoint(0, 0)), picker.size());
+            const QScreen *popupScreen = popup->screen();
+            QVERIFY(popupScreen != nullptr);
+            const QRect available = popupScreen->availableGeometry();
+            const QRect expectedVisual = QStyle::visualRect(
+                direction, triggerGlobal, QRect(0, 0, popup->width(), 1));
+            const int expectedX = std::clamp(
+                expectedVisual.left(), available.left(),
+                available.right() - popup->width() + 1);
+            QCOMPARE(popup->geometry().left(), expectedX);
+            QVERIFY(popup->geometry().top() >= available.top());
+            QVERIFY(popup->geometry().bottom() <= available.bottom());
+
+            const QMargins margins = popup->layout()->contentsMargins();
+            QVERIFY(margins.left() > 0 && margins.right() > 0);
+            const auto popupRollers = popup->findChildren<ZzFluentUI::ZzRoller *>();
+            QCOMPARE(popupRollers.size(), 3);
+            auto visualRollers = popupRollers;
+            std::sort(visualRollers.begin(), visualRollers.end(),
+                [popup](const auto *left, const auto *right) {
+                    return left->mapTo(popup, QPoint(0, 0)).x()
+                        < right->mapTo(popup, QPoint(0, 0)).x();
+                });
+            QRect unionBounds;
+            for (const auto *roller : visualRollers) {
+                unionBounds |= QRect(roller->mapTo(popup, QPoint(0, 0)),
+                    roller->size());
+            }
+            const QRect contentRect = popup->rect().adjusted(
+                margins.left(), margins.top(), -margins.right(), -margins.bottom());
+            QVERIFY(contentRect.contains(unionBounds));
+
+            QImage image(popup->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            popup->render(&image);
+            const QColor rtlDivider = popup->palette().color(QPalette::Midlight);
+            QList<int> dividerXs;
+            for (int i = 1; i < visualRollers.size(); ++i) {
+                const QRect left(visualRollers.at(i - 1)->mapTo(popup, QPoint(0, 0)),
+                    visualRollers.at(i - 1)->size());
+                const QRect right(visualRollers.at(i)->mapTo(popup, QPoint(0, 0)),
+                    visualRollers.at(i)->size());
+                QCOMPARE(right.left() - left.right() - 1, 1);
+                const int x = (left.right() + right.left()) / 2;
+                dividerXs.append(x);
+                int matches = 0;
+                for (int y = left.top(); y <= left.bottom(); ++y) {
+                    if (image.pixelColor(x, y) == rtlDivider) {
+                        ++matches;
+                    }
+                }
+                QVERIFY(matches > left.height() / 2);
+            }
+            QCOMPARE(dividerXs.size(), 2);
+            for (int x = contentRect.left(); x <= contentRect.right(); ++x) {
+                int vertical = 0;
+                for (int y = unionBounds.top(); y <= unionBounds.bottom(); ++y) {
+                    if (image.pixelColor(x, y) == rtlDivider) {
+                        ++vertical;
+                    }
+                }
+                if (vertical > unionBounds.height() / 2) {
+                    QVERIFY(dividerXs.contains(x));
+                }
+            }
+            if (direction == Qt::LeftToRight) {
+                QVERIFY(buttons->button(QDialogButtonBox::Cancel)->geometry().left()
+                    >= buttons->button(QDialogButtonBox::Ok)->geometry().left());
+            } else {
+                QVERIFY(buttons->button(QDialogButtonBox::Cancel)->geometry().left()
+                    <= buttons->button(QDialogButtonBox::Ok)->geometry().left());
+            }
+            picker.cancelPopup();
+            zzFlushRollerEvents();
+        }
 
         picker.showPopup();
         QTest::keyClick(rollers.at(0), Qt::Key_Up);
@@ -883,7 +963,7 @@ private Q_SLOTS:
             0,
             {QStringLiteral("A"), QStringLiteral("B")}));
         QVERIFY(!picker.isPopupVisible());
-        QCOMPARE(canceledSpy.size(), 5);
+        QCOMPARE(canceledSpy.size(), 6);
 
         QAccessibleInterface *interface =
             QAccessible::queryAccessibleInterface(&picker);
@@ -960,6 +1040,81 @@ private Q_SLOTS:
         QCOMPARE(large.itemCount(), 10000);
         QCOMPARE(large.findChildren<QObject *>().size(),
                  largeDescendants);
+    }
+
+    void pickerOwnsIndependentPopupObjectBudget()
+    {
+        QWidget host;
+        ZzFluentUI::ZzRollerPicker picker(&host);
+        picker.setColumns({
+            {QStringLiteral("one"), zzRollerItems(8), 0, true, 96},
+            {QStringLiteral("two"), zzRollerItems(8), 0, true, 96}});
+        host.show();
+        picker.showPopup();
+        picker.cancelPopup();
+        zzFlushRollerEvents();
+        QWidget *popup = zzRollerPopup(&picker);
+        QVERIFY(popup != nullptr);
+        qsizetype popupCount = 0;
+        for (QWidget *widget : picker.findChildren<QWidget *>()) {
+            popupCount += widget->isWindow()
+                && widget->windowFlags().testFlag(Qt::Popup);
+        }
+        const qsizetype rollerCount = picker.findChildren<ZzFluentUI::ZzRoller *>().size();
+        const qsizetype animationCount = popup->findChildren<QAbstractAnimation *>().size();
+        const qsizetype timerCount = popup->findChildren<QTimer *>().size();
+        for (int i = 0; i < 24; ++i) {
+            picker.showPopup();
+            if (i % 2 == 0) {
+                picker.acceptPopup();
+            } else {
+                picker.cancelPopup();
+            }
+            zzFlushRollerEvents();
+        }
+        qsizetype finalPopupCount = 0;
+        for (QWidget *widget : picker.findChildren<QWidget *>()) {
+            finalPopupCount += widget->isWindow()
+                && widget->windowFlags().testFlag(Qt::Popup);
+        }
+        QCOMPARE(finalPopupCount, popupCount);
+        QCOMPARE(picker.findChildren<ZzFluentUI::ZzRoller *>().size(), rollerCount);
+        QCOMPARE(popup->findChildren<QAbstractAnimation *>().size(), animationCount);
+        QCOMPARE(popup->findChildren<QTimer *>().size(), timerCount);
+    }
+
+    void popupMarginsContainLongColumnsAtMinimumWidths()
+    {
+        QWidget host;
+        ZzFluentUI::ZzRollerPicker picker(&host);
+        picker.setColumns({
+            {QStringLiteral("long-a"),
+             {QStringLiteral("A very long appointment label 2026")}, 0, false, 64},
+            {QStringLiteral("long-b"),
+             {QStringLiteral("Another exceptionally long label")}, 0, false, 72}});
+        picker.setGeometry(10, 10, 80, 36);
+        host.resize(240, 180);
+        host.show();
+        picker.showPopup();
+        zzFlushRollerEvents();
+        QWidget *popup = zzRollerPopup(&picker);
+        QVERIFY(popup != nullptr);
+        const QMargins margins = popup->layout()->contentsMargins();
+        const QWidget *hostWidget = popup->findChild<QWidget *>();
+        QVERIFY(hostWidget != nullptr);
+        QRect unionBounds;
+        const auto rollers = popup->findChildren<ZzFluentUI::ZzRoller *>();
+        QCOMPARE(rollers.size(), 2);
+        for (const auto *roller : rollers) {
+            unionBounds |= QRect(roller->mapTo(popup, QPoint(0, 0)), roller->size());
+        }
+        const QRect content = popup->rect().adjusted(
+            margins.left(), margins.top(), -margins.right(), -margins.bottom());
+        QVERIFY(content.contains(unionBounds));
+        QVERIFY(popup->width() >= picker.width());
+        QVERIFY(popup->width() >= unionBounds.width()
+            + margins.left() + margins.right());
+        picker.cancelPopup();
     }
 };
 
