@@ -111,7 +111,11 @@ private Q_SLOTS:
                  QSizePolicy::Preferred);
         QCOMPARE(roller.sizePolicy().verticalPolicy(), QSizePolicy::Fixed);
         QVERIFY(roller.minimumSizeHint().width() >= 96);
-        QCOMPARE(roller.sizeHint().height(), 184);
+        const int frameWidth = roller.style()->pixelMetric(
+            QStyle::PM_SpinBoxFrameWidth,
+            nullptr,
+            &roller);
+        QCOMPARE(roller.sizeHint().height(), 180 + 2 * frameWidth);
 
         QLineEdit *editor = roller.findChild<QLineEdit *>();
         if (editor == nullptr) {
@@ -181,7 +185,7 @@ private Q_SLOTS:
         QCOMPARE(roller.visibleItemCount(), 7);
         roller.setVisibleItemCount(100);
         QCOMPARE(roller.visibleItemCount(), 9);
-        QCOMPARE(roller.sizeHint().height(), 868);
+        QCOMPARE(roller.sizeHint().height(), 864 + 2 * frameWidth);
 
         roller.setItems(zzRollerItems(40));
         roller.setCurrentIndex(39);
@@ -376,9 +380,12 @@ private Q_SLOTS:
         roller.setVisibleItemCount(5);
         roller.resize(roller.sizeHint());
 
-        const QImage image = zzRenderRoller(&roller);
+        QImage image(roller.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(roller.palette().color(QPalette::Base));
+        QPainter imagePainter(&image);
+        roller.render(&imagePainter);
+        imagePainter.end();
         const int centerY = image.height() / 2;
-        const QColor center = image.pixelColor(image.width() / 8, centerY);
         const QColor base = roller.palette().color(QPalette::Base);
         const QColor highlight = roller.palette().color(QPalette::Highlight);
         const auto distance = [](const QColor &left, const QColor &right) {
@@ -386,8 +393,16 @@ private Q_SLOTS:
                 + std::abs(left.green() - right.green())
                 + std::abs(left.blue() - right.blue());
         };
-        QVERIFY2(distance(center, base) < distance(highlight, base),
-                 "center band must be a low-saturation Highlight blend");
+        const QColor expected = QColor(
+            (highlight.red() * 48 + base.red() * 207) / 255,
+            (highlight.green() * 48 + base.green() * 207) / 255,
+            (highlight.blue() * 48 + base.blue() * 207) / 255);
+        for (const int x : {12, 24, image.width() - 13}) {
+            const QColor center = image.pixelColor(x, centerY - 8);
+            QVERIFY2(distance(center, expected) <= 8,
+                     "center band must blend Highlight over Base");
+            QVERIFY(distance(center, base) < distance(highlight, base));
+        }
 
         QStyleOptionSpinBox option;
         option.initFrom(&roller);
@@ -474,13 +489,19 @@ private Q_SLOTS:
 
         const QSize ltrSize = roller.sizeHint();
         roller.setLayoutDirection(Qt::RightToLeft);
+        option.initFrom(&roller);
+        option.buttonSymbols = QAbstractSpinBox::NoButtons;
+        option.subControls = QStyle::SC_SpinBoxFrame
+            | QStyle::SC_SpinBoxEditField;
         QCOMPARE(roller.sizeHint(), ltrSize);
         const QRect rtlRect = roller.style()->subControlRect(
             QStyle::CC_SpinBox,
             &option,
             QStyle::SC_SpinBoxEditField,
             &roller);
-        QCOMPARE(rtlRect, editRect);
+        QCOMPARE(rtlRect.top(), editRect.top());
+        QCOMPARE(rtlRect.width(), editRect.width());
+        QCOMPARE(rtlRect.height(), editRect.height());
     }
 
     void fadesRowsAndElidesWithoutGeometryDrift()
@@ -511,30 +532,79 @@ private Q_SLOTS:
         roller.render(&painter);
         painter.end();
         const int origin = (roller.height() - 9 * roller.itemHeight()) / 2;
-        auto rowDarkness = [&](int row) {
-            int darkest = 255;
+        auto renderWithTextColor = [&](QColor textColor) {
+            QPalette textPalette = palette;
+            textPalette.setColor(QPalette::Text, textColor);
+            textPalette.setColor(QPalette::HighlightedText, textColor);
+            roller.setPalette(textPalette);
+            QImage rendered(
+                roller.size(), QImage::Format_ARGB32_Premultiplied);
+            rendered.fill(Qt::white);
+            QPainter textPainter(&rendered);
+            roller.render(&textPainter);
+            textPainter.end();
+            return rendered;
+        };
+        const QImage withText = image;
+        const QImage withoutText = renderWithTextColor(Qt::white);
+        auto rowTextSignal = [&](int row) {
+            int signal = 0;
             const int top = origin + row * roller.itemHeight();
             for (int y = top + 5; y < top + roller.itemHeight() - 5; ++y) {
                 for (int x = 8; x < image.width() - 8; ++x) {
-                    darkest = std::min(darkest,
-                                       image.pixelColor(x, y).lightness());
+                    const QColor actual = withText.pixelColor(x, y);
+                    const QColor blank = withoutText.pixelColor(x, y);
+                    signal += std::abs(actual.red() - blank.red())
+                        + std::abs(actual.green() - blank.green())
+                        + std::abs(actual.blue() - blank.blue());
                 }
             }
-            return 255 - darkest;
+            return signal;
         };
         for (int distance = 1; distance < 4; ++distance) {
-            QVERIFY(rowDarkness(4 - distance)
-                    > rowDarkness(4 - distance - 1));
+            QVERIFY(rowTextSignal(4 - distance)
+                    > rowTextSignal(4 - distance - 1));
         }
 
-        roller.setItems({QStringLiteral(
-            "A very long roller label that must be elided")});
+        const QString longText = QStringLiteral(
+            "A very long roller label that must be elided");
+        roller.setItems({longText});
         roller.setFixedWidth(96);
         roller.resize(96, roller.sizeHint().height());
         const QSize fixedSize = roller.size();
+        QStyleOptionSpinBox narrowOption;
+        narrowOption.initFrom(&roller);
+        narrowOption.buttonSymbols = QAbstractSpinBox::NoButtons;
+        narrowOption.subControls = QStyle::SC_SpinBoxFrame
+            | QStyle::SC_SpinBoxEditField;
+        const QRect narrowEditRect = roller.style()->subControlRect(
+            QStyle::CC_SpinBox,
+            &narrowOption,
+            QStyle::SC_SpinBoxEditField,
+            &roller);
+        const QString elided = roller.fontMetrics().elidedText(
+            longText,
+            Qt::ElideRight,
+            std::max(0, narrowEditRect.width() - 8));
+        QVERIFY(elided != longText);
+        QVERIFY(elided.endsWith(QChar(0x2026)));
         const QImage ltr = zzRenderRoller(&roller);
+        QVERIFY(zzContainsRollerPixel(ltr.copy(narrowEditRect)));
         roller.setLayoutDirection(Qt::RightToLeft);
         QCOMPARE(roller.size(), fixedSize);
+        QStyleOptionSpinBox rtlOption;
+        rtlOption.initFrom(&roller);
+        rtlOption.buttonSymbols = QAbstractSpinBox::NoButtons;
+        rtlOption.subControls = QStyle::SC_SpinBoxFrame
+            | QStyle::SC_SpinBoxEditField;
+        const QRect rtlEditRect = roller.style()->subControlRect(
+            QStyle::CC_SpinBox,
+            &rtlOption,
+            QStyle::SC_SpinBoxEditField,
+            &roller);
+        QCOMPARE(rtlEditRect.top(), narrowEditRect.top());
+        QCOMPARE(rtlEditRect.width(), narrowEditRect.width());
+        QCOMPARE(rtlEditRect.height(), narrowEditRect.height());
         QCOMPARE(zzRenderRoller(&roller).size(), ltr.size());
     }
 

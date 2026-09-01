@@ -271,7 +271,12 @@ QSize ZzRoller::sizeHint() const
     const int width = std::max(
         ZzMinimumRollerWidth,
         d_ptr->longestTextWidth + (2 * ZzTextHorizontalMargin));
-    return {width, d_ptr->itemHeight * d_ptr->visibleItemCount + 4};
+    const int frameWidth = std::max(
+        0,
+        style()->pixelMetric(QStyle::PM_SpinBoxFrameWidth, nullptr, this));
+    return {
+        width,
+        d_ptr->itemHeight * d_ptr->visibleItemCount + (2 * frameWidth)};
 }
 
 QSize ZzRoller::minimumSizeHint() const

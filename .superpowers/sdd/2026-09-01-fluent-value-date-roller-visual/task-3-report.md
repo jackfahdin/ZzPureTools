@@ -26,3 +26,14 @@
 红灯证据：9 行编辑域闭合断言失败；修复后绿灯：目标 CTest 1/1 通过，100%。
 
 审查修复提交：`2fedb11`
+
+## 定向复审第 1 轮修复
+
+按 `task-3-rereview.md` 补强测试并修正样式适配：
+- 文字 alpha 使用同背景下“有文字/文字色等于背景”的实际渲染差分，比较距离 1..3 的字形信号，覆盖背景合成；
+- 长文本验证 `elidedText` 确实产生省略标记，并确认绘制像素位于实际编辑域内；
+- RTL 切换后重新初始化 `QStyleOptionSpinBox`，比较编辑域的垂直原点、宽高；
+- `sizeHint()` 使用 `PM_SpinBoxFrameWidth` 推导上下边界，移除固定 `+4`；
+- 中心带在多个背景点按 Highlight alpha=48 的合成结果验证，并确认相邻背景差异。
+
+验证：`cmake --build --preset linux-gcc-debug --target ZzRollerControlsTest --parallel 2` 成功；`ctest --preset linux-gcc-debug -R '^fluent\\.roller-controls$' --output-on-failure` 1/1 通过（100%）；`git diff --check` 通过。此前遗留的定向测试进程已终止，未修改 `temp_image/`。
