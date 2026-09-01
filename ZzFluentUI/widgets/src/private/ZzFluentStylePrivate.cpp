@@ -1533,7 +1533,9 @@ void ZzFluentStylePrivate::drawProgressBar(
         -0.5);
     painter->setPen(Qt::NoPen);
     painter->setBrush(option->palette.color(QPalette::Mid));
-    painter->drawRoundedRect(groove, 2.0, 2.0);
+    const qreal cornerRadius = snapshot->metric(
+        ZzMetricToken::CornerRadiusSmall);
+    painter->drawRoundedRect(groove, cornerRadius, cornerRadius);
 
     QRectF chunk = groove;
     const bool horizontal = option->state.testFlag(
@@ -1575,7 +1577,7 @@ void ZzFluentStylePrivate::drawProgressBar(
     }
     if (!chunk.isEmpty()) {
         painter->setBrush(option->palette.color(QPalette::Highlight));
-        painter->drawRoundedRect(chunk, 2.0, 2.0);
+        painter->drawRoundedRect(chunk, cornerRadius, cornerRadius);
     }
     painter->restore();
 
@@ -1614,7 +1616,9 @@ void ZzFluentStylePrivate::drawSlider(
     }
     painter->setPen(Qt::NoPen);
     painter->setBrush(option->palette.color(QPalette::Mid));
-    painter->drawRoundedRect(groove, 2.0, 2.0);
+    const qreal cornerRadius = snapshot->metric(
+        ZzMetricToken::CornerRadiusSmall);
+    painter->drawRoundedRect(groove, cornerRadius, cornerRadius);
     QRectF active = groove;
     if (option->orientation == Qt::Horizontal) {
         if (option->upsideDown) {
@@ -1628,7 +1632,7 @@ void ZzFluentStylePrivate::drawSlider(
         active.setBottom(handle.center().y());
     }
     painter->setBrush(option->palette.color(QPalette::Highlight));
-    painter->drawRoundedRect(active, 2.0, 2.0);
+    painter->drawRoundedRect(active, cornerRadius, cornerRadius);
     painter->drawEllipse(QRectF(handle));
     if (option->state.testFlag(QStyle::State_HasFocus)
         && q_ptr->isFocusVisualVisible(widget)) {

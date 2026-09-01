@@ -116,16 +116,18 @@ void ZzCalendarPickerPrivate::observeVisiblePopup()
 
 bool ZzCalendarPickerPrivate::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == q_ptr
-        && (event->type() == QEvent::MouseButtonRelease
-            || event->type() == QEvent::KeyPress
-            || event->type() == QEvent::KeyRelease
-            || event->type() == QEvent::PaletteChange
-            || event->type() == QEvent::Show)) {
-        observeVisiblePopup();
-    } else if (watched == calendar
-        && (event->type() == QEvent::Show
-            || event->type() == QEvent::PaletteChange)) {
+    const QEvent::Type eventType = event->type();
+    const bool observedWidgetChanged =
+        watched == q_ptr
+        && (eventType == QEvent::MouseButtonRelease
+            || eventType == QEvent::KeyPress
+            || eventType == QEvent::KeyRelease
+            || eventType == QEvent::PaletteChange
+            || eventType == QEvent::Show);
+    const bool observedCalendarChanged =
+        watched == calendar
+        && (eventType == QEvent::Show || eventType == QEvent::PaletteChange);
+    if (observedWidgetChanged || observedCalendarChanged) {
         observeVisiblePopup();
     }
 

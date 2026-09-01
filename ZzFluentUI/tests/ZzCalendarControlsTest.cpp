@@ -214,6 +214,9 @@ private Q_SLOTS:
         QVERIFY(!picker.hasFrame());
         auto *edit = picker.findChild<QLineEdit *>();
         QVERIFY(edit != nullptr);
+        if (edit == nullptr) {
+            return;
+        }
         QVERIFY(!edit->hasFrame());
         QVERIFY(picker.isAccelerated());
         QVERIFY(!picker.wrapping());
@@ -752,7 +755,7 @@ private Q_SLOTS:
                     static_cast<qreal>(y - center.y()));
                 if (distance >= radius - 4 && distance <= radius + 2) {
                     ++circumferenceHits;
-                } else if (distance <= radius / 2) {
+                } else if (distance <= static_cast<qreal>(radius) / 2.0) {
                     ++interiorHits;
                 }
             }

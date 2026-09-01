@@ -12,7 +12,7 @@
 
 ## 参考环境
 
-- 生成日期：2026-08-27。
+- 生成日期：2026-09-01。
 - Qt：6.11.1。
 - CMake preset：`linux-gcc-debug`（GCC 15）。
 - 平台插件：`offscreen`。
@@ -43,15 +43,15 @@ ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
 
 | 文件 | SHA-256 |
 |---|---|
-| `linux/dpr-100/dark.png` | `cc9fe2b4c422065deaf75f92f4c3ab7501047de8653e304751f7a774135107d1` |
-| `linux/dpr-100/high-contrast.png` | `7f325abbcc5cf64b86ca5304ba5a1c982841e1b0842f6c0dd00db1b61334c5ad` |
-| `linux/dpr-100/light.png` | `3e23d5cd361f633b6f237e07a6509d3cb5bdbd64d439dffd52d2f78564b6f97c` |
-| `linux/dpr-125/dark.png` | `73f6caaee013e6cf079b23bdd7f914f6eab1c8b21d25511986024f87b35f27c7` |
-| `linux/dpr-125/high-contrast.png` | `13e8e821cafcdb36b82cc64259f4828005351f7b6407f7a16a2052f7e889058c` |
-| `linux/dpr-125/light.png` | `43aebd647175fe717e355a95d93598b78d55253b6a890f15f860757e8f4ad417` |
-| `linux/dpr-150/dark.png` | `fd80d478ed3d1f162f6509fdeb8da46c3cf959f8c286b13ea5e0bc54f5a3b2e5` |
-| `linux/dpr-150/high-contrast.png` | `539b975295234929fea0a6921cf4ce3b2e582c858a2eba74a6ab4e339c93c186` |
-| `linux/dpr-150/light.png` | `4d42f6927f2060cfa930bf93d48c9a9fd84a7be45f6690642ad754cad7406ebc` |
-| `linux/dpr-200/dark.png` | `9cedde08649ece93f52ea77f437932ffb0b8a6b27a9764124b5e1794fb70f258` |
-| `linux/dpr-200/high-contrast.png` | `bc6e71066425f0a10d298ed20f2ae210d764e648fa01b5d06e0f9f81f7229bc9` |
-| `linux/dpr-200/light.png` | `8ab46210229852f7d5b549d1e0855c5fd9ce78beb48c41bdee4fa4702c0af862` |
+| `linux/dpr-100/dark.png` | `14790aeab094b9eb3f8bde9cd23aa0763a2da43b600a1bacaa0c8040faf37853` |
+| `linux/dpr-100/high-contrast.png` | `7d3ca7ff3740e6760f23d3e2f2589d5f1bf30f6f71ed44644488c0a078b06323` |
+| `linux/dpr-100/light.png` | `2e6c96084d43aa3a790e89a23516a46b736c1045131d2b7e26db5ec2c9713cbb` |
+| `linux/dpr-125/dark.png` | `0089bc47d1ca9b588203e510a23c01df7885a225b91074a39463e4a4eca17610` |
+| `linux/dpr-125/high-contrast.png` | `87f52eaacf354dad7b37dfa97fec34b8fb7a59b54cf6d85600c74a8a1fb7df78` |
+| `linux/dpr-125/light.png` | `d54327fc4b0d9c2634456c9d1d73eb464d1d018385a88c6c54b2572231baa24e` |
+| `linux/dpr-150/dark.png` | `32f14eda76f36eaf477f01ca115a85e0bf998e5d8d8448ec89b501e836600052` |
+| `linux/dpr-150/high-contrast.png` | `c97a4cb755ec34ebe2310b62d7685a17ae62510645c5790c5ca20b31f736400b` |
+| `linux/dpr-150/light.png` | `5ae7288acc34d7c18acf3dd301b43857d731e3c9c11b9b3b032a029d1d06a284` |
+| `linux/dpr-200/dark.png` | `c451828ce4a90e61fd7da76ce5e33e4afd0487113c165580feb5eea8acb19c1c` |
+| `linux/dpr-200/high-contrast.png` | `e83308708b0811d809643971b27dad80e981f39499320d36aec3ba27664e41b8` |
+| `linux/dpr-200/light.png` | `983ff49f2e11f90522a575a9cc88cabc5174f3dec2d3fe837e3fd687c6b360e9` |

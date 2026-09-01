@@ -33,6 +33,7 @@ constexpr int ZzMaximumColumnWidth = 512;
 constexpr int ZzPickerVisibleItems = 7;
 constexpr int ZzPopupMargin = 8;
 constexpr int ZzPopupSpacing = 8;
+constexpr int ZzRollerColumnDividerSpacing = 1;
 
 [[nodiscard]] QString zzUniqueColumnKey(QSet<QString> *usedKeys)
 {
@@ -145,7 +146,7 @@ ZzRollerPickerPrivate::ZzRollerPickerPrivate(ZzRollerPicker *q)
     rollerHost->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     rollerLayout->setContentsMargins(0, 0, 0, 0);
     // Reserve a real pixel between columns for the single popup divider.
-    rollerLayout->setSpacing(1);
+    rollerLayout->setSpacing(ZzRollerColumnDividerSpacing);
     popupLayout->setContentsMargins(
         ZzPopupMargin,
         ZzPopupMargin,

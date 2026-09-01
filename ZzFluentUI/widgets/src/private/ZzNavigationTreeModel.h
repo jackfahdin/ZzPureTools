@@ -63,12 +63,12 @@ public:
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
 private:
-    struct TreeNode final
+    struct ZzTreeNode final
     {
         QPersistentModelIndex sourceIndex;
         QString title;
-        TreeNode *parent = nullptr;
-        std::vector<std::unique_ptr<TreeNode>> children;
+        ZzTreeNode *parent = nullptr;
+        std::vector<std::unique_ptr<ZzTreeNode>> children;
         bool section = false;
         int row = 0;
     };
@@ -89,11 +89,11 @@ private:
         const QList<int> &roles);
 
     /** @brief 返回索引对应的内部树节点。 */
-    [[nodiscard]] TreeNode *nodeForIndex(
+    [[nodiscard]] ZzTreeNode *nodeForIndex(
         const QModelIndex &index) const noexcept;
 
     ZzNavigationProjection projection_;
-    std::unique_ptr<TreeNode> root_;
+    std::unique_ptr<ZzTreeNode> root_;
     QVector<QModelIndex> sourceToProxy_;
     QList<QMetaObject::Connection> sourceConnections_;
 };

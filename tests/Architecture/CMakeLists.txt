@@ -213,7 +213,7 @@ add_test(
         "-DZZ_WIDGETS_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets"
         "-DZZ_APPCORE_PUBLIC_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/appcore/include"
         "-DZZ_WIDGETS_PUBLIC_ROOT=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/include"
-        "-DZZ_ALLOWED_COMPOSITION_FILE=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/src/private/ZzApplicationWindowPrivate.cpp"
+        "-DZZ_ALLOWED_COMPOSITION_FILE=${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/src/private/ZzApplicationWindowPrivate.cpp|${PROJECT_SOURCE_DIR}/ZzPureTools/widgets/src/private/ZzWorkspaceShellPrivate.cpp"
         -DZZ_REQUIRE_COMPOSITION=ON
         -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckZzPureToolsBoundaries.cmake"
 )

@@ -781,6 +781,11 @@ private Q_SLOTS:
         auto *const iconLabel = qobject_cast<QLabel *>(
             titleBar->windowIconWidget());
         QVERIFY(iconLabel != nullptr);
+        if (iconLabel == nullptr) {
+            closeSettings(about);
+            closeApplicationWindow(window);
+            return;
+        }
         QVERIFY(!iconLabel->pixmap().isNull());
         auto *const minimizeButton = titleBar->findChild<QToolButton *>(
             QStringLiteral("zzTitleBarMinimizeButton"));
@@ -791,6 +796,12 @@ private Q_SLOTS:
         QVERIFY(minimizeButton != nullptr);
         QVERIFY(maximizeButton != nullptr);
         QVERIFY(closeButton != nullptr);
+        if (minimizeButton == nullptr || maximizeButton == nullptr
+            || closeButton == nullptr) {
+            closeSettings(about);
+            closeApplicationWindow(window);
+            return;
+        }
         QVERIFY(minimizeButton->isHidden());
         QVERIFY(maximizeButton->isHidden());
         if (QGuiApplication::platformName() != QStringLiteral("cocoa")) {

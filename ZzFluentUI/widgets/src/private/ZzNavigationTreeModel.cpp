@@ -50,7 +50,7 @@ ZzNavigationTreeModel::ZzNavigationTreeModel(
     QObject *parent)
     : QAbstractProxyModel(parent)
     , projection_(projection)
-    , root_(std::make_unique<TreeNode>())
+    , root_(std::make_unique<ZzTreeNode>())
 {
 }
 
@@ -75,7 +75,7 @@ void ZzNavigationTreeModel::setSourceModel(
 QModelIndex ZzNavigationTreeModel::mapToSource(
     const QModelIndex &proxyIndex) const
 {
-    const TreeNode *const node = nodeForIndex(proxyIndex);
+    const ZzTreeNode *const node = nodeForIndex(proxyIndex);
     if (node == nullptr || node->section || !node->sourceIndex.isValid()) {
         return {};
     }
@@ -102,20 +102,21 @@ QModelIndex ZzNavigationTreeModel::index(
     if (column != 0 || row < 0) {
         return {};
     }
-    const TreeNode *const parentNode = parent.isValid()
+    const ZzTreeNode *const parentNode = parent.isValid()
         ? nodeForIndex(parent) : root_.get();
     if (parentNode == nullptr
         || row >= static_cast<int>(parentNode->children.size())) {
         return {};
     }
-    TreeNode *const node = parentNode->children.at(row).get();
+    ZzTreeNode *const node = parentNode->children.at(
+        static_cast<std::size_t>(row)).get();
     return createIndex(row, 0, node);
 }
 
 QModelIndex ZzNavigationTreeModel::parent(
     const QModelIndex &child) const
 {
-    const TreeNode *const node = nodeForIndex(child);
+    const ZzTreeNode *const node = nodeForIndex(child);
     if (node == nullptr || node->parent == nullptr || node->parent == root_.get()) {
         return {};
     }
@@ -127,7 +128,7 @@ QModelIndex ZzNavigationTreeModel::parent(
 
 int ZzNavigationTreeModel::rowCount(const QModelIndex &parent) const
 {
-    const TreeNode *const parentNode = parent.isValid()
+    const ZzTreeNode *const parentNode = parent.isValid()
         ? nodeForIndex(parent) : root_.get();
     return parentNode == nullptr
         ? 0 : static_cast<int>(parentNode->children.size());
@@ -143,7 +144,7 @@ QVariant ZzNavigationTreeModel::data(
     const QModelIndex &proxyIndex,
     int role) const
 {
-    const TreeNode *const node = nodeForIndex(proxyIndex);
+    const ZzTreeNode *const node = nodeForIndex(proxyIndex);
     if (node == nullptr) {
         return {};
     }
@@ -171,7 +172,7 @@ QVariant ZzNavigationTreeModel::data(
 Qt::ItemFlags ZzNavigationTreeModel::flags(
     const QModelIndex &proxyIndex) const
 {
-    const TreeNode *const node = nodeForIndex(proxyIndex);
+    const ZzTreeNode *const node = nodeForIndex(proxyIndex);
     if (node == nullptr) {
         return Qt::NoItemFlags;
     }
@@ -195,13 +196,13 @@ QHash<int, QByteArray> ZzNavigationTreeModel::roleNames() const
 void ZzNavigationTreeModel::rebuild()
 {
     beginResetModel();
-    root_ = std::make_unique<TreeNode>();
+    root_ = std::make_unique<ZzTreeNode>();
     sourceToProxy_.clear();
 
     QAbstractItemModel *const source = sourceModel();
     if (source != nullptr) {
         sourceToProxy_.resize(source->rowCount());
-        TreeNode *currentSection = nullptr;
+        ZzTreeNode *currentSection = nullptr;
         for (int row = 0; row < source->rowCount(); ++row) {
             const QModelIndex sourceIndex = source->index(row, 0);
             if (!sourceIndex.isValid() || !zzIsIncluded(sourceIndex, projection_)) {
@@ -219,7 +220,7 @@ void ZzNavigationTreeModel::rebuild()
             if (!section.isEmpty()
                 && (currentSection == nullptr
                     || currentSection->title != section)) {
-                auto group = std::make_unique<TreeNode>();
+                auto group = std::make_unique<ZzTreeNode>();
                 group->title = section;
                 group->parent = root_.get();
                 group->section = true;
@@ -227,13 +228,13 @@ void ZzNavigationTreeModel::rebuild()
                 currentSection = group.get();
                 root_->children.push_back(std::move(group));
             }
-            TreeNode *const parentNode = currentSection != nullptr
+            ZzTreeNode *const parentNode = currentSection != nullptr
                 ? currentSection : root_.get();
-            auto leaf = std::make_unique<TreeNode>();
+            auto leaf = std::make_unique<ZzTreeNode>();
             leaf->sourceIndex = sourceIndex;
             leaf->parent = parentNode;
             leaf->row = static_cast<int>(parentNode->children.size());
-            TreeNode *const leafIdentity = leaf.get();
+            ZzTreeNode *const leafIdentity = leaf.get();
             parentNode->children.push_back(std::move(leaf));
             sourceToProxy_[row] = createIndex(
                 leafIdentity->row,
@@ -305,13 +306,13 @@ void ZzNavigationTreeModel::forwardDataChanged(
     }
 }
 
-ZzNavigationTreeModel::TreeNode *ZzNavigationTreeModel::nodeForIndex(
+ZzNavigationTreeModel::ZzTreeNode *ZzNavigationTreeModel::nodeForIndex(
     const QModelIndex &index) const noexcept
 {
     if (!index.isValid() || index.model() != this || index.column() != 0) {
         return nullptr;
     }
-    return static_cast<TreeNode *>(index.internalPointer());
+    return static_cast<ZzTreeNode *>(index.internalPointer());
 }
 
 } // namespace ZzFluentUI

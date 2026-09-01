@@ -21,8 +21,20 @@ cmake_path(ABSOLUTE_PATH ZZ_APPCORE_PUBLIC_ROOT
     NORMALIZE OUTPUT_VARIABLE zz_appcore_public_root)
 cmake_path(ABSOLUTE_PATH ZZ_WIDGETS_PUBLIC_ROOT
     NORMALIZE OUTPUT_VARIABLE zz_widgets_public_root)
-cmake_path(ABSOLUTE_PATH ZZ_ALLOWED_COMPOSITION_FILE
-    NORMALIZE OUTPUT_VARIABLE zz_allowed_composition)
+string(REPLACE "|" ";" zz_allowed_composition_inputs
+    "${ZZ_ALLOWED_COMPOSITION_FILE}")
+set(zz_allowed_compositions)
+foreach(zz_composition_input IN LISTS zz_allowed_composition_inputs)
+    if(zz_composition_input STREQUAL "")
+        continue()
+    endif()
+    cmake_path(ABSOLUTE_PATH zz_composition_input
+        NORMALIZE OUTPUT_VARIABLE zz_composition_path)
+    list(APPEND zz_allowed_compositions "${zz_composition_path}")
+endforeach()
+if(NOT zz_allowed_compositions)
+    message(FATAL_ERROR "allowed composition file list is empty")
+endif()
 
 foreach(zz_directory IN ITEMS
     zz_appcore_root
@@ -35,16 +47,18 @@ foreach(zz_directory IN ITEMS
             "required PureTools scan directory is missing: ${${zz_directory}}")
     endif()
 endforeach()
-if(NOT EXISTS "${zz_allowed_composition}")
-    message(FATAL_ERROR
-        "allowed composition file is missing: ${zz_allowed_composition}")
-endif()
-cmake_path(IS_PREFIX zz_widgets_root "${zz_allowed_composition}"
-    NORMALIZE zz_composition_is_in_widgets)
-if(NOT zz_composition_is_in_widgets)
-    message(FATAL_ERROR
-        "allowed composition file must be inside ZZ_WIDGETS_ROOT")
-endif()
+foreach(zz_allowed_composition IN LISTS zz_allowed_compositions)
+    if(NOT EXISTS "${zz_allowed_composition}")
+        message(FATAL_ERROR
+            "allowed composition file is missing: ${zz_allowed_composition}")
+    endif()
+    cmake_path(IS_PREFIX zz_widgets_root "${zz_allowed_composition}"
+        NORMALIZE zz_composition_is_in_widgets)
+    if(NOT zz_composition_is_in_widgets)
+        message(FATAL_ERROR
+            "allowed composition file must be inside ZZ_WIDGETS_ROOT")
+    endif()
+endforeach()
 
 file(GLOB_RECURSE zz_appcore_files
     LIST_DIRECTORIES FALSE
@@ -221,7 +235,9 @@ function(zz_scan_source_file zz_path zz_layer)
 
     if(zz_has_windowkit AND zz_has_fluent)
         file(TO_CMAKE_PATH "${zz_path}" zz_normalized_path)
-        if(zz_normalized_path STREQUAL zz_allowed_composition)
+        list(FIND zz_allowed_compositions "${zz_normalized_path}"
+            zz_allowed_composition_index)
+        if(zz_allowed_composition_index GREATER_EQUAL 0)
             set_property(GLOBAL APPEND PROPERTY
                 ZZ_PURETOOLS_COMPOSITION_FILES "${zz_normalized_path}")
         else()
@@ -380,9 +396,10 @@ if(ZZ_REQUIRE_COMPOSITION)
         list(REMOVE_DUPLICATES zz_composition_files)
     endif()
     list(LENGTH zz_composition_files zz_composition_count)
-    if(NOT zz_composition_count EQUAL 1)
+    list(LENGTH zz_allowed_compositions zz_allowed_composition_count)
+    if(NOT zz_composition_count EQUAL zz_allowed_composition_count)
         zz_record_violation(
-            COMPOSITION_UNIQUENESS "${zz_allowed_composition}" 1)
+            COMPOSITION_UNIQUENESS "${zz_allowed_compositions}" 1)
     endif()
 endif()
 

@@ -30,6 +30,7 @@ constexpr int ZzMaximumVisibleItems = 9;
 constexpr int ZzMinimumRollerWidth = 96;
 constexpr int ZzTextHorizontalMargin = 12;
 constexpr int ZzWheelStep = 120;
+constexpr qreal ZzRollerSelectionCornerRadius = 4.0;
 
 [[nodiscard]] QColor zzWithScaledAlpha(QColor color, qreal scale)
 {
@@ -360,7 +361,10 @@ void ZzRoller::paintEvent(QPaintEvent *event)
             }
             painter.setPen(Qt::NoPen);
             painter.setBrush(highlight);
-            painter.drawRoundedRect(rowRect.adjusted(2, 2, -2, -2), 4, 4);
+            painter.drawRoundedRect(
+                rowRect.adjusted(2, 2, -2, -2),
+                ZzRollerSelectionCornerRadius,
+                ZzRollerSelectionCornerRadius);
         } else if (offset == d_ptr->hoverOffset && isEnabled()) {
             QColor hover = zzWithScaledAlpha(
                 palette().color(group, QPalette::Midlight),

@@ -779,6 +779,9 @@ private Q_SLOTS:
         QVERIFY(picker.isPopupVisible());
         QWidget *popup = zzRollerPopup(&picker);
         QVERIFY(popup != nullptr);
+        if (popup == nullptr) {
+            return;
+        }
         QVERIFY(popup->isVisible());
         QVERIFY(popup->width() >= picker.width());
         QScreen *screen = popup->screen();
