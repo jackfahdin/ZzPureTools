@@ -22,6 +22,7 @@
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -870,6 +871,84 @@ private Q_SLOTS:
         QVERIFY(themeButton->icon().cacheKey() != systemThemeKey);
         QVERIFY(pinButton->icon().cacheKey() != unpinnedKey);
         QVERIFY(maximizeButton->icon().cacheKey() != normalKey);
+    }
+
+    void mapsThemeIconsToCurrentLightAndDarkModes()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.setStyle(&style);
+        auto *const themeButton = qobject_cast<QToolButton *>(
+            titleBar.findChild<QWidget *>(
+                QStringLiteral("zzTitleBarThemeButton")));
+        QVERIFY(themeButton != nullptr);
+        if (themeButton == nullptr) {
+            return;
+        }
+
+        const auto iconImage = [&titleBar](QToolButton *button) {
+            return button->icon()
+                .pixmap(QSize(16, 16), titleBar.devicePixelRatioF())
+                .toImage();
+        };
+        const auto expectedImage = [&titleBar, &style](
+                                       ZzFluentUI::ZzBundledSvgIcon icon) {
+            return style.iconPixmap(
+                       ZzFluentUI::ZzIconDescriptor::fromBundledSvg(icon),
+                       QSize(16, 16),
+                       titleBar.devicePixelRatioF(),
+                       titleBar.palette().color(QPalette::ButtonText),
+                       titleBar.layoutDirection())
+                .toImage();
+        };
+
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Light);
+        QCOMPARE(
+            iconImage(themeButton),
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(
+            iconImage(themeButton),
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+
+        titleBar.setThemeInteractionMode(
+            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Light);
+        QCOMPARE(
+            iconImage(themeButton),
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(
+            iconImage(themeButton),
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
+
+        QAction *lightAction = nullptr;
+        QAction *darkAction = nullptr;
+        for (QAction *const action : themeButton->menu()->actions()) {
+            if (action->data().toInt()
+                == static_cast<int>(ZzFluentUI::ZzThemeMode::Light)) {
+                lightAction = action;
+            } else if (action->data().toInt()
+                       == static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)) {
+                darkAction = action;
+            }
+        }
+        QVERIFY(lightAction != nullptr);
+        QVERIFY(darkAction != nullptr);
+        if (lightAction == nullptr || darkAction == nullptr) {
+            return;
+        }
+        QCOMPARE(
+            lightAction->icon()
+                .pixmap(QSize(16, 16), titleBar.devicePixelRatioF())
+                .toImage(),
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
+        QCOMPARE(
+            darkAction->icon()
+                .pixmap(QSize(16, 16), titleBar.devicePixelRatioF())
+                .toImage(),
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
     }
 
     void refreshesTranslatedChromeText()

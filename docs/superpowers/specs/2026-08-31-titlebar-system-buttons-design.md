@@ -57,11 +57,11 @@ void themeToggleRequested();
 | action | `ZzThemeMode` | 图标 |
 | --- | --- | --- |
 | 跟随系统 | `System` | `ComputerSystem.svg` |
-| 浅色 | `Light` | `Moon.svg` |
-| 深色 | `Dark` | `Sun.svg` |
+| 浅色 | `Light` | `Sun.svg` |
+| 深色 | `Dark` | `Moon.svg` |
 | 高对比度 | `HighContrast` | `ComputerSystem.svg` |
 
-选择 action 只发出已有的 `themeModeRequested(ZzThemeMode)`；确认状态变化后同步 action 勾选状态和按钮图标/可访问名称。切换到 `Toggle` 模式时菜单仍保留，可通过 `themeMenu()` 由客户端隐藏或扩展，但按钮点击改为发出 `themeToggleRequested()`。
+选择 action 只发出已有的 `themeModeRequested(ZzThemeMode)`；确认状态变化后同步 action 勾选状态和按钮图标/可访问名称。菜单模式下按钮图标表示当前主题；切换到 `Toggle` 模式时菜单仍保留，可通过 `themeMenu()` 由客户端隐藏或扩展，但按钮图标表示点击后将切换到的浅色或深色主题，按钮点击改为发出 `themeToggleRequested()`。
 
 ## 图标与性能
 
@@ -76,4 +76,3 @@ void themeToggleRequested();
 ## 测试策略
 
 在 `ZzFluentTitleBarTest` 中先增加失败测试，覆盖：默认和可切换的交互模式、模式变更信号、菜单四个主题 action、菜单模式请求、切换模式请求、主题/置顶/最大化图标状态、SVG 图标非空及调色板换色，以及原有系统按钮意图信号不变。通过测试后运行标题栏测试目标、Example smoke 和对应 CTest 集合。
-

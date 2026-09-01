@@ -314,10 +314,13 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
 
     compactMenuButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::MoreLine));
+    // 菜单模式展示当前主题；Toggle 模式展示点击后将切换到的主题。
+    const bool toggleThemeIcon = themeInteractionMode
+        == ZzTitleBarThemeInteractionMode::Toggle;
     const ZzBundledSvgIcon themeIcon = themeMode == ZzThemeMode::Light
-        ? ZzBundledSvgIcon::Moon
+        ? (toggleThemeIcon ? ZzBundledSvgIcon::Moon : ZzBundledSvgIcon::Sun)
         : themeMode == ZzThemeMode::Dark
-        ? ZzBundledSvgIcon::Sun
+        ? (toggleThemeIcon ? ZzBundledSvgIcon::Sun : ZzBundledSvgIcon::Moon)
         : ZzBundledSvgIcon::ComputerSystem;
     themeButton->setIcon(zzTitleBarIcon(q_ptr, themeIcon));
     alwaysOnTopButton->setIcon(zzTitleBarIcon(
@@ -337,9 +340,9 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     systemThemeAction->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::ComputerSystem));
     lightThemeAction->setIcon(zzTitleBarIcon(
-        q_ptr, ZzBundledSvgIcon::Moon));
-    darkThemeAction->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::Sun));
+    darkThemeAction->setIcon(zzTitleBarIcon(
+        q_ptr, ZzBundledSvgIcon::Moon));
     highContrastThemeAction->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::ComputerSystem));
 
