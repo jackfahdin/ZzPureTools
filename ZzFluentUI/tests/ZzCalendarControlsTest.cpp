@@ -12,6 +12,39 @@
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 
+namespace {
+
+QDate dateForIndex(const ZzFluentUI::ZzCalendar &calendar,
+    const QTableView *view,
+    const QModelIndex &index)
+{
+    const QModelIndex selected = view->selectionModel()
+        ->selectedIndexes().value(0);
+    if (!selected.isValid()) {
+        return {};
+    }
+    return calendar.selectedDate().addDays(
+        (index.row() - selected.row()) * 7 + index.column() - selected.column());
+}
+
+QModelIndex indexForDate(const ZzFluentUI::ZzCalendar &calendar,
+    const QTableView *view,
+    const QDate &date)
+{
+    const QAbstractItemModel *model = view->model();
+    for (int row = 0; row < model->rowCount(); ++row) {
+        for (int column = 0; column < model->columnCount(); ++column) {
+            const QModelIndex index = model->index(row, column);
+            if (dateForIndex(calendar, view, index) == date) {
+                return index;
+            }
+        }
+    }
+    return {};
+}
+
+}
+
 /** @brief 验证日历控件保留 Qt 日期语义并维持稳定绘制对象数量。 */
 class ZzCalendarControlsTest final : public QObject
 {
@@ -77,6 +110,53 @@ private Q_SLOTS:
         QCOMPARE(calendar.firstDayOfWeek(), Qt::Monday);
         QCOMPARE(calendar.layoutDirection(), Qt::RightToLeft);
         QCOMPARE(calendar.selectedDate(), QDate(2026, 8, 5));
+    }
+
+    void rtlVisualRectSelectsSameDateAsLtr()
+    {
+        const QDate target(2026, 8, 10);
+        QImage ltrImage;
+        QImage rtlImage;
+        QDate ltrSelected;
+        QDate rtlSelected;
+        for (const Qt::LayoutDirection direction : {
+                 Qt::LeftToRight, Qt::RightToLeft}) {
+            ZzFluentUI::ZzCalendar calendar;
+            calendar.setLocale(QLocale::c());
+            calendar.setCurrentPage(2026, 8);
+            calendar.setLayoutDirection(direction);
+            calendar.setSelectedDate(QDate(2026, 8, 5));
+            calendar.resize(420, 320);
+            calendar.show();
+            QCoreApplication::processEvents();
+            auto *view = calendar.findChild<QTableView *>();
+            QVERIFY(view != nullptr);
+            if (view == nullptr) {
+                return;
+            }
+            const QModelIndex index = indexForDate(calendar, view, target);
+            QVERIFY(index.isValid());
+            QVERIFY(!view->visualRect(index).isEmpty());
+            QTest::mouseClick(view->viewport(), Qt::LeftButton,
+                Qt::NoModifier, view->visualRect(index).center());
+            QCoreApplication::processEvents();
+            QCOMPARE(calendar.selectedDate(), target);
+            QImage image(calendar.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            calendar.render(&painter);
+            QVERIFY(!image.isNull() && !image.size().isEmpty());
+            if (direction == Qt::LeftToRight) {
+                ltrSelected = calendar.selectedDate();
+                ltrImage = image;
+            } else {
+                rtlSelected = calendar.selectedDate();
+                rtlImage = image;
+            }
+        }
+        QCOMPARE(ltrSelected, rtlSelected);
+        QVERIFY(!ltrImage.isNull());
+        QVERIFY(!rtlImage.isNull());
     }
 
     void pickerOwnsTypedCalendarAndSynchronizesDate()
@@ -201,20 +281,40 @@ private Q_SLOTS:
             calendar.render(&painter);
             return image;
         };
-        const QImage before = render();
+        QWidget parking;
+        parking.resize(8, 8);
+        parking.move(900, 500);
+        parking.show();
+        QTest::mouseMove(&parking, parking.rect().center());
+        QCoreApplication::processEvents();
+        const QImage baseline = render();
         QTest::mouseMove(view->viewport(), cell.center());
         QCoreApplication::processEvents();
         const QImage after = render();
 
         const QPoint topLeft = view->viewport()->mapTo(&calendar, cell.topLeft());
         int changedPixels = 0;
+        int changedOutside = 0;
+        const QPoint cellOrigin = view->viewport()->mapTo(&calendar, cell.topLeft());
+        const QRect allowed(cellOrigin, cell.size());
+        const QRect expanded = allowed.adjusted(-1, -1, 1, 1)
+            .intersected(calendar.rect());
+        for (int y = 0; y < after.height(); ++y) {
+            for (int x = 0; x < after.width(); ++x) {
+                if (!expanded.contains(x, y)
+                    && baseline.pixelColor(x, y) != after.pixelColor(x, y)) {
+                    ++changedOutside;
+                }
+            }
+        }
         for (int y = 0; y < cell.height(); ++y) {
             for (int x = 0; x < cell.width(); ++x) {
-                changedPixels += before.pixelColor(topLeft.x() + x, topLeft.y() + y)
+                changedPixels += baseline.pixelColor(topLeft.x() + x, topLeft.y() + y)
                     != after.pixelColor(topLeft.x() + x, topLeft.y() + y);
             }
         }
         QVERIFY(changedPixels > 0);
+        QCOMPARE(changedOutside, 0);
         QTest::mouseMove(view->viewport(), QPoint(-10, -10));
     }
 
@@ -222,13 +322,19 @@ private Q_SLOTS:
     {
         ZzFluentUI::ZzCalendar calendar;
         QPalette palette = calendar.palette();
+        palette.setColor(QPalette::Active, QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Inactive, QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Active, QPalette::Window, Qt::white);
+        palette.setColor(QPalette::Inactive, QPalette::Window, Qt::white);
+        palette.setColor(QPalette::Active, QPalette::AlternateBase, Qt::white);
+        palette.setColor(QPalette::Inactive, QPalette::AlternateBase, Qt::white);
         palette.setColor(QPalette::Active, QPalette::Text, QColor(0, 0, 0));
         palette.setColor(QPalette::Disabled, QPalette::Text, QColor(0, 0, 0));
         palette.setColor(QPalette::Active, QPalette::HighlightedText, QColor(255, 0, 0));
         calendar.setPalette(palette);
         calendar.setLocale(QLocale::c());
         calendar.setCurrentPage(2026, 8);
-        calendar.setDateRange(QDate(2026, 8, 1), QDate(2026, 8, 31));
+        calendar.setDateRange(QDate(2026, 8, 5), QDate(2026, 8, 31));
         calendar.setSelectedDate(QDate(2026, 8, 5));
         calendar.resize(420, 320);
         calendar.show();
@@ -240,9 +346,14 @@ private Q_SLOTS:
         }
         const QModelIndex selected = view->selectionModel()->selectedIndexes().value(0);
         QVERIFY(selected.isValid());
-        const QModelIndex adjacent = view->model()->index(0, 0);
-        const QModelIndex disabled = view->model()->index(
-            selected.row(), (selected.column() + 1) % view->model()->columnCount());
+        const QModelIndex adjacent = indexForDate(calendar, view, QDate(2026, 7, 12));
+        const QModelIndex available = indexForDate(calendar, view, QDate(2026, 8, 12));
+        const QModelIndex disabled = indexForDate(calendar, view, QDate(2026, 8, 1));
+        QVERIFY(available.isValid());
+        QVERIFY(disabled.isValid());
+        const QDate disabledDate = dateForIndex(calendar, view, disabled);
+        QVERIFY(disabledDate < calendar.minimumDate()
+            || disabledDate > calendar.maximumDate());
         auto render = [&calendar] {
             QImage image(calendar.size(), QImage::Format_ARGB32_Premultiplied);
             image.fill(Qt::white);
@@ -251,19 +362,97 @@ private Q_SLOTS:
             return image;
         };
         const QImage image = render();
-        auto inkPixels = [&](const QModelIndex &index) {
+        auto inkStrength = [&](const QModelIndex &index) {
             const QRect local = view->visualRect(index);
             const QPoint origin = view->viewport()->mapTo(&calendar, local.topLeft());
-            int count = 0;
+            qint64 strength = 0;
             for (int y = 4; y < local.height() - 4; ++y) {
                 for (int x = 4; x < local.width() - 4; ++x) {
-                    count += image.pixelColor(origin.x() + x, origin.y() + y).value() < 220;
+                    strength += 255 - image.pixelColor(origin.x() + x,
+                        origin.y() + y).value();
                 }
             }
-            return count;
+            return strength;
         };
-        QVERIFY(inkPixels(adjacent) < inkPixels(selected));
-        QVERIFY(inkPixels(disabled) < inkPixels(selected));
+        const qint64 adjacentStrength = inkStrength(adjacent);
+        const qint64 availableStrength = inkStrength(available);
+        const qint64 disabledStrength = inkStrength(disabled);
+        QVERIFY(adjacentStrength < availableStrength);
+        QVERIFY(disabledStrength < availableStrength);
+
+        int highlightedInk = 0;
+        const QRect disabledRect = view->visualRect(disabled);
+        const QPoint disabledOrigin = view->viewport()->mapTo(&calendar,
+            disabledRect.topLeft());
+        for (int y = 4; y < disabledRect.height() - 4; ++y) {
+            for (int x = 4; x < disabledRect.width() - 4; ++x) {
+                const QColor color = image.pixelColor(
+                    disabledOrigin.x() + x, disabledOrigin.y() + y);
+                highlightedInk += color.red() > 180
+                    && color.green() < 120 && color.blue() < 120;
+            }
+        }
+        QCOMPARE(highlightedInk, 0);
+    }
+
+    void todayUnselectedUsesCircularEdge()
+    {
+        const QDate today = QDate::currentDate();
+        ZzFluentUI::ZzCalendar calendar;
+        QPalette palette = calendar.palette();
+        palette.setColor(QPalette::Active, QPalette::Highlight, QColor(0, 180, 0));
+        palette.setColor(QPalette::Inactive, QPalette::Highlight, QColor(0, 180, 0));
+        palette.setColor(QPalette::Active, QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Inactive, QPalette::Base, Qt::white);
+        calendar.setPalette(palette);
+        calendar.setLocale(QLocale::c());
+        calendar.setCurrentPage(today.year(), today.month());
+        const QDate other = today.addDays(today.day() == 1 ? 1 : -1);
+        calendar.setSelectedDate(other);
+        calendar.resize(420, 320);
+        calendar.show();
+        QCoreApplication::processEvents();
+        auto *view = calendar.findChild<QTableView *>();
+        QVERIFY(view != nullptr);
+        if (view == nullptr) {
+            return;
+        }
+        const QModelIndex todayIndex = indexForDate(calendar, view, today);
+        QVERIFY(todayIndex.isValid());
+        const QRect local = view->visualRect(todayIndex);
+        const QRect cell = local;
+        const QPoint origin = view->viewport()->mapTo(&calendar, local.topLeft());
+        QImage image(calendar.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::white);
+        QPainter painter(&image);
+        calendar.render(&painter);
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        auto isHighlight = [&](int x, int y) {
+            const QColor color = image.pixelColor(origin.x() + x, origin.y() + y);
+            return std::abs(color.red() - highlight.red()) < 70
+                && std::abs(color.green() - highlight.green()) < 70
+                && std::abs(color.blue() - highlight.blue()) < 70;
+        };
+        const QPoint center(cell.width() / 2, cell.height() / 2);
+        int edgePixels = 0;
+        int centerPixels = 0;
+        const int radius = std::min(cell.width(), cell.height()) / 2;
+        for (int y = 0; y < cell.height(); ++y) {
+            for (int x = 0; x < cell.width(); ++x) {
+                if (!isHighlight(x, y)) {
+                    continue;
+                }
+                const int distance = std::max(std::abs(x - center.x()),
+                    std::abs(y - center.y()));
+                if (distance >= radius - 2) {
+                    ++edgePixels;
+                } else if (distance <= radius / 2) {
+                    ++centerPixels;
+                }
+            }
+        }
+        QVERIFY(edgePixels > 0);
+        QVERIFY(edgePixels > centerPixels * 2);
     }
 };
 

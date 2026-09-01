@@ -36,3 +36,23 @@ fluent.screenshot-200 Passed
 ## 最终测试补强
 
 新增 hover 局部变化断言，以及固定日期范围下当前月、相邻月和禁用日期文字 ink 像素弱化断言；旧实现 hover 断言失败，修复后通过。由于 Qt offscreen 的视图重绘会改变单元格边界抗锯齿像素，未对边界外全局像素做零差异断言。
+
+## 审查修复轮次 4
+
+红灯：补强后的 hover 外部差分、越界日期定位、今天未选中环形边缘和 RTL visualRect 点击在旧实现/旧测试取样下失败；失败原因分别为 hover 坐标混用、禁用索引实际落在可用日期、缺少环边缘统计和 RTL 日期索引未验证。
+
+实现：hover 命中统一使用内部 viewport 的局部坐标，保留 `QApplication::widgetAt(QCursor::pos())` 祖先检查；未改公开 API、日期模型或信号。
+
+测试：日期索引以 selectionModel 当前日期为锚点，按行列偏移推导，不读取平台私有 `Qt::UserRole`；禁用项先断言落在 `minimumDate` 外，再比较文字强度并确认无 `HighlightedText` 红色像素。今天环统计比较圆周边缘与中心，允许抗锯齿；RTL/LTR 均通过 `visualRect()` 点击同一日期并断言选择结果和非空渲染。
+
+绿灯：
+
+```text
+100% tests passed, 0 tests failed out of 5
+fluent.calendar-controls Passed
+fluent.screenshot-100 Passed
+fluent.screenshot-125 Passed
+fluent.screenshot-150 Passed
+fluent.screenshot-200 Passed
+git diff --check Passed
+```
