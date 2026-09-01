@@ -13,6 +13,6 @@
 - 绿灯：`cmake --build --preset linux-gcc-debug --target ZzRollerControlsTest --parallel 2` 成功。
 - 绿灯：`ctest --preset linux-gcc-debug -R '^fluent\\.roller-controls$' --output-on-failure`：1/1 passed，100%。
 
-提交：待提交
+提交：`a81dee5`
 
 疑虑：透明背景渲染下逐行 alpha 的像素断言仍依赖现有渐隐实现；本任务新增测试覆盖中心带、稳定行高和 hover 单行局部性。
