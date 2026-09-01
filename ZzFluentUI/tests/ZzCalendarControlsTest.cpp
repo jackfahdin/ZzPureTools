@@ -427,6 +427,45 @@ private Q_SLOTS:
         QCOMPARE(picker.date(), original);
     }
 
+    void calendarPopupEnterCommitsBeforeKeyRelease()
+    {
+        QWidget host;
+        ZzFluentUI::ZzCalendarPicker picker(&host);
+        const QDate original(2026, 8, 5);
+        const QDate committed = original.addDays(1);
+        picker.setDate(original);
+        picker.setGeometry(20, 20, 180, 32);
+        host.resize(360, 260);
+        host.show();
+        picker.show();
+        QCoreApplication::processEvents();
+
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        QWidget *popup = calendarPopupFor(&picker);
+        QVERIFY(popup != nullptr && popup->isVisible());
+        auto *calendar = picker.calendarWidget();
+        QVERIFY(calendar != nullptr);
+        auto *view = calendar->findChild<QTableView *>();
+        QVERIFY(view != nullptr);
+        view->setFocus();
+        QVERIFY(view->hasFocus());
+
+        QTest::keyClick(view, Qt::Key_Right);
+        QCoreApplication::processEvents();
+        QCOMPARE(calendar->selectedDate(), committed);
+        QSignalSpy dateChangedSpy(&picker, &QDateEdit::dateChanged);
+
+        QTest::keyPress(view, Qt::Key_Return);
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.date(), committed);
+        QCOMPARE(dateChangedSpy.count(), 1);
+        QVERIFY(!popup->isVisible());
+
+        QTest::keyRelease(view, Qt::Key_Return);
+    }
+
     void calendarPickerOwnsIndependentPopupObjectBudget()
     {
         QWidget host;
