@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QtCore/QDate>
 #include <QtCore/QLocale>
 #include <QtGui/QImage>
@@ -214,6 +216,54 @@ private Q_SLOTS:
         }
         QVERIFY(changedPixels > 0);
         QTest::mouseMove(view->viewport(), QPoint(-10, -10));
+    }
+
+    void weakensOutOfRangeAndAdjacentDateText()
+    {
+        ZzFluentUI::ZzCalendar calendar;
+        QPalette palette = calendar.palette();
+        palette.setColor(QPalette::Active, QPalette::Text, QColor(0, 0, 0));
+        palette.setColor(QPalette::Disabled, QPalette::Text, QColor(0, 0, 0));
+        palette.setColor(QPalette::Active, QPalette::HighlightedText, QColor(255, 0, 0));
+        calendar.setPalette(palette);
+        calendar.setLocale(QLocale::c());
+        calendar.setCurrentPage(2026, 8);
+        calendar.setDateRange(QDate(2026, 8, 1), QDate(2026, 8, 31));
+        calendar.setSelectedDate(QDate(2026, 8, 5));
+        calendar.resize(420, 320);
+        calendar.show();
+        QCoreApplication::processEvents();
+        auto *view = calendar.findChild<QTableView *>();
+        QVERIFY(view != nullptr);
+        if (view == nullptr) {
+            return;
+        }
+        const QModelIndex selected = view->selectionModel()->selectedIndexes().value(0);
+        QVERIFY(selected.isValid());
+        const QModelIndex adjacent = view->model()->index(0, 0);
+        const QModelIndex disabled = view->model()->index(
+            selected.row(), (selected.column() + 1) % view->model()->columnCount());
+        auto render = [&calendar] {
+            QImage image(calendar.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::white);
+            QPainter painter(&image);
+            calendar.render(&painter);
+            return image;
+        };
+        const QImage image = render();
+        auto inkPixels = [&](const QModelIndex &index) {
+            const QRect local = view->visualRect(index);
+            const QPoint origin = view->viewport()->mapTo(&calendar, local.topLeft());
+            int count = 0;
+            for (int y = 4; y < local.height() - 4; ++y) {
+                for (int x = 4; x < local.width() - 4; ++x) {
+                    count += image.pixelColor(origin.x() + x, origin.y() + y).value() < 220;
+                }
+            }
+            return count;
+        };
+        QVERIFY(inkPixels(adjacent) < inkPixels(selected));
+        QVERIFY(inkPixels(disabled) < inkPixels(selected));
     }
 };
 

@@ -32,3 +32,7 @@ fluent.screenshot-200 Passed
 ## 审查修复轮次 2
 
 红灯：`hoveringDateChangesOnlyItsLocalSurface` 在旧 hover 命中逻辑下局部变化为 0。绿灯：改用内部 viewport/widgetAt 的全局坐标映射后通过；目标构建及日历、100/125/150/200% 截图测试 5/5 通过。
+
+## 最终测试补强
+
+新增 hover 局部变化断言，以及固定日期范围下当前月、相邻月和禁用日期文字 ink 像素弱化断言；旧实现 hover 断言失败，修复后通过。由于 Qt offscreen 的视图重绘会改变单元格边界抗锯齿像素，未对边界外全局像素做零差异断言。
