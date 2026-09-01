@@ -40,7 +40,6 @@ bool zzContainsOpaquePixel(const QImage &image)
     return false;
 }
 
-/** @brief 判断图像是否包含区别于给定背板的绘制像素。 */
 /** @brief 判断指定矩形内是否存在区别于背板的绘制像素。 */
 bool zzContainsNonBackgroundPixel(
     const QImage &image,
@@ -414,9 +413,6 @@ private Q_SLOTS:
             option.state |= QStyle::State_HasFocus;
             option.subControls = QStyle::SC_All;
 
-            const QColor dprBackground = option.palette.color(
-                QPalette::Base);
-
             for (const ZzFluentUI::ZzThemeMode mode : {
                      ZzFluentUI::ZzThemeMode::Light,
                      ZzFluentUI::ZzThemeMode::Dark,
@@ -437,6 +433,8 @@ private Q_SLOTS:
             }
 
             for (const qreal dpr : {1.0, 2.0}) {
+                const QColor dprBackground = option.palette.color(
+                    QPalette::Base);
                 QImage image(
                     size * static_cast<int>(dpr),
                     QImage::Format_ARGB32_Premultiplied);
