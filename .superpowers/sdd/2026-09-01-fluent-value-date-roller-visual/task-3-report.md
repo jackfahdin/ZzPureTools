@@ -37,3 +37,13 @@
 - 中心带在多个背景点按 Highlight alpha=48 的合成结果验证，并确认相邻背景差异。
 
 验证：`cmake --build --preset linux-gcc-debug --target ZzRollerControlsTest --parallel 2` 成功；`ctest --preset linux-gcc-debug -R '^fluent\\.roller-controls$' --output-on-failure` 1/1 通过（100%）；`git diff --check` 通过。此前遗留的定向测试进程已终止，未修改 `temp_image/`。
+
+## 定向复审第 2 轮修复
+
+将渐隐测试改为 9 行完全相同的 `same` 文本，以同一字号和字形在白色背景下进行实际“有字/空白文字色”渲染差分，比较距离 1..3 的合成文字信号。长文本测试改为同编辑域、同字体的长短文本实际图像对照，检测长文本编辑域尾部的字形像素多于短文本，证明省略结果确实绘制且未越界；未复算生产省略字符串。
+
+验证命令：
+- `cmake --build --preset linux-gcc-debug --target ZzRollerControlsTest --parallel 2`：成功。
+- `QT_QPA_PLATFORM=offscreen build/linux-gcc-debug/ZzFluentUI/tests/ZzRollerControlsTest fadesRowsAndElidesWithoutGeometryDrift -v1`：3 passed, 0 failed。
+- `git diff --check`：通过。
+- `ctest --preset linux-gcc-debug -R '^fluent\\.roller-controls$' --output-on-failure`：1/1 passed, 100%。

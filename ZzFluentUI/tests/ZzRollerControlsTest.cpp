@@ -516,11 +516,11 @@ private Q_SLOTS:
         palette.setColor(QPalette::Highlight, QColor(40, 120, 200));
         palette.setColor(QPalette::HighlightedText, Qt::white);
         roller.setPalette(palette);
-        roller.setItems({QStringLiteral("row 0"), QStringLiteral("row 1"),
-                         QStringLiteral("row 2"), QStringLiteral("row 3"),
-                         QStringLiteral("row 4"), QStringLiteral("row 5"),
-                         QStringLiteral("row 6"), QStringLiteral("row 7"),
-                         QStringLiteral("row 8"), QStringLiteral("row 9")});
+        roller.setItems({QStringLiteral("same"), QStringLiteral("same"),
+                         QStringLiteral("same"), QStringLiteral("same"),
+                         QStringLiteral("same"), QStringLiteral("same"),
+                         QStringLiteral("same"), QStringLiteral("same"),
+                         QStringLiteral("same")});
         roller.setCurrentIndex(5);
         roller.setVisibleItemCount(9);
         roller.setItemHeight(28);
@@ -566,8 +566,11 @@ private Q_SLOTS:
                     > rowTextSignal(4 - distance - 1));
         }
 
+        roller.setPalette(palette);
         const QString longText = QStringLiteral(
             "A very long roller label that must be elided");
+        palette.setColor(QPalette::HighlightedText, Qt::black);
+        roller.setPalette(palette);
         roller.setItems({longText});
         roller.setFixedWidth(96);
         roller.resize(96, roller.sizeHint().height());
@@ -582,14 +585,26 @@ private Q_SLOTS:
             &narrowOption,
             QStyle::SC_SpinBoxEditField,
             &roller);
-        const QString elided = roller.fontMetrics().elidedText(
-            longText,
-            Qt::ElideRight,
-            std::max(0, narrowEditRect.width() - 8));
-        QVERIFY(elided != longText);
-        QVERIFY(elided.endsWith(QChar(0x2026)));
         const QImage ltr = zzRenderRoller(&roller);
-        QVERIFY(zzContainsRollerPixel(ltr.copy(narrowEditRect)));
+        roller.setItems({QStringLiteral("A")});
+        const QImage shortText = zzRenderRoller(&roller);
+        roller.setItems({longText});
+        int longTailPixels = 0;
+        int shortTailPixels = 0;
+        const int tailStart = narrowEditRect.left()
+            + (3 * narrowEditRect.width()) / 4;
+        const int centerTop = narrowEditRect.top()
+            + narrowEditRect.height() / 2 - roller.itemHeight() / 2;
+        for (int y = centerTop + 4;
+             y < centerTop + roller.itemHeight() - 4;
+             ++y) {
+            for (int x = tailStart; x < narrowEditRect.right(); ++x) {
+                longTailPixels += ltr.pixelColor(x, y).lightness() < 100;
+                shortTailPixels += shortText.pixelColor(x, y).lightness() < 100;
+            }
+        }
+        QVERIFY(longTailPixels > shortTailPixels);
+        QVERIFY(longTailPixels > 0);
         roller.setLayoutDirection(Qt::RightToLeft);
         QCOMPARE(roller.size(), fixedSize);
         QStyleOptionSpinBox rtlOption;
