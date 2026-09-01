@@ -61,6 +61,14 @@ void ZzCalendarPrivate::paintCell(
         inset,
         -inset,
         -inset);
+    const qreal diameter = std::max(
+        0.0,
+        std::min(cellRect.width(), cellRect.height()));
+    const QRectF stateRect(
+        cellRect.center().x() - diameter / 2.0,
+        cellRect.center().y() - diameter / 2.0,
+        diameter,
+        diameter);
 
     painter->save();
     painter->setRenderHints(
@@ -73,13 +81,13 @@ void ZzCalendarPrivate::paintCell(
         painter->setBrush(q_ptr->palette().color(
             activeGroup,
             QPalette::Highlight));
-        painter->drawRoundedRect(cellRect, radius, radius);
+        painter->drawEllipse(stateRect);
     } else if (today && enabled) {
         painter->setBrush(Qt::NoBrush);
         painter->setPen(QPen(
             q_ptr->palette().color(activeGroup, QPalette::Highlight),
             strokeWidth));
-        painter->drawRoundedRect(cellRect, radius, radius);
+        painter->drawEllipse(stateRect);
     }
 
     const QWidget *focusWidget = QApplication::focusWidget();
@@ -95,14 +103,11 @@ void ZzCalendarPrivate::paintCell(
         painter->setPen(QPen(
             q_ptr->palette().color(activeGroup, QPalette::HighlightedText),
             strokeWidth));
-        painter->drawRoundedRect(
-            cellRect.adjusted(
-                strokeWidth,
-                strokeWidth,
-                -strokeWidth,
-                -strokeWidth),
-            radius,
-            radius);
+        painter->drawEllipse(stateRect.adjusted(
+            strokeWidth,
+            strokeWidth,
+            -strokeWidth,
+            -strokeWidth));
     }
 
     const QPalette::ColorRole textRole = selected
