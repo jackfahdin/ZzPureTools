@@ -21,6 +21,7 @@ ZzCalendar::ZzCalendar(QWidget *parent)
         &QCalendarWidget::currentPageChanged,
         this,
         [this] {
+            d_ptr->clearHover();
             updateCells();
         });
 }
@@ -53,6 +54,7 @@ void ZzCalendar::changeEvent(QEvent *event)
     case QEvent::LayoutDirectionChange:
     case QEvent::LocaleChange:
     case QEvent::PaletteChange:
+        d_ptr->clearHover();
         updateCells();
         break;
     default:

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 
 #include <QtCore/QDate>
 #include <QtCore/QLocale>
@@ -7,6 +8,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QTableView>
 
 #include <ZzFluentUI/ZzCalendar.h>
@@ -18,29 +20,47 @@ QDate dateForIndex(const ZzFluentUI::ZzCalendar &calendar,
     const QTableView *view,
     const QModelIndex &index)
 {
+    Q_ASSERT(view != nullptr);
+    Q_ASSERT(index.isValid());
     const QModelIndex selected = view->selectionModel()
         ->selectedIndexes().value(0);
-    if (!selected.isValid()) {
+    if (view == nullptr || !index.isValid() || !selected.isValid()) {
         return {};
     }
-    return calendar.selectedDate().addDays(
+    Q_ASSERT(view->model() != nullptr);
+    Q_ASSERT(view->model()->columnCount() == 7);
+    Q_ASSERT(index.row() >= 0 && index.row() < view->model()->rowCount());
+    Q_ASSERT(index.column() >= 0 && index.column() < 7);
+    Q_ASSERT(view->visualRect(index).isValid());
+    const QDate derived = calendar.selectedDate().addDays(
         (index.row() - selected.row()) * 7 + index.column() - selected.column());
+    Q_ASSERT(derived.isValid());
+    return derived;
 }
 
 QModelIndex indexForDate(const ZzFluentUI::ZzCalendar &calendar,
     const QTableView *view,
     const QDate &date)
 {
+    Q_ASSERT(view != nullptr);
+    Q_ASSERT(date.isValid());
     const QAbstractItemModel *model = view->model();
+    if (view == nullptr || model == nullptr || !date.isValid()) {
+        return {};
+    }
+    Q_ASSERT(model->columnCount() == 7);
+    QModelIndex match;
     for (int row = 0; row < model->rowCount(); ++row) {
         for (int column = 0; column < model->columnCount(); ++column) {
             const QModelIndex index = model->index(row, column);
             if (dateForIndex(calendar, view, index) == date) {
-                return index;
+                Q_ASSERT(view->visualRect(index).isValid());
+                Q_ASSERT(!match.isValid());
+                match = index;
             }
         }
     }
-    return {};
+    return match;
 }
 
 }
@@ -353,11 +373,32 @@ private Q_SLOTS:
         }
         const QModelIndex selected = view->selectionModel()->selectedIndexes().value(0);
         QVERIFY(selected.isValid());
-        const QModelIndex adjacent = indexForDate(calendar, view, QDate(2026, 7, 12));
+        QModelIndex adjacent;
+        QDate adjacentDate;
+        for (int row = 0; row < view->model()->rowCount() && !adjacent.isValid(); ++row) {
+            for (int column = 0; column < view->model()->columnCount(); ++column) {
+                const QModelIndex candidate = view->model()->index(row, column);
+                const QDate candidateDate = dateForIndex(calendar, view, candidate);
+                if (candidateDate.isValid()
+                    && view->visualRect(candidate).top() > 40
+                    && (candidateDate.year() != calendar.yearShown()
+                        || candidateDate.month() != calendar.monthShown())) {
+                    adjacent = candidate;
+                    adjacentDate = candidateDate;
+                    break;
+                }
+            }
+        }
         const QModelIndex available = indexForDate(calendar, view, QDate(2026, 8, 12));
         const QModelIndex disabled = indexForDate(calendar, view, QDate(2026, 8, 1));
+        QVERIFY(adjacent.isValid());
+        QVERIFY(adjacentDate.isValid());
+        QVERIFY(adjacentDate.year() != calendar.yearShown()
+            || adjacentDate.month() != calendar.monthShown());
         QVERIFY(available.isValid());
         QVERIFY(disabled.isValid());
+        QCOMPARE(dateForIndex(calendar, view, adjacent), adjacentDate);
+        QCOMPARE(dateForIndex(calendar, view, available), QDate(2026, 8, 12));
         const QDate disabledDate = dateForIndex(calendar, view, disabled);
         QVERIFY(disabledDate < calendar.minimumDate()
             || disabledDate > calendar.maximumDate());
@@ -441,25 +482,89 @@ private Q_SLOTS:
                 && std::abs(color.blue() - highlight.blue()) < 70;
         };
         const QPoint center(cell.width() / 2, cell.height() / 2);
-        int edgePixels = 0;
-        int centerPixels = 0;
-        const int radius = std::min(cell.width(), cell.height()) / 2;
+        const int radius = std::min(cell.width(), cell.height()) / 2 - 2;
+        QVERIFY(radius > 4);
+        int circumferenceHits = 0;
+        int interiorHits = 0;
         for (int y = 0; y < cell.height(); ++y) {
             for (int x = 0; x < cell.width(); ++x) {
                 if (!isHighlight(x, y)) {
                     continue;
                 }
-                const int distance = std::max(std::abs(x - center.x()),
-                    std::abs(y - center.y()));
-                if (distance >= radius - 2) {
-                    ++edgePixels;
+                const qreal distance = std::hypot(
+                    static_cast<qreal>(x - center.x()),
+                    static_cast<qreal>(y - center.y()));
+                if (distance >= radius - 4 && distance <= radius + 2) {
+                    ++circumferenceHits;
                 } else if (distance <= radius / 2) {
-                    ++centerPixels;
+                    ++interiorHits;
                 }
             }
         }
-        QVERIFY(edgePixels > 0);
-        QVERIFY(edgePixels > centerPixels * 2);
+        const int cornerHits = isHighlight(center.x() + radius, center.y() + radius)
+            + isHighlight(center.x() - radius, center.y() + radius)
+            + isHighlight(center.x() + radius, center.y() - radius)
+            + isHighlight(center.x() - radius, center.y() - radius);
+        QVERIFY(circumferenceHits >= 12);
+        QVERIFY(circumferenceHits > interiorHits * 2);
+        QCOMPARE(cornerHits, 0);
+    }
+
+    void selectedDateUsesCircularFill()
+    {
+        ZzFluentUI::ZzCalendar calendar;
+        QPalette palette = calendar.palette();
+        palette.setColor(QPalette::Active, QPalette::Highlight, QColor(0, 180, 0));
+        palette.setColor(QPalette::Inactive, QPalette::Highlight, QColor(0, 180, 0));
+        palette.setColor(QPalette::Active, QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Inactive, QPalette::Base, Qt::white);
+        calendar.setPalette(palette);
+        calendar.setLocale(QLocale::c());
+        calendar.setCurrentPage(2026, 8);
+        calendar.setSelectedDate(QDate(2026, 8, 5));
+        calendar.resize(420, 320);
+        calendar.show();
+        QCoreApplication::processEvents();
+        auto *view = calendar.findChild<QTableView *>();
+        QVERIFY(view != nullptr);
+        if (view == nullptr) {
+            return;
+        }
+        const QModelIndex selected = indexForDate(calendar, view, calendar.selectedDate());
+        QVERIFY(selected.isValid());
+        const QRect cell = view->visualRect(selected);
+        QVERIFY(!cell.isEmpty());
+        view->setSelectionMode(QAbstractItemView::NoSelection);
+        view->setStyleSheet(QStringLiteral("QTableView::item:selected { background: transparent; }"));
+        const QPoint origin = view->viewport()->mapTo(&calendar, cell.topLeft());
+        QImage image(calendar.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::white);
+        QPainter painter(&image);
+        calendar.render(&painter);
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        auto isHighlight = [&](int x, int y) {
+            const QColor color = image.pixelColor(origin.x() + x, origin.y() + y);
+            return std::abs(color.red() - highlight.red()) < 80
+                && std::abs(color.green() - highlight.green()) < 80
+                && std::abs(color.blue() - highlight.blue()) < 80;
+        };
+        const QPoint center(cell.width() / 2, cell.height() / 2);
+        const int radius = std::min(cell.width(), cell.height()) / 2 - 4;
+        QVERIFY(radius > 4);
+        const int centerHits = isHighlight(center.x(), center.y() - radius / 2)
+            + isHighlight(center.x(), center.y() + radius / 2)
+            + isHighlight(center.x() - radius / 2, center.y());
+        const int edgeHits = isHighlight(center.x() + radius - 1, center.y())
+            + isHighlight(center.x() - radius + 1, center.y())
+            + isHighlight(center.x(), center.y() + radius - 1)
+            + isHighlight(center.x(), center.y() - radius + 1);
+        const int cornerHits = isHighlight(center.x() + radius, center.y() + radius)
+            + isHighlight(center.x() - radius, center.y() + radius)
+            + isHighlight(center.x() + radius, center.y() - radius)
+            + isHighlight(center.x() - radius, center.y() - radius);
+        QVERIFY(centerHits >= 2);
+        QVERIFY(edgeHits >= 3);
+        QCOMPARE(cornerHits, 0);
     }
 };
 

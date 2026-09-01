@@ -56,3 +56,13 @@ fluent.screenshot-150 Passed
 fluent.screenshot-200 Passed
 git diff --check Passed
 ```
+
+## 审查修复轮次 5（最终）
+
+修复 `weakensOutOfRangeAndAdjacentDateText` 的相邻月份空索引：先断言索引有效，再断言由模型索引推导的日期有效且确实属于显示月份之外；`dateForIndex/indexForDate` 增加 7 列、索引可见、日期有效及唯一匹配断言。
+
+将 hover 命中从 `paintCell()` 的全局光标/窗口查询改为 `ZzCalendarPrivate` 私有事件过滤器。内部 `QTableView` viewport 开启 mouse tracking，过滤器缓存当前单元格矩形并仅请求旧/新矩形局部更新；Leave、Hide、EnabledChange、页面/主题切换清除缓存。未新增公开 API、定时器或全局状态，焦点判断改用控件自身 `focusWidget()`。
+
+新增选中实心圆与今天未选中圆环的定向像素几何断言：分别验证圆内命中、圆周命中、内部空心及四角无命中，容忍抗锯齿颜色误差。选中测试临时关闭视图自身选区背景，以隔离 `paintCell()` 绘制。
+
+验证：`cmake --build --preset linux-gcc-debug --target ZzCalendarControlsTest ZzFluentScreenshotTest --parallel 2`；`ctest --preset linux-gcc-debug -R 'fluent\\.(calendar-controls|screenshot)' --output-on-failure`（5/5 通过，含 screenshot-100/125/150/200）；`git diff --check` 通过。截图矩阵覆盖前轮 Light/Dark/HighContrast 与 DPR 档位。

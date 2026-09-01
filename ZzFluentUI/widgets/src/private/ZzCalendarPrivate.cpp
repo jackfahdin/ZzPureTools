@@ -3,10 +3,10 @@
 #include <algorithm>
 
 #include <QtGui/QPainter>
+#include <QtGui/QMouseEvent>
 #include <QtGui/QPalette>
 #include <QtGui/QPen>
-#include <QtGui/QCursor>
-#include <QtWidgets/QApplication>
+#include <QtWidgets/QTableView>
 #include <QtWidgets/QStyle>
 
 #include <ZzFluentUI/ZzCalendar.h>
@@ -15,12 +15,72 @@
 namespace ZzFluentUI {
 
 ZzCalendarPrivate::ZzCalendarPrivate(ZzCalendar *q)
-    : q_ptr(q)
+    : QObject(q)
+    , q_ptr(q)
 {
     Q_ASSERT(q_ptr != nullptr);
     for (std::size_t index = 0; index < dayTexts.size(); ++index) {
         dayTexts[index] = QString::number(static_cast<int>(index) + 1);
     }
+
+    if (auto *view = q_ptr->findChild<QTableView *>()) {
+        view->setMouseTracking(true);
+        view->viewport()->setMouseTracking(true);
+        view->viewport()->installEventFilter(this);
+        hoverViewport = view->viewport();
+    }
+}
+
+void ZzCalendarPrivate::clearHover()
+{
+    updateHover({});
+}
+
+void ZzCalendarPrivate::updateHover(const QRect &cell)
+{
+    if (cell == hoveredCellRect) {
+        return;
+    }
+    const QRect dirty = hoveredCellRect.united(cell);
+    hoveredCellRect = cell;
+    if (hoverViewport != nullptr && !dirty.isEmpty()) {
+        hoverViewport->update(dirty.adjusted(-1, -1, 1, 1));
+    }
+}
+
+bool ZzCalendarPrivate::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched != hoverViewport || event == nullptr) {
+        return QObject::eventFilter(watched, event);
+    }
+
+    auto *viewport = qobject_cast<QWidget *>(watched);
+    if (viewport == nullptr) {
+        return QObject::eventFilter(watched, event);
+    }
+
+    switch (event->type()) {
+    case QEvent::MouseMove: {
+        const auto *mouseEvent = static_cast<const QMouseEvent *>(event);
+        auto *view = qobject_cast<QTableView *>(viewport->parentWidget());
+        if (view == nullptr) {
+            clearHover();
+            break;
+        }
+        const QModelIndex index = view->indexAt(mouseEvent->position().toPoint());
+        updateHover(index.isValid() ? view->visualRect(index) : QRect());
+        break;
+    }
+    case QEvent::Leave:
+    case QEvent::Hide:
+    case QEvent::EnabledChange:
+        clearHover();
+        break;
+    default:
+        break;
+    }
+
+    return QObject::eventFilter(watched, event);
 }
 
 void ZzCalendarPrivate::paintCell(
@@ -70,13 +130,8 @@ void ZzCalendarPrivate::paintCell(
         cellRect.center().y() - diameter / 2.0,
         diameter,
         diameter);
-    const QWidget *hoverWidget = QApplication::widgetAt(QCursor::pos());
-    const QPoint hoverPosition = hoverWidget != nullptr
-        ? hoverWidget->mapFromGlobal(QCursor::pos())
-        : QPoint();
-    const bool hovered = hoverWidget != nullptr
-        && (hoverWidget == q_ptr || q_ptr->isAncestorOf(hoverWidget))
-        && rect.contains(hoverPosition);
+    const bool hovered = !hoveredCellRect.isEmpty()
+        && hoveredCellRect == rect;
 
     painter->save();
     painter->setRenderHints(
@@ -106,9 +161,8 @@ void ZzCalendarPrivate::paintCell(
         painter->drawEllipse(stateRect);
     }
 
-    const QWidget *focusWidget = QApplication::focusWidget();
     const bool hasFocusWithin = q_ptr->hasFocus()
-        || (focusWidget != nullptr && q_ptr->isAncestorOf(focusWidget));
+        || q_ptr->focusWidget() != nullptr;
     const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(
         q_ptr->style());
     const bool showFocusVisual = fluentStyle != nullptr
