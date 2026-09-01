@@ -549,7 +549,9 @@ private Q_SLOTS:
                 && std::abs(color.blue() - highlight.blue()) < 80;
         };
         const QPoint center(cell.width() / 2, cell.height() / 2);
-        const int radius = std::min(cell.width(), cell.height()) / 2 - 4;
+        const int radius = std::min(
+            std::min(cell.width(), cell.height()) / 2 - 4,
+            16) - 3;
         QVERIFY(radius > 4);
         const int centerHits = isHighlight(center.x(), center.y() - radius / 2)
             + isHighlight(center.x(), center.y() + radius / 2)

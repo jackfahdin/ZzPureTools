@@ -6,6 +6,7 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPalette>
 #include <QtGui/QPen>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QStyle>
 
@@ -124,7 +125,7 @@ void ZzCalendarPrivate::paintCell(
         -inset);
     const qreal diameter = std::max(
         0.0,
-        std::min(cellRect.width(), cellRect.height()));
+        std::min({cellRect.width(), cellRect.height(), 32.0}));
     const QRectF stateRect(
         cellRect.center().x() - diameter / 2.0,
         cellRect.center().y() - diameter / 2.0,
@@ -161,8 +162,9 @@ void ZzCalendarPrivate::paintCell(
         painter->drawEllipse(stateRect);
     }
 
+    const QWidget *focusWidget = QApplication::focusWidget();
     const bool hasFocusWithin = q_ptr->hasFocus()
-        || q_ptr->focusWidget() != nullptr;
+        || (focusWidget != nullptr && q_ptr->isAncestorOf(focusWidget));
     const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(
         q_ptr->style());
     const bool showFocusVisual = fluentStyle != nullptr
