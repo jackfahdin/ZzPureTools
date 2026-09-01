@@ -6,6 +6,8 @@
 
 #include <QtGui/QFontMetrics>
 #include <QtWidgets/QSizePolicy>
+#include <QtWidgets/QStyle>
+#include <QtWidgets/QStyleOptionSpinBox>
 
 #include <ZzFluentUI/ZzRoller.h>
 
@@ -90,11 +92,28 @@ void ZzRollerPrivate::notifyCurrentTextIfNeeded()
 
 int ZzRollerPrivate::rowOffsetAt(int y) const noexcept
 {
-    if (y < 0 || y >= q_ptr->height() || itemHeight <= 0) {
+    if (itemHeight <= 0) {
+        return std::numeric_limits<int>::max();
+    }
+
+    QStyleOptionSpinBox option;
+    option.initFrom(q_ptr);
+    option.buttonSymbols = QAbstractSpinBox::NoButtons;
+    option.subControls = QStyle::SC_SpinBoxFrame
+        | QStyle::SC_SpinBoxEditField;
+    const QRect editRect = q_ptr->style()->subControlRect(
+        QStyle::CC_SpinBox,
+        &option,
+        QStyle::SC_SpinBoxEditField,
+        q_ptr);
+    const int relativeY = y - editRect.top();
+    const int contentHeight = itemHeight * visibleItemCount;
+    if (relativeY < 0 || relativeY >= contentHeight
+        || !editRect.contains(QPoint(editRect.left(), y))) {
         return std::numeric_limits<int>::max();
     }
     const int row = std::clamp(
-        y / itemHeight,
+        relativeY / itemHeight,
         0,
         visibleItemCount - 1);
     return row - (visibleItemCount / 2);

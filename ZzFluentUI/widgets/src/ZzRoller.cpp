@@ -271,7 +271,7 @@ QSize ZzRoller::sizeHint() const
     const int width = std::max(
         ZzMinimumRollerWidth,
         d_ptr->longestTextWidth + (2 * ZzTextHorizontalMargin));
-    return {width, d_ptr->itemHeight * d_ptr->visibleItemCount};
+    return {width, d_ptr->itemHeight * d_ptr->visibleItemCount + 4};
 }
 
 QSize ZzRoller::minimumSizeHint() const
@@ -323,7 +323,7 @@ void ZzRoller::paintEvent(QPaintEvent *event)
         ? QPalette::Normal
         : QPalette::Disabled;
     painter.save();
-    painter.setClipRect(rect().adjusted(1, 1, -1, -1));
+    painter.setClipRect(editRect);
 
     for (int offset = -half; offset <= half; ++offset) {
         const std::int64_t candidate =
