@@ -586,25 +586,59 @@ private Q_SLOTS:
             QStyle::SC_SpinBoxEditField,
             &roller);
         const QImage ltr = zzRenderRoller(&roller);
-        roller.setItems({QStringLiteral("A")});
-        const QImage shortText = zzRenderRoller(&roller);
-        roller.setItems({longText});
-        int longTailPixels = 0;
-        int shortTailPixels = 0;
-        const int tailStart = narrowEditRect.left()
-            + (3 * narrowEditRect.width()) / 4;
-        const int centerTop = narrowEditRect.top()
-            + narrowEditRect.height() / 2 - roller.itemHeight() / 2;
-        for (int y = centerTop + 4;
-             y < centerTop + roller.itemHeight() - 4;
-             ++y) {
-            for (int x = tailStart; x < narrowEditRect.right(); ++x) {
-                longTailPixels += ltr.pixelColor(x, y).lightness() < 100;
-                shortTailPixels += shortText.pixelColor(x, y).lightness() < 100;
+        const QRect centerRow(
+            narrowEditRect.left(),
+            narrowEditRect.top() + 4 * roller.itemHeight(),
+            narrowEditRect.width(),
+            roller.itemHeight());
+        const QString ellipsis(1, QChar(0x2026));
+        const int glyphWidth = roller.fontMetrics().horizontalAdvance(ellipsis);
+        const QRect glyphRect(
+            centerRow.right() - 4 - glyphWidth,
+            centerRow.top(),
+            glyphWidth,
+            centerRow.height());
+        QImage ellipsisControl(
+            roller.size(), QImage::Format_ARGB32_Premultiplied);
+        ellipsisControl.fill(Qt::white);
+        QPainter controlPainter(&ellipsisControl);
+        controlPainter.setFont(roller.font());
+        controlPainter.setPen(Qt::black);
+        controlPainter.drawText(glyphRect, Qt::AlignCenter, ellipsis);
+        controlPainter.end();
+        int controlPixels = 0;
+        int matchingPixels = 0;
+        for (int y = glyphRect.top(); y <= glyphRect.bottom(); ++y) {
+            for (int x = glyphRect.left(); x <= glyphRect.right(); ++x) {
+                const bool control =
+                    ellipsisControl.pixelColor(x, y).lightness() < 100;
+                bool actual = false;
+                for (int nearbyX = std::max(glyphRect.left(), x - 1);
+                     nearbyX <= std::min(glyphRect.right(), x + 1);
+                     ++nearbyX) {
+                    actual = actual
+                        || ltr.pixelColor(nearbyX, y).lightness() < 100;
+                }
+                controlPixels += control;
+                matchingPixels += control && actual;
             }
         }
-        QVERIFY(longTailPixels > shortTailPixels);
-        QVERIFY(longTailPixels > 0);
+        QVERIFY(controlPixels > 0);
+        QVERIFY(matchingPixels * 2 >= controlPixels);
+
+        QPalette blankPalette = palette;
+        blankPalette.setColor(QPalette::Text, Qt::white);
+        blankPalette.setColor(QPalette::HighlightedText, Qt::white);
+        roller.setPalette(blankPalette);
+        const QImage blank = zzRenderRoller(&roller);
+        roller.setPalette(palette);
+        for (int y = 0; y < ltr.height(); ++y) {
+            for (int x = 0; x < ltr.width(); ++x) {
+                if (!narrowEditRect.contains(QPoint(x, y))) {
+                    QCOMPARE(ltr.pixelColor(x, y), blank.pixelColor(x, y));
+                }
+            }
+        }
         roller.setLayoutDirection(Qt::RightToLeft);
         QCOMPARE(roller.size(), fixedSize);
         QStyleOptionSpinBox rtlOption;

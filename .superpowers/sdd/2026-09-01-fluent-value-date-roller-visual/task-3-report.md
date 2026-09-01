@@ -47,3 +47,9 @@
 - `QT_QPA_PLATFORM=offscreen build/linux-gcc-debug/ZzFluentUI/tests/ZzRollerControlsTest fadesRowsAndElidesWithoutGeometryDrift -v1`：3 passed, 0 failed。
 - `git diff --check`：通过。
 - `ctest --preset linux-gcc-debug -R '^fluent\\.roller-controls$' --output-on-failure`：1/1 passed, 100%。
+
+## 定向复审第 3 轮修复
+
+长文本证据进一步改为实际图像验证：在相同 `rowRect`、字体和颜色下用 QPainter 绘制独立 U+2026 glyph 控制图，并对长文本渲染尾部做抗锯齿容差相似性检查；同时以文字色等于背景的实际对照图逐像素检查编辑域外无文字差分。固定尺寸及 RTL 编辑域几何断言保留。
+
+验证命令及结果：`cmake --build --preset linux-gcc-debug --target ZzRollerControlsTest --parallel 2` 成功；单用例 `fadesRowsAndElidesWithoutGeometryDrift -v1` 为 3 passed、0 failed；`git diff --check` 通过；目标 CTest `fluent.roller-controls` 为 1/1 passed、100%。
