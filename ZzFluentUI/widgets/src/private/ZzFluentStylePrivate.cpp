@@ -1249,7 +1249,8 @@ void ZzFluentStylePrivate::drawSpinBox(
         QAbstractSpinBox::StepDownEnabled,
         false);
 
-    if (option->state.testFlag(QStyle::State_HasFocus)) {
+    if (option->state.testFlag(QStyle::State_HasFocus)
+        && option->subControls.testFlag(QStyle::SC_SpinBoxEditField)) {
         const QRect edit = spinBoxSubControlRect(
             option,
             QStyle::SC_SpinBoxEditField);

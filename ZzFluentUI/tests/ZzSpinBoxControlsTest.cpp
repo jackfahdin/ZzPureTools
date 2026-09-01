@@ -41,12 +41,15 @@ bool zzContainsOpaquePixel(const QImage &image)
 }
 
 /** @brief 判断图像是否包含区别于给定背板的绘制像素。 */
+/** @brief 判断指定矩形内是否存在区别于背板的绘制像素。 */
 bool zzContainsNonBackgroundPixel(
     const QImage &image,
-    const QColor &background)
+    const QColor &background,
+    const QRect &region)
 {
-    for (int y = 0; y < image.height(); ++y) {
-        for (int x = 0; x < image.width(); ++x) {
+    const QRect clipped = region.intersected(image.rect());
+    for (int y = clipped.top(); y <= clipped.bottom(); ++y) {
+        for (int x = clipped.left(); x <= clipped.right(); ++x) {
             if (image.pixelColor(x, y) != background) {
                 return true;
             }
@@ -329,21 +332,44 @@ private Q_SLOTS:
             QVERIFY(!edit.intersects(down));
             QVERIFY(up.width() <= 28);
             QVERIFY(down.width() <= 28);
-            QCOMPARE(style.hitTestComplexControl(
-                         QStyle::CC_SpinBox, &option, up.center()),
-                     QStyle::SC_SpinBoxUp);
-            QCOMPARE(style.hitTestComplexControl(
-                         QStyle::CC_SpinBox, &option, down.center()),
-                     QStyle::SC_SpinBoxDown);
+            const auto verifyHitBoundary = [&style, &option](
+                                               const QRect &rect,
+                                               QStyle::SubControl expected) {
+                const QList<QPoint> points{
+                    rect.topLeft(),
+                    rect.topRight(),
+                    rect.bottomLeft(),
+                    rect.bottomRight(),
+                    QPoint(rect.center().x(), rect.top()),
+                    QPoint(rect.center().x(), rect.bottom()),
+                    QPoint(rect.left(), rect.center().y()),
+                    QPoint(rect.right(), rect.center().y())};
+                for (const QPoint &point : points) {
+                    if (rect.contains(point)) {
+                        QCOMPARE(style.hitTestComplexControl(
+                                     QStyle::CC_SpinBox,
+                                     &option,
+                                     point),
+                                 expected);
+                    }
+                }
+            };
+            verifyHitBoundary(up, QStyle::SC_SpinBoxUp);
+            verifyHitBoundary(down, QStyle::SC_SpinBoxDown);
 
             option.direction = Qt::RightToLeft;
             const QRect rtlUp = style.subControlRect(
                 QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxUp);
+            const QRect rtlDown = style.subControlRect(
+                QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxDown);
             QVERIFY(rtlUp.center().x() < option.rect.center().x());
+            verifyHitBoundary(rtlUp, QStyle::SC_SpinBoxUp);
+            verifyHitBoundary(rtlDown, QStyle::SC_SpinBoxDown);
 
             const QSize unfocusedHint = spinBox->sizeHint();
             QImage unfocused(size, QImage::Format_ARGB32_Premultiplied);
-            unfocused.fill(option.palette.color(QPalette::Window));
+            const QColor background = option.palette.color(QPalette::Base);
+            unfocused.fill(background);
             QPainter unfocusedPainter(&unfocused);
             option.direction = Qt::LeftToRight;
             option.state &= ~QStyle::State_HasFocus;
@@ -352,7 +378,7 @@ private Q_SLOTS:
             unfocusedPainter.end();
 
             QImage focused(size, QImage::Format_ARGB32_Premultiplied);
-            focused.fill(option.palette.color(QPalette::Window));
+            focused.fill(background);
             QPainter focusedPainter(&focused);
             option.state |= QStyle::State_HasFocus;
             style.drawComplexControl(
@@ -361,6 +387,36 @@ private Q_SLOTS:
             QVERIFY(unfocused != focused);
             QCOMPARE(spinBox->sizeHint(), unfocusedHint);
 
+            option.subControls = QStyle::SC_SpinBoxUp
+                | QStyle::SC_SpinBoxDown;
+            QImage buttonsOnlyFocused(
+                size, QImage::Format_ARGB32_Premultiplied);
+            buttonsOnlyFocused.fill(background);
+            QPainter buttonsOnlyFocusedPainter(&buttonsOnlyFocused);
+            style.drawComplexControl(
+                QStyle::CC_SpinBox,
+                &option,
+                &buttonsOnlyFocusedPainter,
+                spinBox);
+            buttonsOnlyFocusedPainter.end();
+            option.state &= ~QStyle::State_HasFocus;
+            QImage buttonsOnlyUnfocused(
+                size, QImage::Format_ARGB32_Premultiplied);
+            buttonsOnlyUnfocused.fill(background);
+            QPainter buttonsOnlyUnfocusedPainter(&buttonsOnlyUnfocused);
+            style.drawComplexControl(
+                QStyle::CC_SpinBox,
+                &option,
+                &buttonsOnlyUnfocusedPainter,
+                spinBox);
+            buttonsOnlyUnfocusedPainter.end();
+            QVERIFY(buttonsOnlyFocused == buttonsOnlyUnfocused);
+            option.state |= QStyle::State_HasFocus;
+            option.subControls = QStyle::SC_All;
+
+            const QColor dprBackground = option.palette.color(
+                QPalette::Base);
+
             for (const ZzFluentUI::ZzThemeMode mode : {
                      ZzFluentUI::ZzThemeMode::Light,
                      ZzFluentUI::ZzThemeMode::Dark,
@@ -368,13 +424,33 @@ private Q_SLOTS:
                 controller.setMode(mode);
                 option.palette = style.standardPalette();
                 QImage image(size, QImage::Format_ARGB32_Premultiplied);
-                const QColor background = option.palette.color(
-                    QPalette::Window);
-                image.fill(background);
+                const QColor themeBackground = option.palette.color(
+                    QPalette::Base);
+                image.fill(themeBackground);
                 QPainter painter(&image);
                 style.drawComplexControl(
                     QStyle::CC_SpinBox, &option, &painter, spinBox);
-                QVERIFY(zzContainsNonBackgroundPixel(image, background));
+                QVERIFY(zzContainsNonBackgroundPixel(
+                    image,
+                    themeBackground,
+                    option.rect));
+            }
+
+            for (const qreal dpr : {1.0, 2.0}) {
+                QImage image(
+                    size * static_cast<int>(dpr),
+                    QImage::Format_ARGB32_Premultiplied);
+                image.setDevicePixelRatio(dpr);
+                image.fill(dprBackground);
+                QPainter painter(&image);
+                style.drawComplexControl(
+                    QStyle::CC_SpinBox, &option, &painter, spinBox);
+                painter.end();
+                QVERIFY(zzContainsNonBackgroundPixel(
+                    image,
+                    dprBackground,
+                    image.rect()));
+                QCOMPARE(spinBox->sizeHint(), unfocusedHint);
             }
         }
     }
