@@ -7,6 +7,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QUuid>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QFontMetrics>
 #include <QtGui/QHideEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
@@ -72,11 +73,31 @@ protected:
         painter.setClipRegion(event->region());
         QStyleOption option;
         option.initFrom(this);
+        option.rect = rect();
+        // PE_PanelMenu is the single Fluent surface for the popup.  Child
+        // rollers and buttons paint only their contents on top of it.
         style()->drawPrimitive(
             QStyle::PE_PanelMenu,
             &option,
             &painter,
             this);
+        // One subtle divider per column boundary; rollers themselves are
+        // content-only and therefore do not contribute competing frames.
+        const QList<ZzRoller *> columns = findChildren<ZzRoller *>();
+        if (!columns.isEmpty()) {
+            const QPen pen(palette().color(QPalette::Midlight));
+            painter.setPen(pen);
+            for (int i = 1; i < columns.size(); ++i) {
+                const QRect previous = QRect(
+                    columns.at(i - 1)->mapTo(this, QPoint(0, 0)),
+                    columns.at(i - 1)->size());
+                const QRect current = QRect(
+                    columns.at(i)->mapTo(this, QPoint(0, 0)),
+                    columns.at(i)->size());
+                const int x = (previous.right() + current.left()) / 2;
+                painter.drawLine(x, previous.top(), x, previous.bottom());
+            }
+        }
     }
 
     void keyPressEvent(QKeyEvent *event) override
@@ -471,6 +492,7 @@ void ZzRollerPickerPrivate::rebuildRollers()
 
     for (int column = 0; column < columns.size(); ++column) {
         auto *roller = new ZzRoller(rollerHost);
+        roller->setFrame(false);
         roller->setVisibleItemCount(ZzPickerVisibleItems);
         roller->setMinimumWidth(columns.at(column).minimumWidth);
         roller->setItems(columns.at(column).items);
@@ -527,7 +549,27 @@ void ZzRollerPickerPrivate::preparePopupGeometry()
     }
 
     QSize desired = popup->sizeHint();
-    desired.setWidth(std::max(desired.width(), q_ptr->width()));
+    // Keep every column readable while honoring the trigger width.  The
+    // layout's size hint already accounts for margins, spacing and buttons;
+    // this pass only raises the width when content or a caller supplied
+    // minimum would otherwise be clipped.
+    QFontMetrics metrics(popup->font());
+    int columnsWidth = 0;
+    for (const ZzRollerColumn &column : columns) {
+        int contentWidth = 0;
+        for (const QString &item : column.items) {
+            contentWidth = std::max(contentWidth, metrics.horizontalAdvance(item));
+        }
+        columnsWidth += std::max(column.minimumWidth, contentWidth + 16);
+    }
+    if (columns.size() > 1) {
+        columnsWidth += static_cast<int>(columns.size() - 1)
+            * rollerLayout->spacing();
+    }
+    const int horizontalMargins = popupLayout->contentsMargins().left()
+        + popupLayout->contentsMargins().right();
+    const int contentMinimum = columnsWidth + horizontalMargins;
+    desired.setWidth(std::max({desired.width(), contentMinimum, q_ptr->width()}));
     const QRect anchor(
         q_ptr->mapToGlobal(QPoint(0, 0)),
         q_ptr->size());
@@ -546,9 +588,10 @@ void ZzRollerPickerPrivate::preparePopupGeometry()
 
     const QRect available = screen->availableGeometry();
     desired = desired.boundedTo(available.size());
-    int x = q_ptr->layoutDirection() == Qt::RightToLeft
-        ? anchor.right() - desired.width() + 1
-        : anchor.left();
+    const QRect visualAnchor = QStyle::visualRect(
+        q_ptr->layoutDirection(), anchor,
+        QRect(0, 0, desired.width(), 1));
+    int x = visualAnchor.left();
     const int below = anchor.bottom() + 1;
     const int above = anchor.top() - desired.height();
     int y = below;

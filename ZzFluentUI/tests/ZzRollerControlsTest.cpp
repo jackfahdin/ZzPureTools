@@ -778,12 +778,17 @@ private Q_SLOTS:
         QWidget *popup = zzRollerPopup(&picker);
         QVERIFY(popup != nullptr);
         QVERIFY(popup->isVisible());
+        QVERIFY(popup->width() >= picker.width());
+        QVERIFY(popup->width() >= 96 * 2 + 80);
         QScreen *screen = popup->screen();
         QVERIFY(screen != nullptr);
         QVERIFY(screen->availableGeometry().contains(popup->geometry()));
         const QList<ZzFluentUI::ZzRoller *> rollers =
             picker.findChildren<ZzFluentUI::ZzRoller *>();
         QCOMPARE(rollers.size(), 3);
+        for (const auto *roller : rollers) {
+            QVERIFY(!roller->hasFrame());
+        }
         QDialogButtonBox *buttons =
             picker.findChild<QDialogButtonBox *>();
         QVERIFY(buttons != nullptr);
@@ -839,6 +844,15 @@ private Q_SLOTS:
         QCOMPARE(picker.currentIndex(0), 1);
         QCOMPARE(acceptedSpy.size(), 2);
 
+        picker.setLayoutDirection(Qt::RightToLeft);
+        picker.showPopup();
+        zzFlushRollerEvents();
+        popup = zzRollerPopup(&picker);
+        QVERIFY(popup->layoutDirection() == Qt::RightToLeft);
+        QVERIFY(buttons->button(QDialogButtonBox::Cancel)->geometry().left()
+            <= buttons->button(QDialogButtonBox::Ok)->geometry().left());
+        picker.cancelPopup();
+
         picker.showPopup();
         QTest::keyClick(rollers.at(0), Qt::Key_Up);
         picker.setColumns(picker.columns());
@@ -847,7 +861,7 @@ private Q_SLOTS:
             0,
             {QStringLiteral("A"), QStringLiteral("B")}));
         QVERIFY(!picker.isPopupVisible());
-        QCOMPARE(canceledSpy.size(), 4);
+        QCOMPARE(canceledSpy.size(), 5);
 
         QAccessibleInterface *interface =
             QAccessible::queryAccessibleInterface(&picker);
