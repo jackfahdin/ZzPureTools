@@ -28,3 +28,7 @@ fluent.screenshot-200 Passed
 补充了当前 hover 单元格的低 alpha 局部高亮，并对相邻月、范围外和禁用文字施加显式 alpha 弱化；未改变公开 API 或日期模型。直接暴露 `paintCell()` 的测试因 `ZzCalendar` 为 `final` 不可行，保留稳定的控件回归与截图测试。
 
 清理轮次：移除测试文件中多余空白，`git diff --check` 通过，工作区仅保留未跟踪的 `temp_image/`。
+
+## 审查修复轮次 2
+
+红灯：`hoveringDateChangesOnlyItsLocalSurface` 在旧 hover 命中逻辑下局部变化为 0。绿灯：改用内部 viewport/widgetAt 的全局坐标映射后通过；目标构建及日历、100/125/150/200% 截图测试 5/5 通过。

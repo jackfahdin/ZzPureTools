@@ -5,6 +5,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QTableView>
 
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
@@ -166,6 +167,53 @@ private Q_SLOTS:
 
         QCOMPARE(calendar.findChildren<QObject *>().size(), initialChildren);
         QVERIFY(!image.isNull());
+    }
+
+    void hoveringDateChangesOnlyItsLocalSurface()
+    {
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setLocale(QLocale::c());
+        calendar.setCurrentPage(2026, 8);
+        calendar.setSelectedDate(QDate(2026, 8, 5));
+        calendar.resize(420, 320);
+        calendar.show();
+        QCoreApplication::processEvents();
+
+        auto *view = calendar.findChild<QTableView *>();
+        QVERIFY(view != nullptr);
+        if (view == nullptr) {
+            return;
+        }
+        const QModelIndex selected = view->selectionModel()
+            ->selectedIndexes().value(0);
+        QVERIFY(selected.isValid());
+        const QModelIndex hoverIndex = view->model()->index(
+            selected.row(), (selected.column() + 1) % view->model()->columnCount());
+        const QRect cell = view->visualRect(hoverIndex);
+        QVERIFY(cell.isValid());
+
+        auto render = [&calendar] {
+            QImage image(calendar.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            calendar.render(&painter);
+            return image;
+        };
+        const QImage before = render();
+        QTest::mouseMove(view->viewport(), cell.center());
+        QCoreApplication::processEvents();
+        const QImage after = render();
+
+        const QPoint topLeft = view->viewport()->mapTo(&calendar, cell.topLeft());
+        int changedPixels = 0;
+        for (int y = 0; y < cell.height(); ++y) {
+            for (int x = 0; x < cell.width(); ++x) {
+                changedPixels += before.pixelColor(topLeft.x() + x, topLeft.y() + y)
+                    != after.pixelColor(topLeft.x() + x, topLeft.y() + y);
+            }
+        }
+        QVERIFY(changedPixels > 0);
+        QTest::mouseMove(view->viewport(), QPoint(-10, -10));
     }
 };
 

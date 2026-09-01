@@ -71,7 +71,13 @@ void ZzCalendarPrivate::paintCell(
         diameter,
         diameter);
     const QPoint cursorPosition = q_ptr->mapFromGlobal(QCursor::pos());
-    const bool hovered = q_ptr->underMouse() && rect.contains(cursorPosition);
+    const QWidget *hoverWidget = QApplication::widgetAt(QCursor::pos());
+    const QPoint hoverPosition = hoverWidget != nullptr
+        ? hoverWidget->mapFromGlobal(QCursor::pos())
+        : cursorPosition;
+    const bool hovered = hoverWidget != nullptr
+        && (hoverWidget == q_ptr || q_ptr->isAncestorOf(hoverWidget))
+        && (rect.contains(cursorPosition) || rect.contains(hoverPosition));
 
     painter->save();
     painter->setRenderHints(
