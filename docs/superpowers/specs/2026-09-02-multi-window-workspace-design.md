@@ -176,6 +176,13 @@ class ZZ_PURE_TOOLS_EXPORT ZzWorkspaceWindowCoordinator final : public QObject
 public:
     void setWindowFactory(ZzWorkspaceWindowFactory factory);
 
+    [[nodiscard]] ZzCore::ZzResult<void> registerWindow(
+        const ZzWorkspaceWindowHandle &handle,
+        const ZzWorkspaceWindowConfiguration &configuration,
+        bool primary = false);
+    [[nodiscard]] ZzCore::ZzResult<void> unregisterWindow(
+        ZzApplicationWindow *window);
+
     [[nodiscard]] ZzCore::ZzResult<ZzWorkspaceWindowConfiguration> configuration(
         ZzApplicationWindow *window) const;
     [[nodiscard]] ZzCore::ZzResult<void> applyConfiguration(
@@ -217,7 +224,11 @@ Q_SIGNALS:
 
 协调器由 `ZzPureApplication` 延迟创建和独占，通过新增的 `workspaceWindowCoordinator()` getter 返回观察指针；不开放公共构造函数，从而保证每个应用只有一个窗口拓扑来源。协调器也不会接管窗口或 Shell 所有权。
 
-`ZzWorkspaceWindowCreateOptions` 包含 `std::optional` 配置字段、配置来源模式（默认值/来源窗口/显式）、来源窗口观察指针、是否显示及是否成为活动窗口。`ZzWorkspaceWindowFactory` 是应用注册的统一装配回调：输入创建选项，调用应用现有的 `ZzPureApplication::createWindow()` 和既有 `ZzWindowSetupCallback` 完成业务表面装配，返回 `ZzWorkspaceWindowHandle`。该 handle 只含同线程的 `ZzApplicationWindow` 与 `ZzWorkspaceShell` 观察指针；两者仍分别由 `ZzPureApplication` 和应用壳层拥有。工厂成功返回前必须保证 Shell 已装入窗口且两者生命周期关联，失败则自行撤销未提交装配。
+首个窗口通常在协调器启用前由 `ZzApplicationBuilder` 创建，因此应用必须使用 `registerWindow` 显式登记它的 Window/Shell 句柄并标记主窗口；禁止通过 `findChild` 猜测 Shell。重复登记同一 Window、同一 Shell 绑定多个 Window、跨线程句柄或非宿主 Shell 均返回失败且不改变注册表。`unregisterWindow` 只移除协调状态，不销毁任何对象；窗口或 Shell 销毁时也会自动移除登记。
+
+`ZzWorkspaceWindowCreateOptions` 包含 `std::optional` 配置字段、配置来源模式（默认值/来源窗口/显式）、来源窗口观察指针、是否显示及是否成为活动窗口。`ZzWorkspaceWindowFactory` 是应用注册的统一装配回调：输入创建选项，调用 `ZzPureApplication::createWindow(ZzApplicationWindowVisibility::Deferred)` 和既有 `ZzWindowSetupCallback` 完成业务表面装配，返回 `ZzWorkspaceWindowHandle`。该 handle 只含同线程的 `ZzApplicationWindow` 与 `ZzWorkspaceShell` 观察指针；两者仍分别由 `ZzPureApplication` 和应用壳层拥有。工厂成功返回前必须保证 Shell 已装入窗口且两者生命周期关联，失败则关闭未提交窗口。
+
+`ZzPureApplication` 新增带 `ZzApplicationWindowVisibility::{Visible, Deferred}` 参数的 `createWindow` 重载，无参重载继续等价于 `Visible`。`Deferred` 只完成创建、接管和关闭协议连接，不调用 `show()`；协调器在迁移事务提交后按创建选项显示，避免新窗口短暂空白或迁移失败时闪现。
 
 `ZzWorkspacePageResolver` 是布局恢复回调：输入非空且在拓扑内全局唯一的 `pageLayoutKey`，返回应用创建或找回的无父页面 widget；空键页面不会跨重启恢复。协调器通过已注册的窗口工厂创建窗口，不把窗口所有权暴露给页面回调。协调器将 `tearOff` 实现为：创建不可见窗口 → 获得已装配的独立 `ZzWorkspaceShell`/`ZzSplitWorkspace` → 调用跨工作区事务迁移页面 → 应用配置 → 提交并显示。创建或迁移失败时请求应用关闭本次暂存窗口，来源页保持不变。
 
