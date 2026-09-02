@@ -66,6 +66,10 @@
 
 新增状态机测试覆盖 reserve/commit/release、Reserved 页面移除、Published 页面移除及同源索引更新。修复聚合初始化编译错误、TabBar/Workspace 失败路径 release、活动令牌切换顺序，并增加 `removeTab`/`tabRemoved` 注册表通知。最终构建三目标成功，注册表测试通过。
 
+## 定向复审修复
+
+提交 `fa02293`、`55c655b`。增加移除通知去重标记，避免 removeTab 包装与 tabRemoved 双重处理；最后一个来源令牌清理时对称卸载 eventFilter。注册表目标构建及 ctest 均通过。
+
 ## 恢复协议最终修复
 
 提交 `a922cf1` 及后续补丁。`removeTab(int)` 在移除前通知注册表并校验索引；Reserved 令牌在来源移除后保留至 commit/release，release 重新验证来源页面/pageId，失效时拒绝恢复。构建三目标成功，注册表测试通过。
