@@ -25,6 +25,159 @@ struct DepthGuard final {
     ~DepthGuard() { if (!workspace.isNull()) { --priv->transactionDepth; } }
 };
 
+struct TabsSnapshot final {
+    QPointer<ZzTabWidget> tabs;
+    QList<ZzTabTransferSnapshot> pages;
+    int current = -1;
+};
+
+struct WorkspaceSnapshot final {
+    QList<TabsSnapshot> tabs;
+    ZzTabGroupId active;
+    QHash<QWidget *, ZzWorkspacePageId> pageIds;
+    QHash<ZzWorkspacePageId, QPointer<QWidget>> pagesById;
+    std::vector<ZzWorkspacePageKey> pageKeys;
+};
+
+WorkspaceSnapshot captureWorkspace(ZzSplitWorkspacePrivate *workspace)
+{
+    WorkspaceSnapshot snapshot;
+    snapshot.active = workspace->activeId;
+    snapshot.pageIds = workspace->pageIds;
+    snapshot.pagesById = workspace->pagesById;
+    snapshot.pageKeys = workspace->pageKeys;
+    std::vector<ZzNode *> leaves;
+    ZzSplitWorkspacePrivate::collectLeaves(workspace->root.get(), leaves);
+    for (auto *node : leaves) {
+        auto tabs = std::get<ZzLeaf>(node->value).tabs;
+        if (tabs.isNull()) continue;
+        TabsSnapshot value;
+        value.tabs = tabs;
+        value.current = tabs->currentIndex();
+        for (int i = 0; i < tabs->count(); ++i) {
+            value.pages.push_back(ZzTabWidgetPrivate::snapshotFor(tabs, i));
+        }
+        snapshot.tabs.push_back(std::move(value));
+    }
+    return snapshot;
+}
+
+bool restoreWorkspace(const WorkspaceSnapshot &snapshot)
+{
+    for (const auto &state : snapshot.tabs) {
+        if (state.tabs.isNull()) return false;
+        for (const auto &page : state.pages) {
+            if (page.page.isNull()) return false;
+            const int index = state.tabs->indexOf(page.page);
+            if (index < 0 || !ZzTabWidgetPrivate::restoreMetadata(
+                                  state.tabs, index, page)) return false;
+        }
+        for (int desired = 0; desired < state.pages.size(); ++desired) {
+            if (state.pages.at(desired).page.isNull()) return false;
+            const int actual = state.tabs->indexOf(state.pages.at(desired).page);
+            if (actual < 0) return false;
+            if (actual != desired && !ZzTabWidgetPrivate::transferDirectFor(
+                    state.tabs, state.tabs, actual, desired)) return false;
+        }
+        if (state.current >= 0 && state.current < state.tabs->count())
+            state.tabs->setCurrentIndex(state.current);
+    }
+    return true;
+}
+
+void rebuildPageConnections(ZzSplitWorkspacePrivate *workspace)
+{
+    for (const auto &connection : workspace->pageDestroyedConnections)
+        QObject::disconnect(connection);
+    workspace->pageDestroyedConnections.clear();
+    for (auto it = workspace->pageIds.cbegin(); it != workspace->pageIds.cend(); ++it) {
+        QWidget *const page = it.key();
+        workspace->pageDestroyedConnections.insert(page,
+            QObject::connect(page, &QObject::destroyed, workspace->q_ptr,
+                [workspace](QObject *object) {
+                    auto *const widget = static_cast<QWidget *>(object);
+                    const auto found = workspace->pageIds.find(widget);
+                    if (found != workspace->pageIds.end()) {
+                        workspace->pagesById.remove(found.value());
+                        workspace->pageIds.erase(found);
+                    }
+                    workspace->pageDestroyedConnections.remove(widget);
+                }));
+    }
+}
+
+bool metadataMatches(const WorkspaceSnapshot &snapshot, QWidget *ignored,
+                     ZzTabWidget *ignoredOwner, bool ignoredRemoved,
+                     bool ignoredAdded)
+{
+    for (const auto &state : snapshot.tabs) {
+        if (state.tabs.isNull()) return false;
+        const int expectedCount = static_cast<int>(state.pages.size())
+            + ((ignoredAdded && state.tabs == ignoredOwner) ? 1 : 0)
+            - ((ignoredRemoved && std::any_of(state.pages.cbegin(), state.pages.cend(),
+                [ignored](const auto &p) { return p.page == ignored; })) ? 1 : 0);
+        if (state.tabs->count() != expectedCount) return false;
+        int expectedIndex = 0;
+        for (int i = 0; i < state.pages.size(); ++i) {
+            const auto &expected = state.pages.at(i);
+            if (expected.page == ignored && ignoredRemoved) continue;
+            if (expectedIndex >= state.tabs->count()) return false;
+            const auto current = ZzTabWidgetPrivate::snapshotFor(
+                state.tabs, expectedIndex++);
+            if (current.page != expected.page || current.text != expected.text
+                || current.toolTip != expected.toolTip || current.whatsThis != expected.whatsThis
+                || current.enabled != expected.enabled || current.pinned != expected.pinned
+                || current.modified != expected.modified || current.attention != expected.attention
+                || current.closeEnabled != expected.closeEnabled || current.data != expected.data
+                || current.textColor != expected.textColor) return false;
+        }
+    }
+    return true;
+}
+
+bool mappingsMatch(const ZzSplitWorkspacePrivate *workspace,
+                   const WorkspaceSnapshot &snapshot,
+                   QWidget *movedPage,
+                   const ZzWorkspacePageId &movedId,
+                   const QString &movedKey,
+                   bool destination)
+{
+    const auto owns = [workspace](QWidget *page) {
+        std::vector<const ZzNode *> leaves;
+        ZzSplitWorkspacePrivate::collectLeaves(workspace->root.get(), leaves);
+        return std::any_of(leaves.cbegin(), leaves.cend(), [page](const ZzNode *node) {
+            const auto tabs = std::get<ZzLeaf>(node->value).tabs;
+            return !tabs.isNull() && tabs->indexOf(page) >= 0;
+        });
+    };
+    QHash<QWidget *, ZzWorkspacePageId> expected = snapshot.pageIds;
+    if (destination) expected.insert(movedPage, movedId);
+    else expected.remove(movedPage);
+    if (workspace->pageIds != expected || workspace->pagesById.size() != expected.size())
+        return false;
+    for (auto it = expected.cbegin(); it != expected.cend(); ++it) {
+        if (it.key() == nullptr || !owns(it.key())
+            || workspace->pagesById.value(it.value()) != it.key()) return false;
+    }
+    std::vector<ZzWorkspacePageKey> expectedKeys = snapshot.pageKeys;
+    if (destination && !movedKey.isEmpty()) expectedKeys.push_back({movedPage, movedKey});
+    if (!destination) {
+        expectedKeys.erase(std::remove_if(expectedKeys.begin(), expectedKeys.end(),
+            [movedPage](const auto &entry) { return entry.page == movedPage; }), expectedKeys.end());
+    }
+    if (workspace->pageKeys.size() != expectedKeys.size()) return false;
+    for (const auto &entry : expectedKeys) {
+        const auto found = std::find_if(workspace->pageKeys.cbegin(), workspace->pageKeys.cend(),
+            [&entry](const auto &current) { return current.page == entry.page && current.key == entry.key; });
+        if (found == workspace->pageKeys.cend()) return false;
+    }
+    for (auto i = workspace->pageKeys.cbegin(); i != workspace->pageKeys.cend(); ++i) {
+        for (auto j = i + 1; j != workspace->pageKeys.cend(); ++j)
+            if (i->key == j->key) return false;
+    }
+    return true;
+}
+
 [[nodiscard]] ZzCore::ZzResult<void> zzCrossTransferFailure(
     ZzCore::ZzErrorCode code,
     QString message)
@@ -99,13 +252,46 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     QPointer<ZzSplitWorkspace> guardedSource = source;
     QPointer<ZzSplitWorkspace> guardedTarget = target;
     QPointer<QWidget> guardedPage = page;
+    const WorkspaceSnapshot sourceSnapshot = captureWorkspace(sourcePrivate);
+    const WorkspaceSnapshot targetSnapshot = captureWorkspace(targetPrivate);
+    const auto rollback = [&]() {
+        if (guardedSource.isNull() || guardedTarget.isNull()
+            || guardedPage.isNull()) return false;
+        if (!sourceTabs.isNull() && !targetTabs.isNull()
+            && targetTabs->indexOf(guardedPage) >= 0
+            && sourceTabs->indexOf(guardedPage) < 0) {
+            ZzTabWidgetPrivate::transferDirectFor(
+                targetTabs, sourceTabs, targetTabs->indexOf(guardedPage), sourceIndex);
+        }
+        if (sourceTabs.isNull() || targetTabs.isNull()
+            || sourceTabs->indexOf(guardedPage) < 0) return false;
+        for (const auto &connection : sourcePrivate->pageDestroyedConnections)
+            QObject::disconnect(connection);
+        for (const auto &connection : targetPrivate->pageDestroyedConnections)
+            QObject::disconnect(connection);
+        sourcePrivate->pageDestroyedConnections.clear();
+        targetPrivate->pageDestroyedConnections.clear();
+        sourcePrivate->pageIds = sourceSnapshot.pageIds;
+        sourcePrivate->pagesById = sourceSnapshot.pagesById;
+        sourcePrivate->pageKeys = sourceSnapshot.pageKeys;
+        sourcePrivate->activeId = sourceSnapshot.active;
+        targetPrivate->pageIds = targetSnapshot.pageIds;
+        targetPrivate->pagesById = targetSnapshot.pagesById;
+        targetPrivate->pageKeys = targetSnapshot.pageKeys;
+        targetPrivate->activeId = targetSnapshot.active;
+        rebuildPageConnections(sourcePrivate);
+        rebuildPageConnections(targetPrivate);
+        return restoreWorkspace(sourceSnapshot)
+            && restoreWorkspace(targetSnapshot);
+    };
     DepthGuard sourceGuard(source, sourcePrivate);
     DepthGuard targetGuard(target, targetPrivate);
     const bool transferred = sourceTabs->d_ptr->transferToDirect(
-        targetTabs, sourceIndex, targetIndex);
+        targetTabs, sourceIndex, targetIndex, false);
 
     if (!transferred || guardedSource.isNull() || guardedTarget.isNull()
         || guardedPage.isNull()) {
+        rollback();
         return zzCrossTransferFailure(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("cross-workspace transfer did not commit"));
@@ -114,6 +300,7 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     if (sourceTabs.isNull() || targetTabs.isNull()
         || targetTabs->indexOf(guardedPage) < 0
         || sourceTabs->indexOf(guardedPage) >= 0) {
+        // A third party may have claimed the page. Never take it back.
         return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("cross-workspace ownership audit failed"));
     }
@@ -150,8 +337,34 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     targetPrivate->activeId = targetGroup;
     Q_EMIT guardedTarget->tabTransferCommitted(
         guardedSource, sourceGroup, targetGroup, guardedPage, id, zone);
+    if (guardedSource.isNull() || guardedTarget.isNull()
+        || guardedPage.isNull() || sourceTabs.isNull() || targetTabs.isNull()
+        || targetTabs->indexOf(guardedPage) < 0
+        || sourceTabs->indexOf(guardedPage) >= 0) {
+        rollback();
+        return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("cross-workspace commit audit failed"));
+    }
+    if (!metadataMatches(sourceSnapshot, guardedPage, sourceTabs, true, false)
+        || !metadataMatches(targetSnapshot, guardedPage, targetTabs, false, true)
+        || !mappingsMatch(sourcePrivate, sourceSnapshot, guardedPage, id, layoutKey, false)
+        || !mappingsMatch(targetPrivate, targetSnapshot, guardedPage, id, layoutKey, true)) {
+        rollback();
+        return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace metadata audit failed"));
+    }
+    // The notification is a commit point only after both sides still match.
     if (activeChanged && !guardedTarget.isNull()) {
         Q_EMIT guardedTarget->activeGroupChanged(targetGroup);
+    }
+    if (guardedSource.isNull() || guardedTarget.isNull()
+        || !mappingsMatch(sourcePrivate, sourceSnapshot, guardedPage, id, layoutKey, false)
+        || !mappingsMatch(targetPrivate, targetSnapshot, guardedPage, id, layoutKey, true)
+        || !metadataMatches(sourceSnapshot, guardedPage, sourceTabs, true, false)
+        || !metadataMatches(targetSnapshot, guardedPage, targetTabs, false, true)) {
+        rollback();
+        return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace changed during notification"));
     }
     return ZzCore::ZzResult<void>::success();
 }

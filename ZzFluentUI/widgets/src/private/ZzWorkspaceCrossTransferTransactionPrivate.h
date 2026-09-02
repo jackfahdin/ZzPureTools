@@ -16,6 +16,7 @@ public:
         const ZzTabGroupId &targetGroup,
         int targetIndex,
         ZzWorkspaceDropZone zone);
+
 };
 
 } // namespace ZzFluentUI

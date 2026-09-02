@@ -129,6 +129,24 @@ ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
     return result;
 }
 
+ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshotFor(
+    ZzTabWidget *tabs,
+    int index)
+{
+    return tabs != nullptr ? tabs->d_ptr->snapshot(index)
+                           : ZzTabTransferSnapshot {};
+}
+
+bool ZzTabWidgetPrivate::transferDirectFor(
+    ZzTabWidget *source,
+    ZzTabWidget *target,
+    int sourceIndex,
+    int targetIndex)
+{
+    return source != nullptr && source->d_ptr->transferToDirect(
+        target, sourceIndex, targetIndex, false);
+}
+
 bool ZzTabWidgetPrivate::restoreMetadata(
     ZzTabWidget *target,
     int index,
@@ -197,7 +215,8 @@ bool ZzTabWidgetPrivate::restoreMetadata(
 bool ZzTabWidgetPrivate::transferToDirect(
     ZzTabWidget *target,
     int sourceIndex,
-    int targetIndex)
+    int targetIndex,
+    bool emitTransferSignal)
 {
     if (target == nullptr || sourceIndex < 0
         || sourceIndex >= q_ptr->count()
@@ -373,11 +392,13 @@ bool ZzTabWidgetPrivate::transferToDirect(
         rollback();
         return false;
     }
-    Q_EMIT guardedTarget->tabTransferred(
-        guardedSource,
-        transfer.sourceIndex,
-        committedTargetIndex,
-        guardedPage);
+    if (emitTransferSignal) {
+        Q_EMIT guardedTarget->tabTransferred(
+            guardedSource,
+            transfer.sourceIndex,
+            committedTargetIndex,
+            guardedPage);
+    }
     return true;
 }
 

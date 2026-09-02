@@ -43,6 +43,16 @@ public:
     /** @brief 捕获指定标签的页面和全部公开展示元数据。 */
     [[nodiscard]] ZzTabTransferSnapshot snapshot(int index) const;
 
+    [[nodiscard]] static ZzTabTransferSnapshot snapshotFor(
+        ZzTabWidget *tabs,
+        int index);
+
+    static bool transferDirectFor(
+        ZzTabWidget *source,
+        ZzTabWidget *target,
+        int sourceIndex,
+        int targetIndex);
+
     /** @brief 按页面身份在指定容器恢复标签元数据。 */
     [[nodiscard]] static bool restoreMetadata(
         ZzTabWidget *target,
@@ -53,7 +63,8 @@ public:
     bool transferToDirect(
         ZzTabWidget *target,
         int sourceIndex,
-        int targetIndex);
+        int targetIndex,
+        bool emitTransferSignal = true);
 
     struct ZzMetadata {
         bool pinned = false;
