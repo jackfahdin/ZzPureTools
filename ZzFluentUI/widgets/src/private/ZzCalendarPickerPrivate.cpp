@@ -20,9 +20,9 @@ ZzCalendarPickerPrivate::ZzCalendarPickerPrivate(ZzCalendarPicker *q)
     , calendar(new ZzCalendar(q))
 {
     Q_ASSERT(q_ptr != nullptr);
-    // Use the same borderless input surface as the other Fluent spin fields;
-    // QDateEdit remains the owner of all date parsing and popup semantics.
-    q_ptr->setFrame(false);
+    // QDateEdit owns the single Fluent input surface; its internal editor is
+    // content-only so it cannot cover the parent frame while hovering.
+    q_ptr->setFrame(true);
     if (auto *edit = q_ptr->findChild<QLineEdit *>()) {
         edit->setFrame(false);
     }

@@ -95,6 +95,80 @@ private Q_SLOTS:
         QCOMPARE(floating.findChildren<QTimer *>().size(), 0);
     }
 
+    void avoidsNestedEditorSurface()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzSpinBox spinBox;
+        spinBox.setStyle(&style);
+        spinBox.resize(132, 36);
+
+        QLineEdit *const editor = spinBox.findChild<QLineEdit *>();
+        QVERIFY(editor != nullptr);
+        QStyleOption option;
+        option.initFrom(editor);
+        option.rect = editor->rect();
+        const QColor background = style.standardPalette().color(
+            QPalette::Base);
+        QImage image(editor->size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(background);
+        QPainter painter(&image);
+        style.drawPrimitive(
+            QStyle::PE_PanelLineEdit,
+            &option,
+            &painter,
+            editor);
+        painter.end();
+
+        QImage expected(image.size(), image.format());
+        expected.fill(background);
+        QCOMPARE(image, expected);
+    }
+
+    void preservesSpinBoxFrameDuringButtonHover()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzSpinBox spinBox;
+        spinBox.setStyle(&style);
+        spinBox.resize(132, 36);
+        spinBox.setButtonSymbols(QAbstractSpinBox::PlusMinus);
+
+        QStyleOptionSpinBox option;
+        option.initFrom(&spinBox);
+        option.rect = spinBox.rect();
+        option.buttonSymbols = spinBox.buttonSymbols();
+        option.subControls = QStyle::SC_All;
+        option.activeSubControls = QStyle::SC_SpinBoxUp;
+        option.stepEnabled = QAbstractSpinBox::StepUpEnabled
+            | QAbstractSpinBox::StepDownEnabled;
+
+        const auto render = [&style, &spinBox, &option](bool hovered) {
+            QStyleOptionSpinBox adjusted = option;
+            adjusted.state.setFlag(QStyle::State_MouseOver, hovered);
+            QImage image(
+                adjusted.rect.size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(style.standardPalette().color(QPalette::Base));
+            QPainter painter(&image);
+            style.drawComplexControl(
+                QStyle::CC_SpinBox,
+                &adjusted,
+                &painter,
+                &spinBox);
+            painter.end();
+            return image;
+        };
+
+        const QImage normal = render(false);
+        const QImage hovered = render(true);
+        const int rightEdge = option.rect.width() - 1;
+        const int centerY = option.rect.center().y();
+        QCOMPARE(
+            normal.pixelColor(rightEdge, centerY),
+            hovered.pixelColor(rightEdge, centerY));
+    }
+
     void preservesIntegerRangeAndSignalSemantics()
     {
         ZzFluentUI::ZzSpinBox spinBox;

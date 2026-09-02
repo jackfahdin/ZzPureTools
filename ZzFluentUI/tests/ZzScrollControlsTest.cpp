@@ -14,6 +14,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QFrame>
 #include <QtWidgets/QStyleOptionSlider>
 
 #include <ZzFluentUI/ZzFluentStyle.h>

@@ -8,13 +8,17 @@
 #include <QtCore/QAbstractAnimation>
 #include <QtGui/QContextMenuEvent>
 #include <QtCore/QTimer>
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QStyle>
 
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzThemeController.h>
 
 #include "../widgets/src/private/ZzTabBarPrivate.h"
 
@@ -979,6 +983,31 @@ private Q_SLOTS:
         QCOMPARE(
             tabInterface->text(QAccessible::Name),
             QStringLiteral("Overview"));
+    }
+
+    void doesNotExposeNativeOuterFrame()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.setStyle(&style);
+        tabs.fluentTabBar()->setStyle(&style);
+        tabs.setPalette(style.standardPalette());
+        tabs.addTab(new QWidget, QStringLiteral("Overview"));
+        tabs.resize(320, 120);
+        tabs.show();
+        QCoreApplication::processEvents();
+
+        QVERIFY(tabs.documentMode());
+        QImage image(tabs.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(style.standardPalette().color(QPalette::Window));
+        QPainter painter(&image);
+        tabs.render(&painter);
+        painter.end();
+        for (int y = 0; y < image.height(); ++y) {
+            // 页框关闭后，左边缘不应再与相邻表面产生竖向边线。
+            QCOMPARE(image.pixelColor(0, y), image.pixelColor(1, y));
+        }
     }
 };
 

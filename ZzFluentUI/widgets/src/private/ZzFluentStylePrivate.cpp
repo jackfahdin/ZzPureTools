@@ -1204,9 +1204,32 @@ void ZzFluentStylePrivate::drawSpinBox(
 
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(fill);
-        painter->drawRect(rect);
+        if (fill.alpha() > 0) {
+            // 按钮位于父级输入面板之上，只能填充到外框内侧；否则
+            // hover/disabled 背景会覆盖圆角外框的最外一圈。
+            const qreal frameInset = qMax(
+                0.5,
+                snapshot->metric(ZzMetricToken::StrokeThin));
+            const QRectF frameInterior = QRectF(option->rect).adjusted(
+                frameInset,
+                frameInset,
+                -frameInset,
+                -frameInset);
+            const QRectF buttonSurface = QRectF(rect).intersected(
+                frameInterior);
+            if (!buttonSurface.isEmpty()) {
+                const qreal radius = qMax(
+                    0.0,
+                    snapshot->metric(ZzMetricToken::CornerRadiusMedium)
+                        - frameInset);
+                QPainterPath clipPath;
+                clipPath.addRoundedRect(frameInterior, radius, radius);
+                painter->setClipPath(clipPath, Qt::IntersectClip);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(fill);
+                painter->drawRect(buttonSurface);
+            }
+        }
         painter->setBrush(Qt::NoBrush);
         const qreal devicePixelRatio = painter->device() != nullptr
             ? painter->device()->devicePixelRatioF()

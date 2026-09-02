@@ -159,6 +159,37 @@ private Q_SLOTS:
         QVERIFY(textSpy.count() >= 2);
     }
 
+    void avoidsNestedEditorSurface()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox comboBox;
+        comboBox.setEditable(true);
+        comboBox.setStyle(&style);
+        comboBox.resize(196, 36);
+
+        QLineEdit *const editor = comboBox.lineEdit();
+        QVERIFY(editor != nullptr);
+        QStyleOption option;
+        option.initFrom(editor);
+        option.rect = editor->rect();
+        const QColor background = style.standardPalette().color(
+            QPalette::Base);
+        QImage image(editor->size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(background);
+        QPainter painter(&image);
+        style.drawPrimitive(
+            QStyle::PE_PanelLineEdit,
+            &option,
+            &painter,
+            editor);
+        painter.end();
+
+        QImage expected(image.size(), image.format());
+        expected.fill(background);
+        QCOMPARE(image, expected);
+    }
+
     void preservesKeyboardMouseAndPopupSemantics()
     {
         QComboBox comboBox;

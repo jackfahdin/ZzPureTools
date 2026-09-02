@@ -5,6 +5,7 @@
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QAbstractSpinBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
@@ -16,9 +17,40 @@
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentPainter.h>
 #include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
 namespace ZzFluentUI {
+
+namespace {
+
+/** @brief 判断输入编辑器是否已经由父级组合控件统一绘制。 */
+[[nodiscard]] bool zzInputParentOwnsSurface(
+    const QWidget *widget) noexcept
+{
+    const auto *lineEdit = qobject_cast<const QLineEdit *>(widget);
+    if (lineEdit == nullptr) {
+        return false;
+    }
+    const QWidget *ancestor = lineEdit->parentWidget();
+    while (ancestor != nullptr) {
+        if (const auto *spinBox = qobject_cast<const QAbstractSpinBox *>(
+                ancestor);
+            spinBox != nullptr) {
+            return spinBox->hasFrame();
+        }
+        if (const auto *comboBox = qobject_cast<const QComboBox *>(ancestor);
+            comboBox != nullptr) {
+            return comboBox->isEditable()
+                && comboBox->lineEdit() == lineEdit;
+        }
+        ancestor = ancestor->parentWidget();
+    }
+    return false;
+}
+
+} // namespace
 
 ZzFluentStyle::ZzFluentStyle(
     ZzThemeController *controller,
@@ -321,6 +353,11 @@ void ZzFluentStyle::drawPrimitive(
          || element == PE_FrameLineEdit
          || textFrame)
         && option != nullptr && painter != nullptr) {
+        // QAbstractSpinBox 在 CC_SpinBox 中已经绘制完整输入表面；
+        // 忽略内部 QLineEdit 的面板，避免 hover 填充覆盖外框。
+        if (zzInputParentOwnsSurface(widget)) {
+            return;
+        }
         d_ptr->drawInputPanel(option, painter, widget);
         return;
     }
@@ -368,6 +405,21 @@ void ZzFluentStyle::drawPrimitive(
         return;
     }
     if (element == PE_FrameStatusBarItem && painter != nullptr) {
+        return;
+    }
+    if (element == PE_FrameTabWidget
+        && qobject_cast<const ZzTabWidget *>(widget) != nullptr) {
+        // ZzTabWidget 的页面表面由工作区绘制；Fusion 的原生页框会在
+        // 窄视口左侧留下一条独立边线，与标签栏和内容表面不一致。
+        return;
+    }
+    if (element == PE_FrameTabBarBase
+        && qobject_cast<const ZzTabBar *>(widget) != nullptr
+        && widget->parentWidget() != nullptr
+        && qobject_cast<const ZzTabWidget *>(
+               widget->parentWidget()) != nullptr) {
+        // documentMode 下 Qt 仍会给标签栏绘制 Fusion 顶边；工作区由
+        // 自身布局提供分隔关系，不需要再叠加一条原生高亮线。
         return;
     }
     if (element == PE_PanelScrollAreaCorner

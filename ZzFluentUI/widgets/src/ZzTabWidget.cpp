@@ -5,6 +5,9 @@
 
 #include <ZzFluentUI/ZzTabBar.h>
 
+#include <QtWidgets/QFrame>
+#include <QtWidgets/QStackedWidget>
+
 namespace ZzFluentUI {
 
 ZzTabWidget::ZzTabWidget(QWidget *parent)
@@ -14,6 +17,11 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
     d_ptr->tabBar = new ZzTabBar(this);
     d_ptr->tabBar->d_ptr->setHost(this);
     setTabBar(d_ptr->tabBar);
+    // 页面区域由工作区自身管理；document mode 禁止 Qt 额外绘制外框。
+    setDocumentMode(true);
+    if (auto *stack = findChild<QStackedWidget *>()) {
+        stack->setFrameShape(QFrame::NoFrame);
+    }
     setCornerWidget(d_ptr->tabBar->newTabButton(), Qt::TopRightCorner);
     setMovable(true);
     connect(this, &QTabWidget::tabCloseRequested, this, [this](int index) {
