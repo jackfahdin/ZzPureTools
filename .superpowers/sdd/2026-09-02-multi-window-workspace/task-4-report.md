@@ -15,3 +15,5 @@
 `ZzWorkspaceCrossTransferTest transfersAcrossPhysicalEdgeZones mapsTabTearOffToWorkspaceSignal`：4 passed, 0 failed。
 
 疑虑：完整容量/深度边界和信号顺序回归仍需集成环境进一步覆盖。
+
+补充 RTL 物理 Right 边缘、pageId/layoutKey/固定标签元数据保持测试，定向执行 5 个跨工作区测试，全部通过。
