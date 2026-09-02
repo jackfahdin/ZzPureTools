@@ -300,6 +300,83 @@ private Q_SLOTS:
         QCOMPARE(targetTabs->indexOf(page), 0);
     }
 
+    void tabBarV2DropReleasesAfterMigrationFailureAndCanRetry()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        auto *failedTarget = new ZzFluentUI::ZzSplitWorkspace;
+        const auto sourceGroup = source.groupIds().constFirst();
+        const auto failedTargetGroup = failedTarget->groupIds().constFirst();
+        auto *page = new QWidget;
+        auto *sourceTabs = source.tabWidget(sourceGroup);
+        auto *failedTargetTabs = failedTarget->tabWidget(failedTargetGroup);
+        sourceTabs->addTab(page, QStringLiteral("migration failure"));
+        source.resize(320, 240);
+        failedTarget->resize(320, 240);
+        source.show();
+        failedTarget->show();
+        QCoreApplication::processEvents();
+
+        auto *registry =
+            ZzFluentUI::ZzWorkspaceTransferRegistryPrivate::instance();
+        QVERIFY(registry != nullptr);
+        const auto published = registry->publish(
+            &source, sourceTabs, sourceGroup, 0, source.pageId(page), page);
+        QVERIFY(published);
+        QMimeData mime;
+        mime.setData(ZzFluentUI::ZzTabMimeData::format(), published.value());
+
+        auto *failedTargetBar = failedTargetTabs->fluentTabBar();
+        failedTargetBar->setAcceptDrops(true);
+        failedTargetBar->removeEventFilter(failedTarget);
+        const QPoint position = failedTargetBar->rect().center();
+        bool destroyTarget = true;
+        QObject::connect(
+            sourceTabs,
+            &QTabWidget::currentChanged,
+            &source,
+            [&](int) {
+                if (destroyTarget && failedTarget != nullptr) {
+                    destroyTarget = false;
+                    auto *doomed = failedTarget;
+                    failedTarget = nullptr;
+                    delete doomed;
+                }
+            });
+        QDragEnterEvent enter(
+            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(failedTargetBar, &enter);
+        QVERIFY(enter.isAccepted());
+        QDropEvent failedDrop(
+            QPointF(position), Qt::MoveAction, &mime,
+            Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(failedTargetBar, &failedDrop);
+        QVERIFY(!failedDrop.isAccepted());
+        QVERIFY(registry->inspect(published.value()));
+        QCOMPARE(sourceTabs->indexOf(page), 0);
+
+        ZzFluentUI::ZzSplitWorkspace retryTarget;
+        const auto retryGroup = retryTarget.groupIds().constFirst();
+        retryTarget.resize(320, 240);
+        retryTarget.show();
+        QCoreApplication::processEvents();
+        auto *retryBar = retryTarget.tabWidget(retryGroup)->fluentTabBar();
+        retryBar->setAcceptDrops(true);
+        retryBar->removeEventFilter(&retryTarget);
+        const QPoint retryPosition = retryBar->rect().center();
+        QDragEnterEvent retryEnter(
+            retryPosition, Qt::MoveAction, &mime,
+            Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(retryBar, &retryEnter);
+        QVERIFY(retryEnter.isAccepted());
+        QDropEvent retryDrop(
+            QPointF(retryPosition), Qt::MoveAction, &mime,
+            Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(retryBar, &retryDrop);
+        QVERIFY(retryDrop.isAccepted());
+        QVERIFY(!registry->inspect(published.value()));
+        QCOMPARE(retryTarget.tabWidget(retryGroup)->indexOf(page), 0);
+    }
+
     void workspaceV2DropCommitsAndRejectsReplay()
     {
         ZzFluentUI::ZzSplitWorkspace source;

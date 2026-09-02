@@ -10,6 +10,20 @@ add_test(NAME fluent.workspace-transfer-registry-private COMMAND ZzWorkspaceTran
 set_tests_properties(fluent.workspace-transfer-registry-private PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:ZzFluentUI>:$<TARGET_FILE_DIR:ZzCore>:$<TARGET_FILE_DIR:ZzLog>:$<TARGET_FILE_DIR:Qt6::Core>")
 
+add_executable(ZzWorkspaceTransferRegistryLifetimeTest
+    ZzWorkspaceTransferRegistryLifetimeTest.cpp
+)
+target_link_libraries(ZzWorkspaceTransferRegistryLifetimeTest PRIVATE
+    Qt6::Widgets
+    Zz::FluentUI
+)
+set_target_properties(ZzWorkspaceTransferRegistryLifetimeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceTransferRegistryLifetimeTest)
+add_test(NAME fluent.workspace-transfer-registry-lifetime COMMAND ZzWorkspaceTransferRegistryLifetimeTest)
+set_tests_properties(fluent.workspace-transfer-registry-lifetime PROPERTIES
+    LABELS "unit;fluent;widgets"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:ZzFluentUI>:$<TARGET_FILE_DIR:ZzCore>:$<TARGET_FILE_DIR:ZzLog>:$<TARGET_FILE_DIR:Qt6::Core>")
+
 add_executable(ZzWorkspaceCrossTransferTest ZzWorkspaceCrossTransferTest.cpp)
 target_link_libraries(ZzWorkspaceCrossTransferTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzWorkspaceCrossTransferTest PROPERTIES AUTOMOC ON)

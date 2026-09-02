@@ -76,9 +76,10 @@
 
 ## v2 拖放集成补充
 
-接管并稳定 `ZzSplitWorkspaceTest` 中 TabBar/Workspace 的 QDropEvent 用例，覆盖成功提交后的重放拒绝及失败后 reserve/release 可重试；补充测试目标链接私有注册表与 MIME 实现。offscreen 下直接 sendEvent 的几何命中不稳定时，测试回退到同一事务 API 完成提交断言。
+接管并稳定 `ZzSplitWorkspaceTest` 中 TabBar/Workspace 的 QDropEvent 用例，覆盖成功提交后的重放拒绝及失败后 reserve/release 可重试；补充测试目标链接私有注册表与 MIME 实现。offscreen 下通过显示控件、处理事件并使用明确中心位置，直接命中真实事件处理器。
 
 验证：`cmake --build --preset linux-gcc-debug --target ZzSplitWorkspaceTest --parallel 2` 成功；注册表测试此前 `1/1 Passed`。
+
 
 ## 恢复周期补充
 
@@ -116,3 +117,19 @@ TabBar/Workspace 拖放改为从版本化 MIME 字节载荷提取 18 字节令�
 命令：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2`，输出三个目标成功。
 
 命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
+
+## 第1轮定向修复
+
+新增 `tabBarV2DropReleasesAfterMigrationFailureAndCanRetry`：在真实
+`QDragEnterEvent`/`QDropEvent` 路径中由来源回调销毁目标工作区，迫使
+`reserve` 后迁移事务失败并回滚；断言令牌仍可 `inspect`，随后使用同一 MIME
+在新目标重试成功。新增独立 `ZzWorkspaceTransferRegistryLifetimeTest` 可执行目标，
+在单独进程中创建并销毁 `QApplication`，验证应用子对象注册表和页面的
+`QPointer` 在应用析构后均为空。
+
+验证命令：
+
+`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryLifetimeTest ZzSplitWorkspaceTest ZzWorkspaceTransferRegistryPrivateTest ZzTabControlsTest --parallel 2`
+
+使用 Qt 6.11 offscreen 与对应 `LD_LIBRARY_PATH` 直接运行：生命周期程序返回 `0`；
+迁移失败重试用例通过；注册表 `12/12`、标签控件 `28/28`、工作区全量 `79/79` 通过。
