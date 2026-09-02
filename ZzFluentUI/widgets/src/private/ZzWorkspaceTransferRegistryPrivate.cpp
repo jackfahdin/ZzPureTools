@@ -98,16 +98,10 @@ ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>
 ZzWorkspaceTransferRegistryPrivate::lookup(
     const QByteArray &token, ZzSplitWorkspace *target, bool remove)
 {
-    for (auto it = records_.begin(); it != records_.end();) {
-        if (it->deadline <= now()) {
-            const auto key = it.key();
-            QObject::disconnect(pageConnections_.take(key));
-            QObject::disconnect(workspaceConnections_.take(key));
-            it = records_.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    const auto keys = records_.keys();
+    for (const auto &key : keys)
+        if (records_.contains(key) && records_.value(key).deadline <= now())
+            invalidate(key);
     if (token.size() != 18 || token.at(0) != 0 || token.at(1) != 2) {
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             error(ZzCore::ZzErrorCode::InvalidArgument, "令牌格式无效"));
@@ -193,14 +187,13 @@ void ZzWorkspaceTransferRegistryPrivate::resetClockForTesting()
 
 qsizetype ZzWorkspaceTransferRegistryPrivate::size() noexcept
 {
-    for (auto it = records_.begin(); it != records_.end();) {
-        if (it->deadline <= now()
-            || it->sourceTabs.isNull()
-            || it->sourceTabs->indexOf(it->page) < 0) {
-            it = records_.erase(it);
-        } else {
-            ++it;
-        }
+    const auto keys = records_.keys();
+    for (const auto &key : keys) {
+        if (!records_.contains(key)) continue;
+        const auto &record = records_.value(key);
+        if (record.deadline <= now() || record.sourceTabs.isNull()
+            || record.sourceTabs->indexOf(record.page) < 0)
+            invalidate(key);
     }
     return records_.size();
 }

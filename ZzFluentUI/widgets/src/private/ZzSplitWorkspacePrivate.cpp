@@ -3148,7 +3148,12 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         return true;
     }
     if (registry != nullptr) {
-        (void)registry->consume(tabPayload->token, q_ptr);
+        const auto consumed = registry->consume(tabPayload->token, q_ptr);
+        if (!consumed) {
+            registry->invalidate(tabPayload->token);
+            event->ignore();
+            return true;
+        }
     }
     discardDragTokens();
     event->setDropAction(Qt::MoveAction);
