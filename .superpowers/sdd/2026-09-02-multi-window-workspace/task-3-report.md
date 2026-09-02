@@ -124,8 +124,8 @@ TabBar/Workspace 拖放改为从版本化 MIME 字节载荷提取 18 字节令�
 `QDragEnterEvent`/`QDropEvent` 路径中由来源回调销毁目标工作区，迫使
 `reserve` 后迁移事务失败并回滚；断言令牌仍可 `inspect`，随后使用同一 MIME
 在新目标重试成功。新增独立 `ZzWorkspaceTransferRegistryLifetimeTest` 可执行目标，
-在单独进程中创建并销毁 `QApplication`，验证应用子对象注册表和页面的
-`QPointer` 在应用析构后均为空。
+在单独进程中创建并销毁 `QApplication`，验证应用子对象注册表的
+`QPointer` 在应用析构后为空，同时 workspace/page 仍存活到随后显式销毁。
 
 验证命令：
 
@@ -133,3 +133,14 @@ TabBar/Workspace 拖放改为从版本化 MIME 字节载荷提取 18 字节令�
 
 使用 Qt 6.11 offscreen 与对应 `LD_LIBRARY_PATH` 直接运行：生命周期程序返回 `0`；
 迁移失败重试用例通过；注册表 `12/12`、标签控件 `28/28`、工作区全量 `79/79` 通过。
+
+## 第2轮定向修复
+
+重写生命周期 helper 为堆分配 `QApplication`：应用析构前保留
+workspace/page，调用 `delete app` 后仅通过 `QPointer` 验证 registry 已被应用
+销毁而 workspace/page 仍存活，随后再销毁 workspace。这样令牌记录的清理由
+应用析构触发，不依赖来源工作区析构；应用销毁后不再调用 registry 业务 API。
+
+验证：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryLifetimeTest --parallel 2` 成功；
+`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-lifetime$' --output-on-failure`
+输出 `1/1 Test ... Passed`，生命周期程序直接运行返回 `0`。
