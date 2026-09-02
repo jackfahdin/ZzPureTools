@@ -16,7 +16,7 @@
 - 创建：`ZzPureTools/tests/ZzWorkspacePublicApiTest.cpp`
 - 修改：`ZzPureTools/tests/CMakeLists.txt`
 
-- [ ] **步骤 1：编写测试源并确认目标尚不存在**
+- [x] **步骤 1：编写测试源并确认目标尚不存在**
 
 测试覆盖：
 
@@ -44,11 +44,11 @@ cmake --build --preset linux-gcc-debug --target ZzWorkspacePublicApiTest --paral
 
 预期：目标尚未注册，构建失败。
 
-- [ ] **步骤 2：注册测试目标**
+- [x] **步骤 2：注册测试目标**
 
 在 `ZzPureTools/tests/CMakeLists.txt` 添加 `ZzWorkspacePublicApiTest`，链接 `Qt6::Test`、`Qt6::Widgets`、`Zz::PureTools` 和 `Zz::FluentUI`，设置 `AUTOMOC`、项目警告、sanitizer，并注册 `puretools.workspace-public-api`，环境为 `QT_QPA_PLATFORM=offscreen`。
 
-- [ ] **步骤 3：运行测试确认通过**
+- [x] **步骤 3：运行测试确认通过**
 
 ```bash
 cmake --preset linux-gcc-debug -DZZ_BUILD_TESTS=ON -DZZ_BUILD_EXAMPLES=ON
@@ -58,7 +58,7 @@ ctest --preset linux-gcc-debug -R '^puretools.workspace-public-api$' --output-on
 
 预期：全部契约用例通过，且无新增警告。
 
-- [ ] **步骤 4：提交**
+- [x] **步骤 4：提交**
 
 ```bash
 git add ZzPureTools/tests/ZzWorkspacePublicApiTest.cpp ZzPureTools/tests/CMakeLists.txt
@@ -72,7 +72,7 @@ git commit -m "测试：冻结工作区公共 API 契约" -m "新增只消费公
 - 创建：`docs/development/WORKSPACE_API_ZH.md`
 - 修改：`README.md`
 
-- [ ] **步骤 1：编写调用方说明**
+- [x] **步骤 1：编写调用方说明**
 
 文档明确列出：
 
@@ -83,11 +83,11 @@ git commit -m "测试：冻结工作区公共 API 契约" -m "新增只消费公
 - 标题、置顶、布局保存恢复的职责边界；
 - shared/static 安装包的最小消费示例和验证命令。
 
-- [ ] **步骤 2：在 README 增加链接**
+- [x] **步骤 2：在 README 增加链接**
 
 在工作区组件表格下增加“公共 API 与生命周期”链接，指向该文档。
 
-- [ ] **步骤 3：检查文档与提交**
+- [x] **步骤 3：检查文档与提交**
 
 ```bash
 git diff --check
@@ -101,23 +101,31 @@ git commit -m "文档：补充工作区公共 API 使用约定" -m "记录线程
 **文件：**
 - 不修改生产代码；更新本计划的验证记录。
 
-- [ ] **步骤 1：运行定向、安装消费和公共头测试**
+- [x] **步骤 1：运行定向、安装消费和公共头测试**
 
 ```bash
 cmake --build --preset linux-gcc-debug --parallel 2
 ctest --preset linux-gcc-debug -R '^(puretools.workspace-public-api|install.consumer|architecture.public-headers)$' --output-on-failure
 ```
 
-- [ ] **步骤 2：运行静态边界检查**
+- [x] **步骤 2：运行静态边界检查**
 
 ```bash
-cmake --build --preset linux-gcc-debug --target ZzClangTidy --parallel 2
-ctest --preset linux-gcc-debug -R '^(architecture.complete-audit|platform.preset-matrix)$' --output-on-failure
+export CLANG_17=/usr/bin/clang-20
+export CLANGXX_17=/usr/bin/clang++-20
+export GCC_13_TOOLCHAIN_ROOT=/usr
+cmake --preset linux-clang-tidy-release
+cmake --build --preset linux-clang-tidy-release --target ZzClangTidy --parallel 2
+cmake -DZZ_PRESETS_FILE="$PWD/CMakePresets.json" \
+    -P tests/Platform/PresetMatrixContract.cmake
+ctest --preset linux-gcc-debug -R \
+    '^(architecture.complete-audit|architecture.public-headers)$' \
+    --output-on-failure
 ```
 
 记录 Linux 实际结果；Windows MSVC/MinGW 和 macOS 只记录源码公共 API 静态检查，不写成已运行通过。
 
-- [ ] **步骤 3：提交验证记录**
+- [x] **步骤 3：提交验证记录**
 
 在本文末尾追加命令、日期、Qt/GCC 版本和通过数量后提交：
 
@@ -132,3 +140,21 @@ git commit -m "文档：记录工作区 API 契约验证证据" -m "保存 Linux
 - 文档明确所有权、线程和状态职责，README 可导航到文档；
 - Linux 定向测试、安装消费、公共头和静态边界检查有新鲜输出；
 - `temp_image/` 未被读取、修改、暂存或提交。
+
+## Linux 验证证据（2026-09-02）
+
+环境：Ubuntu 26.04，Qt 6.11.1（`/home/zz/Qt/6.11.1/gcc_64`），GCC 15.2，Clang/Clang-Tidy 20.1.8。
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| Debug 全量构建 | `cmake --build --preset linux-gcc-debug --parallel 2` | 退出码 0，420/420 完成 |
+| 工作区公共 API | `ctest --preset linux-gcc-debug -R '^puretools.workspace-public-api$' --output-on-failure` | 1/1 通过 |
+| 安装消费 | `ctest --preset linux-gcc-debug -R '^install.consumer$' --output-on-failure` | 1/1 通过，156.30 s |
+| 公共头独立编译 | `ctest --preset linux-gcc-debug -R '^architecture.public-headers$' --output-on-failure` | 1/1 通过，10.53 s |
+| 完整架构审计 | `ctest --preset linux-gcc-debug -R '^architecture.complete-audit$' --output-on-failure` | 1/1 通过，2.24 s |
+| Clang-Tidy | `cmake --build --preset linux-clang-tidy-release --target ZzClangTidy --parallel 2` | 243/243 文件，`CLANG_TIDY_EXIT=0` |
+| CMake preset 矩阵 | `cmake -DZZ_PRESETS_FILE="$PWD/CMakePresets.json" -P tests/Platform/PresetMatrixContract.cmake` | 通过 |
+| 工作树检查 | `git diff --check` | 通过 |
+
+Windows MSVC、Windows Qt MinGW 和 macOS 本轮未进行原生编译或真机交互，仅保留现有
+跨平台 preset 与公共 Qt API 静态边界。
