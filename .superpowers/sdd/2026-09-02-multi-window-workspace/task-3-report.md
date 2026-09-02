@@ -35,3 +35,13 @@
 命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，实际输出：测试通过。
 
 剩余疑虑：尚未在本轮补齐跨线程、4096 字节和 1000 次 QObject/QTimer 增长的独立断言；完整 split/tab 回归受当前环境动态库路径限制未执行。
+
+## 第2轮修复
+
+提交 `0773c09`。新增跨线程拒绝、伪造及错误长度、来源页面移走、注入时钟边界、1000 次发布/失效无对象增长测试；修正测试字节常量。注册表构建与安全测试通过。
+
+命令：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest --parallel 2`，输出成功。
+
+命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
+
+剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
