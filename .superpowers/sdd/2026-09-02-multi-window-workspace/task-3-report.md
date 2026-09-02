@@ -56,6 +56,12 @@
 
 命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
 
+## 恢复协议修复
+
+新增 Published/Reserved 状态机及 `reserve/commit/release` API，TabBar 与 Workspace 均按 inspect/预检、reserve、迁移、commit 顺序处理，失败 release。`ZzTabWidget::tabRemoved` 通知注册表，移除页面立即失效并同步其他记录索引；连接句柄在所有清理路径断开。
+
+验证：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2` 成功；注册表 ctest `1/1 Passed`。
+
 剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
 
 ## 第3轮修复
