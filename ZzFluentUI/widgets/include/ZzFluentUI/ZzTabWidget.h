@@ -12,6 +12,7 @@ namespace ZzFluentUI {
 
 class ZzTabBar;
 class ZzTabWidgetPrivate;
+class ZzWorkspaceCrossTransferTransactionPrivate;
 
 /**
  * @brief 保存标签页并提供同步、可回滚的容器间转移。
@@ -216,6 +217,7 @@ Q_SIGNALS:
 
 private:
     friend class ZzTabWidgetPrivate;
+    friend class ZzWorkspaceCrossTransferTransactionPrivate;
     std::unique_ptr<ZzTabWidgetPrivate> d_ptr;
 };
 

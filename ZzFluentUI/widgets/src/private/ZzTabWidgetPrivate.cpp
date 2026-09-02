@@ -194,7 +194,7 @@ bool ZzTabWidgetPrivate::restoreMetadata(
     return resolveIndex() >= 0;
 }
 
-bool ZzTabWidgetPrivate::transferTo(
+bool ZzTabWidgetPrivate::transferToDirect(
     ZzTabWidget *target,
     int sourceIndex,
     int targetIndex)

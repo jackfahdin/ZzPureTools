@@ -203,7 +203,7 @@ bool ZzTabWidget::transferTabTo(
     int sourceIndex,
     int targetIndex)
 {
-    return d_ptr->transferTo(target, sourceIndex, targetIndex);
+    return d_ptr->transferToDirect(target, sourceIndex, targetIndex);
 }
 
 } // namespace ZzFluentUI

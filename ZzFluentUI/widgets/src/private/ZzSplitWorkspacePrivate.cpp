@@ -32,6 +32,7 @@
 
 #include "ZzTabBarPrivate.h"
 #include "ZzWidgetTheme.h"
+#include "ZzWorkspaceCrossTransferTransactionPrivate.h"
 
 namespace ZzFluentUI {
 
@@ -2172,7 +2173,79 @@ ZzSplitWorkspacePrivate::ZzSplitWorkspacePrivate(
         });
 }
 
-ZzSplitWorkspacePrivate::~ZzSplitWorkspacePrivate() = default;
+ZzWorkspacePageId ZzSplitWorkspacePrivate::pageId(const QWidget *page) const
+{
+    if (page == nullptr || !zzWorkspaceContainsPage(this, page)) {
+        return {};
+    }
+    auto found = pageIds.find(const_cast<QWidget *>(page));
+    if (found != pageIds.end()) {
+        return found.value();
+    }
+    auto id = ZzWorkspacePageId::create();
+    while (pagesById.contains(id)) {
+        id = ZzWorkspacePageId::create();
+    }
+    QWidget *const mutablePage = const_cast<QWidget *>(page);
+    pageIds.insert(mutablePage, id);
+    pagesById.insert(id, mutablePage);
+    pageDestroyedConnections.insert(
+        mutablePage,
+        QObject::connect(
+            mutablePage,
+            &QObject::destroyed,
+            q_ptr,
+            [this](QObject *object) {
+                auto *const widget = static_cast<QWidget *>(object);
+                const auto it = pageIds.find(widget);
+                if (it != pageIds.end()) {
+                    pagesById.remove(it.value());
+                    pageIds.erase(it);
+                }
+                pageDestroyedConnections.remove(widget);
+            }));
+    return id;
+}
+
+QWidget *ZzSplitWorkspacePrivate::pageForId(
+    const ZzWorkspacePageId &id) const
+{
+    if (!id.isValid()) {
+        return nullptr;
+    }
+    const auto it = pagesById.constFind(id);
+    if (it == pagesById.cend() || it.value().isNull()
+        || !zzWorkspaceContainsPage(this, it.value())) {
+        return nullptr;
+    }
+    return it.value();
+}
+
+ZzCore::ZzResult<void> ZzSplitWorkspacePrivate::transferTabToWorkspace(
+    const ZzTabGroupId &sourceGroup,
+    int sourceIndex,
+    ZzSplitWorkspace *targetWorkspace,
+    const ZzTabGroupId &targetGroup,
+    int targetIndex,
+    ZzWorkspaceDropZone zone)
+{
+    return ZzWorkspaceCrossTransferTransactionPrivate::run(
+        q_ptr,
+        sourceGroup,
+        sourceIndex,
+        targetWorkspace,
+        targetGroup,
+        targetIndex,
+        zone);
+}
+
+ZzSplitWorkspacePrivate::~ZzSplitWorkspacePrivate()
+{
+    for (auto it = pageDestroyedConnections.begin();
+         it != pageDestroyedConnections.end(); ++it) {
+        QObject::disconnect(it.value());
+    }
+}
 
 QList<ZzTabGroupId> ZzSplitWorkspacePrivate::groupIds() const
 {
@@ -2211,6 +2284,9 @@ std::optional<ZzTabGroupId> ZzSplitWorkspacePrivate::splitGroup(
     const ZzTabGroupId &requestedId,
     bool rebuildViewAfterCommit)
 {
+    if (transactionDepth != 0) {
+        return std::nullopt;
+    }
     const QList<ZzTabGroupId> ids = groupIds();
     ZzNode *const sourceNode = findLeaf(source);
     if (sourceNode == nullptr
@@ -2297,6 +2373,9 @@ bool ZzSplitWorkspacePrivate::removeEmptyGroup(
     const ZzTabGroupId &id,
     bool rebuildViewAfterCommit)
 {
+    if (transactionDepth != 0) {
+        return false;
+    }
     const QList<ZzTabGroupId> ids = groupIds();
     ZzNode *const leafNode = findLeaf(id);
     const QPointer<ZzTabWidget> tabs = leafNode != nullptr
@@ -2404,6 +2483,9 @@ bool ZzSplitWorkspacePrivate::transferTab(
     const ZzTabGroupId &target,
     int targetIndex)
 {
+    if (transactionDepth != 0) {
+        return false;
+    }
     QPointer<ZzSplitWorkspace> guardedWorkspace = q_ptr;
     ZzNode *const sourceNode = findLeaf(source);
     ZzNode *const targetNode = findLeaf(target);
@@ -2658,7 +2740,7 @@ QByteArray ZzSplitWorkspacePrivate::saveLayout() const
 }
 
 bool ZzSplitWorkspacePrivate::restoreLayout(const QByteArray &encoded) {
-  if (!restoreTransactionOwners.empty()) {
+  if (transactionDepth != 0 || !restoreTransactionOwners.empty()) {
     return false;
   }
   const auto decoded = zzDecodeWorkspaceLayout(encoded);
@@ -2693,6 +2775,9 @@ ZzWorkspaceTransferResult ZzSplitWorkspacePrivate::moveTabToDropZone(
     ZzWorkspaceDropZone zone)
 {
     ZzWorkspaceTransferResult result;
+    if (transactionDepth != 0) {
+        return result;
+    }
     result.sourceId = source;
     result.zone = zone;
     switch (zone) {

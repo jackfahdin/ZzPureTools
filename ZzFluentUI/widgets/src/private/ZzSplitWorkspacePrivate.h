@@ -30,6 +30,7 @@ class QWidget;
 namespace ZzFluentUI {
 
 class ZzTabWidget;
+class ZzWorkspaceCrossTransferTransactionPrivate;
 
 struct ZzNode;
 
@@ -185,6 +186,16 @@ public:
     /** @brief 返回页面登记的布局键。 */
     [[nodiscard]] QString pageLayoutKey(const QWidget *page) const;
 
+    [[nodiscard]] ZzWorkspacePageId pageId(const QWidget *page) const;
+    [[nodiscard]] QWidget *pageForId(const ZzWorkspacePageId &id) const;
+    [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspace(
+        const ZzTabGroupId &sourceGroup,
+        int sourceIndex,
+        ZzSplitWorkspace *targetWorkspace,
+        const ZzTabGroupId &targetGroup,
+        int targetIndex,
+        ZzWorkspaceDropZone zone);
+
     /** @brief 将当前树、尺寸、活动组和 keyed 页面编码为独立格式。 */
     [[nodiscard]] QByteArray saveLayout() const;
 
@@ -325,6 +336,12 @@ public:
     std::vector<ZzWorkspaceLayoutPage> savedPages;
     std::vector<QPointer<ZzTabWidget>> restoreTransactionOwners;
     QHash<QWidget *, QString> restoreTransactionKeyChanges;
+    mutable QHash<QWidget *, ZzWorkspacePageId> pageIds;
+    mutable QHash<ZzWorkspacePageId, QPointer<QWidget>> pagesById;
+    mutable QHash<QWidget *, QMetaObject::Connection> pageDestroyedConnections;
+    int transactionDepth = 0;
+
+    friend class ZzWorkspaceCrossTransferTransactionPrivate;
 };
 
 } // namespace ZzFluentUI

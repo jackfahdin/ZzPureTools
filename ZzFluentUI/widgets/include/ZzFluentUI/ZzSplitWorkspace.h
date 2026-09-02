@@ -12,6 +12,8 @@
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzTabGroupId.h>
+#include <ZzFluentUI/ZzWorkspacePageId.h>
+#include <ZzCore/ZzResult.h>
 
 class QDragEnterEvent;
 class QDragLeaveEvent;
@@ -23,6 +25,7 @@ class QObject;
 namespace ZzFluentUI {
 
 class ZzSplitWorkspacePrivate;
+class ZzWorkspaceCrossTransferTransactionPrivate;
 class ZzTabWidget;
 
 /** @brief 指定新标签组位于来源组的物理前侧或后侧。 */
@@ -156,6 +159,18 @@ public:
      */
     [[nodiscard]] QString pageLayoutKey(const QWidget *page) const;
 
+    [[nodiscard]] ZzWorkspacePageId pageId(const QWidget *page) const;
+
+    [[nodiscard]] QWidget *pageForId(const ZzWorkspacePageId &id) const;
+
+    [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspace(
+        const ZzTabGroupId &sourceGroup,
+        int sourceIndex,
+        ZzSplitWorkspace *targetWorkspace,
+        const ZzTabGroupId &targetGroup,
+        int targetIndex = -1,
+        ZzWorkspaceDropZone zone = ZzWorkspaceDropZone::Center);
+
     /**
      * @brief 保存独立、带版本和 SHA-256 摘要的分屏布局。
      * @return 成功时返回 `ZZSW` 版本 1 布局；当前状态超限时返回空数组。
@@ -220,6 +235,14 @@ Q_SIGNALS:
         ZzWorkspaceDropZone zone,
         QWidget *page);
 
+    void tabTransferCommitted(
+        ZzSplitWorkspace *sourceWorkspace,
+        const ZzTabGroupId &sourceGroup,
+        const ZzTabGroupId &targetGroup,
+        QWidget *page,
+        const ZzWorkspacePageId &pageId,
+        ZzWorkspaceDropZone zone);
+
 protected:
     /** @brief 截获标签栏拖放事件并统一交给工作区事务处理。 */
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -238,6 +261,7 @@ protected:
 
 private:
     friend class ZzSplitWorkspacePrivate;
+    friend class ZzWorkspaceCrossTransferTransactionPrivate;
     std::unique_ptr<ZzSplitWorkspacePrivate> d_ptr;
 };
 

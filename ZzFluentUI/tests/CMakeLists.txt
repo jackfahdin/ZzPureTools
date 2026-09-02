@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzWorkspaceCrossTransferTest ZzWorkspaceCrossTransferTest.cpp)
+target_link_libraries(ZzWorkspaceCrossTransferTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzWorkspaceCrossTransferTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceCrossTransferTest)
+zz_enable_sanitizers(ZzWorkspaceCrossTransferTest)
+add_test(NAME fluent.workspace-cross-transfer COMMAND ZzWorkspaceCrossTransferTest)
+set_tests_properties(fluent.workspace-cross-transfer PROPERTIES
+    LABELS "unit;fluent;widgets"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzWorkspacePageIdTest ZzWorkspacePageIdTest.cpp)
 target_link_libraries(ZzWorkspacePageIdTest PRIVATE
     Qt6::Test

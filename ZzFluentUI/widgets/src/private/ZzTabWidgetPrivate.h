@@ -50,7 +50,7 @@ public:
         const ZzTabTransferSnapshot &snapshot);
 
     /** @brief 执行同容器重排或跨容器同步转移。 */
-    bool transferTo(
+    bool transferToDirect(
         ZzTabWidget *target,
         int sourceIndex,
         int targetIndex);

@@ -10,6 +10,7 @@
 #include <ZzFluentUI/ZzTabWidget.h>
 
 #include "private/ZzSplitWorkspacePrivate.h"
+#include "private/ZzWorkspaceCrossTransferTransactionPrivate.h"
 
 namespace ZzFluentUI {
 
@@ -141,6 +142,34 @@ bool ZzSplitWorkspace::setPageLayoutKey(
 QString ZzSplitWorkspace::pageLayoutKey(const QWidget *page) const
 {
     return d_ptr->pageLayoutKey(page);
+}
+
+ZzWorkspacePageId ZzSplitWorkspace::pageId(const QWidget *page) const
+{
+    return d_ptr->pageId(page);
+}
+
+QWidget *ZzSplitWorkspace::pageForId(const ZzWorkspacePageId &id) const
+{
+    return d_ptr->pageForId(id);
+}
+
+ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspace(
+    const ZzTabGroupId &sourceGroup,
+    int sourceIndex,
+    ZzSplitWorkspace *targetWorkspace,
+    const ZzTabGroupId &targetGroup,
+    int targetIndex,
+    ZzWorkspaceDropZone zone)
+{
+    return ZzWorkspaceCrossTransferTransactionPrivate::run(
+        this,
+        sourceGroup,
+        sourceIndex,
+        targetWorkspace,
+        targetGroup,
+        targetIndex,
+        zone);
 }
 
 QByteArray ZzSplitWorkspace::saveLayout() const
