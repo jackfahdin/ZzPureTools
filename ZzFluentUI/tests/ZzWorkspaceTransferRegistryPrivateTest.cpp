@@ -5,6 +5,7 @@
 #include <thread>
 
 #include "../widgets/src/private/ZzWorkspaceTransferRegistryPrivate.h"
+#include "../widgets/src/private/ZzTabBarPrivate.h"
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 
@@ -154,6 +155,28 @@ private slots:
         const auto inspected = registry->inspect(token.value());
         QVERIFY(inspected);
         QCOMPARE(inspected.value().sourceIndex, 0);
+    }
+
+    void v2MimeAndWorkspaceDestruction()
+    {
+        auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        QPointer<QWidget> page;
+        QByteArray token;
+        {
+            auto *workspace = new ZzSplitWorkspace;
+            auto *tabs = workspace->tabWidget(workspace->groupIds().constFirst());
+            page = new QWidget;
+            tabs->addTab(page, QStringLiteral("p"));
+            const auto published = registry->publish(workspace, tabs, workspace->groupIds().constFirst(), 0, workspace->pageId(page), page);
+            QVERIFY(published);
+            token = published.value();
+            ZzTabMimeData mime(token);
+            QCOMPARE(mime.format(), QStringLiteral("application/x-zz-workspace-transfer-v2"));
+            QCOMPARE(mime.data(mime.format()).size(), 18);
+            delete workspace;
+        }
+        QVERIFY(!registry->inspect(token));
+        QVERIFY(page.isNull());
     }
 };
 

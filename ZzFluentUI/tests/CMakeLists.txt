@@ -2,7 +2,8 @@ include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
 add_executable(ZzWorkspaceTransferRegistryPrivateTest
     ZzWorkspaceTransferRegistryPrivateTest.cpp
-    ../widgets/src/private/ZzWorkspaceTransferRegistryPrivate.cpp)
+    ../widgets/src/private/ZzWorkspaceTransferRegistryPrivate.cpp
+    ../widgets/src/private/ZzTabBarPrivate.cpp)
 target_link_libraries(ZzWorkspaceTransferRegistryPrivateTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzWorkspaceTransferRegistryPrivateTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceTransferRegistryPrivateTest)
