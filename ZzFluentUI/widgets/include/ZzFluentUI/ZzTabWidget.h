@@ -58,6 +58,9 @@ public:
         int sourceIndex,
         int targetIndex = -1);
 
+    /** @brief 移除标签并在移除前通知私有拖放注册表。 */
+    void removeTab(int index);
+
     /**
      * @brief 返回标签是否固定。
      * @param index 标签索引。

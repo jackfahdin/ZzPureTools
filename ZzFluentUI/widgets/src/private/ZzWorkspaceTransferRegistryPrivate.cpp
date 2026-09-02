@@ -166,7 +166,10 @@ void ZzWorkspaceTransferRegistryPrivate::sourceTabRemoved(ZzTabWidget *tabs, int
         if (!records_.contains(key)) continue;
         auto &record = records_[key];
         if (record.sourceTabs != tabs) continue;
-        if (record.sourceIndex == index || record.page == page) { invalidate(key); continue; }
+        if (record.sourceIndex == index || record.page == page) {
+            if (!record.reserved) invalidate(key);
+            continue;
+        }
         if (record.sourceIndex > index) --record.sourceIndex;
     }
 }
