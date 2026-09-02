@@ -231,6 +231,9 @@ public:
         ZzWorkspaceDropZone zone);
 
 Q_SIGNALS:
+    /** @brief 标签从工作区撕出的意图。 */
+    void tabTearOffRequested(const ZzTabGroupId &, int,
+                             const ZzWorkspacePageId &, const QPoint &, const QSize &);
     /** @brief 活动标签组实际变化后发出。 */
     void activeGroupChanged(const ZzTabGroupId &id);
 

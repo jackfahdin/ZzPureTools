@@ -15,6 +15,42 @@ class ZzWorkspaceCrossTransferTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void transfersAcrossPhysicalEdgeZones()
+    {
+        const ZzFluentUI::ZzWorkspaceDropZone zones[] = {
+            ZzFluentUI::ZzWorkspaceDropZone::Left,
+            ZzFluentUI::ZzWorkspaceDropZone::Top,
+            ZzFluentUI::ZzWorkspaceDropZone::Right,
+            ZzFluentUI::ZzWorkspaceDropZone::Bottom};
+        for (const auto zone : zones) {
+            ZzFluentUI::ZzSplitWorkspace source;
+            ZzFluentUI::ZzSplitWorkspace target;
+            const auto sg = source.groupIds().constFirst();
+            const auto tg = target.groupIds().constFirst();
+            auto *page = new QWidget;
+            source.tabWidget(sg)->addTab(page, QStringLiteral("edge"));
+            QVERIFY(source.transferTabToWorkspace(sg, 0, &target, tg, -1, zone));
+            bool found = false;
+            for (const auto &id : target.groupIds())
+                found = found || target.tabWidget(id)->indexOf(page) == 0;
+            QVERIFY(found);
+            QCOMPARE(target.groupIds().size(), 2);
+        }
+    }
+
+    void mapsTabTearOffToWorkspaceSignal()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto group = workspace.groupIds().constFirst();
+        auto *tabs = workspace.tabWidget(group);
+        auto *page = new QWidget;
+        tabs->addTab(page, QStringLiteral("tear"));
+        QSignalSpy spy(&workspace, &ZzFluentUI::ZzSplitWorkspace::tabTearOffRequested);
+        Q_EMIT tabs->tearOffRequested(0, page, QPoint(10, 20));
+        QCOMPARE(spy.size(), 1);
+        QVERIFY(spy.at(0).at(2).value<ZzFluentUI::ZzWorkspacePageId>().isValid());
+        QVERIFY(spy.at(0).at(4).toSize().isValid());
+    }
     void transfersPageAndIdentityAcrossWorkspaces()
     {
         ZzFluentUI::ZzSplitWorkspace source;

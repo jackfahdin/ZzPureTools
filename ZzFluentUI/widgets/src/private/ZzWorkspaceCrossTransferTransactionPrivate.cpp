@@ -228,11 +228,22 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     ZzWorkspaceDropZone zone)
 {
     if (source == nullptr || target == nullptr || source == target
-        || zone != ZzWorkspaceDropZone::Center || source->thread() != QThread::currentThread()
+        || source->thread() != QThread::currentThread()
         || target->thread() != QThread::currentThread()) {
         return zzCrossTransferFailure(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("invalid cross-workspace transfer arguments"));
+    }
+    if (zone != ZzWorkspaceDropZone::Center) {
+        const bool horizontal = zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Right;
+        const auto placement = (zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Top)
+            ? ZzSplitPlacement::Before : ZzSplitPlacement::After;
+        const auto temp = target->splitGroup(targetGroup,
+            horizontal ? Qt::Horizontal : Qt::Vertical, placement);
+        if (!temp.has_value()) return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState, QStringLiteral("target capacity exceeded"));
+        const auto result = run(source, sourceGroup, sourceIndex, target, temp.value(), targetIndex, ZzWorkspaceDropZone::Center);
+        if (!result) target->removeEmptyGroup(temp.value());
+        return result;
     }
     auto *const sourcePrivate = source->d_ptr.get();
     auto *const targetPrivate = target->d_ptr.get();

@@ -3466,6 +3466,14 @@ void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
     }
     tabs->installEventFilter(q_ptr);
     tabs->fluentTabBar()->installEventFilter(q_ptr);
+    QObject::connect(tabs, &ZzTabWidget::tearOffRequested, q_ptr,
+        [this, tabs](int index, QWidget *page, const QPoint &position) {
+            const auto *node = findLeaf(tabs);
+            const auto group = node != nullptr ? std::get<ZzLeaf>(node->value).id : ZzTabGroupId {};
+            const auto id = pageId(page);
+            const QSize recommended = page != nullptr ? page->sizeHint().expandedTo(QSize(1, 1)) : QSize(1, 1);
+            Q_EMIT q_ptr->tabTearOffRequested(group, index, id, position, recommended);
+        });
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::groupAt(
