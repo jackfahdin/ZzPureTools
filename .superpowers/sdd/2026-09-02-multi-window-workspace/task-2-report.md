@@ -87,3 +87,27 @@ QT_QPA_PLATFORM=offscreen LD_LIBRARY_PATH=/home/zz/Qt/6.11.1/gcc_64/lib:build/li
 结果：构建成功，`6 passed, 0 failed`；`git diff --check` 无输出。
 
 剩余疑虑：Center 跨实例操作不改变分割树结构，页面级 `transferToDirect` 负责元数据失败回滚；若同步槽销毁整个工作区，事务返回 `InvalidState` 且不尝试抢回第三方所有权。
+
+## 第 5 轮修复
+
+- 修正跨实例元数据审计：按实际 `targetIndex` 建模目标页序，并应用 pinned 分区归一化，覆盖头部、中间和末尾插入。
+- 第三方接管页面时不抢回页面，同时清理来源/目标 `pageIds`、`pagesById`、`pageKeys`、销毁连接和标签私有元数据；新增销毁接管页面安全性断言。
+- 回滚现在检查反向 direct 转移及双方快照恢复结果；失败时返回明确的 rollback failure，而不是忽略恢复结果。
+- 新增 `transfersToRequestedNonTailSlot`、`thirdPartyTakeoverCleansWorkspaceRegistration` 测试。
+
+### 验证
+
+```text
+cmake --build build/linux-gcc-debug --target ZzWorkspaceCrossTransferTest --parallel 2
+```
+
+构建成功（Qt 6.11.1，`-Werror`）。
+
+```text
+LD_LIBRARY_PATH=/home/zz/Qt/6.11.1/gcc_64/lib:build/linux-gcc-debug/ZzFluentUI:build/linux-gcc-debug/ZzCore:build/linux-gcc-debug/ZzThirdParty/ZzLog QT_QPA_PLATFORM=offscreen \
+  ./build/linux-gcc-debug/ZzFluentUI/tests/ZzWorkspaceCrossTransferTest -o -,txt
+```
+
+结果：`13 passed, 0 failed`。
+
+同环境运行既有回归：`ZzSplitWorkspaceTest` `74 passed, 0 failed`；`ZzTabControlsTest` `28 passed, 0 failed`。`git diff --check` 通过。

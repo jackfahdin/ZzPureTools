@@ -147,6 +147,11 @@ bool ZzTabWidgetPrivate::transferDirectFor(
         target, sourceIndex, targetIndex, false);
 }
 
+void ZzTabWidgetPrivate::clearMetadataFor(ZzTabWidget *tabs, QWidget *page)
+{
+    if (tabs != nullptr) tabs->d_ptr->removeMetadata(page);
+}
+
 bool ZzTabWidgetPrivate::restoreMetadata(
     ZzTabWidget *target,
     int index,

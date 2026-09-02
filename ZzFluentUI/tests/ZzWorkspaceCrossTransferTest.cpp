@@ -299,6 +299,57 @@ private slots:
         QCOMPARE(target.pageForId(id), page);
         QCOMPARE(committed.size(), 1);
     }
+
+    void transfersToRequestedNonTailSlot()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sourceGroup = source.groupIds().constFirst();
+        const auto targetGroup = target.groupIds().constFirst();
+        auto *moving = new QWidget;
+        auto *before = new QWidget;
+        auto *after = new QWidget;
+        source.tabWidget(sourceGroup)->addTab(moving, "Moving");
+        auto *targetTabs = target.tabWidget(targetGroup);
+        targetTabs->addTab(before, "Before");
+        targetTabs->addTab(after, "After");
+        const auto id = source.pageId(moving);
+        QVERIFY(source.transferTabToWorkspace(sourceGroup, 0, &target,
+                                               targetGroup, 1));
+        QCOMPARE(targetTabs->widget(0), before);
+        QCOMPARE(targetTabs->widget(1), moving);
+        QCOMPARE(targetTabs->widget(2), after);
+        QCOMPARE(target.pageForId(id), moving);
+    }
+
+    void thirdPartyTakeoverCleansWorkspaceRegistration()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        ZzFluentUI::ZzTabWidget thirdParty;
+        const auto sourceGroup = source.groupIds().constFirst();
+        const auto targetGroup = target.groupIds().constFirst();
+        auto *moving = new QWidget;
+        auto *sourceTabs = source.tabWidget(sourceGroup);
+        sourceTabs->addTab(moving, "Moving");
+        QVERIFY(source.setPageLayoutKey(moving, "takeover"));
+        const auto id = source.pageId(moving);
+        connect(sourceTabs, &QTabWidget::currentChanged, sourceTabs,
+                [&, moving](int) {
+                    if (sourceTabs->indexOf(moving) < 0
+                        && thirdParty.indexOf(moving) < 0)
+                        thirdParty.addTab(moving, "Claimed");
+                });
+        const auto result = source.transferTabToWorkspace(sourceGroup, 0,
+                                                           &target, targetGroup);
+        QVERIFY(!result);
+        QVERIFY(source.pageForId(id) == nullptr);
+        QVERIFY(target.pageForId(id) == nullptr);
+        QCOMPARE(source.pageLayoutKey(moving), QString());
+        QCOMPARE(target.pageLayoutKey(moving), QString());
+        delete moving;
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    }
 };
 
 QTEST_MAIN(ZzWorkspaceCrossTransferTest)

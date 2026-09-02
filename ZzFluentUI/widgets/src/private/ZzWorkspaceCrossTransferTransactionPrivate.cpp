@@ -108,23 +108,30 @@ void rebuildPageConnections(ZzSplitWorkspacePrivate *workspace)
 
 bool metadataMatches(const WorkspaceSnapshot &snapshot, QWidget *ignored,
                      ZzTabWidget *ignoredOwner, bool ignoredRemoved,
-                     bool ignoredAdded)
+                     const ZzTabTransferSnapshot *added,
+                     int addedIndex)
 {
     for (const auto &state : snapshot.tabs) {
         if (state.tabs.isNull()) return false;
-        const int expectedCount = static_cast<int>(state.pages.size())
-            + ((ignoredAdded && state.tabs == ignoredOwner) ? 1 : 0)
-            - ((ignoredRemoved && std::any_of(state.pages.cbegin(), state.pages.cend(),
-                [ignored](const auto &p) { return p.page == ignored; })) ? 1 : 0);
-        if (state.tabs->count() != expectedCount) return false;
-        int expectedIndex = 0;
-        for (int i = 0; i < state.pages.size(); ++i) {
-            const auto &expected = state.pages.at(i);
-            if (expected.page == ignored && ignoredRemoved) continue;
-            if (expectedIndex >= state.tabs->count()) return false;
-            const auto current = ZzTabWidgetPrivate::snapshotFor(
-                state.tabs, expectedIndex++);
+        QList<ZzTabTransferSnapshot> expectedPages = state.pages;
+        if (added != nullptr && state.tabs == ignoredOwner) {
+            const int slot = addedIndex < 0
+                ? static_cast<int>(expectedPages.size())
+                : std::clamp(addedIndex, 0, static_cast<int>(expectedPages.size()));
+            expectedPages.insert(slot, *added);
+            std::stable_partition(expectedPages.begin(), expectedPages.end(),
+                                  [](const auto &page) { return page.pinned; });
+        }
+        if (ignoredRemoved) {
+            expectedPages.erase(std::remove_if(expectedPages.begin(), expectedPages.end(),
+                [ignored](const auto &p) { return p.page == ignored; }), expectedPages.end());
+        }
+        if (state.tabs->count() != expectedPages.size()) return false;
+        for (int i = 0; i < expectedPages.size(); ++i) {
+            const auto &expected = expectedPages.at(i);
+            const auto current = ZzTabWidgetPrivate::snapshotFor(state.tabs, i);
             if (current.page != expected.page || current.text != expected.text
+                || current.icon.cacheKey() != expected.icon.cacheKey()
                 || current.toolTip != expected.toolTip || current.whatsThis != expected.whatsThis
                 || current.enabled != expected.enabled || current.pinned != expected.pinned
                 || current.modified != expected.modified || current.attention != expected.attention
@@ -133,6 +140,29 @@ bool metadataMatches(const WorkspaceSnapshot &snapshot, QWidget *ignored,
         }
     }
     return true;
+}
+
+/** @brief 清理被外部容器接管页面的工作区登记，不回收页面对象。 */
+void clearWorkspaceRegistration(ZzSplitWorkspacePrivate *workspace, QWidget *page)
+{
+    if (workspace == nullptr || page == nullptr) return;
+    const auto id = workspace->pageIds.take(page);
+    if (id.isValid()) workspace->pagesById.remove(id);
+    QObject::disconnect(workspace->pageDestroyedConnections.take(page));
+    workspace->pageKeys.erase(std::remove_if(workspace->pageKeys.begin(), workspace->pageKeys.end(),
+        [page](const ZzWorkspacePageKey &entry) { return entry.page == page; }),
+        workspace->pageKeys.end());
+}
+
+void clearTabMetadata(ZzSplitWorkspacePrivate *workspace, QWidget *page)
+{
+    if (workspace == nullptr || page == nullptr) return;
+    std::vector<ZzNode *> leaves;
+    ZzSplitWorkspacePrivate::collectLeaves(workspace->root.get(), leaves);
+    for (auto *node : leaves) {
+        const auto tabs = std::get<ZzLeaf>(node->value).tabs;
+        if (!tabs.isNull()) ZzTabWidgetPrivate::clearMetadataFor(tabs, page);
+    }
 }
 
 bool mappingsMatch(const ZzSplitWorkspacePrivate *workspace,
@@ -257,12 +287,14 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     const auto rollback = [&]() {
         if (guardedSource.isNull() || guardedTarget.isNull()
             || guardedPage.isNull()) return false;
+        bool movedBack = true;
         if (!sourceTabs.isNull() && !targetTabs.isNull()
             && targetTabs->indexOf(guardedPage) >= 0
             && sourceTabs->indexOf(guardedPage) < 0) {
-            ZzTabWidgetPrivate::transferDirectFor(
+            movedBack = ZzTabWidgetPrivate::transferDirectFor(
                 targetTabs, sourceTabs, targetTabs->indexOf(guardedPage), sourceIndex);
         }
+        if (!movedBack) return false;
         if (sourceTabs.isNull() || targetTabs.isNull()
             || sourceTabs->indexOf(guardedPage) < 0) return false;
         for (const auto &connection : sourcePrivate->pageDestroyedConnections)
@@ -281,8 +313,9 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
         targetPrivate->activeId = targetSnapshot.active;
         rebuildPageConnections(sourcePrivate);
         rebuildPageConnections(targetPrivate);
-        return restoreWorkspace(sourceSnapshot)
-            && restoreWorkspace(targetSnapshot);
+        const bool sourceRestored = restoreWorkspace(sourceSnapshot);
+        const bool targetRestored = restoreWorkspace(targetSnapshot);
+        return sourceRestored && targetRestored;
     };
     DepthGuard sourceGuard(source, sourcePrivate);
     DepthGuard targetGuard(target, targetPrivate);
@@ -291,16 +324,23 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
 
     if (!transferred || guardedSource.isNull() || guardedTarget.isNull()
         || guardedPage.isNull()) {
-        rollback();
+        const bool restored = rollback();
         return zzCrossTransferFailure(
             ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("cross-workspace transfer did not commit"));
+            restored ? QStringLiteral("cross-workspace transfer did not commit")
+                     : QStringLiteral("cross-workspace rollback failed"));
     }
 
     if (sourceTabs.isNull() || targetTabs.isNull()
         || targetTabs->indexOf(guardedPage) < 0
         || sourceTabs->indexOf(guardedPage) >= 0) {
-        // A third party may have claimed the page. Never take it back.
+        // 第三方可能已接管页面；不抢回，但清理工作区内部残留登记。
+        if (!guardedPage.isNull()) {
+            clearWorkspaceRegistration(sourcePrivate, guardedPage);
+            clearWorkspaceRegistration(targetPrivate, guardedPage);
+            clearTabMetadata(sourcePrivate, guardedPage);
+            clearTabMetadata(targetPrivate, guardedPage);
+        }
         return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("cross-workspace ownership audit failed"));
     }
@@ -341,17 +381,26 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
         || guardedPage.isNull() || sourceTabs.isNull() || targetTabs.isNull()
         || targetTabs->indexOf(guardedPage) < 0
         || sourceTabs->indexOf(guardedPage) >= 0) {
-        rollback();
+        const bool restored = rollback();
         return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("cross-workspace commit audit failed"));
+            restored ? QStringLiteral("cross-workspace commit audit failed")
+                     : QStringLiteral("cross-workspace rollback failed"));
     }
-    if (!metadataMatches(sourceSnapshot, guardedPage, sourceTabs, true, false)
-        || !metadataMatches(targetSnapshot, guardedPage, targetTabs, false, true)
+    const ZzTabTransferSnapshot moved = [&]() {
+        for (const auto &state : sourceSnapshot.tabs)
+            for (const auto &entry : state.pages)
+                if (entry.page == guardedPage) return entry;
+        return ZzTabTransferSnapshot {};
+    }();
+    if (!metadataMatches(sourceSnapshot, guardedPage, sourceTabs, true, nullptr, -1)
+        || !metadataMatches(targetSnapshot, guardedPage, targetTabs, false, &moved,
+                             targetIndex)
         || !mappingsMatch(sourcePrivate, sourceSnapshot, guardedPage, id, layoutKey, false)
         || !mappingsMatch(targetPrivate, targetSnapshot, guardedPage, id, layoutKey, true)) {
-        rollback();
+        const bool restored = rollback();
         return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("workspace metadata audit failed"));
+            restored ? QStringLiteral("workspace metadata audit failed")
+                     : QStringLiteral("cross-workspace rollback failed"));
     }
     // The notification is a commit point only after both sides still match.
     if (activeChanged && !guardedTarget.isNull()) {
@@ -360,11 +409,13 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     if (guardedSource.isNull() || guardedTarget.isNull()
         || !mappingsMatch(sourcePrivate, sourceSnapshot, guardedPage, id, layoutKey, false)
         || !mappingsMatch(targetPrivate, targetSnapshot, guardedPage, id, layoutKey, true)
-        || !metadataMatches(sourceSnapshot, guardedPage, sourceTabs, true, false)
-        || !metadataMatches(targetSnapshot, guardedPage, targetTabs, false, true)) {
-        rollback();
+        || !metadataMatches(sourceSnapshot, guardedPage, sourceTabs, true, nullptr, -1)
+        || !metadataMatches(targetSnapshot, guardedPage, targetTabs, false, &moved,
+                             targetIndex)) {
+        const bool restored = rollback();
         return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("workspace changed during notification"));
+            restored ? QStringLiteral("workspace changed during notification")
+                     : QStringLiteral("cross-workspace rollback failed"));
     }
     return ZzCore::ZzResult<void>::success();
 }

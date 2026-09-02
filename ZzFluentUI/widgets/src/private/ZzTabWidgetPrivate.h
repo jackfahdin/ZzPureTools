@@ -53,6 +53,8 @@ public:
         int sourceIndex,
         int targetIndex);
 
+    static void clearMetadataFor(ZzTabWidget *tabs, QWidget *page);
+
     /** @brief 按页面身份在指定容器恢复标签元数据。 */
     [[nodiscard]] static bool restoreMetadata(
         ZzTabWidget *target,
