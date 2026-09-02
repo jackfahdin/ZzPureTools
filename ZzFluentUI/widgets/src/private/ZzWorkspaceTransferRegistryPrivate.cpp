@@ -216,9 +216,17 @@ void ZzWorkspaceTransferRegistryPrivate::invalidateWorkspace(
 
 void ZzWorkspaceTransferRegistryPrivate::invalidate(const QByteArray &token) noexcept
 {
+    QPointer<ZzTabWidget> tabs;
+    if (records_.contains(token)) tabs = records_.value(token).sourceTabs;
     QObject::disconnect(pageConnections_.take(token));
     QObject::disconnect(workspaceConnections_.take(token));
     records_.remove(token);
+    if (!tabs.isNull()) {
+        bool stillUsed = false;
+        for (const auto &record : records_)
+            if (record.sourceTabs == tabs) { stillUsed = true; break; }
+        if (!stillUsed) tabs->removeEventFilter(this);
+    }
 }
 
 bool ZzWorkspaceTransferRegistryPrivate::eventFilter(QObject *watched, QEvent *event)
