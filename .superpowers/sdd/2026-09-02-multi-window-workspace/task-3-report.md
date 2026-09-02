@@ -45,3 +45,11 @@
 命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
 
 剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
+
+## 第3轮修复
+
+修复 Workspace DragEnter/DragMove 在注册表为空时的安全处理，并在有效 v2 payload inspect 后记录活动令牌；令牌切换时立即失效旧值，drop/leave/cancel 清理活动令牌。新增来源页面移走、伪造载荷、跨线程和高频失效安全断言均通过。
+
+命令：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2`，输出三个目标成功。
+
+命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
