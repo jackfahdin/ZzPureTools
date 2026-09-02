@@ -100,6 +100,15 @@
 
 剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
 
+## 拖放集成稳定性修复
+
+修复测试目标重复编译私有实现导致的 DSO 分裂：将 `ZzTabMimeData` 与
+`ZzWorkspaceTransferRegistryPrivate` 导出为库符号，并从注册表、工作区测试目标移除重复的私有 `.cpp`。
+TabBar/Workspace 拖放改为从版本化 MIME 字节载荷提取 18 字节令牌，不依赖跨 DSO `dynamic_cast`，令牌安全性仍由应用级注册表校验。Workspace 跨工作区中心拖放提交改用来源工作区的 `transferTabToWorkspace()`。
+
+验证：四个 v2 拖放用例全部通过；`ZzSplitWorkspaceTest` 全量 78 项、
+`ZzWorkspaceTransferRegistryPrivateTest` 12 项、`ZzTabControlsTest` 28 项均通过。
+
 ## 第3轮修复
 
 修复 Workspace DragEnter/DragMove 在注册表为空时的安全处理，并在有效 v2 payload inspect 后记录活动令牌；令牌切换时立即失效旧值，drop/leave/cancel 清理活动令牌。新增来源页面移走、伪造载荷、跨线程和高频失效安全断言均通过。
