@@ -2900,6 +2900,8 @@ private Q_SLOTS:
             QList<QWidget *>({created.at(1)}));
         QCOMPARE(targetRight->visibleWidgets(),
             QList<QWidget *>({created.at(3)}));
+        QVERIFY(!created.at(1)->isHidden());
+        QVERIFY(!created.at(3)->isHidden());
         QCOMPARE(targetLeft->currentWidget(), created.at(1));
         QCOMPARE(targetRight->currentWidget(), created.at(3));
         QCOMPARE(targetLeft->panelStack()->panelSizes(),

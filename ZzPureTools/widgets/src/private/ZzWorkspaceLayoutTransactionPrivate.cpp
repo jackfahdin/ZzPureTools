@@ -1057,7 +1057,9 @@ struct ZzRestoreMaterialization final
             || !zzSideOwnerMatches(
                 owners, id, record->content, pane->panelStack())
             || !pane->isAncestorOf(record->content)
-            || !pane->panelStack()->isAncestorOf(record->content)) {
+            || !pane->panelStack()->isAncestorOf(record->content)
+            || (expected.visible.contains(id)
+                && record->content->isHidden())) {
             return false;
         }
     }
@@ -1674,6 +1676,12 @@ private:
                 || !stableBoundary()) {
                 complete = false;
                 if (strict) return false;
+            }
+            // 恢复物化阶段会先隐藏叶子控件；目标可见时必须清除该显式隐藏状态。
+            if (record != nullptr && record->content != nullptr
+                && side.visible.contains(id)
+                && record->content->isHidden()) {
+                record->content->show();
             }
         }
         if (!side.current.isEmpty()) {
