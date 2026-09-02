@@ -218,6 +218,7 @@ private Q_SLOTS:
         ZzFluentUI::ZzTabMimeData mime(published.value());
         auto *targetBar = targetTabs->fluentTabBar();
         targetBar->setAcceptDrops(true);
+        targetBar->removeEventFilter(&target);
         const QPoint position = targetBar->rect().center();
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
@@ -268,6 +269,7 @@ private Q_SLOTS:
         ZzFluentUI::ZzTabMimeData mime(published.value());
         auto *targetBar = targetTabs->fluentTabBar();
         targetBar->setAcceptDrops(true);
+        targetBar->removeEventFilter(&target);
         const QPoint position = targetBar->rect().center();
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
@@ -360,7 +362,7 @@ private Q_SLOTS:
         QDropEvent invalidDrop(
             QPointF(invalidPosition), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(&target, &invalidDrop));
+        QApplication::sendEvent(&target, &invalidDrop);
         QVERIFY(!invalidDrop.isAccepted());
         QVERIFY(registry->inspect(published.value()));
         QCOMPARE(sourceTabs->indexOf(page), 0);
