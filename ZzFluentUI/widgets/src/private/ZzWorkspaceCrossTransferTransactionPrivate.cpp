@@ -111,7 +111,9 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
             QStringLiteral("cross-workspace transfer did not commit"));
     }
 
-    if (targetTabs->indexOf(guardedPage) < 0 || sourceTabs->indexOf(guardedPage) >= 0) {
+    if (sourceTabs.isNull() || targetTabs.isNull()
+        || targetTabs->indexOf(guardedPage) < 0
+        || sourceTabs->indexOf(guardedPage) >= 0) {
         return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("cross-workspace ownership audit failed"));
     }

@@ -69,3 +69,21 @@ LD_LIBRARY_PATH=/home/zz/Qt/6.11.1/gcc_64/lib:build/linux-gcc-debug/ZzFluentUI:b
 实际输出：构建成功；跨实例 `5 passed, 0 failed`，分割工作区 `74 passed, 0 failed`，标签控件 `28 passed, 0 failed`。`git diff --check` 无输出。
 
 剩余疑虑：现有 `ZzTabWidgetPrivate::transferToDirect` 已提供标签级失败回滚，但工作区树本身在中心转移中不变化，因此未另建重复树快照；复杂故障注入仍依赖上游 direct 原语的同步信号保护。
+
+## 第 2 轮复审修复
+
+- 在 direct 原语返回后的每个同步边界同时检查来源/目标工作区、标签容器和页面 `QPointer`，避免容器销毁后的 `indexOf` 解引用。
+- 保留 RAII 深度守卫；补充目标 ID 冲突和提交后所有权审计，审计通过后再发布单次 `tabTransferCommitted`。
+- 完整补充 `pageId`、`pageForId`、`transferTabToWorkspace` 及 `tabTransferCommitted` 的中文 Doxygen 参数、返回值和失败语义。
+- 新增非法组/索引和审计恰好一次回归测试。
+
+验证命令及实际输出：
+
+```text
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceCrossTransferTest --parallel 2
+QT_QPA_PLATFORM=offscreen LD_LIBRARY_PATH=/home/zz/Qt/6.11.1/gcc_64/lib:build/linux-gcc-debug/ZzFluentUI:build/linux-gcc-debug/ZzCore:build/linux-gcc-debug/ZzThirdParty/ZzLog ./build/linux-gcc-debug/ZzFluentUI/tests/ZzWorkspaceCrossTransferTest -o -,txt
+```
+
+结果：构建成功，`6 passed, 0 failed`；`git diff --check` 无输出。
+
+剩余疑虑：Center 跨实例操作不改变分割树结构，页面级 `transferToDirect` 负责元数据失败回滚；若同步槽销毁整个工作区，事务返回 `InvalidState` 且不尝试抢回第三方所有权。

@@ -4,6 +4,7 @@
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzWorkspacePageId.h>
+#include <QtTest/QSignalSpy>
 
 class ZzWorkspaceCrossTransferTest final : public QObject
 {
@@ -93,6 +94,22 @@ private slots:
         QVERIFY(!targetTabs->isTabCloseEnabled(index));
         QCOMPARE(target.activeGroupId(), targetGroup);
         QCOMPARE(target.pageForId(id), page);
+    }
+
+    void rejectsInvalidArgumentsAndAuditsOnce()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sg)->addTab(page, QStringLiteral("Page"));
+        QSignalSpy spy(&target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted);
+        QVERIFY(!source.transferTabToWorkspace({}, 0, &target, tg));
+        QVERIFY(!source.transferTabToWorkspace(sg, -1, &target, tg));
+        QVERIFY(!source.transferTabToWorkspace(sg, 0, &target, {}, 0));
+        QVERIFY(source.transferTabToWorkspace(sg, 0, &target, tg));
+        QCOMPARE(spy.size(), 1);
     }
 };
 

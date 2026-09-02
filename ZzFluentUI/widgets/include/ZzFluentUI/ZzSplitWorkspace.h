@@ -159,13 +159,31 @@ public:
      */
     [[nodiscard]] QString pageLayoutKey(const QWidget *page) const;
 
-    /** @brief 返回本工作区登记的页面稳定身份；外部页面返回无效标识。 */
+    /**
+     * @brief 返回本工作区登记的页面稳定身份。
+     * @param page 待查询页面。
+     * @return 页面属于本工作区时返回稳定身份，否则返回无效标识。
+     */
     [[nodiscard]] ZzWorkspacePageId pageId(const QWidget *page) const;
 
-    /** @brief 按稳定身份查找当前拥有页面；未知身份返回空指针。 */
+    /**
+     * @brief 按稳定身份查找当前拥有页面。
+     * @param id 页面稳定身份。
+     * @return 当前由本工作区拥有的页面，未知身份返回 nullptr。
+     */
     [[nodiscard]] QWidget *pageForId(const ZzWorkspacePageId &id) const;
 
-    /** @brief 以事务方式将中心标签转移到另一工作区。失败时不改变双方状态。 */
+    /**
+     * @brief 以事务方式将标签转移到另一工作区。
+     * @param sourceGroup 来源组标识。
+     * @param sourceIndex 来源标签索引。
+     * @param targetWorkspace 目标工作区，不能为 nullptr 或当前工作区。
+     * @param targetGroup 目标组标识。
+     * @param targetIndex 目标插入位置，负数表示末尾。
+     * @param zone 拖放区域；跨实例事务当前只支持 Center。
+     * @return 成功返回空错误结果；参数、线程、冲突或状态失败返回对应错误码，
+     *         失败时双方页面与登记保持不变。
+     */
     [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspace(
         const ZzTabGroupId &sourceGroup,
         int sourceIndex,
@@ -238,6 +256,15 @@ Q_SIGNALS:
         ZzWorkspaceDropZone zone,
         QWidget *page);
 
+    /**
+     * @brief 双工作区审计通过后发出一次页面转移通知。
+     * @param sourceWorkspace 来源工作区。
+     * @param sourceGroup 转移前来源组。
+     * @param targetGroup 转移后目标组。
+     * @param page 已由目标工作区拥有的页面。
+     * @param pageId 页面稳定身份。
+     * @param zone 使用的拖放区域。
+     */
     void tabTransferCommitted(
         ZzSplitWorkspace *sourceWorkspace,
         const ZzTabGroupId &sourceGroup,
