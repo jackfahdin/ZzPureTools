@@ -267,6 +267,9 @@ git commit -m "docs(控件视觉): 记录实现计划与验收门禁"
 - 任务 6 显式配置并构建 `linux-gcc-debug` 成功；选择器和弹层相关
   CTest 通过 8/8；`benchmark.fluent-basic-controls` 与
   `benchmark.fluent-theme-switch` 通过 2/2。
+- 随后使用同一动态库路径和 `QT_QPA_PLATFORM=offscreen` 执行完整
+  Linux Debug CTest，162/162 通过；其中 `platform.package-relocation`
+  和 `install.consumer` 的慢速安装消费场景也成功。
 - `linux-clang-tidy-release` 的 `ZzClangTidy` 分析完成 279 个文件，
   退出码为 0。原计划把该目标放在 GCC Debug preset 下，已按实际
   CMake 目标定义修正为 Clang-Tidy preset。
