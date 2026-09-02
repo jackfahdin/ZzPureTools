@@ -178,6 +178,17 @@ private slots:
         QVERIFY(!registry->inspect(token));
         QVERIFY(page.isNull());
     }
+
+    void registryParentIsApplication()
+    {
+        auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        QVERIFY(registry != nullptr);
+        QCOMPARE(registry->parent(), qApp);
+        QPointer<QObject> guarded = registry;
+        registry->deleteLater();
+        QCoreApplication::sendPostedEvents(registry, QEvent::DeferredDelete);
+        QVERIFY(guarded.isNull());
+    }
 };
 
 QTEST_MAIN(ZzWorkspaceTransferRegistryPrivateTest)
