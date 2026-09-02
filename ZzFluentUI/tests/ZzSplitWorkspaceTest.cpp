@@ -222,22 +222,23 @@ private Q_SLOTS:
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QVERIFY(QApplication::sendEvent(targetBar, &enter));
+        QVERIFY(enter.isAccepted());
+        QDragMoveEvent move(
+            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QVERIFY(QApplication::sendEvent(targetBar, &move));
+        QVERIFY(move.isAccepted());
         QDropEvent drop(
             QPointF(position), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QApplication::sendEvent(targetBar, &drop);
-        if (!drop.isAccepted()) {
-            QVERIFY(registry->reserve(published.value(), &target));
-            QVERIFY(sourceTabs->transferTabTo(targetTabs, 0, 0));
-            QVERIFY(registry->commit(published.value()));
-        }
+        QVERIFY(QApplication::sendEvent(targetBar, &drop));
+        QVERIFY(drop.isAccepted());
         QCOMPARE(targetTabs->indexOf(page), 0);
         QVERIFY(!sourceTabs->count());
 
         QDropEvent replay(
             QPointF(position), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(targetBar, &replay));
+        QApplication::sendEvent(targetBar, &replay);
         QVERIFY(!replay.isAccepted());
         QCOMPARE(targetTabs->indexOf(page), 0);
     }
@@ -271,6 +272,7 @@ private Q_SLOTS:
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QVERIFY(QApplication::sendEvent(targetBar, &enter));
+        QVERIFY(enter.isAccepted());
         targetBar->setTabTransferEnabled(false);
         QDropEvent failedDrop(
             QPointF(position), Qt::MoveAction, &mime,
@@ -284,15 +286,12 @@ private Q_SLOTS:
         QDragEnterEvent retryEnter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QVERIFY(QApplication::sendEvent(targetBar, &retryEnter));
+        QVERIFY(retryEnter.isAccepted());
         QDropEvent retryDrop(
             QPointF(position), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QApplication::sendEvent(targetBar, &retryDrop);
-        if (!retryDrop.isAccepted()) {
-            QVERIFY(registry->reserve(published.value(), &target));
-            QVERIFY(sourceTabs->transferTabTo(targetTabs, 0, 0));
-            QVERIFY(registry->commit(published.value()));
-        }
+        QVERIFY(QApplication::sendEvent(targetBar, &retryDrop));
+        QVERIFY(retryDrop.isAccepted());
         QVERIFY(!registry->inspect(published.value()));
         QCOMPARE(targetTabs->indexOf(page), 0);
     }
@@ -321,23 +320,64 @@ private Q_SLOTS:
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QVERIFY(QApplication::sendEvent(&target, &enter));
+        QVERIFY(enter.isAccepted());
         QDropEvent drop(
             QPointF(position), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QApplication::sendEvent(&target, &drop);
-        if (!drop.isAccepted()) {
-            QVERIFY(registry->reserve(published.value(), &target));
-            QVERIFY(sourceTabs->transferTabTo(target.tabWidget(targetGroup), 0, 0));
-            QVERIFY(registry->commit(published.value()));
-        }
+        QVERIFY(QApplication::sendEvent(&target, &drop));
+        QVERIFY(drop.isAccepted());
         QVERIFY(!registry->inspect(published.value()));
         QCOMPARE(target.tabWidget(targetGroup)->indexOf(page), 0);
 
         QDropEvent replay(
             QPointF(position), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(&target, &replay));
+        QApplication::sendEvent(&target, &replay);
         QVERIFY(!replay.isAccepted());
+    }
+
+    void workspaceV2DropReleasesAfterInvalidTarget()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sourceGroup = source.groupIds().constFirst();
+        const auto targetGroup = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        auto *sourceTabs = source.tabWidget(sourceGroup);
+        sourceTabs->addTab(page, QStringLiteral("workspace retry"));
+        target.resize(320, 240);
+        target.show();
+        QCoreApplication::processEvents();
+        auto *registry =
+            ZzFluentUI::ZzWorkspaceTransferRegistryPrivate::instance();
+        QVERIFY(registry != nullptr);
+        const auto published = registry->publish(
+            &source, sourceTabs, sourceGroup, 0, source.pageId(page), page);
+        QVERIFY(published);
+        ZzFluentUI::ZzTabMimeData mime(published.value());
+
+        const QPoint invalidPosition(-100, -100);
+        QDropEvent invalidDrop(
+            QPointF(invalidPosition), Qt::MoveAction, &mime,
+            Qt::LeftButton, Qt::NoModifier);
+        QVERIFY(QApplication::sendEvent(&target, &invalidDrop));
+        QVERIFY(!invalidDrop.isAccepted());
+        QVERIFY(registry->inspect(published.value()));
+        QCOMPARE(sourceTabs->indexOf(page), 0);
+
+        const QPoint validPosition = target.rect().center();
+        QDragEnterEvent enter(
+            validPosition, Qt::MoveAction, &mime,
+            Qt::LeftButton, Qt::NoModifier);
+        QVERIFY(QApplication::sendEvent(&target, &enter));
+        QVERIFY(enter.isAccepted());
+        QDropEvent drop(
+            QPointF(validPosition), Qt::MoveAction, &mime,
+            Qt::LeftButton, Qt::NoModifier);
+        QVERIFY(QApplication::sendEvent(&target, &drop));
+        QVERIFY(drop.isAccepted());
+        QVERIFY(!registry->inspect(published.value()));
+        QCOMPARE(target.tabWidget(targetGroup)->indexOf(page), 0);
     }
 
     void normalizesAndBoundsUniquePageLayoutKeys()

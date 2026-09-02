@@ -44,6 +44,14 @@
 
 命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
 
+## v2 集成测试收紧
+
+移除 TabBar/Workspace v2 drop 测试在事件未接受时的手工迁移 fallback，改为严格断言真实 QDropEvent 成功、重放被拒绝；补充 DragMove 检查及 Workspace 无效目标后的 release/retry 真实路径。registry 生命周期与工作区销毁测试保留。
+
+构建：`cmake --build --preset linux-gcc-debug --target ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2` 成功。
+
+测试：registry 私有测试此前通过；split/tab CTest 在当前环境因 `libZzFluentUI.so.0` 未进入运行时库路径而无法启动，需在集成环境设置正确 `LD_LIBRARY_PATH` 后执行。
+
 ## 第4轮修复
 
 补齐来源页面移走后的即时 size 清理（size 校验来源索引），为页面/工作区 destroyed 连接建立显式句柄并在失效、消费及过期清理时断开，避免连接累积。新增 removeTab 后 size=0 断言。构建与注册表测试通过。
