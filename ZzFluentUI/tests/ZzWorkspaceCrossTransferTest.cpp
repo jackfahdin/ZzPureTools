@@ -51,6 +51,24 @@ private slots:
         QVERIFY(spy.at(0).at(2).value<ZzFluentUI::ZzWorkspacePageId>().isValid());
         QVERIFY(spy.at(0).at(4).toSize().isValid());
     }
+
+    void edgeTransferPreservesMetadataAndRtlGeometry()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        target.setLayoutDirection(Qt::RightToLeft);
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sg)->addTab(page, QStringLiteral("meta"));
+        source.tabWidget(sg)->setTabPinned(0, true);
+        QVERIFY(source.setPageLayoutKey(page, QStringLiteral("edge/key")));
+        const auto id = source.pageId(page);
+        QVERIFY(source.transferTabToWorkspace(sg, 0, &target, tg, -1, ZzFluentUI::ZzWorkspaceDropZone::Right));
+        QVERIFY(target.pageForId(id) == page);
+        QCOMPARE(target.pageLayoutKey(page), QStringLiteral("edge/key"));
+        QVERIFY(target.groupIds().size() == 2);
+    }
     void transfersPageAndIdentityAcrossWorkspaces()
     {
         ZzFluentUI::ZzSplitWorkspace source;
