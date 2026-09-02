@@ -112,6 +112,7 @@ public:
     bool tearOffEnabled = true;
     bool tabTransferEnabled = true;
     bool dragging = false;
+    QByteArray activeToken;
     QToolButton *newTabButton = nullptr;
 };
 

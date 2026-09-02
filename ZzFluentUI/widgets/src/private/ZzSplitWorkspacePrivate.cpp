@@ -39,8 +39,6 @@ namespace ZzFluentUI {
 
 namespace {
 
-constexpr auto zzWorkspaceTabMimeType =
-    "application/x-zz-split-workspace-tab-v1";
 constexpr auto zzWorkspaceDragTokenLifetime = std::chrono::seconds(5);
 constexpr auto zzWorkspaceLayoutMagic = "ZZSW";
 constexpr quint16 zzWorkspaceLayoutSchemaVersion = 1;
@@ -3025,16 +3023,17 @@ bool ZzSplitWorkspacePrivate::handleDragEnter(
     QDragEnterEvent *event)
 {
     if (watched == nullptr || event == nullptr
-        || !ensureDragToken(event->mimeData())) {
+        || dynamic_cast<const ZzTabMimeData *>(event->mimeData()) == nullptr
+        || !ZzWorkspaceTransferRegistryPrivate::instance()->inspect(
+                dynamic_cast<const ZzTabMimeData *>(event->mimeData())->token,
+                q_ptr)) {
         if (event != nullptr) {
             event->ignore();
         }
         discardDragTokens();
         hideDropOverlay();
         return event != nullptr
-            && (event->mimeData()->hasFormat(
-                    QString::fromLatin1(zzWorkspaceTabMimeType))
-                || event->mimeData()->hasFormat(ZzTabMimeData::format()));
+            && event->mimeData()->hasFormat(ZzTabMimeData::format());
     }
     const QPoint position = zzWorkspacePosition(
         watched, q_ptr, event->position().toPoint());
@@ -3055,15 +3054,17 @@ bool ZzSplitWorkspacePrivate::handleDragMove(
     QDragMoveEvent *event)
 {
     if (watched == nullptr || event == nullptr
-        || !dragRecord(event->mimeData()).has_value()) {
+        || dynamic_cast<const ZzTabMimeData *>(event->mimeData()) == nullptr
+        || !ZzWorkspaceTransferRegistryPrivate::instance()->inspect(
+                dynamic_cast<const ZzTabMimeData *>(event->mimeData())->token,
+                q_ptr)) {
         if (event != nullptr) {
             event->ignore();
         }
         discardDragTokens();
         hideDropOverlay();
         return event != nullptr
-            && event->mimeData()->hasFormat(
-                QString::fromLatin1(zzWorkspaceTabMimeType));
+            && event->mimeData()->hasFormat(ZzTabMimeData::format());
     }
     const QPoint position = zzWorkspacePosition(
         watched, q_ptr, event->position().toPoint());
@@ -3102,7 +3103,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
                             QStringLiteral("令牌不可用")))
-        : registry->consume(tabPayload->token, q_ptr);
+        : registry->inspect(tabPayload->token, q_ptr);
     if (watched == nullptr || event == nullptr || !record.hasValue()) {
         if (event != nullptr) {
             event->ignore();
@@ -3110,8 +3111,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         discardDragTokens();
         hideDropOverlay();
         return event != nullptr
-            && event->mimeData()->hasFormat(
-                QString::fromLatin1(zzWorkspaceTabMimeType));
+            && event->mimeData()->hasFormat(ZzTabMimeData::format());
     }
     const QPoint position = zzWorkspacePosition(
         watched, q_ptr, event->position().toPoint());
@@ -3124,7 +3124,6 @@ bool ZzSplitWorkspacePrivate::handleDrop(
     }
     const ZzWorkspaceDropZone zone = dropZoneAt(target, position);
     const auto &stableRecord = record.value();
-    discardDragTokens();
     hideDropOverlay();
     const bool committed = q_ptr->moveTabToDropZone(
         stableRecord.sourceGroup,
@@ -3135,6 +3134,10 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         event->ignore();
         return true;
     }
+    if (registry != nullptr) {
+        (void)registry->consume(tabPayload->token, q_ptr);
+    }
+    discardDragTokens();
     event->setDropAction(Qt::MoveAction);
     event->accept();
     return true;
@@ -3437,40 +3440,6 @@ void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
     tabs->fluentTabBar()->installEventFilter(q_ptr);
 }
 
-bool ZzSplitWorkspacePrivate::ensureDragToken(const QMimeData *mimeData)
-{
-    const auto *tabPayload = dynamic_cast<const ZzTabMimeData *>(mimeData);
-    if (tabPayload == nullptr) {
-        return false;
-    }
-    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
-    return registry != nullptr && registry->inspect(tabPayload->token, q_ptr);
-}
-
-std::optional<ZzWorkspaceDragRecord> ZzSplitWorkspacePrivate::dragRecord(
-    const QMimeData *mimeData)
-{
-    const QString format = QString::fromLatin1(zzWorkspaceTabMimeType);
-    if (mimeData == nullptr || !mimeData->hasFormat(format)) {
-        return std::nullopt;
-    }
-    const QByteArray encoded = mimeData->data(format);
-    if (encoded.size() != 18 || encoded.size() > 4096) {
-        return std::nullopt;
-    }
-    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
-    if (registry == nullptr) {
-        return std::nullopt;
-    }
-    const auto inspected = registry->inspect(encoded, q_ptr);
-    if (!inspected) {
-        return std::nullopt;
-    }
-    const auto &value = inspected.value();
-    return ZzWorkspaceDragRecord{value.sourceGroup, value.sourceIndex,
-                                 value.page, value.deadline};
-}
-
 ZzTabGroupId ZzSplitWorkspacePrivate::groupAt(
     const QPoint &position) const
 {
@@ -3610,6 +3579,11 @@ void ZzSplitWorkspacePrivate::hideDropOverlay()
 
 void ZzSplitWorkspacePrivate::discardDragTokens()
 {
+    if (!activeTransferToken.isEmpty()) {
+        if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance(); registry != nullptr)
+            registry->invalidate(activeTransferToken);
+        activeTransferToken.clear();
+    }
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::createGroupId()

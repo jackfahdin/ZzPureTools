@@ -129,6 +129,7 @@ void ZzTabBarPrivate::startDrag()
         return;
     }
     drag->setMimeData(new ZzTabMimeData(published.value()));
+    activeToken = published.value();
     if (!sourceRect.isEmpty()) {
         drag->setPixmap(q_ptr->grab(sourceRect));
         drag->setHotSpot(hotSpot);
@@ -145,6 +146,11 @@ void ZzTabBarPrivate::startDrag()
     drag.reset();
 
     clearPressState();
+    if (cancelFilter.wasCanceled() || result == Qt::IgnoreAction) {
+        if (auto *r = ZzWorkspaceTransferRegistryPrivate::instance(); r != nullptr)
+            r->invalidate(activeToken);
+    }
+    activeToken.clear();
     if (result != Qt::IgnoreAction || cancelFilter.wasCanceled()
         || !tearOffEnabled || guardedHost.isNull()
         || guardedPage.isNull()) {

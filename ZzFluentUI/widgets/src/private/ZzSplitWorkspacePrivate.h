@@ -294,11 +294,6 @@ public:
     void prepareTabs(ZzTabWidget *tabs);
 
     /** @brief 为真实标签拖拽创建并写入一次性实例令牌。 */
-    bool ensureDragToken(const QMimeData *mimeData);
-
-    /** @brief 严格解析并验证当前实例内拖放载荷。 */
-    [[nodiscard]] std::optional<ZzWorkspaceDragRecord> dragRecord(
-        const QMimeData *mimeData);
 
     /** @brief 返回工作区坐标命中的标签组。 */
     [[nodiscard]] ZzTabGroupId groupAt(const QPoint &position) const;
@@ -331,6 +326,7 @@ public:
     std::unique_ptr<ZzNode> root;
     ZzTabGroupId activeId;
     QPointer<QWidget> dropOverlay;
+    QByteArray activeTransferToken;
     std::vector<ZzWorkspacePageKey> pageKeys;
     std::vector<ZzWorkspaceLayoutPage> savedPages;
     std::vector<QPointer<ZzTabWidget>> restoreTransactionOwners;

@@ -3,6 +3,8 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QThread>
+#include <QtCore/QObject>
+#include <cstring>
 
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
@@ -67,8 +69,10 @@ ZzCore::ZzResult<QByteArray> ZzWorkspaceTransferRegistryPrivate::publish(
     }
 
     QByteArray randomToken(16, Qt::Uninitialized);
-    auto *randomWords = reinterpret_cast<quint32 *>(randomToken.data());
-    QRandomGenerator::global()->generate(randomWords, randomWords + 4);
+    for (int offset = 0; offset < randomToken.size(); offset += 4) {
+        const quint32 word = QRandomGenerator::global()->generate();
+        std::memcpy(randomToken.data() + offset, &word, sizeof(word));
+    }
     QByteArray payload;
     payload.reserve(18);
     payload.append(char(0));
@@ -78,23 +82,30 @@ ZzCore::ZzResult<QByteArray> ZzWorkspaceTransferRegistryPrivate::publish(
         QPointer<ZzSplitWorkspace>(source), QPointer<ZzTabWidget>(sourceTabs),
         sourceGroup, sourceIndex, pageId, QPointer<QWidget>(page),
         now() + std::chrono::seconds(5)});
+    QObject::connect(page, &QObject::destroyed, this, [this, payload] {
+        invalidate(payload);
+    });
+    if (source != nullptr) {
+        QObject::connect(source, &QObject::destroyed, this,
+                         [this, payload] { invalidate(payload); });
+    }
     return ZzCore::ZzResult<QByteArray>::success(std::move(payload));
 }
 
 ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>
 ZzWorkspaceTransferRegistryPrivate::lookup(
-    const QByteArray &token, ZzSplitWorkspace *target, bool remove) noexcept
+    const QByteArray &token, ZzSplitWorkspace *target, bool remove)
 {
-    if (token.size() != 18 || token.at(0) != 0 || token.at(1) != 2) {
-        return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
-            error(ZzCore::ZzErrorCode::InvalidArgument, "令牌格式无效"));
-    }
     for (auto it = records_.begin(); it != records_.end();) {
         if (it->deadline <= now()) {
             it = records_.erase(it);
         } else {
             ++it;
         }
+    }
+    if (token.size() != 18 || token.at(0) != 0 || token.at(1) != 2) {
+        return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
+            error(ZzCore::ZzErrorCode::InvalidArgument, "令牌格式无效"));
     }
     auto it = records_.find(token);
     if (it == records_.end() || it->page.isNull() || it->sourceTabs.isNull()
@@ -104,7 +115,7 @@ ZzWorkspaceTransferRegistryPrivate::lookup(
     }
     if (it->sourceIndex < 0 || it->sourceTabs->widget(it->sourceIndex) != it->page
         || (it->sourceWorkspace != nullptr
-            && !it->sourceWorkspace->pageId(it->page).isValid())) {
+            && it->sourceWorkspace->pageId(it->page) != it->pageId)) {
         records_.erase(it);
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             error(ZzCore::ZzErrorCode::InvalidState, "来源页面已变化"));
@@ -146,6 +157,11 @@ void ZzWorkspaceTransferRegistryPrivate::invalidateWorkspace(
     }
 }
 
+void ZzWorkspaceTransferRegistryPrivate::invalidate(const QByteArray &token) noexcept
+{
+    records_.remove(token);
+}
+
 void ZzWorkspaceTransferRegistryPrivate::setClockForTesting(Clock clock)
 {
     clock_ = std::move(clock);
@@ -158,7 +174,9 @@ void ZzWorkspaceTransferRegistryPrivate::resetClockForTesting()
 
 qsizetype ZzWorkspaceTransferRegistryPrivate::size() noexcept
 {
-    (void)lookup(QByteArray(), nullptr, false);
+    for (auto it = records_.begin(); it != records_.end();) {
+        if (it->deadline <= now()) it = records_.erase(it); else ++it;
+    }
     return records_.size();
 }
 

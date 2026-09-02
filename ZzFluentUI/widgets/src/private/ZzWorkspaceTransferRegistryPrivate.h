@@ -61,6 +61,7 @@ public:
 
     /** @brief 立即失效指定来源工作区发布的全部令牌。 */
     void invalidateWorkspace(ZzSplitWorkspace *workspace) noexcept;
+    void invalidate(const QByteArray &token) noexcept;
 
     /** @brief 测试注入单调时钟，避免安全测试等待真实五秒。 */
     static void setClockForTesting(Clock clock);
@@ -76,7 +77,7 @@ private:
     [[nodiscard]] ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate> lookup(
         const QByteArray &token,
         ZzSplitWorkspace *target,
-        bool remove) noexcept;
+        bool remove);
 
     QHash<QByteArray, ZzWorkspaceTransferRecordPrivate> records_;
     static Clock clock_;

@@ -215,19 +215,20 @@ void ZzTabBar::dropEvent(QDropEvent *event)
     }
 
     auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
-    const auto record = registry == nullptr
+    const auto inspected = registry == nullptr
         ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
                             QStringLiteral("注册表不可用")))
-        : registry->consume(payload->token);
-    if (!record || record.value().sourceTabs.isNull()
-        || !record.value().sourceTabs->transferTabTo(
+        : registry->inspect(payload->token);
+    if (!inspected || inspected.value().sourceTabs.isNull()
+        || !inspected.value().sourceTabs->transferTabTo(
             d_ptr->host,
-            record.value().sourceIndex,
+            inspected.value().sourceIndex,
             targetIndex)) {
         event->ignore();
         return;
     }
+    (void)registry->consume(payload->token);
 
     event->setDropAction(Qt::MoveAction);
     event->accept();
@@ -235,6 +236,11 @@ void ZzTabBar::dropEvent(QDropEvent *event)
 
 void ZzTabBar::dragLeaveEvent(QDragLeaveEvent *event)
 {
+    if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        registry != nullptr) {
+        registry->invalidate(d_ptr->activeToken);
+    }
+    d_ptr->activeToken.clear();
     d_ptr->dropIndex = -1;
     update();
     if (event != nullptr) {
