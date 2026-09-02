@@ -4,6 +4,8 @@
 #include <functional>
 #include <utility>
 
+#include <QtCore/QCoreApplication>
+#include <QtCore/QEvent>
 #include <QtCore/QSet>
 #include <QtCore/QUuid>
 #include <QtGui/QGuiApplication>
@@ -34,6 +36,32 @@ constexpr int ZzPickerVisibleItems = 7;
 constexpr int ZzPopupMargin = 8;
 constexpr int ZzPopupSpacing = 8;
 constexpr int ZzRollerColumnDividerSpacing = 1;
+constexpr char ZzForceNonGrabbingEnvironment[] =
+    "ZZ_FLUENTUI_ROLLER_PICKER_FORCE_NON_GRABBING";
+
+/** @brief 判断当前平台是否需要绕过 Wayland 的 Popup 输入抓取。 */
+[[nodiscard]] bool zzUseNonGrabbingRollerPicker()
+{
+    const QByteArray forced = qgetenv(ZzForceNonGrabbingEnvironment);
+    if (!forced.isEmpty()) {
+        return forced != QByteArrayLiteral("0")
+            && forced.compare(QByteArrayLiteral("false"), Qt::CaseInsensitive)
+                != 0;
+    }
+    return QGuiApplication::platformName().startsWith(
+        QStringLiteral("wayland"),
+        Qt::CaseInsensitive);
+}
+
+[[nodiscard]] Qt::WindowFlags zzRollerPickerWindowFlags()
+{
+    if (zzUseNonGrabbingRollerPicker()) {
+        return Qt::Tool
+            | Qt::FramelessWindowHint
+            | Qt::NoDropShadowWindowHint;
+    }
+    return Qt::Popup;
+}
 
 [[nodiscard]] QString zzUniqueColumnKey(QSet<QString> *usedKeys)
 {
@@ -56,11 +84,39 @@ class ZzRollerPickerPopup final : public QFrame
 {
 public:
     explicit ZzRollerPickerPopup(QWidget *parent)
-        : QFrame(parent, Qt::Popup)
+        : QFrame(parent, zzRollerPickerWindowFlags())
+        , nonGrabbing(windowType() != Qt::Popup)
     {
         setFrameShape(QFrame::NoFrame);
         setFocusPolicy(Qt::StrongFocus);
         setAutoFillBackground(false);
+    }
+
+    /** @brief 在非抓取模式下开始接收应用级关闭事件。 */
+    void beginInteraction()
+    {
+        if (!nonGrabbing || eventFilterInstalled) {
+            return;
+        }
+        QCoreApplication *application = QCoreApplication::instance();
+        if (application == nullptr) {
+            return;
+        }
+        application->installEventFilter(this);
+        eventFilterInstalled = true;
+    }
+
+    /** @brief 停止接收应用级关闭事件，避免常驻过滤开销。 */
+    void endInteraction()
+    {
+        if (!eventFilterInstalled) {
+            return;
+        }
+        if (QCoreApplication *application = QCoreApplication::instance();
+            application != nullptr) {
+            application->removeEventFilter(this);
+        }
+        eventFilterInstalled = false;
     }
 
     std::function<void()> acceptRequested;
@@ -68,6 +124,45 @@ public:
     std::function<void()> hidden;
 
 protected:
+    /** @brief 在非抓取窗口中复刻 Popup 的外部关闭语义。 */
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (!nonGrabbing || !eventFilterInstalled || !isVisible()
+            || event == nullptr) {
+            return QFrame::eventFilter(watched, event);
+        }
+
+        if (event->type() == QEvent::KeyPress) {
+            const auto *keyEvent = static_cast<const QKeyEvent *>(event);
+            if (keyEvent->key() == Qt::Key_Escape) {
+                endInteraction();
+                if (cancelRequested) {
+                    cancelRequested();
+                }
+                return true;
+            }
+        }
+
+        QWidget *watchedWidget = qobject_cast<QWidget *>(watched);
+        const bool insidePopup = watchedWidget != nullptr
+            && (watchedWidget == this || isAncestorOf(watchedWidget));
+        if (event->type() == QEvent::MouseButtonPress && !insidePopup) {
+            endInteraction();
+            if (cancelRequested) {
+                cancelRequested();
+            }
+            return true;
+        }
+
+        if (event->type() == QEvent::WindowDeactivate && insidePopup) {
+            endInteraction();
+            if (cancelRequested) {
+                cancelRequested();
+            }
+        }
+        return QFrame::eventFilter(watched, event);
+    }
+
     void paintEvent(QPaintEvent *event) override
     {
         QPainter painter(this);
@@ -123,11 +218,16 @@ protected:
 
     void hideEvent(QHideEvent *event) override
     {
+        endInteraction();
         QFrame::hideEvent(event);
         if (hidden) {
             hidden();
         }
     }
+
+private:
+    const bool nonGrabbing;
+    bool eventFilterInstalled = false;
 };
 
 ZzRollerPickerPrivate::ZzRollerPickerPrivate(ZzRollerPicker *q)
@@ -400,6 +500,7 @@ void ZzRollerPickerPrivate::showPopup()
     popup->setAccessibleName(q_ptr->accessibleName());
     preparePopupGeometry();
     popup->show();
+    popup->beginInteraction();
     Q_EMIT q_ptr->popupVisibleChanged(true);
 
     const auto firstSelectable = std::find_if(
@@ -422,6 +523,7 @@ void ZzRollerPickerPrivate::acceptPopup()
     const QStringList texts = currentTexts();
     closingPopup = true;
     popupActive = false;
+    popup->endInteraction();
     popup->hide();
     openSnapshot.clear();
     closingPopup = false;
@@ -438,6 +540,7 @@ void ZzRollerPickerPrivate::cancelPopup()
     restoreSnapshot();
     closingPopup = true;
     popupActive = false;
+    popup->endInteraction();
     popup->hide();
     openSnapshot.clear();
     closingPopup = false;
@@ -453,6 +556,7 @@ void ZzRollerPickerPrivate::handleExternalHide()
     }
     restoreSnapshot();
     popupActive = false;
+    popup->endInteraction();
     openSnapshot.clear();
     q_ptr->setFocus(Qt::PopupFocusReason);
     Q_EMIT q_ptr->popupVisibleChanged(false);

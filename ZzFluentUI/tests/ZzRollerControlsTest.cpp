@@ -5,6 +5,7 @@
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QTimer>
 #include <QtGui/QAccessible>
 #include <QtGui/QFontMetrics>
@@ -44,6 +45,20 @@ QWidget *zzRollerPopup(ZzFluentUI::ZzRollerPicker *picker)
     for (QWidget *widget : widgets) {
         if (widget->isWindow()
             && widget->windowFlags().testFlag(Qt::Popup)) {
+            return widget;
+        }
+    }
+    return nullptr;
+}
+
+/** @brief 返回选择器拥有的非抓取或抓取顶层弹层。 */
+QWidget *zzRollerPickerWindow(ZzFluentUI::ZzRollerPicker *picker)
+{
+    const QList<QWidget *> widgets = picker->findChildren<QWidget *>();
+    for (QWidget *widget : widgets) {
+        if (widget->isWindow()
+            && (widget->windowType() == Qt::Popup
+                || widget->windowType() == Qt::Tool)) {
             return widget;
         }
     }
@@ -979,6 +994,69 @@ private Q_SLOTS:
         QCOMPARE(interface->text(QAccessible::Name),
                  QStringLiteral("Appointment time"));
         QVERIFY(interface->state().focusable);
+    }
+
+    void usesNonGrabbingWindowForWaylandFallback()
+    {
+        const QByteArray variable = QByteArrayLiteral(
+            "ZZ_FLUENTUI_ROLLER_PICKER_FORCE_NON_GRABBING");
+        const bool wasSet = qEnvironmentVariableIsSet(variable.constData());
+        const QByteArray previous = qgetenv(variable.constData());
+        const auto restoreEnvironment = qScopeGuard([&] {
+            if (wasSet) {
+                qputenv(variable.constData(), previous);
+            } else {
+                qunsetenv(variable.constData());
+            }
+        });
+        qputenv(variable.constData(), QByteArrayLiteral("1"));
+
+        QWidget host;
+        ZzFluentUI::ZzRollerPicker picker(&host);
+        picker.setColumns({
+            {QStringLiteral("hour"),
+             {QStringLiteral("08"), QStringLiteral("09")},
+             0, true, 88}});
+        picker.setGeometry(20, 20, 120, 36);
+        host.resize(220, 140);
+        host.show();
+        zzFlushRollerEvents();
+
+        picker.showPopup();
+        zzFlushRollerEvents();
+        QWidget *window = zzRollerPickerWindow(&picker);
+        QVERIFY(window != nullptr);
+        if (window == nullptr) {
+            return;
+        }
+        QCOMPARE(window->windowType(), Qt::Tool);
+        QVERIFY(window->windowType() != Qt::Popup);
+        QVERIFY(window->isVisible());
+        QSignalSpy canceledSpy(
+            &picker,
+            &ZzFluentUI::ZzRollerPicker::selectionCanceled);
+        QPushButton outside(&host);
+        outside.setGeometry(0, 96, 100, 32);
+        outside.show();
+        QTest::mouseClick(&outside, Qt::LeftButton);
+        zzFlushRollerEvents();
+        QVERIFY(!picker.isPopupVisible());
+        QCOMPARE(canceledSpy.size(), 1);
+
+        picker.showPopup();
+        zzFlushRollerEvents();
+        QTest::keyClick(window, Qt::Key_Escape);
+        zzFlushRollerEvents();
+        QVERIFY(!picker.isPopupVisible());
+        QCOMPARE(canceledSpy.size(), 2);
+
+        picker.showPopup();
+        zzFlushRollerEvents();
+        QEvent deactivate(QEvent::WindowDeactivate);
+        QCoreApplication::sendEvent(window, &deactivate);
+        zzFlushRollerEvents();
+        QVERIFY(!picker.isPopupVisible());
+        QCOMPARE(canceledSpy.size(), 3);
     }
 
     void keepsObjectBudgetStableAfterPopupPrewarm()
