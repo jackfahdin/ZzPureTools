@@ -3042,7 +3042,7 @@ bool ZzSplitWorkspacePrivate::handleDragEnter(
         watched, q_ptr, event->position().toPoint());
     const ZzTabGroupId target = groupAt(position);
     if (!target.isValid()) {
-        if (registry != nullptr) (void)registry->release(tabPayload->token);
+        if (registry != nullptr) (void)registry->release(payload->token);
         event->ignore();
         hideDropOverlay();
         return true;
