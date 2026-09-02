@@ -48,6 +48,14 @@
 
 补齐来源页面移走后的即时 size 清理（size 校验来源索引），为页面/工作区 destroyed 连接建立显式句柄并在失效、消费及过期清理时断开，避免连接累积。新增 removeTab 后 size=0 断言。构建与注册表测试通过。
 
+## 第5轮修复
+
+统一 size/lookup 过期和来源无效清理路径，均通过 invalidate 断开连接；Workspace drop 现在检查 consume 返回值，失败时显式失效令牌并拒绝事件，避免忽略消费结果。
+
+命令：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2`，三个目标成功。
+
+命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
+
 剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
 
 ## 第3轮修复
