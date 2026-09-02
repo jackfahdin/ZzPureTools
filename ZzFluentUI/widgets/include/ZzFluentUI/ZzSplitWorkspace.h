@@ -159,10 +159,13 @@ public:
      */
     [[nodiscard]] QString pageLayoutKey(const QWidget *page) const;
 
+    /** @brief 返回本工作区登记的页面稳定身份；外部页面返回无效标识。 */
     [[nodiscard]] ZzWorkspacePageId pageId(const QWidget *page) const;
 
+    /** @brief 按稳定身份查找当前拥有页面；未知身份返回空指针。 */
     [[nodiscard]] QWidget *pageForId(const ZzWorkspacePageId &id) const;
 
+    /** @brief 以事务方式将中心标签转移到另一工作区。失败时不改变双方状态。 */
     [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspace(
         const ZzTabGroupId &sourceGroup,
         int sourceIndex,

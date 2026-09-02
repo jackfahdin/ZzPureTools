@@ -17,6 +17,14 @@ namespace ZzFluentUI {
 
 namespace {
 
+struct DepthGuard final {
+    QPointer<ZzSplitWorkspace> workspace;
+    ZzSplitWorkspacePrivate *priv = nullptr;
+    DepthGuard(ZzSplitWorkspace *value, ZzSplitWorkspacePrivate *p)
+        : workspace(value), priv(p) { ++priv->transactionDepth; }
+    ~DepthGuard() { if (!workspace.isNull()) { --priv->transactionDepth; } }
+};
+
 [[nodiscard]] ZzCore::ZzResult<void> zzCrossTransferFailure(
     ZzCore::ZzErrorCode code,
     QString message)
@@ -52,11 +60,11 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     }
     ZzNode *const sourceNode = sourcePrivate->findLeaf(sourceGroup);
     ZzNode *const targetNode = targetPrivate->findLeaf(targetGroup);
-    auto *const sourceTabs = sourceNode != nullptr
-        ? std::get<ZzLeaf>(sourceNode->value).tabs.data() : nullptr;
-    auto *const targetTabs = targetNode != nullptr
-        ? std::get<ZzLeaf>(targetNode->value).tabs.data() : nullptr;
-    if (sourceTabs == nullptr || targetTabs == nullptr || sourceIndex < 0
+    QPointer<ZzTabWidget> sourceTabs = sourceNode != nullptr
+        ? std::get<ZzLeaf>(sourceNode->value).tabs : QPointer<ZzTabWidget> {};
+    QPointer<ZzTabWidget> targetTabs = targetNode != nullptr
+        ? std::get<ZzLeaf>(targetNode->value).tabs : QPointer<ZzTabWidget> {};
+    if (sourceTabs.isNull() || targetTabs.isNull() || sourceIndex < 0
         || sourceIndex >= sourceTabs->count() || targetIndex > targetTabs->count()) {
         return zzCrossTransferFailure(
             ZzCore::ZzErrorCode::InvalidArgument,
@@ -83,22 +91,29 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     }
 
     const ZzWorkspacePageId id = sourcePrivate->pageId(page);
+    if (targetPrivate->pagesById.contains(id)) {
+        return zzCrossTransferFailure(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("target page identity already exists"));
+    }
     QPointer<ZzSplitWorkspace> guardedSource = source;
     QPointer<ZzSplitWorkspace> guardedTarget = target;
     QPointer<QWidget> guardedPage = page;
-    ++sourcePrivate->transactionDepth;
-    ++targetPrivate->transactionDepth;
+    DepthGuard sourceGuard(source, sourcePrivate);
+    DepthGuard targetGuard(target, targetPrivate);
     const bool transferred = sourceTabs->d_ptr->transferToDirect(
         targetTabs, sourceIndex, targetIndex);
-    --sourcePrivate->transactionDepth;
-    --targetPrivate->transactionDepth;
 
     if (!transferred || guardedSource.isNull() || guardedTarget.isNull()
-        || guardedPage.isNull() || targetTabs->indexOf(guardedPage) < 0
-        || sourceTabs->indexOf(guardedPage) >= 0) {
+        || guardedPage.isNull()) {
         return zzCrossTransferFailure(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("cross-workspace transfer did not commit"));
+    }
+
+    if (targetTabs->indexOf(guardedPage) < 0 || sourceTabs->indexOf(guardedPage) >= 0) {
+        return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("cross-workspace ownership audit failed"));
     }
 
     const auto sourceIdIt = sourcePrivate->pageIds.find(guardedPage);
@@ -129,10 +144,13 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
             }), sourcePrivate->pageKeys.end());
         targetPrivate->pageKeys.push_back({guardedPage, layoutKey});
     }
+    const bool activeChanged = targetPrivate->activeId != targetGroup;
     targetPrivate->activeId = targetGroup;
-    Q_EMIT guardedTarget->activeGroupChanged(targetGroup);
     Q_EMIT guardedTarget->tabTransferCommitted(
         guardedSource, sourceGroup, targetGroup, guardedPage, id, zone);
+    if (activeChanged && !guardedTarget.isNull()) {
+        Q_EMIT guardedTarget->activeGroupChanged(targetGroup);
+    }
     return ZzCore::ZzResult<void>::success();
 }
 

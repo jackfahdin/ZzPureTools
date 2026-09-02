@@ -4,6 +4,7 @@
 #include "private/ZzTabWidgetPrivate.h"
 
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QStackedWidget>
@@ -203,6 +204,25 @@ bool ZzTabWidget::transferTabTo(
     int sourceIndex,
     int targetIndex)
 {
+    auto findWorkspace = [](QObject *object) -> ZzSplitWorkspace * {
+        for (; object != nullptr; object = object->parent()) {
+            if (auto *workspace = qobject_cast<ZzSplitWorkspace *>(object)) {
+                return workspace;
+            }
+        }
+        return nullptr;
+    };
+    auto *const sourceWorkspace = findWorkspace(this);
+    auto *const targetWorkspace = findWorkspace(target);
+    if (sourceWorkspace != nullptr && targetWorkspace != nullptr
+        && sourceWorkspace != targetWorkspace) {
+        const auto sourceGroup = sourceWorkspace->groupId(this);
+        const auto targetGroup = targetWorkspace->groupId(target);
+        return sourceWorkspace->transferTabToWorkspace(
+                   sourceGroup, sourceIndex, targetWorkspace, targetGroup,
+                   targetIndex)
+            .hasValue();
+    }
     return d_ptr->transferToDirect(target, sourceIndex, targetIndex);
 }
 
