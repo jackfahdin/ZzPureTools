@@ -25,3 +25,13 @@
 ## 疑虑
 
 当前新增测试覆盖基础发布/检查/消费和重放拒绝；简报列出的完整时间边界、跨线程、4096 字节及 1000 次增长测试尚未全部补齐。工作区旧 `dragRecord` 兼容函数仍保留类型壳，但数据源已切换至应用级注册表。
+
+## 第1轮修复
+
+提交 `d7fb174`。补充来源页面/工作区销毁连接、取消和离开失效，修复 size 过期清理及 pageId 精确匹配；Workspace/TabBar 改为 inspect 后在事务成功边界 consume；删除旧 v1 MIME 常量及 ensureDragToken/dragRecord 入口；随机字节使用逐字 memcpy，移除 lookup 的 noexcept。新增注入时钟的 `<5 秒有效、>=5 秒失效` 与伪造 token 测试。
+
+命令：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2`，实际输出：三个目标均成功链接。
+
+命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，实际输出：测试通过。
+
+剩余疑虑：尚未在本轮补齐跨线程、4096 字节和 1000 次 QObject/QTimer 增长的独立断言；完整 split/tab 回归受当前环境动态库路径限制未执行。
