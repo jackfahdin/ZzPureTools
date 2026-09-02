@@ -62,6 +62,10 @@
 
 验证：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2` 成功；注册表 ctest `1/1 Passed`。
 
+## 生命周期补充
+
+新增 `registryParentIsApplication`：断言注册表父对象为 qApp，并通过 deleteLater/DeferredDelete 验证可销毁且 QPointer 清空。测试构建及 ctest 通过。
+
 ## 恢复周期补充
 
 新增状态机测试覆盖 reserve/commit/release、Reserved 页面移除、Published 页面移除及同源索引更新。修复聚合初始化编译错误、TabBar/Workspace 失败路径 release、活动令牌切换顺序，并增加 `removeTab`/`tabRemoved` 注册表通知。最终构建三目标成功，注册表测试通过。
