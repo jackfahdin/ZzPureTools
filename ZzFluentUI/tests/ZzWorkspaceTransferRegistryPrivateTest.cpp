@@ -60,6 +60,7 @@ private slots:
         const auto token = registry->publish(&workspace, tabs, workspace.groupIds().constFirst(), 0, workspace.pageId(page), page);
         QVERIFY(token);
         tabs->removeTab(0);
+        QCOMPARE(registry->size(), qsizetype(0));
         QVERIFY(!registry->inspect(token.value()));
 
         const auto forged = QByteArray(4096, char(1));

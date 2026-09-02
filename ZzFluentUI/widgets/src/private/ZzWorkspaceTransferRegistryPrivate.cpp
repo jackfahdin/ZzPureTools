@@ -4,6 +4,7 @@
 #include <QtCore/QRandomGenerator>
 #include <QtCore/QThread>
 #include <QtCore/QObject>
+#include <QtCore/QEvent>
 #include <cstring>
 
 #include <ZzFluentUI/ZzSplitWorkspace.h>
@@ -82,12 +83,13 @@ ZzCore::ZzResult<QByteArray> ZzWorkspaceTransferRegistryPrivate::publish(
         QPointer<ZzSplitWorkspace>(source), QPointer<ZzTabWidget>(sourceTabs),
         sourceGroup, sourceIndex, pageId, QPointer<QWidget>(page),
         now() + std::chrono::seconds(5)});
-    QObject::connect(page, &QObject::destroyed, this, [this, payload] {
+    sourceTabs->installEventFilter(this);
+    pageConnections_.insert(payload, QObject::connect(page, &QObject::destroyed, this, [this, payload] {
         invalidate(payload);
-    });
+    }));
     if (source != nullptr) {
-        QObject::connect(source, &QObject::destroyed, this,
-                         [this, payload] { invalidate(payload); });
+        workspaceConnections_.insert(payload, QObject::connect(source, &QObject::destroyed, this,
+                         [this, payload] { invalidate(payload); }));
     }
     return ZzCore::ZzResult<QByteArray>::success(std::move(payload));
 }
@@ -98,6 +100,9 @@ ZzWorkspaceTransferRegistryPrivate::lookup(
 {
     for (auto it = records_.begin(); it != records_.end();) {
         if (it->deadline <= now()) {
+            const auto key = it.key();
+            QObject::disconnect(pageConnections_.take(key));
+            QObject::disconnect(workspaceConnections_.take(key));
             it = records_.erase(it);
         } else {
             ++it;
@@ -116,12 +121,14 @@ ZzWorkspaceTransferRegistryPrivate::lookup(
     if (it->sourceIndex < 0 || it->sourceTabs->widget(it->sourceIndex) != it->page
         || (it->sourceWorkspace != nullptr
             && it->sourceWorkspace->pageId(it->page) != it->pageId)) {
-        records_.erase(it);
+        invalidate(it.key());
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             error(ZzCore::ZzErrorCode::InvalidState, "来源页面已变化"));
     }
     auto record = it.value();
     if (remove) {
+        QObject::disconnect(pageConnections_.take(token));
+        QObject::disconnect(workspaceConnections_.take(token));
         records_.erase(it);
     }
     return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::success(
@@ -148,18 +155,30 @@ void ZzWorkspaceTransferRegistryPrivate::invalidateWorkspace(
     if (workspace == nullptr) {
         return;
     }
-    for (auto it = records_.begin(); it != records_.end();) {
-        if (it->sourceWorkspace == workspace) {
-            it = records_.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    const auto keys = records_.keys();
+    for (const auto &key : keys)
+        if (records_.contains(key) && records_.value(key).sourceWorkspace == workspace)
+            invalidate(key);
 }
 
 void ZzWorkspaceTransferRegistryPrivate::invalidate(const QByteArray &token) noexcept
 {
+    QObject::disconnect(pageConnections_.take(token));
+    QObject::disconnect(workspaceConnections_.take(token));
     records_.remove(token);
+}
+
+bool ZzWorkspaceTransferRegistryPrivate::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event != nullptr && event->type() == QEvent::ChildRemoved) {
+        const auto keys = records_.keys();
+        for (const auto &key : keys)
+            if (records_.contains(key) && records_.value(key).sourceTabs == watched
+                && (records_.value(key).page.isNull()
+                    || records_.value(key).sourceTabs->indexOf(records_.value(key).page) < 0))
+                invalidate(key);
+    }
+    return QObject::eventFilter(watched, event);
 }
 
 void ZzWorkspaceTransferRegistryPrivate::setClockForTesting(Clock clock)
@@ -175,7 +194,13 @@ void ZzWorkspaceTransferRegistryPrivate::resetClockForTesting()
 qsizetype ZzWorkspaceTransferRegistryPrivate::size() noexcept
 {
     for (auto it = records_.begin(); it != records_.end();) {
-        if (it->deadline <= now()) it = records_.erase(it); else ++it;
+        if (it->deadline <= now()
+            || it->sourceTabs.isNull()
+            || it->sourceTabs->indexOf(it->page) < 0) {
+            it = records_.erase(it);
+        } else {
+            ++it;
+        }
     }
     return records_.size();
 }

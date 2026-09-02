@@ -78,8 +78,11 @@ private:
         const QByteArray &token,
         ZzSplitWorkspace *target,
         bool remove);
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
     QHash<QByteArray, ZzWorkspaceTransferRecordPrivate> records_;
+    QHash<QByteArray, QMetaObject::Connection> pageConnections_;
+    QHash<QByteArray, QMetaObject::Connection> workspaceConnections_;
     static Clock clock_;
 };
 
