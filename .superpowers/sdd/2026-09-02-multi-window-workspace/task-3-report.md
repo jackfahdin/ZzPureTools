@@ -44,6 +44,10 @@
 
 命令：`ctest --preset linux-gcc-debug -R '^fluent\\.workspace-transfer-registry-private$' --output-on-failure`，输出 `1/1 Passed`。
 
+## 第4轮修复
+
+补齐来源页面移走后的即时 size 清理（size 校验来源索引），为页面/工作区 destroyed 连接建立显式句柄并在失效、消费及过期清理时断开，避免连接累积。新增 removeTab 后 size=0 断言。构建与注册表测试通过。
+
 剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
 
 ## 第3轮修复
