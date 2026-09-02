@@ -197,6 +197,10 @@ void ZzTabWidget::tabRemoved(int index)
 
 void ZzTabWidget::removeTab(int index)
 {
+    if (index < 0 || index >= count()) {
+        QTabWidget::removeTab(index);
+        return;
+    }
     QWidget *page = index >= 0 ? widget(index) : nullptr;
     if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance(); registry != nullptr)
         registry->sourceTabRemoved(this, index, page);

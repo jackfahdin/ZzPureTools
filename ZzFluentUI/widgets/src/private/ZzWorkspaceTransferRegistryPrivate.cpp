@@ -155,6 +155,13 @@ bool ZzWorkspaceTransferRegistryPrivate::release(const QByteArray &token) noexce
 {
     auto it = records_.find(token);
     if (it == records_.end() || !it->reserved) return false;
+    if (it->sourceTabs.isNull() || it->page.isNull()
+        || it->sourceTabs->widget(it->sourceIndex) != it->page
+        || (it->sourceWorkspace != nullptr
+            && it->sourceWorkspace->pageId(it->page) != it->pageId)) {
+        invalidate(token);
+        return false;
+    }
     it->reserved = false;
     return true;
 }
