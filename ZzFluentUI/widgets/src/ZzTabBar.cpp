@@ -219,7 +219,7 @@ void ZzTabBar::dropEvent(QDropEvent *event)
         ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
                             QStringLiteral("注册表不可用")))
-        : registry->inspect(payload->token);
+        : registry->reserve(payload->token);
     if (!inspected || inspected.value().sourceTabs.isNull()
         || !inspected.value().sourceTabs->transferTabTo(
             d_ptr->host,
@@ -228,7 +228,11 @@ void ZzTabBar::dropEvent(QDropEvent *event)
         event->ignore();
         return;
     }
-    (void)registry->consume(payload->token);
+    if (!registry->commit(payload->token)) {
+        (void)registry->release(payload->token);
+        event->ignore();
+        return;
+    }
 
     event->setDropAction(Qt::MoveAction);
     event->accept();

@@ -141,6 +141,7 @@ public:
     void closeTabsToRight(int index);
 
 protected:
+    void tabRemoved(int index) override;
     /**
      * @brief 在 Qt 插入标签后重新建立固定区边界。
      * @param index Qt 新插入标签的索引。

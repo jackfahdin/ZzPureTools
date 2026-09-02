@@ -3116,7 +3116,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
                             QStringLiteral("令牌不可用")))
-        : registry->inspect(tabPayload->token, q_ptr);
+        : registry->reserve(tabPayload->token, q_ptr);
     if (watched == nullptr || event == nullptr || !record.hasValue()) {
         if (event != nullptr) {
             event->ignore();
@@ -3148,9 +3148,8 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         return true;
     }
     if (registry != nullptr) {
-        const auto consumed = registry->consume(tabPayload->token, q_ptr);
-        if (!consumed) {
-            registry->invalidate(tabPayload->token);
+        if (!registry->commit(tabPayload->token)) {
+            registry->release(tabPayload->token);
             event->ignore();
             return true;
         }

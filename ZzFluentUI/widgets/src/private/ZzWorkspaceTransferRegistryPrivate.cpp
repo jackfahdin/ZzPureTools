@@ -119,6 +119,9 @@ ZzWorkspaceTransferRegistryPrivate::lookup(
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             error(ZzCore::ZzErrorCode::InvalidState, "来源页面已变化"));
     }
+    if (remove && it->reserved) {
+        return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(error(ZzCore::ZzErrorCode::InvalidState, "令牌已预留"));
+    }
     auto record = it.value();
     if (remove) {
         QObject::disconnect(pageConnections_.take(token));
@@ -127,6 +130,45 @@ ZzWorkspaceTransferRegistryPrivate::lookup(
     }
     return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::success(
         std::move(record));
+}
+
+ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate> ZzWorkspaceTransferRegistryPrivate::reserve(const QByteArray &token, ZzSplitWorkspace *target)
+{
+    auto result = lookup(token, target, false);
+    if (!result) return result;
+    auto it = records_.find(token);
+    if (it == records_.end() || it->reserved)
+        return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(error(ZzCore::ZzErrorCode::InvalidState, "令牌已预留"));
+    it->reserved = true;
+    return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::success(it.value());
+}
+
+bool ZzWorkspaceTransferRegistryPrivate::commit(const QByteArray &token) noexcept
+{
+    auto it = records_.find(token);
+    if (it == records_.end() || !it->reserved) return false;
+    invalidate(token);
+    return true;
+}
+
+bool ZzWorkspaceTransferRegistryPrivate::release(const QByteArray &token) noexcept
+{
+    auto it = records_.find(token);
+    if (it == records_.end() || !it->reserved) return false;
+    it->reserved = false;
+    return true;
+}
+
+void ZzWorkspaceTransferRegistryPrivate::sourceTabRemoved(ZzTabWidget *tabs, int index, QWidget *page) noexcept
+{
+    const auto keys = records_.keys();
+    for (const auto &key : keys) {
+        if (!records_.contains(key)) continue;
+        auto &record = records_[key];
+        if (record.sourceTabs != tabs) continue;
+        if (record.sourceIndex == index || record.page == page) { invalidate(key); continue; }
+        if (record.sourceIndex > index) --record.sourceIndex;
+    }
 }
 
 ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>

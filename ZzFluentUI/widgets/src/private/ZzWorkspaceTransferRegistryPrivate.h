@@ -21,6 +21,7 @@ class ZzTabWidget;
 /** @brief 应用级私有一次性拖放令牌记录。 */
 struct ZzWorkspaceTransferRecordPrivate final
 {
+    bool reserved = false;
     QPointer<ZzSplitWorkspace> sourceWorkspace;
     QPointer<ZzTabWidget> sourceTabs;
     ZzTabGroupId sourceGroup;
@@ -58,6 +59,10 @@ public:
     [[nodiscard]] ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate> consume(
         const QByteArray &token,
         ZzSplitWorkspace *target = nullptr) noexcept;
+    [[nodiscard]] ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate> reserve(const QByteArray &, ZzSplitWorkspace *target = nullptr);
+    [[nodiscard]] bool commit(const QByteArray &token) noexcept;
+    [[nodiscard]] bool release(const QByteArray &token) noexcept;
+    void sourceTabRemoved(ZzTabWidget *tabs, int index, QWidget *page) noexcept;
 
     /** @brief 立即失效指定来源工作区发布的全部令牌。 */
     void invalidateWorkspace(ZzSplitWorkspace *workspace) noexcept;

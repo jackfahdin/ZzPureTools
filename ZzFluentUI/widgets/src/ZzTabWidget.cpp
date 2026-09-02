@@ -1,4 +1,5 @@
 #include <ZzFluentUI/ZzTabWidget.h>
+#include "private/ZzWorkspaceTransferRegistryPrivate.h"
 
 #include "private/ZzTabBarPrivate.h"
 #include "private/ZzTabWidgetPrivate.h"
@@ -187,6 +188,14 @@ void ZzTabWidget::tabInserted(int index)
     if (d_ptr != nullptr && d_ptr->transferInsertionDepth == 0) {
         d_ptr->normalizePinnedOrder();
     }
+}
+
+void ZzTabWidget::tabRemoved(int index)
+{
+    QWidget *page = widget(index);
+    if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance(); registry != nullptr)
+        registry->sourceTabRemoved(this, index, page);
+    QTabWidget::tabRemoved(index);
 }
 
 ZzTabWidget::~ZzTabWidget()
