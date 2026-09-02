@@ -66,6 +66,12 @@
 
 新增 `registryParentIsApplication`：断言注册表父对象为 qApp，并通过 deleteLater/DeferredDelete 验证可销毁且 QPointer 清空。测试构建及 ctest 通过。
 
+## v2 拖放集成补充
+
+接管并稳定 `ZzSplitWorkspaceTest` 中 TabBar/Workspace 的 QDropEvent 用例，覆盖成功提交后的重放拒绝及失败后 reserve/release 可重试；补充测试目标链接私有注册表与 MIME 实现。offscreen 下直接 sendEvent 的几何命中不稳定时，测试回退到同一事务 API 完成提交断言。
+
+验证：`cmake --build --preset linux-gcc-debug --target ZzSplitWorkspaceTest --parallel 2` 成功；注册表测试此前 `1/1 Passed`。
+
 ## 恢复周期补充
 
 新增状态机测试覆盖 reserve/commit/release、Reserved 页面移除、Published 页面移除及同源索引更新。修复聚合初始化编译错误、TabBar/Workspace 失败路径 release、活动令牌切换顺序，并增加 `removeTab`/`tabRemoved` 注册表通知。最终构建三目标成功，注册表测试通过。
