@@ -3022,11 +3022,18 @@ bool ZzSplitWorkspacePrivate::handleDragEnter(
     QWidget *watched,
     QDragEnterEvent *event)
 {
+    const auto *payload = event == nullptr ? nullptr
+        : dynamic_cast<const ZzTabMimeData *>(event->mimeData());
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    if (payload != nullptr && registry != nullptr) {
+        if (activeTransferToken != payload->token && !activeTransferToken.isEmpty()) {
+            registry->invalidate(activeTransferToken);
+        }
+        activeTransferToken = payload->token;
+    }
     if (watched == nullptr || event == nullptr
-        || dynamic_cast<const ZzTabMimeData *>(event->mimeData()) == nullptr
-        || !ZzWorkspaceTransferRegistryPrivate::instance()->inspect(
-                dynamic_cast<const ZzTabMimeData *>(event->mimeData())->token,
-                q_ptr)) {
+        || payload == nullptr || registry == nullptr
+        || !registry->inspect(payload->token, q_ptr)) {
         if (event != nullptr) {
             event->ignore();
         }
@@ -3053,11 +3060,17 @@ bool ZzSplitWorkspacePrivate::handleDragMove(
     QWidget *watched,
     QDragMoveEvent *event)
 {
+    const auto *payload = event == nullptr ? nullptr
+        : dynamic_cast<const ZzTabMimeData *>(event->mimeData());
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    if (payload != nullptr && registry != nullptr) {
+        if (activeTransferToken != payload->token && !activeTransferToken.isEmpty())
+            registry->invalidate(activeTransferToken);
+        activeTransferToken = payload->token;
+    }
     if (watched == nullptr || event == nullptr
-        || dynamic_cast<const ZzTabMimeData *>(event->mimeData()) == nullptr
-        || !ZzWorkspaceTransferRegistryPrivate::instance()->inspect(
-                dynamic_cast<const ZzTabMimeData *>(event->mimeData())->token,
-                q_ptr)) {
+        || payload == nullptr || registry == nullptr
+        || !registry->inspect(payload->token, q_ptr)) {
         if (event != nullptr) {
             event->ignore();
         }
