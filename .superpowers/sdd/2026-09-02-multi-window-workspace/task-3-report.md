@@ -62,6 +62,10 @@
 
 验证：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2` 成功；注册表 ctest `1/1 Passed`。
 
+## 恢复协议最终修复
+
+提交 `a922cf1` 及后续补丁。`removeTab(int)` 在移除前通知注册表并校验索引；Reserved 令牌在来源移除后保留至 commit/release，release 重新验证来源页面/pageId，失效时拒绝恢复。构建三目标成功，注册表测试通过。
+
 剩余疑虑：应用销毁清理和完整 split/tab 回归需在集成环境中继续验证。
 
 ## 第3轮修复
