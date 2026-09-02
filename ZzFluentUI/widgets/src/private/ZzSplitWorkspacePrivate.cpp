@@ -3149,7 +3149,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
     }
     if (registry != nullptr) {
         if (!registry->commit(tabPayload->token)) {
-            registry->release(tabPayload->token);
+            (void)registry->release(tabPayload->token);
             event->ignore();
             return true;
         }

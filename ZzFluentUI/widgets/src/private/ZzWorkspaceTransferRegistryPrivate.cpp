@@ -79,10 +79,15 @@ ZzCore::ZzResult<QByteArray> ZzWorkspaceTransferRegistryPrivate::publish(
     payload.append(char(0));
     payload.append(char(2));
     payload.append(randomToken);
-    records_.insert(payload, ZzWorkspaceTransferRecordPrivate{
-        QPointer<ZzSplitWorkspace>(source), QPointer<ZzTabWidget>(sourceTabs),
-        sourceGroup, sourceIndex, pageId, QPointer<QWidget>(page),
-        now() + std::chrono::seconds(5)});
+    ZzWorkspaceTransferRecordPrivate record;
+    record.sourceWorkspace = source;
+    record.sourceTabs = sourceTabs;
+    record.sourceGroup = sourceGroup;
+    record.sourceIndex = sourceIndex;
+    record.pageId = pageId;
+    record.page = page;
+    record.deadline = now() + std::chrono::seconds(5);
+    records_.insert(payload, record);
     sourceTabs->installEventFilter(this);
     pageConnections_.insert(payload, QObject::connect(page, &QObject::destroyed, this, [this, payload] {
         invalidate(payload);
@@ -112,13 +117,15 @@ ZzWorkspaceTransferRegistryPrivate::lookup(
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             error(ZzCore::ZzErrorCode::InvalidState, "令牌不可用"));
     }
-    if (it->sourceIndex < 0 || it->sourceTabs->widget(it->sourceIndex) != it->page
+    const int actualIndex = it->sourceTabs->indexOf(it->page);
+    if (actualIndex < 0
         || (it->sourceWorkspace != nullptr
             && it->sourceWorkspace->pageId(it->page) != it->pageId)) {
         invalidate(it.key());
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             error(ZzCore::ZzErrorCode::InvalidState, "来源页面已变化"));
     }
+    it->sourceIndex = actualIndex;
     if (remove && it->reserved) {
         return ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(error(ZzCore::ZzErrorCode::InvalidState, "令牌已预留"));
     }

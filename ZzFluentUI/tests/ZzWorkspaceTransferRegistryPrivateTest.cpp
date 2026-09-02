@@ -105,6 +105,56 @@ private slots:
         worker.join();
         QVERIFY(!result);
     }
+
+    void reserveCommitReleaseProtocol()
+    {
+        ZzSplitWorkspace workspace;
+        auto *tabs = workspace.tabWidget(workspace.groupIds().constFirst());
+        auto *page = new QWidget;
+        tabs->addTab(page, QStringLiteral("p"));
+        auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        const auto token = registry->publish(&workspace, tabs, workspace.groupIds().constFirst(), 0, workspace.pageId(page), page);
+        QVERIFY(token);
+        QVERIFY(registry->reserve(token.value(), &workspace));
+        QVERIFY(!registry->reserve(token.value(), &workspace));
+        QVERIFY(registry->release(token.value()));
+        QVERIFY(registry->inspect(token.value()));
+        QVERIFY(registry->reserve(token.value(), &workspace));
+        QVERIFY(registry->commit(token.value()));
+        QVERIFY(!registry->inspect(token.value()));
+    }
+
+    void reservedRemovalCannotRelease()
+    {
+        ZzSplitWorkspace workspace;
+        auto *tabs = workspace.tabWidget(workspace.groupIds().constFirst());
+        auto *page = new QWidget;
+        tabs->addTab(page, QStringLiteral("p"));
+        auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        const auto token = registry->publish(&workspace, tabs, workspace.groupIds().constFirst(), 0, workspace.pageId(page), page);
+        QVERIFY(token);
+        QVERIFY(registry->reserve(token.value(), &workspace));
+        tabs->removeTab(0);
+        QVERIFY(!registry->release(token.value()));
+        QVERIFY(!registry->inspect(token.value()));
+    }
+
+    void sourceIndexUpdatesAfterOtherRemoval()
+    {
+        ZzSplitWorkspace workspace;
+        auto *tabs = workspace.tabWidget(workspace.groupIds().constFirst());
+        auto *first = new QWidget;
+        auto *second = new QWidget;
+        tabs->addTab(first, QStringLiteral("a"));
+        tabs->addTab(second, QStringLiteral("b"));
+        auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        const auto token = registry->publish(&workspace, tabs, workspace.groupIds().constFirst(), 1, workspace.pageId(second), second);
+        QVERIFY(token);
+        tabs->removeTab(0);
+        const auto inspected = registry->inspect(token.value());
+        QVERIFY(inspected);
+        QCOMPARE(inspected.value().sourceIndex, 0);
+    }
 };
 
 QTEST_MAIN(ZzWorkspaceTransferRegistryPrivateTest)
