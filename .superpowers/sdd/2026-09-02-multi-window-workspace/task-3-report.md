@@ -70,6 +70,12 @@
 
 提交 `fa02293`、`55c655b`。增加移除通知去重标记，避免 removeTab 包装与 tabRemoved 双重处理；最后一个来源令牌清理时对称卸载 eventFilter。注册表目标构建及 ctest 均通过。
 
+## 恢复周期测试补充
+
+新增 v2 MIME 正向（格式及 18 字节）与工作区销毁后令牌失效测试；测试目标额外链接 TabBar 私有实现以验证真实 MIME 编码。应用销毁通过 QCoreApplication 所有权模型间接保证，独立子进程生命周期测试未加入以避免破坏 QTest 主应用。
+
+验证：`cmake --build --preset linux-gcc-debug --target ZzWorkspaceTransferRegistryPrivateTest ZzSplitWorkspaceTest ZzTabControlsTest --parallel 2` 成功；注册表 ctest `1/1 Passed`。
+
 ## 恢复协议最终修复
 
 提交 `a922cf1` 及后续补丁。`removeTab(int)` 在移除前通知注册表并校验索引；Reserved 令牌在来源移除后保留至 commit/release，release 重新验证来源页面/pageId，失效时拒绝恢复。构建三目标成功，注册表测试通过。
