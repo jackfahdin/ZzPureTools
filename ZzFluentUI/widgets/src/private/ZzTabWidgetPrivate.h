@@ -85,6 +85,7 @@ public:
     ZzTabBar *tabBar = nullptr;
     QHash<QWidget *, ZzMetadata> metadataByPage;
     bool normalizing = false;
+    bool removalNotified = false;
     int transferInsertionDepth = 0;
 };
 
