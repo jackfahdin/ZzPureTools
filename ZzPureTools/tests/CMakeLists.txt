@@ -66,6 +66,22 @@ set_tests_properties(puretools.workspace-shell PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzWorkspacePublicApiTest ZzWorkspacePublicApiTest.cpp)
+target_link_libraries(ZzWorkspacePublicApiTest PRIVATE
+    Qt6::Test
+    Qt6::Widgets
+    Zz::PureTools
+    Zz::FluentUI
+)
+set_target_properties(ZzWorkspacePublicApiTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspacePublicApiTest)
+zz_enable_sanitizers(ZzWorkspacePublicApiTest)
+add_test(NAME puretools.workspace-public-api COMMAND ZzWorkspacePublicApiTest)
+set_tests_properties(puretools.workspace-public-api PROPERTIES
+    LABELS "component;puretools;workspace;public-api"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzWorkspaceLayoutStatePrivateTest
     ZzWorkspaceLayoutStatePrivateTest.cpp
     ../widgets/src/private/ZzWorkspaceLayoutStatePrivate.cpp
