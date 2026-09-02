@@ -3022,12 +3022,13 @@ bool ZzSplitWorkspacePrivate::handleDragEnter(
     QWidget *watched,
     QDragEnterEvent *event)
 {
-    const auto *payload = event == nullptr ? nullptr
-        : dynamic_cast<const ZzTabMimeData *>(event->mimeData());
+    const QByteArray payloadToken = event == nullptr
+        ? QByteArray()
+        : zzTabMimeToken(event->mimeData());
     auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
     if (watched == nullptr || event == nullptr
-        || payload == nullptr || registry == nullptr
-        || !registry->inspect(payload->token, q_ptr)) {
+        || payloadToken.isEmpty() || registry == nullptr
+        || !registry->inspect(payloadToken, q_ptr)) {
         if (event != nullptr) {
             event->ignore();
         }
@@ -3036,8 +3037,8 @@ bool ZzSplitWorkspacePrivate::handleDragEnter(
         return event != nullptr
             && event->mimeData()->hasFormat(ZzTabMimeData::format());
     }
-    if (activeTransferToken != payload->token && !activeTransferToken.isEmpty()) registry->invalidate(activeTransferToken);
-    activeTransferToken = payload->token;
+    if (activeTransferToken != payloadToken && !activeTransferToken.isEmpty()) registry->invalidate(activeTransferToken);
+    activeTransferToken = payloadToken;
     const QPoint position = zzWorkspacePosition(
         watched, q_ptr, event->position().toPoint());
     const ZzTabGroupId target = groupAt(position);
@@ -3056,12 +3057,13 @@ bool ZzSplitWorkspacePrivate::handleDragMove(
     QWidget *watched,
     QDragMoveEvent *event)
 {
-    const auto *payload = event == nullptr ? nullptr
-        : dynamic_cast<const ZzTabMimeData *>(event->mimeData());
+    const QByteArray payloadToken = event == nullptr
+        ? QByteArray()
+        : zzTabMimeToken(event->mimeData());
     auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
     if (watched == nullptr || event == nullptr
-        || payload == nullptr || registry == nullptr
-        || !registry->inspect(payload->token, q_ptr)) {
+        || payloadToken.isEmpty() || registry == nullptr
+        || !registry->inspect(payloadToken, q_ptr)) {
         if (event != nullptr) {
             event->ignore();
         }
@@ -3070,8 +3072,8 @@ bool ZzSplitWorkspacePrivate::handleDragMove(
         return event != nullptr
             && event->mimeData()->hasFormat(ZzTabMimeData::format());
     }
-    if (activeTransferToken != payload->token && !activeTransferToken.isEmpty()) registry->invalidate(activeTransferToken);
-    activeTransferToken = payload->token;
+    if (activeTransferToken != payloadToken && !activeTransferToken.isEmpty()) registry->invalidate(activeTransferToken);
+    activeTransferToken = payloadToken;
     const QPoint position = zzWorkspacePosition(
         watched, q_ptr, event->position().toPoint());
     const ZzTabGroupId target = groupAt(position);
@@ -3101,15 +3103,15 @@ bool ZzSplitWorkspacePrivate::handleDrop(
     QWidget *watched,
     QDropEvent *event)
 {
-    const auto *tabPayload = event == nullptr
-        ? nullptr
-        : dynamic_cast<const ZzTabMimeData *>(event->mimeData());
+    const QByteArray payloadToken = event == nullptr
+        ? QByteArray()
+        : zzTabMimeToken(event->mimeData());
     auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
-    const auto record = (tabPayload == nullptr || registry == nullptr)
+    const auto record = (payloadToken.isEmpty() || registry == nullptr)
         ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
                             QStringLiteral("令牌不可用")))
-        : registry->reserve(tabPayload->token, q_ptr);
+        : registry->reserve(payloadToken, q_ptr);
     if (watched == nullptr || event == nullptr || !record.hasValue()) {
         if (event != nullptr) {
             event->ignore();
@@ -3123,7 +3125,7 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         watched, q_ptr, event->position().toPoint());
     const ZzTabGroupId target = groupAt(position);
     if (!target.isValid()) {
-        if (registry != nullptr) (void)registry->release(tabPayload->token);
+        if (registry != nullptr) (void)registry->release(payloadToken);
         event->ignore();
         hideDropOverlay();
         discardDragTokens();
@@ -3132,19 +3134,33 @@ bool ZzSplitWorkspacePrivate::handleDrop(
     const ZzWorkspaceDropZone zone = dropZoneAt(target, position);
     const auto &stableRecord = record.value();
     hideDropOverlay();
-    const bool committed = q_ptr->moveTabToDropZone(
-        stableRecord.sourceGroup,
-        stableRecord.sourceIndex,
-        target,
-        zone);
+    bool committed = false;
+    if (!stableRecord.sourceWorkspace.isNull()
+        && stableRecord.sourceWorkspace != q_ptr) {
+        const auto transfer = stableRecord.sourceWorkspace->transferTabToWorkspace(
+            stableRecord.sourceGroup,
+            stableRecord.sourceIndex,
+            q_ptr,
+            target,
+            -1,
+            zone);
+        committed = transfer.hasValue();
+    } else {
+        const auto transfer = q_ptr->moveTabToDropZone(
+            stableRecord.sourceGroup,
+            stableRecord.sourceIndex,
+            target,
+            zone);
+        committed = transfer;
+    }
     if (!committed) {
-        if (registry != nullptr) (void)registry->release(tabPayload->token);
+        if (registry != nullptr) (void)registry->release(payloadToken);
         event->ignore();
         return true;
     }
     if (registry != nullptr) {
-        if (!registry->commit(tabPayload->token)) {
-            (void)registry->release(tabPayload->token);
+        if (!registry->commit(payloadToken)) {
+            (void)registry->release(payloadToken);
             event->ignore();
             return true;
         }

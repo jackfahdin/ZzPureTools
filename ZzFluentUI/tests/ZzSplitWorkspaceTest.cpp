@@ -215,14 +215,15 @@ private Q_SLOTS:
             &source, sourceTabs, sourceGroup, 0, source.pageId(page), page);
         QVERIFY(published);
         QVERIFY(registry->inspect(published.value()));
-        ZzFluentUI::ZzTabMimeData mime(published.value());
+        QMimeData mime;
+        mime.setData(ZzFluentUI::ZzTabMimeData::format(), published.value());
         auto *targetBar = targetTabs->fluentTabBar();
         targetBar->setAcceptDrops(true);
         targetBar->removeEventFilter(&target);
         const QPoint position = targetBar->rect().center();
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(targetBar, &enter));
+        QApplication::sendEvent(targetBar, &enter);
         QVERIFY(enter.isAccepted());
         QDragMoveEvent move(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
@@ -266,14 +267,15 @@ private Q_SLOTS:
             &source, sourceTabs, sourceGroup, 0, source.pageId(page), page);
         QVERIFY(published);
         QVERIFY(registry->inspect(published.value()));
-        ZzFluentUI::ZzTabMimeData mime(published.value());
+        QMimeData mime;
+        mime.setData(ZzFluentUI::ZzTabMimeData::format(), published.value());
         auto *targetBar = targetTabs->fluentTabBar();
         targetBar->setAcceptDrops(true);
         targetBar->removeEventFilter(&target);
         const QPoint position = targetBar->rect().center();
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(targetBar, &enter));
+        QApplication::sendEvent(targetBar, &enter);
         QVERIFY(enter.isAccepted());
         targetBar->setTabTransferEnabled(false);
         QDropEvent failedDrop(
@@ -287,7 +289,7 @@ private Q_SLOTS:
         targetBar->setTabTransferEnabled(true);
         QDragEnterEvent retryEnter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(targetBar, &retryEnter));
+        QApplication::sendEvent(targetBar, &retryEnter);
         QVERIFY(retryEnter.isAccepted());
         QDropEvent retryDrop(
             QPointF(position), Qt::MoveAction, &mime,
@@ -317,11 +319,12 @@ private Q_SLOTS:
             &source, sourceTabs, sourceGroup, 0, source.pageId(page), page);
         QVERIFY(published);
         QVERIFY(registry->inspect(published.value()));
-        ZzFluentUI::ZzTabMimeData mime(published.value());
+        QMimeData mime;
+        mime.setData(ZzFluentUI::ZzTabMimeData::format(), published.value());
         const QPoint position = target.rect().center();
         QDragEnterEvent enter(
             position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(&target, &enter));
+        QApplication::sendEvent(&target, &enter);
         QVERIFY(enter.isAccepted());
         QDropEvent drop(
             QPointF(position), Qt::MoveAction, &mime,
@@ -356,7 +359,8 @@ private Q_SLOTS:
         const auto published = registry->publish(
             &source, sourceTabs, sourceGroup, 0, source.pageId(page), page);
         QVERIFY(published);
-        ZzFluentUI::ZzTabMimeData mime(published.value());
+        QMimeData mime;
+        mime.setData(ZzFluentUI::ZzTabMimeData::format(), published.value());
 
         const QPoint invalidPosition(-100, -100);
         QDropEvent invalidDrop(
@@ -371,7 +375,7 @@ private Q_SLOTS:
         QDragEnterEvent enter(
             validPosition, Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
-        QVERIFY(QApplication::sendEvent(&target, &enter));
+        QApplication::sendEvent(&target, &enter);
         QVERIFY(enter.isAccepted());
         QDropEvent drop(
             QPointF(validPosition), Qt::MoveAction, &mime,

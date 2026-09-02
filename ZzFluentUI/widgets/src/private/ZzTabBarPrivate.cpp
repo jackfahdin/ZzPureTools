@@ -163,24 +163,19 @@ void ZzTabBarPrivate::startDrag()
     }
 }
 
-const ZzTabMimeData *ZzTabBarPrivate::validPayload(
+QByteArray ZzTabBarPrivate::validPayload(
     const QMimeData *mimeData) const noexcept
 {
-    if (!tabTransferEnabled || host.isNull() || mimeData == nullptr
-        || !mimeData->hasFormat(ZzTabMimeData::format())
-        || mimeData->data(ZzTabMimeData::format()).size() != 18) {
-        return nullptr;
+    if (!tabTransferEnabled || host.isNull()) {
+        return {};
     }
-
-    const auto *payload = dynamic_cast<const ZzTabMimeData *>(mimeData);
-    if (payload == nullptr) {
-        return nullptr;
-    }
+    const QByteArray token = zzTabMimeToken(mimeData);
     auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
-    if (registry == nullptr || !registry->inspect(payload->token)) {
-        return nullptr;
+    if (token.isEmpty() || registry == nullptr
+        || !registry->inspect(token)) {
+        return {};
     }
-    return payload;
+    return token;
 }
 
 int ZzTabBarPrivate::insertionIndex(const QPoint &position) const

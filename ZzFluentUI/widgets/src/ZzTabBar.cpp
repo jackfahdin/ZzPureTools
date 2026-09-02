@@ -163,7 +163,7 @@ void ZzTabBar::mouseReleaseEvent(QMouseEvent *event)
 void ZzTabBar::dragEnterEvent(QDragEnterEvent *event)
 {
     if (event != nullptr
-        && d_ptr->validPayload(event->mimeData()) != nullptr) {
+        && !d_ptr->validPayload(event->mimeData()).isEmpty()) {
         event->setDropAction(Qt::MoveAction);
         event->accept();
         d_ptr->dropIndex = d_ptr->insertionIndex(event->position().toPoint());
@@ -178,7 +178,7 @@ void ZzTabBar::dragEnterEvent(QDragEnterEvent *event)
 void ZzTabBar::dragMoveEvent(QDragMoveEvent *event)
 {
     if (event != nullptr
-        && d_ptr->validPayload(event->mimeData()) != nullptr) {
+        && !d_ptr->validPayload(event->mimeData()).isEmpty()) {
         const int nextIndex = d_ptr->insertionIndex(
             event->position().toPoint());
         if (d_ptr->dropIndex != nextIndex) {
@@ -196,8 +196,8 @@ void ZzTabBar::dragMoveEvent(QDragMoveEvent *event)
 
 void ZzTabBar::dropEvent(QDropEvent *event)
 {
-    const ZzTabMimeData *payload = event == nullptr
-        ? nullptr
+    const QByteArray payloadToken = event == nullptr
+        ? QByteArray()
         : d_ptr->validPayload(event->mimeData());
     const int targetIndex = d_ptr->dropIndex >= 0
         ? d_ptr->dropIndex
@@ -207,7 +207,7 @@ void ZzTabBar::dropEvent(QDropEvent *event)
     d_ptr->dropIndex = -1;
     update();
 
-    if (event == nullptr || payload == nullptr || d_ptr->host.isNull()) {
+    if (event == nullptr || payloadToken.isEmpty() || d_ptr->host.isNull()) {
         if (event != nullptr) {
             event->ignore();
         }
@@ -219,18 +219,18 @@ void ZzTabBar::dropEvent(QDropEvent *event)
         ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
             ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
                             QStringLiteral("注册表不可用")))
-        : registry->reserve(payload->token);
+        : registry->reserve(payloadToken);
     if (!inspected || inspected.value().sourceTabs.isNull()
         || !inspected.value().sourceTabs->transferTabTo(
             d_ptr->host,
             inspected.value().sourceIndex,
             targetIndex)) {
-        if (registry != nullptr && inspected) (void)registry->release(payload->token);
+        if (registry != nullptr && inspected) (void)registry->release(payloadToken);
         event->ignore();
         return;
     }
-    if (!registry->commit(payload->token)) {
-        (void)registry->release(payload->token);
+    if (!registry->commit(payloadToken)) {
+        (void)registry->release(payloadToken);
         event->ignore();
         return;
     }

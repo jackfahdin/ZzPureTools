@@ -6,6 +6,8 @@
 #include <QtCore/QRect>
 #include <QtWidgets/QTabBar>
 
+#include <ZzFluentUI/ZzFluentUIExport.h>
+
 class QDragMoveEvent;
 class QMouseEvent;
 class QWidget;
@@ -66,7 +68,7 @@ class ZzTabWidget;
 }
 
 /** @brief 保存仅限本进程使用的安全标签拖拽引用。 */
-class ZzTabMimeData final : public QMimeData
+class ZZ_FLUENT_UI_EXPORT ZzTabMimeData final : public QMimeData
 {
 public:
     explicit ZzTabMimeData(const QByteArray &token);
@@ -76,6 +78,21 @@ public:
 
     QByteArray token;
 };
+
+/** @brief 从版本化 MIME 载荷提取令牌，不依赖跨动态库 RTTI。 */
+[[nodiscard]] inline QByteArray zzTabMimeToken(
+    const QMimeData *mimeData)
+{
+    if (mimeData == nullptr
+        || !mimeData->hasFormat(ZzTabMimeData::format())) {
+        return {};
+    }
+    const QByteArray token = mimeData->data(ZzTabMimeData::format());
+    if (token.size() != 18 || token.at(0) != 0 || token.at(1) != 2) {
+        return {};
+    }
+    return token;
+}
 
 /** @brief 持有标签栏能力开关和一次拖拽的短生命周期状态。 */
 class ZzTabBarPrivate final
@@ -94,7 +111,7 @@ public:
     void startDrag();
 
     /** @brief 校验 MIME 类型、来源、页面和当前宿主能力。 */
-    [[nodiscard]] const ZzTabMimeData *validPayload(
+    [[nodiscard]] QByteArray validPayload(
         const QMimeData *mimeData) const noexcept;
 
     /** @brief 返回布局方向感知的目标插入槽位。 */

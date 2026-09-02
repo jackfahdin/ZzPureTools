@@ -8,6 +8,7 @@
 #include <QtCore/QPointer>
 
 #include <ZzCore/ZzResult.h>
+#include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzTabGroupId.h>
 #include <ZzFluentUI/ZzWorkspacePageId.h>
 
@@ -32,7 +33,7 @@ struct ZzWorkspaceTransferRecordPrivate final
 };
 
 /** @brief 在 GUI 线程维护跨工作区拖放令牌的应用级私有注册表。 */
-class ZzWorkspaceTransferRegistryPrivate final : public QObject
+class ZZ_FLUENT_UI_EXPORT ZzWorkspaceTransferRegistryPrivate final : public QObject
 {
     Q_OBJECT
 public:
