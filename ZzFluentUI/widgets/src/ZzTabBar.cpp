@@ -12,6 +12,7 @@
 #include <QtWidgets/QToolButton>
 
 #include "private/ZzTabBarPrivate.h"
+#include "private/ZzWorkspaceTransferRegistryPrivate.h"
 
 #include <ZzFluentUI/ZzTabWidget.h>
 
@@ -206,19 +207,23 @@ void ZzTabBar::dropEvent(QDropEvent *event)
     d_ptr->dropIndex = -1;
     update();
 
-    if (event == nullptr || payload == nullptr || d_ptr->host.isNull()
-        || payload->source.isNull() || payload->page.isNull()) {
+    if (event == nullptr || payload == nullptr || d_ptr->host.isNull()) {
         if (event != nullptr) {
             event->ignore();
         }
         return;
     }
 
-    const int currentSourceIndex = payload->source->indexOf(payload->page);
-    if (currentSourceIndex < 0
-        || !payload->source->transferTabTo(
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    const auto record = registry == nullptr
+        ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
+            ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
+                            QStringLiteral("注册表不可用")))
+        : registry->consume(payload->token);
+    if (!record || record.value().sourceTabs.isNull()
+        || !record.value().sourceTabs->transferTabTo(
             d_ptr->host,
-            currentSourceIndex,
+            record.value().sourceIndex,
             targetIndex)) {
         event->ignore();
         return;

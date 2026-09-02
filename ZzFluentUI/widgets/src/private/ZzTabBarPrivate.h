@@ -69,18 +69,12 @@ class ZzTabWidget;
 class ZzTabMimeData final : public QMimeData
 {
 public:
-    /** @brief 创建带版本标识和受保护 QObject 引用的载荷。 */
-    ZzTabMimeData(
-        ZzTabWidget *source,
-        QWidget *page,
-        int sourceIndex);
+    explicit ZzTabMimeData(const QByteArray &token);
 
     /** @brief 返回固定、版本化且不包含地址的 MIME 格式。 */
     [[nodiscard]] static QString format();
 
-    QPointer<ZzTabWidget> source;
-    QPointer<QWidget> page;
-    int sourceIndex = -1;
+    QByteArray token;
 };
 
 /** @brief 持有标签栏能力开关和一次拖拽的短生命周期状态。 */

@@ -31,6 +31,7 @@
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzTabBarPrivate.h"
+#include "ZzWorkspaceTransferRegistryPrivate.h"
 #include "ZzWidgetTheme.h"
 #include "ZzWorkspaceCrossTransferTransactionPrivate.h"
 
@@ -2241,6 +2242,10 @@ ZzCore::ZzResult<void> ZzSplitWorkspacePrivate::transferTabToWorkspace(
 
 ZzSplitWorkspacePrivate::~ZzSplitWorkspacePrivate()
 {
+    if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+        registry != nullptr) {
+        registry->invalidateWorkspace(q_ptr);
+    }
     for (auto it = pageDestroyedConnections.begin();
          it != pageDestroyedConnections.end(); ++it) {
         QObject::disconnect(it.value());
@@ -3089,10 +3094,16 @@ bool ZzSplitWorkspacePrivate::handleDrop(
     QWidget *watched,
     QDropEvent *event)
 {
-    const auto record = event == nullptr
-        ? std::nullopt
-        : dragRecord(event->mimeData());
-    if (watched == nullptr || event == nullptr || !record.has_value()) {
+    const auto *tabPayload = event == nullptr
+        ? nullptr
+        : dynamic_cast<const ZzTabMimeData *>(event->mimeData());
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    const auto record = (tabPayload == nullptr || registry == nullptr)
+        ? ZzCore::ZzResult<ZzWorkspaceTransferRecordPrivate>::failure(
+            ZzCore::ZzError(ZzCore::ZzErrorCode::InvalidState,
+                            QStringLiteral("令牌不可用")))
+        : registry->consume(tabPayload->token, q_ptr);
+    if (watched == nullptr || event == nullptr || !record.hasValue()) {
         if (event != nullptr) {
             event->ignore();
         }
@@ -3112,11 +3123,11 @@ bool ZzSplitWorkspacePrivate::handleDrop(
         return true;
     }
     const ZzWorkspaceDropZone zone = dropZoneAt(target, position);
-    const ZzWorkspaceDragRecord &stableRecord = record.value();
+    const auto &stableRecord = record.value();
     discardDragTokens();
     hideDropOverlay();
     const bool committed = q_ptr->moveTabToDropZone(
-        stableRecord.sourceId,
+        stableRecord.sourceGroup,
         stableRecord.sourceIndex,
         target,
         zone);
@@ -3428,45 +3439,12 @@ void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
 
 bool ZzSplitWorkspacePrivate::ensureDragToken(const QMimeData *mimeData)
 {
-    const QString workspaceFormat =
-        QString::fromLatin1(zzWorkspaceTabMimeType);
-    if (mimeData != nullptr && mimeData->hasFormat(workspaceFormat)) {
-        return dragRecord(mimeData).has_value();
-    }
     const auto *tabPayload = dynamic_cast<const ZzTabMimeData *>(mimeData);
-    if (tabPayload == nullptr || tabPayload->source.isNull()
-        || tabPayload->page.isNull()) {
+    if (tabPayload == nullptr) {
         return false;
     }
-    ZzNode *const sourceNode = findLeaf(tabPayload->source);
-    if (sourceNode == nullptr
-        || tabPayload->sourceIndex < 0
-        || tabPayload->sourceIndex >= tabPayload->source->count()
-        || tabPayload->source->widget(tabPayload->sourceIndex)
-            != tabPayload->page) {
-        return false;
-    }
-
-    const ZzTabGroupId sourceId =
-        std::get<ZzLeaf>(sourceNode->value).id;
-    const QString token =
-        QUuid::createUuid().toString(QUuid::WithoutBraces);
-    QByteArray encoded;
-    QDataStream stream(&encoded, QIODevice::WriteOnly);
-    stream << quint32(1) << token << sourceId.value()
-           << qint32(tabPayload->sourceIndex);
-    dragTokens.clear();
-    dragTokens.insert(
-        token,
-        ZzWorkspaceDragRecord {
-            sourceId,
-            tabPayload->sourceIndex,
-            tabPayload->page,
-            std::chrono::steady_clock::now()
-                + zzWorkspaceDragTokenLifetime});
-    const_cast<QMimeData *>(mimeData)->setData(
-        QString::fromLatin1(zzWorkspaceTabMimeType), encoded);
-    return true;
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    return registry != nullptr && registry->inspect(tabPayload->token, q_ptr);
 }
 
 std::optional<ZzWorkspaceDragRecord> ZzSplitWorkspacePrivate::dragRecord(
@@ -3477,55 +3455,20 @@ std::optional<ZzWorkspaceDragRecord> ZzSplitWorkspacePrivate::dragRecord(
         return std::nullopt;
     }
     const QByteArray encoded = mimeData->data(format);
-    if (encoded.isEmpty() || encoded.size() > 4096) {
+    if (encoded.size() != 18 || encoded.size() > 4096) {
         return std::nullopt;
     }
-    QDataStream stream(encoded);
-    quint32 version = 0;
-    QString token;
-    QString sourceValue;
-    qint32 sourceIndex = -1;
-    stream >> version >> token >> sourceValue >> sourceIndex;
-    if (stream.status() != QDataStream::Ok || !stream.atEnd()
-        || version != 1) {
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    if (registry == nullptr) {
         return std::nullopt;
     }
-    const auto found = dragTokens.constFind(token);
-    if (found == dragTokens.cend()) {
+    const auto inspected = registry->inspect(encoded, q_ptr);
+    if (!inspected) {
         return std::nullopt;
     }
-    if (found->sourceId.value() != sourceValue
-        || found->sourceIndex != static_cast<int>(sourceIndex)
-        || found->page.isNull()) {
-        dragTokens.clear();
-        hideDropOverlay();
-        return std::nullopt;
-    }
-    if (std::chrono::steady_clock::now() > found->deadline) {
-        dragTokens.clear();
-        hideDropOverlay();
-        return std::nullopt;
-    }
-    ZzNode *const sourceNode = findLeaf(found->sourceId);
-    if (sourceNode == nullptr) {
-        dragTokens.clear();
-        hideDropOverlay();
-        return std::nullopt;
-    }
-    const QPointer<ZzTabWidget> tabs =
-        std::get<ZzLeaf>(sourceNode->value).tabs;
-    if (tabs.isNull() || found->sourceIndex < 0
-        || found->sourceIndex >= tabs->count()
-        || tabs->widget(found->sourceIndex) != found->page) {
-        dragTokens.clear();
-        hideDropOverlay();
-        return std::nullopt;
-    }
-    auto record = found.value();
-    record.deadline = std::chrono::steady_clock::now()
-        + zzWorkspaceDragTokenLifetime;
-    dragTokens[token] = record;
-    return record;
+    const auto &value = inspected.value();
+    return ZzWorkspaceDragRecord{value.sourceGroup, value.sourceIndex,
+                                 value.page, value.deadline};
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::groupAt(
@@ -3667,7 +3610,6 @@ void ZzSplitWorkspacePrivate::hideDropOverlay()
 
 void ZzSplitWorkspacePrivate::discardDragTokens()
 {
-    dragTokens.clear();
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::createGroupId()

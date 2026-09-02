@@ -1,4 +1,5 @@
 #include "ZzTabBarPrivate.h"
+#include "ZzWorkspaceTransferRegistryPrivate.h"
 
 #include <algorithm>
 #include <memory>
@@ -11,12 +12,13 @@
 
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 
 namespace ZzFluentUI {
 
 namespace {
 
-constexpr auto zzTabMimeFormat = "application/x-zz-fluent-tab-v1";
+constexpr auto zzTabMimeFormat = "application/x-zz-workspace-transfer-v2";
 constexpr int zzTabDropIndicatorExtent = 2;
 
 /** @brief 在一次嵌套拖拽循环内记录 Escape 取消意图。 */
@@ -51,15 +53,10 @@ private:
 
 } // namespace
 
-ZzTabMimeData::ZzTabMimeData(
-    ZzTabWidget *sourceWidget,
-    QWidget *draggedPage,
-    int draggedSourceIndex)
-    : source(sourceWidget)
-    , page(draggedPage)
-    , sourceIndex(draggedSourceIndex)
+ZzTabMimeData::ZzTabMimeData(const QByteArray &tokenValue)
+    : token(tokenValue)
 {
-    setData(format(), QByteArrayLiteral("1"));
+    setData(format(), token);
 }
 
 QString ZzTabMimeData::format()
@@ -106,7 +103,32 @@ void ZzTabBarPrivate::startDrag()
     const QPoint hotSpot = pressPosition - sourceRect.topLeft();
 
     auto drag = std::make_unique<QDrag>(q_ptr);
-    drag->setMimeData(new ZzTabMimeData(host, pressedPage, sourceIndex));
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    if (registry == nullptr) {
+        clearPressState();
+        return;
+    }
+    ZzSplitWorkspace *workspace = nullptr;
+    for (QObject *owner = host.data(); owner != nullptr;
+         owner = owner->parent()) {
+        workspace = qobject_cast<ZzSplitWorkspace *>(owner);
+        if (workspace != nullptr) {
+            break;
+        }
+    }
+    const auto group = workspace != nullptr
+        ? workspace->groupId(host)
+        : ZzTabGroupId {};
+    const auto pageId = workspace != nullptr
+        ? workspace->pageId(pressedPage)
+        : ZzWorkspacePageId {};
+    const auto published = registry->publish(
+        workspace, host, group, sourceIndex, pageId, pressedPage);
+    if (!published) {
+        clearPressState();
+        return;
+    }
+    drag->setMimeData(new ZzTabMimeData(published.value()));
     if (!sourceRect.isEmpty()) {
         drag->setPixmap(q_ptr->grab(sourceRect));
         drag->setHotSpot(hotSpot);
@@ -140,19 +162,16 @@ const ZzTabMimeData *ZzTabBarPrivate::validPayload(
 {
     if (!tabTransferEnabled || host.isNull() || mimeData == nullptr
         || !mimeData->hasFormat(ZzTabMimeData::format())
-        || mimeData->data(ZzTabMimeData::format()) != QByteArrayLiteral("1")) {
+        || mimeData->data(ZzTabMimeData::format()).size() != 18) {
         return nullptr;
     }
 
     const auto *payload = dynamic_cast<const ZzTabMimeData *>(mimeData);
-    if (payload == nullptr || payload->source.isNull()
-        || payload->page.isNull()) {
+    if (payload == nullptr) {
         return nullptr;
     }
-
-    const int currentSourceIndex = payload->source->indexOf(payload->page);
-    if (currentSourceIndex < 0
-        || payload->source->widget(currentSourceIndex) != payload->page) {
+    auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
+    if (registry == nullptr || !registry->inspect(payload->token)) {
         return nullptr;
     }
     return payload;

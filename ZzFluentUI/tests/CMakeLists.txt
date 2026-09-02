@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzWorkspaceTransferRegistryPrivateTest
+    ZzWorkspaceTransferRegistryPrivateTest.cpp
+    ../widgets/src/private/ZzWorkspaceTransferRegistryPrivate.cpp)
+target_link_libraries(ZzWorkspaceTransferRegistryPrivateTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzWorkspaceTransferRegistryPrivateTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceTransferRegistryPrivateTest)
+add_test(NAME fluent.workspace-transfer-registry-private COMMAND ZzWorkspaceTransferRegistryPrivateTest)
+set_tests_properties(fluent.workspace-transfer-registry-private PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:ZzFluentUI>:$<TARGET_FILE_DIR:ZzCore>:$<TARGET_FILE_DIR:ZzLog>:$<TARGET_FILE_DIR:Qt6::Core>")
+
 add_executable(ZzWorkspaceCrossTransferTest ZzWorkspaceCrossTransferTest.cpp)
 target_link_libraries(ZzWorkspaceCrossTransferTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzWorkspaceCrossTransferTest PROPERTIES AUTOMOC ON)

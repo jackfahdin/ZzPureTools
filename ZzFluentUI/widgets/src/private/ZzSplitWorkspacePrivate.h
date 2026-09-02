@@ -331,7 +331,6 @@ public:
     std::unique_ptr<ZzNode> root;
     ZzTabGroupId activeId;
     QPointer<QWidget> dropOverlay;
-    QHash<QString, ZzWorkspaceDragRecord> dragTokens;
     std::vector<ZzWorkspacePageKey> pageKeys;
     std::vector<ZzWorkspaceLayoutPage> savedPages;
     std::vector<QPointer<ZzTabWidget>> restoreTransactionOwners;

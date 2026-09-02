@@ -109,6 +109,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzCarouselViewPrivate.cpp
     widgets/src/ZzTabBar.cpp
     widgets/src/private/ZzTabBarPrivate.cpp
+    widgets/src/private/ZzWorkspaceTransferRegistryPrivate.cpp
     widgets/src/ZzTabWidget.cpp
     widgets/src/private/ZzTabWidgetPrivate.cpp
     widgets/src/ZzSplitWorkspace.cpp
