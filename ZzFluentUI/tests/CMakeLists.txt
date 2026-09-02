@@ -1,5 +1,19 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzWorkspacePageIdTest ZzWorkspacePageIdTest.cpp)
+target_link_libraries(ZzWorkspacePageIdTest PRIVATE
+    Qt6::Test
+    Zz::FluentFoundation
+)
+set_target_properties(ZzWorkspacePageIdTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspacePageIdTest)
+zz_enable_sanitizers(ZzWorkspacePageIdTest)
+add_test(NAME fluent.workspace-page-id COMMAND ZzWorkspacePageIdTest)
+set_tests_properties(fluent.workspace-page-id PROPERTIES
+    LABELS "unit;fluent;foundation"
+    ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:ZzFluentFoundation>:$<TARGET_FILE_DIR:ZzCore>:$<TARGET_FILE_DIR:Qt6::Core>")
+
 add_executable(ZzThemeSnapshotTest
     ZzThemeSnapshotTest.cpp
 )

@@ -15,6 +15,7 @@ set(zz_fluent_foundation_sources
     foundation/src/ZzThemePalette.cpp
     foundation/src/ZzThemeSnapshot.cpp
     foundation/src/ZzTabGroupId.cpp
+    foundation/src/ZzWorkspacePageId.cpp
     ${zz_fluent_icon_resources}
 )
 set(zz_fluent_foundation_moc_headers
