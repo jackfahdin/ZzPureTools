@@ -192,6 +192,8 @@ void ZzTabWidget::tabInserted(int index)
 
 void ZzTabWidget::tabRemoved(int index)
 {
+    if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance(); registry != nullptr)
+        registry->sourceTabRemoved(this, index, nullptr);
     QTabWidget::tabRemoved(index);
 }
 

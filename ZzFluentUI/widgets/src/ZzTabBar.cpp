@@ -225,6 +225,7 @@ void ZzTabBar::dropEvent(QDropEvent *event)
             d_ptr->host,
             inspected.value().sourceIndex,
             targetIndex)) {
+        if (registry != nullptr && inspected) (void)registry->release(payload->token);
         event->ignore();
         return;
     }
