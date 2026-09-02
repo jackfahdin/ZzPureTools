@@ -835,6 +835,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 add_executable(ZzSplitWorkspaceTest ZzSplitWorkspaceTest.cpp)
+target_sources(ZzSplitWorkspaceTest PRIVATE
+    ../widgets/src/private/ZzWorkspaceTransferRegistryPrivate.cpp
+    ../widgets/src/private/ZzTabBarPrivate.cpp
+)
 target_link_libraries(ZzSplitWorkspaceTest PRIVATE
     Qt6::Test
     Qt6::Widgets
