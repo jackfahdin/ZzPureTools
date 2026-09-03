@@ -262,6 +262,8 @@ set(workspace_window_coordinator_scenarios
     reclaimDoesNotExposeTargetTabBarSignals
     reclaimCommitSignalCannotReflowPage
     windowAboutToClosePrecedesAcceptedClose
+    aboutToCloseRejectsDestroyedTargetAndPreservesPage
+    aboutToCloseBlocksPublicTransferOutOfSource
     rejectedSystemCloseRollsBackAndClearsState
     denyPolicyIgnoresSystemCloseEvent
     delegatePolicyRequestsApprovalOnlyOnce

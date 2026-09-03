@@ -2529,6 +2529,9 @@ bool ZzSplitWorkspacePrivate::setPageLayoutKey(
     QWidget *page,
     const QString &key)
 {
+    if (transactionDepth != 0) {
+        return false;
+    }
     pageKeys.erase(
         std::remove_if(
             pageKeys.begin(),

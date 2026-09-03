@@ -333,6 +333,16 @@ bool ZzSplitWorkspace::restoreGroupOrderSilently(
     return true;
 }
 
+void ZzSplitWorkspace::beginCoordinatorTransaction()
+{
+    ++d_ptr->transactionDepth;
+}
+
+void ZzSplitWorkspace::endCoordinatorTransaction()
+{
+    if (d_ptr->transactionDepth > 0) --d_ptr->transactionDepth;
+}
+
 QByteArray ZzSplitWorkspace::saveLayout() const
 {
     return d_ptr->saveLayout();

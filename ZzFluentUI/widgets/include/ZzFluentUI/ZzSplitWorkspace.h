@@ -314,6 +314,9 @@ private:
         const ZzTabGroupId &group,
         const QList<QWidget *> &pages);
 
+    void beginCoordinatorTransaction();
+    void endCoordinatorTransaction();
+
     std::unique_ptr<ZzSplitWorkspacePrivate> d_ptr;
 };
 

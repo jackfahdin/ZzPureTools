@@ -9,6 +9,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QObject>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QThread>
 #include <QtWidgets/QWidget>
 
@@ -623,6 +624,103 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
             QStringLiteral("failed to capture page reclaim target state"));
     }
 
+    bool notificationAuditOk = true;
+    {
+        std::vector<QPointer<ZzFluentUI::ZzSplitWorkspace>> workspaces;
+        const auto freezeWorkspace = [&workspaces](
+                                          ZzFluentUI::ZzSplitWorkspace *workspace) {
+            if (workspace == nullptr || std::find(workspaces.cbegin(),
+                                      workspaces.cend(),
+                                      workspace)
+                    != workspaces.cend()) {
+                return;
+            }
+            workspaces.push_back(workspace);
+            workspace->beginCoordinatorTransaction();
+        };
+        freezeWorkspace(sourceWorkspace);
+        for (const auto &plan : targetPlans) {
+            const auto target = findWindowId(plan.snapshot.windowId);
+            freezeWorkspace(target != records.end() && target->shell
+                    ? target->shell->splitWorkspace()
+                    : nullptr);
+        }
+        const auto thawWorkspaces = qScopeGuard([&workspaces] {
+            for (const auto &workspace : workspaces) {
+                if (!workspace.isNull()) workspace->endCoordinatorTransaction();
+            }
+        });
+
+        record = findWindowId(closingWindowId);
+        if (record != records.end()) {
+            record->closeState = ZzCloseState::NotifyingClose;
+        }
+        if (!guardedWindow.isNull()) {
+            Q_EMIT q_ptr->windowAboutToClose(
+                guardedWindow, zzRawPages(guardedPages));
+        }
+
+        record = findWindowId(closingWindowId);
+        notificationAuditOk = record != records.end()
+            && record->window == guardedWindow && !guardedWindow.isNull()
+            && record->shell
+            && record->shell->splitWorkspace() == sourceWorkspace
+            && !sourceWorkspace.isNull();
+        if (notificationAuditOk) {
+            const auto groups = sourceWorkspace->groupIds();
+            notificationAuditOk = groups.size()
+                == static_cast<qsizetype>(sourceSnapshots.size());
+            for (std::size_t index = 0;
+                 notificationAuditOk && index < sourceSnapshots.size();
+                 ++index) {
+                const auto &snapshot = sourceSnapshots.at(index);
+                notificationAuditOk = groups.at(static_cast<qsizetype>(index))
+                        == snapshot.group
+                    && sourceWorkspace->tabWidget(snapshot.group) != nullptr
+                    && zzGroupPages(sourceWorkspace, snapshot.group)
+                        == snapshot.pages;
+            }
+        }
+        for (const auto &move : moves) {
+            auto *const tabs = notificationAuditOk
+                ? sourceWorkspace->tabWidget(move.sourceGroup)
+                : nullptr;
+            if (tabs == nullptr || move.page.isNull()
+                || tabs->widget(move.sourceIndex) != move.page
+                || sourceWorkspace->pageId(move.page) != move.pageId
+                || sourceWorkspace->pageForId(move.pageId) != move.page) {
+                notificationAuditOk = false;
+                break;
+            }
+        }
+        for (const auto &plan : targetPlans) {
+            if (!notificationAuditOk) break;
+            const auto target = findWindowId(plan.snapshot.windowId);
+            auto *const workspace = target != records.end() && target->window
+                    && target->shell
+                ? target->shell->splitWorkspace()
+                : nullptr;
+            if (workspace == nullptr
+                || workspace->tabWidget(plan.snapshot.group) == nullptr
+                || zzGroupPages(workspace, plan.snapshot.group)
+                    != plan.snapshot.pages) {
+                notificationAuditOk = false;
+            }
+        }
+    }
+    if (!notificationAuditOk) {
+        resetState();
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("window close notification changed reclaim state"));
+    }
+    record = findWindowId(closingWindowId);
+    if (record == records.end()) {
+        resetState();
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace window disappeared before page reclaim"));
+    }
+    record->closeState = ZzCloseState::Reclaiming;
+
     std::vector<QPointer<QObject>> mutedObjects;
     try {
         mutedObjects.push_back(sourceWorkspace);
@@ -833,10 +931,6 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         }
     }
 
-    record = findWindowId(closingWindowId);
-    if (record != records.end()) {
-        record->closeState = ZzCloseState::NotifyingClose;
-    }
     for (const auto &move : moves) {
         writePageAudit(QStringLiteral("page.reclaim"),
             move.pageId,
@@ -845,10 +939,6 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
             QStringLiteral("commit"),
             reclaimTimer,
             true);
-    }
-    if (!guardedWindow.isNull()) {
-        Q_EMIT q_ptr->windowAboutToClose(
-            guardedWindow, zzRawPages(guardedPages));
     }
     record = findWindowId(closingWindowId);
     if (record != records.end()) {

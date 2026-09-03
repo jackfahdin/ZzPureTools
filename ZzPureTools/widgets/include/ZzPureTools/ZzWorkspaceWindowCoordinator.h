@@ -96,7 +96,7 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 Q_SIGNALS:
-    /** @brief 页面完成回收且窗口即将使用内部旁路关闭时发出。 */
+    /** @brief 页面已锁定且窗口即将回收并关闭时发出；接收期间禁止公开迁移。 */
     void windowAboutToClose(
         ZzApplicationWindow *window,
         const QList<QWidget *> &pages);

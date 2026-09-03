@@ -241,3 +241,60 @@ ctest --preset linux-gcc-debug \
 状态迁移、外部 Close 过滤器顺序及 `windowAboutToClose`/`closeAccepted` 时序。
 `ZzApplicationWindow` 的改动仅保留最终关闭接受回调及协调器友元，没有扩展公开
 API；未发现新的 Critical 或 Important 问题。
+
+## 第 3 轮审查修复
+
+### RED
+
+针对复审剩余的 1 项 Critical，先在 `f138abd` 行为上增加并运行回归场景：
+
+```text
+aboutToCloseRejectsDestroyedTargetAndPreservesPage:
+  closeWindow 返回成功，通知槽删除 target 后 source 页面已不在原组
+aboutToCloseBlocksPublicTransferOutOfSource:
+  通知发生时 source 页面已迁出，sourceSnapshotIntact 为 false
+aboutToCloseBlocksPublicTransferOutOfSource（布局键 mutation）:
+  冻结期间 setPageLayoutKey 仍返回成功
+```
+
+### 实现
+
+- 将 `windowAboutToClose` 移到全部来源快照和目标预检完成之后、任何静默迁移
+  之前；通知返回前页面仍由关闭来源窗口拥有。
+- 通知期间以 `QPointer` 和 `QScopeGuard` 冻结来源 workspace 及全部预检目标
+  workspace。跨工作区迁移、组内迁移、分组、布局恢复和页面布局键更新均由同一
+  `transactionDepth` 栅栏拒绝。
+- FluentUI 仅通过协调器 friend 可见的私有 begin/end 原语维护事务深度，
+  PureTools 不包含 FluentUI 私有头。
+- 通知后重新核验关闭窗口、Shell、来源 workspace、来源组顺序、每页原位置和
+  稳定身份，以及全部目标 workspace、目标组和原页面顺序。任何参与者或快照
+  变化都在尚未迁移时恢复关闭状态并拒绝关闭，不进入 rollback。
+- 更新 `windowAboutToClose` Doxygen，明确页面已锁定、窗口即将回收并关闭，
+  接收期间禁止公开迁移。
+
+### GREEN
+
+```text
+cmake --build --preset linux-gcc-debug \
+  --target ZzWorkspaceWindowCoordinatorTest \
+           ZzMultiWindowIsolationTest \
+           ZzWorkspaceCrossTransferTest --parallel 2
+  PASS
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|multi-window)|^fluent\.workspace-cross-transfer' \
+  --output-on-failure
+  60/60 passed
+```
+
+架构定向检查中 `architecture.public-headers` 与 `architecture.boundaries` 通过；
+`architecture.complete-audit` 仍只报告既存的三个类型前缀问题：
+`ZzWorkspaceCrossTransferTransactionPrivate.cpp` 中的 `DepthGuard`、`TabsSnapshot`
+和 `WorkspaceSnapshot`，本轮未修改该文件。
+
+### 自审结论
+
+通知槽删除唯一 target 时，目标 QPointer 失效并由通知后审计拒绝关闭，source 页
+仍保持原组、原索引和身份；通知槽尝试公开迁移或布局键更新均被事务深度拒绝，
+审计通过后正常静默回收。解冻 guard 只解引用存活 QPointer，参与 workspace 在
+通知槽析构时不会产生悬空访问。

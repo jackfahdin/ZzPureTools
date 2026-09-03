@@ -389,6 +389,97 @@ private Q_SLOTS:
         application.beginShutdown();
     }
 
+    void aboutToCloseRejectsDestroyedTargetAndPreservesPage()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *page = new QWidget;
+        source->tabWidget(sourceGroup)->addTab(page, QStringLiteral("Page"));
+        QPointer<QWidget> guardedPage = page;
+        QPointer<ZzFluentUI::ZzSplitWorkspace> guardedTarget = target;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *, const QList<QWidget *> &) {
+                if (!guardedTarget.isNull()) delete guardedTarget.data();
+            });
+
+        const auto result = coordinator->closeWindow(sourceResult.value());
+
+        QVERIFY(!result);
+        QVERIFY(guardedTarget.isNull());
+        QVERIFY(!guardedPage.isNull());
+        QCOMPARE(source->tabWidget(sourceGroup)->indexOf(page), 0);
+        QCOMPARE(application.windowCount(), 2);
+        application.beginShutdown();
+    }
+
+    void aboutToCloseBlocksPublicTransferOutOfSource()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *page = new QWidget;
+        source->tabWidget(sourceGroup)->addTab(page, QStringLiteral("Page"));
+        QVERIFY(source->setPageLayoutKey(page, QStringLiteral("original")));
+        bool transferRejected = false;
+        bool layoutChangeRejected = false;
+        bool sourceSnapshotIntact = false;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *, const QList<QWidget *> &pages) {
+                transferRejected = !source->transferTabToWorkspace(
+                    sourceGroup, 0, target, targetGroup);
+                layoutChangeRejected = !source->setPageLayoutKey(
+                    page, QStringLiteral("changed"));
+                sourceSnapshotIntact = pages == QList<QWidget *> {page}
+                    && source->tabWidget(sourceGroup)->indexOf(page) == 0
+                    && source->pageForId(source->pageId(page)) == page
+                    && source->pageLayoutKey(page) == QStringLiteral("original");
+            });
+
+        const auto result = coordinator->closeWindow(sourceResult.value());
+
+        QVERIFY(result);
+        QVERIFY(transferRejected);
+        QVERIFY(layoutChangeRejected);
+        QVERIFY(sourceSnapshotIntact);
+        QCOMPARE(target->tabWidget(targetGroup)->indexOf(page), 0);
+        application.beginShutdown();
+    }
+
     void rejectedSystemCloseRollsBackAndClearsState()
     {
         auto &application = zzApplication();
