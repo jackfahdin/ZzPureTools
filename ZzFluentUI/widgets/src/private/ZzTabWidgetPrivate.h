@@ -82,6 +82,7 @@ public:
     void normalizePinnedOrder();
 
     bool silentTransfer = false;
+    int coordinatorTransactionDepth = 0;
 
     ZzTabWidget *const q_ptr;
     ZzTabBar *tabBar = nullptr;

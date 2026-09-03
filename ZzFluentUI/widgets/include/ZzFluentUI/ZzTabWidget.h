@@ -36,6 +36,43 @@ public:
     /** @brief 销毁容器及仍由容器拥有的页面。 */
     ~ZzTabWidget() override;
 
+    /** @brief 添加标签；协调器事务期间拒绝并返回 -1。 */
+    int addTab(QWidget *page, const QString &label);
+
+    /** @brief 添加带图标标签；协调器事务期间拒绝并返回 -1。 */
+    int addTab(QWidget *page, const QIcon &icon, const QString &label);
+
+    /** @brief 插入标签；协调器事务期间拒绝并返回 -1。 */
+    int insertTab(int index, QWidget *page, const QString &label);
+
+    /** @brief 插入带图标标签；协调器事务期间拒绝并返回 -1。 */
+    int insertTab(
+        int index, QWidget *page, const QIcon &icon, const QString &label);
+
+    /** @brief 清空标签；协调器事务期间无副作用。 */
+    void clear();
+
+    /** @brief 设置当前标签；协调器事务期间无副作用。 */
+    void setCurrentIndex(int index);
+
+    /** @brief 设置当前页面；协调器事务期间无副作用。 */
+    void setCurrentWidget(QWidget *page);
+
+    /** @brief 设置标签可用状态；协调器事务期间无副作用。 */
+    void setTabEnabled(int index, bool enabled);
+
+    /** @brief 设置标签文本；协调器事务期间无副作用。 */
+    void setTabText(int index, const QString &text);
+
+    /** @brief 设置标签图标；协调器事务期间无副作用。 */
+    void setTabIcon(int index, const QIcon &icon);
+
+    /** @brief 设置标签提示；协调器事务期间无副作用。 */
+    void setTabToolTip(int index, const QString &tip);
+
+    /** @brief 设置标签帮助文本；协调器事务期间无副作用。 */
+    void setTabWhatsThis(int index, const QString &text);
+
     /**
      * @brief 返回本容器拥有的公开标签栏。
      * @return 生命周期与本容器一致的非空指针。
@@ -227,6 +264,8 @@ private:
 
     void setSilentTransfer(bool value) noexcept;
     [[nodiscard]] bool silentTransfer() const noexcept;
+    void beginCoordinatorTransaction();
+    void endCoordinatorTransaction();
     std::unique_ptr<ZzTabWidgetPrivate> d_ptr;
 };
 

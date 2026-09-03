@@ -316,6 +316,14 @@ private:
 
     void beginCoordinatorTransaction();
     void endCoordinatorTransaction();
+    /** @brief 捕获协调器通知期所需的完整工作区状态。 */
+    [[nodiscard]] std::shared_ptr<void> captureCoordinatorSnapshot() const;
+    /** @brief 比较协调器通知期后的完整工作区状态。 */
+    [[nodiscard]] bool coordinatorSnapshotMatches(
+        const std::shared_ptr<void> &snapshot) const;
+    /** @brief 静默恢复协调器通知前的完整工作区状态。 */
+    [[nodiscard]] bool restoreCoordinatorSnapshot(
+        const std::shared_ptr<void> &snapshot);
 
     std::unique_ptr<ZzSplitWorkspacePrivate> d_ptr;
 };

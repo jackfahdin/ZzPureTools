@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <exception>
 #include <limits>
+#include <memory>
 #include <string_view>
 #include <utility>
 
@@ -24,6 +25,12 @@
 namespace ZzPureTools {
 
 namespace {
+
+struct ZzWorkspaceAuditState final
+{
+    QPointer<ZzFluentUI::ZzSplitWorkspace> workspace;
+    std::shared_ptr<void> state;
+};
 
 template<typename ZzValue>
 [[nodiscard]] ZzCore::ZzResult<ZzValue> zzCoordinatorFailure(
@@ -624,6 +631,31 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
             QStringLiteral("failed to capture page reclaim target state"));
     }
 
+    std::vector<ZzWorkspaceAuditState> auditSnapshots;
+    auditSnapshots.push_back({
+        sourceWorkspace,
+        sourceWorkspace->captureCoordinatorSnapshot()});
+    for (const auto &plan : targetPlans) {
+        const auto target = findWindowId(plan.snapshot.windowId);
+        auto *const workspace = target != records.end() && target->shell
+            ? target->shell->splitWorkspace()
+            : nullptr;
+        if (workspace == nullptr) {
+            resetState();
+            return zzCoordinatorFailure<void>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("page reclaim target disappeared"));
+        }
+        if (std::none_of(auditSnapshots.cbegin(), auditSnapshots.cend(),
+                [workspace](const ZzWorkspaceAuditState &snapshot) {
+                    return snapshot.workspace == workspace;
+                })) {
+            auditSnapshots.push_back({
+                workspace,
+                workspace->captureCoordinatorSnapshot()});
+        }
+    }
+
     bool notificationAuditOk = true;
     {
         std::vector<QPointer<ZzFluentUI::ZzSplitWorkspace>> workspaces;
@@ -693,6 +725,16 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 break;
             }
         }
+        if (notificationAuditOk) {
+            for (const auto &snapshot : auditSnapshots) {
+                if (snapshot.workspace.isNull()
+                    || !snapshot.workspace->coordinatorSnapshotMatches(
+                        snapshot.state)) {
+                    notificationAuditOk = false;
+                    break;
+                }
+            }
+        }
         for (const auto &plan : targetPlans) {
             if (!notificationAuditOk) break;
             const auto target = findWindowId(plan.snapshot.windowId);
@@ -709,9 +751,17 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         }
     }
     if (!notificationAuditOk) {
+        bool restored = true;
+        for (const auto &snapshot : auditSnapshots) {
+            restored = !snapshot.workspace.isNull()
+                && snapshot.workspace->restoreCoordinatorSnapshot(snapshot.state)
+                && restored;
+        }
         resetState();
         return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("window close notification changed reclaim state"));
+            restored
+                ? QStringLiteral("window close notification changed reclaim state")
+                : QStringLiteral("window close notification rollback failed"));
     }
     record = findWindowId(closingWindowId);
     if (record == records.end()) {

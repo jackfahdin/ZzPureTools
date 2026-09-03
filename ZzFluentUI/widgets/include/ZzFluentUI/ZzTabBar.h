@@ -51,6 +51,36 @@ public:
     /** @brief 销毁私有拖拽状态。 */
     ~ZzTabBar() override;
 
+    /** @brief 移除标签；协调器事务期间无副作用。 */
+    void removeTab(int index);
+
+    /** @brief 设置当前标签；协调器事务期间无副作用。 */
+    void setCurrentIndex(int index);
+
+    /** @brief 移动标签；协调器事务期间无副作用。 */
+    void moveTab(int from, int to);
+
+    /** @brief 设置标签可用状态；协调器事务期间无副作用。 */
+    void setTabEnabled(int index, bool enabled);
+
+    /** @brief 设置标签文本；协调器事务期间无副作用。 */
+    void setTabText(int index, const QString &text);
+
+    /** @brief 设置标签图标；协调器事务期间无副作用。 */
+    void setTabIcon(int index, const QIcon &icon);
+
+    /** @brief 设置标签提示；协调器事务期间无副作用。 */
+    void setTabToolTip(int index, const QString &tip);
+
+    /** @brief 设置标签帮助文本；协调器事务期间无副作用。 */
+    void setTabWhatsThis(int index, const QString &text);
+
+    /** @brief 设置标签数据；协调器事务期间无副作用。 */
+    void setTabData(int index, const QVariant &data);
+
+    /** @brief 设置标签文字颜色；协调器事务期间无副作用。 */
+    void setTabTextColor(int index, const QColor &color);
+
     /**
      * @brief 返回释放到兼容目标外时是否发出拖出意图。
      * @return 启用时返回 true。
@@ -146,6 +176,9 @@ protected:
 
 private:
     friend class ZzTabWidget;
+    friend class ZzSplitWorkspace;
+    void beginCoordinatorTransaction();
+    void endCoordinatorTransaction();
     std::unique_ptr<ZzTabBarPrivate> d_ptr;
 };
 

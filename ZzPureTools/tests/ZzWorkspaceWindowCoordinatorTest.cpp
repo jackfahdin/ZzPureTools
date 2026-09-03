@@ -480,6 +480,280 @@ private Q_SLOTS:
         application.beginShutdown();
     }
 
+    void aboutToCloseBlocksPublicTabInsertionAndRemoval()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *targetTabs = target->tabWidget(targetGroup);
+        auto *sourceTabs = source->tabWidget(sourceGroup);
+        auto *existing = new QWidget;
+        auto *moving = new QWidget;
+        auto *injected = new QWidget;
+        targetTabs->addTab(existing, QStringLiteral("Existing"));
+        sourceTabs->addTab(moving, QStringLiteral("Moving"));
+        bool insertionBlocked = false;
+        bool removalBlocked = false;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *, const QList<QWidget *> &) {
+                const int sourceCount = sourceTabs->count();
+                sourceTabs->removeTab(sourceTabs->indexOf(moving));
+                removalBlocked = sourceTabs->count() == sourceCount
+                    && sourceTabs->indexOf(moving) == 0;
+
+                const int targetCount = targetTabs->count();
+                const int inserted = targetTabs->addTab(
+                    injected, QStringLiteral("Injected"));
+                insertionBlocked = inserted == -1
+                    && targetTabs->count() == targetCount
+                    && targetTabs->indexOf(injected) == -1;
+            });
+
+        const auto result = coordinator->closeWindow(sourceResult.value());
+
+        QVERIFY(result);
+        QVERIFY(insertionBlocked);
+        QVERIFY(removalBlocked);
+        QCOMPARE(targetTabs->count(), 2);
+        QCOMPARE(targetTabs->widget(0), existing);
+        QCOMPARE(targetTabs->widget(1), moving);
+        QCOMPARE(targetTabs->indexOf(injected), -1);
+        delete injected;
+        application.beginShutdown();
+    }
+
+    void aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *targetTabs = target->tabWidget(targetGroup);
+        auto *sourceTabs = source->tabWidget(sourceGroup);
+        auto *targetFirst = new QWidget;
+        auto *targetSecond = new QWidget;
+        auto *sourceFirst = new QWidget;
+        auto *sourceSecond = new QWidget;
+        targetTabs->addTab(targetFirst, QStringLiteral("Target First"));
+        targetTabs->addTab(targetSecond, QStringLiteral("Target Second"));
+        sourceTabs->addTab(sourceFirst, QStringLiteral("Source First"));
+        sourceTabs->addTab(sourceSecond, QStringLiteral("Source Second"));
+        sourceTabs->setCurrentWidget(sourceFirst);
+        targetTabs->setCurrentWidget(targetFirst);
+        bool metadataBlocked = false;
+        bool pinnedBlocked = false;
+        bool currentBlocked = false;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *, const QList<QWidget *> &) {
+                int index = sourceTabs->indexOf(sourceSecond);
+                sourceTabs->setPageTitle(sourceSecond, QStringLiteral("Changed"));
+                index = sourceTabs->indexOf(sourceSecond);
+                sourceTabs->setTabIcon(index, QIcon());
+                sourceTabs->setTabToolTip(index, QStringLiteral("changed-tip"));
+                sourceTabs->setTabWhatsThis(index, QStringLiteral("changed-what"));
+                sourceTabs->setTabEnabled(index, false);
+                sourceTabs->setTabModified(index, true);
+                sourceTabs->setTabAttention(index, true);
+                sourceTabs->setTabCloseEnabled(index, false);
+                metadataBlocked = sourceTabs->tabText(index)
+                        == QStringLiteral("Source Second")
+                    && sourceSecond->windowTitle().isEmpty()
+                    && sourceTabs->tabToolTip(index).isEmpty()
+                    && sourceTabs->tabWhatsThis(index).isEmpty()
+                    && sourceTabs->isTabEnabled(index)
+                    && !sourceTabs->isTabModified(index)
+                    && !sourceTabs->hasTabAttention(index)
+                    && sourceTabs->isTabCloseEnabled(index);
+
+                sourceTabs->setTabPinned(index, true);
+                pinnedBlocked = !sourceTabs->isTabPinned(
+                    sourceTabs->indexOf(sourceSecond));
+                sourceTabs->setCurrentWidget(sourceSecond);
+                targetTabs->setCurrentIndex(1);
+                currentBlocked = sourceTabs->currentWidget() == sourceFirst
+                    && targetTabs->currentWidget() == targetFirst;
+            });
+
+        const auto result = coordinator->closeWindow(sourceResult.value());
+
+        QVERIFY(result);
+        QVERIFY(metadataBlocked);
+        QVERIFY(pinnedBlocked);
+        QVERIFY(currentBlocked);
+        QCOMPARE(targetTabs->currentWidget(), sourceSecond);
+        QCOMPARE(targetTabs->indexOf(sourceFirst), 2);
+        QCOMPARE(targetTabs->indexOf(sourceSecond), 3);
+        application.beginShutdown();
+    }
+
+    void aboutToCloseRestoresBaseClassTabMutationSnapshot()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        const auto targetOther = target->splitGroup(targetGroup,
+            Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        const auto sourceOther = source->splitGroup(sourceGroup,
+            Qt::Vertical, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(targetOther.has_value());
+        QVERIFY(sourceOther.has_value());
+        QVERIFY(target->setActiveGroup(targetGroup));
+        QVERIFY(source->setActiveGroup(sourceGroup));
+        auto *targetTabs = target->tabWidget(targetGroup);
+        auto *sourceTabs = source->tabWidget(sourceGroup);
+        auto *targetPage = new QWidget;
+        auto *sourceFirst = new QWidget;
+        auto *sourceSecond = new QWidget;
+        auto *injected = new QWidget;
+        targetTabs->addTab(targetPage, QStringLiteral("Target"));
+        sourceTabs->addTab(sourceFirst, QStringLiteral("Source First"));
+        sourceTabs->addTab(sourceSecond, QStringLiteral("Source Second"));
+        QPixmap sourceIconPixmap(1, 1);
+        sourceIconPixmap.fill(Qt::red);
+        sourceTabs->setTabIcon(0, QIcon(sourceIconPixmap));
+        sourceTabs->setTabToolTip(0, QStringLiteral("source-tip"));
+        sourceTabs->setTabWhatsThis(0, QStringLiteral("source-what"));
+        sourceTabs->fluentTabBar()->setTabData(0, QStringLiteral("source-data"));
+        sourceTabs->fluentTabBar()->setTabTextColor(0, QColor(Qt::green));
+        sourceTabs->setTabEnabled(0, false);
+        sourceTabs->setTabPinned(0, true);
+        sourceTabs->setTabModified(0, true);
+        sourceTabs->setTabAttention(0, true);
+        sourceTabs->setTabCloseEnabled(0, false);
+        sourceTabs->setPageTitle(sourceFirst, QStringLiteral("Source First"));
+        sourceTabs->setCurrentWidget(sourceFirst);
+        targetTabs->setCurrentWidget(targetPage);
+        QVERIFY(source->setPageLayoutKey(sourceFirst, QStringLiteral("source-first")));
+        QVERIFY(source->setPageLayoutKey(sourceSecond, QStringLiteral("source-second")));
+        QVERIFY(target->setPageLayoutKey(targetPage, QStringLiteral("target-page")));
+        const auto sourceFirstId = source->pageId(sourceFirst);
+        const auto sourceSecondId = source->pageId(sourceSecond);
+        const auto targetPageId = target->pageId(targetPage);
+        ZzFluentUI::ZzWorkspacePageId injectedId;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *, const QList<QWidget *> &) {
+                auto *sourceBase = static_cast<QTabWidget *>(sourceTabs);
+                auto *targetBase = static_cast<QTabWidget *>(targetTabs);
+                sourceBase->removeTab(sourceBase->indexOf(sourceFirst));
+                targetBase->insertTab(0, injected, QStringLiteral("Injected"));
+                injectedId = target->pageId(injected);
+                sourceBase->setTabText(
+                    sourceBase->indexOf(sourceSecond), QStringLiteral("Changed"));
+                sourceBase->setCurrentIndex(0);
+                targetBase->setTabToolTip(
+                    targetBase->indexOf(targetPage), QStringLiteral("changed-tip"));
+                targetTabs->fluentTabBar()->setTabData(
+                    targetTabs->indexOf(targetPage), QStringLiteral("changed-data"));
+                targetTabs->fluentTabBar()->setTabTextColor(
+                    targetTabs->indexOf(targetPage), QColor(Qt::blue));
+                targetBase->setCurrentWidget(injected);
+                target->setActiveGroup(*targetOther);
+                source->setActiveGroup(*sourceOther);
+            });
+
+        const auto result = coordinator->closeWindow(sourceResult.value());
+
+        QVERIFY(!result);
+        QCOMPARE(source->groupIds(),
+            QList<ZzFluentUI::ZzTabGroupId>({sourceGroup, *sourceOther}));
+        QCOMPARE(target->groupIds(),
+            QList<ZzFluentUI::ZzTabGroupId>({targetGroup, *targetOther}));
+        QCOMPARE(source->activeGroupId(), sourceGroup);
+        QCOMPARE(target->activeGroupId(), targetGroup);
+        QCOMPARE(source->tabWidget(sourceGroup), sourceTabs);
+        QCOMPARE(target->tabWidget(targetGroup), targetTabs);
+        QCOMPARE(sourceTabs->count(), 2);
+        QCOMPARE(sourceTabs->widget(0), sourceFirst);
+        QCOMPARE(sourceTabs->widget(1), sourceSecond);
+        QCOMPARE(sourceTabs->currentWidget(), sourceFirst);
+        QCOMPARE(targetTabs->count(), 1);
+        QCOMPARE(targetTabs->widget(0), targetPage);
+        QCOMPARE(targetTabs->currentWidget(), targetPage);
+        QCOMPARE(sourceTabs->tabText(0), QStringLiteral("Source First"));
+        QCOMPARE(sourceTabs->tabIcon(0).pixmap(1, 1).toImage(),
+            QIcon(sourceIconPixmap).pixmap(1, 1).toImage());
+        QCOMPARE(sourceTabs->tabToolTip(0), QStringLiteral("source-tip"));
+        QCOMPARE(sourceTabs->tabWhatsThis(0), QStringLiteral("source-what"));
+        QCOMPARE(sourceTabs->fluentTabBar()->tabData(0).toString(),
+            QStringLiteral("source-data"));
+        QCOMPARE(sourceTabs->fluentTabBar()->tabTextColor(0), QColor(Qt::green));
+        QVERIFY(!sourceTabs->isTabEnabled(0));
+        QVERIFY(sourceTabs->isTabPinned(0));
+        QVERIFY(sourceTabs->isTabModified(0));
+        QVERIFY(sourceTabs->hasTabAttention(0));
+        QVERIFY(!sourceTabs->isTabCloseEnabled(0));
+        QCOMPARE(sourceFirst->windowTitle(), QStringLiteral("Source First"));
+        QCOMPARE(targetTabs->tabToolTip(0), QString());
+        QCOMPARE(targetTabs->fluentTabBar()->tabData(0), QVariant());
+        QCOMPARE(targetTabs->fluentTabBar()->tabTextColor(0), QColor());
+        QCOMPARE(source->pageForId(sourceFirstId), sourceFirst);
+        QCOMPARE(source->pageForId(sourceSecondId), sourceSecond);
+        QCOMPARE(target->pageForId(targetPageId), targetPage);
+        QCOMPARE(source->pageLayoutKey(sourceFirst), QStringLiteral("source-first"));
+        QCOMPARE(source->pageLayoutKey(sourceSecond), QStringLiteral("source-second"));
+        QCOMPARE(target->pageLayoutKey(targetPage), QStringLiteral("target-page"));
+        QCOMPARE(targetTabs->indexOf(injected), -1);
+        QVERIFY(injectedId.isValid());
+        QCOMPARE(target->pageForId(injectedId), nullptr);
+        targetTabs->addTab(injected, QStringLiteral("Reinserted"));
+        const auto reinsertedId = target->pageId(injected);
+        QVERIFY(reinsertedId.isValid());
+        QVERIFY(reinsertedId != injectedId);
+        targetTabs->removeTab(targetTabs->indexOf(injected));
+        delete injected;
+        application.beginShutdown();
+    }
+
     void rejectedSystemCloseRollsBackAndClearsState()
     {
         auto &application = zzApplication();

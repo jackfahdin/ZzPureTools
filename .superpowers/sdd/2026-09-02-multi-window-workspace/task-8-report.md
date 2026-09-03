@@ -298,3 +298,68 @@ ctest --preset linux-gcc-debug \
 仍保持原组、原索引和身份；通知槽尝试公开迁移或布局键更新均被事务深度拒绝，
 审计通过后正常静默回收。解冻 guard 只解引用存活 QPointer，参与 workspace 在
 通知槽析构时不会产生悬空访问。
+
+## 第 4 轮审查修复
+
+### RED
+
+针对第 3 轮复审剩余的 1 项 Important，在 `00a3e41` 行为上新增三项真实回归：
+
+```text
+aboutToCloseBlocksPublicTabInsertionAndRemoval:
+  ZzTabWidget 公开 addTab/removeTab 可在通知冻结期改变参与组
+aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges:
+  标签 metadata、pinned 和当前页可在通知冻结期改变
+aboutToCloseRestoresBaseClassTabMutationSnapshot:
+  经 QTabWidget 基类入口绕过冻结后，通知失败未完整恢复页面和元数据快照
+```
+
+三项测试在生产修改前均失败，确认覆盖了复审报告描述的缺口。
+
+### 实现
+
+- `ZzSplitWorkspace` 的协调器事务深度首次进入和最终退出时，递归冻结/解冻全部
+  现有 `ZzTabWidget` 与其 `ZzTabBar`；公开标签增删、移动、当前页、基础 metadata
+  以及 pinned、modified、attention、close-enabled 入口在冻结期无副作用。
+- 在 FluentUI 内部捕获分割树、组和标签顺序、当前页、完整标签 metadata、页面
+  标题、布局键、稳定 page id 映射及 saved pages。PureTools 协调器仅通过
+  `ZzSplitWorkspace` friend 的 `std::shared_ptr<void>` opaque 接口审计与恢复，
+  不包含 FluentUI 私有头。
+- 通知槽显式转换为 `QTabWidget` 基类以绕过公开 wrapper 时，完整审计会拒绝关闭
+  并静默恢复双方快照；恢复过程重建 page id 双向映射与销毁连接，通知期间临时
+  登记的旧 id 不再可反查。页面之后重新插入工作区时仍遵循按需登记契约，获得
+  一个与临时 id 不同的新有效 id。
+- 删除早期本地 tab audit/capture/restore 辅助实现，只保留 FluentUI opaque
+  snapshot 接入；源码搜索未残留 `ZzTabAuditState`、`zzCaptureWorkspaceAudit` 或
+  `zzRestoreWorkspaceAudit`。
+
+### GREEN
+
+```text
+cmake --build --preset linux-gcc-debug \
+  --target ZzWorkspaceWindowCoordinatorTest \
+           ZzMultiWindowIsolationTest \
+           ZzWorkspaceCrossTransferTest --parallel 2
+  PASS
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.workspace-window-coordinator\.(aboutToCloseBlocksPublicTabInsertionAndRemoval|aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges|aboutToCloseRestoresBaseClassTabMutationSnapshot)$' \
+  --output-on-failure
+  3/3 passed
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|multi-window)|^fluent\.workspace-cross-transfer' \
+  --output-on-failure
+  63/63 passed
+
+ctest --preset linux-gcc-debug \
+  -R '^(architecture\.public-headers|architecture\.boundaries)$' \
+  --output-on-failure
+  2/2 passed
+```
+
+### 自审结论
+
+逐项复核公开标签入口冻结、嵌套事务深度配对、基类绕过后的完整恢复、临时 page id
+清理及模块边界；`git diff --check` 与两项架构检查通过。未发现新的 Critical 或
+Important 问题。

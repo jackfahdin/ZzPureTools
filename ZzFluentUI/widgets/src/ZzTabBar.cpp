@@ -84,6 +84,66 @@ void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
 
 ZzTabBar::~ZzTabBar() = default;
 
+void ZzTabBar::removeTab(int index)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::removeTab(index);
+}
+
+void ZzTabBar::setCurrentIndex(int index)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setCurrentIndex(index);
+}
+
+void ZzTabBar::moveTab(int from, int to)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::moveTab(from, to);
+}
+
+void ZzTabBar::setTabEnabled(int index, bool enabled)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabEnabled(index, enabled);
+}
+
+void ZzTabBar::setTabText(int index, const QString &text)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabText(index, text);
+}
+
+void ZzTabBar::setTabIcon(int index, const QIcon &icon)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabIcon(index, icon);
+}
+
+void ZzTabBar::setTabToolTip(int index, const QString &tip)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabToolTip(index, tip);
+}
+
+void ZzTabBar::setTabWhatsThis(int index, const QString &text)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabWhatsThis(index, text);
+}
+
+void ZzTabBar::setTabData(int index, const QVariant &value)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabData(index, value);
+}
+
+void ZzTabBar::setTabTextColor(int index, const QColor &color)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabTextColor(index, color);
+}
+
+void ZzTabBar::beginCoordinatorTransaction()
+{
+    ++d_ptr->coordinatorTransactionDepth;
+}
+
+void ZzTabBar::endCoordinatorTransaction()
+{
+    if (d_ptr->coordinatorTransactionDepth > 0) --d_ptr->coordinatorTransactionDepth;
+}
+
 bool ZzTabBar::isTearOffEnabled() const noexcept
 {
     return d_ptr->tearOffEnabled;

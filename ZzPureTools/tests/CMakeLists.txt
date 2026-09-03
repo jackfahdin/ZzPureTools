@@ -264,6 +264,9 @@ set(workspace_window_coordinator_scenarios
     windowAboutToClosePrecedesAcceptedClose
     aboutToCloseRejectsDestroyedTargetAndPreservesPage
     aboutToCloseBlocksPublicTransferOutOfSource
+    aboutToCloseBlocksPublicTabInsertionAndRemoval
+    aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges
+    aboutToCloseRestoresBaseClassTabMutationSnapshot
     rejectedSystemCloseRollsBackAndClearsState
     denyPolicyIgnoresSystemCloseEvent
     delegatePolicyRequestsApprovalOnlyOnce
