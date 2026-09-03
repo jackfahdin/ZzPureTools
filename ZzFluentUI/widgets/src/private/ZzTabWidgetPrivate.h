@@ -81,6 +81,8 @@ public:
     void disconnectMetadataObservers() noexcept;
     void normalizePinnedOrder();
 
+    bool silentTransfer = false;
+
     ZzTabWidget *const q_ptr;
     ZzTabBar *tabBar = nullptr;
     QHash<QWidget *, ZzMetadata> metadataByPage;

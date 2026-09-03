@@ -13,6 +13,7 @@ namespace ZzFluentUI {
 class ZzTabBar;
 class ZzTabWidgetPrivate;
 class ZzWorkspaceCrossTransferTransactionPrivate;
+class ZzSplitWorkspace;
 
 /**
  * @brief 保存标签页并提供同步、可回滚的容器间转移。
@@ -222,6 +223,10 @@ Q_SIGNALS:
 private:
     friend class ZzTabWidgetPrivate;
     friend class ZzWorkspaceCrossTransferTransactionPrivate;
+    friend class ZzSplitWorkspace;
+
+    void setSilentTransfer(bool value) noexcept;
+    [[nodiscard]] bool silentTransfer() const noexcept;
     std::unique_ptr<ZzTabWidgetPrivate> d_ptr;
 };
 

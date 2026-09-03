@@ -258,6 +258,11 @@ set(workspace_window_coordinator_scenarios
     rejectedInternalCloseRollsBackAndCannotBypassDeny
     closePolicyChangeInvalidatesDelegateRequest
     failedReclaimAuditContainsNoCommitSuccess
+    reclaimDoesNotExposeSourceTabBarSignals
+    reclaimDoesNotExposeTargetTabBarSignals
+    reclaimCommitSignalCannotReflowPage
+    windowAboutToClosePrecedesAcceptedClose
+    rejectedSystemCloseRollsBackAndClearsState
     denyPolicyIgnoresSystemCloseEvent
     delegatePolicyRequestsApprovalOnlyOnce
     delegatedApprovalConsumesPendingRequestOnlyOnce

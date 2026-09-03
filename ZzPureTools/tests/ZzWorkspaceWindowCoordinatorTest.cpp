@@ -228,28 +228,206 @@ private Q_SLOTS:
             targetGroup, 0, sourceWorkspace, sourceGroup));
         QPointer<ZzFluentUI::ZzSplitWorkspace> guardedSource = sourceWorkspace;
         bool destroyed = false;
-        QObject::connect(targetWorkspace,
-            &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
-            targetWorkspace,
-            [&](ZzFluentUI::ZzSplitWorkspace *source,
-                const ZzFluentUI::ZzTabGroupId &,
-                int,
-                const ZzFluentUI::ZzTabGroupId &,
-                QWidget *,
-                const ZzFluentUI::ZzWorkspacePageId &,
-                ZzFluentUI::ZzWorkspaceDropZone) {
-                if (destroyed || source != sourceWorkspace) return;
+        QObject::connect(
+            sourceWorkspace->tabWidget(sourceGroup)->fluentTabBar(),
+            &QTabBar::currentChanged,
+            sourceWorkspace->tabWidget(sourceGroup)->fluentTabBar(),
+            [&](int) {
+                if (destroyed) return;
                 destroyed = true;
-                delete source;
+                delete sourceWorkspace;
             });
 
         const auto closed = coordinator->closeWindow(sourceResult.value());
 
         QVERIFY(closed);
-        QVERIFY(destroyed);
-        QVERIFY(guardedSource.isNull());
+        QVERIFY(!destroyed);
+        QVERIFY(!guardedSource.isNull());
         QCOMPARE(targetWorkspace->tabWidget(targetGroup)->indexOf(first), 0);
         QCOMPARE(targetWorkspace->tabWidget(targetGroup)->indexOf(second), 1);
+        application.beginShutdown();
+    }
+
+    void reclaimDoesNotExposeSourceTabBarSignals()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *page = new QWidget;
+        source->tabWidget(sourceGroup)->addTab(page, QStringLiteral("Page"));
+        bool exposed = false;
+        QPointer<ZzFluentUI::ZzSplitWorkspace> guardedSource(source);
+        QObject::connect(source->tabWidget(sourceGroup)->fluentTabBar(),
+            &QTabBar::currentChanged,
+            source->tabWidget(sourceGroup)->fluentTabBar(),
+            [&](int) {
+                exposed = true;
+                delete source;
+            });
+        QVERIFY(coordinator->closeWindow(sourceResult.value()));
+        QVERIFY(!exposed);
+        QVERIFY(!guardedSource.isNull());
+        QCOMPARE(target->tabWidget(targetGroup)->indexOf(page), 0);
+        application.beginShutdown();
+    }
+
+    void reclaimDoesNotExposeTargetTabBarSignals()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *page = new QWidget;
+        source->tabWidget(sourceGroup)->addTab(page, QStringLiteral("Page"));
+        bool exposed = false;
+        QPointer<ZzFluentUI::ZzSplitWorkspace> guardedTarget(target);
+        QObject::connect(target->tabWidget(targetGroup)->fluentTabBar(),
+            &QTabBar::currentChanged,
+            target->tabWidget(targetGroup)->fluentTabBar(),
+            [&](int) {
+                exposed = true;
+                delete target;
+            });
+        QVERIFY(coordinator->closeWindow(sourceResult.value()));
+        QVERIFY(!exposed);
+        QVERIFY(!guardedTarget.isNull());
+        QCOMPARE(target->tabWidget(targetGroup)->indexOf(page), 0);
+        application.beginShutdown();
+    }
+
+    void reclaimCommitSignalCannotReflowPage()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *page = new QWidget;
+        source->tabWidget(sourceGroup)->addTab(page, QStringLiteral("Page"));
+        bool exposed = false;
+        QObject::connect(target,
+            &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
+            target,
+            [&](ZzFluentUI::ZzSplitWorkspace *,
+                const ZzFluentUI::ZzTabGroupId &, int,
+                const ZzFluentUI::ZzTabGroupId &, QWidget *moved,
+                const ZzFluentUI::ZzWorkspacePageId &,
+                ZzFluentUI::ZzWorkspaceDropZone) {
+                if (moved == page) {
+                    exposed = true;
+                    source->tabWidget(sourceGroup)->addTab(page, QStringLiteral("Page"));
+                }
+            });
+        QVERIFY(coordinator->closeWindow(sourceResult.value()));
+        QVERIFY(!exposed);
+        QCOMPARE(target->tabWidget(targetGroup)->indexOf(page), 0);
+        application.beginShutdown();
+    }
+
+    void windowAboutToClosePrecedesAcceptedClose()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shell = std::move(zzCreateShell(window)).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({window, shell.get()}, zzConfiguration(), true));
+        QSignalSpy accepted(window, SIGNAL(closeAccepted()));
+        bool visibleAtNotification = false;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *closing, const QList<QWidget *> &) {
+                visibleAtNotification = closing != nullptr && closing->isVisible();
+            });
+        QVERIFY(coordinator->closeWindow(window));
+        QVERIFY(visibleAtNotification);
+        QCOMPARE(accepted.count(), 1);
+        application.beginShutdown();
+    }
+
+    void rejectedSystemCloseRollsBackAndClearsState()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *targetWindow = zzOnlyWindow(application);
+        auto sourceResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(targetWindow != nullptr);
+        QVERIFY(sourceResult);
+        auto targetShell = std::move(zzCreateShell(targetWindow)).value();
+        auto sourceShell = std::move(zzCreateShell(sourceResult.value())).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {targetWindow, targetShell.get()}, zzConfiguration(), true));
+        auto filter = std::make_unique<ZzRejectCloseFilter>();
+        sourceResult.value()->installEventFilter(filter.get());
+        QVERIFY(coordinator->registerWindow(
+            {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        auto *target = targetShell->splitWorkspace();
+        auto *source = sourceShell->splitWorkspace();
+        const auto targetGroup = target->groupIds().constFirst();
+        const auto sourceGroup = source->groupIds().constFirst();
+        auto *page = new QWidget;
+        target->tabWidget(targetGroup)->addTab(page, QStringLiteral("Page"));
+        QVERIFY(target->transferTabToWorkspace(targetGroup, 0, source, sourceGroup));
+        QVERIFY(!sourceResult.value()->close());
+        QCOMPARE(source->tabWidget(sourceGroup)->indexOf(page), 0);
+        QCOMPARE(target->tabWidget(targetGroup)->indexOf(page), -1);
+        auto deny = ZzPureTools::ZzWorkspaceWindowConfigurationPatch{};
+        deny.closePolicy = ZzPureTools::ZzWindowClosePolicy::Deny;
+        QVERIFY(coordinator->applyConfiguration(sourceResult.value(), deny));
+        filter->reject = false;
+        QVERIFY(!sourceResult.value()->close());
+        auto delegate = ZzPureTools::ZzWorkspaceWindowConfigurationPatch{};
+        delegate.closePolicy = ZzPureTools::ZzWindowClosePolicy::Delegate;
+        QVERIFY(coordinator->applyConfiguration(sourceResult.value(), delegate));
+        QVERIFY(!sourceResult.value()->close());
+        QVERIFY(coordinator->approveDelegatedClose(sourceResult.value()));
+        QVERIFY(QTest::qWaitFor([&application] { return application.windowCount() == 1; }));
         application.beginShutdown();
     }
 
@@ -430,17 +608,12 @@ private Q_SLOTS:
         QVERIFY(first->transferTabToWorkspace(
             firstGroup, 0, closing, closingGroup));
         bool nested = false;
-        QObject::connect(first,
-            &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
-            first,
-            [&](ZzFluentUI::ZzSplitWorkspace *,
-                const ZzFluentUI::ZzTabGroupId &,
-                int,
-                const ZzFluentUI::ZzTabGroupId &,
-                QWidget *page,
-                const ZzFluentUI::ZzWorkspacePageId &,
-                ZzFluentUI::ZzWorkspaceDropZone) {
-                if (nested || page != closingPage) return;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator,
+            [&](ZzPureTools::ZzApplicationWindow *window,
+                const QList<QWidget *> &) {
+                if (nested || window != closingResult.value()) return;
                 nested = true;
                 QVERIFY(unrelatedOrigin->transferTabToWorkspace(
                     unrelatedOriginGroup,
@@ -560,31 +733,56 @@ private Q_SLOTS:
         auto *targetWindow = zzOnlyWindow(application);
         auto sourceResult = application.createWindow(
             ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        auto secondOriginResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
         QVERIFY(targetWindow != nullptr);
         QVERIFY(sourceResult);
+        QVERIFY(secondOriginResult);
         auto targetShellResult = zzCreateShell(targetWindow);
         auto sourceShellResult = zzCreateShell(sourceResult.value());
+        auto secondOriginShellResult = zzCreateShell(secondOriginResult.value());
         QVERIFY(targetShellResult);
         QVERIFY(sourceShellResult);
+        QVERIFY(secondOriginShellResult);
         auto targetShell = std::move(targetShellResult).value();
         auto sourceShell = std::move(sourceShellResult).value();
+        auto secondOriginShell = std::move(secondOriginShellResult).value();
         auto *coordinator = application.workspaceWindowCoordinator();
         QVERIFY(coordinator->registerWindow(
             {targetWindow, targetShell.get()}, zzConfiguration(), true));
         QVERIFY(coordinator->registerWindow(
             {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
+        QVERIFY(coordinator->registerWindow(
+            {secondOriginResult.value(), secondOriginShell.get()},
+            zzConfiguration()));
         auto *target = targetShell->splitWorkspace();
         auto *source = sourceShell->splitWorkspace();
+        auto *secondOrigin = secondOriginShell->splitWorkspace();
         const auto targetGroup = target->groupIds().constFirst();
         const auto sourceGroup = source->groupIds().constFirst();
-        auto *const page = new QWidget;
-        target->tabWidget(targetGroup)->addTab(page, QStringLiteral("Page"));
+        const auto secondOriginRoot = secondOrigin->groupIds().constFirst();
+        const auto secondOriginGroup = secondOrigin->splitGroup(secondOriginRoot,
+            Qt::Horizontal,
+            ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(secondOriginGroup.has_value());
+        auto *const first = new ZzParentChangeActionPage;
+        auto *const second = new QWidget;
+        target->tabWidget(targetGroup)->addTab(first, QStringLiteral("First"));
+        secondOrigin->tabWidget(*secondOriginGroup)
+            ->addTab(second, QStringLiteral("Second"));
         QVERIFY(target->transferTabToWorkspace(
             targetGroup, 0, source, sourceGroup));
-        ZzRejectCloseFilter filter;
-        sourceResult.value()->installEventFilter(&filter);
+        QVERIFY(secondOrigin->transferTabToWorkspace(
+            *secondOriginGroup, 0, source, sourceGroup));
+        first->action = [secondOrigin, secondOriginGroup] {
+            QVERIFY(secondOrigin->removeEmptyGroup(*secondOriginGroup));
+        };
+        first->armed = true;
 
         QVERIFY(!coordinator->closeWindow(sourceResult.value()));
+        QCOMPARE(source->tabWidget(sourceGroup)->count(), 2);
+        QCOMPARE(source->tabWidget(sourceGroup)->widget(0), first);
+        QCOMPARE(source->tabWidget(sourceGroup)->widget(1), second);
         QVERIFY(ZzLog::flushAndWait(std::chrono::seconds(2)));
         application.beginShutdown();
         ZzLog::shutdown();

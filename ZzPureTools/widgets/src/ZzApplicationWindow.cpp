@@ -124,10 +124,21 @@ void ZzApplicationWindow::closeEvent(QCloseEvent *event)
 {
     QMainWindow::closeEvent(event);
     if (event != nullptr && event->isAccepted()
+        && d_ptr->closeAcceptanceCallback
+        && !d_ptr->closeAcceptanceCallback()) {
+        event->ignore();
+    }
+    if (event != nullptr && event->isAccepted()
         && !d_ptr->acceptedClosePending) {
         d_ptr->acceptedClosePending = true;
         Q_EMIT closeAccepted();
     }
+}
+
+void ZzApplicationWindow::setCloseAcceptanceCallback(
+    std::function<bool()> callback)
+{
+    d_ptr->closeAcceptanceCallback = std::move(callback);
 }
 
 bool ZzApplicationWindow::consumeAcceptedClose() noexcept

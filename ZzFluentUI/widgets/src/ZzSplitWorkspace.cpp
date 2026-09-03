@@ -6,14 +6,56 @@
 #include <QtGui/QDragLeaveEvent>
 #include <QtGui/QDragMoveEvent>
 #include <QtGui/QDropEvent>
+#include <QtCore/QObject>
+
+#include <ZzCore/ZzError.h>
+#include <ZzCore/ZzErrorCode.h>
 
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTabBar.h>
 
+#include <QtWidgets/QStackedWidget>
+
 #include "private/ZzSplitWorkspacePrivate.h"
+#include "private/ZzTabWidgetPrivate.h"
 #include "private/ZzWorkspaceCrossTransferTransactionPrivate.h"
 
 namespace ZzFluentUI {
+
+namespace {
+
+class ZzScopedSignalBlock final
+{
+public:
+    explicit ZzScopedSignalBlock(QObject *object)
+        : object_(object)
+        , previouslyBlocked_(object != nullptr && object->signalsBlocked())
+    {
+        if (!object_.isNull()) object_->blockSignals(true);
+    }
+
+    ~ZzScopedSignalBlock()
+    {
+        if (!object_.isNull()) object_->blockSignals(previouslyBlocked_);
+    }
+
+    Q_DISABLE_COPY_MOVE(ZzScopedSignalBlock)
+
+private:
+    QPointer<QObject> object_;
+    bool previouslyBlocked_ = false;
+};
+
+void zzSyncCurrentPage(ZzTabWidget *tabs)
+{
+    if (tabs == nullptr || tabs->fluentTabBar() == nullptr) return;
+    auto *const stack = tabs->findChild<QStackedWidget *>();
+    if (stack == nullptr) return;
+    ZzScopedSignalBlock stackSignals(stack);
+    stack->setCurrentIndex(tabs->fluentTabBar()->currentIndex());
+}
+
+} // namespace
 
 ZzSplitWorkspace::ZzSplitWorkspace(QWidget *parent)
     : QWidget(parent)
@@ -180,15 +222,49 @@ ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspaceSilently(
     const ZzTabGroupId &targetGroup,
     int targetIndex)
 {
-    return ZzWorkspaceCrossTransferTransactionPrivate::run(
+    auto *const sourceTabs = tabWidget(sourceGroup);
+    auto *const targetTabs = targetWorkspace != nullptr
+        ? targetWorkspace->tabWidget(targetGroup)
+        : nullptr;
+    if (sourceTabs == nullptr || targetTabs == nullptr) {
+        return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("unknown workspace tab group")));
+    }
+    QPointer<ZzTabWidget> guardedSourceTabs(sourceTabs);
+    QPointer<ZzTabWidget> guardedTargetTabs(targetTabs);
+    ZzScopedSignalBlock sourceBarSignals(sourceTabs->fluentTabBar());
+    ZzScopedSignalBlock targetBarSignals(targetTabs->fluentTabBar());
+    const bool sourceSilent = sourceTabs->silentTransfer();
+    const bool targetSilent = targetTabs->silentTransfer();
+    sourceTabs->setSilentTransfer(true);
+    targetTabs->setSilentTransfer(true);
+    int effectiveTargetIndex = targetIndex;
+    if (effectiveTargetIndex < 0 && sourceTabs->isTabPinned(sourceIndex)) {
+        effectiveTargetIndex = 0;
+        while (effectiveTargetIndex < targetTabs->count()
+            && targetTabs->isTabPinned(effectiveTargetIndex)) {
+            ++effectiveTargetIndex;
+        }
+    }
+    const auto result = ZzWorkspaceCrossTransferTransactionPrivate::run(
         this,
         sourceGroup,
         sourceIndex,
         targetWorkspace,
         targetGroup,
-        targetIndex,
+        effectiveTargetIndex,
         ZzWorkspaceDropZone::Center,
         false);
+    if (!guardedSourceTabs.isNull()) {
+        zzSyncCurrentPage(guardedSourceTabs);
+        guardedSourceTabs->setSilentTransfer(sourceSilent);
+    }
+    if (!guardedTargetTabs.isNull()) {
+        zzSyncCurrentPage(guardedTargetTabs);
+        guardedTargetTabs->setSilentTransfer(targetSilent);
+    }
+    return result;
 }
 
 bool ZzSplitWorkspace::restoreGroupOrderSilently(
@@ -200,8 +276,14 @@ bool ZzSplitWorkspace::restoreGroupOrderSilently(
         return false;
     }
     QPointer<ZzTabBar> bar = tabs->fluentTabBar();
+    if (bar.isNull()) return false;
+    ZzScopedSignalBlock barSignals(bar);
+    QPointer<QWidget> currentPage = tabs->currentWidget();
+    const bool previouslySilent = tabs->silentTransfer();
+    tabs->setSilentTransfer(true);
     const bool previouslyBlocked = tabs->blockSignals(true);
-    const auto restoreSignals = [&tabs, previouslyBlocked] {
+    const auto restoreSignals = [&tabs, previouslyBlocked, previouslySilent] {
+        tabs->setSilentTransfer(previouslySilent);
         if (!tabs.isNull()) tabs->blockSignals(previouslyBlocked);
     };
     for (int desired = 0; desired < pages.size(); ++desired) {
@@ -216,7 +298,21 @@ bool ZzSplitWorkspace::restoreGroupOrderSilently(
             return false;
         }
         if (actual != desired) {
-            bar->moveTab(actual, desired);
+            const auto snapshot = ZzFluentUI::ZzTabWidgetPrivate::snapshotFor(
+                tabs, actual);
+            tabs->d_ptr->removalNotified = true;
+            tabs->QTabWidget::removeTab(actual);
+            const int inserted = tabs->QTabWidget::insertTab(
+                desired, page, snapshot.icon, snapshot.text);
+            if (inserted < 0) {
+                restoreSignals();
+                return false;
+            }
+            if (!ZzTabWidgetPrivate::restoreMetadata(
+                    tabs, inserted, snapshot)) {
+                restoreSignals();
+                return false;
+            }
             if (tabs.isNull() || bar.isNull() || page.isNull()) {
                 restoreSignals();
                 return false;
@@ -228,6 +324,10 @@ bool ZzSplitWorkspace::restoreGroupOrderSilently(
             restoreSignals();
             return false;
         }
+    }
+    if (!currentPage.isNull() && tabs->indexOf(currentPage) >= 0) {
+        bar->setCurrentIndex(tabs->indexOf(currentPage));
+        zzSyncCurrentPage(tabs);
     }
     restoreSignals();
     return true;

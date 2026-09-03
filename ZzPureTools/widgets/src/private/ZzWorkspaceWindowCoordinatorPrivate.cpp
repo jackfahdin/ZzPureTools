@@ -220,13 +220,6 @@ void ZzWorkspaceWindowCoordinatorPrivate::recordTransfer(
             return record.windowIdentity == targetWindow;
         });
     if (source == records.cend() || target == records.cend()) return;
-    if (internalTransfer.has_value()
-        && internalTransfer->sourceWindowId == source->windowId
-        && internalTransfer->targetWindowId == target->windowId
-        && internalTransfer->page == page) {
-        return;
-    }
-
     auto history = std::find_if(pageOrigins.begin(),
         pageOrigins.end(),
         [page](const ZzPageOrigins &value) { return value.page == page; });
@@ -304,7 +297,9 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                               : ZzCore::ZzErrorCode::NotFound,
             QStringLiteral("workspace window is not registered"));
     }
-    if (closeTransactionActive(*record)) {
+    if (closeTransactionActive(*record)
+        && !(currentCloseEvent
+            && record->closeState == ZzCloseState::DispatchingClose)) {
         return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("workspace window close transaction is already active"));
     }
@@ -319,6 +314,32 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
             Q_EMIT q_ptr->windowCloseApprovalRequested(window);
         }
         return ZzCore::ZzResult<void>::success();
+    }
+
+    if (!currentCloseEvent) {
+        const ZzCloseState dispatchState = record->closeState;
+        if (dispatchState != ZzCloseState::DelegateApproved) {
+            record->closeState = ZzCloseState::DispatchingClose;
+        }
+        record->internalCloseDispatch = true;
+        const bool accepted = record->window->close();
+        record = findWindow(window);
+        if (record != records.end()) {
+            record->internalCloseDispatch = false;
+            if (!accepted && (record->closeState == ZzCloseState::DispatchingClose
+                || record->closeState == ZzCloseState::DelegateApproved)) {
+                record->closeState = ZzCloseState::Idle;
+            }
+        }
+        if (!accepted) {
+            return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("workspace window rejected close"));
+        }
+        return ZzCore::ZzResult<void>::success();
+    }
+
+    if (record->closeState == ZzCloseState::DispatchingClose) {
+        record->internalCloseDispatch = false;
     }
 
     const QUuid closingWindowId = record->windowId;
@@ -787,7 +808,6 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                      : QStringLiteral("page reclaim rollback failed"));
     }
 
-    bool closeAccepted = currentCloseEvent;
     record = findWindowId(closingWindowId);
     if (record == records.end() || record->window.isNull()) {
         const bool restored = rollback(moves.size());
@@ -796,20 +816,6 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 ? QStringLiteral("workspace window disappeared before close dispatch")
                 : QStringLiteral("page reclaim rollback failed"));
     }
-    if (!currentCloseEvent) {
-        record->closeState = ZzCloseState::DispatchingClose;
-        record->internalCloseDispatch = true;
-        closeAccepted = record->window->close();
-        record = findWindowId(closingWindowId);
-        if (record != records.end()) record->internalCloseDispatch = false;
-    }
-    if (!closeAccepted) {
-        const bool restored = rollback(moves.size());
-        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
-            restored ? QStringLiteral("workspace window rejected close")
-                     : QStringLiteral("page reclaim rollback failed"));
-    }
-
     for (const auto &move : moves) {
         const auto history = std::find_if(pageOrigins.begin(),
             pageOrigins.end(),
@@ -844,28 +850,6 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         Q_EMIT q_ptr->windowAboutToClose(
             guardedWindow, zzRawPages(guardedPages));
     }
-    for (const auto &move : moves) {
-        if (sourceWorkspace.isNull() || move.page.isNull()) break;
-        const auto target = findWindowId(move.targetWindowId);
-        auto *const workspace = target != records.end() && target->shell
-            ? target->shell->splitWorkspace()
-            : nullptr;
-        auto *const tabs = workspace != nullptr
-            ? workspace->tabWidget(move.targetGroup)
-            : nullptr;
-        if (tabs == nullptr || tabs->indexOf(move.page) < 0) continue;
-        internalTransfer = ZzInternalTransfer {
-            closingWindowId, move.targetWindowId, move.page};
-        Q_EMIT workspace->tabTransferCommitted(sourceWorkspace,
-            move.sourceGroup,
-            move.sourceIndex,
-            move.targetGroup,
-            move.page,
-            move.pageId,
-            ZzFluentUI::ZzWorkspaceDropZone::Center);
-        internalTransfer.reset();
-    }
-    internalTransfer.reset();
     record = findWindowId(closingWindowId);
     if (record != records.end()) {
         record->internalCloseDispatch = false;
@@ -908,9 +892,7 @@ bool ZzWorkspaceWindowCoordinatorPrivate::eventFilter(
             return value.windowIdentity == watched;
         });
     if (record == records.end()) return false;
-    if (record->closeState == ZzCloseState::DispatchingClose
-        && record->internalCloseDispatch) {
-        record->internalCloseDispatch = false;
+    if (record->internalCloseDispatch) {
         return false;
     }
     if (closeTransactionActive(*record)) {
@@ -931,9 +913,7 @@ bool ZzWorkspaceWindowCoordinatorPrivate::eventFilter(
         return true;
     }
 
-    const QPointer<ZzApplicationWindow> window = record->window;
-    event->ignore();
-    return !closeWindow(window, true);
+    return false;
 }
 
 void ZzWorkspaceWindowCoordinatorPrivate::writeWindowAudit(

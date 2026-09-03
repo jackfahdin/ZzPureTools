@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 
 #include <QtCore/QPointer>
 
@@ -70,6 +71,7 @@ public:
     QPointer<ZzFluentUI::ZzThemeController> theme;
     bool initialized = false;
     bool acceptedClosePending = false;
+    std::function<bool()> closeAcceptanceCallback;
 };
 
 } // namespace ZzPureTools

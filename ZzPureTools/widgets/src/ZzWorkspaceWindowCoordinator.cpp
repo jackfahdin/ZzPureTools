@@ -299,6 +299,13 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
                 page,
                 pageId);
         });
+    handle.window->setCloseAcceptanceCallback(
+        [coordinator = QPointer<ZzWorkspaceWindowCoordinator>(this),
+            window = record.windowIdentity] {
+            if (coordinator.isNull()) return true;
+            const auto result = coordinator->d_ptr->closeWindow(window, true);
+            return result || result.error().code() == ZzCore::ZzErrorCode::NotFound;
+        });
     return ZzCore::ZzResult<void>::success();
 }
 

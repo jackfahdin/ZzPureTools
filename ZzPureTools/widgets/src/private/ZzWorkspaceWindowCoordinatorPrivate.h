@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <optional>
 #include <vector>
 
 #include <QtCore/QMetaObject>
@@ -73,13 +72,6 @@ public:
         bool internalCloseDispatch = false;
     };
 
-    struct ZzInternalTransfer final
-    {
-        QUuid sourceWindowId;
-        QUuid targetWindowId;
-        QPointer<QWidget> page;
-    };
-
     /** @brief 由公开协调器创建，并保存其非拥有观察值。 */
     explicit ZzWorkspaceWindowCoordinatorPrivate(
         ZzWorkspaceWindowCoordinator *publicObject);
@@ -135,7 +127,6 @@ public:
     std::vector<ZzWindowRecord> records;
     std::vector<ZzPageOrigins> pageOrigins;
     ZzWorkspaceWindowFactory windowFactory;
-    std::optional<ZzInternalTransfer> internalTransfer;
     quint64 nextTransferSequence = 1;
     bool shuttingDown = false;
 };

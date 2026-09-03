@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 
 #include <QtCore/QList>
 #include <QtWidgets/QMainWindow>
@@ -35,6 +36,7 @@ class ZzNavigationController;
 class ZzNavigationModel;
 class ZzPageHost;
 class ZzPureApplicationPrivate;
+class ZzWorkspaceWindowCoordinator;
 
 /**
  * @brief 组合无边框窗口、Fluent 标题栏、导航模型和页面宿主。
@@ -87,6 +89,7 @@ private:
     friend class ZzApplicationBuilderPrivate;
     friend class ZzPureApplicationPrivate;
     friend class ZzWorkspaceNavigationIntegrationTransactionPrivate;
+    friend class ZzWorkspaceWindowCoordinator;
 
     /** @brief 创建尚未装配、禁止自动删除的顶层窗口。 */
     ZzApplicationWindow();
@@ -117,6 +120,8 @@ private:
 
     /** @brief 原子式消费一次由真实 accepted closeEvent 设置的令牌。 */
     [[nodiscard]] bool consumeAcceptedClose() noexcept;
+
+    void setCloseAcceptanceCallback(std::function<bool()> callback);
 
     std::unique_ptr<ZzApplicationWindowPrivate> d_ptr;
 };

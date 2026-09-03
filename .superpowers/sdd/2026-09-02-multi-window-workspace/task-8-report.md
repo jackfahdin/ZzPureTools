@@ -176,3 +176,68 @@ ctest --preset linux-gcc-debug \
 逐项复核了关闭状态转移、对象销毁后的 `QPointer` 重解析、完整顺序快照及
 rollback、内部迁移精确抑制、关闭拒绝清理、Delegate 代次失效和延迟 success
 审计；`git diff --check` 通过。未发现新的 Critical 或 Important 问题。
+
+## 第 2 轮审查修复
+
+### RED
+
+针对复审报告中的 1 项 Critical 与 2 项 Important，先新增五项回归测试并在
+生产修改前运行。原实现均按预期失败：
+
+```text
+reclaimDoesNotExposeSourceTabBarSignals:
+  !exposed returned FALSE
+reclaimDoesNotExposeTargetTabBarSignals:
+  !exposed returned FALSE
+reclaimCommitSignalCannotReflowPage:
+  !exposed returned FALSE
+windowAboutToClosePrecedesAcceptedClose:
+  visibleAtNotification returned FALSE
+rejectedSystemCloseRollsBackAndClearsState:
+  source indexOf(page) was -1, expected 0
+```
+
+### 实现
+
+- 静默迁移同时阻断来源与目标 `ZzTabBar` 的公开信号，并通过 `QPointer` 保护
+  信号阻断器；标签容器增加仅供 `ZzSplitWorkspace` 使用的静默状态，避免插入时
+  pinned 归一化暴露中间状态。
+- 静默顺序恢复不再调用会公开 `tabMoved` 的 `QTabBar::moveTab()`，改用
+  `QTabWidget` 基类移除/插入并恢复完整标签元数据，最后显式同步当前标签和
+  stacked widget。
+- 回收成功不再合成公开 `tabTransferCommitted`，因此外部槽不能在关闭提交后
+  销毁目标或把页面迁回已接受关闭的源窗口；普通用户迁移的公开提交信号保持不变。
+- `ZzApplicationWindow::closeEvent()` 在所有事件过滤器通过并由基类最终接受后，
+  同步调用协调器的私有接受回调。协调器只在此处执行回收和发出
+  `windowAboutToClose`，成功后窗口才发出 `closeAccepted`；外部过滤器拒绝时不会
+  启动回收，也不会留下 `CloseAccepted` 状态。
+- 回调捕获协调器 `QPointer`，避免窗口析构晚于协调器或窗口析构清理记录时访问
+  已销毁对象。审计失败用两个真实来源组构造第二步迁移失效，继续验证只记录
+  rollback、不记录 commit。
+
+### GREEN
+
+```text
+cmake --build --preset linux-gcc-debug \
+  --target ZzWorkspaceWindowCoordinatorTest \
+           ZzMultiWindowIsolationTest \
+           ZzWorkspaceCrossTransferTest --parallel 2
+  PASS
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.workspace-window-coordinator\.(reclaimDoesNotSuppressUnrelatedTransferOrClose|failedReclaimAuditContainsNoCommitSuccess)$' \
+  --output-on-failure
+  2/2 passed
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|multi-window)|^fluent\.workspace-cross-transfer' \
+  --output-on-failure
+  58/58 passed
+```
+
+### 自审结论
+
+逐项复核静默阶段的来源/目标 TabBar 信号、页面当前项同步、失败回滚、关闭策略
+状态迁移、外部 Close 过滤器顺序及 `windowAboutToClose`/`closeAccepted` 时序。
+`ZzApplicationWindow` 的改动仅保留最终关闭接受回调及协调器友元，没有扩展公开
+API；未发现新的 Critical 或 Important 问题。

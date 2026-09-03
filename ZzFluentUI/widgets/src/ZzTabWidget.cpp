@@ -185,7 +185,8 @@ void ZzTabWidget::closeTabsToRight(int index)
 void ZzTabWidget::tabInserted(int index)
 {
     QTabWidget::tabInserted(index);
-    if (d_ptr != nullptr && d_ptr->transferInsertionDepth == 0) {
+    if (d_ptr != nullptr && d_ptr->transferInsertionDepth == 0
+        && !d_ptr->silentTransfer) {
         d_ptr->normalizePinnedOrder();
     }
 }
@@ -196,6 +197,16 @@ void ZzTabWidget::tabRemoved(int index)
     else if (auto *registry = ZzWorkspaceTransferRegistryPrivate::instance(); registry != nullptr)
         registry->sourceTabRemoved(this, index, nullptr);
     QTabWidget::tabRemoved(index);
+}
+
+void ZzTabWidget::setSilentTransfer(bool value) noexcept
+{
+    if (d_ptr != nullptr) d_ptr->silentTransfer = value;
+}
+
+bool ZzTabWidget::silentTransfer() const noexcept
+{
+    return d_ptr != nullptr && d_ptr->silentTransfer;
 }
 
 void ZzTabWidget::removeTab(int index)
