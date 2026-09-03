@@ -312,38 +312,24 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::applyConfiguration(
         return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("workspace window configuration is invalid"));
     }
-    const QIcon iconBefore = window->windowIcon();
-    const QSize minimumSizeBefore = window->minimumSize();
-    const QSize maximumSizeBefore = window->maximumSize();
-    const QRect geometryBefore = window->geometry();
-    const QString applicationTitleBefore = iterator->shell->applicationTitle();
-    const ZzWorkspaceTitleMode titleModeBefore = iterator->shell->titleMode();
-    const bool alwaysOnTopBefore = iterator->shell->isAlwaysOnTop();
-    auto apply = [](ZzApplicationWindow *target, ZzWorkspaceShell *shell,
-                     const ZzWorkspaceWindowConfiguration &configuration) {
-        target->setWindowIcon(configuration.icon);
-        target->setMaximumSize(configuration.maximumSize == QSize()
-            ? QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
-            : configuration.maximumSize);
-        target->setMinimumSize(configuration.minimumSize == QSize()
-            ? QSize(0, 0)
-            : configuration.minimumSize);
-        if (configuration.initialGeometry != QRect()) target->setGeometry(configuration.initialGeometry);
-        shell->setApplicationTitle(configuration.title);
-        shell->setTitleMode(configuration.titleMode);
-        return shell->setAlwaysOnTop(configuration.alwaysOnTop);
-    };
-    const auto applied = apply(window, iterator->shell.data(), updated);
-    if (!applied) {
-        window->setWindowIcon(iconBefore);
-        window->setMaximumSize(maximumSizeBefore);
-        window->setMinimumSize(minimumSizeBefore);
-        window->setGeometry(geometryBefore);
-        iterator->shell->setApplicationTitle(applicationTitleBefore);
-        iterator->shell->setTitleMode(titleModeBefore);
-        static_cast<void>(iterator->shell->setAlwaysOnTop(alwaysOnTopBefore));
-        return applied;
+    // 置顶是配置同步中唯一会报告失败的操作，必须在写入其他表面前预检。
+    const auto alwaysOnTopApplied = iterator->shell->setAlwaysOnTop(
+        updated.alwaysOnTop);
+    if (!alwaysOnTopApplied) {
+        return alwaysOnTopApplied;
     }
+    window->setWindowIcon(updated.icon);
+    window->setMaximumSize(updated.maximumSize == QSize()
+        ? QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
+        : updated.maximumSize);
+    window->setMinimumSize(updated.minimumSize == QSize()
+        ? QSize(0, 0)
+        : updated.minimumSize);
+    if (updated.initialGeometry != QRect()) {
+        window->setGeometry(updated.initialGeometry);
+    }
+    iterator->shell->setApplicationTitle(updated.title);
+    iterator->shell->setTitleMode(updated.titleMode);
     iterator->configuration = std::move(updated);
     return ZzCore::ZzResult<void>::success();
 }

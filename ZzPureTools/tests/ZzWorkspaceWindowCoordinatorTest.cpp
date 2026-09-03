@@ -626,7 +626,7 @@ private Q_SLOTS:
         QCOMPARE(afterShutdown.error().code(), ZzCore::ZzErrorCode::InvalidState);
     }
 
-    void applyConfigurationRollsBackRealSurfacesWhenShellTransactionRejectsAlwaysOnTop()
+    void applyConfigurationPreflightsAlwaysOnTopBeforeChangingRealSurfaces()
     {
         auto &application = zzApplication();
         QVERIFY(zzBuildApplication(application));

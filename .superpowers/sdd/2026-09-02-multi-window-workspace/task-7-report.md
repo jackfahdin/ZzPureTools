@@ -108,6 +108,53 @@ git diff --check
 - `ZzFluentUI/tests/CMakeLists.txt`
 - 本报告
 
+## 第 3/5 轮配置失败原子性修复
+
+基线：`3cdc712`。本轮处理第 2 轮复审指出的 Shell 标题和标题模式并未在失败路径中实际写入、因而无法证明回滚的问题。
+
+### 根因与方案
+
+`ZzWorkspaceShell::setApplicationTitle()` 和 `setTitleMode()` 是无返回值操作；配置同步中唯一可报告失败的步骤是 `setAlwaysOnTop()`，其失败可能来自 Shell 事务状态或 WindowKit 后端。此前先写入窗口和 Shell 表面、再处理这一失败点，导致 Shell 标题/模式回滚需要不可稳定复现的故障时序。
+
+现将 `setAlwaysOnTop()` 作为预检步骤放在所有其他表面写入之前。预检失败时，图标、尺寸、几何、应用标题和标题模式都尚未改动，配置快照也尚未写入；预检成功后剩余操作均为无错误返回的 Qt/Shell 表面同步，因此删除不可达的伪回滚分支。
+
+### RED 证据
+
+新命名场景：`applyConfigurationPreflightsAlwaysOnTopBeforeChangingRealSurfaces`。为证明它能捕获生产变异，临时将 `setAlwaysOnTop()` 错误后移到窗口和 Shell 写入之后：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceWindowCoordinatorTest --parallel 2
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-window-coordinator\\.applyConfigurationPreflightsAlwaysOnTopBeforeChangingRealSurfaces$' --output-on-failure
+```
+
+结果：按预期失败，摘录：
+
+```text
+Actual   (window->geometry())    : QRect(120,130 700x500)
+Expected (before.initialGeometry): QRect(40,50 640x480)
+```
+
+该测试使用真实 `integrateApplicationNavigation()` 事务让 `setAlwaysOnTop()` 返回 `InvalidState`，并断言失败后真实窗口 geometry/minimumSize/maximumSize/icon、Shell applicationTitle/titleMode/alwaysOnTop 及协调器配置快照均保持调用前值。它捕获的是“将可失败置顶操作后移”这一生产变异，不断言 mock。
+
+### GREEN 验证
+
+恢复预检顺序后执行：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceWindowCoordinatorTest --parallel 2
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-window-coordinator\\.' --output-on-failure
+git diff --check
+```
+
+结果：协调器 14/14 场景通过，0 失败；空白检查通过。
+
+### 修改文件
+
+- `ZzPureTools/widgets/src/ZzWorkspaceWindowCoordinator.cpp`
+- `ZzPureTools/tests/ZzWorkspaceWindowCoordinatorTest.cpp`
+- `ZzPureTools/tests/CMakeLists.txt`
+- 本报告
+
 ## 第 2/5 轮回滚测试补齐
 
 基线：`0cfbeca`。本轮只处理定向复审中缺失的 `applyConfiguration()` 失败后真实表面状态回滚测试。
