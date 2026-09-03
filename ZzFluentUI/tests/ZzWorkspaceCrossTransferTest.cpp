@@ -35,6 +35,15 @@ private slots:
                 found = found || target.tabWidget(id)->indexOf(page) == 0;
             QVERIFY(found);
             QCOMPARE(target.groupIds().size(), 2);
+            target.show();
+            QCoreApplication::processEvents();
+            for (const auto &id : target.groupIds()) {
+                auto *tabs = target.tabWidget(id);
+                QVERIFY(tabs != nullptr);
+                QVERIFY(tabs->parentWidget() != nullptr);
+                QVERIFY(!tabs->geometry().isEmpty());
+                QVERIFY(target.isAncestorOf(tabs));
+            }
         }
     }
 

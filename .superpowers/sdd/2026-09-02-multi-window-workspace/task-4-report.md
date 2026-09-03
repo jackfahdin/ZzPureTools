@@ -28,3 +28,13 @@
 
 验证：`ZzWorkspaceCrossTransferTest` 全量 `21/21`、`ZzSplitWorkspaceTest` 全量
 `79/79` 通过（Qt 6.11 offscreen，配置对应 `LD_LIBRARY_PATH`）。
+
+## 第2轮定向修复
+
+修复静默边缘分割成功后未重建可视布局的问题：迁移与审计成功后调用一次
+私有 `rebuildView()`，再按既定顺序发布结构/活动/转移信号；失败路径仍只删除
+临时组或恢复树，不重建成功视图。新增断言验证四个物理边缘迁移后每个新组的
+`ZzTabWidget` 具有非空几何并挂接在目标工作区层级内。
+
+验证：`ZzWorkspaceCrossTransferTest` `21/21`、`ZzSplitWorkspaceTest` `79/79`
+通过（Qt 6.11 offscreen，配置对应 `LD_LIBRARY_PATH`）。

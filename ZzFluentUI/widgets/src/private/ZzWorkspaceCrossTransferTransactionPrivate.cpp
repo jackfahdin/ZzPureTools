@@ -261,6 +261,9 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
             }
             return result;
         }
+        if (!guardedTarget.isNull()) {
+            guardedTarget->d_ptr->rebuildView();
+        }
         if (emitSignals && !guardedSource.isNull() && !guardedTarget.isNull()) {
             Q_EMIT guardedTarget->groupAdded(temp.value());
             if (guardedTarget.isNull()) return result;
