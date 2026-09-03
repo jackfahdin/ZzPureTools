@@ -22,6 +22,10 @@ class QDropEvent;
 class QEvent;
 class QObject;
 
+namespace ZzPureTools {
+class ZzWorkspaceWindowCoordinatorPrivate;
+}
+
 namespace ZzFluentUI {
 
 class ZzSplitWorkspacePrivate;
@@ -297,6 +301,19 @@ protected:
 private:
     friend class ZzSplitWorkspacePrivate;
     friend class ZzWorkspaceCrossTransferTransactionPrivate;
+    friend class ZzPureTools::ZzWorkspaceWindowCoordinatorPrivate;
+
+    [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspaceSilently(
+        const ZzTabGroupId &sourceGroup,
+        int sourceIndex,
+        ZzSplitWorkspace *targetWorkspace,
+        const ZzTabGroupId &targetGroup,
+        int targetIndex = -1);
+
+    bool restoreGroupOrderSilently(
+        const ZzTabGroupId &group,
+        const QList<QWidget *> &pages);
+
     std::unique_ptr<ZzSplitWorkspacePrivate> d_ptr;
 };
 

@@ -114,3 +114,65 @@ ctest --preset linux-gcc-debug \
   文件，未变代码保持 `HEAD` 原格式。
 
 未发现阻塞提交的问题。
+
+## 第 1 轮审查修复
+
+### RED
+
+针对审查报告中的 2 项 Critical 与 5 项 Important，新增回归场景首先确认原实现失败：
+
+```text
+aboutToCloseRejectsReentrantCloseAndUnregister
+committedTransferMayDestroySourceWorkspaceSafely
+nonMonotonicOriginsRestoreExactOrder
+thirdPageFailureRestoresExactCurrentOrder
+reclaimDoesNotSuppressUnrelatedTransferOrClose
+rejectedInternalCloseRollsBackAndCannotBypassDeny
+closePolicyChangeInvalidatesDelegateRequest
+failedReclaimAuditContainsNoCommitSuccess
+```
+
+八项测试均在修复前按预期失败，覆盖同步关闭信号重入、迁移参与者销毁、非单调来源索引、第三页失败回滚、跨窗口状态串扰、关闭拒绝、策略变更令牌和审计误报。
+
+### 实现
+
+- 将关闭/批准/事件过滤和回收事务主体移入 Private，并按窗口使用
+  `Idle`、`DelegatePending`、`DelegateApproved`、`Reclaiming`、
+  `DispatchingClose`、`NotifyingClose`、`CloseAccepted` 状态机；关闭策略改变时
+  失效旧批准请求，内部 close 令牌绑定当前窗口且拒绝后回滚。
+- 为 Fluent 工作区增加仅供协调器使用的静默单页迁移和整体组顺序恢复原语；
+  回收阶段屏蔽工作区/标签容器信号，保留同步迁移所需的 TabBar 内部更新。
+- 使用 `QPointer` 跨同步信号边界重新解析源/目标对象；内部迁移仅以精确的
+  `{sourceWindowId,targetWindowId,page}` 上下文抑制来源记录，不影响无关窗口。
+- 为来源记录分配单调序列号，按目标组构建完整当前顺序与 pinned 快照，成功
+  或失败时整体恢复；批量事务完成前暂不写入 `page.reclaim` success 审计。
+
+### GREEN
+
+```text
+cmake --build --preset linux-gcc-debug \
+  --target ZzWorkspaceWindowCoordinatorTest \
+           ZzMultiWindowIsolationTest \
+           ZzWorkspaceCrossTransferTest --parallel 2
+  PASS
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|multi-window)|^fluent\.workspace-cross-transfer' \
+  --output-on-failure
+  53/53 passed
+```
+
+整套 `ctest --preset linux-gcc-debug --output-on-failure` 已运行完成：`104/194`
+通过，`90` 项失败或未运行。其中大部分是当前配置未构建的无关可执行文件；
+`fluent.tab-controls`、`fluent.split-workspace` 和
+`puretools.workspace-public-api` 在进入测试前因动态库搜索路径缺失退出；其余已执行
+但与本任务无关的残余失败为既存 `architecture.complete-audit`（
+`ZzWorkspaceCrossTransferTransactionPrivate.cpp` 中未使用 `Zz` 前缀的类型）和
+`platform.binary-dependencies`（目标未构建）。Task 8 聚焦测试在整套运行中同样
+全部通过。
+
+### 自审结论
+
+逐项复核了关闭状态转移、对象销毁后的 `QPointer` 重解析、完整顺序快照及
+rollback、内部迁移精确抑制、关闭拒绝清理、Delegate 代次失效和延迟 success
+审计；`git diff --check` 通过。未发现新的 Critical 或 Important 问题。

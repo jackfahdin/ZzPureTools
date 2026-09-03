@@ -8,6 +8,7 @@
 #include <QtGui/QDropEvent>
 
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <ZzFluentUI/ZzTabBar.h>
 
 #include "private/ZzSplitWorkspacePrivate.h"
 #include "private/ZzWorkspaceCrossTransferTransactionPrivate.h"
@@ -170,6 +171,66 @@ ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspace(
         targetGroup,
         targetIndex,
         zone);
+}
+
+ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspaceSilently(
+    const ZzTabGroupId &sourceGroup,
+    int sourceIndex,
+    ZzSplitWorkspace *targetWorkspace,
+    const ZzTabGroupId &targetGroup,
+    int targetIndex)
+{
+    return ZzWorkspaceCrossTransferTransactionPrivate::run(
+        this,
+        sourceGroup,
+        sourceIndex,
+        targetWorkspace,
+        targetGroup,
+        targetIndex,
+        ZzWorkspaceDropZone::Center,
+        false);
+}
+
+bool ZzSplitWorkspace::restoreGroupOrderSilently(
+    const ZzTabGroupId &group,
+    const QList<QWidget *> &pages)
+{
+    QPointer<ZzTabWidget> tabs = tabWidget(group);
+    if (tabs.isNull() || tabs->count() != pages.size()) {
+        return false;
+    }
+    QPointer<ZzTabBar> bar = tabs->fluentTabBar();
+    const bool previouslyBlocked = tabs->blockSignals(true);
+    const auto restoreSignals = [&tabs, previouslyBlocked] {
+        if (!tabs.isNull()) tabs->blockSignals(previouslyBlocked);
+    };
+    for (int desired = 0; desired < pages.size(); ++desired) {
+        QPointer<QWidget> page = pages.at(desired);
+        if (tabs.isNull() || bar.isNull() || page.isNull()) {
+            restoreSignals();
+            return false;
+        }
+        const int actual = tabs->indexOf(page);
+        if (actual < 0) {
+            restoreSignals();
+            return false;
+        }
+        if (actual != desired) {
+            bar->moveTab(actual, desired);
+            if (tabs.isNull() || bar.isNull() || page.isNull()) {
+                restoreSignals();
+                return false;
+            }
+        }
+    }
+    for (int index = 0; index < pages.size(); ++index) {
+        if (tabs.isNull() || tabs->widget(index) != pages.at(index)) {
+            restoreSignals();
+            return false;
+        }
+    }
+    restoreSignals();
+    return true;
 }
 
 QByteArray ZzSplitWorkspace::saveLayout() const

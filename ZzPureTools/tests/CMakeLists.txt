@@ -250,6 +250,14 @@ set_target_properties(ZzWorkspaceWindowCoordinatorTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceWindowCoordinatorTest)
 zz_enable_sanitizers(ZzWorkspaceWindowCoordinatorTest)
 set(workspace_window_coordinator_scenarios
+    aboutToCloseRejectsReentrantCloseAndUnregister
+    committedTransferMayDestroySourceWorkspaceSafely
+    nonMonotonicOriginsRestoreExactOrder
+    thirdPageFailureRestoresExactCurrentOrder
+    reclaimDoesNotSuppressUnrelatedTransferOrClose
+    rejectedInternalCloseRollsBackAndCannotBypassDeny
+    closePolicyChangeInvalidatesDelegateRequest
+    failedReclaimAuditContainsNoCommitSuccess
     denyPolicyIgnoresSystemCloseEvent
     delegatePolicyRequestsApprovalOnlyOnce
     delegatedApprovalConsumesPendingRequestOnlyOnce

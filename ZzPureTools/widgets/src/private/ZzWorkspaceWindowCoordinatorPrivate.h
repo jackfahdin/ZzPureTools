@@ -1,17 +1,24 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QPointer>
+#include <QtCore/QStringView>
 #include <QtCore/QUuid>
 
+#include <ZzCore/ZzResult.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabGroupId.h>
+#include <ZzFluentUI/ZzWorkspacePageId.h>
 #include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
 #include <ZzPureTools/ZzWorkspaceWindowFactory.h>
 
 class QWidget;
+class QElapsedTimer;
+class QEvent;
 
 namespace ZzPureTools {
 
@@ -23,11 +30,23 @@ class ZzWorkspaceWindowCoordinator;
 class ZzWorkspaceWindowCoordinatorPrivate final
 {
 public:
+    enum class ZzCloseState
+    {
+        Idle,
+        DelegatePending,
+        DelegateApproved,
+        Reclaiming,
+        DispatchingClose,
+        NotifyingClose,
+        CloseAccepted
+    };
+
     struct ZzPageOrigin final
     {
         QUuid windowId;
         ZzFluentUI::ZzTabGroupId group;
         int index = -1;
+        quint64 sequence = 0;
     };
 
     struct ZzPageOrigins final
@@ -50,9 +69,15 @@ public:
         QMetaObject::Connection tearOffConnection;
         QMetaObject::Connection transferConnection;
         bool primary = false;
-        bool delegatedClosePending = false;
-        bool delegatedCloseApproved = false;
-        bool closeBypass = false;
+        ZzCloseState closeState = ZzCloseState::Idle;
+        bool internalCloseDispatch = false;
+    };
+
+    struct ZzInternalTransfer final
+    {
+        QUuid sourceWindowId;
+        QUuid targetWindowId;
+        QPointer<QWidget> page;
     };
 
     /** @brief 由公开协调器创建，并保存其非拥有观察值。 */
@@ -68,13 +93,51 @@ public:
     /** @brief 断开全部连接并清空登记表。 */
     void clear() noexcept;
 
+    void recordTransfer(
+        ZzApplicationWindow *targetWindow,
+        ZzFluentUI::ZzSplitWorkspace *sourceWorkspace,
+        const ZzFluentUI::ZzTabGroupId &sourceGroup,
+        int sourceIndex,
+        QWidget *page,
+        const ZzFluentUI::ZzWorkspacePageId &pageId);
+
+    [[nodiscard]] ZzCore::ZzResult<void> closeWindow(
+        ZzApplicationWindow *window,
+        bool currentCloseEvent = false);
+
+    [[nodiscard]] ZzCore::ZzResult<void> approveDelegatedClose(
+        ZzApplicationWindow *window);
+
+    bool eventFilter(QObject *watched, QEvent *event);
+
+    [[nodiscard]] bool closeTransactionActive(
+        const ZzWindowRecord &record) const noexcept;
+
+    void invalidateCloseRequest(ZzWindowRecord &record) noexcept;
+
+    void writeWindowAudit(
+        QStringView event,
+        const QUuid &windowId,
+        QStringView phase,
+        const QElapsedTimer &timer,
+        bool success) const noexcept;
+
+    void writePageAudit(
+        QStringView event,
+        const ZzFluentUI::ZzWorkspacePageId &pageId,
+        const QUuid &sourceWindowId,
+        const QUuid &targetWindowId,
+        QStringView phase,
+        const QElapsedTimer &timer,
+        bool success) const noexcept;
+
     ZzWorkspaceWindowCoordinator *const q_ptr;
     std::vector<ZzWindowRecord> records;
     std::vector<ZzPageOrigins> pageOrigins;
     ZzWorkspaceWindowFactory windowFactory;
+    std::optional<ZzInternalTransfer> internalTransfer;
+    quint64 nextTransferSequence = 1;
     bool shuttingDown = false;
-    bool reclaiming = false;
-    bool handlingCloseEvent = false;
 };
 
 } // namespace ZzPureTools
