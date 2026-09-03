@@ -42,3 +42,7 @@ Task 6: minor (deferred): `destroyedWindowUnregistersItsRecordBeforeApplicationE
 Task 6: minor (deferred): 跨线程测试覆盖了异线程调用早退，但未独立命中“协调器线程调用、Window/Shell 对象亲和性不匹配”分支；最终审查时复核覆盖必要性。
 Task 6: fix round 1/5 (1 addressed, 0 open — 为 Builder、Coordinator 和 MultiWindow 三类 CTest 增加跨平台构建树动态库环境; commit 1b4c76b)
 Task 6: complete (commits 2681ab1..1b4c76b, review clean after round 1)
+Task 7: fix round 1/5 (4 addressed, 1 open — 修复 tearOff 线程/关闭态、配置失败原子性、工厂异常和 Fluent CTest 环境；仍缺有效的配置失败表面测试; commit 0cfbeca)
+Task 7: fix round 2/5 (0 addressed, 1 open — 新测试覆盖窗口表面和快照，但 Shell 标题/模式未真实写入，无法证明回滚; commit 3cdc712)
+Task 7: fix round 3/5 (1 addressed, 0 open — 将唯一可失败的置顶操作前置预检，以零表面修改保证失败原子性并补充生产变异测试; commit 916e30f)
+Task 7: complete (commits c86dcb5..916e30f, review clean after round 3)
