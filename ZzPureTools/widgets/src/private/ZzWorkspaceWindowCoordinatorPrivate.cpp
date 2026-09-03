@@ -25,6 +25,7 @@ void ZzWorkspaceWindowCoordinatorPrivate::removeRecord(
     auto &record = records.at(index);
     QObject::disconnect(record.windowDestroyedConnection);
     QObject::disconnect(record.shellDestroyedConnection);
+    QObject::disconnect(record.tearOffConnection);
     if (record.window) {
         record.window->removeEventFilter(q_ptr);
     }

@@ -9,6 +9,13 @@
 #include <ZzPureTools/ZzPureToolsExport.h>
 #include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
 #include <ZzPureTools/ZzWorkspaceWindowHandle.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
+#include <ZzPureTools/ZzWorkspaceWindowFactory.h>
+
+namespace ZzFluentUI {
+class ZzSplitWorkspace;
+class ZzTabGroupId;
+}
 
 namespace ZzPureTools {
 
@@ -25,6 +32,25 @@ class ZZ_PURE_TOOLS_EXPORT ZzWorkspaceWindowCoordinator final : public QObject
 public:
     /** @brief 断开登记对象的观察连接并释放配置快照。 */
     ~ZzWorkspaceWindowCoordinator() override;
+
+    /** @brief 设置创建后续工作区窗口的工厂；空工厂会禁止创建。 */
+    void setWindowFactory(ZzWorkspaceWindowFactory factory);
+
+    /** @brief 将补丁合并到已登记窗口配置并同步其窗口和 Shell 表面。 */
+    [[nodiscard]] ZzCore::ZzResult<void> applyConfiguration(
+        ZzApplicationWindow *window,
+        const ZzWorkspaceWindowConfigurationPatch &patch);
+
+    /** @brief 通过窗口工厂创建、登记并按来源配置初始化一个独立窗口。 */
+    [[nodiscard]] ZzCore::ZzResult<ZzWorkspaceWindowHandle> createWindow(
+        const ZzWorkspaceWindowCreateOptions &options = {});
+
+    /** @brief 事务创建暂存窗口、迁移来源标签，成功后才显示新窗口。 */
+    [[nodiscard]] ZzCore::ZzResult<void> tearOff(
+        ZzFluentUI::ZzSplitWorkspace *sourceWorkspace,
+        const ZzFluentUI::ZzTabGroupId &sourceGroup,
+        int sourceIndex,
+        const ZzWorkspaceWindowCreateOptions &options = {});
 
     /**
      * @brief 登记一个应用拥有的窗口、其工作区 Shell 和配置快照。

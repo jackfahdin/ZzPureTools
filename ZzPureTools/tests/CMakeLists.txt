@@ -257,6 +257,9 @@ set(workspace_window_coordinator_scenarios
     destroyedWindowOrShellUnregistersItsRecord
     destroyedWindowUnregistersItsRecordBeforeApplicationErase
     unregisterOnlyRemovesCoordinatorState
+    createWindowRequiresFactoryAndAppliesConfiguration
+    registeredWorkspaceSignalTearsOffTheSamePageTransactionally
+    factoryAndTransferFailuresLeaveSourceAndCoordinatorUnchanged
 )
 foreach(scenario IN LISTS workspace_window_coordinator_scenarios)
     add_test(

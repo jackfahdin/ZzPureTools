@@ -7,6 +7,7 @@
 #include <QtCore/QPointer>
 
 #include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
+#include <ZzPureTools/ZzWorkspaceWindowFactory.h>
 
 namespace ZzPureTools {
 
@@ -28,6 +29,7 @@ public:
         ZzWorkspaceWindowConfiguration configuration;
         QMetaObject::Connection windowDestroyedConnection;
         QMetaObject::Connection shellDestroyedConnection;
+        QMetaObject::Connection tearOffConnection;
         bool primary = false;
     };
 
@@ -46,6 +48,7 @@ public:
 
     ZzWorkspaceWindowCoordinator *const q_ptr;
     std::vector<ZzWindowRecord> records;
+    ZzWorkspaceWindowFactory windowFactory;
     bool shuttingDown = false;
 };
 

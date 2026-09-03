@@ -6,6 +6,8 @@
 
 #include <QtCore/QEvent>
 #include <QtCore/QThread>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QScreen>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
@@ -13,6 +15,7 @@
 
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
+#include <ZzFluentUI/ZzSplitWorkspace.h>
 
 #include "private/ZzWorkspaceWindowCoordinatorPrivate.h"
 
@@ -83,6 +86,59 @@ template<typename ZzValue>
         return false;
     }
     return true;
+}
+
+void zzApplyPatch(
+    ZzWorkspaceWindowConfiguration &configuration,
+    const ZzWorkspaceWindowConfigurationPatch &patch)
+{
+    if (patch.title) configuration.title = *patch.title;
+    if (patch.icon) configuration.icon = *patch.icon;
+    if (patch.titleMode) configuration.titleMode = *patch.titleMode;
+    if (patch.closePolicy) configuration.closePolicy = *patch.closePolicy;
+    if (patch.alwaysOnTop) configuration.alwaysOnTop = *patch.alwaysOnTop;
+    if (patch.minimumSize) configuration.minimumSize = *patch.minimumSize;
+    if (patch.maximumSize) configuration.maximumSize = *patch.maximumSize;
+    if (patch.initialGeometry) configuration.initialGeometry = *patch.initialGeometry;
+}
+
+[[nodiscard]] ZzWorkspaceWindowConfigurationPatch zzFullPatch(
+    const ZzWorkspaceWindowConfiguration &configuration)
+{
+    return {configuration.title, configuration.icon, configuration.titleMode,
+        configuration.closePolicy, configuration.alwaysOnTop,
+        configuration.minimumSize, configuration.maximumSize,
+        configuration.initialGeometry};
+}
+
+[[nodiscard]] QRect zzConvergedTearOffGeometry(
+    const QPoint &position,
+    QSize size)
+{
+    size = size.expandedTo(QSize(1, 1));
+    QScreen *screen = QGuiApplication::screenAt(position);
+    if (screen == nullptr) {
+        screen = QGuiApplication::primaryScreen();
+    }
+    if (screen == nullptr) {
+        return QRect(position - QPoint(size.width() / 2, size.height() / 2), size);
+    }
+    const QRect available = screen->availableGeometry();
+    size.setWidth(std::min(size.width(), available.width()));
+    size.setHeight(std::min(size.height(), available.height()));
+    QRect geometry(position - QPoint(size.width() / 2, size.height() / 2), size);
+    geometry.moveLeft(std::clamp(geometry.left(), available.left(),
+        available.right() - geometry.width() + 1));
+    geometry.moveTop(std::clamp(geometry.top(), available.top(),
+        available.bottom() - geometry.height() + 1));
+    return geometry;
+}
+
+void zzCloseStagedWindow(ZzApplicationWindow *window)
+{
+    if (window != nullptr) {
+        window->close();
+    }
 }
 
 } // namespace
@@ -170,6 +226,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
             configuration,
             {},
             {},
+            {},
             primary});
     } catch (const std::exception &exception) {
         return zzCoordinatorFailure<void>(
@@ -199,6 +256,200 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
         });
     handle.window->installEventFilter(this);
     handle.shell->installEventFilter(this);
+    record.tearOffConnection = QObject::connect(
+        handle.shell->splitWorkspace(),
+        &ZzFluentUI::ZzSplitWorkspace::tabTearOffRequested,
+        this,
+        [this, workspace = QPointer<ZzFluentUI::ZzSplitWorkspace>(
+                   handle.shell->splitWorkspace())](
+            const ZzFluentUI::ZzTabGroupId &group,
+            int index,
+            const ZzFluentUI::ZzWorkspacePageId &,
+            const QPoint &position,
+            const QSize &recommended) {
+            if (workspace.isNull()) {
+                return;
+            }
+            ZzWorkspaceWindowCreateOptions options;
+            options.configurationSource =
+                ZzWorkspaceConfigurationSource::SourceWindow;
+            options.sourceWindow = qobject_cast<ZzApplicationWindow *>(
+                workspace->window());
+            options.configuration.initialGeometry =
+                zzConvergedTearOffGeometry(position, recommended);
+            static_cast<void>(tearOff(workspace.data(), group, index, options));
+        });
+    return ZzCore::ZzResult<void>::success();
+}
+
+void ZzWorkspaceWindowCoordinator::setWindowFactory(
+    ZzWorkspaceWindowFactory factory)
+{
+    if (QThread::currentThread() != thread() || d_ptr->shuttingDown) {
+        return;
+    }
+    d_ptr->windowFactory = std::move(factory);
+}
+
+ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::applyConfiguration(
+    ZzApplicationWindow *window,
+    const ZzWorkspaceWindowConfigurationPatch &patch)
+{
+    if (QThread::currentThread() != thread()) {
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace window coordinator called from a non-owner thread"));
+    }
+    const auto iterator = std::find_if(d_ptr->records.begin(), d_ptr->records.end(),
+        [window](const auto &record) { return record.windowIdentity == window; });
+    if (window == nullptr || iterator == d_ptr->records.end()) {
+        return zzCoordinatorFailure<void>(
+            window == nullptr ? ZzCore::ZzErrorCode::InvalidArgument : ZzCore::ZzErrorCode::NotFound,
+            QStringLiteral("workspace window is not registered"));
+    }
+    ZzWorkspaceWindowConfiguration updated = iterator->configuration;
+    zzApplyPatch(updated, patch);
+    if (!zzHasValidConfiguration(updated)) {
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("workspace window configuration is invalid"));
+    }
+    auto apply = [](ZzApplicationWindow *target, ZzWorkspaceShell *shell,
+                     const ZzWorkspaceWindowConfiguration &configuration) {
+        target->setWindowIcon(configuration.icon);
+        target->setMaximumSize(configuration.maximumSize == QSize()
+            ? QSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX)
+            : configuration.maximumSize);
+        target->setMinimumSize(configuration.minimumSize == QSize()
+            ? QSize(0, 0)
+            : configuration.minimumSize);
+        if (configuration.initialGeometry != QRect()) target->setGeometry(configuration.initialGeometry);
+        shell->setApplicationTitle(configuration.title);
+        shell->setTitleMode(configuration.titleMode);
+        return shell->setAlwaysOnTop(configuration.alwaysOnTop);
+    };
+    const auto applied = apply(window, iterator->shell.data(), updated);
+    if (!applied) {
+        static_cast<void>(apply(window, iterator->shell.data(), iterator->configuration));
+        return applied;
+    }
+    iterator->configuration = std::move(updated);
+    return ZzCore::ZzResult<void>::success();
+}
+
+ZzCore::ZzResult<ZzWorkspaceWindowHandle>
+ZzWorkspaceWindowCoordinator::createWindow(
+    const ZzWorkspaceWindowCreateOptions &options)
+{
+    if (QThread::currentThread() != thread() || d_ptr->shuttingDown) {
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace window coordinator is not accepting new windows"));
+    }
+    if (!d_ptr->windowFactory) {
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace window factory is not configured"));
+    }
+    if (options.visibility != ZzApplicationWindowVisibility::Visible
+        && options.visibility != ZzApplicationWindowVisibility::Deferred) {
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("workspace window visibility is invalid"));
+    }
+    ZzWorkspaceWindowConfiguration resolved;
+    switch (options.configurationSource) {
+    case ZzWorkspaceConfigurationSource::CoordinatorDefaults:
+    case ZzWorkspaceConfigurationSource::Explicit:
+        break;
+    case ZzWorkspaceConfigurationSource::SourceWindow: {
+        const auto source = configuration(options.sourceWindow.data());
+        if (!source) return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::failure(source.error());
+        resolved = source.value();
+        break;
+    }
+    default:
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("workspace configuration source is invalid"));
+    }
+    zzApplyPatch(resolved, options.configuration);
+    if (!zzHasValidConfiguration(resolved)) {
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("workspace window configuration is invalid"));
+    }
+    auto created = d_ptr->windowFactory(options);
+    if (!created) return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::failure(created.error());
+    const auto handle = created.value();
+    if (!handle.isValid()) {
+        zzCloseStagedWindow(handle.window.data());
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("workspace window factory returned an invalid handle"));
+    }
+    const auto registered = registerWindow(handle, {});
+    if (!registered) {
+        zzCloseStagedWindow(handle.window.data());
+        return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::failure(registered.error());
+    }
+    const auto configured = applyConfiguration(handle.window.data(), zzFullPatch(resolved));
+    if (!configured) {
+        static_cast<void>(unregisterWindow(handle.window.data()));
+        zzCloseStagedWindow(handle.window.data());
+        return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::failure(configured.error());
+    }
+    if (options.visibility == ZzApplicationWindowVisibility::Visible) {
+        handle.window->show();
+        if (options.activate) {
+            handle.window->raise();
+            handle.window->activateWindow();
+        }
+    }
+    return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::success(handle);
+}
+
+ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::tearOff(
+    ZzFluentUI::ZzSplitWorkspace *sourceWorkspace,
+    const ZzFluentUI::ZzTabGroupId &sourceGroup,
+    int sourceIndex,
+    const ZzWorkspaceWindowCreateOptions &options)
+{
+    if (sourceWorkspace == nullptr || sourceIndex < 0) {
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("tear-off source workspace or index is invalid"));
+    }
+    const auto sourceRecord = std::find_if(d_ptr->records.cbegin(), d_ptr->records.cend(),
+        [sourceWorkspace](const auto &record) {
+            return record.shell && record.shell->splitWorkspace() == sourceWorkspace;
+        });
+    if (sourceRecord == d_ptr->records.cend()) {
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::NotFound,
+            QStringLiteral("tear-off source workspace is not registered"));
+    }
+    ZzWorkspaceWindowCreateOptions staged = options;
+    staged.visibility = ZzApplicationWindowVisibility::Deferred;
+    if (staged.configurationSource == ZzWorkspaceConfigurationSource::CoordinatorDefaults) {
+        staged.configurationSource = ZzWorkspaceConfigurationSource::SourceWindow;
+        staged.sourceWindow = sourceRecord->window;
+    }
+    if (!staged.configuration.initialGeometry) {
+        staged.configuration.initialGeometry = sourceRecord->window->geometry();
+    }
+    const auto created = createWindow(staged);
+    if (!created) return ZzCore::ZzResult<void>::failure(created.error());
+    const auto handle = created.value();
+    const auto groups = handle.shell->splitWorkspace()->groupIds();
+    const auto transferred = sourceWorkspace->transferTabToWorkspace(sourceGroup, sourceIndex,
+        handle.shell->splitWorkspace(), groups.constFirst());
+    if (!transferred) {
+        static_cast<void>(unregisterWindow(handle.window.data()));
+        zzCloseStagedWindow(handle.window.data());
+        return transferred;
+    }
+    handle.window->show();
+    if (options.activate) {
+        handle.window->raise();
+        handle.window->activateWindow();
+    }
     return ZzCore::ZzResult<void>::success();
 }
 
