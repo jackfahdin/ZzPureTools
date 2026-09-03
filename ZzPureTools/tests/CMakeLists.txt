@@ -262,6 +262,7 @@ set(workspace_window_coordinator_scenarios
     factoryAndTransferFailuresLeaveSourceAndCoordinatorUnchanged
     factoryExceptionReturnsUnknownWithoutCoordinatorMutation
     tearOffRejectsForeignThreadAndShutdownBeforeStateAccess
+    applyConfigurationRollsBackRealSurfacesWhenShellTransactionRejectsAlwaysOnTop
 )
 foreach(scenario IN LISTS workspace_window_coordinator_scenarios)
     add_test(

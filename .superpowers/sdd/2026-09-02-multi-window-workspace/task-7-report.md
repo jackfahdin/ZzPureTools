@@ -107,3 +107,49 @@ git diff --check
 - `ZzPureTools/tests/CMakeLists.txt`
 - `ZzFluentUI/tests/CMakeLists.txt`
 - 本报告
+
+## 第 2/5 轮回滚测试补齐
+
+基线：`0cfbeca`。本轮只处理定向复审中缺失的 `applyConfiguration()` 失败后真实表面状态回滚测试。
+
+### 测试设计
+
+新场景 `applyConfigurationRollsBackRealSurfacesWhenShellTransactionRejectsAlwaysOnTop` 使用真实 `ZzWorkspaceShell::integrateApplicationNavigation()` 事务。该事务中，真实 `ZzWorkspaceShell::setAlwaysOnTop()` 会以 `InvalidState` 拒绝请求；通过真实 `QTabWidget::currentChanged` 回调调用 `applyConfiguration()`，使图标、最小/最大尺寸、几何、标题和标题模式已进入应用序列后再失败。
+
+断言调用前真实 `window` 的 geometry/minimumSize/maximumSize/icon 及 `shell` 的 applicationTitle/titleMode/alwaysOnTop 全部恢复，协调器配置快照逐字段保持不变。该测试不对 mock 调用做断言。
+
+### RED 证据
+
+为验证测试能捕获目标缺陷，临时移除生产回滚中的 `window->setGeometry(geometryBefore)` 后执行：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceWindowCoordinatorTest --parallel 2
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-window-coordinator\\.applyConfigurationRollsBackRealSurfacesWhenShellTransactionRejectsAlwaysOnTop$' --output-on-failure
+```
+
+结果：按预期失败，摘录：
+
+```text
+Actual   (window->geometry())    : QRect(120,130 700x500)
+Expected (before.initialGeometry): QRect(40,50 640x480)
+```
+
+这证明测试捕获的是部分字段已应用、`setAlwaysOnTop()` 失败后几何未恢复的实际回滚缺陷。
+
+### GREEN 验证
+
+恢复 `window->setGeometry(geometryBefore)` 后执行：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceWindowCoordinatorTest --parallel 2
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-window-coordinator\\.' --output-on-failure
+git diff --check
+```
+
+结果：协调器 14/14 场景通过，0 失败；空白检查通过。
+
+### 修改文件
+
+- `ZzPureTools/tests/ZzWorkspaceWindowCoordinatorTest.cpp`
+- `ZzPureTools/tests/CMakeLists.txt`
+- 本报告

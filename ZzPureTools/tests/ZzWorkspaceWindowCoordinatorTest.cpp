@@ -5,6 +5,7 @@
 
 #include <QtCore/QPointer>
 #include <QtCore/QThread>
+#include <QtGui/QPixmap>
 #include <QtTest/QTest>
 #include <QtWidgets/QWidget>
 
@@ -623,6 +624,91 @@ private Q_SLOTS:
         const auto afterShutdown = coordinator->tearOff(nullptr, {}, 0);
         QVERIFY(!afterShutdown);
         QCOMPARE(afterShutdown.error().code(), ZzCore::ZzErrorCode::InvalidState);
+    }
+
+    void applyConfigurationRollsBackRealSurfacesWhenShellTransactionRejectsAlwaysOnTop()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QPixmap iconPixmap(1, 1);
+        iconPixmap.fill(Qt::red);
+        const QIcon iconBefore(iconPixmap);
+        window->setWindowIcon(iconBefore);
+        window->setMaximumSize(QSize(1200, 900));
+        window->setMinimumSize(QSize(320, 240));
+        window->setGeometry(QRect(40, 50, 640, 480));
+        shell->setApplicationTitle(QStringLiteral("Before"));
+        shell->setTitleMode(ZzPureTools::ZzWorkspaceTitleMode::Application);
+        QVERIFY(shell->setAlwaysOnTop(false));
+        ZzPureTools::ZzWorkspaceWindowConfiguration before;
+        before.title = shell->applicationTitle();
+        before.icon = window->windowIcon();
+        before.titleMode = shell->titleMode();
+        before.alwaysOnTop = shell->isAlwaysOnTop();
+        before.minimumSize = window->minimumSize();
+        before.maximumSize = window->maximumSize();
+        before.initialGeometry = window->geometry();
+        QVERIFY(coordinator->registerWindow({window, shell.get()}, before));
+
+        ZzPureTools::ZzWorkspaceWindowConfigurationPatch patch;
+        QPixmap changedIconPixmap(1, 1);
+        changedIconPixmap.fill(Qt::blue);
+        patch.icon = QIcon(changedIconPixmap);
+        patch.minimumSize = QSize(400, 300);
+        patch.maximumSize = QSize(1000, 800);
+        patch.initialGeometry = QRect(120, 130, 700, 500);
+        patch.title = QStringLiteral("Changed");
+        patch.titleMode = ZzPureTools::ZzWorkspaceTitleMode::Custom;
+        patch.alwaysOnTop = true;
+        bool callbackEntered = false;
+        ZzCore::ZzErrorCode callbackError = ZzCore::ZzErrorCode::None;
+        auto *tabs = shell->splitWorkspace()->tabWidget(
+            shell->splitWorkspace()->activeGroupId());
+        const QMetaObject::Connection connection = QObject::connect(
+            tabs, &QTabWidget::currentChanged, window, [&](int) {
+                if (callbackEntered) {
+                    return;
+                }
+                callbackEntered = true;
+                const auto applied = coordinator->applyConfiguration(window, patch);
+                QVERIFY(!applied);
+                callbackError = applied.error().code();
+            });
+
+        const auto integrated = shell->integrateApplicationNavigation(
+            ZzPureTools::ZzWorkspacePanelId(QStringLiteral("navigation")),
+            QStringLiteral("Navigation"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary,
+            QStringLiteral("Pages"));
+        QObject::disconnect(connection);
+
+        QVERIFY(callbackEntered);
+        QCOMPARE(callbackError, ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(integrated);
+        QCOMPARE(window->geometry(), before.initialGeometry);
+        QCOMPARE(window->minimumSize(), before.minimumSize);
+        QCOMPARE(window->maximumSize(), before.maximumSize);
+        QCOMPARE(window->windowIcon().cacheKey(), before.icon.cacheKey());
+        QCOMPARE(shell->applicationTitle(), before.title);
+        QCOMPARE(shell->titleMode(), before.titleMode);
+        QCOMPARE(shell->isAlwaysOnTop(), before.alwaysOnTop);
+        const auto stored = coordinator->configuration(window);
+        QVERIFY(stored);
+        QCOMPARE(stored.value().initialGeometry, before.initialGeometry);
+        QCOMPARE(stored.value().minimumSize, before.minimumSize);
+        QCOMPARE(stored.value().maximumSize, before.maximumSize);
+        QCOMPARE(stored.value().icon.cacheKey(), before.icon.cacheKey());
+        QCOMPARE(stored.value().title, before.title);
+        QCOMPARE(stored.value().titleMode, before.titleMode);
+        QCOMPARE(stored.value().alwaysOnTop, before.alwaysOnTop);
+        shell.reset();
+        application.beginShutdown();
     }
 };
 
