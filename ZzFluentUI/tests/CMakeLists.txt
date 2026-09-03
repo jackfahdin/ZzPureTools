@@ -33,6 +33,19 @@ add_test(NAME fluent.workspace-cross-transfer COMMAND ZzWorkspaceCrossTransferTe
 set_tests_properties(fluent.workspace-cross-transfer PROPERTIES
     LABELS "unit;fluent;widgets"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+set(zz_fluent_cross_transfer_library_path_variable LD_LIBRARY_PATH)
+if(APPLE)
+    set(zz_fluent_cross_transfer_library_path_variable DYLD_LIBRARY_PATH)
+elseif(WIN32)
+    set(zz_fluent_cross_transfer_library_path_variable PATH)
+endif()
+set_property(TEST fluent.workspace-cross-transfer APPEND PROPERTY
+    ENVIRONMENT_MODIFICATION
+        "${zz_fluent_cross_transfer_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>"
+        "${zz_fluent_cross_transfer_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentFoundation>"
+        "${zz_fluent_cross_transfer_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>"
+        "${zz_fluent_cross_transfer_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzLog>"
+        "${zz_fluent_cross_transfer_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 
 add_executable(ZzWorkspacePageIdTest ZzWorkspacePageIdTest.cpp)
 target_link_libraries(ZzWorkspacePageIdTest PRIVATE

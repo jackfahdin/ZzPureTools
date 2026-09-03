@@ -312,6 +312,13 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::applyConfiguration(
         return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("workspace window configuration is invalid"));
     }
+    const QIcon iconBefore = window->windowIcon();
+    const QSize minimumSizeBefore = window->minimumSize();
+    const QSize maximumSizeBefore = window->maximumSize();
+    const QRect geometryBefore = window->geometry();
+    const QString applicationTitleBefore = iterator->shell->applicationTitle();
+    const ZzWorkspaceTitleMode titleModeBefore = iterator->shell->titleMode();
+    const bool alwaysOnTopBefore = iterator->shell->isAlwaysOnTop();
     auto apply = [](ZzApplicationWindow *target, ZzWorkspaceShell *shell,
                      const ZzWorkspaceWindowConfiguration &configuration) {
         target->setWindowIcon(configuration.icon);
@@ -328,7 +335,13 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::applyConfiguration(
     };
     const auto applied = apply(window, iterator->shell.data(), updated);
     if (!applied) {
-        static_cast<void>(apply(window, iterator->shell.data(), iterator->configuration));
+        window->setWindowIcon(iconBefore);
+        window->setMaximumSize(maximumSizeBefore);
+        window->setMinimumSize(minimumSizeBefore);
+        window->setGeometry(geometryBefore);
+        iterator->shell->setApplicationTitle(applicationTitleBefore);
+        iterator->shell->setTitleMode(titleModeBefore);
+        static_cast<void>(iterator->shell->setAlwaysOnTop(alwaysOnTopBefore));
         return applied;
     }
     iterator->configuration = std::move(updated);
@@ -377,7 +390,22 @@ ZzWorkspaceWindowCoordinator::createWindow(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("workspace window configuration is invalid"));
     }
-    auto created = d_ptr->windowFactory(options);
+    ZzCore::ZzResult<ZzWorkspaceWindowHandle> created =
+        zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::Unknown,
+            QStringLiteral("workspace window factory did not return a result"));
+    try {
+        created = d_ptr->windowFactory(options);
+    } catch (const std::exception &exception) {
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::Unknown,
+            QStringLiteral("workspace window factory threw an exception: %1")
+                .arg(QString::fromLocal8Bit(exception.what())));
+    } catch (...) {
+        return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+            ZzCore::ZzErrorCode::Unknown,
+            QStringLiteral("workspace window factory threw an exception"));
+    }
     if (!created) return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::failure(created.error());
     const auto handle = created.value();
     if (!handle.isValid()) {
@@ -413,6 +441,10 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::tearOff(
     int sourceIndex,
     const ZzWorkspaceWindowCreateOptions &options)
 {
+    if (QThread::currentThread() != thread() || d_ptr->shuttingDown) {
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace window coordinator is not accepting tear-off requests"));
+    }
     if (sourceWorkspace == nullptr || sourceIndex < 0) {
         return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("tear-off source workspace or index is invalid"));

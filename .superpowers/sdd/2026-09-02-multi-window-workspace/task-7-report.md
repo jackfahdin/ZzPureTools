@@ -66,3 +66,44 @@ LD_LIBRARY_PATH="$PWD/build/linux-gcc-debug/ZzPureTools:$PWD/build/linux-gcc-deb
 
 - 工厂返回的 Shell 所有权仍由工厂调用方负责；协调器只保存 `QPointer`，与现有 Handle 非拥有契约一致。
 - `ZzWindowClosePolicy` 目前仅作为配置快照保存，任务 8 的关闭策略未实现。
+
+## 第 1/5 轮审查修复
+
+基线：`60a1a6a`。
+
+### 修复内容
+
+- `tearOff()` 现在线程和关闭态检查后才读取任何登记记录或 QObject，非法调用统一返回 `InvalidState`。
+- `applyConfiguration()` 在应用前保存实际窗口图标、最小/最大尺寸、几何，以及 Shell 的标题和置顶表面；失败时恢复这些真实值，不再依赖空 `initialGeometry` 哨兵。
+- `createWindow()` 捕获工厂的标准和未知异常，转换为 `Unknown` 错误。协调器只对已成功返回的 Handle 承担关闭责任，无法获得的工厂内部局部对象仍由工厂自身异常安全契约负责。
+- `fluent.workspace-cross-transfer` 通过 `ENVIRONMENT_MODIFICATION` 配置跨平台动态库路径：Linux 使用 `LD_LIBRARY_PATH`、macOS 使用 `DYLD_LIBRARY_PATH`、Windows 使用 `PATH`，路径均从构建目标生成表达式取得。
+
+### RED 证据
+
+新增测试后执行：
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceWindowCoordinatorTest --parallel 2
+ctest --preset linux-gcc-debug -R '^(puretools\\.workspace-window-coordinator\\.factoryExceptionReturnsUnknownWithoutCoordinatorMutation|puretools\\.workspace-window-coordinator\\.tearOffRejectsForeignThreadAndShutdownBeforeStateAccess)$' --output-on-failure
+```
+
+结果：两项均按预期失败。工厂场景摘录为 `Caught unhandled exception` 和 `factory exception`；跨线程场景摘录为 `ASSERT: "zzIsShellThread(this)"`，调用栈定位到 `ZzWorkspaceShell::splitWorkspace()`。
+
+### GREEN 验证
+
+```bash
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceWindowCoordinatorTest ZzWorkspaceCrossTransferTest --parallel 2
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-window-coordinator\\.' --output-on-failure
+ctest --preset linux-gcc-debug -R '^(puretools\\.workspace-window-coordinator|fluent\\.workspace-cross-transfer)$' --output-on-failure
+git diff --check
+```
+
+结果：协调器 13/13 通过；标准组合正则仍因基础名锚定规则只匹配 Fluent 场景，`fluent.workspace-cross-transfer` 1/1 通过，且无需手工 `LD_LIBRARY_PATH`。协调器完整场景使用前缀正则验证，避免该已确认的 CTest 注册名限制。
+
+### 修改文件
+
+- `ZzPureTools/widgets/src/ZzWorkspaceWindowCoordinator.cpp`
+- `ZzPureTools/tests/ZzWorkspaceWindowCoordinatorTest.cpp`
+- `ZzPureTools/tests/CMakeLists.txt`
+- `ZzFluentUI/tests/CMakeLists.txt`
+- 本报告

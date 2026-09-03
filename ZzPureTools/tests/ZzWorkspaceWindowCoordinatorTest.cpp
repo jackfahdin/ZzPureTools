@@ -566,6 +566,64 @@ private Q_SLOTS:
         shell.reset();
         application.beginShutdown();
     }
+
+    void factoryExceptionReturnsUnknownWithoutCoordinatorMutation()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({window, shell.get()}, zzConfiguration()));
+        coordinator->setWindowFactory([](const auto &) -> ZzCore::ZzResult<
+            ZzPureTools::ZzWorkspaceWindowHandle> {
+            throw std::runtime_error("factory exception");
+        });
+
+        const auto created = coordinator->createWindow();
+
+        QVERIFY(!created);
+        QCOMPARE(created.error().code(), ZzCore::ZzErrorCode::Unknown);
+        QCOMPARE(application.windowCount(), 1);
+        QVERIFY(coordinator->configuration(window));
+        shell.reset();
+        application.beginShutdown();
+    }
+
+    void tearOffRejectsForeignThreadAndShutdownBeforeStateAccess()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({window, shell.get()}, zzConfiguration()));
+        auto *workspace = shell->splitWorkspace();
+        const auto group = workspace->groupIds().constFirst();
+        ZzCore::ZzErrorCode foreignCode = ZzCore::ZzErrorCode::None;
+        bool foreignFailed = false;
+        std::thread worker([&] {
+            const auto result = coordinator->tearOff(workspace, group, 0);
+            foreignFailed = !result;
+            if (!result) {
+                foreignCode = result.error().code();
+            }
+        });
+        worker.join();
+        QVERIFY(foreignFailed);
+        QCOMPARE(foreignCode, ZzCore::ZzErrorCode::InvalidState);
+
+        application.beginShutdown();
+        const auto afterShutdown = coordinator->tearOff(nullptr, {}, 0);
+        QVERIFY(!afterShutdown);
+        QCOMPARE(afterShutdown.error().code(), ZzCore::ZzErrorCode::InvalidState);
+    }
 };
 
 int main(int argc, char *argv[])
