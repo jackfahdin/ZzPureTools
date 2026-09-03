@@ -189,6 +189,22 @@ set(zz_puretools_window_environment "QT_QPA_PLATFORM=offscreen")
 if(APPLE)
     set(zz_puretools_window_environment "QT_QPA_PLATFORM=cocoa")
 endif()
+set(zz_puretools_window_library_path_variable LD_LIBRARY_PATH)
+if(APPLE)
+    set(zz_puretools_window_library_path_variable DYLD_LIBRARY_PATH)
+elseif(WIN32)
+    set(zz_puretools_window_library_path_variable PATH)
+endif()
+function(zz_configure_puretools_window_test_runtime test_name)
+    set_property(TEST "${test_name}" APPEND PROPERTY ENVIRONMENT_MODIFICATION
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzCore>"
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentFoundation>"
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzFluentUI>"
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzPureTools>"
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzWindowKit>"
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzLog>"
+        "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+endfunction()
 set(builder_scenarios
     buildFreezesModulesAndPages
     buildRejectsDuplicateRoutesBeforeStartingModules
@@ -217,6 +233,8 @@ foreach(scenario IN LISTS builder_scenarios)
         LABELS "component;puretools"
         ENVIRONMENT "${zz_puretools_window_environment}"
     )
+    zz_configure_puretools_window_test_runtime(
+        puretools.application-builder.${scenario})
 endforeach()
 
 add_executable(ZzWorkspaceWindowCoordinatorTest
@@ -250,6 +268,8 @@ foreach(scenario IN LISTS workspace_window_coordinator_scenarios)
         LABELS "component;puretools;workspace"
         ENVIRONMENT "${zz_puretools_window_environment}"
     )
+    zz_configure_puretools_window_test_runtime(
+        puretools.workspace-window-coordinator.${scenario})
 endforeach()
 
 add_executable(ZzWorkspaceNavigationIntegrationTest
@@ -304,6 +324,8 @@ foreach(scenario IN LISTS multi_window_scenarios)
         LABELS "component;puretools"
         ENVIRONMENT "${zz_puretools_window_environment}"
     )
+    zz_configure_puretools_window_test_runtime(
+        puretools.multi-window.${scenario})
 endforeach()
 
 add_executable(ZzTranslationLifecycleTest ZzTranslationLifecycleTest.cpp)

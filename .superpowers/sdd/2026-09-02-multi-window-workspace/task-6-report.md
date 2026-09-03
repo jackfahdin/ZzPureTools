@@ -110,3 +110,52 @@ ctest --test-dir build/linux-gcc-debug \
   macOS 只进行 C++20/Qt 跨平台静态兼容性审查，未在对应原生环境运行。
 - 裸 `ctest` 已知会受 RPATH 环境影响；本报告的 ctest 使用了指定的绝对
   `LD_LIBRARY_PATH`，避免将该环境问题误判为功能失败。
+
+## 第 1/5 轮修复：CTest 运行时库路径
+
+### RED
+
+审查发现 Window Builder、Coordinator 和 MultiWindow 三个测试族只注册了
+`QT_QPA_PLATFORM`，没有将构建树内共享库路径传递给 CTest 子进程。未设置任何
+外部库路径，直接执行计划原命令：
+
+```bash
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|application-builder|multi-window)' \
+  --output-on-failure
+```
+
+结果：0/36 通过；每个测试均在断言前因同一动态加载错误退出：
+
+```text
+error while loading shared libraries: libZzPureTools.so.0:
+cannot open shared object file: No such file or directory
+```
+
+### 修复与 GREEN
+
+仅修改 `ZzPureTools/tests/CMakeLists.txt`：提取
+`zz_configure_puretools_window_test_runtime()`，为三个既有测试 foreach 注册的每个
+CTest 条目追加 `ENVIRONMENT_MODIFICATION`。该 helper 按平台选择
+`LD_LIBRARY_PATH`（Linux/其他）、`DYLD_LIBRARY_PATH`（macOS）或 `PATH`
+（Windows），并使用 `$<TARGET_FILE_DIR:...>` 预置 ZzCore、FluentFoundation、
+FluentUI、PureTools、WindowKit、ZzLog 和 Qt Core 的构建树目录；不依赖调用者
+shell 环境，也不硬编码本机路径。
+
+重新配置和验证：
+
+```bash
+GCC_13=/usr/bin/gcc GXX_13=/usr/bin/g++ \
+QT_ROOT=/home/zz/Qt/6.11.1/gcc_64 \
+cmake --preset linux-gcc-debug -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+cmake --build --preset linux-gcc-debug --target \
+  ZzWorkspaceWindowCoordinatorTest ZzApplicationBuilderTest \
+  ZzMultiWindowIsolationTest --parallel 2
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|application-builder|multi-window)' \
+  --output-on-failure
+```
+
+结果：构建成功；未注入外部 `LD_LIBRARY_PATH` 的裸 CTest 36/36 通过，0 个失败。
+本轮修复取代上述“裸 ctest 已知受 RPATH 影响”的限制；该限制不再适用于三个
+已注册修复路径的测试族。Windows MSVC/MinGW 与 macOS 仍未做原生运行验证。
