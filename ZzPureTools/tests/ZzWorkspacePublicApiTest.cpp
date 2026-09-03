@@ -22,7 +22,20 @@
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+
+#include <ZzPureTools/ZzApplicationBuilder.h>
+#include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzNavigationNode.h>
+#include <ZzPureTools/ZzPageInstance.h>
+#include <ZzPureTools/ZzPageLifetimePolicy.h>
+#include <ZzPureTools/ZzPageRegistration.h>
+#include <ZzPureTools/ZzPureApplication.h>
+#include <ZzPureTools/ZzRouteId.h>
 #include <ZzPureTools/ZzWorkspaceActivityId.h>
+#include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
+#include <ZzPureTools/ZzWorkspaceWindowFactory.h>
+#include <ZzPureTools/ZzWorkspaceWindowHandle.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -43,6 +56,30 @@ namespace {
             QStringLiteral("intentional factory failure")));
 }
 
+[[nodiscard]] ZzPureTools::ZzPageRegistration zzHandleTestPage()
+{
+    ZzPureTools::ZzPageRegistration page;
+    page.routeId = ZzPureTools::ZzRouteId(QStringLiteral("handle"));
+    page.lifetime = ZzPureTools::ZzPageLifetimePolicy::WhileActive;
+    page.factory = [](QWidget *parent)
+        -> ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzPageInstance>> {
+        return ZzPureTools::ZzPageInstance::create(
+            parent,
+            new QWidget(parent),
+            std::make_unique<QObject>(),
+            std::make_unique<QObject>());
+    };
+    return page;
+}
+
+[[nodiscard]] ZzPureTools::ZzPureApplication &zzApplication()
+{
+    auto *const application =
+        qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+    Q_ASSERT(application != nullptr);
+    return *application;
+}
+
 } // namespace
 
 class ZzWorkspacePublicApiTest final : public QObject
@@ -50,6 +87,190 @@ class ZzWorkspacePublicApiTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void defaultsWorkspaceWindowConfiguration()
+    {
+        const ZzPureTools::ZzWorkspaceWindowConfiguration configuration;
+
+        QVERIFY(configuration.title.isEmpty());
+        QVERIFY(configuration.icon.isNull());
+        QCOMPARE(configuration.titleMode,
+                 ZzPureTools::ZzWorkspaceTitleMode::Application);
+        QCOMPARE(configuration.closePolicy,
+                 ZzPureTools::ZzWindowClosePolicy::Allow);
+        QVERIFY(!configuration.alwaysOnTop);
+        QVERIFY(configuration.minimumSize.isEmpty());
+        QVERIFY(configuration.maximumSize.isEmpty());
+        QVERIFY(configuration.initialGeometry.isEmpty());
+    }
+
+    void keepsWorkspaceWindowConfigurationPatchFieldValues()
+    {
+        ZzPureTools::ZzWorkspaceWindowConfigurationPatch patch;
+        const QIcon icon = QIcon::fromTheme(QStringLiteral("document-new"));
+
+        patch.title = QStringLiteral("New workspace");
+        patch.icon = icon;
+        patch.titleMode = ZzPureTools::ZzWorkspaceTitleMode::Custom;
+        patch.closePolicy = ZzPureTools::ZzWindowClosePolicy::Delegate;
+        patch.alwaysOnTop = true;
+        patch.minimumSize = QSize(320, 240);
+        patch.maximumSize = QSize(1920, 1080);
+        patch.initialGeometry = QRect(20, 30, 1280, 720);
+
+        QCOMPARE(*patch.title, QStringLiteral("New workspace"));
+        QCOMPARE(*patch.icon, icon);
+        QCOMPARE(*patch.titleMode,
+                 ZzPureTools::ZzWorkspaceTitleMode::Custom);
+        QCOMPARE(*patch.closePolicy,
+                 ZzPureTools::ZzWindowClosePolicy::Delegate);
+        QVERIFY(*patch.alwaysOnTop);
+        QCOMPARE(*patch.minimumSize, QSize(320, 240));
+        QCOMPARE(*patch.maximumSize, QSize(1920, 1080));
+        QCOMPARE(*patch.initialGeometry, QRect(20, 30, 1280, 720));
+    }
+
+    void exposesWorkspaceWindowCreateDefaults()
+    {
+        const ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+
+        QCOMPARE(options.configurationSource,
+                 ZzPureTools::ZzWorkspaceConfigurationSource::
+                     CoordinatorDefaults);
+        QVERIFY(options.sourceWindow.isNull());
+        QVERIFY(!options.configuration.title.has_value());
+        QCOMPARE(options.visibility,
+                 ZzPureTools::ZzApplicationWindowVisibility::Visible);
+        QVERIFY(options.activate);
+    }
+
+    void acceptsWorkspaceWindowCreationEnumValues()
+    {
+        ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+
+        options.configurationSource =
+            ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow;
+        options.visibility =
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred;
+        QCOMPARE(options.configurationSource,
+                 ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow);
+        QCOMPARE(options.visibility,
+                 ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+
+        options.configurationSource =
+            ZzPureTools::ZzWorkspaceConfigurationSource::Explicit;
+        QCOMPARE(options.configurationSource,
+                 ZzPureTools::ZzWorkspaceConfigurationSource::Explicit);
+    }
+
+    void observesWorkspaceWindowHandleLifetime()
+    {
+        ZzPureTools::ZzWorkspaceWindowHandle handle;
+        QVERIFY(!handle.isValid());
+
+        auto &application = zzApplication();
+        std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
+        ZzPureTools::ZzApplicationBuilder builder;
+        QVERIFY(builder.addPage(zzHandleTestPage()));
+        QVERIFY(builder.addNavigationNode({
+            ZzPureTools::ZzRouteId(QStringLiteral("handle")),
+            QStringLiteral("ZzWorkspacePublicApiTest"),
+            QStringLiteral("Handle"),
+            {}}));
+        QVERIFY(builder.setInitialRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("handle"))));
+        QVERIFY(builder.setWindowSetupCallback(
+            [&shell](ZzPureTools::ZzApplicationWindow &window) {
+                auto created = ZzPureTools::ZzWorkspaceShell::create(&window);
+                if (!created) {
+                    return ZzCore::ZzResult<void>::failure(created.error());
+                }
+                shell = std::move(created).value();
+                window.setCentralWidget(shell->workspaceWidget());
+                return ZzCore::ZzResult<void>::success();
+            }));
+        QVERIFY(builder.build(application));
+
+        ZzPureTools::ZzApplicationWindow *window = nullptr;
+        for (QWidget *widget : application.topLevelWidgets()) {
+            window = qobject_cast<ZzPureTools::ZzApplicationWindow *>(widget);
+            if (window != nullptr) {
+                break;
+            }
+        }
+        QVERIFY(window != nullptr);
+        QVERIFY(shell != nullptr);
+        handle.window = window;
+        handle.shell = shell.get();
+        QVERIFY(handle.isValid());
+
+        shell.reset();
+        QVERIFY(!handle.isValid());
+
+        application.beginShutdown();
+        QVERIFY(!handle.isValid());
+        QVERIFY(handle.window.isNull());
+        QVERIFY(handle.shell.isNull());
+    }
+
+    void keepsWorkspaceWindowValueTypesCopyableAndMovable()
+    {
+        ZzPureTools::ZzWorkspaceWindowCreateOptions original;
+        original.configuration.title = QStringLiteral("Copied workspace");
+        original.visibility =
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred;
+        original.activate = false;
+
+        const auto copied = original;
+        auto moved = std::move(original);
+
+        QCOMPARE(copied.configuration.title.value(),
+                 QStringLiteral("Copied workspace"));
+        QCOMPARE(moved.configuration.title.value(),
+                 QStringLiteral("Copied workspace"));
+        QCOMPARE(moved.visibility,
+                 ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(!moved.activate);
+    }
+
+    void registersWorkspaceWindowMetatypes()
+    {
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzWindowClosePolicy>() > 0);
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzWorkspaceConfigurationSource>() > 0);
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzApplicationWindowVisibility>() > 0);
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzWorkspaceWindowConfiguration>() > 0);
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzWorkspaceWindowConfigurationPatch>()
+                > 0);
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzWorkspaceWindowCreateOptions>() > 0);
+        QVERIFY(qMetaTypeId<ZzPureTools::ZzWorkspaceWindowHandle>() > 0);
+    }
+
+    void exposesWorkspaceWindowFactoryContracts()
+    {
+        ZzPureTools::ZzWorkspaceWindowFactory factory =
+            [](const ZzPureTools::ZzWorkspaceWindowCreateOptions &options) {
+                ZzPureTools::ZzWorkspaceWindowHandle handle;
+                handle.window = options.sourceWindow;
+                return ZzCore::ZzResult<
+                    ZzPureTools::ZzWorkspaceWindowHandle>::success(handle);
+            };
+        ZzPureTools::ZzWorkspacePageResolver resolver =
+            [](QStringView route) {
+                if (route.isEmpty()) {
+                    return zzFactoryFailure();
+                }
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            };
+
+        const auto created = factory({});
+        QVERIFY(created);
+        QVERIFY(!created.value().isValid());
+
+        auto page = resolver(QStringView(u"overview"));
+        QVERIFY(page);
+        QVERIFY(page.value() != nullptr);
+    }
+
     void exposesStableWorkspaceSurfaces()
     {
         QMainWindow host;
@@ -247,5 +468,11 @@ private Q_SLOTS:
     }
 };
 
-QTEST_MAIN(ZzWorkspacePublicApiTest)
+int main(int argc, char *argv[])
+{
+    ZzPureTools::ZzPureApplication application(argc, argv);
+    ZzWorkspacePublicApiTest test;
+    return QTest::qExec(&test, argc, argv);
+}
+
 #include "ZzWorkspacePublicApiTest.moc"
