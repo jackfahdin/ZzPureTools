@@ -26,6 +26,7 @@ void ZzWorkspaceWindowCoordinatorPrivate::removeRecord(
     QObject::disconnect(record.windowDestroyedConnection);
     QObject::disconnect(record.shellDestroyedConnection);
     QObject::disconnect(record.tearOffConnection);
+    QObject::disconnect(record.transferConnection);
     if (record.window) {
         record.window->removeEventFilter(q_ptr);
     }
@@ -33,6 +34,11 @@ void ZzWorkspaceWindowCoordinatorPrivate::removeRecord(
         record.shell->removeEventFilter(q_ptr);
     }
     records.erase(records.begin() + static_cast<std::ptrdiff_t>(index));
+    pageOrigins.erase(std::remove_if(
+        pageOrigins.begin(),
+        pageOrigins.end(),
+        [](const ZzPageOrigins &entry) { return entry.page.isNull(); }),
+        pageOrigins.end());
 }
 
 void ZzWorkspaceWindowCoordinatorPrivate::removeRecordForObject(

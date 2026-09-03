@@ -274,7 +274,8 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
                 if (guardedTarget.isNull()) return result;
             }
             Q_EMIT guardedTarget->tabTransferCommitted(
-                guardedSource, sourceGroup, temp.value(), movedPage, movedId, zone);
+                guardedSource, sourceGroup, sourceIndex, temp.value(), movedPage,
+                movedId, zone);
         }
         return result;
     }
@@ -450,7 +451,8 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     }
     if (emitSignals && !guardedTarget.isNull()) {
         Q_EMIT guardedTarget->tabTransferCommitted(
-            guardedSource, sourceGroup, targetGroup, guardedPage, id, zone);
+            guardedSource, sourceGroup, sourceIndex, targetGroup, guardedPage,
+            id, zone);
     }
     if (guardedSource.isNull() || guardedTarget.isNull()
         || !mappingsMatch(sourcePrivate, sourceSnapshot, guardedPage, id, layoutKey, false)

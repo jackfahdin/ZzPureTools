@@ -263,6 +263,7 @@ Q_SIGNALS:
      * @brief 双工作区审计通过后发出一次页面转移通知。
      * @param sourceWorkspace 来源工作区。
      * @param sourceGroup 转移前来源组。
+     * @param sourceIndex 转移开始时页面在来源组中的逻辑索引。
      * @param targetGroup 转移后目标组。
      * @param page 已由目标工作区拥有的页面。
      * @param pageId 页面稳定身份。
@@ -271,6 +272,7 @@ Q_SIGNALS:
     void tabTransferCommitted(
         ZzSplitWorkspace *sourceWorkspace,
         const ZzTabGroupId &sourceGroup,
+        int sourceIndex,
         const ZzTabGroupId &targetGroup,
         QWidget *page,
         const ZzWorkspacePageId &pageId,

@@ -244,11 +244,31 @@ target_link_libraries(ZzWorkspaceWindowCoordinatorTest PRIVATE
     Zz::PureTools
     Zz::WindowKit
     Zz::FluentUI
+    ZzLog::ZzLog
 )
 set_target_properties(ZzWorkspaceWindowCoordinatorTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceWindowCoordinatorTest)
 zz_enable_sanitizers(ZzWorkspaceWindowCoordinatorTest)
 set(workspace_window_coordinator_scenarios
+    denyPolicyIgnoresSystemCloseEvent
+    delegatePolicyRequestsApprovalOnlyOnce
+    delegatedApprovalConsumesPendingRequestOnlyOnce
+    delegatedApprovalCannotBypassDenyPolicy
+    delegatedApprovalRejectsForeignThreadWithoutConsumingToken
+    allowSystemCloseReclaimsBeforeAcceptedClose
+    closingChainedWindowsReclaimsInReverseOriginOrder
+    reclaimRestoresOriginalSourceIndex
+    returningToKnownOriginTruncatesHistory
+    missingOriginGroupUsesTargetActiveGroup
+    destroyedOriginFallsBackToPrimaryWindow
+    destroyedOriginAndPrimaryFallBackToFirstWindow
+    orphanedPagesPreserveStableOrderAndWindow
+    emptyWindowClosesWithoutOrphanSignal
+    shutdownDoesNotRunOrdinaryReclaim
+    layoutKeyConflictIsRejectedBeforeAnyPageMoves
+    secondPageFailureRollsBackIdentityMetadataAndOrder
+    actualOperationsWriteStableAuditEvents
+    operationsDoNotInitializeLogging
     registrationStoresConfigurationSnapshot
     registrationValidatesConfigurationWithoutMutation
     registrationRejectsDuplicateWindowAndShell

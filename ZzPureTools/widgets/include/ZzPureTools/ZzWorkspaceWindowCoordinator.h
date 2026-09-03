@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtCore/QList>
 #include <QtCore/QObject>
 
 #include <ZzCore/ZzResult.h>
@@ -11,6 +12,8 @@
 #include <ZzPureTools/ZzWorkspaceWindowHandle.h>
 #include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 #include <ZzPureTools/ZzWorkspaceWindowFactory.h>
+
+class QWidget;
 
 namespace ZzFluentUI {
 class ZzSplitWorkspace;
@@ -52,6 +55,14 @@ public:
         int sourceIndex,
         const ZzWorkspaceWindowCreateOptions &options = {});
 
+    /** @brief 按已登记窗口的关闭策略回收页面并请求关闭窗口。 */
+    [[nodiscard]] ZzCore::ZzResult<void> closeWindow(
+        ZzApplicationWindow *window);
+
+    /** @brief 仅消费一次当前 Delegate 策略产生的待批准关闭请求。 */
+    [[nodiscard]] ZzCore::ZzResult<void> approveDelegatedClose(
+        ZzApplicationWindow *window);
+
     /**
      * @brief 登记一个应用拥有的窗口、其工作区 Shell 和配置快照。
      * @param handle 同线程且互相匹配的窗口与 Shell 观察值。
@@ -83,6 +94,18 @@ public:
 protected:
     /** @brief 保留已登记对象的销毁事件过滤安装点。 */
     bool eventFilter(QObject *watched, QEvent *event) override;
+
+Q_SIGNALS:
+    /** @brief 页面完成回收且窗口即将使用内部旁路关闭时发出。 */
+    void windowAboutToClose(
+        ZzApplicationWindow *window,
+        const QList<QWidget *> &pages);
+
+    /** @brief Delegate 策略首次进入待批准关闭状态时发出。 */
+    void windowCloseApprovalRequested(ZzApplicationWindow *window);
+
+    /** @brief 找不到任何回收目标时按稳定顺序报告保留的页面。 */
+    void orphanedPages(const QList<QWidget *> &pages);
 
 private:
     friend class ZzPureApplicationPrivate;

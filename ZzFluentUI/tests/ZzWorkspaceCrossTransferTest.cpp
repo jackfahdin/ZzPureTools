@@ -79,6 +79,30 @@ private slots:
         QVERIFY(target.groupIds().size() == 2);
     }
 
+    void transferCommitCarriesStartingSourceIndex()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sourceGroup = source.groupIds().constFirst();
+        const auto targetGroup = target.groupIds().constFirst();
+        source.tabWidget(sourceGroup)->addTab(
+            new QWidget, QStringLiteral("First"));
+        auto *const moving = new QWidget;
+        source.tabWidget(sourceGroup)->addTab(
+            moving, QStringLiteral("Moving"));
+        source.tabWidget(sourceGroup)->addTab(
+            new QWidget, QStringLiteral("Last"));
+        QSignalSpy committed(
+            &target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted);
+
+        QVERIFY(source.transferTabToWorkspace(
+            sourceGroup, 1, &target, targetGroup));
+
+        QCOMPARE(committed.size(), 1);
+        QCOMPARE(committed.at(0).at(2).toInt(), 1);
+        QCOMPARE(committed.at(0).at(4).value<QWidget *>(), moving);
+    }
+
     void edgeTransferEmitsSignalsInCommitOrder()
     {
         ZzFluentUI::ZzSplitWorkspace source;
@@ -95,7 +119,7 @@ private slots:
         QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged,
                          &target, [&](const auto &) { order << QStringLiteral("activeGroupChanged"); });
         QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
-                         &target, [&](auto *, const auto &, const auto &, QWidget *, const auto &, auto) {
+                         &target, [&](auto *, const auto &, int, const auto &, QWidget *, const auto &, auto) {
                              order << QStringLiteral("tabTransferCommitted");
                          });
 
@@ -125,7 +149,7 @@ private slots:
         QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
                          &target, [&] { order << QStringLiteral("layoutChanged"); });
         QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
-                         &target, [&](auto *, const auto &, const auto &, QWidget *, const auto &, auto) {
+                         &target, [&](auto *, const auto &, int, const auto &, QWidget *, const auto &, auto) {
                              order << QStringLiteral("tabTransferCommitted");
                          });
         QObject::connect(sourceTabs, &QTabWidget::currentChanged, sourceTabs,
@@ -351,6 +375,7 @@ private slots:
         connect(&target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
                 &target, [&](ZzFluentUI::ZzSplitWorkspace *,
                              const ZzFluentUI::ZzTabGroupId &,
+                             int,
                              const ZzFluentUI::ZzTabGroupId &,
                              QWidget *, const ZzFluentUI::ZzWorkspacePageId &,
                              ZzFluentUI::ZzWorkspaceDropZone) {

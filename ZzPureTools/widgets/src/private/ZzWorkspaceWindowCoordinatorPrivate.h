@@ -5,9 +5,13 @@
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QPointer>
+#include <QtCore/QUuid>
 
+#include <ZzFluentUI/ZzTabGroupId.h>
 #include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
 #include <ZzPureTools/ZzWorkspaceWindowFactory.h>
+
+class QWidget;
 
 namespace ZzPureTools {
 
@@ -19,18 +23,36 @@ class ZzWorkspaceWindowCoordinator;
 class ZzWorkspaceWindowCoordinatorPrivate final
 {
 public:
+    struct ZzPageOrigin final
+    {
+        QUuid windowId;
+        ZzFluentUI::ZzTabGroupId group;
+        int index = -1;
+    };
+
+    struct ZzPageOrigins final
+    {
+        QPointer<QWidget> page;
+        std::vector<ZzPageOrigin> origins;
+    };
+
     /** @brief 描述一个窗口、Shell、配置快照和生命周期连接。 */
     struct ZzWindowRecord final
     {
         QPointer<ZzApplicationWindow> window;
         ZzApplicationWindow *windowIdentity = nullptr;
+        QUuid windowId;
         QPointer<ZzWorkspaceShell> shell;
         ZzWorkspaceShell *shellIdentity = nullptr;
         ZzWorkspaceWindowConfiguration configuration;
         QMetaObject::Connection windowDestroyedConnection;
         QMetaObject::Connection shellDestroyedConnection;
         QMetaObject::Connection tearOffConnection;
+        QMetaObject::Connection transferConnection;
         bool primary = false;
+        bool delegatedClosePending = false;
+        bool delegatedCloseApproved = false;
+        bool closeBypass = false;
     };
 
     /** @brief 由公开协调器创建，并保存其非拥有观察值。 */
@@ -48,8 +70,11 @@ public:
 
     ZzWorkspaceWindowCoordinator *const q_ptr;
     std::vector<ZzWindowRecord> records;
+    std::vector<ZzPageOrigins> pageOrigins;
     ZzWorkspaceWindowFactory windowFactory;
     bool shuttingDown = false;
+    bool reclaiming = false;
+    bool handlingCloseEvent = false;
 };
 
 } // namespace ZzPureTools

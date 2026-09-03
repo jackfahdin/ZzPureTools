@@ -90,11 +90,12 @@ target_link_libraries(ZzPureTools
     PRIVATE
         Zz::WindowKit
         Zz::FluentUI
+        ZzLog::ZzLog
 )
 
 get_target_property(zz_pure_tools_direct_links
     ZzPureTools LINK_LIBRARIES)
-foreach(zz_required_private_link IN ITEMS Zz::WindowKit Zz::FluentUI)
+foreach(zz_required_private_link IN ITEMS Zz::WindowKit Zz::FluentUI ZzLog::ZzLog)
     list(FIND zz_pure_tools_direct_links
         "${zz_required_private_link}" zz_private_link_index)
     if(zz_private_link_index EQUAL -1)
@@ -117,7 +118,7 @@ foreach(zz_required_public_link IN ITEMS
             "ZzPureTools must publicly link ${zz_required_public_link}")
     endif()
 endforeach()
-foreach(zz_private_interface_link IN ITEMS Zz::WindowKit Zz::FluentUI)
+foreach(zz_private_interface_link IN ITEMS Zz::WindowKit Zz::FluentUI ZzLog::ZzLog)
     list(FIND zz_pure_tools_interface_links
         "${zz_private_interface_link}" zz_leaked_link_index)
     if(NOT zz_leaked_link_index EQUAL -1)
