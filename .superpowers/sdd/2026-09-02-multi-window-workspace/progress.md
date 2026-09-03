@@ -38,3 +38,7 @@ Task 4: fix round 1/5 (覆盖信号顺序、RTL 物理方向、失败静默和�
 Task 4: fix round 2/5 (1 addressed, 0 open — 成功边缘事务重建目标可视布局并补充层级/几何断言; commit 567e91e)
 Task 4: complete (commits 48e8edf..567e91e, review clean after round 2)
 Task 5: complete (commits c4b18c7..6ae675a, review clean)
+Task 6: minor (deferred): `destroyedWindowUnregistersItsRecordBeforeApplicationErase` 在窗口析构后把悬空地址作为只比较、不解引用的身份传回公共查询；最终审查时评估是否需改为更可移植的可观察证据。
+Task 6: minor (deferred): 跨线程测试覆盖了异线程调用早退，但未独立命中“协调器线程调用、Window/Shell 对象亲和性不匹配”分支；最终审查时复核覆盖必要性。
+Task 6: fix round 1/5 (1 addressed, 0 open — 为 Builder、Coordinator 和 MultiWindow 三类 CTest 增加跨平台构建树动态库环境; commit 1b4c76b)
+Task 6: complete (commits 2681ab1..1b4c76b, review clean after round 1)
