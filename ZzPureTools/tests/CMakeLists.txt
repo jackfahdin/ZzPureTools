@@ -200,6 +200,8 @@ set(builder_scenarios
     windowSetupCallbackValidatesAndRunsBeforeDisplay
     windowSetupFailureRollsBackInitialWindow
     subsequentWindowsReuseWindowSetupCallback
+    deferredWindowCompletesSetupWithoutBeingShown
+    invalidWindowVisibilityDoesNotCreateWindow
     windowFailureLeavesApplicationUnbuilt
     failedBuildCanRetryWithFreshBuilder
     successfulApplicationRejectsSecondBuilder
@@ -213,6 +215,39 @@ foreach(scenario IN LISTS builder_scenarios)
     )
     set_tests_properties(puretools.application-builder.${scenario} PROPERTIES
         LABELS "component;puretools"
+        ENVIRONMENT "${zz_puretools_window_environment}"
+    )
+endforeach()
+
+add_executable(ZzWorkspaceWindowCoordinatorTest
+    ZzWorkspaceWindowCoordinatorTest.cpp)
+target_link_libraries(ZzWorkspaceWindowCoordinatorTest PRIVATE
+    Qt6::Test
+    Zz::PureTools
+    Zz::WindowKit
+    Zz::FluentUI
+)
+set_target_properties(ZzWorkspaceWindowCoordinatorTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceWindowCoordinatorTest)
+zz_enable_sanitizers(ZzWorkspaceWindowCoordinatorTest)
+set(workspace_window_coordinator_scenarios
+    registrationStoresConfigurationSnapshot
+    registrationValidatesConfigurationWithoutMutation
+    registrationRejectsDuplicateWindowAndShell
+    registrationAllowsOnlyOnePrimaryWindow
+    registrationRejectsWrongHostAndForeignThread
+    destroyedWindowOrShellUnregistersItsRecord
+    destroyedWindowUnregistersItsRecordBeforeApplicationErase
+    unregisterOnlyRemovesCoordinatorState
+)
+foreach(scenario IN LISTS workspace_window_coordinator_scenarios)
+    add_test(
+        NAME puretools.workspace-window-coordinator.${scenario}
+        COMMAND ZzWorkspaceWindowCoordinatorTest ${scenario}
+    )
+    set_tests_properties(
+        puretools.workspace-window-coordinator.${scenario} PROPERTIES
+        LABELS "component;puretools;workspace"
         ENVIRONMENT "${zz_puretools_window_environment}"
     )
 endforeach()

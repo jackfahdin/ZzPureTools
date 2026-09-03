@@ -34,6 +34,7 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 
 namespace {
 
@@ -543,6 +544,51 @@ private Q_SLOTS:
         QCOMPARE(setupCalls, 2);
         QCOMPARE(application.windowCount(), 2);
         QVERIFY(secondWindow.value()->isVisible());
+        application.beginShutdown();
+    }
+
+    void deferredWindowCompletesSetupWithoutBeingShown()
+    {
+        auto &application = zzApplication();
+        int setupCalls = 0;
+        ZzPureTools::ZzApplicationBuilder builder;
+        zzConfigureSinglePage(builder);
+        QVERIFY(builder.setWindowSetupCallback(
+            [&setupCalls](ZzPureTools::ZzApplicationWindow &window) {
+                ++setupCalls;
+                return window.isVisible()
+                    ? ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
+                        ZzCore::ZzErrorCode::InvalidState,
+                        QStringLiteral("deferred window was shown during setup")))
+                    : ZzCore::ZzResult<void>::success();
+            }));
+        QVERIFY(builder.build(application));
+
+        const auto deferred = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+
+        QVERIFY(deferred);
+        QCOMPARE(setupCalls, 2);
+        QCOMPARE(application.windowCount(), 2);
+        QVERIFY(!deferred.value()->isVisible());
+        QVERIFY(deferred.value()->windowAgent() != nullptr);
+        QVERIFY(deferred.value()->navigationController() != nullptr);
+        application.beginShutdown();
+    }
+
+    void invalidWindowVisibilityDoesNotCreateWindow()
+    {
+        auto &application = zzApplication();
+        ZzPureTools::ZzApplicationBuilder builder;
+        zzConfigureSinglePage(builder);
+        QVERIFY(builder.build(application));
+
+        const auto result = application.createWindow(
+            static_cast<ZzPureTools::ZzApplicationWindowVisibility>(42));
+
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
+        QCOMPARE(application.windowCount(), 1);
         application.beginShutdown();
     }
 

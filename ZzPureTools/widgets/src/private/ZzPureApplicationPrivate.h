@@ -13,6 +13,7 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzRouteId.h>
 #include <ZzPureTools/ZzWindowSetupCallback.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 
 class QTranslator;
 
@@ -24,6 +25,7 @@ namespace ZzPureTools {
 
 class ZzApplicationWindow;
 class ZzPureApplication;
+class ZzWorkspaceWindowCoordinator;
 
 /** @brief 保存应用级主题、已提交不可变配置、运行时和窗口所有权。 */
 class ZzPureApplicationPrivate final
@@ -36,11 +38,13 @@ public:
     ~ZzPureApplicationPrivate();
 
     /** @brief 使用已提交配置创建并接管一个新窗口。 */
-    [[nodiscard]] ZzCore::ZzResult<ZzApplicationWindow *> createWindow();
+    [[nodiscard]] ZzCore::ZzResult<ZzApplicationWindow *> createWindow(
+        ZzApplicationWindowVisibility visibility);
 
     /** @brief 预留容量、连接关闭协议并接管局部窗口。 */
     [[nodiscard]] ZzCore::ZzResult<ZzApplicationWindow *> adoptWindow(
-        std::unique_ptr<ZzApplicationWindow> window);
+        std::unique_ptr<ZzApplicationWindow> window,
+        ZzApplicationWindowVisibility visibility);
 
     /** @brief 为尚未提交的窗口建立同一队列关闭协议。 */
     [[nodiscard]] QMetaObject::Connection connectWindowCloseProtocol(
@@ -72,6 +76,7 @@ public:
     ZzWindowSetupCallback windowSetupCallback;
     std::vector<std::unique_ptr<QTranslator>> translators;
     std::vector<std::unique_ptr<ZzApplicationWindow>> windows;
+    std::unique_ptr<ZzWorkspaceWindowCoordinator> coordinator;
     QMetaObject::Connection aboutToQuitConnection;
     bool built = false;
     bool shuttingDown = false;

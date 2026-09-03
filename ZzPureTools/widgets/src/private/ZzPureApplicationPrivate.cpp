@@ -16,6 +16,7 @@
 
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzPureApplication.h>
+#include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
 
 namespace ZzPureTools {
 
@@ -42,6 +43,8 @@ ZzPureApplicationPrivate::ZzPureApplicationPrivate(
     if (q_ptr == nullptr) {
         std::terminate();
     }
+    coordinator = std::unique_ptr<ZzWorkspaceWindowCoordinator>(
+        new ZzWorkspaceWindowCoordinator(q_ptr));
     aboutToQuitConnection = QObject::connect(
         q_ptr,
         &QCoreApplication::aboutToQuit,
@@ -59,7 +62,8 @@ ZzPureApplicationPrivate::~ZzPureApplicationPrivate()
 }
 
 ZzCore::ZzResult<ZzApplicationWindow *>
-ZzPureApplicationPrivate::createWindow()
+ZzPureApplicationPrivate::createWindow(
+    ZzApplicationWindowVisibility visibility)
 {
     if (QThread::currentThread() != q_ptr->thread()) {
         return zzApplicationFailure<ZzApplicationWindow *>(
@@ -70,6 +74,12 @@ ZzPureApplicationPrivate::createWindow()
         return zzApplicationFailure<ZzApplicationWindow *>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("application is not accepting new windows"));
+    }
+    if (visibility != ZzApplicationWindowVisibility::Visible
+        && visibility != ZzApplicationWindowVisibility::Deferred) {
+        return zzApplicationFailure<ZzApplicationWindow *>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("application window visibility is invalid"));
     }
 
     auto windowResult = ZzApplicationWindow::create(
@@ -82,12 +92,13 @@ ZzPureApplicationPrivate::createWindow()
         return ZzCore::ZzResult<ZzApplicationWindow *>::failure(
             windowResult.error());
     }
-    return adoptWindow(std::move(windowResult).value());
+    return adoptWindow(std::move(windowResult).value(), visibility);
 }
 
 ZzCore::ZzResult<ZzApplicationWindow *>
 ZzPureApplicationPrivate::adoptWindow(
-    std::unique_ptr<ZzApplicationWindow> window)
+    std::unique_ptr<ZzApplicationWindow> window,
+    ZzApplicationWindowVisibility visibility)
 {
     if (!window) {
         return zzApplicationFailure<ZzApplicationWindow *>(
@@ -117,7 +128,9 @@ ZzPureApplicationPrivate::adoptWindow(
 
     auto *const observer = window.get();
     windows.push_back(std::move(window));
-    observer->show();
+    if (visibility == ZzApplicationWindowVisibility::Visible) {
+        observer->show();
+    }
     return ZzCore::ZzResult<ZzApplicationWindow *>::success(observer);
 }
 
@@ -189,6 +202,9 @@ void ZzPureApplicationPrivate::beginShutdown() noexcept
 
     if (runtime) {
         runtime->requestStop();
+    }
+    if (coordinator) {
+        coordinator->beginShutdown();
     }
     windows.clear();
     if (runtime) {

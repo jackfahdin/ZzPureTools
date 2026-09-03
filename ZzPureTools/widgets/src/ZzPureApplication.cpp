@@ -1,4 +1,5 @@
 #include <ZzPureTools/ZzPureApplication.h>
+#include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
 
 #include <QtCore/QThread>
 #include <QtWidgets/QStyle>
@@ -31,7 +32,21 @@ ZzPureApplication::~ZzPureApplication()
 
 ZzCore::ZzResult<ZzApplicationWindow *> ZzPureApplication::createWindow()
 {
-    return d_ptr->createWindow();
+    return createWindow(ZzApplicationWindowVisibility::Visible);
+}
+
+ZzCore::ZzResult<ZzApplicationWindow *> ZzPureApplication::createWindow(
+    ZzApplicationWindowVisibility visibility)
+{
+    return d_ptr->createWindow(visibility);
+}
+
+ZzWorkspaceWindowCoordinator *
+ZzPureApplication::workspaceWindowCoordinator() const noexcept
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    return QThread::currentThread() == thread()
+        ? d_ptr->coordinator.get() : nullptr;
 }
 
 qsizetype ZzPureApplication::windowCount() const noexcept
