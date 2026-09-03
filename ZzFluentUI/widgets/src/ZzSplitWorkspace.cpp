@@ -215,12 +215,6 @@ bool ZzSplitWorkspace::moveTabToDropZone(
     if (!result.committed || guardedWorkspace.isNull()) {
         return result.committed;
     }
-    if (result.activeChanged) {
-        Q_EMIT activeGroupChanged(result.destinationId);
-        if (guardedWorkspace.isNull()) {
-            return true;
-        }
-    }
     if (result.groupAdded) {
         Q_EMIT groupAdded(result.destinationId);
     }
@@ -233,6 +227,13 @@ bool ZzSplitWorkspace::moveTabToDropZone(
             return true;
         }
     }
+    if (result.layoutChanged) {
+        Q_EMIT layoutChanged();
+    }
+    if (result.activeChanged) {
+        Q_EMIT activeGroupChanged(result.destinationId);
+        if (guardedWorkspace.isNull()) return true;
+    }
     Q_EMIT tabDropCommitted(
         result.sourceId,
         result.destinationId,
@@ -240,9 +241,6 @@ bool ZzSplitWorkspace::moveTabToDropZone(
         result.page.data());
     if (guardedWorkspace.isNull()) {
         return true;
-    }
-    if (result.layoutChanged) {
-        Q_EMIT layoutChanged();
     }
     return true;
 }

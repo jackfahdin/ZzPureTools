@@ -17,3 +17,14 @@
 疑虑：完整容量/深度边界和信号顺序回归仍需集成环境进一步覆盖。
 
 补充 RTL 物理 Right 边缘、pageId/layoutKey/固定标签元数据保持测试，定向执行 5 个跨工作区测试，全部通过。
+
+## 第1轮定向修复
+
+补充跨工作区边缘提交信号顺序断言，要求成功通知按
+`groupAdded -> layoutChanged -> activeGroupChanged -> tabTransferCommitted`；
+中心迁移保持 `activeGroupChanged -> tabTransferCommitted`。边缘事务继续使用
+私有静默 split/remove，迁移失败不发布成功结构信号，并增加第三方接管失败回滚覆盖。
+实现 RTL 左边缘物理位置、64 组容量和 16 层深度边界测试；更新跨实例 API 文档以说明支持五个拖放区域，并在边缘通知阶段加入 QPointer 生命周期守卫。
+
+验证：`ZzWorkspaceCrossTransferTest` 全量 `21/21`、`ZzSplitWorkspaceTest` 全量
+`79/79` 通过（Qt 6.11 offscreen，配置对应 `LD_LIBRARY_PATH`）。

@@ -180,7 +180,7 @@ public:
      * @param targetWorkspace 目标工作区，不能为 nullptr 或当前工作区。
      * @param targetGroup 目标组标识。
      * @param targetIndex 目标插入位置，负数表示末尾。
-     * @param zone 拖放区域；跨实例事务当前只支持 Center。
+     * @param zone 拖放区域；支持 Center 及四个物理边缘区域。
      * @return 成功返回空错误结果；参数、线程、冲突或状态失败返回对应错误码，
      *         失败时双方页面与登记保持不变。
      */

@@ -15,7 +15,8 @@ public:
         ZzSplitWorkspace *target,
         const ZzTabGroupId &targetGroup,
         int targetIndex,
-        ZzWorkspaceDropZone zone);
+        ZzWorkspaceDropZone zone,
+        bool emitSignals = true);
 
 };
 

@@ -69,6 +69,145 @@ private slots:
         QCOMPARE(target.pageLayoutKey(page), QStringLiteral("edge/key"));
         QVERIFY(target.groupIds().size() == 2);
     }
+
+    void edgeTransferEmitsSignalsInCommitOrder()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sg)->addTab(page, QStringLiteral("ordered"));
+        QStringList order;
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::groupAdded,
+                         &target, [&](const auto &) { order << QStringLiteral("groupAdded"); });
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
+                         &target, [&] { order << QStringLiteral("layoutChanged"); });
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged,
+                         &target, [&](const auto &) { order << QStringLiteral("activeGroupChanged"); });
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
+                         &target, [&](auto *, const auto &, const auto &, QWidget *, const auto &, auto) {
+                             order << QStringLiteral("tabTransferCommitted");
+                         });
+
+        QVERIFY(source.transferTabToWorkspace(
+            sg, 0, &target, tg, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Left));
+        QCOMPARE(order, QStringList({
+            QStringLiteral("groupAdded"),
+            QStringLiteral("layoutChanged"),
+            QStringLiteral("activeGroupChanged"),
+            QStringLiteral("tabTransferCommitted")}));
+    }
+
+    void edgeTransferFailureEmitsNoCommitSignals()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        ZzFluentUI::ZzTabWidget thirdParty;
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *sourceTabs = source.tabWidget(sg);
+        auto *page = new QWidget;
+        sourceTabs->addTab(page, QStringLiteral("failed edge"));
+        QStringList order;
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::groupAdded,
+                         &target, [&](const auto &) { order << QStringLiteral("groupAdded"); });
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::layoutChanged,
+                         &target, [&] { order << QStringLiteral("layoutChanged"); });
+        QObject::connect(&target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
+                         &target, [&](auto *, const auto &, const auto &, QWidget *, const auto &, auto) {
+                             order << QStringLiteral("tabTransferCommitted");
+                         });
+        QObject::connect(sourceTabs, &QTabWidget::currentChanged, sourceTabs,
+                         [&](int) {
+                             if (sourceTabs->indexOf(page) < 0
+                                 && thirdParty.indexOf(page) < 0) {
+                                 thirdParty.addTab(page, QStringLiteral("taken"));
+                             }
+                         });
+
+        QVERIFY(!source.transferTabToWorkspace(
+            sg, 0, &target, tg, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Right));
+        QVERIFY(order.isEmpty());
+        QCOMPARE(thirdParty.indexOf(page), 0);
+        QCOMPARE(target.groupIds().size(), 1);
+    }
+
+    void rtlLeftEdgeUsesPhysicalLeftPosition()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        target.setLayoutDirection(Qt::RightToLeft);
+        target.resize(480, 240);
+        target.show();
+        QCoreApplication::processEvents();
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sg)->addTab(page, QStringLiteral("rtl-left"));
+        QVERIFY(source.transferTabToWorkspace(
+            sg, 0, &target, tg, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Left));
+        const auto ids = target.groupIds();
+        QCOMPARE(ids.size(), 2);
+        const auto newId = ids.at(0) == tg ? ids.at(1) : ids.at(0);
+        const QPoint originalCenter = target.tabWidget(tg)->mapToGlobal(
+            target.tabWidget(tg)->rect().center());
+        const QPoint newCenter = target.tabWidget(newId)->mapToGlobal(
+            target.tabWidget(newId)->rect().center());
+        QVERIFY(newCenter.x() < originalCenter.x());
+    }
+
+    void rejectsEdgeTransferAtCapacityWithoutSignals()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sg)->addTab(page, QStringLiteral("capacity"));
+        auto pivot = tg;
+        while (target.groupIds().size() < 64) {
+            const auto next = target.splitGroup(
+                pivot, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+            QVERIFY(next.has_value());
+            pivot = next.value();
+        }
+        QSignalSpy added(&target, &ZzFluentUI::ZzSplitWorkspace::groupAdded);
+        QVERIFY(!source.transferTabToWorkspace(
+            sg, 0, &target, tg, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Right));
+        QCOMPARE(added.count(), 0);
+        QCOMPARE(source.tabWidget(sg)->indexOf(page), 0);
+        QCOMPARE(target.groupIds().size(), 64);
+    }
+
+    void rejectsEdgeTransferAtDepthLimitWithoutSignals()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sg = source.groupIds().constFirst();
+        const auto tg = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sg)->addTab(page, QStringLiteral("depth"));
+        auto pivot = tg;
+        for (int depth = 0; depth < 15; ++depth) {
+            const auto orientation = depth % 2 == 0
+                ? Qt::Horizontal : Qt::Vertical;
+            const auto next = target.splitGroup(
+                pivot, orientation, ZzFluentUI::ZzSplitPlacement::After);
+            QVERIFY(next.has_value());
+            pivot = next.value();
+        }
+        QSignalSpy added(&target, &ZzFluentUI::ZzSplitWorkspace::groupAdded);
+        QVERIFY(!source.transferTabToWorkspace(
+            sg, 0, &target, pivot, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Bottom));
+        QCOMPARE(added.count(), 0);
+        QCOMPARE(source.tabWidget(sg)->indexOf(page), 0);
+    }
     void transfersPageAndIdentityAcrossWorkspaces()
     {
         ZzFluentUI::ZzSplitWorkspace source;

@@ -225,7 +225,8 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     ZzSplitWorkspace *target,
     const ZzTabGroupId &targetGroup,
     int targetIndex,
-    ZzWorkspaceDropZone zone)
+    ZzWorkspaceDropZone zone,
+    bool emitSignals)
 {
     if (source == nullptr || target == nullptr || source == target
         || source->thread() != QThread::currentThread()
@@ -235,14 +236,43 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
             QStringLiteral("invalid cross-workspace transfer arguments"));
     }
     if (zone != ZzWorkspaceDropZone::Center) {
+        QPointer<ZzSplitWorkspace> guardedSource = source;
+        QPointer<ZzSplitWorkspace> guardedTarget = target;
         const bool horizontal = zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Right;
-        const auto placement = (zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Top)
+        auto placement = (zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Top)
             ? ZzSplitPlacement::Before : ZzSplitPlacement::After;
-        const auto temp = target->splitGroup(targetGroup,
-            horizontal ? Qt::Horizontal : Qt::Vertical, placement);
+        if (horizontal && target->layoutDirection() == Qt::RightToLeft) {
+            placement = placement == ZzSplitPlacement::Before
+                ? ZzSplitPlacement::After : ZzSplitPlacement::Before;
+        }
+        const auto temp = target->d_ptr->splitGroup(targetGroup,
+            horizontal ? Qt::Horizontal : Qt::Vertical, placement, {}, false);
         if (!temp.has_value()) return zzCrossTransferFailure(ZzCore::ZzErrorCode::InvalidState, QStringLiteral("target capacity exceeded"));
-        const auto result = run(source, sourceGroup, sourceIndex, target, temp.value(), targetIndex, ZzWorkspaceDropZone::Center);
-        if (!result) target->removeEmptyGroup(temp.value());
+        auto *sourceTabs = source->tabWidget(sourceGroup);
+        QWidget *const movedPage = sourceTabs != nullptr
+            && sourceIndex >= 0 && sourceIndex < sourceTabs->count()
+            ? sourceTabs->widget(sourceIndex) : nullptr;
+        const ZzWorkspacePageId movedId = source->pageId(movedPage);
+        const bool activeChanged = target->activeGroupId() != temp.value();
+        const auto result = run(source, sourceGroup, sourceIndex, target, temp.value(), targetIndex, ZzWorkspaceDropZone::Center, false);
+        if (!result) {
+            if (!guardedTarget.isNull()) {
+                guardedTarget->d_ptr->removeEmptyGroup(temp.value());
+            }
+            return result;
+        }
+        if (emitSignals && !guardedSource.isNull() && !guardedTarget.isNull()) {
+            Q_EMIT guardedTarget->groupAdded(temp.value());
+            if (guardedTarget.isNull()) return result;
+            Q_EMIT guardedTarget->layoutChanged();
+            if (guardedTarget.isNull()) return result;
+            if (activeChanged) {
+                Q_EMIT guardedTarget->activeGroupChanged(temp.value());
+                if (guardedTarget.isNull()) return result;
+            }
+            Q_EMIT guardedTarget->tabTransferCommitted(
+                guardedSource, sourceGroup, temp.value(), movedPage, movedId, zone);
+        }
         return result;
     }
     auto *const sourcePrivate = source->d_ptr.get();
@@ -386,8 +416,6 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     }
     const bool activeChanged = targetPrivate->activeId != targetGroup;
     targetPrivate->activeId = targetGroup;
-    Q_EMIT guardedTarget->tabTransferCommitted(
-        guardedSource, sourceGroup, targetGroup, guardedPage, id, zone);
     if (guardedSource.isNull() || guardedTarget.isNull()
         || guardedPage.isNull() || sourceTabs.isNull() || targetTabs.isNull()
         || targetTabs->indexOf(guardedPage) < 0
@@ -414,8 +442,12 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
                      : QStringLiteral("cross-workspace rollback failed"));
     }
     // The notification is a commit point only after both sides still match.
-    if (activeChanged && !guardedTarget.isNull()) {
+    if (emitSignals && activeChanged && !guardedTarget.isNull()) {
         Q_EMIT guardedTarget->activeGroupChanged(targetGroup);
+    }
+    if (emitSignals && !guardedTarget.isNull()) {
+        Q_EMIT guardedTarget->tabTransferCommitted(
+            guardedSource, sourceGroup, targetGroup, guardedPage, id, zone);
     }
     if (guardedSource.isNull() || guardedTarget.isNull()
         || !mappingsMatch(sourcePrivate, sourceSnapshot, guardedPage, id, layoutKey, false)
