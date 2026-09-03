@@ -265,6 +265,9 @@ set(workspace_window_coordinator_scenarios
     aboutToCloseRejectsDestroyedTargetAndPreservesPage
     aboutToCloseBlocksPublicTransferOutOfSource
     aboutToCloseBlocksPublicTabInsertionAndRemoval
+    aboutToCloseBlocksPublicTabVisibilityChanges
+    aboutToCloseBlocksDirectTabBarInsertion
+    aboutToCloseRestoresBaseClassTabVisibilitySnapshot
     aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges
     aboutToCloseRestoresBaseClassTabMutationSnapshot
     rejectedSystemCloseRollsBackAndClearsState

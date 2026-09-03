@@ -118,6 +118,7 @@ ZzTabTransferSnapshot ZzTabWidgetPrivate::snapshot(int index) const
     result.toolTip = q_ptr->tabToolTip(index);
     result.whatsThis = q_ptr->tabWhatsThis(index);
     result.enabled = q_ptr->isTabEnabled(index);
+    result.visible = tabBar->isTabVisible(index);
     result.data = tabBar->tabData(index);
     result.textColor = tabBar->tabTextColor(index);
     result.sourceIndex = index;
@@ -194,6 +195,8 @@ bool ZzTabWidgetPrivate::restoreMetadata(
         return false;
     }
     guardedTarget->setTabEnabled(index, snapshotValue.enabled);
+    static_cast<QTabWidget *>(guardedTarget.data())->setTabVisible(
+        index, snapshotValue.visible);
     index = resolveIndex();
     if (index < 0) {
         return false;

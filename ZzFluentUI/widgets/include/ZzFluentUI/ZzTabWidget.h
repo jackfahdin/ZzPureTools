@@ -61,6 +61,9 @@ public:
     /** @brief 设置标签可用状态；协调器事务期间无副作用。 */
     void setTabEnabled(int index, bool enabled);
 
+    /** @brief 设置标签可见性；协调器事务期间无副作用。 */
+    void setTabVisible(int index, bool visible);
+
     /** @brief 设置标签文本；协调器事务期间无副作用。 */
     void setTabText(int index, const QString &text);
 

@@ -54,6 +54,18 @@ public:
     /** @brief 移除标签；协调器事务期间无副作用。 */
     void removeTab(int index);
 
+    /** @brief 添加标签；协调器事务期间拒绝并返回 -1。 */
+    int addTab(const QString &text);
+
+    /** @brief 添加带图标标签；协调器事务期间拒绝并返回 -1。 */
+    int addTab(const QIcon &icon, const QString &text);
+
+    /** @brief 插入标签；协调器事务期间拒绝并返回 -1。 */
+    int insertTab(int index, const QString &text);
+
+    /** @brief 插入带图标标签；协调器事务期间拒绝并返回 -1。 */
+    int insertTab(int index, const QIcon &icon, const QString &text);
+
     /** @brief 设置当前标签；协调器事务期间无副作用。 */
     void setCurrentIndex(int index);
 
@@ -62,6 +74,9 @@ public:
 
     /** @brief 设置标签可用状态；协调器事务期间无副作用。 */
     void setTabEnabled(int index, bool enabled);
+
+    /** @brief 设置标签可见性；协调器事务期间无副作用。 */
+    void setTabVisible(int index, bool visible);
 
     /** @brief 设置标签文本；协调器事务期间无副作用。 */
     void setTabText(int index, const QString &text);

@@ -259,6 +259,12 @@ void ZzTabWidget::setTabEnabled(int index, bool enabled)
         QTabWidget::setTabEnabled(index, enabled);
 }
 
+void ZzTabWidget::setTabVisible(int index, bool visible)
+{
+    if (d_ptr->coordinatorTransactionDepth == 0)
+        QTabWidget::setTabVisible(index, visible);
+}
+
 void ZzTabWidget::setTabText(int index, const QString &text)
 {
     if (d_ptr->coordinatorTransactionDepth == 0)

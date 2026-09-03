@@ -82,6 +82,9 @@ set(zz_pure_tools_moc_headers
 add_library(ZzPureTools ${zz_pure_tools_sources})
 add_library(Zz::PureTools ALIAS ZzPureTools)
 
+target_include_directories(ZzPureTools PRIVATE
+    "${CMAKE_SOURCE_DIR}/ZzFluentUI/widgets/src")
+
 target_link_libraries(ZzPureTools
     PUBLIC
         Zz::AppCore

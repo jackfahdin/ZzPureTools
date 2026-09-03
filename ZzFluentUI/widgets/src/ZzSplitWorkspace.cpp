@@ -36,6 +36,8 @@ struct ZzCoordinatorGroupSnapshot final
     ZzTabGroupId id;
     QPointer<ZzTabWidget> tabs;
     std::vector<ZzCoordinatorTabSnapshot> pages;
+    int tabBarCount = 0;
+    std::vector<ZzTabTransferSnapshot> tabBarEntries;
     QPointer<QWidget> current;
 };
 
@@ -395,7 +397,7 @@ bool ZzSplitWorkspace::restoreGroupOrderSilently(
     return true;
 }
 
-void ZzSplitWorkspace::beginCoordinatorTransaction()
+void ZzSplitWorkspace::beginInternalTransaction()
 {
     ++d_ptr->transactionDepth;
     if (d_ptr->transactionDepth == 1) {
@@ -406,7 +408,7 @@ void ZzSplitWorkspace::beginCoordinatorTransaction()
     }
 }
 
-void ZzSplitWorkspace::endCoordinatorTransaction()
+void ZzSplitWorkspace::endInternalTransaction()
 {
     if (d_ptr->transactionDepth <= 0) return;
     --d_ptr->transactionDepth;
@@ -418,7 +420,7 @@ void ZzSplitWorkspace::endCoordinatorTransaction()
     }
 }
 
-std::shared_ptr<void> ZzSplitWorkspace::captureCoordinatorSnapshot() const
+std::shared_ptr<void> ZzSplitWorkspace::captureInternalSnapshot() const
 {
     auto snapshot = std::make_shared<ZzCoordinatorWorkspaceSnapshot>();
     snapshot->workspace = const_cast<ZzSplitWorkspace *>(this);
@@ -431,6 +433,27 @@ std::shared_ptr<void> ZzSplitWorkspace::captureCoordinatorSnapshot() const
         groupSnapshot.id = group;
         groupSnapshot.tabs = tabs;
         if (tabs != nullptr) {
+            auto *const bar = tabs->fluentTabBar();
+            groupSnapshot.tabBarCount = bar != nullptr ? bar->count() : 0;
+            if (bar != nullptr) {
+                groupSnapshot.tabBarEntries.reserve(
+                    static_cast<std::size_t>(bar->count()));
+                for (int index = 0; index < bar->count(); ++index) {
+                    auto entry = ZzTabWidgetPrivate::snapshotFor(tabs, index);
+                    if (index >= tabs->count()) {
+                        entry.page = nullptr;
+                        entry.text = bar->tabText(index);
+                        entry.icon = bar->tabIcon(index);
+                        entry.toolTip = bar->tabToolTip(index);
+                        entry.whatsThis = bar->tabWhatsThis(index);
+                        entry.data = bar->tabData(index);
+                        entry.textColor = bar->tabTextColor(index);
+                        entry.enabled = bar->isTabEnabled(index);
+                        entry.visible = bar->isTabVisible(index);
+                    }
+                    groupSnapshot.tabBarEntries.push_back(std::move(entry));
+                }
+            }
             groupSnapshot.current = tabs->currentWidget();
             groupSnapshot.pages.reserve(static_cast<std::size_t>(tabs->count()));
             for (int index = 0; index < tabs->count(); ++index) {
@@ -452,7 +475,7 @@ std::shared_ptr<void> ZzSplitWorkspace::captureCoordinatorSnapshot() const
     return snapshot;
 }
 
-bool ZzSplitWorkspace::coordinatorSnapshotMatches(
+bool ZzSplitWorkspace::internalSnapshotMatches(
     const std::shared_ptr<void> &opaque) const
 {
     const auto snapshot = std::static_pointer_cast<
@@ -481,6 +504,8 @@ bool ZzSplitWorkspace::coordinatorSnapshotMatches(
         auto *const tabs = tabWidget(group.id);
         if (tabs == nullptr || tabs != group.tabs
             || tabs->count() != static_cast<int>(group.pages.size())
+            || tabs->fluentTabBar() == nullptr
+            || tabs->fluentTabBar()->count() != group.tabBarCount
             || tabs->currentWidget() != group.current) return false;
         for (std::size_t index = 0; index < group.pages.size(); ++index) {
             const auto &expected = group.pages[index];
@@ -494,6 +519,7 @@ bool ZzSplitWorkspace::coordinatorSnapshotMatches(
                 || actual.data != expected.tab.data
                 || actual.textColor != expected.tab.textColor
                 || actual.enabled != expected.tab.enabled
+                || actual.visible != expected.tab.visible
                 || actual.pinned != expected.tab.pinned
                 || actual.modified != expected.tab.modified
                 || actual.attention != expected.tab.attention
@@ -503,11 +529,26 @@ bool ZzSplitWorkspace::coordinatorSnapshotMatches(
                 return false;
             }
         }
+        auto *const bar = tabs->fluentTabBar();
+        for (std::size_t index = 0; index < group.tabBarEntries.size(); ++index) {
+            const auto &expected = group.tabBarEntries[index];
+            if (bar->tabText(static_cast<int>(index)) != expected.text
+                || !zzCoordinatorIconMatches(
+                    bar->tabIcon(static_cast<int>(index)), expected.icon)
+                || bar->tabToolTip(static_cast<int>(index)) != expected.toolTip
+                || bar->tabWhatsThis(static_cast<int>(index)) != expected.whatsThis
+                || bar->tabData(static_cast<int>(index)) != expected.data
+                || bar->tabTextColor(static_cast<int>(index)) != expected.textColor
+                || bar->isTabEnabled(static_cast<int>(index)) != expected.enabled
+                || bar->isTabVisible(static_cast<int>(index)) != expected.visible) {
+                return false;
+            }
+        }
     }
     return true;
 }
 
-bool ZzSplitWorkspace::restoreCoordinatorSnapshot(
+bool ZzSplitWorkspace::restoreInternalSnapshot(
     const std::shared_ptr<void> &opaque)
 {
     const auto snapshot = std::static_pointer_cast<
@@ -566,6 +607,45 @@ bool ZzSplitWorkspace::restoreCoordinatorSnapshot(
         while (tabs->count() > static_cast<int>(group.pages.size())) {
             static_cast<QTabWidget *>(tabs)->removeTab(tabs->count() - 1);
         }
+        auto *const bar = tabs->fluentTabBar();
+        if (bar == nullptr) return false;
+        const auto barEntryMatches = [bar](int index,
+                                       const ZzTabTransferSnapshot &expected) {
+            return bar->tabText(index) == expected.text
+                && zzCoordinatorIconMatches(bar->tabIcon(index), expected.icon)
+                && bar->tabToolTip(index) == expected.toolTip
+                && bar->tabWhatsThis(index) == expected.whatsThis
+                && bar->tabData(index) == expected.data
+                && bar->tabTextColor(index) == expected.textColor
+                && bar->isTabEnabled(index) == expected.enabled
+                && bar->isTabVisible(index) == expected.visible;
+        };
+        int expectedIndex = 0;
+        for (int index = 0; index < bar->count();) {
+            if (expectedIndex < group.tabBarCount
+                && barEntryMatches(index,
+                    group.tabBarEntries[static_cast<std::size_t>(expectedIndex)])) {
+                ++index;
+                ++expectedIndex;
+            } else {
+                static_cast<QTabBar *>(bar)->removeTab(index);
+            }
+        }
+        while (bar->count() < group.tabBarCount) {
+            const auto &entry = group.tabBarEntries[static_cast<std::size_t>(bar->count())];
+            static_cast<QTabBar *>(bar)->addTab(entry.icon, entry.text);
+        }
+        for (int index = 0; index < group.tabBarCount; ++index) {
+            const auto &entry = group.tabBarEntries[static_cast<std::size_t>(index)];
+            static_cast<QTabBar *>(bar)->setTabText(index, entry.text);
+            static_cast<QTabBar *>(bar)->setTabIcon(index, entry.icon);
+            static_cast<QTabBar *>(bar)->setTabToolTip(index, entry.toolTip);
+            static_cast<QTabBar *>(bar)->setTabWhatsThis(index, entry.whatsThis);
+            static_cast<QTabBar *>(bar)->setTabData(index, entry.data);
+            static_cast<QTabBar *>(bar)->setTabTextColor(index, entry.textColor);
+            static_cast<QTabBar *>(bar)->setTabEnabled(index, entry.enabled);
+            static_cast<QTabBar *>(bar)->setTabVisible(index, entry.visible);
+        }
         tabs->setCurrentWidget(group.current);
     }
     for (auto connection : d_ptr->pageDestroyedConnections) {
@@ -594,7 +674,7 @@ bool ZzSplitWorkspace::restoreCoordinatorSnapshot(
     }
     d_ptr->activeId = snapshot->active;
     for (const auto &group : snapshot->groupStates) zzSyncCurrentPage(group.tabs);
-    return coordinatorSnapshotMatches(opaque);
+    return internalSnapshotMatches(opaque);
 }
 
 QByteArray ZzSplitWorkspace::saveLayout() const

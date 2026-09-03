@@ -22,14 +22,11 @@ class QDropEvent;
 class QEvent;
 class QObject;
 
-namespace ZzPureTools {
-class ZzWorkspaceWindowCoordinatorPrivate;
-}
-
 namespace ZzFluentUI {
 
 class ZzSplitWorkspacePrivate;
 class ZzWorkspaceCrossTransferTransactionPrivate;
+class ZzSplitWorkspaceTransactionPrivate;
 class ZzTabWidget;
 
 /** @brief 指定新标签组位于来源组的物理前侧或后侧。 */
@@ -301,7 +298,7 @@ protected:
 private:
     friend class ZzSplitWorkspacePrivate;
     friend class ZzWorkspaceCrossTransferTransactionPrivate;
-    friend class ZzPureTools::ZzWorkspaceWindowCoordinatorPrivate;
+    friend class ZzSplitWorkspaceTransactionPrivate;
 
     [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspaceSilently(
         const ZzTabGroupId &sourceGroup,
@@ -314,15 +311,12 @@ private:
         const ZzTabGroupId &group,
         const QList<QWidget *> &pages);
 
-    void beginCoordinatorTransaction();
-    void endCoordinatorTransaction();
-    /** @brief 捕获协调器通知期所需的完整工作区状态。 */
-    [[nodiscard]] std::shared_ptr<void> captureCoordinatorSnapshot() const;
-    /** @brief 比较协调器通知期后的完整工作区状态。 */
-    [[nodiscard]] bool coordinatorSnapshotMatches(
+    void beginInternalTransaction();
+    void endInternalTransaction();
+    [[nodiscard]] std::shared_ptr<void> captureInternalSnapshot() const;
+    [[nodiscard]] bool internalSnapshotMatches(
         const std::shared_ptr<void> &snapshot) const;
-    /** @brief 静默恢复协调器通知前的完整工作区状态。 */
-    [[nodiscard]] bool restoreCoordinatorSnapshot(
+    [[nodiscard]] bool restoreInternalSnapshot(
         const std::shared_ptr<void> &snapshot);
 
     std::unique_ptr<ZzSplitWorkspacePrivate> d_ptr;

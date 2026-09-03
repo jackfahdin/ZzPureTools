@@ -17,6 +17,7 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <private/ZzSplitWorkspaceTransactionPrivate.h>
 #include <ZzLog/ZzLog.h>
 #include <ZzPureTools/ZzApplicationWindow.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
@@ -634,7 +635,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
     std::vector<ZzWorkspaceAuditState> auditSnapshots;
     auditSnapshots.push_back({
         sourceWorkspace,
-        sourceWorkspace->captureCoordinatorSnapshot()});
+        ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::capture(sourceWorkspace)});
     for (const auto &plan : targetPlans) {
         const auto target = findWindowId(plan.snapshot.windowId);
         auto *const workspace = target != records.end() && target->shell
@@ -652,7 +653,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 })) {
             auditSnapshots.push_back({
                 workspace,
-                workspace->captureCoordinatorSnapshot()});
+                ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::capture(workspace)});
         }
     }
 
@@ -668,7 +669,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 return;
             }
             workspaces.push_back(workspace);
-            workspace->beginCoordinatorTransaction();
+            ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::begin(workspace);
         };
         freezeWorkspace(sourceWorkspace);
         for (const auto &plan : targetPlans) {
@@ -679,7 +680,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         }
         const auto thawWorkspaces = qScopeGuard([&workspaces] {
             for (const auto &workspace : workspaces) {
-                if (!workspace.isNull()) workspace->endCoordinatorTransaction();
+                if (!workspace.isNull())
+                    ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::end(workspace);
             }
         });
 
@@ -728,8 +730,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         if (notificationAuditOk) {
             for (const auto &snapshot : auditSnapshots) {
                 if (snapshot.workspace.isNull()
-                    || !snapshot.workspace->coordinatorSnapshotMatches(
-                        snapshot.state)) {
+                    || !ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::matches(
+                        snapshot.workspace, snapshot.state)) {
                     notificationAuditOk = false;
                     break;
                 }
@@ -754,7 +756,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         bool restored = true;
         for (const auto &snapshot : auditSnapshots) {
             restored = !snapshot.workspace.isNull()
-                && snapshot.workspace->restoreCoordinatorSnapshot(snapshot.state)
+                && ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::restore(
+                    snapshot.workspace, snapshot.state)
                 && restored;
         }
         resetState();
@@ -818,7 +821,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 : -1;
             const auto transferred = targetWorkspace != nullptr
                     && targetWorkspace->tabWidget(move.targetGroup) != nullptr
-                ? sourceWorkspace->transferTabToWorkspaceSilently(
+                ? ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::transferSilently(
+                    sourceWorkspace,
                     move.sourceGroup,
                     currentIndex,
                     targetWorkspace,
@@ -864,7 +868,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 const auto pages = zzRawPages(
                     plan.desiredPages, &complete);
                 if (!complete || workspace == nullptr
-                    || !workspace->restoreGroupOrderSilently(
+                    || !ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::restoreGroupOrder(
+                        workspace,
                         plan.snapshot.group, pages)) {
                     transactionSucceeded = false;
                     failureMessage =
@@ -898,7 +903,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 if (targetWorkspace == nullptr || !actualGroup.isValid()
                     || targetIndex < 0 || sourceWorkspace.isNull()
                     || sourceWorkspace->tabWidget(move.sourceGroup) == nullptr
-                    || !targetWorkspace->transferTabToWorkspaceSilently(
+                    || !ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::transferSilently(
+                        targetWorkspace,
                         actualGroup,
                         targetIndex,
                         sourceWorkspace,
@@ -917,7 +923,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 bool complete = false;
                 const auto pages = zzRawPages(snapshot.pages, &complete);
                 if (!complete || sourceWorkspace.isNull()
-                    || !sourceWorkspace->restoreGroupOrderSilently(
+                    || !ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::restoreGroupOrder(
+                        sourceWorkspace,
                         snapshot.group, pages)) {
                     restored = false;
                 }
@@ -939,7 +946,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 const auto pages = zzRawPages(
                     plan.snapshot.pages, &complete);
                 if (!complete || workspace == nullptr
-                    || !workspace->restoreGroupOrderSilently(
+                    || !ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::restoreGroupOrder(
+                        workspace,
                         plan.snapshot.group, pages)) {
                     restored = false;
                 }

@@ -301,6 +301,61 @@ ctest --preset linux-gcc-debug \
 
 ## 第 4 轮审查修复
 
+## 第 5 轮审查修复
+
+### RED
+
+新增关闭通知回归场景先在旧实现上确认失败：
+
+```text
+aboutToCloseBlocksPublicTabVisibilityChanges:
+  visibilityBlocked returned FALSE
+aboutToCloseBlocksDirectTabBarInsertion:
+  insertionBlocked returned FALSE
+aboutToCloseRestoresBaseClassTabVisibilitySnapshot:
+  !result returned FALSE
+```
+
+测试覆盖 `ZzTabWidget::setTabVisible`、`ZzTabBar::addTab`/
+`insertTab` 的派生公开入口，以及通过 `QTabWidget` 基类绕过后关闭
+审计拒绝并恢复页面可见性、身份和展示元数据。直接构造带页面的独立
+`QTabBar` 条目会破坏 Qt 的 tab/page 数量不变量，因此该非法状态不进入
+协调器回收路径；FluentUI 私有快照仍保存并恢复该条目序列。
+
+### 实现
+
+- 为 `ZzTabBar` 添加 `addTab`、`insertTab`、`setTabVisible` 冻结包装，为
+  `ZzTabWidget` 添加 `setTabVisible` 冻结包装。
+- 工作区快照保存页面可见性、每个标签栏的完整条目序列与 count；审计失败时
+  删除非快照条目并逐项恢复条目、页面可见性、元数据、布局键与稳定身份。
+- 新增 FluentUI 源码私有的
+  `ZzSplitWorkspaceTransactionPrivate` 作为事务桥接。PureTools 只调用该
+  内部桥接；`ZzSplitWorkspace` 公共头不再前置声明、friend 或引用
+  `ZzPureTools::ZzWorkspaceWindowCoordinatorPrivate`，也不再暴露协调器命名
+  的快照/事务 API。
+
+### GREEN
+
+```text
+cmake --build --preset linux-gcc-debug \
+  --target ZzWorkspaceWindowCoordinatorTest ZzMultiWindowIsolationTest \
+           ZzWorkspaceCrossTransferTest --parallel 2
+  PASS
+
+ctest --preset linux-gcc-debug \
+  -R '^puretools\.(workspace-window-coordinator|multi-window)|^fluent\.workspace-cross-transfer' \
+  --output-on-failure
+  66/66 passed
+
+ctest --preset linux-gcc-debug \
+  -R '^(architecture\.public-headers|architecture\.boundaries)$' \
+  --output-on-failure
+  2/2 passed
+
+git diff --check
+  PASS
+```
+
 ### RED
 
 针对第 3 轮复审剩余的 1 项 Important，在 `00a3e41` 行为上新增三项真实回归：

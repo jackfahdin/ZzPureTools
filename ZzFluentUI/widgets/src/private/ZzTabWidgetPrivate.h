@@ -27,6 +27,7 @@ struct ZzTabTransferSnapshot final
     QColor textColor;
     int sourceIndex = -1;
     bool enabled = true;
+    bool visible = true;
     bool pinned = false;
     bool modified = false;
     bool attention = false;
