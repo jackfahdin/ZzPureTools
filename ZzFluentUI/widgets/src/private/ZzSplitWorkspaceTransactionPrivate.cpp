@@ -17,6 +17,18 @@ void ZzSplitWorkspaceTransactionPrivate::end(ZzSplitWorkspace *workspace)
     if (workspace != nullptr) workspace->endInternalTransaction();
 }
 
+void ZzSplitWorkspaceTransactionPrivate::beginCloseNotification(
+    ZzSplitWorkspace *workspace)
+{
+    if (workspace != nullptr) workspace->beginCloseNotificationTransaction();
+}
+
+void ZzSplitWorkspaceTransactionPrivate::endCloseNotification(
+    ZzSplitWorkspace *workspace)
+{
+    if (workspace != nullptr) workspace->endCloseNotificationTransaction();
+}
+
 std::shared_ptr<void> ZzSplitWorkspaceTransactionPrivate::capture(
     const ZzSplitWorkspace *workspace)
 {

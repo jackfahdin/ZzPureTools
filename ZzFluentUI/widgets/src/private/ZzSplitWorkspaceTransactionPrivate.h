@@ -18,6 +18,10 @@ class ZZ_FLUENT_UI_EXPORT ZzSplitWorkspaceTransactionPrivate final
 public:
     static void begin(ZzSplitWorkspace *workspace);
     static void end(ZzSplitWorkspace *workspace);
+    /** @brief 以关闭通知语义冻结公开标签转移。 */
+    static void beginCloseNotification(ZzSplitWorkspace *workspace);
+    /** @brief 结束关闭通知语义冻结。 */
+    static void endCloseNotification(ZzSplitWorkspace *workspace);
     [[nodiscard]] static std::shared_ptr<void> capture(
         const ZzSplitWorkspace *workspace);
     [[nodiscard]] static bool matches(

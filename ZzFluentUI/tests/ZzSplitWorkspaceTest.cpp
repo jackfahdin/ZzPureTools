@@ -408,6 +408,27 @@ private Q_SLOTS:
         QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
     }
 
+    void transferIsBlockedDuringCloseNotificationTransaction()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto source = workspace.groupIds().constFirst();
+        const auto target = workspace.splitGroup(
+            source, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(target.has_value());
+        auto *page = new QWidget;
+        workspace.tabWidget(source)->addTab(page, QStringLiteral("close"));
+
+        ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::beginCloseNotification(
+            &workspace);
+        QVERIFY(!workspace.transferTab(source, 0, target.value()));
+        QCOMPARE(workspace.tabWidget(source)->indexOf(page), 0);
+        ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::endCloseNotification(
+            &workspace);
+
+        QVERIFY(workspace.transferTab(source, 0, target.value()));
+        QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
+    }
+
     void tabBarV2DropCommitsAndRejectsReplay()
     {
         ZzFluentUI::ZzSplitWorkspace source;

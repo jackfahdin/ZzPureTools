@@ -307,16 +307,19 @@ void ZzTabWidget::setTabWhatsThis(int index, const QString &text)
         QTabWidget::setTabWhatsThis(index, text);
 }
 
-void ZzTabWidget::beginCoordinatorTransaction()
+void ZzTabWidget::beginCoordinatorTransaction(bool blockPublicTransfers)
 {
     ++d_ptr->coordinatorTransactionDepth;
+    if (blockPublicTransfers) ++d_ptr->publicTransferBlockDepth;
     if (d_ptr->tabBar != nullptr) d_ptr->tabBar->beginCoordinatorTransaction();
 }
 
-void ZzTabWidget::endCoordinatorTransaction()
+void ZzTabWidget::endCoordinatorTransaction(bool blockPublicTransfers)
 {
     if (d_ptr->coordinatorTransactionDepth <= 0) return;
     --d_ptr->coordinatorTransactionDepth;
+    if (blockPublicTransfers && d_ptr->publicTransferBlockDepth > 0)
+        --d_ptr->publicTransferBlockDepth;
     if (d_ptr->tabBar != nullptr) d_ptr->tabBar->endCoordinatorTransaction();
 }
 
@@ -355,6 +358,7 @@ bool ZzTabWidget::transferTabTo(
     int sourceIndex,
     int targetIndex)
 {
+    if (d_ptr->publicTransferBlockDepth != 0) return false;
     auto findWorkspace = [](QObject *object) -> ZzSplitWorkspace * {
         for (; object != nullptr; object = object->parent()) {
             if (auto *workspace = qobject_cast<ZzSplitWorkspace *>(object)) {

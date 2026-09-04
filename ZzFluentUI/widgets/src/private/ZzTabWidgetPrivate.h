@@ -84,6 +84,8 @@ public:
 
     bool silentTransfer = false;
     int coordinatorTransactionDepth = 0;
+    /** @brief 关闭通知期间拒绝公开容器间转移的嵌套深度。 */
+    int publicTransferBlockDepth = 0;
     /** @brief 标记内部转移原语，允许其在协调器冻结期间完成必要写入。 */
     bool directTransferActive = false;
 

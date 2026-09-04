@@ -267,8 +267,8 @@ private:
 
     void setSilentTransfer(bool value) noexcept;
     [[nodiscard]] bool silentTransfer() const noexcept;
-    void beginCoordinatorTransaction();
-    void endCoordinatorTransaction();
+    void beginCoordinatorTransaction(bool blockPublicTransfers = false);
+    void endCoordinatorTransaction(bool blockPublicTransfers = false);
     std::unique_ptr<ZzTabWidgetPrivate> d_ptr;
 };
 

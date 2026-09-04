@@ -256,6 +256,7 @@ bool ZzSplitWorkspace::transferTab(
     const ZzTabGroupId &target,
     int targetIndex)
 {
+    if (d_ptr->publicTransferBlockDepth != 0) return false;
     QPointer<ZzSplitWorkspace> guardedWorkspace(this);
     ++d_ptr->transactionDepth;
     const bool transferred = d_ptr->transferTab(
@@ -429,32 +430,50 @@ bool ZzSplitWorkspace::restoreGroupOrderSilently(
     return true;
 }
 
-void ZzSplitWorkspace::beginInternalTransaction()
+void ZzSplitWorkspace::beginInternalTransaction(bool blockPublicTransfers)
 {
     ++d_ptr->transactionDepth;
-    if (d_ptr->transactionDepth == 1) {
+    if (blockPublicTransfers) ++d_ptr->publicTransferBlockDepth;
+    if (d_ptr->transactionDepth == 1 || blockPublicTransfers) {
         for (const auto &group : groupIds()) {
             if (auto *tabs = tabWidget(group); tabs != nullptr)
-                tabs->beginCoordinatorTransaction();
+                tabs->beginCoordinatorTransaction(blockPublicTransfers);
         }
     }
 }
 
-void ZzSplitWorkspace::endInternalTransaction()
+void ZzSplitWorkspace::endInternalTransaction(bool blockPublicTransfers)
 {
     if (d_ptr->transactionDepth <= 0) return;
     --d_ptr->transactionDepth;
+    if (blockPublicTransfers && d_ptr->publicTransferBlockDepth > 0)
+        --d_ptr->publicTransferBlockDepth;
     if (d_ptr->transactionDepth == 0) {
         for (const auto &group : groupIds()) {
             if (auto *tabs = tabWidget(group); tabs != nullptr)
-                tabs->endCoordinatorTransaction();
+                tabs->endCoordinatorTransaction(blockPublicTransfers);
         }
         d_ptr->processPendingEmptyGroups();
         if (d_ptr->activePagePublishPending) {
             d_ptr->activePagePublishPending = false;
             d_ptr->publishActivePage();
         }
+    } else if (blockPublicTransfers) {
+        for (const auto &group : groupIds()) {
+            if (auto *tabs = tabWidget(group); tabs != nullptr)
+                tabs->endCoordinatorTransaction(true);
+        }
     }
+}
+
+void ZzSplitWorkspace::beginCloseNotificationTransaction()
+{
+    beginInternalTransaction(true);
+}
+
+void ZzSplitWorkspace::endCloseNotificationTransaction()
+{
+    endInternalTransaction(true);
 }
 
 std::shared_ptr<void> ZzSplitWorkspace::captureInternalSnapshot() const

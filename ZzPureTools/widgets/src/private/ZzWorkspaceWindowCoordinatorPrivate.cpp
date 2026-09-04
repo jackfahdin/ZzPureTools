@@ -671,7 +671,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
                 return;
             }
             workspaces.push_back(workspace);
-            ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::begin(workspace);
+            ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::beginCloseNotification(
+                workspace);
         };
         freezeWorkspace(sourceWorkspace);
         for (const auto &plan : targetPlans) {
@@ -683,7 +684,8 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
         const auto thawWorkspaces = qScopeGuard([&workspaces] {
             for (const auto &workspace : workspaces) {
                 if (!workspace.isNull())
-                    ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::end(workspace);
+                    ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::endCloseNotification(
+                        workspace);
             }
         });
 

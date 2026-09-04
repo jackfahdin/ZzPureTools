@@ -350,6 +350,8 @@ public:
     mutable QHash<ZzWorkspacePageId, QPointer<QWidget>> pagesById;
     mutable QHash<QWidget *, QMetaObject::Connection> pageDestroyedConnections;
     int transactionDepth = 0;
+    /** @brief 关闭通知期间拒绝公开标签转移的嵌套深度。 */
+    int publicTransferBlockDepth = 0;
 
     friend class ZzWorkspaceCrossTransferTransactionPrivate;
 };

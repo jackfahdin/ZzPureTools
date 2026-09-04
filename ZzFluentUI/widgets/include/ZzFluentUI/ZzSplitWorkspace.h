@@ -323,8 +323,12 @@ private:
         const ZzTabGroupId &group,
         const QList<QWidget *> &pages);
 
-    void beginInternalTransaction();
-    void endInternalTransaction();
+    void beginInternalTransaction(bool blockPublicTransfers = false);
+    void endInternalTransaction(bool blockPublicTransfers = false);
+    /** @brief 开启关闭通知专用冻结，拒绝公开标签转移。 */
+    void beginCloseNotificationTransaction();
+    /** @brief 结束关闭通知专用冻结并恢复公开标签转移。 */
+    void endCloseNotificationTransaction();
     [[nodiscard]] std::shared_ptr<void> captureInternalSnapshot() const;
     [[nodiscard]] bool internalSnapshotMatches(
         const std::shared_ptr<void> &snapshot) const;
