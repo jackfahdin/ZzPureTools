@@ -68,6 +68,8 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzWorkspaceNavigationIntegrationTransactionPrivate.cpp
     widgets/src/private/ZzWorkspaceLayoutCodecPrivate.cpp
     widgets/src/private/ZzWorkspaceLayoutStatePrivate.cpp
+    widgets/src/private/ZzWorkspaceTopologyStatePrivate.cpp
+    widgets/src/private/ZzWorkspaceTopologyCodecPrivate.cpp
     widgets/src/private/ZzWorkspaceLayoutTransactionPrivate.cpp
     widgets/src/private/ZzWorkspaceShellPrivate.cpp
 )

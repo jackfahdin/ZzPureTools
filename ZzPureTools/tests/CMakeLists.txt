@@ -124,6 +124,30 @@ set_tests_properties(puretools.workspace-layout-codec-private PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzWorkspaceTopologyCodecPrivateTest
+    ZzWorkspaceTopologyCodecPrivateTest.cpp
+    ../widgets/src/private/ZzWorkspaceTopologyCodecPrivate.cpp
+    ../widgets/src/private/ZzWorkspaceTopologyStatePrivate.cpp
+)
+target_include_directories(ZzWorkspaceTopologyCodecPrivateTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../widgets/include")
+target_link_libraries(ZzWorkspaceTopologyCodecPrivateTest PRIVATE
+    Qt6::Test
+    Qt6::Core
+    Qt6::Widgets
+    Zz::Core
+    Zz::FluentFoundation
+)
+set_target_properties(ZzWorkspaceTopologyCodecPrivateTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzWorkspaceTopologyCodecPrivateTest)
+zz_enable_sanitizers(ZzWorkspaceTopologyCodecPrivateTest)
+add_test(NAME puretools.workspace-topology-codec-private
+    COMMAND ZzWorkspaceTopologyCodecPrivateTest)
+set_tests_properties(puretools.workspace-topology-codec-private PROPERTIES
+    LABELS "unit;puretools;workspace"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzWorkspaceScreenshotTest ZzWorkspaceScreenshotTest.cpp)
 target_link_libraries(ZzWorkspaceScreenshotTest PRIVATE
     Qt6::Test
