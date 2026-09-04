@@ -256,7 +256,6 @@ bool ZzSplitWorkspace::transferTab(
     const ZzTabGroupId &target,
     int targetIndex)
 {
-    if (d_ptr->transactionDepth != 0) return false;
     QPointer<ZzSplitWorkspace> guardedWorkspace(this);
     ++d_ptr->transactionDepth;
     const bool transferred = d_ptr->transferTab(

@@ -28,6 +28,7 @@
 #include <ZzFluentUI/ZzTabWidget.h>
 
 #include "../widgets/src/private/ZzTabBarPrivate.h"
+#include "../widgets/src/private/ZzSplitWorkspaceTransactionPrivate.h"
 #include "../widgets/src/private/ZzWorkspaceTransferRegistryPrivate.h"
 
 namespace {
@@ -387,6 +388,24 @@ private Q_SLOTS:
                      .value<ZzFluentUI::ZzWorkspacePageId>().isValid());
         QVERIFY(emptyPublishedBeforeIdentityCleanup);
         QVERIFY(!workspace.pageForId(secondId));
+    }
+
+    void ordinaryTransferIsAllowedDuringInternalTransaction()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto source = workspace.groupIds().constFirst();
+        const auto target = workspace.splitGroup(
+            source, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(target.has_value());
+        auto *page = new QWidget;
+        workspace.tabWidget(source)->addTab(page, QStringLiteral("transaction"));
+
+        ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::begin(&workspace);
+        const bool transferred = workspace.transferTab(source, 0, target.value());
+        ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::end(&workspace);
+
+        QVERIFY(transferred);
+        QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
     }
 
     void tabBarV2DropCommitsAndRejectsReplay()

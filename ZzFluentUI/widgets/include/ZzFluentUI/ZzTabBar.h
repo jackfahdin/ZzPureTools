@@ -18,6 +18,7 @@ class QContextMenuEvent;
 namespace ZzFluentUI {
 
 class ZzTabBarPrivate;
+class ZzTabWidgetPrivate;
 class ZzTabWidget;
 
 /**
@@ -191,6 +192,7 @@ protected:
 
 private:
     friend class ZzTabWidget;
+    friend class ZzTabWidgetPrivate;
     friend class ZzSplitWorkspace;
     void beginCoordinatorTransaction();
     void endCoordinatorTransaction();

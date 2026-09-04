@@ -86,81 +86,99 @@ ZzTabBar::~ZzTabBar() = default;
 
 void ZzTabBar::removeTab(int index)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::removeTab(index);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::removeTab(index);
 }
 
 int ZzTabBar::addTab(const QString &text)
 {
-    return d_ptr->coordinatorTransactionDepth == 0 ? QTabBar::addTab(text) : -1;
+    return d_ptr->coordinatorTransactionDepth == 0
+            || d_ptr->directTransferActive
+        ? QTabBar::addTab(text) : -1;
 }
 
 int ZzTabBar::addTab(const QIcon &icon, const QString &text)
 {
     return d_ptr->coordinatorTransactionDepth == 0
+            || d_ptr->directTransferActive
         ? QTabBar::addTab(icon, text) : -1;
 }
 
 int ZzTabBar::insertTab(int index, const QString &text)
 {
     return d_ptr->coordinatorTransactionDepth == 0
+            || d_ptr->directTransferActive
         ? QTabBar::insertTab(index, text) : -1;
 }
 
 int ZzTabBar::insertTab(int index, const QIcon &icon, const QString &text)
 {
     return d_ptr->coordinatorTransactionDepth == 0
+            || d_ptr->directTransferActive
         ? QTabBar::insertTab(index, icon, text) : -1;
 }
 
 void ZzTabBar::setCurrentIndex(int index)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setCurrentIndex(index);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::setCurrentIndex(index);
 }
 
 void ZzTabBar::moveTab(int from, int to)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::moveTab(from, to);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::moveTab(from, to);
 }
 
 void ZzTabBar::setTabEnabled(int index, bool enabled)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabEnabled(index, enabled);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
+        QTabBar::setTabEnabled(index, enabled);
 }
 
 void ZzTabBar::setTabVisible(int index, bool visible)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabBar::setTabVisible(index, visible);
 }
 
 void ZzTabBar::setTabText(int index, const QString &text)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabText(index, text);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::setTabText(index, text);
 }
 
 void ZzTabBar::setTabIcon(int index, const QIcon &icon)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabIcon(index, icon);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::setTabIcon(index, icon);
 }
 
 void ZzTabBar::setTabToolTip(int index, const QString &tip)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabToolTip(index, tip);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::setTabToolTip(index, tip);
 }
 
 void ZzTabBar::setTabWhatsThis(int index, const QString &text)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabWhatsThis(index, text);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::setTabWhatsThis(index, text);
 }
 
 void ZzTabBar::setTabData(int index, const QVariant &value)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabData(index, value);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabBar::setTabData(index, value);
 }
 
 void ZzTabBar::setTabTextColor(int index, const QColor &color)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabBar::setTabTextColor(index, color);
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
+        QTabBar::setTabTextColor(index, color);
 }
 
 void ZzTabBar::beginCoordinatorTransaction()

@@ -4,9 +4,12 @@
 
 #include <QtCore/QPointer>
 #include <QtCore/QSignalBlocker>
+#include <QtCore/QScopeGuard>
 
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+
+#include "ZzTabBarPrivate.h"
 
 namespace ZzFluentUI {
 
@@ -231,6 +234,41 @@ bool ZzTabWidgetPrivate::transferToDirect(
         || !target->fluentTabBar()->isTabTransferEnabled()) {
         return false;
     }
+
+    const QPointer<ZzTabWidget> sourceOwner = q_ptr;
+    const QPointer<ZzTabWidget> targetOwner = target;
+    const bool sourceTransferWasActive = directTransferActive;
+    const bool targetTransferWasActive = target->d_ptr->directTransferActive;
+    const bool sourceBarTransferWasActive = q_ptr->fluentTabBar() != nullptr
+        && q_ptr->fluentTabBar()->d_ptr->directTransferActive;
+    const bool targetBarTransferWasActive = target->fluentTabBar() != nullptr
+        && target->fluentTabBar()->d_ptr->directTransferActive;
+    directTransferActive = true;
+    target->d_ptr->directTransferActive = true;
+    if (q_ptr->fluentTabBar() != nullptr)
+        q_ptr->fluentTabBar()->d_ptr->directTransferActive = true;
+    if (target->fluentTabBar() != nullptr)
+        target->fluentTabBar()->d_ptr->directTransferActive = true;
+    const auto restoreTransferAccess = qScopeGuard([
+        sourceOwner,
+        targetOwner,
+        sourceTransferWasActive,
+        targetTransferWasActive,
+        sourceBarTransferWasActive,
+        targetBarTransferWasActive] {
+        if (!sourceOwner.isNull()) {
+            sourceOwner->d_ptr->directTransferActive = sourceTransferWasActive;
+            if (sourceOwner->fluentTabBar() != nullptr)
+                sourceOwner->fluentTabBar()->d_ptr->directTransferActive =
+                    sourceBarTransferWasActive;
+        }
+        if (!targetOwner.isNull()) {
+            targetOwner->d_ptr->directTransferActive = targetTransferWasActive;
+            if (targetOwner->fluentTabBar() != nullptr)
+                targetOwner->fluentTabBar()->d_ptr->directTransferActive =
+                    targetBarTransferWasActive;
+        }
+    });
 
     const ZzTabTransferSnapshot transfer = snapshot(sourceIndex);
     if (transfer.page.isNull()) {

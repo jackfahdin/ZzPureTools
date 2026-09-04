@@ -130,6 +130,8 @@ public:
     bool tabTransferEnabled = true;
     bool dragging = false;
     int coordinatorTransactionDepth = 0;
+    /** @brief 标记内部转移原语，允许其在协调器冻结期间完成必要写入。 */
+    bool directTransferActive = false;
     QByteArray activeToken;
     QToolButton *newTabButton = nullptr;
 };

@@ -56,7 +56,8 @@ bool ZzTabWidget::isTabPinned(int index) const
 
 void ZzTabWidget::setTabPinned(int index, bool value)
 {
-    if (d_ptr->coordinatorTransactionDepth != 0) return;
+    if (d_ptr->coordinatorTransactionDepth != 0
+        && !d_ptr->directTransferActive) return;
     if (index < 0 || index >= count()) {
         return;
     }
@@ -78,7 +79,8 @@ bool ZzTabWidget::isTabModified(int index) const
 
 void ZzTabWidget::setTabModified(int index, bool value)
 {
-    if (d_ptr->coordinatorTransactionDepth != 0) return;
+    if (d_ptr->coordinatorTransactionDepth != 0
+        && !d_ptr->directTransferActive) return;
     if (index < 0 || index >= count()) {
         return;
     }
@@ -98,7 +100,8 @@ bool ZzTabWidget::hasTabAttention(int index) const
 
 void ZzTabWidget::setTabAttention(int index, bool value)
 {
-    if (d_ptr->coordinatorTransactionDepth != 0) return;
+    if (d_ptr->coordinatorTransactionDepth != 0
+        && !d_ptr->directTransferActive) return;
     if (index < 0 || index >= count()) {
         return;
     }
@@ -118,7 +121,8 @@ bool ZzTabWidget::isTabCloseEnabled(int index) const
 
 void ZzTabWidget::setTabCloseEnabled(int index, bool value)
 {
-    if (d_ptr->coordinatorTransactionDepth != 0) return;
+    if (d_ptr->coordinatorTransactionDepth != 0
+        && !d_ptr->directTransferActive) return;
     if (index < 0 || index >= count()) {
         return;
     }
@@ -132,7 +136,8 @@ void ZzTabWidget::setTabCloseEnabled(int index, bool value)
 
 void ZzTabWidget::setPageTitle(int index, const QString &title)
 {
-    if (d_ptr->coordinatorTransactionDepth != 0) return;
+    if (d_ptr->coordinatorTransactionDepth != 0
+        && !d_ptr->directTransferActive) return;
     if (index < 0 || index >= count()) {
         return;
     }
@@ -212,6 +217,7 @@ void ZzTabWidget::setSilentTransfer(bool value) noexcept
 int ZzTabWidget::addTab(QWidget *page, const QString &label)
 {
     return d_ptr->coordinatorTransactionDepth != 0
+            && !d_ptr->directTransferActive
         ? -1 : QTabWidget::addTab(page, label);
 }
 
@@ -219,6 +225,7 @@ int ZzTabWidget::addTab(
     QWidget *page, const QIcon &icon, const QString &label)
 {
     return d_ptr->coordinatorTransactionDepth != 0
+            && !d_ptr->directTransferActive
         ? -1 : QTabWidget::addTab(page, icon, label);
 }
 
@@ -226,6 +233,7 @@ int ZzTabWidget::insertTab(
     int index, QWidget *page, const QString &label)
 {
     return d_ptr->coordinatorTransactionDepth != 0
+            && !d_ptr->directTransferActive
         ? -1 : QTabWidget::insertTab(index, page, label);
 }
 
@@ -233,59 +241,69 @@ int ZzTabWidget::insertTab(
     int index, QWidget *page, const QIcon &icon, const QString &label)
 {
     return d_ptr->coordinatorTransactionDepth != 0
+            && !d_ptr->directTransferActive
         ? -1 : QTabWidget::insertTab(index, page, icon, label);
 }
 
 void ZzTabWidget::clear()
 {
-    if (d_ptr->coordinatorTransactionDepth == 0) QTabWidget::clear();
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive) QTabWidget::clear();
 }
 
 void ZzTabWidget::setCurrentIndex(int index)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setCurrentIndex(index);
 }
 
 void ZzTabWidget::setCurrentWidget(QWidget *page)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setCurrentWidget(page);
 }
 
 void ZzTabWidget::setTabEnabled(int index, bool enabled)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setTabEnabled(index, enabled);
 }
 
 void ZzTabWidget::setTabVisible(int index, bool visible)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setTabVisible(index, visible);
 }
 
 void ZzTabWidget::setTabText(int index, const QString &text)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setTabText(index, text);
 }
 
 void ZzTabWidget::setTabIcon(int index, const QIcon &icon)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setTabIcon(index, icon);
 }
 
 void ZzTabWidget::setTabToolTip(int index, const QString &tip)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setTabToolTip(index, tip);
 }
 
 void ZzTabWidget::setTabWhatsThis(int index, const QString &text)
 {
-    if (d_ptr->coordinatorTransactionDepth == 0)
+    if (d_ptr->coordinatorTransactionDepth == 0
+        || d_ptr->directTransferActive)
         QTabWidget::setTabWhatsThis(index, text);
 }
 
@@ -309,7 +327,8 @@ bool ZzTabWidget::silentTransfer() const noexcept
 
 void ZzTabWidget::removeTab(int index)
 {
-    if (d_ptr->coordinatorTransactionDepth != 0) return;
+    if (d_ptr->coordinatorTransactionDepth != 0
+        && !d_ptr->directTransferActive) return;
     if (index < 0 || index >= count()) {
         QTabWidget::removeTab(index);
         return;
