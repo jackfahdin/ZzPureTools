@@ -421,6 +421,8 @@ private Q_SLOTS:
         ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::beginCloseNotification(
             &workspace);
         QVERIFY(!workspace.transferTab(source, 0, target.value()));
+        QVERIFY(!workspace.tabWidget(source)->transferTabTo(
+            workspace.tabWidget(target.value()), 0));
         QCOMPARE(workspace.tabWidget(source)->indexOf(page), 0);
         ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::endCloseNotification(
             &workspace);
