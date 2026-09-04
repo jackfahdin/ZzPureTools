@@ -210,6 +210,11 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("workspace shell does not belong to the application window"));
     }
+    if (handle.shell->splitWorkspace() == nullptr) {
+        return zzCoordinatorFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace shell has no split workspace"));
+    }
     if (primary && std::any_of(
             d_ptr->records.cbegin(),
             d_ptr->records.cend(),

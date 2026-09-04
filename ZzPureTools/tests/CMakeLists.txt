@@ -229,6 +229,8 @@ function(zz_configure_puretools_window_test_runtime test_name)
         "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:ZzLog>"
         "${zz_puretools_window_library_path_variable}=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
 endfunction()
+zz_configure_puretools_window_test_runtime(
+    puretools.workspace-public-api)
 set(builder_scenarios
     buildFreezesModulesAndPages
     buildRejectsDuplicateRoutesBeforeStartingModules
@@ -315,7 +317,9 @@ set(workspace_window_coordinator_scenarios
     topologyPersistenceRoundTripsDeferredWindowsAndPages
     topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories
     topologyRestoreRejectsResolverResultsWithoutLeakingObjects
+    topologyRestoreCleansIncompleteFactoryHandle
     topologyRestoreFallsBackToPrimaryAndConvergesGeometry
+    topologyRestoreValidatesMaximizedState
     topologyRestoreRejectsMinimumSizeThatCannotFitScreen
     layoutKeyConflictIsRejectedBeforeAnyPageMoves
     secondPageFailureRollsBackIdentityMetadataAndOrder

@@ -232,6 +232,23 @@ private:
     return result;
 }
 
+/**
+ * @brief 放弃非法解析页面的删除责任，避免析构外部宿主或跨线程控件。
+ * @param page 解析器交出的页面所有权。
+ */
+void zzDiscardRejectedPage(std::unique_ptr<QWidget> *page) noexcept
+{
+    if (page == nullptr || !*page) return;
+    QWidget *const rejected = page->release();
+    if (rejected == nullptr) return;
+    if (rejected->parent() != nullptr) return;
+    if (rejected->thread() != QThread::currentThread()) {
+        rejected->deleteLater();
+        return;
+    }
+    delete rejected;
+}
+
 [[nodiscard]] bool zzTopologyHasMagic(
     const QByteArray &state,
     QByteArrayView magic) noexcept
@@ -1506,7 +1523,6 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     }
     QSet<QString> allLayoutKeys;
     QSet<QWidget *> existingPages;
-    QHash<QUuid, int> topologyWindowIndexes;
     std::vector<ZzRawSplitInfo> rawSplitInfos;
     rawSplitInfos.reserve(static_cast<std::size_t>(topology.windows.size()));
     for (int windowIndex = 0; windowIndex < topology.windows.size(); ++windowIndex) {
@@ -1524,7 +1540,6 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
                 QStringLiteral("workspace tree depth does not match its state"));
         }
-        topologyWindowIndexes.insert(window.windowId, windowIndex);
         const QSet<QString> &groups = splitInfo.groups;
         QSet<QString> stateKeys;
         for (const auto &saved : splitInfo.pages) stateKeys.insert(saved.key);
@@ -1552,22 +1567,11 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         const auto &window = topology.windows.at(windowIndex);
         for (const auto &page : window.pages) {
             for (const auto &origin : page.origins) {
-                const auto originWindow = topologyWindowIndexes.constFind(
-                    origin.windowId);
-                if (originWindow == topologyWindowIndexes.cend()) {
+                if (origin.index < 0
+                    || origin.index > ZzWorkspaceTopologyStatePrivate::MaximumPages) {
                     return zzCoordinatorFailure<void>(
                         ZzCore::ZzErrorCode::InvalidArgument,
-                        QStringLiteral("workspace page origin window is unknown"));
-                }
-                const auto &originSplitInfo = rawSplitInfos.at(
-                    static_cast<std::size_t>(originWindow.value()));
-                const auto orders = originSplitInfo.ordersByGroup.constFind(
-                    origin.groupId);
-                if (orders == originSplitInfo.ordersByGroup.cend()
-                    || origin.index < 0 || !orders->contains(origin.index)) {
-                    return zzCoordinatorFailure<void>(
-                        ZzCore::ZzErrorCode::InvalidArgument,
-                        QStringLiteral("workspace page origin group or order is invalid"));
+                        QStringLiteral("workspace page origin index is invalid"));
                 }
             }
         }
@@ -1630,25 +1634,25 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         StagedWindow staged;
         staged.handle = created.value();
         staged.stateIndex = static_cast<int>(index);
-        if (staged.handle.window.isNull() || staged.handle.shell.isNull()
-            || staged.handle.shell->splitWorkspace() == nullptr) {
+        stagedWindows.push_back(std::move(staged));
+        auto &stagedWindow = stagedWindows.back();
+        if (stagedWindow.handle.window.isNull() || stagedWindow.handle.shell.isNull()
+            || stagedWindow.handle.shell->splitWorkspace() == nullptr) {
             cleanup();
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("workspace window factory returned an incomplete window"));
         }
-        auto *const workspace = staged.handle.shell->splitWorkspace();
+        auto *const workspace = stagedWindow.handle.shell->splitWorkspace();
         bool empty = true;
         for (const auto &group : workspace->groupIds()) {
             auto *const tabs = workspace->tabWidget(group);
             empty = empty && tabs != nullptr && tabs->count() == 0;
         }
         if (!empty) {
-            stagedWindows.push_back(std::move(staged));
             cleanup();
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("workspace window factory returned business pages"));
         }
-        stagedWindows.push_back(std::move(staged));
     }
 
     for (qsizetype index = 0; index < topology.windows.size(); ++index) {
@@ -1658,6 +1662,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             try {
                 auto resolved = pageResolver(QStringView(pageState.layoutKey));
                 if (!resolved) {
+                    zzDiscardRejectedPage(&page);
                     cleanup();
                     return ZzCore::ZzResult<void>::failure(resolved.error());
                 }
@@ -1674,13 +1679,14 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             }
             if (!page || page->parent() != nullptr
                 || page->thread() != q_ptr->thread()) {
+                zzDiscardRejectedPage(&page);
                 cleanup();
                 return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                     QStringLiteral("workspace page resolver must return unique parentless pages"));
             }
             if (existingPages.contains(page.get())) {
                 // 解析器错误地重复返回同一裸指针时，避免两个 unique_ptr 二次释放。
-                static_cast<void>(page.release());
+                zzDiscardRejectedPage(&page);
                 cleanup();
                 return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                     QStringLiteral("workspace page resolver must return unique parentless pages"));
@@ -1790,6 +1796,11 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         staged.handle.window->setWindowState(window.maximized
             ? staged.handle.window->windowState() | Qt::WindowMaximized
             : staged.handle.window->windowState() & ~Qt::WindowMaximized);
+        if (staged.handle.window->isMaximized() != window.maximized) {
+            cleanup();
+            return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::Unsupported,
+                QStringLiteral("workspace maximized state could not be applied"));
+        }
         const QRect actualGeometry = staged.handle.window->geometry();
         const QRect available = screen->availableGeometry();
         if (!actualGeometry.isValid()
