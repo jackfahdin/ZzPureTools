@@ -12,6 +12,7 @@
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzTabGroupId.h>
+#include <ZzFluentUI/ZzEmptyGroupPolicy.h>
 #include <ZzFluentUI/ZzWorkspacePageId.h>
 #include <ZzCore/ZzResult.h>
 
@@ -72,6 +73,12 @@ public:
 
     /** @brief 返回当前活动标签组标识。 */
     [[nodiscard]] ZzTabGroupId activeGroupId() const;
+
+    /** @brief 设置空组自动处理策略；最后一个组始终保留。 */
+    void setEmptyGroupPolicy(ZzEmptyGroupPolicy policy) noexcept;
+
+    /** @brief 返回当前空组自动处理策略。 */
+    [[nodiscard]] ZzEmptyGroupPolicy emptyGroupPolicy() const noexcept;
 
     /**
      * @brief 将已有标签组设为活动组并把焦点移入其标签容器。
@@ -237,6 +244,11 @@ Q_SIGNALS:
                              const ZzWorkspacePageId &, const QPoint &, const QSize &);
     /** @brief 活动标签组实际变化后发出。 */
     void activeGroupChanged(const ZzTabGroupId &id);
+    /** @brief 活动页面实际变化后发出，页面销毁时先发出空页面。 */
+    void activePageChanged(QWidget *page, const ZzWorkspacePageId &id);
+    /** @brief 页面修改或注意状态实际变化后发出。 */
+    void pageActivityChanged(QWidget *page, const ZzWorkspacePageId &id,
+                             bool modified, bool attention);
 
     /** @brief 新标签组成功加入树后发出。 */
     void groupAdded(const ZzTabGroupId &id);

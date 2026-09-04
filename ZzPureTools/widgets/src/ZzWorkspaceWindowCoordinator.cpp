@@ -299,6 +299,23 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
                 page,
                 pageId);
         });
+    record.activePageConnection = QObject::connect(
+        handle.shell->splitWorkspace(),
+        &ZzFluentUI::ZzSplitWorkspace::activePageChanged,
+        this,
+        [this, window = record.windowIdentity](
+            QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id) {
+            Q_EMIT activePageChanged(window, page, id);
+        });
+    record.pageActivityConnection = QObject::connect(
+        handle.shell->splitWorkspace(),
+        &ZzFluentUI::ZzSplitWorkspace::pageActivityChanged,
+        this,
+        [this, window = record.windowIdentity](
+            QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id,
+            bool modified, bool attention) {
+            Q_EMIT pageActivityChanged(window, page, id, modified, attention);
+        });
     handle.window->setCloseAcceptanceCallback(
         [coordinator = QPointer<ZzWorkspaceWindowCoordinator>(this),
             window = record.windowIdentity] {

@@ -250,6 +250,7 @@ set_target_properties(ZzWorkspaceWindowCoordinatorTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceWindowCoordinatorTest)
 zz_enable_sanitizers(ZzWorkspaceWindowCoordinatorTest)
 set(workspace_window_coordinator_scenarios
+    forwardsWorkspaceActivityWithWindowIdentityAndDisconnectsOnUnregister
     aboutToCloseRejectsReentrantCloseAndUnregister
     committedTransferMayDestroySourceWorkspaceSafely
     nonMonotonicOriginsRestoreExactOrder

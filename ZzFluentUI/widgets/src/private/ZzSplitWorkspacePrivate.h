@@ -8,6 +8,7 @@
 
 #include <QtCore/QList>
 #include <QtCore/QHash>
+#include <QtCore/QSet>
 #include <QtCore/QPointer>
 #include <QtCore/QRect>
 #include <QtCore/QString>
@@ -292,6 +293,12 @@ public:
 
     /** @brief 为标签容器及其标签栏安装工作区拖放过滤。 */
     void prepareTabs(ZzTabWidget *tabs);
+    /** @brief 在最外层事务提交后处理待清理空组。 */
+    void processPendingEmptyGroups();
+    /** @brief 发布当前活动组页面变化并保持幂等。 */
+    void publishActivePage();
+    /** @brief 绑定页面销毁清理，并保证活动页清空先于身份清理。 */
+    void observePageDestruction(QWidget *page) const;
 
     /** @brief 为真实标签拖拽创建并写入一次性实例令牌。 */
 
@@ -325,6 +332,14 @@ public:
     QVBoxLayout *rootLayout = nullptr;
     std::unique_ptr<ZzNode> root;
     ZzTabGroupId activeId;
+    ZzEmptyGroupPolicy emptyGroupPolicy = ZzEmptyGroupPolicy::RemoveUnlessLast;
+    QSet<ZzTabGroupId> pendingEmptyGroups;
+    QSet<ZzTabWidget *> preparedTabs;
+    QHash<ZzTabWidget *, QMetaObject::Connection> preparedTabConnections;
+    mutable QPointer<QWidget> activePage;
+    mutable QWidget *activePageIdentity = nullptr;
+    bool activePagePublishPending = false;
+    bool emptyGroupProcessingScheduled = false;
     QPointer<QWidget> dropOverlay;
     QByteArray activeTransferToken;
     std::vector<ZzWorkspacePageKey> pageKeys;

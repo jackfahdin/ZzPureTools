@@ -67,6 +67,8 @@ public:
         QMetaObject::Connection shellDestroyedConnection;
         QMetaObject::Connection tearOffConnection;
         QMetaObject::Connection transferConnection;
+        QMetaObject::Connection activePageConnection;
+        QMetaObject::Connection pageActivityConnection;
         bool primary = false;
         ZzCloseState closeState = ZzCloseState::Idle;
         bool internalCloseDispatch = false;

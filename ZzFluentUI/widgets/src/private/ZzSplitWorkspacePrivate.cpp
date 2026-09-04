@@ -2188,21 +2188,7 @@ ZzWorkspacePageId ZzSplitWorkspacePrivate::pageId(const QWidget *page) const
     QWidget *const mutablePage = const_cast<QWidget *>(page);
     pageIds.insert(mutablePage, id);
     pagesById.insert(id, mutablePage);
-    pageDestroyedConnections.insert(
-        mutablePage,
-        QObject::connect(
-            mutablePage,
-            &QObject::destroyed,
-            q_ptr,
-            [this](QObject *object) {
-                auto *const widget = static_cast<QWidget *>(object);
-                const auto it = pageIds.find(widget);
-                if (it != pageIds.end()) {
-                    pagesById.remove(it.value());
-                    pageIds.erase(it);
-                }
-                pageDestroyedConnections.remove(widget);
-            }));
+    observePageDestruction(mutablePage);
     return id;
 }
 
@@ -2246,6 +2232,10 @@ ZzSplitWorkspacePrivate::~ZzSplitWorkspacePrivate()
     }
     for (auto it = pageDestroyedConnections.begin();
          it != pageDestroyedConnections.end(); ++it) {
+        QObject::disconnect(it.value());
+    }
+    for (auto it = preparedTabConnections.cbegin();
+         it != preparedTabConnections.cend(); ++it) {
         QObject::disconnect(it.value());
     }
 }
@@ -2486,9 +2476,6 @@ bool ZzSplitWorkspacePrivate::transferTab(
     const ZzTabGroupId &target,
     int targetIndex)
 {
-    if (transactionDepth != 0) {
-        return false;
-    }
     QPointer<ZzSplitWorkspace> guardedWorkspace = q_ptr;
     ZzNode *const sourceNode = findLeaf(source);
     ZzNode *const targetNode = findLeaf(target);
@@ -3188,7 +3175,12 @@ void ZzSplitWorkspacePrivate::handleFocusChanged(QWidget *focused)
             const ZzTabGroupId id = std::get<ZzLeaf>(node->value).id;
             if (activeId != id) {
                 activeId = id;
+                QPointer<ZzSplitWorkspace> guardedWorkspace = q_ptr;
                 Q_EMIT q_ptr->activeGroupChanged(id);
+                if (guardedWorkspace.isNull()) {
+                    return;
+                }
+                publishActivePage();
             }
             return;
         }
@@ -3464,11 +3456,55 @@ void ZzSplitWorkspacePrivate::restoreNodeSizes(
 
 void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
 {
-    if (tabs == nullptr) {
+    if (tabs == nullptr || preparedTabs.contains(tabs)) {
         return;
     }
+    preparedTabs.insert(tabs);
+    preparedTabConnections.insert(tabs,
+        QObject::connect(tabs, &QObject::destroyed, q_ptr,
+        [this, tabs] {
+            preparedTabs.remove(tabs);
+            preparedTabConnections.remove(tabs);
+        }));
     tabs->installEventFilter(q_ptr);
     tabs->fluentTabBar()->installEventFilter(q_ptr);
+    QObject::connect(tabs, &QTabWidget::currentChanged, q_ptr,
+        [this, tabs](int) {
+            const auto node = findLeaf(tabs);
+            if (node != nullptr
+                && std::get<ZzLeaf>(node->value).id == activeId) {
+                if (transactionDepth == 0) publishActivePage();
+                else activePagePublishPending = true;
+            }
+            if (tabs->count() == 0 && node != nullptr) {
+                pendingEmptyGroups.insert(std::get<ZzLeaf>(node->value).id);
+                if (transactionDepth == 0 && !emptyGroupProcessingScheduled) {
+                    emptyGroupProcessingScheduled = true;
+                    QMetaObject::invokeMethod(q_ptr, [this] {
+                        emptyGroupProcessingScheduled = false;
+                        processPendingEmptyGroups();
+                    }, Qt::QueuedConnection);
+                }
+            }
+        });
+    QObject::connect(tabs, &ZzTabWidget::tabModifiedChanged, q_ptr,
+        [this, tabs](int index, bool modified) {
+            if (index < 0 || index >= tabs->count()) return;
+            QWidget *const page = tabs->widget(index);
+            if (page != nullptr) {
+                Q_EMIT q_ptr->pageActivityChanged(
+                    page, pageId(page), modified, tabs->hasTabAttention(index));
+            }
+        });
+    QObject::connect(tabs, &ZzTabWidget::tabAttentionChanged, q_ptr,
+        [this, tabs](int index, bool attention) {
+            if (index < 0 || index >= tabs->count()) return;
+            QWidget *const page = tabs->widget(index);
+            if (page != nullptr) {
+                Q_EMIT q_ptr->pageActivityChanged(
+                    page, pageId(page), tabs->isTabModified(index), attention);
+            }
+        });
     QObject::connect(tabs, &ZzTabWidget::tearOffRequested, q_ptr,
         [this, tabs](int index, QWidget *page, const QPoint &position) {
             const auto *node = findLeaf(tabs);
@@ -3477,6 +3513,58 @@ void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
             const QSize recommended = page != nullptr ? page->sizeHint().expandedTo(QSize(1, 1)) : QSize(1, 1);
             Q_EMIT q_ptr->tabTearOffRequested(group, index, id, position, recommended);
         });
+}
+
+void ZzSplitWorkspacePrivate::publishActivePage()
+{
+    QWidget *page = nullptr;
+    if (auto *node = findLeaf(activeId); node != nullptr) {
+        if (auto *tabs = std::get<ZzLeaf>(node->value).tabs.data()) {
+            page = tabs->currentWidget();
+        }
+    }
+    if (activePageIdentity == page) return;
+    activePage = page;
+    activePageIdentity = page;
+    Q_EMIT q_ptr->activePageChanged(
+        page, page != nullptr ? pageId(page) : ZzWorkspacePageId{});
+}
+
+void ZzSplitWorkspacePrivate::observePageDestruction(QWidget *page) const
+{
+    if (page == nullptr) return;
+    QObject::disconnect(pageDestroyedConnections.take(page));
+    pageDestroyedConnections.insert(
+        page,
+        QObject::connect(page, &QObject::destroyed, q_ptr,
+            [this](QObject *object) {
+                auto *const widget = static_cast<QWidget *>(object);
+                if (activePageIdentity == widget) {
+                    activePage = nullptr;
+                    activePageIdentity = nullptr;
+                    Q_EMIT q_ptr->activePageChanged(nullptr, {});
+                }
+                const auto it = pageIds.find(widget);
+                if (it != pageIds.end()) {
+                    pagesById.remove(it.value());
+                    pageIds.erase(it);
+                }
+                pageDestroyedConnections.remove(widget);
+            }));
+}
+
+void ZzSplitWorkspacePrivate::processPendingEmptyGroups()
+{
+    if (transactionDepth != 0 || pendingEmptyGroups.isEmpty()) return;
+    const auto groups = std::exchange(pendingEmptyGroups, {});
+    if (emptyGroupPolicy == ZzEmptyGroupPolicy::Keep) return;
+    for (const auto &id : groups) {
+        if (groupIds().size() <= 1) break;
+        auto *tabs = q_ptr->tabWidget(id);
+        if (tabs != nullptr && tabs->count() == 0) {
+            q_ptr->removeEmptyGroup(id);
+        }
+    }
 }
 
 ZzTabGroupId ZzSplitWorkspacePrivate::groupAt(

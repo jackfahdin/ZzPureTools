@@ -22,7 +22,18 @@ struct DepthGuard final {
     ZzSplitWorkspacePrivate *priv = nullptr;
     DepthGuard(ZzSplitWorkspace *value, ZzSplitWorkspacePrivate *p)
         : workspace(value), priv(p) { ++priv->transactionDepth; }
-    ~DepthGuard() { if (!workspace.isNull()) { --priv->transactionDepth; } }
+    ~DepthGuard()
+    {
+        if (workspace.isNull()) return;
+        --priv->transactionDepth;
+        if (priv->transactionDepth != 0) return;
+        priv->processPendingEmptyGroups();
+        if (workspace.isNull()) return;
+        if (priv->activePagePublishPending) {
+            priv->activePagePublishPending = false;
+            priv->publishActivePage();
+        }
+    }
 };
 
 struct TabsSnapshot final {
@@ -92,17 +103,7 @@ void rebuildPageConnections(ZzSplitWorkspacePrivate *workspace)
     workspace->pageDestroyedConnections.clear();
     for (auto it = workspace->pageIds.cbegin(); it != workspace->pageIds.cend(); ++it) {
         QWidget *const page = it.key();
-        workspace->pageDestroyedConnections.insert(page,
-            QObject::connect(page, &QObject::destroyed, workspace->q_ptr,
-                [workspace](QObject *object) {
-                    auto *const widget = static_cast<QWidget *>(object);
-                    const auto found = workspace->pageIds.find(widget);
-                    if (found != workspace->pageIds.end()) {
-                        workspace->pagesById.remove(found.value());
-                        workspace->pageIds.erase(found);
-                    }
-                    workspace->pageDestroyedConnections.remove(widget);
-                }));
+        workspace->observePageDestruction(page);
     }
 }
 
@@ -398,18 +399,7 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     }
     targetPrivate->pageIds.insert(guardedPage, id);
     targetPrivate->pagesById.insert(id, guardedPage);
-    targetPrivate->pageDestroyedConnections.insert(
-        guardedPage,
-        QObject::connect(guardedPage, &QObject::destroyed, guardedTarget,
-            [targetPrivate](QObject *object) {
-                auto *const widget = static_cast<QWidget *>(object);
-                const auto it = targetPrivate->pageIds.find(widget);
-                if (it != targetPrivate->pageIds.end()) {
-                    targetPrivate->pagesById.remove(it.value());
-                    targetPrivate->pageIds.erase(it);
-                }
-                targetPrivate->pageDestroyedConnections.remove(widget);
-            }));
+    targetPrivate->observePageDestruction(guardedPage);
     if (!layoutKey.isEmpty()) {
         sourcePrivate->pageKeys.erase(std::remove_if(
             sourcePrivate->pageKeys.begin(), sourcePrivate->pageKeys.end(),

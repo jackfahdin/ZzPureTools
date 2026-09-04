@@ -176,6 +176,8 @@ void ZzWorkspaceWindowCoordinatorPrivate::removeRecord(
     QObject::disconnect(record.shellDestroyedConnection);
     QObject::disconnect(record.tearOffConnection);
     QObject::disconnect(record.transferConnection);
+    QObject::disconnect(record.activePageConnection);
+    QObject::disconnect(record.pageActivityConnection);
     if (record.window) record.window->removeEventFilter(q_ptr);
     if (record.shell) record.shell->removeEventFilter(q_ptr);
     records.erase(records.begin() + static_cast<std::ptrdiff_t>(index));

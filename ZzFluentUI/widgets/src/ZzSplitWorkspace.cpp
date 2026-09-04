@@ -125,6 +125,8 @@ ZzSplitWorkspace::ZzSplitWorkspace(QWidget *parent)
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzSplitWorkspacePrivate>(this))
 {
+    qRegisterMetaType<ZzTabGroupId>();
+    qRegisterMetaType<ZzWorkspacePageId>();
 }
 
 ZzSplitWorkspace::~ZzSplitWorkspace() = default;
@@ -137,6 +139,16 @@ QList<ZzTabGroupId> ZzSplitWorkspace::groupIds() const
 ZzTabGroupId ZzSplitWorkspace::activeGroupId() const
 {
     return d_ptr->activeId;
+}
+
+void ZzSplitWorkspace::setEmptyGroupPolicy(ZzEmptyGroupPolicy policy) noexcept
+{
+    d_ptr->emptyGroupPolicy = policy;
+}
+
+ZzEmptyGroupPolicy ZzSplitWorkspace::emptyGroupPolicy() const noexcept
+{
+    return d_ptr->emptyGroupPolicy;
 }
 
 bool ZzSplitWorkspace::setActiveGroup(const ZzTabGroupId &id)
@@ -158,6 +170,10 @@ bool ZzSplitWorkspace::setActiveGroup(const ZzTabGroupId &id)
     }
     if (changed) {
         Q_EMIT activeGroupChanged(id);
+        if (guardedWorkspace.isNull()) {
+            return true;
+        }
+        d_ptr->publishActivePage();
     }
     return true;
 }
@@ -219,6 +235,10 @@ bool ZzSplitWorkspace::removeEmptyGroup(const ZzTabGroupId &id)
         if (guardedWorkspace.isNull()) {
             return true;
         }
+        d_ptr->publishActivePage();
+        if (guardedWorkspace.isNull()) {
+            return true;
+        }
     }
     Q_EMIT layoutChanged();
     return true;
@@ -236,7 +256,20 @@ bool ZzSplitWorkspace::transferTab(
     const ZzTabGroupId &target,
     int targetIndex)
 {
-    return d_ptr->transferTab(source, sourceIndex, target, targetIndex);
+    if (d_ptr->transactionDepth != 0) return false;
+    QPointer<ZzSplitWorkspace> guardedWorkspace(this);
+    ++d_ptr->transactionDepth;
+    const bool transferred = d_ptr->transferTab(
+        source, sourceIndex, target, targetIndex);
+    if (guardedWorkspace.isNull()) return transferred;
+    --d_ptr->transactionDepth;
+    d_ptr->processPendingEmptyGroups();
+    if (guardedWorkspace.isNull()) return transferred;
+    if (d_ptr->activePagePublishPending) {
+        d_ptr->activePagePublishPending = false;
+        d_ptr->publishActivePage();
+    }
+    return transferred;
 }
 
 bool ZzSplitWorkspace::setPageLayoutKey(
@@ -416,6 +449,11 @@ void ZzSplitWorkspace::endInternalTransaction()
         for (const auto &group : groupIds()) {
             if (auto *tabs = tabWidget(group); tabs != nullptr)
                 tabs->endCoordinatorTransaction();
+        }
+        d_ptr->processPendingEmptyGroups();
+        if (d_ptr->activePagePublishPending) {
+            d_ptr->activePagePublishPending = false;
+            d_ptr->publishActivePage();
         }
     }
 }
@@ -698,6 +736,10 @@ bool ZzSplitWorkspace::restoreLayout(const QByteArray &state)
             return true;
         }
     }
+    d_ptr->publishActivePage();
+    if (guardedWorkspace.isNull()) {
+        return true;
+    }
     Q_EMIT layoutChanged();
     return true;
 }
@@ -737,6 +779,8 @@ bool ZzSplitWorkspace::moveTabToDropZone(
     }
     if (result.activeChanged) {
         Q_EMIT activeGroupChanged(result.destinationId);
+        if (guardedWorkspace.isNull()) return true;
+        d_ptr->publishActivePage();
         if (guardedWorkspace.isNull()) return true;
     }
     Q_EMIT tabDropCommitted(

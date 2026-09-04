@@ -9,6 +9,7 @@
 
 #include <ZzPureTools/ZzPureToolsExport.h>
 #include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
+#include <ZzFluentUI/ZzWorkspacePageId.h>
 #include <ZzPureTools/ZzWorkspaceWindowHandle.h>
 #include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 #include <ZzPureTools/ZzWorkspaceWindowFactory.h>
@@ -106,6 +107,17 @@ Q_SIGNALS:
 
     /** @brief 找不到任何回收目标时按稳定顺序报告保留的页面。 */
     void orphanedPages(const QList<QWidget *> &pages);
+
+    /** @brief 转发登记工作区活动页面并附加窗口身份。 */
+    void activePageChanged(
+        ZzApplicationWindow *window, QWidget *page,
+        const ZzFluentUI::ZzWorkspacePageId &id);
+
+    /** @brief 转发登记工作区页面修改和注意状态并附加窗口身份。 */
+    void pageActivityChanged(
+        ZzApplicationWindow *window, QWidget *page,
+        const ZzFluentUI::ZzWorkspacePageId &id,
+        bool modified, bool attention);
 
 private:
     friend class ZzPureApplicationPrivate;

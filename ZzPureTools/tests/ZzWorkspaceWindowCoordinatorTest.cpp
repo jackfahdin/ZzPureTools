@@ -154,6 +154,63 @@ class ZzWorkspaceWindowCoordinatorTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void forwardsWorkspaceActivityWithWindowIdentityAndDisconnectsOnUnregister()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto *workspace = shell->splitWorkspace();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(workspace != nullptr);
+        QVERIFY(coordinator != nullptr);
+        QVERIFY(coordinator->registerWindow(
+            {window, shell.get()}, zzConfiguration()));
+        const auto group = workspace->groupIds().constFirst();
+        QCOMPARE(workspace->activeGroupId(), group);
+        auto *page = new QWidget;
+        auto *otherPage = new QWidget;
+        workspace->tabWidget(group)->addTab(page, QStringLiteral("activity"));
+        workspace->tabWidget(group)->addTab(otherPage, QStringLiteral("other"));
+        QCOMPARE(workspace->tabWidget(group)->count(), 2);
+        QCOMPARE(workspace->tabWidget(group)->currentIndex(), 0);
+        const auto pageId = workspace->pageId(page);
+        QSignalSpy activeSpy(
+            coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::activePageChanged);
+        QSignalSpy workspaceActiveSpy(
+            workspace, &ZzFluentUI::ZzSplitWorkspace::activePageChanged);
+        QSignalSpy activitySpy(
+            coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::pageActivityChanged);
+
+        workspace->tabWidget(group)->setCurrentIndex(1);
+        workspace->tabWidget(group)->setCurrentIndex(0);
+        QCOMPARE(workspaceActiveSpy.size(), 2);
+        QCOMPARE(activeSpy.size(), 2);
+        QCOMPARE(activeSpy.constLast().at(0).value<ZzPureTools::ZzApplicationWindow *>(), window);
+        QCOMPARE(activeSpy.constLast().at(1).value<QWidget *>(), page);
+        QCOMPARE(activeSpy.constLast().at(2).value<ZzFluentUI::ZzWorkspacePageId>(), pageId);
+        workspace->tabWidget(group)->setTabModified(0, true);
+        QCOMPARE(activitySpy.size(), 1);
+        QCOMPARE(activitySpy.constLast().at(0)
+                     .value<ZzPureTools::ZzApplicationWindow *>(), window);
+        QCOMPARE(activitySpy.constLast().at(1).value<QWidget *>(), page);
+        QCOMPARE(activitySpy.constLast().at(2).value<ZzFluentUI::ZzWorkspacePageId>(), pageId);
+        QCOMPARE(activitySpy.constLast().at(3).toBool(), true);
+        QCOMPARE(activitySpy.constLast().at(4).toBool(), false);
+
+        QVERIFY(coordinator->unregisterWindow(window));
+        workspace->tabWidget(group)->setTabAttention(0, true);
+        workspace->tabWidget(group)->setCurrentIndex(-1);
+        QCOMPARE(activeSpy.size(), 2);
+        QCOMPARE(activitySpy.size(), 1);
+        application.beginShutdown();
+    }
+
     void aboutToCloseRejectsReentrantCloseAndUnregister()
     {
         auto &application = zzApplication();
@@ -1007,6 +1064,12 @@ private Q_SLOTS:
         auto *firstOrigin = firstOriginShell->splitWorkspace();
         auto *current = currentShell->splitWorkspace();
         auto *thirdOrigin = thirdOriginShell->splitWorkspace();
+        firstOrigin->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        current->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        thirdOrigin->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto firstOriginGroup = firstOrigin->groupIds().constFirst();
         const auto currentGroup = current->groupIds().constFirst();
         const auto thirdRoot = thirdOrigin->groupIds().constFirst();
@@ -1091,6 +1154,12 @@ private Q_SLOTS:
         auto *closing = closingShell->splitWorkspace();
         auto *unrelatedOrigin = unrelatedOriginShell->splitWorkspace();
         auto *unrelatedCurrent = unrelatedCurrentShell->splitWorkspace();
+        first->setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        closing->setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        unrelatedOrigin->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        unrelatedCurrent->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto firstGroup = first->groupIds().constFirst();
         const auto closingGroup = closing->groupIds().constFirst();
         const auto unrelatedOriginGroup =
@@ -1156,6 +1225,8 @@ private Q_SLOTS:
             {sourceResult.value(), sourceShell.get()}, zzConfiguration()));
         auto *target = targetShell->splitWorkspace();
         auto *source = sourceShell->splitWorkspace();
+        target->setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        source->setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto targetGroup = target->groupIds().constFirst();
         const auto sourceGroup = source->groupIds().constFirst();
         auto *const page = new QWidget;
@@ -1256,6 +1327,8 @@ private Q_SLOTS:
         auto *target = targetShell->splitWorkspace();
         auto *source = sourceShell->splitWorkspace();
         auto *secondOrigin = secondOriginShell->splitWorkspace();
+        secondOrigin->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto targetGroup = target->groupIds().constFirst();
         const auto sourceGroup = source->groupIds().constFirst();
         const auto secondOriginRoot = secondOrigin->groupIds().constFirst();
@@ -1649,6 +1722,8 @@ private Q_SLOTS:
         QVERIFY(coordinator->registerWindow(
             {secondResult.value(), secondShell.get()}, zzConfiguration()));
         auto *firstWorkspace = firstShell->splitWorkspace();
+        firstWorkspace->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto activeGroup = firstWorkspace->groupIds().constFirst();
         const auto originGroup = firstWorkspace->splitGroup(
             activeGroup, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
@@ -1690,6 +1765,12 @@ private Q_SLOTS:
         auto primaryShell = std::move(primaryShellResult).value();
         auto originShell = std::move(originShellResult).value();
         auto currentShell = std::move(currentShellResult).value();
+        primaryShell->splitWorkspace()->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        originShell->splitWorkspace()->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+        currentShell->splitWorkspace()->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         auto *coordinator = application.workspaceWindowCoordinator();
         QVERIFY(coordinator->registerWindow(
             {primary, primaryShell.get()}, zzConfiguration(), true));
@@ -1905,6 +1986,8 @@ private Q_SLOTS:
         QVERIFY(sourceShellResult);
         auto targetShell = std::move(targetShellResult).value();
         auto sourceShell = std::move(sourceShellResult).value();
+        sourceShell->splitWorkspace()->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         auto *coordinator = application.workspaceWindowCoordinator();
         QVERIFY(coordinator->registerWindow(
             {target, targetShell.get()}, zzConfiguration(), true));
@@ -1986,6 +2069,8 @@ private Q_SLOTS:
         auto *firstWorkspace = firstShell->splitWorkspace();
         auto *currentWorkspace = currentShell->splitWorkspace();
         auto *secondOriginWorkspace = secondOriginShell->splitWorkspace();
+        secondOriginWorkspace->setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto firstGroup = firstWorkspace->groupIds().constFirst();
         const auto currentGroup = currentWorkspace->groupIds().constFirst();
         const auto secondOriginRoot =

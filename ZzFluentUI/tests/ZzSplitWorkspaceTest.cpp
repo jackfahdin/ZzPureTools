@@ -23,6 +23,7 @@
 #include <QtWidgets/QSplitter>
 
 #include <ZzFluentUI/ZzSplitWorkspace.h>
+#include <ZzFluentUI/ZzEmptyGroupPolicy.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 
@@ -193,6 +194,201 @@ class ZzSplitWorkspaceTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void defaultEmptyGroupPolicyRemovesNonFinalGroup()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        QCOMPARE(
+            workspace.emptyGroupPolicy(),
+            ZzFluentUI::ZzEmptyGroupPolicy::RemoveUnlessLast);
+        const auto source = workspace.groupIds().constFirst();
+        const auto target = workspace.splitGroup(
+            source, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(target.has_value());
+        auto *page = new QWidget;
+        workspace.tabWidget(source)->addTab(page, QStringLiteral("default"));
+
+        delete page;
+        QCoreApplication::processEvents();
+
+        QCOMPARE(workspace.groupIds(), QList{target.value()});
+    }
+
+    void emptyGroupPolicyHandlesLastPageRemoval()
+    {
+        const QList<ZzFluentUI::ZzEmptyGroupPolicy> removingPolicies{
+            ZzFluentUI::ZzEmptyGroupPolicy::Remove,
+            ZzFluentUI::ZzEmptyGroupPolicy::RemoveUnlessLast};
+        for (const auto policy : removingPolicies) {
+            ZzFluentUI::ZzSplitWorkspace workspace;
+            const auto source = workspace.groupIds().constFirst();
+            const auto target = workspace.splitGroup(
+                source, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+            QVERIFY(target.has_value());
+            auto *page = new QWidget;
+            workspace.tabWidget(source)->addTab(page, QStringLiteral("last"));
+            workspace.setEmptyGroupPolicy(policy);
+
+            delete page;
+            QCoreApplication::processEvents();
+
+            QCOMPARE(workspace.groupIds(), QList{target.value()});
+        }
+
+        ZzFluentUI::ZzSplitWorkspace keepWorkspace;
+        const auto keepSource = keepWorkspace.groupIds().constFirst();
+        const auto keepTarget = keepWorkspace.splitGroup(
+            keepSource, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(keepTarget.has_value());
+        auto *keptPage = new QWidget;
+        keepWorkspace.tabWidget(keepSource)->addTab(
+            keptPage, QStringLiteral("kept"));
+        keepWorkspace.setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+
+        delete keptPage;
+        QCoreApplication::processEvents();
+
+        QCOMPARE(keepWorkspace.groupIds().size(), 2);
+        QVERIFY(keepWorkspace.tabWidget(keepSource) != nullptr);
+    }
+
+    void emptyGroupPolicyAlwaysKeepsFinalGroup()
+    {
+        const QList<ZzFluentUI::ZzEmptyGroupPolicy> policies{
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep,
+            ZzFluentUI::ZzEmptyGroupPolicy::Remove,
+            ZzFluentUI::ZzEmptyGroupPolicy::RemoveUnlessLast};
+        for (const auto policy : policies) {
+            ZzFluentUI::ZzSplitWorkspace workspace;
+            const auto onlyGroup = workspace.groupIds().constFirst();
+            auto *page = new QWidget;
+            workspace.tabWidget(onlyGroup)->addTab(page, QStringLiteral("only"));
+            workspace.setEmptyGroupPolicy(policy);
+
+            delete page;
+            QCoreApplication::processEvents();
+
+            QCOMPARE(workspace.groupIds(), QList{onlyGroup});
+            QCOMPARE(workspace.tabWidget(onlyGroup)->count(), 0);
+        }
+    }
+
+    void emptyGroupPolicyHandlesLastPageTransferAfterCommit()
+    {
+        const QList<ZzFluentUI::ZzEmptyGroupPolicy> removingPolicies{
+            ZzFluentUI::ZzEmptyGroupPolicy::Remove,
+            ZzFluentUI::ZzEmptyGroupPolicy::RemoveUnlessLast};
+        for (const auto policy : removingPolicies) {
+            ZzFluentUI::ZzSplitWorkspace workspace;
+            const auto source = workspace.groupIds().constFirst();
+            const auto target = workspace.splitGroup(
+                source, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+            QVERIFY(target.has_value());
+            auto *page = new QWidget;
+            workspace.tabWidget(source)->addTab(page, QStringLiteral("moved"));
+            workspace.setEmptyGroupPolicy(policy);
+
+            QVERIFY(workspace.transferTab(source, 0, target.value()));
+
+            QCOMPARE(workspace.groupIds(), QList{target.value()});
+            QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
+        }
+
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto source = workspace.groupIds().constFirst();
+        const auto target = workspace.splitGroup(
+            source, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(target.has_value());
+        auto *page = new QWidget;
+        workspace.tabWidget(source)->addTab(page, QStringLiteral("kept"));
+        workspace.setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
+
+        QVERIFY(workspace.transferTab(source, 0, target.value()));
+
+        QCOMPARE(workspace.groupIds().size(), 2);
+        QVERIFY(workspace.tabWidget(source) != nullptr);
+    }
+
+    void activePageAndActivitySignalsTrackOnlyRealChanges()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto firstGroup = workspace.groupIds().constFirst();
+        const auto secondGroup = workspace.splitGroup(
+            firstGroup, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(secondGroup.has_value());
+        auto *firstPage = new QWidget;
+        auto *secondPage = new QWidget;
+        auto *thirdPage = new QWidget;
+        auto *firstTabs = workspace.tabWidget(firstGroup);
+        auto *secondTabs = workspace.tabWidget(secondGroup.value());
+        QSignalSpy activeSpy(
+            &workspace, &ZzFluentUI::ZzSplitWorkspace::activePageChanged);
+        QSignalSpy activitySpy(
+            &workspace, &ZzFluentUI::ZzSplitWorkspace::pageActivityChanged);
+        firstTabs->addTab(firstPage, QStringLiteral("first"));
+        QCOMPARE(activeSpy.size(), 1);
+        firstTabs->addTab(secondPage, QStringLiteral("second"));
+        secondTabs->addTab(thirdPage, QStringLiteral("third"));
+        const auto firstId = workspace.pageId(firstPage);
+        const auto secondId = workspace.pageId(secondPage);
+        const auto thirdId = workspace.pageId(thirdPage);
+        activeSpy.clear();
+
+        QVERIFY(workspace.setActiveGroup(secondGroup.value()));
+        QCOMPARE(activeSpy.size(), 1);
+        QCOMPARE(activeSpy.constFirst().at(0).value<QWidget *>(), thirdPage);
+        QCOMPARE(activeSpy.constFirst().at(1).value<ZzFluentUI::ZzWorkspacePageId>(), thirdId);
+        QVERIFY(workspace.setActiveGroup(secondGroup.value()));
+        QCOMPARE(activeSpy.size(), 1);
+
+        QVERIFY(workspace.setActiveGroup(firstGroup));
+        QCOMPARE(activeSpy.size(), 2);
+        QCOMPARE(activeSpy.constLast().at(0).value<QWidget *>(), firstPage);
+        QCOMPARE(activeSpy.constLast().at(1).value<ZzFluentUI::ZzWorkspacePageId>(), firstId);
+        firstTabs->setCurrentIndex(1);
+        QCOMPARE(activeSpy.size(), 3);
+        QCOMPARE(activeSpy.constLast().at(0).value<QWidget *>(), secondPage);
+        QCOMPARE(activeSpy.constLast().at(1).value<ZzFluentUI::ZzWorkspacePageId>(), secondId);
+        firstTabs->setCurrentIndex(1);
+        QCOMPARE(activeSpy.size(), 3);
+
+        firstTabs->setTabModified(1, true);
+        QCOMPARE(activitySpy.size(), 1);
+        QCOMPARE(activitySpy.constLast().at(0).value<QWidget *>(), secondPage);
+        QCOMPARE(activitySpy.constLast().at(1).value<ZzFluentUI::ZzWorkspacePageId>(), secondId);
+        QCOMPARE(activitySpy.constLast().at(2).toBool(), true);
+        QCOMPARE(activitySpy.constLast().at(3).toBool(), false);
+        firstTabs->setTabModified(1, true);
+        QCOMPARE(activitySpy.size(), 1);
+        firstTabs->setTabAttention(1, true);
+        QCOMPARE(activitySpy.size(), 2);
+        QCOMPARE(activitySpy.constLast().at(2).toBool(), true);
+        QCOMPARE(activitySpy.constLast().at(3).toBool(), true);
+        firstTabs->setTabAttention(1, true);
+        QCOMPARE(activitySpy.size(), 2);
+
+        bool emptyPublishedBeforeIdentityCleanup = false;
+        const auto destroyedConnection = QObject::connect(
+            &workspace, &ZzFluentUI::ZzSplitWorkspace::activePageChanged,
+            &workspace,
+            [&](QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id) {
+                if (page == nullptr && !id.isValid()) {
+                    emptyPublishedBeforeIdentityCleanup =
+                        workspace.pageForId(secondId) == secondPage;
+                }
+            });
+        const auto signalsBeforeDestroy = activeSpy.size();
+
+        delete secondPage;
+
+        QObject::disconnect(destroyedConnection);
+        QVERIFY(activeSpy.size() > signalsBeforeDestroy);
+        QVERIFY(activeSpy.at(signalsBeforeDestroy).at(0).value<QWidget *>() == nullptr);
+        QVERIFY(!activeSpy.at(signalsBeforeDestroy).at(1)
+                     .value<ZzFluentUI::ZzWorkspacePageId>().isValid());
+        QVERIFY(emptyPublishedBeforeIdentityCleanup);
+        QVERIFY(!workspace.pageForId(secondId));
+    }
+
     void tabBarV2DropCommitsAndRejectsReplay()
     {
         ZzFluentUI::ZzSplitWorkspace source;
@@ -598,7 +794,9 @@ private Q_SLOTS:
         delete missingPage;
         QVERIFY(workspace.transferTab(sourceId, 0, targetId));
         QVERIFY(workspace.transferTab(sourceId, 0, targetId));
-        QVERIFY(workspace.removeEmptyGroup(sourceId));
+        if (workspace.tabWidget(sourceId) != nullptr) {
+            QVERIFY(workspace.removeEmptyGroup(sourceId));
+        }
         QCOMPARE(workspace.groupIds(), QList {targetId});
 
         QVERIFY(workspace.restoreLayout(saved));
@@ -874,7 +1072,9 @@ private Q_SLOTS:
         const QByteArray sourceLayout = workspace.saveLayout();
 
         QVERIFY(workspace.transferTab(sourceId, 0, targetId));
-        QVERIFY(workspace.removeEmptyGroup(sourceId));
+        if (workspace.tabWidget(sourceId) != nullptr) {
+            QVERIFY(workspace.removeEmptyGroup(sourceId));
+        }
         const QByteArray targetLayout = workspace.saveLayout();
         QVERIFY(workspace.restoreLayout(targetLayout));
         QCOMPARE(
@@ -956,7 +1156,9 @@ private Q_SLOTS:
 
         QVERIFY(workspace.transferTab(sourceId, 0, targetId));
         QVERIFY(workspace.transferTab(sourceId, 0, targetId));
-        QVERIFY(workspace.removeEmptyGroup(sourceId));
+        if (workspace.tabWidget(sourceId) != nullptr) {
+            QVERIFY(workspace.removeEmptyGroup(sourceId));
+        }
         auto *const originalTabs = workspace.tabWidget(targetId);
         originalTabs->setCurrentWidget(detachedPage);
         const auto beforeIds = workspace.groupIds();
@@ -1158,10 +1360,13 @@ private Q_SLOTS:
             firstPage, QStringLiteral("current-rollback:first")));
         const QByteArray sourceLayout = workspace.saveLayout();
 
-        while (workspace.tabWidget(sourceId)->count() > 0) {
+        while (workspace.tabWidget(sourceId) != nullptr
+               && workspace.tabWidget(sourceId)->count() > 0) {
             QVERIFY(workspace.transferTab(sourceId, 0, targetId));
         }
-        QVERIFY(workspace.removeEmptyGroup(sourceId));
+        if (workspace.tabWidget(sourceId) != nullptr) {
+            QVERIFY(workspace.removeEmptyGroup(sourceId));
+        }
         QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
             workspace.tabWidget(targetId);
         originalTabs->setCurrentWidget(firstPage);
@@ -1254,10 +1459,13 @@ private Q_SLOTS:
         workspace.tabWidget(sourceId)->setCurrentWidget(currentPage);
         const QByteArray sourceLayout = workspace.saveLayout();
 
-        while (workspace.tabWidget(sourceId)->count() > 0) {
+        while (workspace.tabWidget(sourceId) != nullptr
+               && workspace.tabWidget(sourceId)->count() > 0) {
             QVERIFY(workspace.transferTab(sourceId, 0, targetId));
         }
-        QVERIFY(workspace.removeEmptyGroup(sourceId));
+        if (workspace.tabWidget(sourceId) != nullptr) {
+            QVERIFY(workspace.removeEmptyGroup(sourceId));
+        }
         workspace.tabWidget(targetId)->setCurrentWidget(currentPage);
         const QByteArray targetLayout = workspace.saveLayout();
         QVERIFY(workspace.restoreLayout(targetLayout));
@@ -1300,6 +1508,8 @@ private Q_SLOTS:
     void replacementStagingTargetWithSameIdIsNotRemoved()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
+        workspace.setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto savedSourceId = workspace.groupIds().constFirst();
         const ZzFluentUI::ZzTabGroupId currentTargetId(
             QStringLiteral("replacement-current"));
@@ -1361,6 +1571,8 @@ private Q_SLOTS:
     {
         {
             ZzFluentUI::ZzSplitWorkspace workspace;
+            workspace.setEmptyGroupPolicy(
+                ZzFluentUI::ZzEmptyGroupPolicy::Keep);
             const auto sourceId = workspace.groupIds().constFirst();
             const auto targetId = workspace.splitGroup(
                 sourceId,
@@ -1477,6 +1689,8 @@ private Q_SLOTS:
 
         {
             auto *rawWorkspace = new ZzFluentUI::ZzSplitWorkspace;
+            rawWorkspace->setEmptyGroupPolicy(
+                ZzFluentUI::ZzEmptyGroupPolicy::Keep);
             QPointer<ZzFluentUI::ZzSplitWorkspace> workspace = rawWorkspace;
             const auto sourceId = rawWorkspace->groupIds().constFirst();
             const auto targetId = rawWorkspace->splitGroup(
@@ -2768,6 +2982,8 @@ private Q_SLOTS:
     void restoreKeepsEscrowAlignedWhenPinnedMetadataIsRepaired()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
+        workspace.setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto firstGroupId = workspace.groupIds().constFirst();
         const auto secondGroupId = workspace.splitGroup(
             firstGroupId,
@@ -2900,6 +3116,8 @@ private Q_SLOTS:
         QFETCH(bool, tabBarEmitter);
 
         ZzFluentUI::ZzSplitWorkspace workspace;
+        workspace.setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         const auto firstGroupId = workspace.groupIds().constFirst();
         const auto secondGroupId = workspace.splitGroup(
             firstGroupId,
@@ -3352,7 +3570,9 @@ private Q_SLOTS:
       const QByteArray saved = rawWorkspace->saveLayout();
       QVERIFY(rawWorkspace->transferTab(sourceId, 0,
                                         zzTabGroupIdOrInvalid(targetId)));
-      QVERIFY(rawWorkspace->removeEmptyGroup(sourceId));
+      if (rawWorkspace->tabWidget(sourceId) != nullptr) {
+        QVERIFY(rawWorkspace->removeEmptyGroup(sourceId));
+      }
       const auto beforeIds = rawWorkspace->groupIds();
       QPointer<ZzFluentUI::ZzTabWidget> originalTabs =
           rawWorkspace->tabWidget(zzTabGroupIdOrInvalid(targetId));
@@ -4135,6 +4355,8 @@ private Q_SLOTS:
     void doesNotTakeBackPageClaimedByThirdParty()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
+        workspace.setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         ZzFluentUI::ZzTabWidget thirdParty;
         const auto sourceId = workspace.groupIds().constFirst();
         const auto targetId = workspace.splitGroup(
@@ -4162,6 +4384,8 @@ private Q_SLOTS:
     void edgeFailureRestoresTreeButLeavesThirdPartyPageAlone()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
+        workspace.setEmptyGroupPolicy(
+            ZzFluentUI::ZzEmptyGroupPolicy::Keep);
         ZzFluentUI::ZzTabWidget thirdParty;
         const auto targetId = workspace.groupIds().constFirst();
         const auto sourceId = workspace.splitGroup(
