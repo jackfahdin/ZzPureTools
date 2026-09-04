@@ -2192,6 +2192,34 @@ ZzWorkspacePageId ZzSplitWorkspacePrivate::pageId(const QWidget *page) const
     return id;
 }
 
+bool ZzSplitWorkspacePrivate::adoptPageId(
+    QWidget *page,
+    const ZzWorkspacePageId &id)
+{
+    if (page == nullptr || !id.isValid() || !zzWorkspaceContainsPage(this, page)) {
+        return false;
+    }
+    const auto existing = pageIds.find(page);
+    const auto owner = pagesById.find(id);
+    if (owner != pagesById.end() && owner.value() != page) {
+        if (!owner.value().isNull()) return false;
+        pagesById.erase(owner);
+    }
+    if (existing != pageIds.end()) {
+        if (existing.value() == id) {
+            return pagesById.value(id) == page;
+        }
+        const auto reverse = pagesById.find(existing.value());
+        if (reverse != pagesById.end() && reverse.value() != page) return false;
+        if (reverse != pagesById.end()) pagesById.erase(reverse);
+        pageIds.erase(existing);
+    }
+    pageIds.insert(page, id);
+    pagesById.insert(id, page);
+    observePageDestruction(page);
+    return true;
+}
+
 QWidget *ZzSplitWorkspacePrivate::pageForId(
     const ZzWorkspacePageId &id) const
 {

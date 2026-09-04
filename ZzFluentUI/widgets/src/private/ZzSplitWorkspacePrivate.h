@@ -192,6 +192,8 @@ public:
 
     [[nodiscard]] ZzWorkspacePageId pageId(const QWidget *page) const;
     [[nodiscard]] QWidget *pageForId(const ZzWorkspacePageId &id) const;
+    /** @brief 在恢复事务中以指定身份登记已接入页面。 */
+    bool adoptPageId(QWidget *page, const ZzWorkspacePageId &id);
     [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspace(
         const ZzTabGroupId &sourceGroup,
         int sourceIndex,

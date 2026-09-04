@@ -294,6 +294,15 @@ ZzWorkspacePageId ZzSplitWorkspace::pageId(const QWidget *page) const
     return d_ptr->pageId(page);
 }
 
+bool ZzWorkspacePageIdentityPrivate::adoptPageId(
+    ZzSplitWorkspace *workspace,
+    QWidget *page,
+    const ZzWorkspacePageId &id)
+{
+    return workspace != nullptr
+        && workspace->d_ptr->adoptPageId(page, id);
+}
+
 QWidget *ZzSplitWorkspace::pageForId(const ZzWorkspacePageId &id) const
 {
     return d_ptr->pageForId(id);

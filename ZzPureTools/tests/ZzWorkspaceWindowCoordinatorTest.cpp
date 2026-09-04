@@ -5,9 +5,12 @@
 #include <utility>
 #include <vector>
 
+#include <QtCore/QCryptographicHash>
+#include <QtCore/QDataStream>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QEvent>
+#include <QtCore/QIODevice>
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTemporaryDir>
@@ -110,6 +113,200 @@ zzCreateShell(ZzPureTools::ZzApplicationWindow *window)
     configuration.maximumSize = QSize(1440, 900);
     configuration.initialGeometry = QRect(-20, -40, 1280, 720);
     return configuration;
+}
+
+[[nodiscard]] QByteArray zzMalformedSameDirectionWorkspaceState()
+{
+    QByteArray payload;
+    QDataStream stream(&payload, QIODevice::WriteOnly);
+    stream.setVersion(QDataStream::Qt_6_8);
+    const auto writeString = [&stream](QStringView value) {
+        stream << static_cast<quint16>(value.size());
+        for (const QChar character : value) stream << character.unicode();
+    };
+    stream << quint8(1) << quint8(Qt::Horizontal) << quint16(2);
+    stream << quint8(1) << quint8(Qt::Horizontal) << quint16(2);
+    stream << quint8(0);
+    writeString(QStringLiteral("group-a"));
+    stream << quint8(0);
+    writeString(QStringLiteral("group-b"));
+    stream << quint16(2) << qint32(1) << qint32(1);
+    stream << quint8(0);
+    writeString(QStringLiteral("group-c"));
+    stream << quint16(2) << qint32(1) << qint32(1);
+    writeString(QStringLiteral("group-a"));
+    stream << quint16(0);
+    Q_ASSERT(stream.status() == QDataStream::Ok);
+
+    QByteArray encoded;
+    QDataStream envelope(&encoded, QIODevice::WriteOnly);
+    envelope.setVersion(QDataStream::Qt_6_8);
+    envelope.writeRawData("ZZSW", 4);
+    envelope << quint16(1) << quint16(QDataStream::Qt_6_8)
+             << static_cast<quint32>(payload.size());
+    envelope.writeRawData(payload.constData(), payload.size());
+    envelope.writeRawData(
+        QCryptographicHash::hash(payload, QCryptographicHash::Sha256).constData(),
+        32);
+    Q_ASSERT(envelope.status() == QDataStream::Ok);
+    return encoded;
+}
+
+[[nodiscard]] bool zzReadTopologyString(QDataStream &stream)
+{
+    quint16 length = 0;
+    stream >> length;
+    if (stream.status() != QDataStream::Ok || length > 256) return false;
+    for (quint16 index = 0; index < length; ++index) {
+        quint16 codeUnit = 0;
+        stream >> codeUnit;
+    }
+    return stream.status() == QDataStream::Ok;
+}
+
+[[nodiscard]] bool zzTopologyFieldOffsets(
+    const QByteArray &encoded,
+    QList<qsizetype> *pageIndexOffsets,
+    QList<qsizetype> *originUuidOffsets)
+{
+    if (pageIndexOffsets == nullptr || originUuidOffsets == nullptr
+        || encoded.size() < 44 || encoded.first(4) != QByteArrayLiteral("ZZWT")) {
+        return false;
+    }
+    QDataStream envelope(encoded);
+    envelope.setVersion(QDataStream::Qt_6_8);
+    char magic[4]{};
+    quint16 schema = 0;
+    quint16 version = 0;
+    quint32 payloadLength = 0;
+    if (envelope.readRawData(magic, 4) != 4) return false;
+    envelope >> schema >> version >> payloadLength;
+    if (envelope.status() != QDataStream::Ok
+        || schema != 2 || version != quint16(QDataStream::Qt_6_8)
+        || payloadLength > quint32(encoded.size() - 44)) {
+        return false;
+    }
+    QByteArray payload(static_cast<qsizetype>(payloadLength), Qt::Uninitialized);
+    if (payloadLength > 0
+        && envelope.readRawData(payload.data(), static_cast<int>(payloadLength))
+            != static_cast<int>(payloadLength)) {
+        return false;
+    }
+    QDataStream stream(payload);
+    stream.setVersion(QDataStream::Qt_6_8);
+    quint16 windowCount = 0;
+    stream >> windowCount;
+    if (stream.status() != QDataStream::Ok || windowCount == 0) return false;
+    for (quint16 window = 0; window < windowCount; ++window) {
+        if (stream.skipRawData(16) != 16
+            || !zzReadTopologyString(stream)
+            || !zzReadTopologyString(stream)) return false;
+        quint8 byte = 0;
+        for (int index = 0; index < 6; ++index) stream >> byte;
+        for (int index = 0; index < 13; ++index) {
+            qint32 value = 0;
+            stream >> value;
+        }
+        quint32 workspaceLength = 0;
+        stream >> workspaceLength;
+        if (workspaceLength > quint32(payload.size())
+            || stream.skipRawData(static_cast<int>(workspaceLength))
+                != static_cast<int>(workspaceLength)) return false;
+        quint16 pageCount = 0;
+        stream >> pageCount;
+        if (stream.status() != QDataStream::Ok) return false;
+        for (quint16 page = 0; page < pageCount; ++page) {
+            if (stream.skipRawData(16) != 16
+                || !zzReadTopologyString(stream)
+                || stream.skipRawData(16) != 16
+                || !zzReadTopologyString(stream)) return false;
+            const qint64 offset = stream.device()->pos();
+            qint32 order = 0;
+            stream >> order;
+            pageIndexOffsets->append(static_cast<qsizetype>(12 + offset));
+            quint16 originCount = 0;
+            stream >> originCount;
+            if (stream.status() != QDataStream::Ok) return false;
+            for (quint16 origin = 0; origin < originCount; ++origin) {
+                const qint64 originOffset = stream.device()->pos();
+                if (stream.skipRawData(16) != 16
+                    || !zzReadTopologyString(stream)) return false;
+                qint32 originIndex = 0;
+                stream >> originIndex;
+                originUuidOffsets->append(
+                    static_cast<qsizetype>(12 + originOffset));
+            }
+        }
+    }
+    return stream.status() == QDataStream::Ok && stream.atEnd();
+}
+
+void zzPatchTopologyInt32(
+    QByteArray *encoded,
+    qsizetype offset,
+    qint32 value)
+{
+    Q_ASSERT(encoded != nullptr);
+    Q_ASSERT(offset >= 0 && offset + 4 <= encoded->size());
+    (*encoded)[offset] = static_cast<char>((value >> 24) & 0xff);
+    (*encoded)[offset + 1] = static_cast<char>((value >> 16) & 0xff);
+    (*encoded)[offset + 2] = static_cast<char>((value >> 8) & 0xff);
+    (*encoded)[offset + 3] = static_cast<char>(value & 0xff);
+}
+
+void zzRefreshTopologyDigest(QByteArray *encoded)
+{
+    Q_ASSERT(encoded != nullptr && encoded->size() >= 44);
+    QDataStream stream(*encoded);
+    stream.setVersion(QDataStream::Qt_6_8);
+    stream.skipRawData(8);
+    quint32 payloadLength = 0;
+    stream >> payloadLength;
+    const QByteArray payload = encoded->mid(12, static_cast<qsizetype>(payloadLength));
+    encoded->replace(12 + static_cast<qsizetype>(payloadLength), 32,
+        QCryptographicHash::hash(payload, QCryptographicHash::Sha256));
+}
+
+void zzPatchTopologyScreenName(QByteArray *encoded, QStringView name)
+{
+    Q_ASSERT(encoded != nullptr && encoded->size() >= 44);
+    QDataStream envelope(*encoded);
+    envelope.setVersion(QDataStream::Qt_6_8);
+    envelope.skipRawData(8);
+    quint32 payloadLength = 0;
+    envelope >> payloadLength;
+    QByteArray payload = encoded->mid(12, static_cast<qsizetype>(payloadLength));
+    QDataStream stream(payload);
+    stream.setVersion(QDataStream::Qt_6_8);
+    quint16 windowCount = 0;
+    stream >> windowCount;
+    Q_ASSERT(windowCount > 0);
+    Q_ASSERT(stream.skipRawData(16) == 16);
+    Q_ASSERT(zzReadTopologyString(stream));
+    const qint64 nameOffset = stream.device()->pos();
+    quint16 oldLength = 0;
+    stream >> oldLength;
+    Q_ASSERT(oldLength <= 256);
+    Q_ASSERT(stream.skipRawData(oldLength * 2) == oldLength * 2);
+
+    QByteArray replacement;
+    QDataStream replacementStream(&replacement, QIODevice::WriteOnly);
+    replacementStream.setVersion(QDataStream::Qt_6_8);
+    replacementStream << static_cast<quint16>(name.size());
+    for (const QChar character : name) replacementStream << character.unicode();
+    Q_ASSERT(replacementStream.status() == QDataStream::Ok);
+    payload.replace(static_cast<qsizetype>(nameOffset), 2 + oldLength * 2,
+        replacement);
+
+    QByteArray result = encoded->left(12);
+    const quint32 newLength = static_cast<quint32>(payload.size());
+    result[8] = static_cast<char>((newLength >> 24) & 0xff);
+    result[9] = static_cast<char>((newLength >> 16) & 0xff);
+    result[10] = static_cast<char>((newLength >> 8) & 0xff);
+    result[11] = static_cast<char>(newLength & 0xff);
+    result.append(payload);
+    result.append(QCryptographicHash::hash(payload, QCryptographicHash::Sha256));
+    *encoded = std::move(result);
 }
 
 class ZzRejectCloseFilter final : public QObject
@@ -2906,6 +3103,28 @@ private Q_SLOTS:
         const auto missingKey = coordinator->saveTopology();
         QVERIFY(!missingKey);
         QCOMPARE(missingKey.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        int factoryCalls = 0;
+        int resolverCalls = 0;
+        const qsizetype windowCount = application.windowCount();
+        const qsizetype widgetCount = QApplication::allWidgets().size();
+        coordinator->setWindowFactory([&factoryCalls](const auto &) {
+            ++factoryCalls;
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                ZzCore::ZzError(ZzCore::ZzErrorCode::Backend,
+                    QStringLiteral("factory must not be called")));
+        });
+        const auto nonEmpty = coordinator->restoreTopology(
+            QByteArrayLiteral("invalid"), [&resolverCalls](QStringView) {
+                ++resolverCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            });
+        QVERIFY(!nonEmpty);
+        QCOMPARE(nonEmpty.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(factoryCalls, 0);
+        QCOMPARE(resolverCalls, 0);
+        QCOMPARE(application.windowCount(), windowCount);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
         application.beginShutdown();
     }
 
@@ -2944,6 +3163,12 @@ private Q_SLOTS:
             firstPage, QStringLiteral("page/first")));
         QVERIFY(secondShell->splitWorkspace()->setPageLayoutKey(
             secondPage, QStringLiteral("page/second")));
+        const auto firstPageId = firstShell->splitWorkspace()->pageId(firstPage);
+        const auto secondPageId = secondShell->splitWorkspace()->pageId(secondPage);
+        QVERIFY(firstPageId.isValid());
+        QVERIFY(secondPageId.isValid());
+        const auto firstGroupId = firstGroup;
+        const auto secondGroupId = secondGroup;
         QVERIFY(firstShell->splitWorkspace()->splitGroup(
             firstGroup, Qt::Vertical, ZzFluentUI::ZzSplitPlacement::After)
                     .has_value());
@@ -3012,14 +3237,364 @@ private Q_SLOTS:
             return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success(
                 handle);
         });
+        QHash<QString, QWidget *> restoredPages;
         const auto restored = coordinator->restoreTopology(
-            saved.value(), [](QStringView) {
+            saved.value(), [&restoredPages](QStringView key) {
+                auto page = std::make_unique<QWidget>();
+                restoredPages.insert(key.toString(), page.get());
                 return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
-                    std::make_unique<QWidget>());
+                    std::move(page));
             });
         QVERIFY(restored);
         QCOMPARE(restoredShells.size(), std::size_t(2));
         QCOMPARE(application.windowCount(), qsizetype(4));
+        auto *const firstRestoredWorkspace = restoredShells.at(0)->splitWorkspace();
+        auto *const secondRestoredWorkspace = restoredShells.at(1)->splitWorkspace();
+        auto *const restoredFirstPage = restoredPages.value(QStringLiteral("page/first"));
+        auto *const restoredSecondPage = restoredPages.value(QStringLiteral("page/second"));
+        QVERIFY(restoredFirstPage != nullptr);
+        QVERIFY(restoredSecondPage != nullptr);
+        QCOMPARE(firstRestoredWorkspace->pageForId(firstPageId), restoredFirstPage);
+        QCOMPARE(secondRestoredWorkspace->pageForId(secondPageId), restoredSecondPage);
+        QVERIFY(restoredFirstPage->parent() != nullptr);
+        QVERIFY(restoredSecondPage->parent() != nullptr);
+        QCOMPARE(firstRestoredWorkspace->pageLayoutKey(restoredFirstPage),
+            QStringLiteral("page/first"));
+        QCOMPARE(secondRestoredWorkspace->pageLayoutKey(restoredSecondPage),
+            QStringLiteral("page/second"));
+        auto *const firstTabs = firstRestoredWorkspace->tabWidget(firstGroupId);
+        auto *const secondTabs = secondRestoredWorkspace->tabWidget(secondGroupId);
+        QVERIFY(firstTabs != nullptr);
+        QVERIFY(secondTabs != nullptr);
+        QCOMPARE(firstTabs->indexOf(restoredFirstPage), 0);
+        QCOMPARE(secondTabs->indexOf(restoredSecondPage), 0);
+        application.beginShutdown();
+    }
+
+    void topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *firstWindow = zzOnlyWindow(application);
+        QVERIFY(firstWindow != nullptr);
+        auto firstShellResult = zzCreateShell(firstWindow);
+        QVERIFY(firstShellResult);
+        auto firstShell = std::move(firstShellResult).value();
+        firstWindow->setCentralWidget(firstShell->workspaceWidget());
+        auto secondWindowResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(secondWindowResult);
+        auto secondShellResult = zzCreateShell(secondWindowResult.value());
+        QVERIFY(secondShellResult);
+        auto secondShell = std::move(secondShellResult).value();
+        secondWindowResult.value()->setCentralWidget(secondShell->workspaceWidget());
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {firstWindow, firstShell.get()}, zzConfiguration(), true));
+        QVERIFY(coordinator->registerWindow(
+            {secondWindowResult.value(), secondShell.get()}, zzConfiguration()));
+        auto *const firstWorkspace = firstShell->splitWorkspace();
+        auto *const secondWorkspace = secondShell->splitWorkspace();
+        const auto firstGroup = firstWorkspace->activeGroupId();
+        const auto secondGroup = secondWorkspace->activeGroupId();
+        auto *moved = new QWidget;
+        auto *resident = new QWidget;
+        firstWorkspace->tabWidget(firstGroup)->addTab(
+            moved, QStringLiteral("moved"));
+        secondWorkspace->tabWidget(secondGroup)->addTab(
+            resident, QStringLiteral("resident"));
+        QVERIFY(firstWorkspace->setPageLayoutKey(moved, QStringLiteral("moved")));
+        QVERIFY(secondWorkspace->setPageLayoutKey(
+            resident, QStringLiteral("resident")));
+        QVERIFY(firstWorkspace->transferTabToWorkspace(
+            firstGroup, 0, secondWorkspace, secondGroup));
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+        auto pageIndexOffsets = QList<qsizetype> {};
+        auto originUuidOffsets = QList<qsizetype> {};
+        QVERIFY(zzTopologyFieldOffsets(
+            saved.value(), &pageIndexOffsets, &originUuidOffsets));
+        QVERIFY(pageIndexOffsets.size() >= 2);
+        QVERIFY(!originUuidOffsets.isEmpty());
+        secondWorkspace->tabWidget(secondGroup)->removeTab(1);
+        secondWorkspace->tabWidget(secondGroup)->removeTab(0);
+        delete moved;
+        delete resident;
+        QVERIFY(coordinator->unregisterWindow(firstWindow));
+        QVERIFY(coordinator->unregisterWindow(secondWindowResult.value()));
+        const qsizetype windowCount = application.windowCount();
+        const qsizetype widgetCount = QApplication::allWidgets().size();
+
+        const auto expectRejectedWithoutCallbacks =
+            [&](QByteArray encoded) {
+                int factoryCalls = 0;
+                int resolverCalls = 0;
+                coordinator->setWindowFactory([&factoryCalls](const auto &) {
+                    ++factoryCalls;
+                    return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                        ZzCore::ZzError(ZzCore::ZzErrorCode::Backend,
+                        QStringLiteral("factory must not be called")));
+                });
+                const auto result = coordinator->restoreTopology(
+                    encoded, [&resolverCalls](QStringView) {
+                        ++resolverCalls;
+                        return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                            std::make_unique<QWidget>());
+                    });
+                QVERIFY(!result);
+                QCOMPARE(factoryCalls, 0);
+                QCOMPARE(resolverCalls, 0);
+                QCOMPARE(application.windowCount(), windowCount);
+                QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+            };
+
+        QByteArray invalidOrigin = saved.value();
+        const QUuid invalidWindowId = QUuid::createUuid();
+        const QByteArray invalidBytes = invalidWindowId.toRfc4122();
+        QVERIFY(invalidBytes.size() == 16);
+        invalidOrigin.replace(originUuidOffsets.front(), 16, invalidBytes);
+        zzRefreshTopologyDigest(&invalidOrigin);
+        expectRejectedWithoutCallbacks(invalidOrigin);
+
+        QByteArray invalidOrder = saved.value();
+        zzPatchTopologyInt32(&invalidOrder, pageIndexOffsets.at(0), 1);
+        zzPatchTopologyInt32(&invalidOrder, pageIndexOffsets.at(1), 0);
+        zzRefreshTopologyDigest(&invalidOrder);
+        expectRejectedWithoutCallbacks(invalidOrder);
+
+        expectRejectedWithoutCallbacks(zzMalformedSameDirectionWorkspaceState());
+
+        application.beginShutdown();
+    }
+
+    void topologyRestoreRejectsResolverResultsWithoutLeakingObjects()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        window->setCentralWidget(shell->workspaceWidget());
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {window, shell.get()}, zzConfiguration(), true));
+        const auto group = shell->splitWorkspace()->activeGroupId();
+        auto *const page = new QWidget;
+        shell->splitWorkspace()->tabWidget(group)->addTab(
+            page, QStringLiteral("resolver"));
+        QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
+            page, QStringLiteral("resolver/page")));
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+        shell->splitWorkspace()->tabWidget(group)->removeTab(0);
+        delete page;
+        QVERIFY(coordinator->unregisterWindow(window));
+        const qsizetype windowCount = application.windowCount();
+        const qsizetype widgetCount = QApplication::allWidgets().size();
+
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> stagedShells;
+        int factoryCalls = 0;
+        coordinator->setWindowFactory([&application, &stagedShells, &factoryCalls](
+                                          const auto &options) {
+            ++factoryCalls;
+            auto created = application.createWindow(options.visibility);
+            if (!created) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    created.error());
+            }
+            auto createdShell = zzCreateShell(created.value());
+            if (!createdShell) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    createdShell.error());
+            }
+            auto ownedShell = std::move(createdShell).value();
+            created.value()->setCentralWidget(ownedShell->workspaceWidget());
+            ZzPureTools::ZzWorkspaceWindowHandle handle{
+                created.value(), ownedShell.get()};
+            stagedShells.push_back(std::move(ownedShell));
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                handle);
+        });
+
+        int resolverCalls = 0;
+        const auto resolverFailure = coordinator->restoreTopology(
+            saved.value(), [&resolverCalls](QStringView) {
+                ++resolverCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::failure(
+                    ZzCore::ZzError(ZzCore::ZzErrorCode::Backend,
+                        QStringLiteral("resolver failed")));
+            });
+        QVERIFY(!resolverFailure);
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(resolverCalls, 1);
+        QCOMPARE(application.windowCount(), windowCount);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+
+        factoryCalls = 0;
+        resolverCalls = 0;
+        const auto resolverEmpty = coordinator->restoreTopology(
+            saved.value(), [&resolverCalls](QStringView) {
+                ++resolverCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::unique_ptr<QWidget> {});
+            });
+        QVERIFY(!resolverEmpty);
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(resolverCalls, 1);
+        QCOMPARE(application.windowCount(), windowCount);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+
+        factoryCalls = 0;
+        resolverCalls = 0;
+        const auto resolverParented = coordinator->restoreTopology(
+            saved.value(), [window, &resolverCalls](QStringView) {
+                ++resolverCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>(window));
+            });
+        QVERIFY(!resolverParented);
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(resolverCalls, 1);
+        QCOMPARE(application.windowCount(), windowCount);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+
+        application.beginShutdown();
+    }
+
+    void topologyRestoreFallsBackToPrimaryAndConvergesGeometry()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        window->setCentralWidget(shell->workspaceWidget());
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {window, shell.get()}, zzConfiguration(), true));
+        const auto group = shell->splitWorkspace()->activeGroupId();
+        auto *const page = new QWidget;
+        shell->splitWorkspace()->tabWidget(group)->addTab(
+            page, QStringLiteral("screen"));
+        QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
+            page, QStringLiteral("screen/page")));
+        window->setGeometry(QRect(-100000, -100000, 8000, 8000));
+        window->show();
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+        QByteArray missingScreen = saved.value();
+        zzPatchTopologyScreenName(&missingScreen,
+            QStringLiteral("screen-that-does-not-exist"));
+        shell->splitWorkspace()->tabWidget(group)->removeTab(0);
+        delete page;
+        QVERIFY(coordinator->unregisterWindow(window));
+        const qsizetype windowCount = application.windowCount();
+
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> restoredShells;
+        coordinator->setWindowFactory([&application, &restoredShells](const auto &options) {
+            auto created = application.createWindow(options.visibility);
+            if (!created) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    created.error());
+            }
+            auto createdShell = zzCreateShell(created.value());
+            if (!createdShell) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    createdShell.error());
+            }
+            auto ownedShell = std::move(createdShell).value();
+            created.value()->setCentralWidget(ownedShell->workspaceWidget());
+            ZzPureTools::ZzWorkspaceWindowHandle handle{
+                created.value(), ownedShell.get()};
+            restoredShells.push_back(std::move(ownedShell));
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                handle);
+        });
+        auto *restoredPage = static_cast<QWidget *>(nullptr);
+        const auto restored = coordinator->restoreTopology(
+            missingScreen, [&restoredPage](QStringView) {
+                auto resolvedPage = std::make_unique<QWidget>();
+                restoredPage = resolvedPage.get();
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(resolvedPage));
+            });
+        QVERIFY(restored);
+        QCOMPARE(application.windowCount(), windowCount + 1);
+        QVERIFY(restoredPage != nullptr);
+        QVERIFY(restoredShells.size() == 1);
+        auto *const restoredWindow = restoredShells.front()
+                                        ->workspaceWidget()->window();
+        QVERIFY(restoredWindow != nullptr);
+        QVERIFY(restoredWindow->isVisible());
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        const QRect actual = restoredWindow->geometry();
+        QVERIFY(available.contains(actual.topLeft()));
+        QVERIFY(available.contains(actual.center()));
+        QVERIFY(actual.width() >= 160);
+        QVERIFY(actual.height() >= 150);
+        application.beginShutdown();
+    }
+
+    void topologyRestoreRejectsMinimumSizeThatCannotFitScreen()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto shellResult = zzCreateShell(window);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        window->setCentralWidget(shell->workspaceWidget());
+        auto *coordinator = application.workspaceWindowCoordinator();
+        ZzPureTools::ZzWorkspaceWindowConfiguration configuration;
+        configuration.minimumSize = QSize(10000, 10000);
+        configuration.maximumSize = QSize(10000, 10000);
+        configuration.initialGeometry = QRect(-100000, -100000, 10000, 10000);
+        QVERIFY(coordinator->registerWindow(
+            {window, shell.get()}, configuration, true));
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+        QVERIFY(coordinator->unregisterWindow(window));
+        const qsizetype windowCount = application.windowCount();
+        const qsizetype widgetCount = QApplication::allWidgets().size();
+        int factoryCalls = 0;
+        int resolverCalls = 0;
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> stagedShells;
+        coordinator->setWindowFactory([&application, &stagedShells, &factoryCalls](const auto &options) {
+            ++factoryCalls;
+            auto created = application.createWindow(options.visibility);
+            if (!created) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    created.error());
+            }
+            auto createdShell = zzCreateShell(created.value());
+            if (!createdShell) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    createdShell.error());
+            }
+            auto ownedShell = std::move(createdShell).value();
+            created.value()->setCentralWidget(ownedShell->workspaceWidget());
+            ZzPureTools::ZzWorkspaceWindowHandle handle{
+                created.value(), ownedShell.get()};
+            stagedShells.push_back(std::move(ownedShell));
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                handle);
+        });
+        const auto rejected = coordinator->restoreTopology(
+            saved.value(), [&resolverCalls](QStringView) {
+                ++resolverCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            });
+        QVERIFY(!rejected);
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(resolverCalls, 0);
+        QCOMPARE(application.windowCount(), windowCount);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
         application.beginShutdown();
     }
 };

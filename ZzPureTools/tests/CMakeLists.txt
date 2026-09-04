@@ -311,6 +311,12 @@ set(workspace_window_coordinator_scenarios
     orphanedPagesPreserveStableOrderAndWindow
     emptyWindowClosesWithoutOrphanSignal
     shutdownDoesNotRunOrdinaryReclaim
+    topologyPersistenceRejectsEmptyStateAndMissingPageKeys
+    topologyPersistenceRoundTripsDeferredWindowsAndPages
+    topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories
+    topologyRestoreRejectsResolverResultsWithoutLeakingObjects
+    topologyRestoreFallsBackToPrimaryAndConvergesGeometry
+    topologyRestoreRejectsMinimumSizeThatCannotFitScreen
     layoutKeyConflictIsRejectedBeforeAnyPageMoves
     secondPageFailureRollsBackIdentityMetadataAndOrder
     actualOperationsWriteStableAuditEvents

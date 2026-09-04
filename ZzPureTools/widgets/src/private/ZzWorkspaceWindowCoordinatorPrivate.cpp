@@ -4,6 +4,7 @@
 #include <exception>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -92,6 +93,8 @@ struct ZzRawSplitInfo final
     int depth = 0;
     QSet<QString> groups;
     QList<ZzRawSplitPage> pages;
+    QHash<QString, ZzRawSplitPage> pagesByKey;
+    QHash<QString, QSet<int>> ordersByGroup;
 };
 
 class ZzScopedSignalMute final
@@ -195,7 +198,9 @@ private:
 /** @brief 将历史逻辑几何限制到屏幕可用区域并保留标题栏和内容区。 */
 [[nodiscard]] QRect zzConvergedTopologyGeometry(
     const QRect &requested,
-    const QRect &available)
+    const QRect &available,
+    const QSize &minimumSize,
+    const QSize &maximumSize)
 {
     if (!available.isValid() || available.width() <= 0
         || available.height() <= 0) {
@@ -204,11 +209,21 @@ private:
     constexpr int minimumContentWidth = 160;
     constexpr int minimumContentHeight = 120;
     constexpr int titleBarHeight = 30;
-    QSize size = requested.size().expandedTo(
-        QSize(minimumContentWidth, minimumContentHeight + titleBarHeight));
+    QSize minimum = QSize(
+        std::max(minimumContentWidth, minimumSize.width()),
+        std::max(minimumContentHeight + titleBarHeight, minimumSize.height()));
+    if (minimum.width() > available.width()
+        || minimum.height() > available.height()) return {};
+    QSize size = requested.size().expandedTo(minimum);
+    if (maximumSize.width() > 0) size.setWidth(
+        std::min(size.width(), maximumSize.width()));
+    if (maximumSize.height() > 0) size.setHeight(
+        std::min(size.height(), maximumSize.height()));
     size.setWidth(std::min(size.width(), available.width()));
     size.setHeight(std::min(size.height(), available.height()));
-    size = size.expandedTo(QSize(1, 1));
+    if (size.width() < minimum.width() || size.height() < minimum.height()) {
+        return {};
+    }
     QRect result(requested.topLeft(), size);
     result.moveLeft(std::clamp(result.left(), available.left(),
         available.right() - result.width() + 1));
@@ -248,6 +263,7 @@ private:
 [[nodiscard]] bool zzReadSplitNode(
     QDataStream &stream,
     int depth,
+    std::optional<Qt::Orientation> parentOrientation,
     ZzRawSplitInfo *info)
 {
     if (depth > 16 || info == nullptr) return false;
@@ -271,8 +287,12 @@ private:
         || (orientation != static_cast<quint8>(Qt::Horizontal)
             && orientation != static_cast<quint8>(Qt::Vertical))
         || childCount < 2 || childCount > 64) return false;
+    const auto currentOrientation = static_cast<Qt::Orientation>(orientation);
+    if (parentOrientation.has_value()
+        && parentOrientation.value() == currentOrientation) return false;
     for (quint16 index = 0; index < childCount; ++index) {
-        if (!zzReadSplitNode(stream, depth + 1, info)) return false;
+        if (!zzReadSplitNode(
+                stream, depth + 1, currentOrientation, info)) return false;
     }
     quint16 sizeCount = 0;
     stream >> sizeCount;
@@ -316,7 +336,7 @@ private:
     QDataStream stream(payload);
     stream.setVersion(QDataStream::Qt_6_8);
     *info = {};
-    if (!zzReadSplitNode(stream, 1, info)) return false;
+    if (!zzReadSplitNode(stream, 1, std::nullopt, info)) return false;
     QString active;
     if (!zzReadSplitString(stream, &active) || !info->groups.contains(active)) return false;
     quint16 pageCount = 0;
@@ -337,7 +357,16 @@ private:
         page.order = order;
         keys.insert(page.key);
         orders[page.group].insert(order);
+        info->pagesByKey.insert(page.key, page);
+        info->ordersByGroup[page.group].insert(order);
         info->pages.append(std::move(page));
+    }
+    for (auto iterator = info->ordersByGroup.cbegin();
+         iterator != info->ordersByGroup.cend(); ++iterator) {
+        const auto &ordersForGroup = iterator.value();
+        for (int order = 0; order < ordersForGroup.size(); ++order) {
+            if (!ordersForGroup.contains(order)) return false;
+        }
     }
     return stream.status() == QDataStream::Ok && stream.atEnd();
 }
@@ -1477,7 +1506,11 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     }
     QSet<QString> allLayoutKeys;
     QSet<QWidget *> existingPages;
-    for (const auto &window : topology.windows) {
+    QHash<QUuid, int> topologyWindowIndexes;
+    std::vector<ZzRawSplitInfo> rawSplitInfos;
+    rawSplitInfos.reserve(static_cast<std::size_t>(topology.windows.size()));
+    for (int windowIndex = 0; windowIndex < topology.windows.size(); ++windowIndex) {
+        const auto &window = topology.windows.at(windowIndex);
         if (knownWindowIds.contains(window.windowId)) {
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("workspace window identity collides with current topology"));
@@ -1491,16 +1524,20 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
                 QStringLiteral("workspace tree depth does not match its state"));
         }
+        topologyWindowIndexes.insert(window.windowId, windowIndex);
         const QSet<QString> &groups = splitInfo.groups;
         QSet<QString> stateKeys;
         for (const auto &saved : splitInfo.pages) stateKeys.insert(saved.key);
         QSet<QString> topologyKeys;
         for (const auto &page : window.pages) {
             const QString key = page.layoutKey.trimmed();
+            const auto rawPage = splitInfo.pagesByKey.constFind(key);
             if (key.isEmpty() || key != page.layoutKey || allLayoutKeys.contains(key)
-                || !groups.contains(page.groupId) || !stateKeys.contains(key)) {
+                || !groups.contains(page.groupId) || !stateKeys.contains(key)
+                || rawPage == splitInfo.pagesByKey.cend()
+                || rawPage->group != page.groupId || rawPage->order != page.index) {
                 return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
-                    QStringLiteral("workspace page layout key or group is invalid"));
+                    QStringLiteral("workspace page layout key, group or order is invalid"));
             }
             allLayoutKeys.insert(key);
             topologyKeys.insert(key);
@@ -1508,6 +1545,31 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         if (topologyKeys != stateKeys) {
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
                 QStringLiteral("workspace page list does not match its layout state"));
+        }
+        rawSplitInfos.push_back(std::move(splitInfo));
+    }
+    for (int windowIndex = 0; windowIndex < topology.windows.size(); ++windowIndex) {
+        const auto &window = topology.windows.at(windowIndex);
+        for (const auto &page : window.pages) {
+            for (const auto &origin : page.origins) {
+                const auto originWindow = topologyWindowIndexes.constFind(
+                    origin.windowId);
+                if (originWindow == topologyWindowIndexes.cend()) {
+                    return zzCoordinatorFailure<void>(
+                        ZzCore::ZzErrorCode::InvalidArgument,
+                        QStringLiteral("workspace page origin window is unknown"));
+                }
+                const auto &originSplitInfo = rawSplitInfos.at(
+                    static_cast<std::size_t>(originWindow.value()));
+                const auto orders = originSplitInfo.ordersByGroup.constFind(
+                    origin.groupId);
+                if (orders == originSplitInfo.ordersByGroup.cend()
+                    || origin.index < 0 || !orders->contains(origin.index)) {
+                    return zzCoordinatorFailure<void>(
+                        ZzCore::ZzErrorCode::InvalidArgument,
+                        QStringLiteral("workspace page origin group or order is invalid"));
+                }
+            }
         }
     }
 
@@ -1652,7 +1714,9 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         if (tabs == nullptr || page == nullptr
             || tabs->addTab(page, page->windowTitle().isEmpty()
                     ? staged.state->layoutKey : page->windowTitle()) < 0
-            || !workspace->setPageLayoutKey(page, staged.state->layoutKey)) {
+            || !workspace->setPageLayoutKey(page, staged.state->layoutKey)
+            || !ZzFluentUI::ZzWorkspacePageIdentityPrivate::adoptPageId(
+                workspace, page, staged.state->pageId)) {
             cleanup();
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("workspace page could not be staged"));
@@ -1706,7 +1770,10 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
                 QStringLiteral("no screen is available for workspace restore"));
         }
         const QRect geometry = zzConvergedTopologyGeometry(
-            window.geometry, screen->availableGeometry());
+            window.geometry,
+            screen->availableGeometry(),
+            window.configuration.minimumSize,
+            window.configuration.maximumSize);
         if (!geometry.isValid()) {
             cleanup();
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::Unsupported,
@@ -1723,6 +1790,15 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         staged.handle.window->setWindowState(window.maximized
             ? staged.handle.window->windowState() | Qt::WindowMaximized
             : staged.handle.window->windowState() & ~Qt::WindowMaximized);
+        const QRect actualGeometry = staged.handle.window->geometry();
+        const QRect available = screen->availableGeometry();
+        if (!actualGeometry.isValid()
+            || !available.contains(actualGeometry.topLeft())
+            || !available.contains(actualGeometry.bottomRight())) {
+            cleanup();
+            return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::Unsupported,
+                QStringLiteral("workspace geometry did not converge to the target screen"));
+        }
     }
 
     // 所有可失败步骤完成后才写入稳定窗口身份、来源栈并执行一次显示提交。
