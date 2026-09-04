@@ -15,6 +15,8 @@ namespace {
 
 using ZzCodec = ZzPureTools::ZzWorkspaceTopologyCodecPrivate;
 using ZzState = ZzPureTools::ZzWorkspaceTopologyStatePrivate;
+using ZzWindowClosePolicy = ZzPureTools::ZzWindowClosePolicy;
+using ZzWorkspaceTitleMode = ZzPureTools::ZzWorkspaceTitleMode;
 
 [[nodiscard]] ZzState::ZzPageState page(
     const QUuid &windowId,
@@ -90,6 +92,53 @@ using ZzState = ZzPureTools::ZzWorkspaceTopologyStatePrivate;
     return result;
 }
 
+[[nodiscard]] qsizetype firstOriginCountOffset(
+    const QByteArray &encoded)
+{
+    const QByteArray payload = encoded.mid(12, encoded.size() - 12 - 32);
+    QDataStream stream(payload);
+    stream.setVersion(QDataStream::Qt_6_8);
+    quint16 windowCount = 0;
+    stream >> windowCount;
+    for (quint16 windowIndex = 0; windowIndex < windowCount; ++windowIndex) {
+        char uuid[16]{};
+        stream.readRawData(uuid, 16);
+        auto skipString = [&stream] {
+            quint16 length = 0;
+            stream >> length;
+            stream.skipRawData(static_cast<int>(length) * 2);
+        };
+        skipString();
+        skipString();
+        stream.skipRawData(6 + 13 * 4);
+        quint32 stateLength = 0;
+        stream >> stateLength;
+        stream.skipRawData(static_cast<int>(stateLength));
+        quint16 pageCount = 0;
+        stream >> pageCount;
+        for (quint16 pageIndex = 0; pageIndex < pageCount; ++pageIndex) {
+            stream.readRawData(uuid, 16);
+            skipString();
+            stream.readRawData(uuid, 16);
+            skipString();
+            stream.skipRawData(4);
+            const qint64 originCountOffset = stream.device()->pos();
+            quint16 originCount = 0;
+            stream >> originCount;
+            for (quint16 originIndex = 0; originIndex < originCount;
+                 ++originIndex) {
+                stream.readRawData(uuid, 16);
+                skipString();
+                stream.skipRawData(4);
+            }
+            if (originCount > 0) {
+                return 12 + originCountOffset;
+            }
+        }
+    }
+    return -1;
+}
+
 void refreshDigest(QByteArray *encoded)
 {
     const quint32 payloadLength =
@@ -145,6 +194,7 @@ private slots:
         const auto encoded = ZzCodec::encode(source);
         QVERIFY(encoded);
         const QByteArray value = encoded.value();
+        const qsizetype widgetsBefore = QApplication::allWidgets().size();
 
         QByteArray badMagic = value;
         badMagic[0] = 'X';
@@ -182,11 +232,20 @@ private slots:
         refreshDigest(&badPageCount);
         QVERIFY(!ZzCodec::decode(badPageCount));
 
+        const qsizetype originCountOffset = firstOriginCountOffset(value);
+        QVERIFY(originCountOffset >= 0);
+        QByteArray badOriginCount = value;
+        badOriginCount[originCountOffset] = 0;
+        badOriginCount[originCountOffset + 1] = 33;
+        refreshDigest(&badOriginCount);
+        QVERIFY(!ZzCodec::decode(badOriginCount));
+
         QByteArray badDigest = value;
         badDigest.back() ^= 0x01;
         QVERIFY(!ZzCodec::decode(badDigest));
 
         QVERIFY(!ZzCodec::decode(value.left(value.size() - 1)));
+        QCOMPARE(QApplication::allWidgets().size(), widgetsBefore);
     }
 
     void rejectsInvalidTopologyBeforeWidgets()
@@ -224,6 +283,37 @@ private slots:
         ZzState oversizedString = topology();
         oversizedString.windows[0].screenName = QString(257, QLatin1Char('x'));
         QVERIFY(!ZzCodec::encode(oversizedString));
+
+        ZzState oversizedTitle = topology();
+        oversizedTitle.windows[0].configuration.title =
+            QString(257, QLatin1Char('t'));
+        QVERIFY(!ZzCodec::encode(oversizedTitle));
+
+        ZzState invalidClosePolicy = topology();
+        invalidClosePolicy.windows[0].configuration.closePolicy =
+            static_cast<ZzWindowClosePolicy>(255);
+        QVERIFY(!ZzCodec::encode(invalidClosePolicy));
+
+        ZzState invalidTitleMode = topology();
+        invalidTitleMode.windows[0].configuration.titleMode =
+            static_cast<ZzWorkspaceTitleMode>(255);
+        QVERIFY(!ZzCodec::encode(invalidTitleMode));
+
+        ZzState mixedZeroSize = topology();
+        mixedZeroSize.windows[0].configuration.minimumSize = QSize(0, 240);
+        mixedZeroSize.windows[0].configuration.maximumSize = QSize(1920, 480);
+        mixedZeroSize.windows[0].configuration.initialGeometry =
+            QRect(20, 30, 320, 240);
+        QVERIFY(ZzCodec::encode(mixedZeroSize));
+
+        ZzState negativeSentinel = topology();
+        negativeSentinel.windows[0].configuration.minimumSize = QSize(-2, -2);
+        QVERIFY(!ZzCodec::encode(negativeSentinel));
+
+        ZzState negativeInitialGeometry = topology();
+        negativeInitialGeometry.windows[0].configuration.initialGeometry =
+            QRect(20, 30, -1, -1);
+        QVERIFY(!ZzCodec::encode(negativeInitialGeometry));
 
         ZzState tooManyGroups = topology();
         for (int index = 0; index < 65; ++index) {

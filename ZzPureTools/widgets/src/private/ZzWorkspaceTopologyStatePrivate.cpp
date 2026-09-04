@@ -12,20 +12,41 @@ using ZzState = ZzWorkspaceTopologyStatePrivate;
 
 [[nodiscard]] bool validSize(const QSize &size) noexcept
 {
-    return ((size.width() == 0 && size.height() == 0)
-            || (size.width() < 0 && size.height() < 0)
-            || (size.width() > 0 && size.height() > 0))
-        && size.width() <= ZzState::MaximumPayloadSize
-        && size.height() <= ZzState::MaximumPayloadSize;
+    return size == QSize() ||
+        (size.isValid()
+            && size.width() <= ZzState::MaximumPayloadSize
+            && size.height() <= ZzState::MaximumPayloadSize);
 }
 
 [[nodiscard]] bool validRect(const QRect &rect) noexcept
 {
-    return (!rect.isValid() && rect.width() < 0 && rect.height() < 0)
-        || rect.isNull()
-        || (rect.width() > 0 && rect.height() > 0
+    return rect == QRect()
+        || (rect.isValid()
             && rect.width() <= ZzState::MaximumPayloadSize
             && rect.height() <= ZzState::MaximumPayloadSize);
+}
+
+[[nodiscard]] bool validTitleMode(ZzWorkspaceTitleMode mode) noexcept
+{
+    switch (mode) {
+    case ZzWorkspaceTitleMode::Application:
+    case ZzWorkspaceTitleMode::CurrentTab:
+    case ZzWorkspaceTitleMode::CurrentTabAndApplication:
+    case ZzWorkspaceTitleMode::Custom:
+        return true;
+    }
+    return false;
+}
+
+[[nodiscard]] bool validClosePolicy(ZzWindowClosePolicy policy) noexcept
+{
+    switch (policy) {
+    case ZzWindowClosePolicy::Allow:
+    case ZzWindowClosePolicy::Deny:
+    case ZzWindowClosePolicy::Delegate:
+        return true;
+    }
+    return false;
 }
 
 [[nodiscard]] bool validString(const QString &value, bool allowEmpty) noexcept
@@ -77,6 +98,9 @@ bool ZzWorkspaceTopologyStatePrivate::validate(
     int pageCount = 0;
     for (const ZzWindowState &window : state.windows) {
         if (window.windowId.isNull() || windowIds.contains(window.windowId)
+            || !validString(window.configuration.title, true)
+            || !validTitleMode(window.configuration.titleMode)
+            || !validClosePolicy(window.configuration.closePolicy)
             || !validString(window.screenName, true)
             || window.workspaceState.size() > MaximumWorkspaceStateSize
             || window.treeDepth < 1 || window.treeDepth > MaximumTreeDepth

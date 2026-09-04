@@ -57,3 +57,58 @@ cmake --build --preset linux-gcc-debug --target ZzPureTools --parallel 2
 ## 提交
 
 实现提交：`cc1eeb3238c0f3dddf1cf375f34e6e08eb734792`
+
+## 第 1 轮审查修复
+
+### 红灯回归
+
+先仅更新回归测试并运行：
+
+```text
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceTopologyCodecPrivateTest --parallel 2
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-topology-codec-private$' --output-on-failure
+```
+
+目标构建成功，但 CTest 按预期失败：
+
+```text
+FAIL! : ZzWorkspaceTopologyCodecPrivateTest::rejectsInvalidTopologyBeforeWidgets()
+       '!ZzCodec::encode(oversizedTitle)' returned FALSE.
+```
+
+该失败证明超长窗口标题 encode 门禁缺失的回归测试有效；同一测试还覆盖
+Qt 合法的混合零尺寸、非哨兵负尺寸、非法 closePolicy/titleMode，以及窗口、页和
+来源计数篡改的失败 decode。
+
+### 修复内容
+
+- `validSize`/`validRect` 统一为协调器既有语义：仅允许 `QSize()`/`QRect()` 空哨兵
+  或 Qt `isValid()`，任一非哨兵负尺寸均拒绝，同时保留合法的混合零尺寸 `QSize`。
+- `validate()` 对窗口标题调用 256 UTF-16 code unit `validString()`，保证 encode
+  与 decode 对称。
+- `validate()` 使用显式 switch 校验 `ZzWindowClosePolicy` 和
+  `ZzWorkspaceTitleMode` 枚举范围，非法内存态不会被写出。
+- 篡改 decode 用例在所有失败路径后比较 `QApplication::allWidgets()` 数量，确认
+  解码过程不创建 QWidget；补充窗口计数、页面计数、来源栈计数和 UUID 篡改。
+
+### 修复验证
+
+```text
+cmake --build --preset linux-gcc-debug --target ZzPureTools --parallel 2
+[4/5] Creating library symlink ZzPureTools/libZzPureTools.so.0 ZzPureTools/libZzPureTools.so
+
+cmake --build --preset linux-gcc-debug --target ZzWorkspaceTopologyCodecPrivateTest --parallel 2
+[3/4] Linking CXX executable ZzPureTools/tests/ZzWorkspaceTopologyCodecPrivateTest
+
+ctest --preset linux-gcc-debug -R '^puretools\\.workspace-topology-codec-private$' --output-on-failure
+1/1 Test #81: puretools.workspace-topology-codec-private ... Passed
+100% tests passed, 0 tests failed out of 1
+```
+
+### 修复自审
+
+- encode/decode 现在共享同一个状态校验入口，几何、字符串和枚举不会出现单向门禁。
+- 默认 `QSize()`/`QRect()` 哨兵仍可用于协调器未指定配置；有效的零宽/零高 QSize
+  也遵循 Qt `isValid()` 语义，非哨兵负尺寸全部拒绝。
+- 所有新增篡改测试均在纯 DTO 解码后检查 QWidget 数量，未引入 QObject 创建。
+- 未修改 `progress.md`、旧项目、第三方目录或 `temp_image`。
