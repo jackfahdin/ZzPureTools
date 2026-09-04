@@ -7,6 +7,9 @@
 #include <QtWidgets/QTabWidget>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
+#include <ZzFluentUI/ZzTabContextMenuProvider.h>
+
+class QMenu;
 
 namespace ZzFluentUI {
 
@@ -184,6 +187,15 @@ public:
      */
     void closeTabsToRight(int index);
 
+    /** @brief 设置同步标签上下文菜单扩展回调，不转移回调对象所有权。 */
+    void setTabContextMenuProvider(ZzTabContextMenuProvider provider);
+
+    /** @brief 返回当前标签上下文菜单扩展回调。 */
+    [[nodiscard]] const ZzTabContextMenuProvider &tabContextMenuProvider() const noexcept;
+
+    /** @brief 由标签栏转发上下文菜单事件并按需显示临时菜单。 */
+    void invokeTabContextMenu(const QPoint &globalPosition, const QPoint &barPosition);
+
 protected:
     void tabRemoved(int index) override;
     /**
@@ -269,6 +281,7 @@ private:
     [[nodiscard]] bool silentTransfer() const noexcept;
     void beginCoordinatorTransaction(bool blockPublicTransfers = false);
     void endCoordinatorTransaction(bool blockPublicTransfers = false);
+    void showTabContextMenu(const QPoint &globalPosition, const QPoint &barPosition);
     std::unique_ptr<ZzTabWidgetPrivate> d_ptr;
 };
 

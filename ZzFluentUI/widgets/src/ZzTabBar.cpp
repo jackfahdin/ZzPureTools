@@ -8,7 +8,6 @@
 #include <QtGui/QPainter>
 #include <QtGui/QContextMenuEvent>
 #include <QtWidgets/QApplication>
-#include <QtWidgets/QMenu>
 #include <QtWidgets/QToolButton>
 
 #include "private/ZzTabBarPrivate.h"
@@ -45,40 +44,9 @@ void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
         return;
     }
 
-    auto *menu = new QMenu(this);
-    menu->setAttribute(Qt::WA_DeleteOnClose);
-    QAction *create = menu->addAction(QStringLiteral("新建标签页"));
-    const int index = tabAt(event->pos());
-    QAction *others = index >= 0
-        ? menu->addAction(QStringLiteral("关闭其他标签页"))
-        : nullptr;
-    QAction *right = index >= 0
-        ? menu->addAction(QStringLiteral("关闭右侧标签页"))
-        : nullptr;
-    const QPointer<QWidget> selectedPage =
-        index >= 0 && !d_ptr->host.isNull()
-        ? d_ptr->host->widget(index)
-        : nullptr;
-    connect(menu, &QMenu::triggered, this,
-        [this, create, others, right, selectedPage](QAction *action) {
-            if (action == create) {
-                Q_EMIT newTabRequested();
-                return;
-            }
-            if (d_ptr->host.isNull() || selectedPage.isNull()) {
-                return;
-            }
-            const int currentIndex = d_ptr->host->indexOf(selectedPage);
-            if (currentIndex < 0) {
-                return;
-            }
-            if (action == others) {
-                Q_EMIT closeOtherTabsRequested(currentIndex);
-            } else if (action == right) {
-                Q_EMIT closeTabsToRightRequested(currentIndex);
-            }
-        });
-    menu->popup(event->globalPos());
+    if (!d_ptr->host.isNull()) {
+        d_ptr->host->invokeTabContextMenu(event->globalPos(), event->pos());
+    }
     event->accept();
 }
 

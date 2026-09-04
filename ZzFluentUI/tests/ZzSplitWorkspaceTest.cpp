@@ -21,6 +21,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QSplitter>
+#include <QtWidgets/QLabel>
 
 #include <ZzFluentUI/ZzSplitWorkspace.h>
 #include <ZzFluentUI/ZzEmptyGroupPolicy.h>
@@ -195,6 +196,21 @@ class ZzSplitWorkspaceTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void reportsAttentionGroupsInTreeOrder()
+    {
+        ZzFluentUI::ZzSplitWorkspace workspace;
+        const auto root = workspace.groupIds().constFirst();
+        workspace.tabWidget(root)->addTab(new QLabel(QStringLiteral("page")), QStringLiteral("page"));
+        const auto second = workspace.splitGroup(
+            root, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
+        QVERIFY(second.has_value());
+        workspace.tabWidget(root)->setTabAttention(0, true);
+        QVERIFY(workspace.tabWidget(root)->hasTabAttention(0));
+        QCOMPARE(workspace.attentionGroupIds(), QList<ZzFluentUI::ZzTabGroupId> {root});
+        workspace.tabWidget(root)->setTabAttention(0, false);
+        QVERIFY(workspace.attentionGroupIds().isEmpty());
+    }
+
     void defaultEmptyGroupPolicyRemovesNonFinalGroup()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;

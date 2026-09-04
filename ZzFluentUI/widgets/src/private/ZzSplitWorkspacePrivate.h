@@ -150,6 +150,9 @@ public:
 
     /** @brief 按树顺序返回全部标签组标识。 */
     [[nodiscard]] QList<ZzTabGroupId> groupIds() const;
+    [[nodiscard]] QList<ZzTabGroupId> attentionGroupIds() const;
+    void refreshAttentionGroups();
+    void refreshAttentionGroup(const ZzTabGroupId &id);
 
     /** @brief 按稳定标识查找叶子。 */
     [[nodiscard]] ZzNode *findLeaf(const ZzTabGroupId &id) const noexcept;
@@ -335,6 +338,7 @@ public:
     ZzEmptyGroupPolicy emptyGroupPolicy = ZzEmptyGroupPolicy::RemoveUnlessLast;
     QSet<ZzTabGroupId> pendingEmptyGroups;
     QSet<ZzTabWidget *> preparedTabs;
+    QHash<ZzTabGroupId, bool> attentionByGroup;
     QHash<ZzTabWidget *, QMetaObject::Connection> preparedTabConnections;
     mutable QPointer<QWidget> activePage;
     mutable QWidget *activePageIdentity = nullptr;

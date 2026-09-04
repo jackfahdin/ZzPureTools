@@ -53,6 +53,21 @@ class ZzTabControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void contextMenuProviderIsInvoked()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        auto *page = zzCreatePage(QStringLiteral("page"));
+        tabs.addTab(page, QStringLiteral("page"));
+        bool invoked = false;
+        tabs.setTabContextMenuProvider(
+            [&](QMenu &menu, int index, QWidget *receivedPage) {
+                menu.addAction(QStringLiteral("业务动作"));
+                invoked = index == 0 && receivedPage == page;
+            });
+        tabs.invokeTabContextMenu(QPoint(1, 1), QPoint(1, 1));
+        QVERIFY(invoked);
+    }
+
     void keepsPinnedPartitionAcrossAllMoves()
     {
         ZzFluentUI::ZzTabWidget tabs;

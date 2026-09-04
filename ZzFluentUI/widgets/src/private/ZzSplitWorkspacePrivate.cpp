@@ -2252,6 +2252,48 @@ QList<ZzTabGroupId> ZzSplitWorkspacePrivate::groupIds() const
     return result;
 }
 
+QList<ZzTabGroupId> ZzSplitWorkspacePrivate::attentionGroupIds() const
+{
+    std::vector<const ZzNode *> leaves;
+    collectLeaves(root.get(), leaves);
+    QList<ZzTabGroupId> result;
+    for (const ZzNode *node : leaves) {
+        const auto &leaf = std::get<ZzLeaf>(node->value);
+        const auto *tabs = q_ptr->tabWidget(leaf.id);
+        bool attention = false;
+        if (tabs != nullptr) {
+            for (int index = 0; index < tabs->count(); ++index) {
+                if (tabs->hasTabAttention(index)) {
+                    attention = true;
+                    break;
+                }
+            }
+        }
+        if (attention) result.push_back(leaf.id);
+    }
+    return result;
+}
+
+void ZzSplitWorkspacePrivate::refreshAttentionGroup(const ZzTabGroupId &id)
+{
+    const bool attention = attentionGroupIds().contains(id);
+    const bool previous = attentionByGroup.value(id, false);
+    attentionByGroup.insert(id, attention);
+    if (previous != attention) Q_EMIT q_ptr->groupAttentionChanged(id, attention);
+}
+
+void ZzSplitWorkspacePrivate::refreshAttentionGroups()
+{
+    const QList<ZzTabGroupId> ids = groupIds();
+    for (const auto &id : ids) refreshAttentionGroup(id);
+    QSet<ZzTabGroupId> current;
+    for (const auto &id : ids) current.insert(id);
+    for (auto it = attentionByGroup.begin(); it != attentionByGroup.end();) {
+        if (!current.contains(it.key())) it = attentionByGroup.erase(it);
+        else ++it;
+    }
+}
+
 ZzNode *ZzSplitWorkspacePrivate::findLeaf(
     const ZzTabGroupId &id) const noexcept
 {
@@ -3504,7 +3546,13 @@ void ZzSplitWorkspacePrivate::prepareTabs(ZzTabWidget *tabs)
                 Q_EMIT q_ptr->pageActivityChanged(
                     page, pageId(page), tabs->isTabModified(index), attention);
             }
+            const auto *node = findLeaf(tabs);
+            if (node != nullptr) {
+                refreshAttentionGroup(std::get<ZzLeaf>(node->value).id);
+            }
         });
+    QObject::connect(tabs, &ZzTabWidget::tabTransferred, q_ptr,
+        [this](ZzTabWidget *, int, int, QWidget *) { refreshAttentionGroups(); });
     QObject::connect(tabs, &ZzTabWidget::tearOffRequested, q_ptr,
         [this, tabs](int index, QWidget *page, const QPoint &position) {
             const auto *node = findLeaf(tabs);

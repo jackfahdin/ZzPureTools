@@ -9,6 +9,9 @@
 
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QStackedWidget>
+#include <QtWidgets/QMenu>
+
+#include <utility>
 
 namespace ZzFluentUI {
 
@@ -190,6 +193,57 @@ void ZzTabWidget::closeTabsToRight(int index)
     if (!pages.isEmpty()) {
         Q_EMIT tabsCloseRequested(pages);
     }
+}
+
+void ZzTabWidget::setTabContextMenuProvider(
+    ZzTabContextMenuProvider provider)
+{
+    d_ptr->contextMenuProvider = std::move(provider);
+}
+
+const ZzTabContextMenuProvider &ZzTabWidget::tabContextMenuProvider() const noexcept
+{
+    return d_ptr->contextMenuProvider;
+}
+
+void ZzTabWidget::invokeTabContextMenu(
+    const QPoint &globalPosition, const QPoint &barPosition)
+{
+    showTabContextMenu(globalPosition, barPosition);
+}
+
+void ZzTabWidget::showTabContextMenu(
+    const QPoint &globalPosition, const QPoint &barPosition)
+{
+    auto *menu = new QMenu(this);
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    QAction *const create = menu->addAction(QStringLiteral("新建标签页"));
+    const int index = d_ptr->tabBar->tabAt(barPosition);
+    QAction *const others = index >= 0
+        ? menu->addAction(QStringLiteral("关闭其他标签页")) : nullptr;
+    QAction *const right = index >= 0
+        ? menu->addAction(QStringLiteral("关闭右侧标签页")) : nullptr;
+    QWidget *const page = index >= 0 ? widget(index) : nullptr;
+    if (d_ptr->contextMenuProvider) {
+        d_ptr->contextMenuProvider(*menu, index, page);
+    }
+    if (menu->actions().isEmpty()) {
+        menu->close();
+        return;
+    }
+    connect(menu, &QMenu::triggered, this,
+        [this, create, others, right, page](QAction *action) {
+            if (action == create) {
+                Q_EMIT newTabRequested();
+                return;
+            }
+            if (page == nullptr) return;
+            const int currentIndex = indexOf(page);
+            if (currentIndex < 0) return;
+            if (action == others) closeOtherTabs(currentIndex);
+            else if (action == right) closeTabsToRight(currentIndex);
+        });
+    menu->popup(globalPosition);
 }
 
 void ZzTabWidget::tabInserted(int index)

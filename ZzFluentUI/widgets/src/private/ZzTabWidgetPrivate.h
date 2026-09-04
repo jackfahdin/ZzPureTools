@@ -7,6 +7,7 @@
 #include <QtCore/QMetaObject>
 #include <QtGui/QColor>
 #include <QtGui/QIcon>
+#include <ZzFluentUI/ZzTabContextMenuProvider.h>
 
 class QWidget;
 
@@ -95,6 +96,7 @@ public:
     bool normalizing = false;
     bool removalNotified = false;
     int transferInsertionDepth = 0;
+    ZzTabContextMenuProvider contextMenuProvider;
 };
 
 } // namespace ZzFluentUI

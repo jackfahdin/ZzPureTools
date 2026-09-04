@@ -70,6 +70,8 @@ public:
 
     /** @brief 按稳定树顺序返回全部标签组标识。 */
     [[nodiscard]] QList<ZzTabGroupId> groupIds() const;
+    /** @brief 按稳定树顺序返回包含 attention 标签的标签组。 */
+    [[nodiscard]] QList<ZzTabGroupId> attentionGroupIds() const;
 
     /** @brief 返回当前活动标签组标识。 */
     [[nodiscard]] ZzTabGroupId activeGroupId() const;
@@ -249,6 +251,8 @@ Q_SIGNALS:
     /** @brief 页面修改或注意状态实际变化后发出。 */
     void pageActivityChanged(QWidget *page, const ZzWorkspacePageId &id,
                              bool modified, bool attention);
+    /** @brief 标签组 attention 聚合状态实际变化后发出。 */
+    void groupAttentionChanged(const ZzTabGroupId &id, bool attention);
 
     /** @brief 新标签组成功加入树后发出。 */
     void groupAdded(const ZzTabGroupId &id);

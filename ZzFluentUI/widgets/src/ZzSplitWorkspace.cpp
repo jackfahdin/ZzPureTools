@@ -22,6 +22,11 @@
 
 namespace ZzFluentUI {
 
+QList<ZzTabGroupId> ZzSplitWorkspace::attentionGroupIds() const
+{
+    return d_ptr->attentionGroupIds();
+}
+
 namespace {
 
 struct ZzCoordinatorTabSnapshot final
@@ -302,7 +307,7 @@ ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspace(
     int targetIndex,
     ZzWorkspaceDropZone zone)
 {
-    return ZzWorkspaceCrossTransferTransactionPrivate::run(
+    auto result = ZzWorkspaceCrossTransferTransactionPrivate::run(
         this,
         sourceGroup,
         sourceIndex,
@@ -310,6 +315,13 @@ ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspace(
         targetGroup,
         targetIndex,
         zone);
+    if (result.hasValue()) {
+        d_ptr->refreshAttentionGroups();
+        if (targetWorkspace != nullptr && targetWorkspace != this) {
+            targetWorkspace->d_ptr->refreshAttentionGroups();
+        }
+    }
+    return result;
 }
 
 ZzCore::ZzResult<void> ZzSplitWorkspace::transferTabToWorkspaceSilently(
