@@ -1,4 +1,6 @@
 #include <memory>
+#include <type_traits>
+#include <utility>
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPointer>
@@ -36,6 +38,7 @@
 #include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 #include <ZzPureTools/ZzWorkspaceWindowFactory.h>
 #include <ZzPureTools/ZzWorkspaceWindowHandle.h>
+#include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
@@ -269,6 +272,24 @@ private Q_SLOTS:
         auto page = resolver(QStringView(u"overview"));
         QVERIFY(page);
         QVERIFY(page.value() != nullptr);
+    }
+
+    void exposesTopologyPersistenceContracts()
+    {
+        using SaveResult = decltype(std::declval<
+            const ZzPureTools::ZzWorkspaceWindowCoordinator &>()
+                                        .saveTopology());
+        using RestoreResult = decltype(std::declval<
+            ZzPureTools::ZzWorkspaceWindowCoordinator &>()
+                                          .restoreTopology(
+                                              std::declval<const QByteArray &>(),
+                                              std::declval<const ZzPureTools::
+                                                               ZzWorkspacePageResolver &>()));
+        static_assert(std::is_same_v<SaveResult,
+                                     ZzCore::ZzResult<QByteArray>>);
+        static_assert(std::is_same_v<RestoreResult,
+                                     ZzCore::ZzResult<void>>);
+        QVERIFY(true);
     }
 
     void exposesStableWorkspaceSurfaces()

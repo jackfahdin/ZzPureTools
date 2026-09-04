@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtCore/QByteArray>
 #include <QtCore/QList>
 #include <QtCore/QObject>
 
@@ -91,6 +92,22 @@ public:
      */
     [[nodiscard]] ZzCore::ZzResult<ZzWorkspaceWindowConfiguration>
     configuration(ZzApplicationWindow *window) const;
+
+    /**
+     * @brief 按登记顺序保存全部窗口、工作区页面和来源栈拓扑。
+     * @return 成功时返回带 SHA-256 校验的 `ZZWT` 字节；页面观察不完整时返回错误。
+     */
+    [[nodiscard]] ZzCore::ZzResult<QByteArray> saveTopology() const;
+
+    /**
+     * @brief 在空业务拓扑中事务恢复窗口、页面和跨屏几何。
+     * @param state `ZZWT` v2 字节，或兼容的 `ZZSW` v1 单窗口字节。
+     * @param pageResolver 按持久布局键创建无父对象页面的解析器。
+     * @return 全部窗口和页面提交后成功；任一步失败时保持原拓扑不变。
+     */
+    [[nodiscard]] ZzCore::ZzResult<void> restoreTopology(
+        const QByteArray &state,
+        const ZzWorkspacePageResolver &pageResolver);
 
 protected:
     /** @brief 保留已登记对象的销毁事件过滤安装点。 */

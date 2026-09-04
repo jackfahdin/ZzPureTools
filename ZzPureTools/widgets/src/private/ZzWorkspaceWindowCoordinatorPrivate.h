@@ -102,6 +102,12 @@ public:
     [[nodiscard]] ZzCore::ZzResult<void> approveDelegatedClose(
         ZzApplicationWindow *window);
 
+    [[nodiscard]] ZzCore::ZzResult<QByteArray> saveTopology() const;
+
+    [[nodiscard]] ZzCore::ZzResult<void> restoreTopology(
+        const QByteArray &state,
+        const ZzWorkspacePageResolver &pageResolver);
+
     bool eventFilter(QObject *watched, QEvent *event);
 
     [[nodiscard]] bool closeTransactionActive(
