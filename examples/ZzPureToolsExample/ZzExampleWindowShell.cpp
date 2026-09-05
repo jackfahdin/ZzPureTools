@@ -59,6 +59,11 @@ ZzExampleWindowShell *ZzExampleWindowShell::attachedTo(
         Qt::FindDirectChildrenOnly);
 }
 
+ZzPureTools::ZzWorkspaceShell *ZzExampleWindowShell::workspaceShell() const noexcept
+{
+    return d_ptr->workspace.get();
+}
+
 bool ZzExampleWindowShell::isActivityDockVisible() const noexcept
 {
     return d_ptr->isActivityDockVisible();

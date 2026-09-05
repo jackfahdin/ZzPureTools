@@ -38,6 +38,8 @@
 #include <ZzPureTools/ZzRouteId.h>
 #include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
+#include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
 #include <ZzLog/ZzLog.h>
@@ -458,7 +460,21 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         });
     QObject::connect(newWindowAction, &QAction::triggered,
         q_ptr, [this] {
-            auto result = application->createWindow();
+            if (application == nullptr
+                || application->workspaceWindowCoordinator() == nullptr
+                || window == nullptr) {
+                reportFailure(ZzCore::ZzError(
+                    ZzCore::ZzErrorCode::InvalidState,
+                    QStringLiteral(
+                        "example window coordinator is unavailable")));
+                return;
+            }
+            ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+            options.configurationSource =
+                ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow;
+            options.sourceWindow = window;
+            auto result = application->workspaceWindowCoordinator()->createWindow(
+                options);
             if (!result) {
                 reportFailure(result.error());
             }

@@ -25,6 +25,11 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
+#include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
+#include <ZzPureTools/ZzWorkspaceWindowHandle.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
@@ -203,8 +208,10 @@ int main(int argc, char *argv[])
 #if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
          , performanceController
 #endif
+         , coordinator = application.workspaceWindowCoordinator(),
+         primaryRegistered = false
         ](
-            ZzPureTools::ZzApplicationWindow &window) {
+            ZzPureTools::ZzApplicationWindow &window) mutable {
             bool closeGuardEnabled = smokeController->closeGuardEnabled();
 #if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
             closeGuardEnabled = closeGuardEnabled
@@ -217,6 +224,68 @@ int main(int argc, char *argv[])
                 closeGuardEnabled);
             if (!shellResult) {
                 return shellResult;
+            }
+            auto *shell = ZzExample::ZzExampleWindowShell::attachedTo(window);
+            if (shell == nullptr || shell->workspaceShell() == nullptr) {
+                return ZzCore::ZzResult<void>::failure(
+                    ZzCore::ZzError(
+                        ZzCore::ZzErrorCode::InvalidState,
+                        QStringLiteral("example window shell is unavailable")));
+            }
+            if (coordinator != nullptr) {
+                coordinator->setWindowFactory(
+                    [&application](
+                        const ZzPureTools::ZzWorkspaceWindowCreateOptions &) {
+                        auto created = application.createWindow(
+                            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+                        if (!created) {
+                            return ZzCore::ZzResult<
+                                ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                                created.error());
+                        }
+                        auto *createdWindow = created.value();
+                        auto *createdShell =
+                            ZzExample::ZzExampleWindowShell::attachedTo(
+                            *createdWindow);
+                        if (createdShell == nullptr
+                            || createdShell->workspaceShell() == nullptr) {
+                            createdWindow->close();
+                            return ZzCore::ZzResult<
+                                ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                                ZzCore::ZzError(
+                                    ZzCore::ZzErrorCode::InvalidState,
+                                    QStringLiteral(
+                                        "example window shell is unavailable")));
+                        }
+                        ZzPureTools::ZzWorkspaceWindowHandle handle;
+                        handle.window = createdWindow;
+                        handle.shell = createdShell->workspaceShell();
+                        return ZzCore::ZzResult<
+                            ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                            handle);
+                    });
+            }
+            if (!primaryRegistered) {
+                primaryRegistered = true;
+                ZzPureTools::ZzWorkspaceWindowConfiguration configuration;
+                configuration.title = window.windowTitle();
+                configuration.icon = window.windowIcon();
+                configuration.titleMode = shell->workspaceShell()->titleMode();
+                configuration.closePolicy =
+                    ZzPureTools::ZzWindowClosePolicy::Allow;
+                configuration.alwaysOnTop = window.windowFlags().testFlag(
+                    Qt::WindowStaysOnTopHint);
+                configuration.minimumSize = window.minimumSize();
+                configuration.maximumSize = window.maximumSize();
+                configuration.initialGeometry = window.geometry();
+                const auto registered = coordinator->registerWindow(
+                    ZzPureTools::ZzWorkspaceWindowHandle{
+                        &window, shell->workspaceShell()},
+                    configuration,
+                    true);
+                if (!registered) {
+                    return registered;
+                }
             }
             smokeController->windowAttached(window);
 #if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)

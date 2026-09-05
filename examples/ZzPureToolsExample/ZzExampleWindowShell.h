@@ -9,6 +9,7 @@
 namespace ZzPureTools {
 class ZzApplicationWindow;
 class ZzPureApplication;
+class ZzWorkspaceShell;
 }
 
 class QEvent;
@@ -49,6 +50,14 @@ public:
      */
     [[nodiscard]] static ZzExampleWindowShell *attachedTo(
         ZzPureTools::ZzApplicationWindow &window) noexcept;
+
+    /**
+     * @brief 返回当前窗口已装配的工作区壳层观察指针。
+     *
+     * 该接口仅观察 Example 窗口内部的公共工作区组件，不转移所有权。
+     * @return 已创建的工作区壳层，尚未完成装配时返回 nullptr。
+     */
+    [[nodiscard]] ZzPureTools::ZzWorkspaceShell *workspaceShell() const noexcept;
 
     /** @brief 返回当前窗口活动 Dock 是否可见。 */
     [[nodiscard]] bool isActivityDockVisible() const noexcept;

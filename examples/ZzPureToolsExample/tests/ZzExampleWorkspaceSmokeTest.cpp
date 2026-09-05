@@ -56,6 +56,10 @@
 #include <ZzPureTools/ZzPageRegistration.h>
 #include <ZzPureTools/ZzPureApplication.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzWorkspaceWindowHandle.h>
+#include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
+#include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
+#include <ZzPureTools/ZzWorkspaceWindowCreateOptions.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include "ZzExampleApplicationContext.h"
@@ -134,6 +138,19 @@ namespace {
 [[nodiscard]] ZzPureTools::ZzWorkspacePanelId zzPanelId(const char *value)
 {
     return ZzPureTools::ZzWorkspacePanelId(QString::fromLatin1(value));
+}
+
+[[nodiscard]] ZzPureTools::ZzApplicationWindow *zzOtherWindow(
+    ZzPureTools::ZzPureApplication &application,
+    ZzPureTools::ZzApplicationWindow *firstWindow)
+{
+    for (QWidget *widget : application.topLevelWidgets()) {
+        auto *window = qobject_cast<ZzPureTools::ZzApplicationWindow *>(widget);
+        if (window != nullptr && window != firstWindow) {
+            return window;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace
@@ -231,11 +248,79 @@ private Q_SLOTS:
         QVERIFY(builder.setInitialRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("home"))));
         QVERIFY(builder.setWindowSetupCallback(
-            [this, application](ZzPureTools::ZzApplicationWindow &window) {
+            [this, application, coordinator = application->workspaceWindowCoordinator(),
+                primaryRegistered = false]
+            (ZzPureTools::ZzApplicationWindow &window) mutable {
                 initialWindow_ = initialWindow_ == nullptr
                     ? &window : initialWindow_;
-                return ZzExample::ZzExampleWindowShell::attach(
+                if (coordinator != nullptr) {
+                    coordinator->setWindowFactory(
+                        [this, application]
+                        (const ZzPureTools::ZzWorkspaceWindowCreateOptions &) {
+                            auto created = application->createWindow(
+                                ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+                            if (!created) {
+                                return ZzCore::ZzResult<
+                                    ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                                    created.error());
+                            }
+                            auto *createdWindow = created.value();
+                            auto *createdShell =
+                                ZzExample::ZzExampleWindowShell::attachedTo(
+                                *createdWindow);
+                            if (createdShell == nullptr
+                                || createdShell->workspaceShell() == nullptr) {
+                                createdWindow->close();
+                                return ZzCore::ZzResult<
+                                    ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                                    ZzCore::ZzError(
+                                        ZzCore::ZzErrorCode::InvalidState,
+                                        QStringLiteral("example window shell is unavailable")));
+                            }
+                            ZzPureTools::ZzWorkspaceWindowHandle handle;
+                            handle.window = createdWindow;
+                            handle.shell = createdShell->workspaceShell();
+                            return ZzCore::ZzResult<
+                                ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                                handle);
+                        });
+                }
+                auto shellResult = ZzExample::ZzExampleWindowShell::attach(
                     window, context_, *application, false);
+                if (!shellResult) {
+                    return shellResult;
+                }
+                auto *shell = ZzExample::ZzExampleWindowShell::attachedTo(window);
+                if (shell == nullptr || shell->workspaceShell() == nullptr) {
+                    return ZzCore::ZzResult<void>::failure(
+                        ZzCore::ZzError(
+                            ZzCore::ZzErrorCode::InvalidState,
+                            QStringLiteral("example window shell is unavailable")));
+                }
+                if (!primaryRegistered) {
+                    primaryRegistered = true;
+                    ZzPureTools::ZzWorkspaceWindowConfiguration configuration;
+                    configuration.title = window.windowTitle();
+                    configuration.icon = window.windowIcon();
+                    configuration.titleMode =
+                        shell->workspaceShell()->titleMode();
+                    configuration.closePolicy =
+                        ZzPureTools::ZzWindowClosePolicy::Allow;
+                    configuration.alwaysOnTop = window.windowFlags().testFlag(
+                        Qt::WindowStaysOnTopHint);
+                    configuration.minimumSize = window.minimumSize();
+                    configuration.maximumSize = window.maximumSize();
+                    configuration.initialGeometry = window.geometry();
+                    const auto registered = coordinator->registerWindow(
+                        ZzPureTools::ZzWorkspaceWindowHandle{
+                            &window, shell->workspaceShell()},
+                        configuration,
+                        true);
+                    if (!registered) {
+                        return registered;
+                    }
+                }
+                return shellResult;
             }));
         const auto buildResult = builder.build(*application);
         if (!buildResult) {
@@ -577,6 +662,140 @@ private Q_SLOTS:
                 zone));
         }
         QCOMPARE(splitWorkspace->groupIds().size(), 5);
+    }
+
+    void coordinatorTearOffRestoresTerminalPageToPrimaryWindow()
+    {
+        auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        QVERIFY(context_ != nullptr);
+        auto *coordinator = application->workspaceWindowCoordinator();
+        QVERIFY(coordinator != nullptr);
+
+        auto *window = initialWindow_;
+        QVERIFY(window != nullptr);
+        auto *shell = ZzExample::ZzExampleWindowShell::attachedTo(*window);
+        QVERIFY(shell != nullptr);
+        auto *workspaceShell = shell->workspaceShell();
+        QVERIFY(workspaceShell != nullptr);
+
+        const auto firstConfiguration = coordinator->configuration(window);
+        QVERIFY(firstConfiguration);
+        QVERIFY(!firstConfiguration.value().title.isEmpty());
+        QCOMPARE(firstConfiguration.value().closePolicy,
+            ZzPureTools::ZzWindowClosePolicy::Allow);
+
+        auto *commandBar = window->findChild<ZzFluentUI::ZzCommandBar *>(
+            QStringLiteral("zzExampleOutputCommandBar"));
+        QVERIFY(commandBar != nullptr);
+        QAction *const newTerminalAction = commandBar->primaryActions().constFirst();
+        QVERIFY(newTerminalAction != nullptr);
+        newTerminalAction->trigger();
+        QCoreApplication::processEvents();
+
+        auto *splitWorkspace = workspaceShell->splitWorkspace();
+        QVERIFY(splitWorkspace != nullptr);
+        const auto sourceGroup = splitWorkspace->activeGroupId();
+        auto *sourceTabs = splitWorkspace->tabWidget(sourceGroup);
+        QVERIFY(sourceTabs != nullptr);
+        const int sourceIndex = sourceTabs->currentIndex();
+        QVERIFY(sourceIndex >= 0);
+        QWidget *const page = sourceTabs->widget(sourceIndex);
+        QVERIFY(page != nullptr);
+        const auto pageId = splitWorkspace->pageId(page);
+        QVERIFY(pageId.isValid());
+        QPointer<QWidget> pageGuard(page);
+
+        ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+        options.configurationSource =
+            ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow;
+        options.sourceWindow = window;
+        options.configuration.title = QStringLiteral("已撕出终端");
+        options.configuration.closePolicy =
+            ZzPureTools::ZzWindowClosePolicy::Delegate;
+
+        const auto tearOffResult = coordinator->tearOff(
+            splitWorkspace, sourceGroup, sourceIndex, options);
+        if (!tearOffResult) {
+            const auto &error = tearOffResult.error();
+            QFAIL(qPrintable(QStringLiteral("tear-off failed: %1; %2")
+                                 .arg(error.technicalMessage(), error.context())));
+        }
+        ZZ_VERIFY_EVENTUALLY(application->windowCount() == 2);
+
+        auto *secondWindow = zzOtherWindow(*application, window);
+        QVERIFY(secondWindow != nullptr);
+        auto *secondShell = ZzExample::ZzExampleWindowShell::attachedTo(
+            *secondWindow);
+        QVERIFY(secondShell != nullptr);
+        QVERIFY(secondShell != shell);
+        QVERIFY(secondShell->workspaceShell() != workspaceShell);
+
+        auto *secondWorkspaceShell = secondShell->workspaceShell();
+        QVERIFY(secondWorkspaceShell != nullptr);
+        auto *secondWorkspace = secondWorkspaceShell->splitWorkspace();
+        QVERIFY(secondWorkspace != nullptr);
+        auto *secondTabs =
+            secondWorkspace->tabWidget(secondWorkspace->activeGroupId());
+        QVERIFY(secondTabs != nullptr);
+        QVERIFY(secondTabs->indexOf(page) >= 0);
+        QCOMPARE(secondWorkspace->pageForId(pageId), page);
+
+        const auto secondConfiguration = coordinator->configuration(
+            secondWindow);
+        QVERIFY(secondConfiguration);
+        QCOMPARE(secondConfiguration.value().title, QStringLiteral("已撕出终端"));
+        QCOMPARE(secondConfiguration.value().closePolicy,
+            ZzPureTools::ZzWindowClosePolicy::Delegate);
+
+        QVERIFY(coordinator->closeWindow(secondWindow));
+        QCOMPARE(application->windowCount(), 2);
+        QVERIFY(coordinator->approveDelegatedClose(secondWindow));
+        ZZ_VERIFY_EVENTUALLY(application->windowCount() == 1);
+        QCOMPARE(splitWorkspace->pageForId(pageId), page);
+        QVERIFY(!pageGuard.isNull());
+
+        QSignalSpy orphaned(
+            coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::orphanedPages);
+        QObject::connect(
+            coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::orphanedPages,
+            this,
+            [splitWorkspace](const QList<QWidget *> &pages) {
+                for (QWidget *const orphanedPage : pages) {
+                    if (orphanedPage != nullptr) {
+                        for (const auto &group : splitWorkspace->groupIds()) {
+                            auto *const tabs = splitWorkspace->tabWidget(group);
+                            const int index = tabs != nullptr
+                                ? tabs->indexOf(orphanedPage) : -1;
+                            if (index >= 0) {
+                                tabs->removeTab(index);
+                                break;
+                            }
+                        }
+                        orphanedPage->setParent(nullptr);
+                    }
+                }
+            });
+        QVERIFY(coordinator->closeWindow(window));
+        QCOMPARE(orphaned.count(), 1);
+        const auto orphanedPages = orphaned.constFirst().constFirst()
+                                       .value<QList<QWidget *>>();
+        QVERIFY(orphanedPages.contains(page));
+        ZZ_COMPARE_EVENTUALLY(application->windowCount(), 0);
+        QVERIFY(!pageGuard.isNull());
+
+        auto *replacementWindow = createAdditionalWindow();
+        QVERIFY(replacementWindow != nullptr);
+        auto *replacementShell =
+            ZzExample::ZzExampleWindowShell::attachedTo(*replacementWindow);
+        QVERIFY(replacementShell != nullptr);
+        QVERIFY(replacementShell->workspaceShell() != nullptr);
+        QVERIFY(coordinator->registerWindow(
+            {replacementWindow, replacementShell->workspaceShell()},
+            firstConfiguration.value(), true));
+        initialWindow_ = replacementWindow;
     }
 
     void settingsActionCreatesOneWindowModalChildPerMainWindow()
