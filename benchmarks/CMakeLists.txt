@@ -251,6 +251,12 @@ if(ZZ_PERFORMANCE_REFERENCE)
         navigation-pane reset-time MAX_P95 80)
     zz_add_reference_gate(workspace-components benchmark.workspace-components
         workspace-components workspace-render-time MAX_P95 12)
+    zz_add_reference_gate(workspace-cross-transfer-time
+        benchmark.workspace-components workspace-components
+        workspace-cross-transfer-time MAX_P95 4)
+    zz_add_reference_gate(workspace-cross-transfer-object-growth
+        benchmark.workspace-components workspace-components
+        workspace-cross-transfer-object-growth MAX_VALUE 0 STRICT_MAX)
     if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         zz_add_reference_gate(idle-cpu benchmark.idle-cpu
             idle average-cpu-percent MAX_VALUE 0.5 STRICT_MAX)

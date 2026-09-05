@@ -471,6 +471,28 @@ ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
 `activity-row-widgets`、`fixed-action-steady-object-growth` 和
 `right-empty-layout-width` 必须为 0，`single-side-visible-panels` 不得大于 1。
 
+多窗口迁移基准在两个独立工作区中预置 32 个标签，预热后交替迁移 500 次。基准会
+验证同一 `QWidget`、`pageId`、`layoutKey` 和总标签数始终保持一致，并在稳定阶段拒绝
+新增 `QObject`、`QTimer` 或 `QAbstractAnimation`。正式参考门禁固定为迁移 P95 不超过
+4 ms、对象增长严格为 0；实测超限时必须优化迁移热路径并重新采样，不能直接放宽阈值：
+
+```bash
+cmake --preset linux-gcc-benchmarks \
+  -DZZ_BUILD_TESTS=ON -DZZ_BUILD_BENCHMARKS=ON \
+  -DZZ_PERFORMANCE_REFERENCE:BOOL=ON
+cmake --build --preset linux-gcc-benchmarks \
+  --target ZzWorkspaceComponentsBenchmark --parallel 2
+for round in 1 2 3; do
+  ctest --preset linux-gcc-benchmarks -R \
+    '^benchmark\.workspace-components$' --output-on-failure
+done
+```
+
+报告文件位于 `build/linux-gcc-benchmarks/reports/benchmark.workspace-components.json`。
+每轮都必须包含 `workspace-cross-transfer-time` 和
+`workspace-cross-transfer-object-growth`；参考门禁会分别检查两个指标。三轮结果和
+环境指纹应保存到受审证据目录，不能把开发者本机路径或临时调度器状态写入仓库。
+
 ## 常见问题
 
 ### Qt 版本或私有头不匹配

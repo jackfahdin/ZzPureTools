@@ -93,6 +93,8 @@ RTL 语义，因此不会为了“组件名一一对应”重复创建同义的 
 
 工作区组件的公开接口、线程前提、所有权转移和安装消费示例见
 [工作区公共 API 使用约定](docs/development/WORKSPACE_API_ZH.md)。
+多窗口撕出、独立窗口配置、Delegate 关闭和 `ZZWT` 拓扑恢复的应用接入示例见
+[通用应用接入指南](docs/development/FRAMEWORK_INTEGRATION_ZH.md)。
 
 QWindowKit 类型不会暴露到 Zz 公共 API；UI 组件不直接访问领域模型、数据库、
 网络客户端或业务服务。完整依赖规则见

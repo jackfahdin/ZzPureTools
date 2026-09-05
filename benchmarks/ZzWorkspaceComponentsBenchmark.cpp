@@ -76,6 +76,8 @@ constexpr int zzBottomPanelCount = 3;
 constexpr int zzCommandBarActionCount = 40;
 constexpr int zzSmallGroupCount = 4;
 constexpr int zzLargeGroupCount = 32;
+constexpr int zzCrossTransferTabCount = 32;
+constexpr int zzCrossTransferIterations = 500;
 constexpr int zzSmallMarkerCount = 20;
 constexpr int zzLargeMarkerCount = 100000;
 constexpr int zzPaintViewportWidth = 1200;
@@ -636,6 +638,8 @@ int main(int argc, char *argv[])
     auto *fourGroupWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
     auto *thirtyTwoGroupWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
     auto *structureWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
+    auto *crossSourceWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
+    auto *crossTargetWorkspace = new ZzFluentUI::ZzSplitWorkspace(&host);
     fourGroupWorkspace->resize(zzPaintViewportWidth, zzPaintViewportHeight);
     thirtyTwoGroupWorkspace->resize(
         zzPaintViewportWidth * zzLargeGroupCount / zzSmallGroupCount,
@@ -645,10 +649,91 @@ int main(int argc, char *argv[])
          : {fourGroupWorkspace, thirtyTwoGroupWorkspace, structureWorkspace}) {
         workspace->hide();
     }
+    crossSourceWorkspace->hide();
+    crossTargetWorkspace->hide();
     if (!zzCreateTabGroups(fourGroupWorkspace, zzSmallGroupCount)
         || !zzCreateTabGroups(thirtyTwoGroupWorkspace, zzLargeGroupCount)) {
         return zzFail(QStringLiteral("failed to create fixed tab group scales"));
     }
+
+    const ZzFluentUI::ZzTabGroupId crossSourceGroup =
+        crossSourceWorkspace->groupIds().constFirst();
+    const ZzFluentUI::ZzTabGroupId crossTargetGroup =
+        crossTargetWorkspace->groupIds().constFirst();
+    QWidget *crossTransferPage = nullptr;
+    ZzFluentUI::ZzWorkspacePageId crossTransferPageId;
+    QString crossTransferLayoutKey;
+    for (int index = 0; index < zzCrossTransferTabCount; ++index) {
+        auto *page = new QWidget;
+        page->setObjectName(
+            QStringLiteral("ZzCrossTransferPage%1").arg(index));
+        ZzFluentUI::ZzSplitWorkspace *const owner = index
+                < zzCrossTransferTabCount / 2
+            ? crossSourceWorkspace : crossTargetWorkspace;
+        const ZzFluentUI::ZzTabGroupId &ownerGroup = index
+                < zzCrossTransferTabCount / 2
+            ? crossSourceGroup : crossTargetGroup;
+        const int pageIndex = owner->tabWidget(ownerGroup)->addTab(
+                page, QStringLiteral("Cross tab %1").arg(index));
+        if (pageIndex < 0
+            || !owner->setPageLayoutKey(
+                page, QStringLiteral("cross-transfer-%1").arg(index))) {
+            return zzFail(QStringLiteral(
+                "failed to seed cross-workspace transfer tabs"));
+        }
+        if (index == 0) {
+            crossTransferPage = page;
+            crossTransferPageId = crossSourceWorkspace->pageId(page);
+            crossTransferLayoutKey = crossSourceWorkspace->pageLayoutKey(page);
+        }
+    }
+    if (crossTransferPage == nullptr || !crossTransferPageId.isValid()
+        || crossTransferLayoutKey.isEmpty()) {
+        return zzFail(QStringLiteral(
+            "cross-workspace transfer page identity is unavailable"));
+    }
+    zzProcessGuiEvents();
+    const auto crossTransfer = [&](ZzFluentUI::ZzSplitWorkspace *source,
+                                   ZzFluentUI::ZzSplitWorkspace *target,
+                                   const ZzFluentUI::ZzTabGroupId &sourceGroup,
+                                   const ZzFluentUI::ZzTabGroupId &targetGroup) {
+        auto *sourceTabs = source->tabWidget(sourceGroup);
+        const int sourceIndex = sourceTabs->indexOf(crossTransferPage);
+        if (sourceIndex < 0) {
+            return false;
+        }
+        const auto result = source->transferTabToWorkspace(
+            sourceGroup, sourceIndex, target, targetGroup);
+        if (!result
+            || target->pageForId(crossTransferPageId) != crossTransferPage
+            || target->pageLayoutKey(crossTransferPage)
+                != crossTransferLayoutKey
+            || source->pageForId(crossTransferPageId) != nullptr
+            || source->pageLayoutKey(crossTransferPage) != QString{}
+            || source->tabWidget(sourceGroup)->count()
+                + target->tabWidget(targetGroup)->count()
+                != zzCrossTransferTabCount) {
+            return false;
+        }
+        return true;
+    };
+    for (int iteration = 0; iteration < zzWarmupIterations; ++iteration) {
+        const bool sourceToTarget = (iteration % 2) == 0;
+        if (!crossTransfer(
+                sourceToTarget ? crossSourceWorkspace : crossTargetWorkspace,
+                sourceToTarget ? crossTargetWorkspace : crossSourceWorkspace,
+                sourceToTarget ? crossSourceGroup : crossTargetGroup,
+                sourceToTarget ? crossTargetGroup : crossSourceGroup)) {
+            return zzFail(QStringLiteral(
+                "cross-workspace transfer warmup failed at iteration %1")
+                              .arg(iteration));
+        }
+        zzProcessGuiEvents();
+    }
+    // 首次迁移可能触发 Qt 的惰性 polish；所有基准表面创建完成后才冻结预算。
+    qsizetype crossTransferObjectCount = 0;
+    qsizetype crossTransferTimerCount = 0;
+    qsizetype crossTransferAnimationCount = 0;
 
     ZzBenchmarkMarkerModel smallMarkerModel(
         zzSmallMarkerCount, zzSmallMarkerCount);
@@ -715,6 +800,49 @@ int main(int argc, char *argv[])
         reporter, host.screen());
     if (!metadata) {
         return zzFail(metadata.error().technicalMessage());
+    }
+    crossTransferObjectCount = host.findChildren<QObject *>().size();
+    crossTransferTimerCount = host.findChildren<QTimer *>().size();
+    crossTransferAnimationCount = host.findChildren<QAbstractAnimation *>().size();
+    for (int iteration = 0;
+         iteration < zzCrossTransferIterations;
+         ++iteration) {
+        const bool sourceToTarget = (iteration % 2) == 0;
+        QElapsedTimer timer;
+        timer.start();
+        if (!crossTransfer(
+                sourceToTarget ? crossSourceWorkspace : crossTargetWorkspace,
+                sourceToTarget ? crossTargetWorkspace : crossSourceWorkspace,
+                sourceToTarget ? crossSourceGroup : crossTargetGroup,
+                sourceToTarget ? crossTargetGroup : crossSourceGroup)) {
+            return zzFail(QStringLiteral(
+                "cross-workspace transfer failed at iteration %1")
+                              .arg(iteration));
+        }
+        const auto objectGrowth = host.findChildren<QObject *>().size()
+            - crossTransferObjectCount;
+        if (host.findChildren<QTimer *>().size() != crossTransferTimerCount
+            || host.findChildren<QAbstractAnimation *>().size()
+                != crossTransferAnimationCount
+            || objectGrowth != 0) {
+            return zzFail(QStringLiteral(
+                "cross-workspace transfer changed stable object budget at iteration %1: "
+                "objects %2/%3, timers %4/%5, animations %6/%7")
+                              .arg(iteration)
+                              .arg(host.findChildren<QObject *>().size())
+                              .arg(crossTransferObjectCount)
+                              .arg(host.findChildren<QTimer *>().size())
+                              .arg(crossTransferTimerCount)
+                              .arg(host.findChildren<QAbstractAnimation *>().size())
+                              .arg(crossTransferAnimationCount));
+        }
+        reporter.addSample({QStringLiteral("workspace-cross-transfer-time"),
+                            QStringLiteral("ms"),
+                            zzMilliseconds(timer.nsecsElapsed())});
+        reporter.addSample({
+            QStringLiteral("workspace-cross-transfer-object-growth"),
+            QStringLiteral("count"),
+            static_cast<double>(objectGrowth)});
     }
     const QSize paintViewportSize(
         zzPaintViewportWidth, zzPaintViewportHeight);
@@ -1093,10 +1221,22 @@ int main(int argc, char *argv[])
         report, QStringLiteral("marker-paint-20-time"));
     const auto largeMarkerP95 = zzMetricP95(
         report, QStringLiteral("marker-paint-100000-time"));
+    const auto crossTransferP95 = zzMetricP95(
+        report, QStringLiteral("workspace-cross-transfer-time"));
+    const auto crossTransferObjectGrowthP95 = zzMetricP95(
+        report, QStringLiteral("workspace-cross-transfer-object-growth"));
     if (!renderP95 || !panelP95 || !structureP95
         || !fourGroupP95 || !thirtyTwoGroupP95
-        || !smallMarkerP95 || !largeMarkerP95) {
+        || !smallMarkerP95 || !largeMarkerP95 || !crossTransferP95
+        || !crossTransferObjectGrowthP95) {
         return zzFail(QStringLiteral("workspace performance report is incomplete"));
+    }
+    if (*crossTransferP95 > 4.0
+        || *crossTransferObjectGrowthP95 > 0.0) {
+        return zzFail(QStringLiteral(
+            "cross-workspace transfer budget exceeded: P95=%1 ms, object-growth P95=%2")
+                          .arg(*crossTransferP95)
+                          .arg(*crossTransferObjectGrowthP95));
     }
     if (*renderP95 > zzRenderP95BudgetMs) {
         return zzFail(QStringLiteral(

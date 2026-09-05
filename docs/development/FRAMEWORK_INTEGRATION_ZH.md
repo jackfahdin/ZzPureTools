@@ -69,6 +69,90 @@ auto setupResult = builder.setWindowSetupCallback(
 不是框架 API。实际项目可以参考 Example 的 `ZzExampleWindowShell`，让装配对象以窗口
 为父对象，并在初始化阶段保存 `std::unique_ptr<ZzWorkspaceShell>`。
 
+## 多窗口工作区
+
+首窗和后续窗口由同一个 `ZzWorkspaceWindowCoordinator` 管理。首窗完成 Shell 装配后
+登记为 `primary`，随后设置窗口工厂。工厂只负责创建并返回新的窗口和 Shell；业务页面
+由 `tearOff()` 或 `restoreTopology()` 事务迁移，不能在工厂中预先添加：
+
+```cpp
+auto *coordinator = application.workspaceWindowCoordinator();
+auto registration = coordinator->registerWindow(
+    {&window, windowShell->workspaceShell()}, primaryConfiguration, true);
+if (!registration) {
+    return registration;
+}
+
+coordinator->setWindowFactory(
+    [&application](const ZzPureTools::ZzWorkspaceWindowCreateOptions &options) {
+        const auto created = application.createWindow(options.visibility);
+        if (!created) {
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>
+                ::failure(created.error());
+        }
+        auto *window = created.value();
+        auto *shell = findWorkspaceShell(window);
+        if (shell == nullptr) {
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>
+                ::failure(ZzCore::ZzError(
+                    ZzCore::ZzErrorCode::InvalidState,
+                    QStringLiteral("window shell is not attached")));
+        }
+        return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success({
+            window, shell});
+    });
+```
+
+用户从标签栏撕出页面时，连接 `ZzSplitWorkspace::tabTearOffRequested` 或直接调用
+协调器的 `tearOff()`。调用方应使用 `Deferred` 创建选项，让窗口在页面迁移、布局和
+配置审计成功后才显示：
+
+```cpp
+ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+options.configurationSource =
+    ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow;
+options.sourceWindow = &window;
+options.visibility = ZzPureTools::ZzApplicationWindowVisibility::Deferred;
+const auto result = coordinator->tearOff(
+    workspace->splitWorkspace(), groupId, tabIndex, options);
+```
+
+窗口可以通过 `ZzWorkspaceWindowConfigurationPatch` 独立覆盖标题、图标、最小尺寸、
+置顶和关闭策略；不设置覆盖时才继承来源窗口配置。`Allow`、`Deny` 和 `Delegate` 的
+关闭语义由协调器统一执行。对 `Delegate` 窗口监听
+`windowCloseApprovalRequested`，完成业务保存后调用 `approveDelegatedClose()`；不要
+在 `windowAboutToClose` 或 `orphanedPages` 信号中删除仍需回收的页面。
+
+跨窗口程序化迁移使用 `transferTabToWorkspace()`。该调用在 GUI 线程中完成双边事务，
+失败时页面、标签顺序、活动页和稳定身份均保持不变：
+
+```cpp
+const auto moved = sourceWorkspace->transferTabToWorkspace(
+    sourceGroup, sourceIndex, targetWorkspace, targetGroup);
+if (!moved) {
+    logWorkspaceError(moved.error());
+}
+```
+
+持久化时使用 `saveTopology()` 保存 `ZZWT` v2 字节；恢复前必须保证已登记工作区没有
+业务页面，并通过 `ZzWorkspacePageResolver` 按 `layoutKey` 返回全新的无父 QWidget：
+
+```cpp
+const auto snapshot = coordinator->saveTopology();
+if (snapshot) {
+    const auto restored = coordinator->restoreTopology(
+        snapshot.value(),
+        [](QStringView key) {
+            return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                createPageForLayoutKey(key));
+        });
+}
+```
+
+`layoutKey` 是应用层稳定页面类型或文档标识，必须非空、唯一且不包含 QObject 指针、
+网络凭据或跨进程句柄。`ZZSW` v1 仅用于单窗口兼容导入；恢复失败由框架回滚临时窗口、
+页面和配置，应用只需记录错误并保留原拓扑。
+
 ## 注册工作区表面
 
 `ZzWorkspaceShell` 只接管无父对象的 QWidget，注册成功后负责其父对象生命周期。应用层

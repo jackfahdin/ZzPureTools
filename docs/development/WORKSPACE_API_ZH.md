@@ -83,6 +83,99 @@ Activity 的 `QAction` 由应用层拥有，Shell 只在动作销毁或状态变
 `saveLayout()` 返回带版本和校验的字节串，`restoreLayout()` 负责校验并事务恢复。应用只
 保存和恢复完整字节串，不应解析内部二进制格式，也不应在恢复失败后自行拼接部分状态。
 
+## 多窗口协调
+
+多窗口能力由 `ZzPureApplication` 持有的唯一
+`ZzWorkspaceWindowCoordinator` 提供。首窗装配完成后，应用使用
+`ZzWorkspaceWindowHandle` 登记窗口和对应的 `ZzWorkspaceShell`；协调器只保存非拥有
+观察值，窗口本身仍由应用对象负责拥有：
+
+```cpp
+auto *coordinator = application.workspaceWindowCoordinator();
+ZzPureTools::ZzWorkspaceWindowHandle primary{
+    &window, windowShell->workspaceShell()};
+ZzPureTools::ZzWorkspaceWindowConfiguration configuration;
+configuration.title = QStringLiteral("MyApplication");
+configuration.closePolicy = ZzPureTools::ZzWindowClosePolicy::Delegate;
+auto registered = coordinator->registerWindow(
+    primary, configuration, true);
+if (!registered) {
+    qFatal("register primary workspace window failed");
+}
+```
+
+后续窗口必须通过工厂创建。工厂需要完成与首窗相同的 Shell 装配，但不得预先创建
+业务页面；协调器会在事务中迁移页面并在成功后显示窗口。配置来源可以选择默认值、
+来源窗口或调用方显式覆盖：
+
+```cpp
+coordinator->setWindowFactory(
+    [&application](const ZzPureTools::ZzWorkspaceWindowCreateOptions &options) {
+        const auto created = application.createWindow(
+            options.visibility);
+        if (!created) {
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>
+                ::failure(created.error());
+        }
+        auto *window = created.value();
+        auto *shell = findWorkspaceShell(window); // 应用层观察函数
+        if (shell == nullptr) {
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>
+                ::failure(ZzCore::ZzError(
+                    ZzCore::ZzErrorCode::InvalidState,
+                    QStringLiteral("window shell is not attached")));
+        }
+        return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success({
+            window, shell});
+    });
+
+ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+options.configurationSource =
+    ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow;
+options.sourceWindow = &window;
+options.visibility = ZzPureTools::ZzApplicationWindowVisibility::Deferred;
+auto created = coordinator->createWindow(options);
+```
+
+标签撕出和程序化迁移都必须调用协调器或 `ZzSplitWorkspace` 的事务接口。撕出窗口在
+迁移提交前保持不可见；页面指针、稳定 `pageId`、标签元数据和 `layoutKey` 会一并转移：
+
+```cpp
+const auto group = sourceShell->splitWorkspace()->activeGroupId();
+auto tornOff = coordinator->tearOff(
+    sourceShell->splitWorkspace(), group, tabIndex, options);
+
+auto moved = sourceShell->splitWorkspace()->transferTabToWorkspace(
+    group, tabIndex, targetShell->splitWorkspace(),
+    targetShell->splitWorkspace()->activeGroupId());
+```
+
+关闭策略为 `Allow` 时，协调器按来源栈回收页面后关闭窗口；`Deny` 会拒绝关闭；
+`Delegate` 首次请求只发出 `windowCloseApprovalRequested`，应用完成保存或确认后调用
+`approveDelegatedClose()`，不得在信号回调中直接销毁页面或绕过协调器。关闭期间会冻结
+公开迁移，找不到任何有效回收目标的页面通过 `orphanedPages` 返回给应用，应用必须继续
+拥有这些页面，不能假定框架会销毁它们。
+
+跨重启保存使用 `saveTopology()`，恢复前所有已登记工作区必须为空。解析器按稳定
+`layoutKey` 创建 GUI 线程中的无父页面，每个键必须只解析一次：
+
+```cpp
+const auto state = coordinator->saveTopology();
+if (state) {
+    auto restored = coordinator->restoreTopology(
+        state.value(),
+        [](QStringView key) {
+            return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                createPageForLayoutKey(key));
+        });
+}
+```
+
+`ZZWT` v2 保存窗口配置、几何、分屏树、页面顺序和来源栈；`ZZSW` v1 只能作为单窗口
+兼容输入。拓扑保存要求每个页面都有非空且唯一的 `layoutKey`，因此临时页面在进入
+持久化流程前必须先设置键。布局键只用于恢复定位，不应编码 QObject 指针、业务凭据或
+跨进程句柄。恢复失败会回滚已创建窗口、页面和配置，调用方无需自行清理半成品。
+
 ## 安装包消费
 
 应用可以链接 shared 或 static 安装包，公共头和目标名称保持一致：
