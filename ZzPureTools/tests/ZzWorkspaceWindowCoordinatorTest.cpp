@@ -1,4 +1,5 @@
 #include <chrono>
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -376,6 +377,30 @@ protected:
         }
         return result;
     }
+};
+
+class ZzForeignResolverPage final : public QWidget
+{
+public:
+    ZzForeignResolverPage(
+        std::atomic<bool> *destroyed,
+        std::atomic<QThread *> *destroyedThread)
+        : destroyed_(destroyed)
+        , destroyedThread_(destroyedThread)
+    {
+    }
+
+    ~ZzForeignResolverPage() override
+    {
+        if (destroyed_ != nullptr) destroyed_->store(true);
+        if (destroyedThread_ != nullptr) {
+            destroyedThread_->store(QThread::currentThread());
+        }
+    }
+
+private:
+    std::atomic<bool> *const destroyed_;
+    std::atomic<QThread *> *const destroyedThread_;
 };
 
 } // namespace
@@ -3455,14 +3480,21 @@ private Q_SLOTS:
             {window, shell.get()}, zzConfiguration(), true));
         const auto group = shell->splitWorkspace()->activeGroupId();
         auto *const page = new QWidget;
+        auto *const secondPage = new QWidget;
         shell->splitWorkspace()->tabWidget(group)->addTab(
             page, QStringLiteral("resolver"));
+        shell->splitWorkspace()->tabWidget(group)->addTab(
+            secondPage, QStringLiteral("resolver-second"));
         QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
             page, QStringLiteral("resolver/page")));
+        QVERIFY(shell->splitWorkspace()->setPageLayoutKey(
+            secondPage, QStringLiteral("resolver/second-page")));
         const auto saved = coordinator->saveTopology();
         QVERIFY(saved);
         shell->splitWorkspace()->tabWidget(group)->removeTab(0);
+        shell->splitWorkspace()->tabWidget(group)->removeTab(0);
         delete page;
+        delete secondPage;
         QVERIFY(coordinator->unregisterWindow(window));
         const qsizetype windowCount = application.windowCount();
         const qsizetype widgetCount = QApplication::allWidgets().size();
@@ -3540,10 +3572,76 @@ private Q_SLOTS:
         QVERIFY(!parentedDestroyed);
         QCOMPARE(shell->workspaceWidget(), originalWorkspaceRoot);
 
+        factoryCalls = 0;
+        resolverCalls = 0;
+        QWidget *firstResolvedPage = nullptr;
+        const auto duplicateResolver = coordinator->restoreTopology(
+            saved.value(), [&resolverCalls, &firstResolvedPage](QStringView) {
+                ++resolverCalls;
+                if (resolverCalls == 1) {
+                    auto resolvedPage = std::make_unique<QWidget>();
+                    firstResolvedPage = resolvedPage.get();
+                    return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                        std::move(resolvedPage));
+                }
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::unique_ptr<QWidget>(firstResolvedPage));
+            });
+        QVERIFY(!duplicateResolver);
+        QCOMPARE(duplicateResolver.error().code(),
+            ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(resolverCalls, 2);
+        QCOMPARE(application.windowCount(), windowCount);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+
+        factoryCalls = 0;
+        resolverCalls = 0;
+        QThread foreignThread;
+        QObject foreignContext;
+        foreignContext.moveToThread(&foreignThread);
+        foreignThread.start();
+        std::atomic<bool> foreignDestroyed{false};
+        std::atomic<QThread *> foreignDestroyedThread{nullptr};
+        QPointer<QWidget> foreignPage;
+        QVERIFY(QMetaObject::invokeMethod(
+            &foreignContext,
+            [&foreignPage, &foreignDestroyed, &foreignDestroyedThread] {
+                auto *const resolvedPage = new ZzForeignResolverPage(
+                    &foreignDestroyed, &foreignDestroyedThread);
+                foreignPage = resolvedPage;
+            },
+            Qt::BlockingQueuedConnection));
+        QVERIFY(!foreignPage.isNull());
+        const auto foreignResolver = coordinator->restoreTopology(
+            saved.value(), [&resolverCalls, &foreignPage](QStringView) {
+                ++resolverCalls;
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::unique_ptr<QWidget>(foreignPage.data()));
+            });
+        QVERIFY(!foreignResolver);
+        QCOMPARE(foreignResolver.error().code(),
+            ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(resolverCalls, 1);
+        QCOMPARE(application.windowCount(), windowCount);
+        QTRY_VERIFY(foreignDestroyed.load());
+        QVERIFY(foreignPage.isNull());
+        QCOMPARE(foreignDestroyedThread.load(), &foreignThread);
+        QCOMPARE(QApplication::allWidgets().size(), widgetCount);
+        QVERIFY(QMetaObject::invokeMethod(
+            &foreignContext,
+            [&foreignContext] {
+                foreignContext.moveToThread(QCoreApplication::instance()->thread());
+            },
+            Qt::BlockingQueuedConnection));
+        foreignThread.quit();
+        QVERIFY(foreignThread.wait(2000));
+
         application.beginShutdown();
     }
 
-    void topologyRestoreCleansIncompleteFactoryHandle()
+    void topologyRestoreCleansFactoryHandleRejectedByRegistration()
     {
         auto &application = zzApplication();
         QVERIFY(zzBuildApplication(application));
@@ -3594,6 +3692,7 @@ private Q_SLOTS:
                     std::make_unique<QWidget>());
             });
         QVERIFY(!rejected);
+        QCOMPARE(rejected.error().code(), ZzCore::ZzErrorCode::InvalidState);
         QCOMPARE(factoryCalls, 1);
         QCOMPARE(resolverCalls, 0);
         QCOMPARE(application.windowCount(), windowCount);

@@ -317,7 +317,7 @@ set(workspace_window_coordinator_scenarios
     topologyPersistenceRoundTripsDeferredWindowsAndPages
     topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories
     topologyRestoreRejectsResolverResultsWithoutLeakingObjects
-    topologyRestoreCleansIncompleteFactoryHandle
+    topologyRestoreCleansFactoryHandleRejectedByRegistration
     topologyRestoreFallsBackToPrimaryAndConvergesGeometry
     topologyRestoreValidatesMaximizedState
     topologyRestoreRejectsMinimumSizeThatCannotFitScreen

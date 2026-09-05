@@ -1686,7 +1686,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             }
             if (existingPages.contains(page.get())) {
                 // 解析器错误地重复返回同一裸指针时，避免两个 unique_ptr 二次释放。
-                zzDiscardRejectedPage(&page);
+                static_cast<void>(page.release());
                 cleanup();
                 return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                     QStringLiteral("workspace page resolver must return unique parentless pages"));
