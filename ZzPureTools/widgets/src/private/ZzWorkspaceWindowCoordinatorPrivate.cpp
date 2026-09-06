@@ -1577,18 +1577,18 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         }
     }
 
-    struct StagedWindow final {
+    struct ZzStagedWindow final {
         ZzWorkspaceWindowHandle handle;
         int stateIndex = -1;
     };
-    struct StagedPage final {
+    struct ZzStagedPage final {
         int windowIndex = -1;
         const ZzWorkspaceTopologyStatePrivate::ZzPageState *state = nullptr;
         std::unique_ptr<QWidget> owned;
         QPointer<QWidget> page;
     };
-    std::vector<StagedWindow> stagedWindows;
-    std::vector<StagedPage> stagedPages;
+    std::vector<ZzStagedWindow> stagedWindows;
+    std::vector<ZzStagedPage> stagedPages;
     std::vector<QPointer<QWidget>> attachedPages;
     const auto cleanup = [&] {
         for (auto &staged : stagedPages) {
@@ -1631,7 +1631,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             cleanup();
             return ZzCore::ZzResult<void>::failure(created.error());
         }
-        StagedWindow staged;
+        ZzStagedWindow staged;
         staged.handle = created.value();
         staged.stateIndex = static_cast<int>(index);
         stagedWindows.push_back(std::move(staged));

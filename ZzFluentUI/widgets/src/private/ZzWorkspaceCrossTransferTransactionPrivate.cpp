@@ -17,12 +17,12 @@ namespace ZzFluentUI {
 
 namespace {
 
-struct DepthGuard final {
+struct ZzDepthGuard final {
     QPointer<ZzSplitWorkspace> workspace;
     ZzSplitWorkspacePrivate *priv = nullptr;
-    DepthGuard(ZzSplitWorkspace *value, ZzSplitWorkspacePrivate *p)
+    ZzDepthGuard(ZzSplitWorkspace *value, ZzSplitWorkspacePrivate *p)
         : workspace(value), priv(p) { ++priv->transactionDepth; }
-    ~DepthGuard()
+    ~ZzDepthGuard()
     {
         if (workspace.isNull()) return;
         --priv->transactionDepth;
@@ -36,23 +36,23 @@ struct DepthGuard final {
     }
 };
 
-struct TabsSnapshot final {
+struct ZzTabsSnapshot final {
     QPointer<ZzTabWidget> tabs;
     QList<ZzTabTransferSnapshot> pages;
     int current = -1;
 };
 
-struct WorkspaceSnapshot final {
-    QList<TabsSnapshot> tabs;
+struct ZzWorkspaceSnapshot final {
+    QList<ZzTabsSnapshot> tabs;
     ZzTabGroupId active;
     QHash<QWidget *, ZzWorkspacePageId> pageIds;
     QHash<ZzWorkspacePageId, QPointer<QWidget>> pagesById;
     std::vector<ZzWorkspacePageKey> pageKeys;
 };
 
-WorkspaceSnapshot captureWorkspace(ZzSplitWorkspacePrivate *workspace)
+ZzWorkspaceSnapshot captureWorkspace(ZzSplitWorkspacePrivate *workspace)
 {
-    WorkspaceSnapshot snapshot;
+    ZzWorkspaceSnapshot snapshot;
     snapshot.active = workspace->activeId;
     snapshot.pageIds = workspace->pageIds;
     snapshot.pagesById = workspace->pagesById;
@@ -62,7 +62,7 @@ WorkspaceSnapshot captureWorkspace(ZzSplitWorkspacePrivate *workspace)
     for (auto *node : leaves) {
         auto tabs = std::get<ZzLeaf>(node->value).tabs;
         if (tabs.isNull()) continue;
-        TabsSnapshot value;
+        ZzTabsSnapshot value;
         value.tabs = tabs;
         value.current = tabs->currentIndex();
         for (int i = 0; i < tabs->count(); ++i) {
@@ -73,7 +73,7 @@ WorkspaceSnapshot captureWorkspace(ZzSplitWorkspacePrivate *workspace)
     return snapshot;
 }
 
-bool restoreWorkspace(const WorkspaceSnapshot &snapshot)
+bool restoreWorkspace(const ZzWorkspaceSnapshot &snapshot)
 {
     for (const auto &state : snapshot.tabs) {
         if (state.tabs.isNull()) return false;
@@ -107,7 +107,7 @@ void rebuildPageConnections(ZzSplitWorkspacePrivate *workspace)
     }
 }
 
-bool metadataMatches(const WorkspaceSnapshot &snapshot, QWidget *ignored,
+bool metadataMatches(const ZzWorkspaceSnapshot &snapshot, QWidget *ignored,
                      ZzTabWidget *ignoredOwner, bool ignoredRemoved,
                      const ZzTabTransferSnapshot *added,
                      int addedIndex)
@@ -167,7 +167,7 @@ void clearTabMetadata(ZzSplitWorkspacePrivate *workspace, QWidget *page)
 }
 
 bool mappingsMatch(const ZzSplitWorkspacePrivate *workspace,
-                   const WorkspaceSnapshot &snapshot,
+                   const ZzWorkspaceSnapshot &snapshot,
                    QWidget *movedPage,
                    const ZzWorkspacePageId &movedId,
                    const QString &movedKey,
@@ -328,8 +328,8 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     QPointer<ZzSplitWorkspace> guardedSource = source;
     QPointer<ZzSplitWorkspace> guardedTarget = target;
     QPointer<QWidget> guardedPage = page;
-    const WorkspaceSnapshot sourceSnapshot = captureWorkspace(sourcePrivate);
-    const WorkspaceSnapshot targetSnapshot = captureWorkspace(targetPrivate);
+    const ZzWorkspaceSnapshot sourceSnapshot = captureWorkspace(sourcePrivate);
+    const ZzWorkspaceSnapshot targetSnapshot = captureWorkspace(targetPrivate);
     const auto rollback = [&]() {
         if (guardedSource.isNull() || guardedTarget.isNull()
             || guardedPage.isNull()) return false;
@@ -363,8 +363,8 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
         const bool targetRestored = restoreWorkspace(targetSnapshot);
         return sourceRestored && targetRestored;
     };
-    DepthGuard sourceGuard(source, sourcePrivate);
-    DepthGuard targetGuard(target, targetPrivate);
+    ZzDepthGuard sourceGuard(source, sourcePrivate);
+    ZzDepthGuard targetGuard(target, targetPrivate);
     const bool transferred = sourceTabs->d_ptr->transferToDirect(
         targetTabs, sourceIndex, targetIndex, false);
 
