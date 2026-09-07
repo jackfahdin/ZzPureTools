@@ -206,6 +206,7 @@ private slots:
             const auto next = target.splitGroup(
                 pivot, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
             QVERIFY(next.has_value());
+            if (!next.has_value()) return;
             pivot = next.value();
         }
         QSignalSpy added(&target, &ZzFluentUI::ZzSplitWorkspace::groupAdded);
@@ -232,6 +233,7 @@ private slots:
             const auto next = target.splitGroup(
                 pivot, orientation, ZzFluentUI::ZzSplitPlacement::After);
             QVERIFY(next.has_value());
+            if (!next.has_value()) return;
             pivot = next.value();
         }
         QSignalSpy added(&target, &ZzFluentUI::ZzSplitWorkspace::groupAdded);
@@ -241,6 +243,7 @@ private slots:
         QCOMPARE(added.count(), 0);
         QCOMPARE(source.tabWidget(sg)->indexOf(page), 0);
     }
+    // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
     void transfersPageAndIdentityAcrossWorkspaces()
     {
         ZzFluentUI::ZzSplitWorkspace source;
@@ -273,6 +276,8 @@ private slots:
         QCOMPARE(targetTabs->widget(targetTabs->count() - 1), page);
         QVERIFY(targetTabs->isTabPinned(targetTabs->indexOf(page)));
     }
+
+    // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
     void rejectsUnknownGroupsAndKeyConflicts()
     {

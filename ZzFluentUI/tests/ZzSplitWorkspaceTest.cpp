@@ -227,7 +227,7 @@ private Q_SLOTS:
         delete page;
         QCoreApplication::processEvents();
 
-        QCOMPARE(workspace.groupIds(), QList{target.value()});
+        QCOMPARE(workspace.groupIds(), QList{zzTabGroupIdOrInvalid(target)});
     }
 
     void emptyGroupPolicyHandlesLastPageRemoval()
@@ -248,7 +248,7 @@ private Q_SLOTS:
             delete page;
             QCoreApplication::processEvents();
 
-            QCOMPARE(workspace.groupIds(), QList{target.value()});
+            QCOMPARE(workspace.groupIds(), QList{zzTabGroupIdOrInvalid(target)});
         }
 
         ZzFluentUI::ZzSplitWorkspace keepWorkspace;
@@ -304,10 +304,10 @@ private Q_SLOTS:
             workspace.tabWidget(source)->addTab(page, QStringLiteral("moved"));
             workspace.setEmptyGroupPolicy(policy);
 
-            QVERIFY(workspace.transferTab(source, 0, target.value()));
+            QVERIFY(workspace.transferTab(source, 0, zzTabGroupIdOrInvalid(target)));
 
-            QCOMPARE(workspace.groupIds(), QList{target.value()});
-            QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
+            QCOMPARE(workspace.groupIds(), QList{zzTabGroupIdOrInvalid(target)});
+            QCOMPARE(workspace.tabWidget(zzTabGroupIdOrInvalid(target))->indexOf(page), 0);
         }
 
         ZzFluentUI::ZzSplitWorkspace workspace;
@@ -319,12 +319,13 @@ private Q_SLOTS:
         workspace.tabWidget(source)->addTab(page, QStringLiteral("kept"));
         workspace.setEmptyGroupPolicy(ZzFluentUI::ZzEmptyGroupPolicy::Keep);
 
-        QVERIFY(workspace.transferTab(source, 0, target.value()));
+        QVERIFY(workspace.transferTab(source, 0, zzTabGroupIdOrInvalid(target)));
 
         QCOMPARE(workspace.groupIds().size(), 2);
         QVERIFY(workspace.tabWidget(source) != nullptr);
     }
 
+    // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
     void activePageAndActivitySignalsTrackOnlyRealChanges()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
@@ -336,7 +337,7 @@ private Q_SLOTS:
         auto *secondPage = new QWidget;
         auto *thirdPage = new QWidget;
         auto *firstTabs = workspace.tabWidget(firstGroup);
-        auto *secondTabs = workspace.tabWidget(secondGroup.value());
+        auto *secondTabs = workspace.tabWidget(zzTabGroupIdOrInvalid(secondGroup));
         QSignalSpy activeSpy(
             &workspace, &ZzFluentUI::ZzSplitWorkspace::activePageChanged);
         QSignalSpy activitySpy(
@@ -350,11 +351,11 @@ private Q_SLOTS:
         const auto thirdId = workspace.pageId(thirdPage);
         activeSpy.clear();
 
-        QVERIFY(workspace.setActiveGroup(secondGroup.value()));
+        QVERIFY(workspace.setActiveGroup(zzTabGroupIdOrInvalid(secondGroup)));
         QCOMPARE(activeSpy.size(), 1);
         QCOMPARE(activeSpy.constFirst().at(0).value<QWidget *>(), thirdPage);
         QCOMPARE(activeSpy.constFirst().at(1).value<ZzFluentUI::ZzWorkspacePageId>(), thirdId);
-        QVERIFY(workspace.setActiveGroup(secondGroup.value()));
+        QVERIFY(workspace.setActiveGroup(zzTabGroupIdOrInvalid(secondGroup)));
         QCOMPARE(activeSpy.size(), 1);
 
         QVERIFY(workspace.setActiveGroup(firstGroup));
@@ -406,6 +407,8 @@ private Q_SLOTS:
         QVERIFY(!workspace.pageForId(secondId));
     }
 
+    // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
+
     void ordinaryTransferIsAllowedDuringInternalTransaction()
     {
         ZzFluentUI::ZzSplitWorkspace workspace;
@@ -417,11 +420,12 @@ private Q_SLOTS:
         workspace.tabWidget(source)->addTab(page, QStringLiteral("transaction"));
 
         ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::begin(&workspace);
-        const bool transferred = workspace.transferTab(source, 0, target.value());
+        const bool transferred = workspace.transferTab(
+            source, 0, zzTabGroupIdOrInvalid(target));
         ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::end(&workspace);
 
         QVERIFY(transferred);
-        QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
+        QCOMPARE(workspace.tabWidget(zzTabGroupIdOrInvalid(target))->indexOf(page), 0);
     }
 
     void transferIsBlockedDuringCloseNotificationTransaction()
@@ -436,15 +440,17 @@ private Q_SLOTS:
 
         ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::beginCloseNotification(
             &workspace);
-        QVERIFY(!workspace.transferTab(source, 0, target.value()));
+        QVERIFY(!workspace.transferTab(
+            source, 0, zzTabGroupIdOrInvalid(target)));
         QVERIFY(!workspace.tabWidget(source)->transferTabTo(
-            workspace.tabWidget(target.value()), 0));
+            workspace.tabWidget(zzTabGroupIdOrInvalid(target)), 0));
         QCOMPARE(workspace.tabWidget(source)->indexOf(page), 0);
         ZzFluentUI::ZzSplitWorkspaceTransactionPrivate::endCloseNotification(
             &workspace);
 
-        QVERIFY(workspace.transferTab(source, 0, target.value()));
-        QCOMPARE(workspace.tabWidget(target.value())->indexOf(page), 0);
+        QVERIFY(workspace.transferTab(
+            source, 0, zzTabGroupIdOrInvalid(target)));
+        QCOMPARE(workspace.tabWidget(zzTabGroupIdOrInvalid(target))->indexOf(page), 0);
     }
 
     void tabBarV2DropCommitsAndRejectsReplay()

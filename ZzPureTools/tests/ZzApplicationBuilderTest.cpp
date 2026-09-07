@@ -584,6 +584,7 @@ private Q_SLOTS:
         QVERIFY(builder.build(application));
 
         const auto result = application.createWindow(
+            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
             static_cast<ZzPureTools::ZzApplicationWindowVisibility>(42));
 
         QVERIFY(!result);

@@ -293,7 +293,8 @@ void zzPatchTopologyScreenName(QByteArray *encoded, QStringView name)
     quint16 oldLength = 0;
     stream >> oldLength;
     Q_ASSERT(oldLength <= 256);
-    Q_ASSERT(stream.skipRawData(oldLength * 2) == oldLength * 2);
+    Q_ASSERT(stream.skipRawData(static_cast<qint64>(oldLength) * 2)
+        == static_cast<qint64>(oldLength) * 2);
 
     QByteArray replacement;
     QDataStream replacementStream(&replacement, QIODevice::WriteOnly);
@@ -1066,6 +1067,7 @@ private Q_SLOTS:
         application.beginShutdown();
     }
 
+    // NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
     void aboutToCloseRestoresBaseClassTabMutationSnapshot()
     {
         auto &application = zzApplication();
@@ -1151,6 +1153,7 @@ private Q_SLOTS:
         const auto result = coordinator->closeWindow(sourceResult.value());
 
         QVERIFY(!result);
+        if (!sourceOther.has_value() || !targetOther.has_value()) return;
         QCOMPARE(source->groupIds(),
             QList<ZzFluentUI::ZzTabGroupId>({sourceGroup, *sourceOther}));
         QCOMPARE(target->groupIds(),
@@ -1200,6 +1203,8 @@ private Q_SLOTS:
         delete injected;
         application.beginShutdown();
     }
+
+    // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
     void rejectedSystemCloseRollsBackAndClearsState()
     {
@@ -1333,6 +1338,7 @@ private Q_SLOTS:
         const auto thirdGroup = thirdOrigin->splitGroup(
             thirdRoot, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(thirdGroup.has_value());
+        if (!thirdGroup.has_value()) return;
         auto *const first = new QWidget;
         auto *const second = new ZzParentChangeActionPage;
         auto *const third = new QWidget;
@@ -1593,6 +1599,7 @@ private Q_SLOTS:
             Qt::Horizontal,
             ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(secondOriginGroup.has_value());
+        if (!secondOriginGroup.has_value()) return;
         auto *const first = new ZzParentChangeActionPage;
         auto *const second = new QWidget;
         target->tabWidget(targetGroup)->addTab(first, QStringLiteral("First"));
@@ -1985,6 +1992,7 @@ private Q_SLOTS:
         const auto originGroup = firstWorkspace->splitGroup(
             activeGroup, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(originGroup.has_value());
+        if (!originGroup.has_value()) return;
         const auto secondGroup =
             secondShell->splitWorkspace()->groupIds().constFirst();
         auto *const page = new QWidget;
@@ -2139,6 +2147,7 @@ private Q_SLOTS:
         const auto secondGroup = workspace->splitGroup(
             firstGroup, Qt::Horizontal, ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(secondGroup.has_value());
+        if (!secondGroup.has_value()) return;
         auto *const first = new QWidget;
         auto *const second = new QWidget;
         auto *const third = new QWidget;
@@ -2337,6 +2346,7 @@ private Q_SLOTS:
                 Qt::Horizontal,
                 ZzFluentUI::ZzSplitPlacement::After);
         QVERIFY(secondOriginGroup.has_value());
+        if (!secondOriginGroup.has_value()) return;
         auto *const first = new ZzParentChangeActionPage;
         auto *const second = new QWidget;
         auto *firstTabs = firstWorkspace->tabWidget(firstGroup);
@@ -2399,6 +2409,7 @@ private Q_SLOTS:
                 ZzFluentUI::ZzSplitPlacement::After,
                 *secondOriginGroup);
         QVERIFY(restoredSecondOrigin.has_value());
+        if (!restoredSecondOrigin.has_value()) return;
         QVERIFY(coordinator->closeWindow(currentResult.value()));
         QCOMPARE(firstWorkspace->tabWidget(firstGroup)->indexOf(first), 0);
         QCOMPARE(secondOriginWorkspace->tabWidget(*secondOriginGroup)
@@ -2590,9 +2601,11 @@ private Q_SLOTS:
         negativeGeometry.initialGeometry = QRect(20, 40, -1, 720);
         auto invalidTitleMode = zzConfiguration();
         invalidTitleMode.titleMode =
+            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
             static_cast<ZzPureTools::ZzWorkspaceTitleMode>(42);
         auto invalidClosePolicy = zzConfiguration();
         invalidClosePolicy.closePolicy =
+            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
             static_cast<ZzPureTools::ZzWindowClosePolicy>(42);
         const std::vector<ZzInvalidConfigurationCase> invalidCases{
             {negativeSize},
@@ -3227,8 +3240,6 @@ private Q_SLOTS:
         const auto secondPageId = secondShell->splitWorkspace()->pageId(secondPage);
         QVERIFY(firstPageId.isValid());
         QVERIFY(secondPageId.isValid());
-        const auto firstGroupId = firstGroup;
-        const auto secondGroupId = secondGroup;
         QVERIFY(firstShell->splitWorkspace()->splitGroup(
             firstGroup, Qt::Vertical, ZzFluentUI::ZzSplitPlacement::After)
                     .has_value());
@@ -3314,6 +3325,7 @@ private Q_SLOTS:
         auto *const restoredSecondPage = restoredPages.value(QStringLiteral("page/second"));
         QVERIFY(restoredFirstPage != nullptr);
         QVERIFY(restoredSecondPage != nullptr);
+        if (restoredFirstPage == nullptr || restoredSecondPage == nullptr) return;
         QCOMPARE(firstRestoredWorkspace->pageForId(firstPageId), restoredFirstPage);
         QCOMPARE(secondRestoredWorkspace->pageForId(secondPageId), restoredSecondPage);
         QVERIFY(restoredFirstPage->parent() != nullptr);
@@ -3322,8 +3334,8 @@ private Q_SLOTS:
             QStringLiteral("page/first"));
         QCOMPARE(secondRestoredWorkspace->pageLayoutKey(restoredSecondPage),
             QStringLiteral("page/second"));
-        auto *const firstTabs = firstRestoredWorkspace->tabWidget(firstGroupId);
-        auto *const secondTabs = secondRestoredWorkspace->tabWidget(secondGroupId);
+        auto *const firstTabs = firstRestoredWorkspace->tabWidget(firstGroup);
+        auto *const secondTabs = secondRestoredWorkspace->tabWidget(secondGroup);
         QVERIFY(firstTabs != nullptr);
         QVERIFY(secondTabs != nullptr);
         QCOMPARE(firstTabs->indexOf(restoredFirstPage), 0);
@@ -3389,7 +3401,7 @@ private Q_SLOTS:
         const qsizetype widgetCount = QApplication::allWidgets().size();
 
         const auto expectRejectedWithoutCallbacks =
-            [&](QByteArray encoded) {
+            [&](const QByteArray &encoded) {
                 int factoryCalls = 0;
                 int resolverCalls = 0;
                 coordinator->setWindowFactory([&factoryCalls](const auto &) {
@@ -3766,6 +3778,7 @@ private Q_SLOTS:
         auto *const restoredWindow = restoredShells.front()
                                         ->workspaceWidget()->window();
         QVERIFY(restoredWindow != nullptr);
+        if (restoredWindow == nullptr) return;
         QVERIFY(restoredWindow->isVisible());
         const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
         const QRect actual = restoredWindow->geometry();
@@ -3828,6 +3841,7 @@ private Q_SLOTS:
             auto *const restoredWindow = restoredShells.front()
                                              ->workspaceWidget()->window();
             QVERIFY(restoredWindow != nullptr);
+            if (restoredWindow == nullptr) return;
             QVERIFY(restoredWindow->isMaximized());
         } else {
             QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::Unsupported);
