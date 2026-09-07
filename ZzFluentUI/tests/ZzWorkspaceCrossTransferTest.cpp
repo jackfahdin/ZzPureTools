@@ -133,6 +133,93 @@ private slots:
             QStringLiteral("tabTransferCommitted")}));
     }
 
+    void edgeTransferFailsWhenGroupAddedDestroysTarget()
+    {
+        auto *source = new ZzFluentUI::ZzSplitWorkspace;
+        auto *target = new ZzFluentUI::ZzSplitWorkspace;
+        QPointer<ZzFluentUI::ZzSplitWorkspace> sourceGuard(source);
+        QPointer<ZzFluentUI::ZzSplitWorkspace> targetGuard(target);
+        const auto sourceGroup = source->groupIds().constFirst();
+        const auto targetGroup = target->groupIds().constFirst();
+        source->tabWidget(sourceGroup)->addTab(
+            new QWidget, QStringLiteral("destroy target"));
+        QSignalSpy committed(
+            target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted);
+        QObject::connect(
+            target, &ZzFluentUI::ZzSplitWorkspace::groupAdded, target,
+            [target] { delete target; });
+
+        const auto result = source->transferTabToWorkspace(
+            sourceGroup, 0, target, targetGroup, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Left);
+
+        QVERIFY(sourceGuard);
+        QVERIFY(targetGuard.isNull());
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(result.error().technicalMessage().contains(
+            QStringLiteral("rollback_object_expired")));
+        QCOMPARE(committed.size(), 0);
+        delete source;
+    }
+
+    void edgeTransferFailsWhenGroupAddedDestroysSource()
+    {
+        auto *source = new ZzFluentUI::ZzSplitWorkspace;
+        auto *target = new ZzFluentUI::ZzSplitWorkspace;
+        QPointer<ZzFluentUI::ZzSplitWorkspace> sourceGuard(source);
+        QPointer<ZzFluentUI::ZzSplitWorkspace> targetGuard(target);
+        const auto sourceGroup = source->groupIds().constFirst();
+        const auto targetGroup = target->groupIds().constFirst();
+        source->tabWidget(sourceGroup)->addTab(
+            new QWidget, QStringLiteral("destroy source"));
+        QSignalSpy committed(
+            target, &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted);
+        QObject::connect(
+            target, &ZzFluentUI::ZzSplitWorkspace::groupAdded, target,
+            [source] { delete source; });
+
+        const auto result = source->transferTabToWorkspace(
+            sourceGroup, 0, target, targetGroup, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Top);
+
+        QVERIFY(sourceGuard.isNull());
+        QVERIFY(targetGuard);
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QVERIFY(result.error().technicalMessage().contains(
+            QStringLiteral("rollback_object_expired")));
+        QCOMPARE(committed.size(), 0);
+        delete target;
+    }
+
+    void edgeTransferRollsBackWhenGroupAddedMutatesTarget()
+    {
+        ZzFluentUI::ZzSplitWorkspace source;
+        ZzFluentUI::ZzSplitWorkspace target;
+        const auto sourceGroup = source.groupIds().constFirst();
+        const auto targetGroup = target.groupIds().constFirst();
+        auto *page = new QWidget;
+        source.tabWidget(sourceGroup)->addTab(
+            page, QStringLiteral("mutated target"));
+        QObject::connect(
+            &target, &ZzFluentUI::ZzSplitWorkspace::groupAdded, &target,
+            [&target, targetGroup](const ZzFluentUI::ZzTabGroupId &) {
+                QVERIFY(target.setActiveGroup(targetGroup));
+            });
+
+        const auto result = source.transferTabToWorkspace(
+            sourceGroup, 0, &target, targetGroup, -1,
+            ZzFluentUI::ZzWorkspaceDropZone::Right);
+
+        QVERIFY(!result);
+        QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        QCOMPARE(source.groupIds().size(), 1);
+        QCOMPARE(target.groupIds().size(), 1);
+        QCOMPARE(source.tabWidget(sourceGroup)->indexOf(page), 0);
+        QVERIFY(target.tabWidget(targetGroup)->indexOf(page) < 0);
+    }
+
     void edgeTransferFailureEmitsNoCommitSignals()
     {
         ZzFluentUI::ZzSplitWorkspace source;

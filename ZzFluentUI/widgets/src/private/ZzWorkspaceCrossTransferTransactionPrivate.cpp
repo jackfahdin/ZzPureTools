@@ -12,6 +12,7 @@
 
 #include "ZzSplitWorkspacePrivate.h"
 #include "ZzTabWidgetPrivate.h"
+#include "ZzSplitWorkspaceTransactionPrivate.h"
 
 namespace ZzFluentUI {
 
@@ -239,6 +240,22 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
     if (zone != ZzWorkspaceDropZone::Center) {
         QPointer<ZzSplitWorkspace> guardedSource = source;
         QPointer<ZzSplitWorkspace> guardedTarget = target;
+        const auto sourceBefore = ZzSplitWorkspaceTransactionPrivate::capture(source);
+        const auto targetBefore = ZzSplitWorkspaceTransactionPrivate::capture(target);
+        const auto failEdge = [&](const QString &reason) {
+            if (guardedSource.isNull() || guardedTarget.isNull()) {
+                return zzCrossTransferFailure(
+                    ZzCore::ZzErrorCode::InvalidState,
+                    QStringLiteral("rollback_object_expired"));
+            }
+            const bool restored = ZzSplitWorkspaceTransactionPrivate::restore(
+                                      guardedSource, sourceBefore)
+                && ZzSplitWorkspaceTransactionPrivate::restore(
+                    guardedTarget, targetBefore);
+            return zzCrossTransferFailure(
+                ZzCore::ZzErrorCode::InvalidState,
+                restored ? reason : QStringLiteral("cross-workspace rollback failed"));
+        };
         const bool horizontal = zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Right;
         auto placement = (zone == ZzWorkspaceDropZone::Left || zone == ZzWorkspaceDropZone::Top)
             ? ZzSplitPlacement::Before : ZzSplitPlacement::After;
@@ -255,28 +272,51 @@ ZzCore::ZzResult<void> ZzWorkspaceCrossTransferTransactionPrivate::run(
             ? sourceTabs->widget(sourceIndex) : nullptr;
         const ZzWorkspacePageId movedId = source->pageId(movedPage);
         const bool activeChanged = target->activeGroupId() != temp.value();
-        const auto result = run(source, sourceGroup, sourceIndex, target, temp.value(), targetIndex, ZzWorkspaceDropZone::Center, false);
+        auto result = run(source, sourceGroup, sourceIndex, target, temp.value(), targetIndex, ZzWorkspaceDropZone::Center, false);
         if (!result) {
             if (!guardedTarget.isNull()) {
                 guardedTarget->d_ptr->removeEmptyGroup(temp.value());
             }
             return result;
         }
+        if (guardedSource.isNull() || guardedTarget.isNull()) {
+            return failEdge(QStringLiteral("cross-workspace transfer did not commit"));
+        }
         if (!guardedTarget.isNull()) {
             guardedTarget->d_ptr->rebuildView();
         }
+        const auto sourceAfter = ZzSplitWorkspaceTransactionPrivate::capture(
+            guardedSource);
+        const auto targetAfter = ZzSplitWorkspaceTransactionPrivate::capture(
+            guardedTarget);
+        const auto unchangedAfterNotification = [&]() {
+            return !guardedSource.isNull() && !guardedTarget.isNull()
+                && ZzSplitWorkspaceTransactionPrivate::matches(
+                    guardedSource, sourceAfter)
+                && ZzSplitWorkspaceTransactionPrivate::matches(
+                    guardedTarget, targetAfter);
+        };
         if (emitSignals && !guardedSource.isNull() && !guardedTarget.isNull()) {
             Q_EMIT guardedTarget->groupAdded(temp.value());
-            if (guardedTarget.isNull()) return result;
+            if (!unchangedAfterNotification()) {
+                return failEdge(QStringLiteral("workspace changed during notification"));
+            }
             Q_EMIT guardedTarget->layoutChanged();
-            if (guardedTarget.isNull()) return result;
+            if (!unchangedAfterNotification()) {
+                return failEdge(QStringLiteral("workspace changed during notification"));
+            }
             if (activeChanged) {
                 Q_EMIT guardedTarget->activeGroupChanged(temp.value());
-                if (guardedTarget.isNull()) return result;
+                if (!unchangedAfterNotification()) {
+                    return failEdge(QStringLiteral("workspace changed during notification"));
+                }
             }
             Q_EMIT guardedTarget->tabTransferCommitted(
                 guardedSource, sourceGroup, sourceIndex, temp.value(), movedPage,
                 movedId, zone);
+            if (!unchangedAfterNotification()) {
+                return failEdge(QStringLiteral("workspace changed during notification"));
+            }
         }
         return result;
     }
