@@ -131,6 +131,13 @@ public:
         const QElapsedTimer &timer,
         bool success) const noexcept;
 
+    /** @brief 写入不包含业务内容的拓扑恢复审计事件。 */
+    void writeLayoutAudit(
+        const QUuid &operationId,
+        QStringView phase,
+        const QElapsedTimer &timer,
+        bool success) const noexcept;
+
     ZzWorkspaceWindowCoordinator *const q_ptr;
     std::vector<ZzWindowRecord> records;
     std::vector<ZzPageOrigins> pageOrigins;

@@ -2511,6 +2511,159 @@ private Q_SLOTS:
         }
     }
 
+    void failedTopologyRestoreWritesOneSanitizedAuditEvent()
+    {
+        QVERIFY(!ZzLog::isInitialized());
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString logPath =
+            directory.filePath(QStringLiteral("failed-topology-restore.log"));
+        ZzLog::ZzLogConfig logConfiguration;
+        logConfiguration.console.enabled = false;
+        logConfiguration.file.enabled = true;
+        logConfiguration.file.async = false;
+        logConfiguration.file.path =
+            QFileInfo(logPath).filesystemAbsoluteFilePath();
+        logConfiguration.file.pattern = "%v";
+        QVERIFY(ZzLog::initialize(logConfiguration));
+
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *const coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator != nullptr);
+        if (coordinator == nullptr) return;
+        const auto restored = coordinator->restoreTopology(
+            QByteArrayLiteral("SensitiveFailureLayoutKey"),
+            [](QStringView) {
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            });
+        QVERIFY(!restored);
+        QVERIFY(ZzLog::flushAndWait(std::chrono::seconds(2)));
+        application.beginShutdown();
+        ZzLog::shutdown();
+
+        QFile logFile(logPath);
+        QVERIFY(logFile.open(QIODevice::ReadOnly | QIODevice::Text));
+        const QString contents = QString::fromUtf8(logFile.readAll());
+        const auto lines = contents.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QStringList restoreLines;
+        for (const auto &line : lines) {
+            if (line.startsWith(QStringLiteral("layout.restore "))) {
+                restoreLines.append(line);
+            }
+        }
+        QCOMPARE(restoreLines.size(), 1);
+        const QRegularExpression expectedLine(QStringLiteral(
+            "^layout\\.restore operation_id="
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+            " phase=complete elapsed_us=[0-9]+ result=failure$"));
+        QVERIFY(expectedLine.match(restoreLines.constFirst()).hasMatch());
+        QVERIFY(!contents.contains(QStringLiteral("SensitiveFailureLayoutKey")));
+        QVERIFY(!contents.contains(QStringLiteral("0x")));
+    }
+
+    void successfulTopologyRestoreWritesOneSanitizedAuditEvent()
+    {
+        QVERIFY(!ZzLog::isInitialized());
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString logPath =
+            directory.filePath(QStringLiteral("successful-topology-restore.log"));
+        ZzLog::ZzLogConfig logConfiguration;
+        logConfiguration.console.enabled = false;
+        logConfiguration.file.enabled = true;
+        logConfiguration.file.async = false;
+        logConfiguration.file.path =
+            QFileInfo(logPath).filesystemAbsoluteFilePath();
+        logConfiguration.file.pattern = "%v";
+        QVERIFY(ZzLog::initialize(logConfiguration));
+
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *const sourceWindow = zzOnlyWindow(application);
+        QVERIFY(sourceWindow != nullptr);
+        auto sourceShellResult = zzCreateShell(sourceWindow);
+        QVERIFY(sourceShellResult);
+        auto sourceShell = std::move(sourceShellResult).value();
+        sourceWindow->setCentralWidget(sourceShell->workspaceWidget());
+        auto *const coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator != nullptr);
+        if (coordinator == nullptr) return;
+        auto configuration = zzConfiguration();
+        configuration.title = QStringLiteral("Sensitive Restore Window Title");
+        QVERIFY(coordinator->registerWindow(
+            {sourceWindow, sourceShell.get()}, configuration, true));
+        auto *const sourceWorkspace = sourceShell->splitWorkspace();
+        const auto sourceGroup = sourceWorkspace->activeGroupId();
+        auto *const sourcePage = new QWidget;
+        sourcePage->setWindowTitle(QStringLiteral("Sensitive Saved Page Title"));
+        sourceWorkspace->tabWidget(sourceGroup)->addTab(
+            sourcePage, sourcePage->windowTitle());
+        QVERIFY(sourceWorkspace->setPageLayoutKey(
+            sourcePage, QStringLiteral("SensitiveSuccessLayoutKey")));
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+        sourceWorkspace->tabWidget(sourceGroup)->removeTab(0);
+        delete sourcePage;
+        QVERIFY(coordinator->unregisterWindow(sourceWindow));
+
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> restoredShells;
+        coordinator->setWindowFactory(
+            [&application, &restoredShells](const auto &options) {
+                auto created = application.createWindow(options.visibility);
+                if (!created) {
+                    return ZzCore::ZzResult<
+                        ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                            created.error());
+                }
+                auto shellResult = zzCreateShell(created.value());
+                if (!shellResult) {
+                    return ZzCore::ZzResult<
+                        ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                            shellResult.error());
+                }
+                auto shell = std::move(shellResult).value();
+                created.value()->setCentralWidget(shell->workspaceWidget());
+                ZzPureTools::ZzWorkspaceWindowHandle handle{
+                    created.value(), shell.get()};
+                restoredShells.push_back(std::move(shell));
+                return ZzCore::ZzResult<
+                    ZzPureTools::ZzWorkspaceWindowHandle>::success(handle);
+            });
+        const auto restored = coordinator->restoreTopology(
+            saved.value(), [](QStringView) {
+                auto page = std::make_unique<QWidget>();
+                page->setWindowTitle(
+                    QStringLiteral("Sensitive Resolved Page Title"));
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(page));
+            });
+        QVERIFY(restored);
+        QVERIFY(ZzLog::flushAndWait(std::chrono::seconds(2)));
+        application.beginShutdown();
+        ZzLog::shutdown();
+
+        QFile logFile(logPath);
+        QVERIFY(logFile.open(QIODevice::ReadOnly | QIODevice::Text));
+        const QString contents = QString::fromUtf8(logFile.readAll());
+        const auto lines = contents.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QStringList restoreLines;
+        for (const auto &line : lines) {
+            if (line.startsWith(QStringLiteral("layout.restore "))) {
+                restoreLines.append(line);
+            }
+        }
+        QCOMPARE(restoreLines.size(), 1);
+        const QRegularExpression expectedLine(QStringLiteral(
+            "^layout\\.restore operation_id="
+            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+            " phase=complete elapsed_us=[0-9]+ result=success$"));
+        QVERIFY(expectedLine.match(restoreLines.constFirst()).hasMatch());
+        QVERIFY(!contents.contains(QStringLiteral("Sensitive")));
+        QVERIFY(!contents.contains(QStringLiteral("0x")));
+    }
+
     void operationsDoNotInitializeLogging()
     {
         QVERIFY(!ZzLog::isInitialized());
@@ -2528,6 +2681,14 @@ private Q_SLOTS:
         auto firstShell = std::move(firstShellResult).value();
         auto secondShell = std::move(secondShellResult).value();
         auto *coordinator = application.workspaceWindowCoordinator();
+        const auto restoreFailure = coordinator->restoreTopology(
+            QByteArrayLiteral("invalid topology"),
+            [](QStringView) {
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            });
+        QVERIFY(!restoreFailure);
+        QVERIFY(!ZzLog::isInitialized());
         QVERIFY(coordinator->registerWindow(
             {first, firstShell.get()}, zzConfiguration(), true));
         QVERIFY(coordinator->registerWindow(

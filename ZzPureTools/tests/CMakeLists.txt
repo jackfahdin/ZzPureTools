@@ -324,6 +324,8 @@ set(workspace_window_coordinator_scenarios
     layoutKeyConflictIsRejectedBeforeAnyPageMoves
     secondPageFailureRollsBackIdentityMetadataAndOrder
     actualOperationsWriteStableAuditEvents
+    failedTopologyRestoreWritesOneSanitizedAuditEvent
+    successfulTopologyRestoreWritesOneSanitizedAuditEvent
     operationsDoNotInitializeLogging
     registrationStoresConfigurationSnapshot
     registrationValidatesConfigurationWithoutMutation

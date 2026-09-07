@@ -1443,6 +1443,15 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     const QByteArray &encoded,
     const ZzWorkspacePageResolver &pageResolver)
 {
+    QElapsedTimer auditTimer;
+    auditTimer.start();
+    const QUuid operationId = QUuid::createUuid();
+    bool succeeded = false;
+    const auto audit = qScopeGuard([this, &operationId, &auditTimer, &succeeded] {
+        writeLayoutAudit(operationId,
+            QStringLiteral("complete"), auditTimer, succeeded);
+    });
+
     if (QThread::currentThread() != q_ptr->thread() || shuttingDown) {
         return zzCoordinatorFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -1851,6 +1860,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             break;
         }
     }
+    succeeded = true;
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -1944,6 +1954,27 @@ void ZzWorkspaceWindowCoordinatorPrivate::writePageAudit(
                 sourceWindowId.toString(QUuid::WithoutBraces),
                 targetWindowId.toString(QUuid::WithoutBraces),
                 phase)
+            .arg(std::max<qint64>(0, timer.nsecsElapsed() / 1000))
+            .arg(success ? QStringLiteral("success")
+                         : QStringLiteral("failure"))
+            .toUtf8();
+    ZzLog::writeText(ZzLog::ZzLogLevel::Info,
+        std::string_view(message.constData(),
+            static_cast<std::size_t>(message.size())));
+}
+
+void ZzWorkspaceWindowCoordinatorPrivate::writeLayoutAudit(
+    const QUuid &operationId,
+    QStringView phase,
+    const QElapsedTimer &timer,
+    bool success) const noexcept
+{
+    if (!ZzLog::shouldLog(ZzLog::ZzLogLevel::Info) || operationId.isNull()) {
+        return;
+    }
+    const QByteArray message =
+        QStringLiteral("layout.restore operation_id=%1 phase=%2 elapsed_us=%3 result=%4")
+            .arg(operationId.toString(QUuid::WithoutBraces), phase)
             .arg(std::max<qint64>(0, timer.nsecsElapsed() / 1000))
             .arg(success ? QStringLiteral("success")
                          : QStringLiteral("failure"))
