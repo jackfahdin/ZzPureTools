@@ -11,6 +11,8 @@
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QMenu>
 
+#include <QtCore/QPointer>
+
 #include <utility>
 
 namespace ZzFluentUI {
@@ -215,17 +217,22 @@ void ZzTabWidget::invokeTabContextMenu(
 void ZzTabWidget::showTabContextMenu(
     const QPoint &globalPosition, const QPoint &barPosition)
 {
-    auto *menu = new QMenu(this);
+    QPointer<ZzTabWidget> guardedThis(this);
+    QPointer<QMenu> menu = new QMenu(this);
     menu->setAttribute(Qt::WA_DeleteOnClose);
-    QAction *const create = menu->addAction(QStringLiteral("新建标签页"));
+    QPointer<QAction> create = menu->addAction(QStringLiteral("新建标签页"));
     const int index = d_ptr->tabBar->tabAt(barPosition);
-    QAction *const others = index >= 0
+    QPointer<QAction> others = index >= 0
         ? menu->addAction(QStringLiteral("关闭其他标签页")) : nullptr;
-    QAction *const right = index >= 0
+    QPointer<QAction> right = index >= 0
         ? menu->addAction(QStringLiteral("关闭右侧标签页")) : nullptr;
-    QWidget *const page = index >= 0 ? widget(index) : nullptr;
-    if (d_ptr->contextMenuProvider) {
-        d_ptr->contextMenuProvider(*menu, index, page);
+    QPointer<QWidget> page = index >= 0 ? widget(index) : nullptr;
+    const auto provider = d_ptr->contextMenuProvider;
+    if (provider) {
+        provider(*menu, index, page);
+    }
+    if (guardedThis.isNull() || menu.isNull()) {
+        return;
     }
     if (menu->actions().isEmpty()) {
         menu->close();
@@ -237,7 +244,7 @@ void ZzTabWidget::showTabContextMenu(
                 Q_EMIT newTabRequested();
                 return;
             }
-            if (page == nullptr) return;
+            if (page.isNull()) return;
             const int currentIndex = indexOf(page);
             if (currentIndex < 0) return;
             if (action == others) closeOtherTabs(currentIndex);

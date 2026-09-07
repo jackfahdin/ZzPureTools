@@ -68,6 +68,32 @@ private Q_SLOTS:
         QVERIFY(invoked);
     }
 
+    void clearedBuiltInContextActionsCannotDispatchCommands()
+    {
+        ZzFluentUI::ZzTabWidget tabs;
+        tabs.addTab(zzCreatePage(QStringLiteral("first")),
+                    QStringLiteral("first"));
+        tabs.addTab(zzCreatePage(QStringLiteral("second")),
+                    QStringLiteral("second"));
+        QPointer<QAction> businessAction;
+        tabs.setTabContextMenuProvider(
+            [&](QMenu &menu, int, QWidget *) {
+                menu.clear();
+                businessAction = menu.addAction(QStringLiteral("业务动作"));
+            });
+        QSignalSpy newTabRequested(
+            &tabs, &ZzFluentUI::ZzTabWidget::newTabRequested);
+        QSignalSpy tabsCloseRequested(
+            &tabs, &ZzFluentUI::ZzTabWidget::tabsCloseRequested);
+
+        tabs.invokeTabContextMenu(QPoint(1, 1), QPoint(1, 1));
+        QVERIFY(businessAction);
+        businessAction->trigger();
+
+        QCOMPARE(newTabRequested.size(), 0);
+        QCOMPARE(tabsCloseRequested.size(), 0);
+    }
+
     void keepsPinnedPartitionAcrossAllMoves()
     {
         ZzFluentUI::ZzTabWidget tabs;
