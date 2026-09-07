@@ -18,6 +18,7 @@
 
 #include "private/ZzSplitWorkspacePrivate.h"
 #include "private/ZzTabWidgetPrivate.h"
+#include "private/ZzWorkspacePageIdentityPrivate.h"
 #include "private/ZzWorkspaceCrossTransferTransactionPrivate.h"
 
 namespace ZzFluentUI {
@@ -292,15 +293,6 @@ QString ZzSplitWorkspace::pageLayoutKey(const QWidget *page) const
 ZzWorkspacePageId ZzSplitWorkspace::pageId(const QWidget *page) const
 {
     return d_ptr->pageId(page);
-}
-
-bool ZzWorkspacePageIdentityPrivate::adoptPageId(
-    ZzSplitWorkspace *workspace,
-    QWidget *page,
-    const ZzWorkspacePageId &id)
-{
-    return workspace != nullptr
-        && workspace->d_ptr->adoptPageId(page, id);
 }
 
 QWidget *ZzSplitWorkspace::pageForId(const ZzWorkspacePageId &id) const

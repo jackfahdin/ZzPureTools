@@ -115,6 +115,7 @@ set(zz_fluent_ui_sources
     widgets/src/ZzSplitWorkspace.cpp
     widgets/src/private/ZzSplitWorkspacePrivate.cpp
     widgets/src/private/ZzSplitWorkspaceTransactionPrivate.cpp
+    widgets/src/private/ZzWorkspacePageIdentityPrivate.cpp
     widgets/src/private/ZzWorkspaceCrossTransferTransactionPrivate.cpp
     widgets/src/ZzNavigationView.cpp
     widgets/src/private/ZzNavigationViewPrivate.cpp

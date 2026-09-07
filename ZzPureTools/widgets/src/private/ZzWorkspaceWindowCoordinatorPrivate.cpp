@@ -27,6 +27,7 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzFluentUI/ZzTabWidget.h>
+#include <private/ZzWorkspacePageIdentityPrivate.h>
 #include <private/ZzSplitWorkspaceTransactionPrivate.h>
 #include <ZzLog/ZzLog.h>
 #include <ZzPureTools/ZzApplicationWindow.h>

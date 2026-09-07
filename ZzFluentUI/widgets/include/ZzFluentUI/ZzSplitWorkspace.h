@@ -29,20 +29,8 @@ class ZzSplitWorkspacePrivate;
 class ZzSplitWorkspace;
 class ZzWorkspaceCrossTransferTransactionPrivate;
 class ZzSplitWorkspaceTransactionPrivate;
+class ZzWorkspacePageIdentityPrivate;
 class ZzTabWidget;
-
-namespace ZzWorkspacePageIdentityPrivate {
-/**
- * @brief 在恢复事务中安全接管页面的持久身份。
- *
- * 此接口仅供上层事务协调器调用；它不改变普通页面接入时自动生成
- * 身份的公开行为，并由实现同时维护正向和反向索引。
- */
-ZZ_FLUENT_UI_EXPORT bool adoptPageId(
-    ZzSplitWorkspace *workspace,
-    QWidget *page,
-    const ZzWorkspacePageId &id);
-} // namespace ZzWorkspacePageIdentityPrivate
 
 /** @brief 指定新标签组位于来源组的物理前侧或后侧。 */
 enum class ZzSplitPlacement : std::uint8_t
@@ -329,8 +317,7 @@ private:
     friend class ZzSplitWorkspacePrivate;
     friend class ZzWorkspaceCrossTransferTransactionPrivate;
     friend class ZzSplitWorkspaceTransactionPrivate;
-    friend bool ZzWorkspacePageIdentityPrivate::adoptPageId(
-        ZzSplitWorkspace *, QWidget *, const ZzWorkspacePageId &);
+    friend class ZzWorkspacePageIdentityPrivate;
 
     [[nodiscard]] ZzCore::ZzResult<void> transferTabToWorkspaceSilently(
         const ZzTabGroupId &sourceGroup,
