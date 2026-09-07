@@ -2,20 +2,20 @@
 
 ## 任务状态
 
-- Task 1: pending
-- Task 2: pending
-- Task 3: pending
-- Task 4: pending
-- Task 5: pending
-- Task 6: pending
-- Task 7: pending
-- Task 8: pending
-- Task 9: pending
-- Task 10: pending
-- Task 11: pending
-- Task 12: pending
-- Task 13: pending
-- Task 14: pending
+- Task 1: complete
+- Task 2: complete
+- Task 3: complete
+- Task 4: complete
+- Task 5: complete
+- Task 6: complete
+- Task 7: complete
+- Task 8: complete
+- Task 9: complete
+- Task 10: complete
+- Task 11: complete
+- Task 12: complete
+- Task 13: complete
+- Task 14: complete
 
 Task 1: minor (deferred): `ZzWorkspacePageIdTest.cpp` 未直接断言公开默认构造的 ID 无效；最终审查时复核。
 Task 1: complete (commits 34e5780..f2d9918, review clean)
@@ -46,3 +46,30 @@ Task 7: fix round 1/5 (4 addressed, 1 open — 修复 tearOff 线程/关闭态�
 Task 7: fix round 2/5 (0 addressed, 1 open — 新测试覆盖窗口表面和快照，但 Shell 标题/模式未真实写入，无法证明回滚; commit 3cdc712)
 Task 7: fix round 3/5 (1 addressed, 0 open — 将唯一可失败的置顶操作前置预检，以零表面修改保证失败原子性并补充生产变异测试; commit 916e30f)
 Task 7: complete (commits c86dcb5..916e30f, review clean after round 3)
+Task 8: fix round 1/5 (7 addressed, 1 open — 关闭状态、顺序快照、精确抑制与审计已加固；静默迁移和最终通知仍有公开信号边界; commits 13e1678..94aa86c)
+Task 8: fix round 2/5 (2 addressed, 1 open — 关闭前通知与后续过滤器拒绝已解决；windowAboutToClose 仍可销毁目标或让页面回流; commits 94aa86c..f138abd)
+Task 8: fix round 3/5 (1 addressed, 1 open — 最终通知已移至迁移前并冻结工作区；ZzTabWidget 公开变更仍可绕过冻结且失败不恢复; commits f138abd..00a3e41)
+Task 8: fix round 4/5 (0 addressed, 2 open — 标签可见性和独立 TabBar 条目仍可绕过冻结/快照；FluentUI 公共头反向依赖 PureTools 私有类; commits 00a3e41..ab91613)
+Task 8: fix round 5/5 (2 addressed, 0 open — 补齐可见性与独立 TabBar 条目快照，并以 FluentUI 私有桥解除反向组件依赖; commits ab91613..012dd3c)
+Task 8: complete (commits e341fe3..012dd3c, review clean after round 5)
+Task 9: fix round 1/5 (1 addressed, 0 open — 普通 transferTab 事务冻结边界; commits b4afab2..396f336)
+Task 9: fix round 2/5 (1 addressed, 0 open — 关闭通知与普通事务冻结边界; commits 396f336..3c2fb61)
+Task 9: fix round 3/5 (1 addressed, 0 open — 关闭通知直接 TabWidget 转移回归测试; commit e81cc16)
+Task 9: complete (commits b4afab2..e81cc16, review clean after recovery rounds 1-3)
+Task 10: minor (deferred): 测试未充分覆盖多组稳定树序、groupAttentionChanged 幂等及跨工作区信号
+Task 10: complete (commits e81cc16..1a1a3ed, review clean)
+Task 11: minor (deferred): 修复报告声称补充窗口计数篡改，但测试实际未修改 windowCount 首部，也未独立覆盖总页面 4097 的解码篡改；最终审查时复核。
+Task 11: fix round 1/5 (3 addressed, 0 open — 几何、标题长度、配置枚举门禁与失败解码无 QWidget/计数测试已补齐; commit 13104e2)
+Task 11: complete (commits 1a1a3ed..13104e2, review clean after fix round 1)
+Task 12: fix round 1/5 (4 addressed, 0 open — 稳定 pageId、raw/DTO 交叉校验、失败清理与几何收敛; commit 8f1eb13)
+Task 12: fix round 2/5 (4 addressed, 0 open — 非法 resolver 对象、完整工厂句柄、历史来源放宽与最大化状态校验; commit c867a61)
+Task 12: fix round 3/5 (1 Critical addressed, 0 open — 重复 resolver 指针、跨线程页面所有权与工厂注册拒绝测试; commit c88d004)
+Task 12: minor (deferred): `layout.restore` 结构化审计仍待后续统一补齐；FluentUI `adoptPageId` 桥接超出 Task 12 原始 PureTools 文件范围，暂按稳定 pageId 的最小依赖保留，最终审查复核。
+Task 12: complete (commits 7fbbaea..c88d004, review clean after fix round 3)
+Task 12: final review resolution: `layout.restore` 审计已补齐，成功/失败恰好一条且不泄漏业务内容；`adoptPageId` 位于 FluentUI 自有私有命名空间，公共头和完整架构审计通过，保留为恢复稳定 pageId 的最小桥接。(commit ef9c715)
+Task 13: complete (commit d25c0ba, Example smoke and full-suite verification passed)
+Task 14: complete (commits e2f590d, 7ad046e, a21f43f, 414d938, 5e5cf82, 9f02735; three benchmark rounds, shared/static clang-tidy, install consumer, relocation, architecture and preset contracts passed)
+Task 14: verification: Linux GCC Debug build passed; CTest 235/235 passed on ef9c715 in 485.05 s, including install.consumer and platform.package-relocation.
+Task 14: performance: commit 9f02735, Qt 6.11.1, GNU 15.2.0, Release/shared/LTO, offscreen; transfer p95 0.074089/0.072904/0.083369 ms, max 0.122809/0.124812/0.131453 ms, object growth max 0/0/0.
+Task 14: static analysis: shared/static full clang-tidy 294/294 passed at 9f02735; ef9c715 changed coordinator production/test translation units passed targeted clang-tidy in both shared and static configurations.
+Task 14: platform boundary: Windows MSVC、Windows MinGW 与 macOS 本轮仅验证 preset、源码、公共头和打包契约；未声明对应平台原生构建通过。

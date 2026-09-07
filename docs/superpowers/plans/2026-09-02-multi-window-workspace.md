@@ -874,3 +874,23 @@ git commit -m "docs(工作区): 完成多窗口验收与性能门禁" -m "记录
 - Example 只调用公共组件；库内没有 SSH、终端或其他业务模型依赖；
 - Linux 全量测试、静态检查和性能阈值有新鲜证据，Windows/macOS 验证边界如实记录；
 - 未读取、修改、暂存或提交顶层 `multi-window-requirements.md` 和 `temp_image/`。
+
+## 实际验收证据（2026-09-07）
+
+- Linux GCC Debug 在 Qt 6.11.1、GNU 15.2.0 上完成全量构建；提交
+  `ef9c715` 的 CTest 为 235/235 通过，总耗时 485.05 秒，其中
+  `install.consumer` 与 `platform.package-relocation` 均通过。
+- Clang 20 shared/static 全量静态分析在 `9f02735` 上分别为 294/294
+  通过；`ef9c715` 新增的协调器生产与测试翻译单元又分别在 shared/static
+  编译数据库下完成定向分析，未产生项目级诊断。
+- `9f02735` 的三轮 Release/shared/LTO 迁移采样均使用 500 次往返：迁移
+  p95 分别为 0.074089、0.072904、0.083369 ms，max 分别为
+  0.122809、0.124812、0.131453 ms，对象增长 max 均为 0。耗时门禁
+  `p95 <= 4 ms` 与对象门禁 `max <= 0` 均通过，正增长输入仍被拒绝。
+- 本次性能采样使用 `QT_QPA_PLATFORM=offscreen`；本机 XCB 环境缺少
+  `libxcb-cursor`，因此这些数据是功能性能证据，不替代正式 Xvfb/xcb
+  参考基线。
+- preset 矩阵、公共头、完整架构、二进制依赖、Linux 打包和发布契约均
+  通过。Windows MSVC、Windows MinGW 与 macOS 仅完成 preset、源码、
+  公共头和打包契约静态验证，未声明原生构建通过。
+- 分支差异不包含顶层 `multi-window-requirements.md` 或 `temp_image/`。
