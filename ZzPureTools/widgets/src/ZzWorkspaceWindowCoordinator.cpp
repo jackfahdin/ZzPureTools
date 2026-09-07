@@ -366,7 +366,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::applyConfiguration(
             QStringLiteral("workspace window close transaction is active"));
     }
     // 置顶是配置同步中唯一会报告失败的操作，必须在写入其他表面前预检。
-    const auto alwaysOnTopApplied = iterator->shell->setAlwaysOnTop(
+    auto alwaysOnTopApplied = iterator->shell->setAlwaysOnTop(
         updated.alwaysOnTop);
     if (!alwaysOnTopApplied) {
         return alwaysOnTopApplied;
@@ -534,7 +534,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::tearOff(
             false);
         return ZzCore::ZzResult<void>::failure(created.error());
     }
-    const auto handle = created.value();
+    const auto &handle = created.value();
     const auto targetRecord = std::find_if(d_ptr->records.cbegin(),
         d_ptr->records.cend(),
         [&handle](const auto &value) {
@@ -544,7 +544,7 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::tearOff(
                                      ? targetRecord->windowId
                                      : sourceWindowId;
     const auto groups = handle.shell->splitWorkspace()->groupIds();
-    const auto transferred = sourceWorkspace->transferTabToWorkspace(sourceGroup, sourceIndex,
+    auto transferred = sourceWorkspace->transferTabToWorkspace(sourceGroup, sourceIndex,
         handle.shell->splitWorkspace(), groups.constFirst());
     if (!transferred) {
         d_ptr->writeWindowAudit(QStringLiteral("window.tear_off"),

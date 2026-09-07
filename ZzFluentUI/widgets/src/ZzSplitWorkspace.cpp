@@ -725,7 +725,7 @@ bool ZzSplitWorkspace::restoreInternalSnapshot(
         }
         tabs->setCurrentWidget(group.current);
     }
-    for (auto connection : d_ptr->pageDestroyedConnections) {
+    for (const auto &connection : d_ptr->pageDestroyedConnections) {
         QObject::disconnect(connection);
     }
     d_ptr->pageDestroyedConnections.clear();
