@@ -256,7 +256,7 @@ if(ZZ_PERFORMANCE_REFERENCE)
         workspace-cross-transfer-time MAX_P95 4)
     zz_add_reference_gate(workspace-cross-transfer-object-growth
         benchmark.workspace-components workspace-components
-        workspace-cross-transfer-object-growth MAX_VALUE 0 STRICT_MAX)
+        workspace-cross-transfer-object-growth MAX_VALUE 0)
     if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         zz_add_reference_gate(idle-cpu benchmark.idle-cpu
             idle average-cpu-percent MAX_VALUE 0.5 STRICT_MAX)

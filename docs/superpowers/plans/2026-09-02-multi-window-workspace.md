@@ -824,7 +824,7 @@ for round in 1 2 3; do
 done
 ```
 
-要求三轮对象增长均为 0；迁移 p95 不高于 4 ms。若实测超过 4 ms，先优化热路径并重跑，不得直接放宽阈值。`benchmarks/CMakeLists.txt` 为 `workspace-cross-transfer-time` 和 `workspace-cross-transfer-object-growth` 分别调用现有 `zz_add_reference_gate`，对象增长使用 `MAX_VALUE 0 STRICT_MAX` 的 deterministic gate。
+要求三轮对象增长均为 0；迁移 p95 不高于 4 ms。若实测超过 4 ms，先优化热路径并重跑，不得直接放宽阈值。`benchmarks/CMakeLists.txt` 为 `workspace-cross-transfer-time` 和 `workspace-cross-transfer-object-growth` 分别调用现有 `zz_add_reference_gate`，对象增长使用允许等于零的 `MAX_VALUE 0` deterministic gate；任何正增长仍必须失败。
 
 - [ ] **步骤 3：补充中文集成文档**
 
