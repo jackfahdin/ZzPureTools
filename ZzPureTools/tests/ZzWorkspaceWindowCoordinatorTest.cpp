@@ -3034,6 +3034,115 @@ private Q_SLOTS:
         application.beginShutdown();
     }
 
+    void deferredFactoryWindowIsHiddenBeforeCoordinatorCommit()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *source = zzOnlyWindow(application);
+        QVERIFY(source != nullptr);
+        auto shellResult = zzCreateShell(source);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({source, shell.get()}, zzConfiguration(), true));
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> createdShells;
+        QPointer<ZzPureTools::ZzApplicationWindow> createdWindow;
+        coordinator->setWindowFactory([&application, &createdShells, &createdWindow](const auto &) {
+            auto created = application.createWindow(
+                ZzPureTools::ZzApplicationWindowVisibility::Visible);
+            if (!created) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    created.error());
+            }
+            createdWindow = created.value();
+            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(createdWindow.data());
+            if (!createdShell) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    createdShell.error());
+            }
+            auto shellValue = std::move(createdShell).value();
+            createdWindow->setCentralWidget(shellValue->workspaceWidget());
+            auto *shellObserver = shellValue.get();
+            createdShells.push_back(std::move(shellValue));
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                {createdWindow, shellObserver});
+        });
+        ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+        options.visibility = ZzPureTools::ZzApplicationWindowVisibility::Deferred;
+        const auto created = coordinator->createWindow(options);
+
+        QVERIFY(created);
+        QVERIFY(createdWindow);
+        QVERIFY(!createdWindow->isVisible());
+        createdShells.clear();
+        shell.reset();
+        application.beginShutdown();
+    }
+
+    void emitsWindowLifecycleSignalsOnlyAfterCommit()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *source = zzOnlyWindow(application);
+        QVERIFY(source != nullptr);
+        auto shellResult = zzCreateShell(source);
+        QVERIFY(shellResult);
+        auto shell = std::move(shellResult).value();
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({source, shell.get()}, zzConfiguration(), true));
+        QSignalSpy createdSpy(
+            coordinator, &ZzPureTools::ZzWorkspaceWindowCoordinator::windowCreated);
+        QSignalSpy configurationSpy(
+            coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowConfigurationChanged);
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> createdShells;
+        coordinator->setWindowFactory([&application, &createdShells](const auto &options) {
+            auto created = application.createWindow(options.visibility);
+            if (!created) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    created.error());
+            }
+            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(created.value());
+            if (!createdShell) {
+                return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                    createdShell.error());
+            }
+            auto shellValue = std::move(createdShell).value();
+            created.value()->setCentralWidget(shellValue->workspaceWidget());
+            auto *shellObserver = shellValue.get();
+            createdShells.push_back(std::move(shellValue));
+            return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::success(
+                {created.value(), shellObserver});
+        });
+        ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+        options.visibility = ZzPureTools::ZzApplicationWindowVisibility::Deferred;
+        options.configuration.title = QStringLiteral("Committed child");
+        const auto created = coordinator->createWindow(options);
+        QVERIFY(created);
+        QCOMPARE(createdSpy.size(), 1);
+        QCOMPARE(createdSpy.at(0).at(0).value<ZzPureTools::ZzApplicationWindow *>(),
+                 created.value().window.data());
+        QCOMPARE(configurationSpy.size(), 1);
+        QCOMPARE(configurationSpy.at(0).at(0).value<ZzPureTools::ZzApplicationWindow *>(),
+                 created.value().window.data());
+        QCOMPARE(configurationSpy.at(0).at(1)
+                     .value<ZzPureTools::ZzWorkspaceWindowConfiguration>().title,
+                 QStringLiteral("Committed child"));
+
+        ZzPureTools::ZzWorkspaceWindowConfigurationPatch patch;
+        patch.title = QStringLiteral("Updated");
+        QVERIFY(coordinator->applyConfiguration(source, patch));
+        QCOMPARE(configurationSpy.size(), 2);
+        QCOMPARE(configurationSpy.at(1).at(0).value<ZzPureTools::ZzApplicationWindow *>(),
+                 source);
+        QCOMPARE(configurationSpy.at(1).at(1)
+                     .value<ZzPureTools::ZzWorkspaceWindowConfiguration>().title,
+                 QStringLiteral("Updated"));
+        createdShells.clear();
+        shell.reset();
+        application.beginShutdown();
+    }
+
     void registeredWorkspaceSignalTearsOffTheSamePageTransactionally()
     {
         auto &application = zzApplication();

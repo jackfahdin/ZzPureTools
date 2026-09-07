@@ -336,6 +336,8 @@ set(workspace_window_coordinator_scenarios
     destroyedWindowUnregistersItsRecordBeforeApplicationErase
     unregisterOnlyRemovesCoordinatorState
     createWindowRequiresFactoryAndAppliesConfiguration
+    deferredFactoryWindowIsHiddenBeforeCoordinatorCommit
+    emitsWindowLifecycleSignalsOnlyAfterCommit
     registeredWorkspaceSignalTearsOffTheSamePageTransactionally
     factoryAndTransferFailuresLeaveSourceAndCoordinatorUnchanged
     factoryExceptionReturnsUnknownWithoutCoordinatorMutation

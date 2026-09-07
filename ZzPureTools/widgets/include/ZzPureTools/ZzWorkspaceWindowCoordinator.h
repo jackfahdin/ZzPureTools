@@ -114,6 +114,14 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 Q_SIGNALS:
+    /** @brief 新工作区窗口完成登记和初始配置提交后发出。 */
+    void windowCreated(ZzApplicationWindow *window);
+
+    /** @brief 已登记窗口的独立配置完整提交后发出。 */
+    void windowConfigurationChanged(
+        ZzApplicationWindow *window,
+        const ZzWorkspaceWindowConfiguration &configuration);
+
     /** @brief 页面已锁定且窗口即将回收并关闭时发出；接收期间禁止公开迁移。 */
     void windowAboutToClose(
         ZzApplicationWindow *window,

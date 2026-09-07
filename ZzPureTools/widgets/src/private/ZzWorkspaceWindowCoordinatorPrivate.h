@@ -144,6 +144,7 @@ public:
     ZzWorkspaceWindowFactory windowFactory;
     quint64 nextTransferSequence = 1;
     bool shuttingDown = false;
+    bool lifecycleSignalsSuppressed = false;
 };
 
 } // namespace ZzPureTools

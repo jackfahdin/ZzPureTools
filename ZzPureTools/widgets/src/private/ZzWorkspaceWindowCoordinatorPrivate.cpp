@@ -1600,6 +1600,12 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     std::vector<ZzStagedWindow> stagedWindows;
     std::vector<ZzStagedPage> stagedPages;
     std::vector<QPointer<QWidget>> attachedPages;
+    const bool previouslySuppressed = lifecycleSignalsSuppressed;
+    lifecycleSignalsSuppressed = true;
+    const auto restoreSignalState = qScopeGuard(
+        [this, previouslySuppressed] {
+            lifecycleSignalsSuppressed = previouslySuppressed;
+        });
     const auto cleanup = [&] {
         for (auto &staged : stagedPages) {
             if (staged.owned) staged.owned.reset();

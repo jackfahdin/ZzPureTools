@@ -6,6 +6,7 @@
 
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QThread>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QScreen>
@@ -387,6 +388,10 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::applyConfiguration(
     iterator->shell->setApplicationTitle(updated.title);
     iterator->shell->setTitleMode(updated.titleMode);
     iterator->configuration = std::move(updated);
+    if (!d_ptr->lifecycleSignalsSuppressed) {
+        const ZzWorkspaceWindowConfiguration committed = iterator->configuration;
+        Q_EMIT windowConfigurationChanged(window, committed);
+    }
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -458,12 +463,23 @@ ZzWorkspaceWindowCoordinator::createWindow(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("workspace window factory returned an invalid handle"));
     }
+    if (options.visibility == ZzApplicationWindowVisibility::Deferred) {
+        handle.window->hide();
+    }
     const auto registered = registerWindow(handle, {});
     if (!registered) {
         zzCloseStagedWindow(handle.window.data());
         return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::failure(registered.error());
     }
-    const auto configured = applyConfiguration(handle.window.data(), zzFullPatch(resolved));
+    const bool previouslySuppressed = d_ptr->lifecycleSignalsSuppressed;
+    const auto configured = [this, &handle, &resolved] {
+        const bool previous = d_ptr->lifecycleSignalsSuppressed;
+        d_ptr->lifecycleSignalsSuppressed = true;
+        const auto restoreSignalState = qScopeGuard([this, previous] {
+            d_ptr->lifecycleSignalsSuppressed = previous;
+        });
+        return applyConfiguration(handle.window.data(), zzFullPatch(resolved));
+    }();
     if (!configured) {
         static_cast<void>(unregisterWindow(handle.window.data()));
         zzCloseStagedWindow(handle.window.data());
@@ -487,6 +503,21 @@ ZzWorkspaceWindowCoordinator::createWindow(
             QStringLiteral("commit"),
             auditTimer,
             true);
+    }
+    if (!previouslySuppressed) {
+        const QPointer<ZzApplicationWindow> guardedWindow = handle.window;
+        Q_EMIT windowCreated(guardedWindow.data());
+        if (guardedWindow.isNull()) {
+            return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("workspace window was destroyed during creation notification"));
+        }
+        Q_EMIT windowConfigurationChanged(guardedWindow.data(), resolved);
+        if (guardedWindow.isNull()) {
+            return zzCoordinatorFailure<ZzWorkspaceWindowHandle>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("workspace window was destroyed during configuration notification"));
+        }
     }
     return ZzCore::ZzResult<ZzWorkspaceWindowHandle>::success(handle);
 }
