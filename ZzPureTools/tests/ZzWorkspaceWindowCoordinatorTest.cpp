@@ -3613,6 +3613,110 @@ private Q_SLOTS:
         application.beginShutdown();
     }
 
+    void topologyRestoreReusesRegisteredEmptyPrimaryWithoutExtraWindow()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *const primaryWindow = zzOnlyWindow(application);
+        QVERIFY(primaryWindow != nullptr);
+        auto primaryShellResult = zzCreateShell(primaryWindow);
+        QVERIFY(primaryShellResult);
+        auto primaryShell = std::move(primaryShellResult).value();
+        primaryWindow->setCentralWidget(primaryShell->workspaceWidget());
+        auto secondWindowResult = application.createWindow(
+            ZzPureTools::ZzApplicationWindowVisibility::Deferred);
+        QVERIFY(secondWindowResult);
+        QPointer<ZzPureTools::ZzApplicationWindow> secondWindow =
+            secondWindowResult.value();
+        auto secondShellResult = zzCreateShell(secondWindow.data());
+        QVERIFY(secondShellResult);
+        auto secondShell = std::move(secondShellResult).value();
+        secondWindow->setCentralWidget(secondShell->workspaceWidget());
+        auto *const coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {primaryWindow, primaryShell.get()}, zzConfiguration(), true));
+        auto secondConfiguration = zzConfiguration();
+        secondConfiguration.title = QStringLiteral("Second archive window");
+        QVERIFY(coordinator->registerWindow(
+            {secondWindow.data(), secondShell.get()}, secondConfiguration));
+
+        auto *const primaryWorkspace = primaryShell->splitWorkspace();
+        auto *const secondWorkspace = secondShell->splitWorkspace();
+        const auto primaryGroup = primaryWorkspace->activeGroupId();
+        const auto secondGroup = secondWorkspace->activeGroupId();
+        auto *const primaryPage = new QWidget;
+        auto *const secondPage = new QWidget;
+        primaryWorkspace->tabWidget(primaryGroup)->addTab(
+            primaryPage, QStringLiteral("Primary"));
+        secondWorkspace->tabWidget(secondGroup)->addTab(
+            secondPage, QStringLiteral("Second"));
+        QVERIFY(primaryWorkspace->setPageLayoutKey(
+            primaryPage, QStringLiteral("restore/primary")));
+        QVERIFY(secondWorkspace->setPageLayoutKey(
+            secondPage, QStringLiteral("restore/second")));
+        primaryWindow->setGeometry(QRect(20, 20, 640, 480));
+        secondWindow->setGeometry(QRect(80, 80, 600, 440));
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+
+        primaryWorkspace->tabWidget(primaryGroup)->removeTab(0);
+        secondWorkspace->tabWidget(secondGroup)->removeTab(0);
+        delete primaryPage;
+        delete secondPage;
+        QVERIFY(coordinator->unregisterWindow(secondWindow.data()));
+        secondShell.reset();
+        QVERIFY(secondWindow->close());
+        QTRY_COMPARE(application.windowCount(), qsizetype(1));
+        QVERIFY(!secondWindow);
+
+        int factoryCalls = 0;
+        std::vector<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>> restoredShells;
+        coordinator->setWindowFactory(
+            [&application, &factoryCalls, &restoredShells](const auto &options) {
+                ++factoryCalls;
+                auto created = application.createWindow(options.visibility);
+                if (!created) {
+                    return ZzCore::ZzResult<
+                        ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                            created.error());
+                }
+                auto shellResult = zzCreateShell(created.value());
+                if (!shellResult) {
+                    return ZzCore::ZzResult<
+                        ZzPureTools::ZzWorkspaceWindowHandle>::failure(
+                            shellResult.error());
+                }
+                auto shell = std::move(shellResult).value();
+                created.value()->setCentralWidget(shell->workspaceWidget());
+                const ZzPureTools::ZzWorkspaceWindowHandle handle{
+                    created.value(), shell.get()};
+                restoredShells.push_back(std::move(shell));
+                return ZzCore::ZzResult<
+                    ZzPureTools::ZzWorkspaceWindowHandle>::success(handle);
+            });
+        QHash<QString, QWidget *> restoredPages;
+        const auto restored = coordinator->restoreTopology(
+            saved.value(), [&restoredPages](QStringView key) {
+                auto page = std::make_unique<QWidget>();
+                restoredPages.insert(key.toString(), page.get());
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::move(page));
+            });
+
+        QVERIFY2(restored,
+            restored ? "" : qPrintable(restored.error().technicalMessage()));
+        QCOMPARE(factoryCalls, 1);
+        QCOMPARE(application.windowCount(), qsizetype(2));
+        QCOMPARE(restoredShells.size(), std::size_t(1));
+        QVERIFY(restoredPages.contains(QStringLiteral("restore/primary")));
+        QVERIFY(restoredPages.contains(QStringLiteral("restore/second")));
+        QVERIFY(coordinator->configuration(primaryWindow));
+        const auto savedAgain = coordinator->saveTopology();
+        QVERIFY(savedAgain);
+        QCOMPARE(savedAgain.value(), saved.value());
+        application.beginShutdown();
+    }
+
     void topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories()
     {
         auto &application = zzApplication();

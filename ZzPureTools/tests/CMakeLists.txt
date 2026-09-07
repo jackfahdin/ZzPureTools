@@ -315,6 +315,7 @@ set(workspace_window_coordinator_scenarios
     shutdownDoesNotRunOrdinaryReclaim
     topologyPersistenceRejectsEmptyStateAndMissingPageKeys
     topologyPersistenceRoundTripsDeferredWindowsAndPages
+    topologyRestoreReusesRegisteredEmptyPrimaryWithoutExtraWindow
     topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories
     topologyRestoreRejectsResolverResultsWithoutLeakingObjects
     topologyRestoreCleansFactoryHandleRejectedByRegistration

@@ -1531,13 +1531,31 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         if (record.windowId.isNull()) continue;
         knownWindowIds.insert(record.windowId);
     }
+    // 应用启动时通常已经拥有一个空主窗口；将它作为存档首窗的暂存承载者，
+    // 避免恢复成功后遗留一个未被拓扑描述的额外窗口。
+    QPointer<ZzApplicationWindow> reusablePrimaryWindow;
+    QPointer<ZzWorkspaceShell> reusablePrimaryShell;
+    QUuid reusablePrimaryWindowId;
+    ZzWorkspaceWindowConfiguration reusablePrimaryConfiguration;
+    if (records.size() == 1 && records.front().primary
+        && !records.front().window.isNull() && !records.front().shell.isNull()
+        && records.front().shell->splitWorkspace() != nullptr) {
+        reusablePrimaryWindow = records.front().window;
+        reusablePrimaryShell = records.front().shell;
+        reusablePrimaryWindowId = records.front().windowId;
+        reusablePrimaryConfiguration = records.front().configuration;
+    }
     QSet<QString> allLayoutKeys;
     QSet<QWidget *> existingPages;
     std::vector<ZzRawSplitInfo> rawSplitInfos;
     rawSplitInfos.reserve(static_cast<std::size_t>(topology.windows.size()));
     for (int windowIndex = 0; windowIndex < topology.windows.size(); ++windowIndex) {
         const auto &window = topology.windows.at(windowIndex);
-        if (knownWindowIds.contains(window.windowId)) {
+        const bool isReusablePrimary = !reusablePrimaryWindow.isNull()
+            && windowIndex == 0
+            && (reusablePrimaryWindowId == window.windowId
+                || !knownWindowIds.contains(window.windowId));
+        if (knownWindowIds.contains(window.windowId) && !isReusablePrimary) {
             return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                 QStringLiteral("workspace window identity collides with current topology"));
         }
@@ -1590,6 +1608,16 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     struct ZzStagedWindow final {
         ZzWorkspaceWindowHandle handle;
         int stateIndex = -1;
+        bool existing = false;
+    };
+    struct ZzExistingWindowSnapshot final {
+        ZzWorkspaceWindowHandle handle;
+        ZzWorkspaceWindowConfiguration configuration;
+        QByteArray workspaceState;
+        QRect geometry;
+        Qt::WindowStates windowState = Qt::WindowNoState;
+        bool visible = false;
+        bool alwaysOnTop = false;
     };
     struct ZzStagedPage final {
         int windowIndex = -1;
@@ -1600,6 +1628,23 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     std::vector<ZzStagedWindow> stagedWindows;
     std::vector<ZzStagedPage> stagedPages;
     std::vector<QPointer<QWidget>> attachedPages;
+    std::optional<ZzExistingWindowSnapshot> existingSnapshot;
+    if (!reusablePrimaryWindow.isNull() && !reusablePrimaryShell.isNull()) {
+        auto *const workspace = reusablePrimaryShell->splitWorkspace();
+        if (workspace == nullptr) {
+            return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("reusable primary workspace disappeared"));
+        }
+        existingSnapshot.emplace(
+            ZzExistingWindowSnapshot{
+                {reusablePrimaryWindow, reusablePrimaryShell},
+                reusablePrimaryConfiguration,
+                workspace->saveLayout(),
+                reusablePrimaryWindow->geometry(),
+                reusablePrimaryWindow->windowState(),
+                reusablePrimaryWindow->isVisible(),
+                reusablePrimaryShell->isAlwaysOnTop()});
+    }
     const bool previouslySuppressed = lifecycleSignalsSuppressed;
     lifecycleSignalsSuppressed = true;
     const auto restoreSignalState = qScopeGuard(
@@ -1624,9 +1669,32 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             }
             delete page.data();
         }
+        if (existingSnapshot.has_value()
+            && !existingSnapshot->handle.window.isNull()
+            && !existingSnapshot->handle.shell.isNull()) {
+            auto *const workspace = existingSnapshot->handle.shell->splitWorkspace();
+            if (workspace != nullptr) {
+                static_cast<void>(workspace->restoreLayout(
+                    existingSnapshot->workspaceState));
+            }
+            static_cast<void>(q_ptr->applyConfiguration(
+                existingSnapshot->handle.window.data(),
+                zzTopologyPatch(existingSnapshot->configuration)));
+            existingSnapshot->handle.window->setGeometry(
+                existingSnapshot->geometry);
+            existingSnapshot->handle.window->setWindowState(
+                existingSnapshot->windowState);
+            static_cast<void>(existingSnapshot->handle.shell->setAlwaysOnTop(
+                existingSnapshot->alwaysOnTop));
+            if (existingSnapshot->visible) {
+                existingSnapshot->handle.window->show();
+            } else {
+                existingSnapshot->handle.window->hide();
+            }
+        }
         for (auto iterator = stagedWindows.rbegin();
              iterator != stagedWindows.rend(); ++iterator) {
-            if (!iterator->handle.window.isNull()) {
+            if (!iterator->existing && !iterator->handle.window.isNull()) {
                 static_cast<void>(q_ptr->unregisterWindow(
                     iterator->handle.window.data()));
                 zzCloseTopologyStagedWindow(iterator->handle.window.data());
@@ -1637,6 +1705,15 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
 
     for (qsizetype index = 0; index < topology.windows.size(); ++index) {
         const auto &window = topology.windows.at(index);
+        if (!reusablePrimaryWindow.isNull() && index == 0) {
+            ZzStagedWindow staged;
+            staged.handle = {reusablePrimaryWindow, reusablePrimaryShell};
+            staged.stateIndex = static_cast<int>(index);
+            staged.existing = true;
+            stagedWindows.push_back(std::move(staged));
+            stagedWindows.back().handle.window->hide();
+            continue;
+        }
         ZzWorkspaceWindowCreateOptions options;
         options.configurationSource = ZzWorkspaceConfigurationSource::Explicit;
         options.configuration = zzTopologyPatch(window.configuration);
