@@ -6,9 +6,14 @@
 #include <utility>
 
 #include <QtCore/QCryptographicHash>
+#include <QtCore/QBuffer>
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QSet>
+#include <QtGui/QIcon>
+#include <QtGui/QImage>
+#include <QtGui/QImageReader>
+#include <QtGui/QPixmap>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
@@ -22,6 +27,9 @@ constexpr quint16 zzSchema = 2;
 constexpr quint16 zzStreamVersion = static_cast<quint16>(QDataStream::Qt_6_8);
 constexpr qsizetype zzHeaderSize = 12;
 constexpr qsizetype zzDigestSize = 32;
+constexpr qsizetype zzIconMaximumSize = 256 * 1024;
+constexpr int zzIconDimension = 32;
+constexpr char zzIconMagic[] = "ZZIC";
 
 template<typename T>
 [[nodiscard]] ZzCore::ZzResult<T> failure(
@@ -97,6 +105,25 @@ void writeByteArray(QDataStream &stream, const QByteArray &value)
     if (!value.isEmpty()) {
         stream.writeRawData(value.constData(), value.size());
     }
+}
+
+[[nodiscard]] QByteArray iconPng(const QIcon &icon)
+{
+    if (icon.isNull()) return {};
+    const QPixmap pixmap = icon.pixmap(
+        QSize(zzIconDimension, zzIconDimension), QIcon::Normal, QIcon::Off);
+    if (pixmap.isNull()) return {};
+    QImage image = pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
+    if (image.size() != QSize(zzIconDimension, zzIconDimension)) {
+        image = image.scaled(QSize(zzIconDimension, zzIconDimension),
+            Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
+    QByteArray encoded;
+    QBuffer buffer(&encoded);
+    if (!buffer.open(QIODevice::WriteOnly) || !image.save(&buffer, "PNG")) {
+        return {};
+    }
+    return encoded;
 }
 
 [[nodiscard]] bool readPage(QDataStream &stream, ZzState::ZzPageState *page)
@@ -255,6 +282,57 @@ void writeWindow(QDataStream &stream, const ZzState::ZzWindowState &window)
     }
 }
 
+[[nodiscard]] bool readIconExtension(
+    QDataStream &stream,
+    ZzState *state)
+{
+    if (state == nullptr || stream.status() != QDataStream::Ok) return false;
+    if (stream.atEnd()) return true;
+    char marker[sizeof(zzIconMagic) - 1]{};
+    if (stream.readRawData(marker, sizeof(marker)) != sizeof(marker)
+        || QByteArrayView(marker, sizeof(marker))
+            != QByteArrayView(zzIconMagic, sizeof(zzIconMagic) - 1)) {
+        return false;
+    }
+    quint16 iconCount = 0;
+    stream >> iconCount;
+    if (stream.status() != QDataStream::Ok || iconCount == 0
+        || iconCount > state->windows.size()) {
+        return false;
+    }
+    QSet<QUuid> seen;
+    for (quint16 index = 0; index < iconCount; ++index) {
+        QUuid windowId;
+        if (!readUuid(stream, &windowId) || seen.contains(windowId)) {
+            return false;
+        }
+        seen.insert(windowId);
+        QByteArray bytes;
+        if (!readByteArray(stream, &bytes, static_cast<int>(zzIconMaximumSize))) {
+            return false;
+        }
+        if (bytes.isEmpty()) return false;
+        QBuffer buffer(&bytes);
+        if (!buffer.open(QIODevice::ReadOnly)) return false;
+        QImageReader reader(&buffer, QByteArrayLiteral("PNG"));
+        if (reader.size() != QSize(zzIconDimension, zzIconDimension)) {
+            return false;
+        }
+        const QImage image = reader.read();
+        if (image.isNull() || image.size() != QSize(zzIconDimension, zzIconDimension)) {
+            return false;
+        }
+        auto window = std::find_if(state->windows.begin(), state->windows.end(),
+            [&windowId](const ZzState::ZzWindowState &candidate) {
+                return candidate.windowId == windowId;
+            });
+        if (window == state->windows.end()) return false;
+        window->configuration.icon = QIcon(QPixmap::fromImage(image));
+        if (window->configuration.icon.isNull()) return false;
+    }
+    return stream.status() == QDataStream::Ok && stream.atEnd();
+}
+
 [[nodiscard]] bool decodeEnvelope(
     const QByteArray &encoded, QByteArray *payload)
 {
@@ -309,8 +387,24 @@ ZzCore::ZzResult<QByteArray> ZzWorkspaceTopologyCodecPrivate::encode(
     QDataStream payloadStream(&payload, QIODevice::WriteOnly);
     payloadStream.setVersion(QDataStream::Qt_6_8);
     payloadStream << static_cast<quint16>(state.windows.size());
+    QList<QPair<QUuid, QByteArray>> icons;
+    icons.reserve(state.windows.size());
     for (const ZzState::ZzWindowState &window : state.windows) {
         writeWindow(payloadStream, window);
+        const QByteArray icon = iconPng(window.configuration.icon);
+        if (!window.configuration.icon.isNull() && icon.isEmpty()) {
+            payloadStream.setStatus(QDataStream::WriteFailed);
+            break;
+        }
+        if (!icon.isEmpty()) icons.append({window.windowId, icon});
+    }
+    if (payloadStream.status() == QDataStream::Ok && !icons.isEmpty()) {
+        payloadStream.writeRawData(zzIconMagic, sizeof(zzIconMagic) - 1);
+        payloadStream << static_cast<quint16>(icons.size());
+        for (const auto &[windowId, icon] : icons) {
+            writeUuid(payloadStream, windowId);
+            writeByteArray(payloadStream, icon);
+        }
     }
     if (payloadStream.status() != QDataStream::Ok
         || payload.size() > ZzState::MaximumPayloadSize) {
@@ -375,7 +469,8 @@ ZzWorkspaceTopologyCodecPrivate::decode(const QByteArray &encoded)
         }
         state.windows.append(std::move(window));
     }
-    if (stream.status() != QDataStream::Ok || !stream.atEnd()
+    if (!readIconExtension(stream, &state)
+        || stream.status() != QDataStream::Ok || !stream.atEnd()
         || !state.isValid()) {
         return failure<ZzState>(ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("ZZWT topology references are invalid"));

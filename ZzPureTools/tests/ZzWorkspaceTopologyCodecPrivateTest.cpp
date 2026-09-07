@@ -2,10 +2,15 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
+#include <utility>
 
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
+#include <QtGui/QImage>
+#include <QtGui/QIcon>
+#include <QtGui/QPixmap>
 #include <QtWidgets/QApplication>
 #include <QtTest/QTest>
 
@@ -103,6 +108,83 @@ using ZzWorkspaceTitleMode = ZzPureTools::ZzWorkspaceTitleMode;
     return result;
 }
 
+struct IconEntryOffsets final
+{
+    qsizetype uuid = -1;
+    qsizetype size = -1;
+    qsizetype data = -1;
+    quint32 byteCount = 0;
+};
+
+[[nodiscard]] QList<IconEntryOffsets> iconEntryOffsets(
+    const QByteArray &encoded)
+{
+    const quint32 length = payloadLength(encoded);
+    const QByteArray payload = encoded.mid(12, static_cast<qsizetype>(length));
+    const qsizetype marker = payload.lastIndexOf(QByteArrayLiteral("ZZIC"));
+    if (marker < 0) return {};
+    QDataStream stream(payload);
+    stream.setVersion(QDataStream::Qt_6_8);
+    if (!stream.device()->seek(marker + 4)) return {};
+    quint16 count = 0;
+    stream >> count;
+    if (stream.status() != QDataStream::Ok) return {};
+    QList<IconEntryOffsets> result;
+    result.reserve(count);
+    for (quint16 index = 0; index < count; ++index) {
+        IconEntryOffsets offsets;
+        offsets.uuid = static_cast<qsizetype>(stream.device()->pos());
+        if (stream.skipRawData(16) != 16) return {};
+        offsets.size = static_cast<qsizetype>(stream.device()->pos());
+        stream >> offsets.byteCount;
+        offsets.data = static_cast<qsizetype>(stream.device()->pos());
+        if (stream.status() != QDataStream::Ok
+            || stream.skipRawData(static_cast<int>(offsets.byteCount))
+                != static_cast<int>(offsets.byteCount)) {
+            return {};
+        }
+        result.append(offsets);
+    }
+    return stream.status() == QDataStream::Ok && stream.atEnd()
+        ? result
+        : QList<IconEntryOffsets> {};
+}
+
+void refreshPayload(QByteArray *encoded, const QByteArray &payload)
+{
+    Q_ASSERT(encoded != nullptr && encoded->size() >= 44);
+    Q_ASSERT(payload.size() <= std::numeric_limits<quint32>::max());
+    QByteArray result = encoded->left(12);
+    const quint32 length = static_cast<quint32>(payload.size());
+    result[8] = static_cast<char>((length >> 24) & 0xff);
+    result[9] = static_cast<char>((length >> 16) & 0xff);
+    result[10] = static_cast<char>((length >> 8) & 0xff);
+    result[11] = static_cast<char>(length & 0xff);
+    result.append(payload);
+    result.append(QCryptographicHash::hash(payload, QCryptographicHash::Sha256));
+    *encoded = std::move(result);
+}
+
+void patchPayloadUInt16(QByteArray *encoded, qsizetype offset, quint16 value)
+{
+    Q_ASSERT(encoded != nullptr);
+    QByteArray payload = encoded->mid(12, static_cast<qsizetype>(payloadLength(*encoded)));
+    payload[offset] = static_cast<char>((value >> 8) & 0xff);
+    payload[offset + 1] = static_cast<char>(value & 0xff);
+    refreshPayload(encoded, payload);
+}
+
+void patchPayloadUInt32(QByteArray *encoded, qsizetype offset, quint32 value)
+{
+    Q_ASSERT(encoded != nullptr);
+    QByteArray payload = encoded->mid(12, static_cast<qsizetype>(payloadLength(*encoded)));
+    payload[offset] = static_cast<char>((value >> 24) & 0xff);
+    payload[offset + 1] = static_cast<char>((value >> 16) & 0xff);
+    payload[offset + 2] = static_cast<char>((value >> 8) & 0xff);
+    payload[offset + 3] = static_cast<char>(value & 0xff);
+    refreshPayload(encoded, payload);
+}
+
 [[nodiscard]] qsizetype firstOriginCountOffset(
     const QByteArray &encoded)
 {
@@ -193,6 +275,98 @@ private slots:
                      encoded.value().mid(12, payloadLength),
                      QCryptographicHash::Sha256),
             encoded.value().right(32));
+    }
+
+    void preservesWindowIconInRoundTrip()
+    {
+        ZzState source = topology();
+        QImage image(3, 3, QImage::Format_ARGB32);
+        image.fill(QColor(220, 40, 80, 255));
+        image.setPixelColor(1, 1, QColor(30, 160, 240, 255));
+        source.windows[0].configuration.icon = QIcon(QPixmap::fromImage(image));
+        QImage secondImage(5, 5, QImage::Format_ARGB32);
+        secondImage.fill(QColor(50, 180, 90, 255));
+        source.windows[1].configuration.icon = QIcon(QPixmap::fromImage(secondImage));
+
+        const auto encoded = ZzCodec::encode(source);
+        QVERIFY(encoded);
+        const auto decoded = ZzCodec::decode(encoded.value());
+        QVERIFY(decoded);
+        QVERIFY(!decoded.value().windows[0].configuration.icon.isNull());
+        const QImage actual = decoded.value().windows[0].configuration.icon
+                                  .pixmap(QSize(32, 32)).toImage()
+                                  .convertToFormat(QImage::Format_ARGB32)
+                                  .scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
+                                      Qt::SmoothTransformation);
+        const QImage expected = source.windows[0].configuration.icon
+                                    .pixmap(QSize(32, 32)).toImage()
+                                    .convertToFormat(QImage::Format_ARGB32)
+                                    .scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
+                                        Qt::SmoothTransformation);
+        QCOMPARE(actual, expected);
+        QCOMPARE(decoded.value(), source);
+    }
+
+    void omitsIconExtensionWithoutIcons()
+    {
+        const auto encoded = ZzCodec::encode(topology());
+        QVERIFY(encoded);
+        const quint32 length = payloadLength(encoded.value());
+        const QByteArray payload = encoded.value().mid(
+            12, static_cast<qsizetype>(length));
+        QVERIFY(!payload.contains(QByteArrayLiteral("ZZIC")));
+        const auto decoded = ZzCodec::decode(encoded.value());
+        QVERIFY(decoded);
+        for (const auto &window : decoded.value().windows) {
+            QVERIFY(window.configuration.icon.isNull());
+        }
+    }
+
+    void rejectsMalformedWindowIconExtension()
+    {
+        ZzState source = topology();
+        QImage image(3, 3, QImage::Format_ARGB32);
+        image.fill(QColor(220, 40, 80, 255));
+        source.windows[0].configuration.icon = QIcon(QPixmap::fromImage(image));
+        source.windows[1].configuration.icon = QIcon(QPixmap::fromImage(image));
+        const auto encoded = ZzCodec::encode(source);
+        QVERIFY(encoded);
+        const auto offsets = iconEntryOffsets(encoded.value());
+        QCOMPARE(offsets.size(), 2);
+        const QByteArray payload = encoded.value().mid(
+            12, static_cast<qsizetype>(payloadLength(encoded.value())));
+
+        QByteArray unknown = encoded.value();
+        QByteArray unknownPayload = payload;
+        const QByteArray unknownId = QUuid::createUuid().toRfc4122();
+        std::copy(unknownId.cbegin(), unknownId.cend(),
+            unknownPayload.begin() + offsets.front().uuid);
+        refreshPayload(&unknown, unknownPayload);
+        QVERIFY(!ZzCodec::decode(unknown));
+
+        QByteArray duplicate = encoded.value();
+        QByteArray duplicatePayload = payload;
+        std::copy(duplicatePayload.cbegin() + offsets.front().uuid,
+            duplicatePayload.cbegin() + offsets.front().uuid + 16,
+            duplicatePayload.begin() + offsets.back().uuid);
+        refreshPayload(&duplicate, duplicatePayload);
+        QVERIFY(!ZzCodec::decode(duplicate));
+
+        QByteArray invalidPng = encoded.value();
+        QByteArray invalidPayload = payload;
+        invalidPayload[offsets.front().data] = 'X';
+        refreshPayload(&invalidPng, invalidPayload);
+        QVERIFY(!ZzCodec::decode(invalidPng));
+
+        QByteArray oversized = encoded.value();
+        patchPayloadUInt32(&oversized, offsets.front().size, 256U * 1024U + 1U);
+        QVERIFY(!ZzCodec::decode(oversized));
+
+        const qsizetype marker = payload.lastIndexOf(QByteArrayLiteral("ZZIC"));
+        QVERIFY(marker >= 0);
+        QByteArray emptyCount = encoded.value();
+        patchPayloadUInt16(&emptyCount, marker + 4, 0);
+        QVERIFY(!ZzCodec::decode(emptyCount));
     }
 
     void rejectsEnvelopeTampering()

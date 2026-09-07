@@ -76,8 +76,8 @@ public:
         QByteArray workspaceState;
         QList<ZzPageState> pages;
 
-        /** @brief 比较窗口持久化字段；图标由宿主配置而非拓扑 blob 管理。 */
-        [[nodiscard]] bool operator==(const ZzWindowState &other) const noexcept;
+        /** @brief 比较窗口持久化字段和可持久化的图标内容。 */
+        [[nodiscard]] bool operator==(const ZzWindowState &other) const;
     };
 
     /** @brief 兼容不同调用方命名的页面来源别名。 */
@@ -97,7 +97,7 @@ public:
 
     /** @brief 比较两个拓扑是否逐字段相等。 */
     [[nodiscard]] bool operator==(
-        const ZzWorkspaceTopologyStatePrivate &other) const noexcept;
+        const ZzWorkspaceTopologyStatePrivate &other) const;
 
     /** @brief 校验指定拓扑是否满足全部 ZZWT 边界和交叉引用约束。 */
     [[nodiscard]] static bool validate(
