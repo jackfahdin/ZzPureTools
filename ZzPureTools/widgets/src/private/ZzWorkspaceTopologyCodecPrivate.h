@@ -12,6 +12,8 @@ namespace ZzPureTools {
  * @brief 编解码有界 ZZWT schema v2 拓扑，并兼容导入 ZZSW v1 字节。
  *
  * 编解码器只产生纯值对象，不在解码阶段创建或访问 QWidget/QObject。
+ * 无图标状态保持既有 v2 字节布局；新 reader 可读取旧 v2，但旧 reader
+ * 不保证识别带有可选 ZZIC 图标扩展的新状态。
  */
 class ZzWorkspaceTopologyCodecPrivate final
 {

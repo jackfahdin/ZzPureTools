@@ -287,22 +287,24 @@ private slots:
         QImage secondImage(5, 5, QImage::Format_ARGB32);
         secondImage.fill(QColor(50, 180, 90, 255));
         source.windows[1].configuration.icon = QIcon(QPixmap::fromImage(secondImage));
+        source.windows[0].iconImage = source.windows[0].configuration.icon
+            .pixmap(QSize(32, 32)).toImage()
+            .convertToFormat(QImage::Format_ARGB32)
+            .scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
+                Qt::SmoothTransformation);
+        source.windows[1].iconImage = source.windows[1].configuration.icon
+            .pixmap(QSize(32, 32)).toImage()
+            .convertToFormat(QImage::Format_ARGB32)
+            .scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
+                Qt::SmoothTransformation);
 
         const auto encoded = ZzCodec::encode(source);
         QVERIFY(encoded);
         const auto decoded = ZzCodec::decode(encoded.value());
         QVERIFY(decoded);
-        QVERIFY(!decoded.value().windows[0].configuration.icon.isNull());
-        const QImage actual = decoded.value().windows[0].configuration.icon
-                                  .pixmap(QSize(32, 32)).toImage()
-                                  .convertToFormat(QImage::Format_ARGB32)
-                                  .scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
-                                      Qt::SmoothTransformation);
-        const QImage expected = source.windows[0].configuration.icon
-                                    .pixmap(QSize(32, 32)).toImage()
-                                    .convertToFormat(QImage::Format_ARGB32)
-                                    .scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
-                                        Qt::SmoothTransformation);
+        QVERIFY(!decoded.value().windows[0].iconImage.isNull());
+        const QImage actual = decoded.value().windows[0].iconImage;
+        const QImage expected = source.windows[0].iconImage;
         QCOMPARE(actual, expected);
         QCOMPARE(decoded.value(), source);
     }
@@ -329,6 +331,11 @@ private slots:
         image.fill(QColor(220, 40, 80, 255));
         source.windows[0].configuration.icon = QIcon(QPixmap::fromImage(image));
         source.windows[1].configuration.icon = QIcon(QPixmap::fromImage(image));
+        const QImage normalized = image.scaled(
+            QSize(32, 32), Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                                   .convertToFormat(QImage::Format_ARGB32);
+        source.windows[0].iconImage = normalized;
+        source.windows[1].iconImage = normalized;
         const auto encoded = ZzCodec::encode(source);
         QVERIFY(encoded);
         const auto offsets = iconEntryOffsets(encoded.value());

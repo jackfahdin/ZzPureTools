@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <limits>
 #include <utility>
 
 #include <QtCore/QCryptographicHash>
@@ -10,10 +9,8 @@
 #include <QtCore/QDataStream>
 #include <QtCore/QIODevice>
 #include <QtCore/QSet>
-#include <QtGui/QIcon>
 #include <QtGui/QImage>
 #include <QtGui/QImageReader>
-#include <QtGui/QPixmap>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
@@ -27,7 +24,7 @@ constexpr quint16 zzSchema = 2;
 constexpr quint16 zzStreamVersion = static_cast<quint16>(QDataStream::Qt_6_8);
 constexpr qsizetype zzHeaderSize = 12;
 constexpr qsizetype zzDigestSize = 32;
-constexpr qsizetype zzIconMaximumSize = 256 * 1024;
+constexpr qsizetype zzIconMaximumSize = qsizetype {256} * 1024;
 constexpr int zzIconDimension = 32;
 constexpr char zzIconMagic[] = "ZZIC";
 
@@ -107,23 +104,19 @@ void writeByteArray(QDataStream &stream, const QByteArray &value)
     }
 }
 
-[[nodiscard]] QByteArray iconPng(const QIcon &icon)
+[[nodiscard]] QByteArray imagePng(const QImage &source)
 {
-    if (icon.isNull()) return {};
-    const QPixmap pixmap = icon.pixmap(
-        QSize(zzIconDimension, zzIconDimension), QIcon::Normal, QIcon::Off);
-    if (pixmap.isNull()) return {};
-    QImage image = pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
-    if (image.size() != QSize(zzIconDimension, zzIconDimension)) {
-        image = image.scaled(QSize(zzIconDimension, zzIconDimension),
-            Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    if (source.isNull()
+        || source.size() != QSize(zzIconDimension, zzIconDimension)) {
+        return {};
     }
+    const QImage image = source.convertToFormat(QImage::Format_ARGB32);
     QByteArray encoded;
     QBuffer buffer(&encoded);
     if (!buffer.open(QIODevice::WriteOnly) || !image.save(&buffer, "PNG")) {
         return {};
     }
-    return encoded;
+    return encoded.size() <= zzIconMaximumSize ? encoded : QByteArray {};
 }
 
 [[nodiscard]] bool readPage(QDataStream &stream, ZzState::ZzPageState *page)
@@ -318,8 +311,9 @@ void writeWindow(QDataStream &stream, const ZzState::ZzWindowState &window)
         if (reader.size() != QSize(zzIconDimension, zzIconDimension)) {
             return false;
         }
-        const QImage image = reader.read();
-        if (image.isNull() || image.size() != QSize(zzIconDimension, zzIconDimension)) {
+        const QImage image = reader.read().convertToFormat(QImage::Format_ARGB32);
+        if (image.isNull()
+            || image.size() != QSize(zzIconDimension, zzIconDimension)) {
             return false;
         }
         auto window = std::find_if(state->windows.begin(), state->windows.end(),
@@ -327,8 +321,7 @@ void writeWindow(QDataStream &stream, const ZzState::ZzWindowState &window)
                 return candidate.windowId == windowId;
             });
         if (window == state->windows.end()) return false;
-        window->configuration.icon = QIcon(QPixmap::fromImage(image));
-        if (window->configuration.icon.isNull()) return false;
+        window->iconImage = image;
     }
     return stream.status() == QDataStream::Ok && stream.atEnd();
 }
@@ -391,8 +384,8 @@ ZzCore::ZzResult<QByteArray> ZzWorkspaceTopologyCodecPrivate::encode(
     icons.reserve(state.windows.size());
     for (const ZzState::ZzWindowState &window : state.windows) {
         writeWindow(payloadStream, window);
-        const QByteArray icon = iconPng(window.configuration.icon);
-        if (!window.configuration.icon.isNull() && icon.isEmpty()) {
+        const QByteArray icon = imagePng(window.iconImage);
+        if (!window.iconImage.isNull() && icon.isEmpty()) {
             payloadStream.setStatus(QDataStream::WriteFailed);
             break;
         }

@@ -3717,6 +3717,52 @@ private Q_SLOTS:
         application.beginShutdown();
     }
 
+    void topologyRestoreRejectsResolverInvalidatingRegisteredWindow()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *const primaryWindow = zzOnlyWindow(application);
+        QVERIFY(primaryWindow != nullptr);
+        auto primaryShellResult = zzCreateShell(primaryWindow);
+        QVERIFY(primaryShellResult);
+        auto primaryShell = std::move(primaryShellResult).value();
+        primaryWindow->setCentralWidget(primaryShell->workspaceWidget());
+        auto *const coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow(
+            {primaryWindow, primaryShell.get()}, zzConfiguration(), true));
+
+        auto *const workspace = primaryShell->splitWorkspace();
+        const auto group = workspace->activeGroupId();
+        auto *const page = new QWidget;
+        workspace->tabWidget(group)->addTab(page, QStringLiteral("Page"));
+        QVERIFY(workspace->setPageLayoutKey(page,
+            QStringLiteral("restore/invalidated")));
+        const auto saved = coordinator->saveTopology();
+        QVERIFY(saved);
+        workspace->tabWidget(group)->removeTab(0);
+        delete page;
+
+        bool resolverCalled = false;
+        const auto restored = coordinator->restoreTopology(
+            saved.value(), [&resolverCalled, coordinator, primaryWindow](QStringView) {
+                resolverCalled = true;
+                const auto unregistered = coordinator->unregisterWindow(primaryWindow);
+                Q_ASSERT(unregistered);
+                return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
+                    std::make_unique<QWidget>());
+            });
+
+        QVERIFY(resolverCalled);
+        QVERIFY(!restored);
+        QCOMPARE(restored.error().code(), ZzCore::ZzErrorCode::InvalidState);
+        const auto restoredConfiguration = coordinator->configuration(primaryWindow);
+        QVERIFY(restoredConfiguration);
+        QCOMPARE(restoredConfiguration.value().title,
+            zzConfiguration().title);
+        QCOMPARE(application.windowCount(), qsizetype(1));
+        application.beginShutdown();
+    }
+
     void topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories()
     {
         auto &application = zzApplication();

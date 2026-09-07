@@ -20,6 +20,8 @@
 #include <QtCore/QSet>
 #include <QtCore/QThread>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QIcon>
+#include <QtGui/QPixmap>
 #include <QtGui/QScreen>
 #include <QtGui/QWindow>
 #include <QtWidgets/QWidget>
@@ -402,6 +404,30 @@ void zzDiscardRejectedPage(std::unique_ptr<QWidget> *page) noexcept
     patch.maximumSize = configuration.maximumSize;
     patch.initialGeometry = configuration.initialGeometry;
     return patch;
+}
+
+[[nodiscard]] ZzWorkspaceWindowConfigurationPatch zzTopologyPatch(
+    const ZzWorkspaceTopologyStatePrivate::ZzWindowState &window)
+{
+    auto patch = zzTopologyPatch(window.configuration);
+    if (!window.iconImage.isNull()) {
+        patch.icon = QIcon(QPixmap::fromImage(window.iconImage));
+    }
+    return patch;
+}
+
+/** @brief 在 GUI 线程把窗口图标规范化为可在线程间传递的图像像素。 */
+[[nodiscard]] QImage zzNormalizeTopologyIcon(const QIcon &icon)
+{
+    if (icon.isNull()) return {};
+    const QPixmap pixmap = icon.pixmap(QSize(32, 32), QIcon::Normal, QIcon::Off);
+    if (pixmap.isNull()) return {};
+    QImage image = pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
+    if (image.size() != QSize(32, 32)) {
+        image = image.scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
+            Qt::SmoothTransformation);
+    }
+    return image;
 }
 
 void zzCloseTopologyStagedWindow(ZzApplicationWindow *window)
@@ -1332,6 +1358,9 @@ ZzWorkspaceWindowCoordinatorPrivate::saveTopology() const
         ZzWorkspaceTopologyStatePrivate::ZzWindowState windowState;
         windowState.windowId = record.windowId;
         windowState.configuration = record.configuration;
+        // QIcon 属于 GUI 运行时对象；持久化快照只保留规范化像素。
+        windowState.configuration.icon = {};
+        windowState.iconImage = zzNormalizeTopologyIcon(record.configuration.icon);
         windowState.geometry = record.window->geometry();
         if (!windowState.geometry.isValid()) {
             return zzCoordinatorFailure<QByteArray>(
@@ -1618,6 +1647,8 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         Qt::WindowStates windowState = Qt::WindowNoState;
         bool visible = false;
         bool alwaysOnTop = false;
+        bool primary = false;
+        QUuid windowId;
     };
     struct ZzStagedPage final {
         int windowIndex = -1;
@@ -1643,7 +1674,9 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
                 reusablePrimaryWindow->geometry(),
                 reusablePrimaryWindow->windowState(),
                 reusablePrimaryWindow->isVisible(),
-                reusablePrimaryShell->isAlwaysOnTop()});
+                reusablePrimaryShell->isAlwaysOnTop(),
+                true,
+                reusablePrimaryWindowId});
     }
     const bool previouslySuppressed = lifecycleSignalsSuppressed;
     lifecycleSignalsSuppressed = true;
@@ -1700,6 +1733,31 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
                 zzCloseTopologyStagedWindow(iterator->handle.window.data());
             }
         }
+        if (existingSnapshot.has_value()
+            && !existingSnapshot->handle.window.isNull()
+            && !existingSnapshot->handle.shell.isNull()) {
+            auto record = std::find_if(records.begin(), records.end(),
+                [snapshot = existingSnapshot->handle](const ZzWindowRecord &value) {
+                    return value.windowIdentity == snapshot.window.data()
+                        && value.shellIdentity == snapshot.shell.data();
+                });
+            if (record == records.end()) {
+                const auto registered = q_ptr->registerWindow(
+                    existingSnapshot->handle,
+                    existingSnapshot->configuration,
+                    existingSnapshot->primary);
+                if (registered) {
+                    record = std::find_if(records.begin(), records.end(),
+                        [snapshot = existingSnapshot->handle](const ZzWindowRecord &value) {
+                            return value.windowIdentity == snapshot.window.data()
+                                && value.shellIdentity == snapshot.shell.data();
+                        });
+                    if (record != records.end()) {
+                        record->windowId = existingSnapshot->windowId;
+                    }
+                }
+            }
+        }
         QCoreApplication::sendPostedEvents(qApp, QEvent::MetaCall);
     };
 
@@ -1716,7 +1774,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         }
         ZzWorkspaceWindowCreateOptions options;
         options.configurationSource = ZzWorkspaceConfigurationSource::Explicit;
-        options.configuration = zzTopologyPatch(window.configuration);
+        options.configuration = zzTopologyPatch(window);
         options.visibility = ZzApplicationWindowVisibility::Deferred;
         options.activate = false;
         auto created = q_ptr->createWindow(options);
@@ -1792,6 +1850,34 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         }
     }
 
+    // 页面解析器是外部同步回调，可能触发窗口注销或销毁；在任何后续
+    // QPointer 解引用前重新验证登记、Shell 和空工作区不变量。
+    const auto stagedWindowsRemainValid = [&]() {
+        for (const auto &staged : stagedWindows) {
+            if (staged.handle.window.isNull() || staged.handle.shell.isNull()) {
+                return false;
+            }
+            const auto record = std::find_if(records.cbegin(), records.cend(),
+                [&staged](const ZzWindowRecord &value) {
+                    return value.windowIdentity == staged.handle.window.data()
+                        && value.shellIdentity == staged.handle.shell.data();
+                });
+            if (record == records.cend()) return false;
+            auto *const workspace = staged.handle.shell->splitWorkspace();
+            if (workspace == nullptr) return false;
+            for (const auto &group : workspace->groupIds()) {
+                auto *const tabs = workspace->tabWidget(group);
+                if (tabs == nullptr || tabs->count() != 0) return false;
+            }
+        }
+        return true;
+    };
+    if (!stagedWindowsRemainValid()) {
+        cleanup();
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("workspace page resolver invalidated a staged window"));
+    }
+
     std::vector<QPointer<QObject>> mutedObjects;
     for (const auto &staged : stagedWindows) {
         mutedObjects.push_back(staged.handle.shell->splitWorkspace());
@@ -1861,7 +1947,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     for (auto &staged : stagedWindows) {
         const auto &window = topology.windows.at(staged.stateIndex);
         auto configured = q_ptr->applyConfiguration(
-            staged.handle.window.data(), zzTopologyPatch(window.configuration));
+            staged.handle.window.data(), zzTopologyPatch(window));
         if (!configured) {
             cleanup();
             return configured;

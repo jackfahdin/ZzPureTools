@@ -4,31 +4,6 @@
 
 #include <QtCore/QHash>
 #include <QtCore/QSet>
-#include <QtGui/QImage>
-#include <QtGui/QIcon>
-
-namespace {
-
-[[nodiscard]] QImage normalizedIconImage(const QIcon &icon)
-{
-    if (icon.isNull()) return {};
-    QImage image = icon.pixmap(QSize(32, 32), QIcon::Normal, QIcon::Off)
-                       .toImage().convertToFormat(QImage::Format_ARGB32);
-    if (image.size() != QSize(32, 32)) {
-        image = image.scaled(QSize(32, 32), Qt::IgnoreAspectRatio,
-            Qt::SmoothTransformation);
-    }
-    return image;
-}
-
-[[nodiscard]] bool iconsEqual(const QIcon &left, const QIcon &right)
-{
-    if (left.isNull() || right.isNull()) return left.isNull() == right.isNull();
-    return normalizedIconImage(left) == normalizedIconImage(right);
-}
-
-} // namespace
-
 namespace ZzPureTools {
 namespace {
 
@@ -86,7 +61,6 @@ bool ZzWorkspaceTopologyStatePrivate::ZzWindowState::operator==(
 {
     return windowId == other.windowId
         && configuration.title == other.configuration.title
-        && iconsEqual(configuration.icon, other.configuration.icon)
         && configuration.titleMode == other.configuration.titleMode
         && configuration.closePolicy == other.configuration.closePolicy
         && configuration.alwaysOnTop == other.configuration.alwaysOnTop
@@ -96,7 +70,8 @@ bool ZzWorkspaceTopologyStatePrivate::ZzWindowState::operator==(
         && geometry == other.geometry && screenName == other.screenName
         && visible == other.visible && maximized == other.maximized
         && alwaysOnTop == other.alwaysOnTop && treeDepth == other.treeDepth
-        && workspaceState == other.workspaceState && pages == other.pages;
+        && workspaceState == other.workspaceState && pages == other.pages
+        && iconImage == other.iconImage;
 }
 
 bool ZzWorkspaceTopologyStatePrivate::operator==(
@@ -128,6 +103,8 @@ bool ZzWorkspaceTopologyStatePrivate::validate(
             || !validClosePolicy(window.configuration.closePolicy)
             || !validString(window.screenName, true)
             || window.workspaceState.size() > MaximumWorkspaceStateSize
+            || (!window.iconImage.isNull()
+                && window.iconImage.size() != QSize(32, 32))
             || window.treeDepth < 1 || window.treeDepth > MaximumTreeDepth
             || !window.geometry.isValid()
             || window.geometry.width() <= 0 || window.geometry.height() <= 0

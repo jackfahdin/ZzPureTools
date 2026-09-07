@@ -7,6 +7,7 @@
 #include <QtCore/QRect>
 #include <QtCore/QString>
 #include <QtCore/QUuid>
+#include <QtGui/QImage>
 
 #include <ZzFluentUI/ZzWorkspacePageId.h>
 #include <ZzPureTools/ZzWorkspaceWindowConfiguration.h>
@@ -16,8 +17,10 @@ namespace ZzPureTools {
 /**
  * @brief 保存多窗口工作区的有界纯值拓扑。
  *
- * 此类型不持有 QObject/QWidget，也不包含任何恢复回调；它只描述窗口、
- * 页面归属和页面来源栈，供拓扑 codec 在 GUI 线程外安全校验和传递。
+ * 此类型不持有 QObject/QWidget/QPixmap，也不包含任何恢复回调；它只描述窗口、
+ * 页面归属、页面来源栈和规范化图标像素，供拓扑 codec 在线程间安全校验和传递。
+ * `configuration.icon` 仅是运行时兼容字段，codec 不读取它，持久化图标只使用
+ * `iconImage`。
  */
 class ZzWorkspaceTopologyStatePrivate final
 {
@@ -75,8 +78,10 @@ public:
         int treeDepth = 1;
         QByteArray workspaceState;
         QList<ZzPageState> pages;
+        /** @brief 规范化为 32x32 的图标像素；空图像表示未设置图标。 */
+        QImage iconImage;
 
-        /** @brief 比较窗口持久化字段和可持久化的图标内容。 */
+        /** @brief 比较窗口持久化字段和规范化图标像素。 */
         [[nodiscard]] bool operator==(const ZzWindowState &other) const;
     };
 

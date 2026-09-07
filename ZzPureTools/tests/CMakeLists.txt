@@ -316,6 +316,7 @@ set(workspace_window_coordinator_scenarios
     topologyPersistenceRejectsEmptyStateAndMissingPageKeys
     topologyPersistenceRoundTripsDeferredWindowsAndPages
     topologyRestoreReusesRegisteredEmptyPrimaryWithoutExtraWindow
+    topologyRestoreRejectsResolverInvalidatingRegisteredWindow
     topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories
     topologyRestoreRejectsResolverResultsWithoutLeakingObjects
     topologyRestoreCleansFactoryHandleRejectedByRegistration
