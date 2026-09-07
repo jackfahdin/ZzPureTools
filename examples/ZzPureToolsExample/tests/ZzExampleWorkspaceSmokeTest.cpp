@@ -255,7 +255,7 @@ private Q_SLOTS:
                     ? &window : initialWindow_;
                 if (coordinator != nullptr) {
                     coordinator->setWindowFactory(
-                        [this, application]
+                        [application]
                         (const ZzPureTools::ZzWorkspaceWindowCreateOptions &) {
                             auto created = application->createWindow(
                                 ZzPureTools::ZzApplicationWindowVisibility::Deferred);

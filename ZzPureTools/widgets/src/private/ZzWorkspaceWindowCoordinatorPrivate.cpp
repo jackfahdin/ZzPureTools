@@ -1686,7 +1686,9 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
             }
             if (existingPages.contains(page.get())) {
                 // 解析器错误地重复返回同一裸指针时，避免两个 unique_ptr 二次释放。
-                static_cast<void>(page.release());
+                QWidget *const duplicatePage = page.release();
+                Q_ASSERT(existingPages.contains(duplicatePage));
+                Q_UNUSED(duplicatePage);
                 cleanup();
                 return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
                     QStringLiteral("workspace page resolver must return unique parentless pages"));
@@ -1729,7 +1731,9 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
         }
         staged.page = page;
         attachedPages.push_back(page);
-        static_cast<void>(staged.owned.release());
+        QWidget *const transferredPage = staged.owned.release();
+        Q_ASSERT(transferredPage == page);
+        Q_UNUSED(transferredPage);
         Q_UNUSED(window);
     }
     for (auto &staged : stagedWindows) {
@@ -1763,7 +1767,7 @@ ZzWorkspaceWindowCoordinatorPrivate::restoreTopology(
     }
     for (auto &staged : stagedWindows) {
         const auto &window = topology.windows.at(staged.stateIndex);
-        const auto configured = q_ptr->applyConfiguration(
+        auto configured = q_ptr->applyConfiguration(
             staged.handle.window.data(), zzTopologyPatch(window.configuration));
         if (!configured) {
             cleanup();

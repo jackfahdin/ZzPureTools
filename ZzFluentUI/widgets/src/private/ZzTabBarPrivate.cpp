@@ -169,7 +169,7 @@ QByteArray ZzTabBarPrivate::validPayload(
     if (!tabTransferEnabled || host.isNull()) {
         return {};
     }
-    const QByteArray token = zzTabMimeToken(mimeData);
+    QByteArray token = zzTabMimeToken(mimeData);
     auto *registry = ZzWorkspaceTransferRegistryPrivate::instance();
     if (token.isEmpty() || registry == nullptr
         || !registry->inspect(token)) {

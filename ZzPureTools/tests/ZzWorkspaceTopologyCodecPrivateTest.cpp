@@ -73,6 +73,20 @@ using ZzWorkspaceTitleMode = ZzPureTools::ZzWorkspaceTitleMode;
     return value;
 }
 
+/** @brief 从已编码拓扑的固定头部读取大端载荷长度。 */
+[[nodiscard]] quint32 payloadLength(const QByteArray &encoded)
+{
+    Q_ASSERT(encoded.size() >= 12);
+    QDataStream stream(encoded);
+    const qint64 skipped = stream.skipRawData(8);
+    Q_ASSERT(skipped == 8);
+    Q_UNUSED(skipped);
+    quint32 length = 0;
+    stream >> length;
+    Q_ASSERT(stream.status() == QDataStream::Ok);
+    return length;
+}
+
 [[nodiscard]] QByteArray withPayloadByteChanged(
     const QByteArray &encoded,
     qsizetype payloadOffset,
@@ -80,15 +94,12 @@ using ZzWorkspaceTitleMode = ZzPureTools::ZzWorkspaceTitleMode;
 {
     QByteArray result = encoded;
     result[payloadOffset] = value;
-    const quint32 payloadLength =
-        (static_cast<quint8>(result.at(8)) << 24)
-        | (static_cast<quint8>(result.at(9)) << 16)
-        | (static_cast<quint8>(result.at(10)) << 8)
-        | static_cast<quint8>(result.at(11));
-    const QByteArray payload = result.mid(12, payloadLength);
+    const quint32 encodedPayloadLength = payloadLength(result);
+    const QByteArray payload = result.mid(12, encodedPayloadLength);
     const QByteArray digest = QCryptographicHash::hash(
         payload, QCryptographicHash::Sha256);
-    std::copy(digest.cbegin(), digest.cend(), result.begin() + 12 + payloadLength);
+    std::copy(digest.cbegin(), digest.cend(),
+        result.begin() + 12 + encodedPayloadLength);
     return result;
 }
 
@@ -106,14 +117,14 @@ using ZzWorkspaceTitleMode = ZzPureTools::ZzWorkspaceTitleMode;
         auto skipString = [&stream] {
             quint16 length = 0;
             stream >> length;
-            stream.skipRawData(static_cast<int>(length) * 2);
+            stream.skipRawData(static_cast<qint64>(length) * 2);
         };
         skipString();
         skipString();
         stream.skipRawData(6 + 13 * 4);
         quint32 stateLength = 0;
         stream >> stateLength;
-        stream.skipRawData(static_cast<int>(stateLength));
+        stream.skipRawData(static_cast<qint64>(stateLength));
         quint16 pageCount = 0;
         stream >> pageCount;
         for (quint16 pageIndex = 0; pageIndex < pageCount; ++pageIndex) {
@@ -141,16 +152,12 @@ using ZzWorkspaceTitleMode = ZzPureTools::ZzWorkspaceTitleMode;
 
 void refreshDigest(QByteArray *encoded)
 {
-    const quint32 payloadLength =
-        (static_cast<quint8>(encoded->at(8)) << 24)
-        | (static_cast<quint8>(encoded->at(9)) << 16)
-        | (static_cast<quint8>(encoded->at(10)) << 8)
-        | static_cast<quint8>(encoded->at(11));
-    const QByteArray payload = encoded->mid(12, payloadLength);
+    const quint32 encodedPayloadLength = payloadLength(*encoded);
+    const QByteArray payload = encoded->mid(12, encodedPayloadLength);
     const QByteArray digest = QCryptographicHash::hash(
         payload, QCryptographicHash::Sha256);
     std::copy(digest.cbegin(), digest.cend(),
-        encoded->begin() + 12 + payloadLength);
+        encoded->begin() + 12 + encodedPayloadLength);
 }
 
 class ZzWorkspaceTopologyCodecPrivateTest final : public QObject
@@ -193,7 +200,7 @@ private slots:
         const ZzState source = topology();
         const auto encoded = ZzCodec::encode(source);
         QVERIFY(encoded);
-        const QByteArray value = encoded.value();
+        const QByteArray &value = encoded.value();
         const qsizetype widgetsBefore = QApplication::allWidgets().size();
 
         QByteArray badMagic = value;
@@ -222,10 +229,11 @@ private slots:
         QVERIFY(!ZzCodec::decode(badUuid));
 
         const qsizetype firstPageCount =
-            12 + 2 + 16
-            + 2 + source.windows[0].configuration.title.size() * 2
-            + 2 + source.windows[0].screenName.size() * 2
-            + 6 + 13 * 4 + 4 + source.windows[0].workspaceState.size();
+            qsizetype{12} + 2 + 16
+            + 2 + source.windows[0].configuration.title.size() * qsizetype{2}
+            + 2 + source.windows[0].screenName.size() * qsizetype{2}
+            + 6 + qsizetype{13} * 4 + 4
+            + source.windows[0].workspaceState.size();
         QByteArray badPageCount = value;
         badPageCount[firstPageCount] = 0x10;
         badPageCount[firstPageCount + 1] = 0x01;

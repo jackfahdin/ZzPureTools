@@ -87,7 +87,7 @@ public:
         || !mimeData->hasFormat(ZzTabMimeData::format())) {
         return {};
     }
-    const QByteArray token = mimeData->data(ZzTabMimeData::format());
+    QByteArray token = mimeData->data(ZzTabMimeData::format());
     if (token.size() != 18 || token.at(0) != 0 || token.at(1) != 2) {
         return {};
     }

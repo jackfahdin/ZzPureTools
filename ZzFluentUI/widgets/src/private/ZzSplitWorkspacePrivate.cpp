@@ -39,7 +39,6 @@ namespace ZzFluentUI {
 
 namespace {
 
-constexpr auto zzWorkspaceDragTokenLifetime = std::chrono::seconds(5);
 constexpr auto zzWorkspaceLayoutMagic = "ZZSW";
 constexpr quint16 zzWorkspaceLayoutSchemaVersion = 1;
 constexpr auto zzWorkspaceLayoutStreamVersion = QDataStream::Qt_6_8;
