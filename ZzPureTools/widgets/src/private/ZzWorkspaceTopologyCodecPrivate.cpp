@@ -24,9 +24,11 @@ constexpr quint16 zzSchema = 2;
 constexpr quint16 zzStreamVersion = static_cast<quint16>(QDataStream::Qt_6_8);
 constexpr qsizetype zzHeaderSize = 12;
 constexpr qsizetype zzDigestSize = 32;
+constexpr int zzUuidByteCount = 16;
 constexpr qsizetype zzIconMaximumSize = qsizetype {256} * 1024;
 constexpr int zzIconDimension = 32;
 constexpr char zzIconMagic[] = "ZZIC";
+constexpr int zzIconMagicSize = static_cast<int>(sizeof(zzIconMagic) - 1);
 
 template<typename T>
 [[nodiscard]] ZzCore::ZzResult<T> failure(
@@ -68,11 +70,11 @@ void writeString(QDataStream &stream, const QString &value)
 
 [[nodiscard]] bool readUuid(QDataStream &stream, QUuid *value)
 {
-    std::array<char, 16> bytes{};
-    if (stream.readRawData(bytes.data(), bytes.size()) != bytes.size()) {
+    std::array<char, zzUuidByteCount> bytes{};
+    if (stream.readRawData(bytes.data(), zzUuidByteCount) != zzUuidByteCount) {
         return false;
     }
-    *value = QUuid::fromRfc4122(QByteArray(bytes.data(), bytes.size()));
+    *value = QUuid::fromRfc4122(QByteArray(bytes.data(), zzUuidByteCount));
     return !value->isNull();
 }
 
@@ -281,10 +283,10 @@ void writeWindow(QDataStream &stream, const ZzState::ZzWindowState &window)
 {
     if (state == nullptr || stream.status() != QDataStream::Ok) return false;
     if (stream.atEnd()) return true;
-    char marker[sizeof(zzIconMagic) - 1]{};
-    if (stream.readRawData(marker, sizeof(marker)) != sizeof(marker)
-        || QByteArrayView(marker, sizeof(marker))
-            != QByteArrayView(zzIconMagic, sizeof(zzIconMagic) - 1)) {
+    char marker[zzIconMagicSize]{};
+    if (stream.readRawData(marker, zzIconMagicSize) != zzIconMagicSize
+        || QByteArrayView(marker, zzIconMagicSize)
+            != QByteArrayView(zzIconMagic, zzIconMagicSize)) {
         return false;
     }
     quint16 iconCount = 0;
