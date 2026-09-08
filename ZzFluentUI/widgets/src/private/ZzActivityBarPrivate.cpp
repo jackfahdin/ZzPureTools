@@ -12,6 +12,7 @@
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
+#include <QtCore/QVariantAnimation>
 #include <QtCore/QUuid>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QPainter>
@@ -27,6 +28,9 @@
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzMotionToken.h>
+#include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzItemViewVisual.h"
 
@@ -152,16 +156,24 @@ public:
 
         painter->save();
         ZzItemViewVisualOptions visualOptions;
+        visualOptions.animateSelection = false;
         if (owner_ != nullptr) {
+            if (owner_->indicatorDuration() == 0) {
+                owner_->indicatorTransition.finish();
+            }
+            const QModelIndex sourceIndex = owner_->sourceIndexForProjection(index);
+            const bool active = owner_->isProjectionIndexActive(index);
             visualOptions.showSelection = owner_->selectionVisible;
             visualOptions.forceIndicator = owner_->selectionVisible
-                && owner_->isProjectionIndexActive(index);
+                && (active || owner_->indicatorTransition.forcesIndicator(sourceIndex));
+            visualOptions.indicatorScale = owner_->indicatorTransition.scaleFor(
+                sourceIndex, active || adjusted.state.testFlag(QStyle::State_Selected));
             visualOptions.indicatorPlacement =
                 owner_->edge == ZzSidePaneEdge::Left
                 ? ZzItemIndicatorPlacement::PhysicalLeft
                 : ZzItemIndicatorPlacement::PhysicalRight;
         }
-        [[maybe_unused]] const ZzItemViewVisualLayout visual =
+        const ZzItemViewVisualLayout visual =
             ZzItemViewVisual::draw(
                 *fluentStyle,
                 adjusted,
@@ -178,21 +190,27 @@ public:
         const bool hasDescriptor = zzHasIconDescriptor(
             descriptorValue, descriptor);
         const int badge = zzBadgeValue(index);
+        const int gap = qRound(fluentStyle->themeSnapshot()->metric(
+            ZzMetricToken::SelectionIndicatorContentGap));
         const int iconExtent = badge > 0
-            ? zzActivityIconExtentWithBadge : zzActivityIconExtent;
+            ? std::min(zzActivityIconExtentWithBadge,
+                std::max(0, visual.contentRect.width() - badgeWidth(adjusted, badge) - gap))
+            : zzActivityIconExtent;
+        QStyleOptionViewItem content = adjusted;
+        content.rect = visual.contentRect;
         const QRect logicalIconRect = badge > 0
             ? QRect(
-                  adjusted.rect.left() + zzActivityItemMargin,
+                  content.rect.left(),
                   adjusted.rect.center().y() - iconExtent / 2,
                   iconExtent,
                   iconExtent)
             : QRect(
-                  adjusted.rect.center().x() - iconExtent / 2,
+                  content.rect.center().x() - iconExtent / 2,
                   adjusted.rect.center().y() - iconExtent / 2,
                   iconExtent,
                   iconExtent);
         const QRect iconRect = QStyle::visualRect(
-            adjusted.direction, adjusted.rect, logicalIconRect);
+            adjusted.direction, content.rect, logicalIconRect);
         QPixmap icon;
         if (hasDescriptor && adjusted.widget != nullptr) {
             icon = fluentStyle->iconPixmap(
@@ -207,7 +225,7 @@ public:
         } else {
             drawTextFallback(painter, adjusted, iconRect, foreground);
         }
-        drawBadge(painter, adjusted, badge);
+        drawBadge(painter, content, badge);
         drawFocus(painter, adjusted);
         painter->restore();
     }
@@ -224,6 +242,17 @@ public:
     }
 
 private:
+    /** @brief 以实际徽标字体测量占位，图标和徽标使用同一宽度预算。 */
+    static int badgeWidth(const QStyleOptionViewItem &option, int badge)
+    {
+        QFont font = option.font;
+        font.setPixelSize(10);
+        font.setWeight(QFont::DemiBold);
+        const QString text = badge > 99 ? QStringLiteral("99+") : QString::number(badge);
+        return std::min(zzActivityBadgeMaximumWidth,
+            std::max(14, QFontMetrics(font).horizontalAdvance(text) + 4));
+    }
+
     /** @brief 在没有有效 descriptor 时居中绘制标题首字符。 */
     static void drawTextFallback(
         QPainter *painter,
@@ -256,16 +285,12 @@ private:
         QFont badgeFont = option.font;
         badgeFont.setPixelSize(10);
         badgeFont.setWeight(QFont::DemiBold);
-        const QFontMetrics metrics(badgeFont);
-        const int textWidth = metrics.horizontalAdvance(text);
-        const int markerWidth = std::min(
-            zzActivityBadgeMaximumWidth,
-            std::max(14, textWidth + 4));
+        const int markerWidth = badgeWidth(option, badge);
         const int markerHeight = std::min(
             zzActivityBadgeHeight,
             std::max(1, option.rect.height() - 2 * zzActivityItemMargin));
         const QRect logicalMarker(
-            option.rect.right() - markerWidth - zzActivityItemMargin + 1,
+            option.rect.right() - markerWidth + 1,
             option.rect.center().y() - markerHeight / 2,
             markerWidth,
             markerHeight);
@@ -473,6 +498,7 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     ZzActivityBar *publicObject,
     ZzSidePaneEdge initialEdge)
     : q_ptr(publicObject)
+    , indicatorTransition(publicObject)
     , edge(initialEdge)
 {
     Q_ASSERT(q_ptr != nullptr);
@@ -534,6 +560,10 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     layout->setSpacing(0);
     layout->addWidget(primaryView, 1);
     layout->addWidget(secondaryView);
+    QObject::connect(indicatorTransition.animation(), &QVariantAnimation::valueChanged,
+        q_ptr, [this] { repaintIndicators(); });
+    QObject::connect(indicatorTransition.animation(), &QVariantAnimation::finished,
+        q_ptr, [this] { repaintIndicators(); });
     updateSecondaryViewGeometry();
 }
 
@@ -694,6 +724,11 @@ void ZzActivityBarPrivate::setActiveSourceIndexes(
     if (activeSourceIndexes == next) {
         return;
     }
+    repaintIndicators();
+    const bool singleChange = activeSourceIndexes.size() <= 1 && next.size() <= 1;
+    indicatorTransition.transitionTo(
+        next.size() == 1 ? QModelIndex(next.first()) : QModelIndex(),
+        singleChange ? indicatorDuration() : 0);
     activeSourceIndexes = next;
     primaryView->viewport()->update();
     secondaryView->viewport()->update();
@@ -711,9 +746,34 @@ void ZzActivityBarPrivate::setSelectionVisible(bool visible)
         return;
     }
     selectionVisible = visible;
+    indicatorTransition.finish();
     primaryView->viewport()->update();
     secondaryView->viewport()->update();
     Q_EMIT q_ptr->selectionVisibleChanged(visible);
+}
+
+int ZzActivityBarPrivate::indicatorDuration() const
+{
+    const auto *style = qobject_cast<const ZzFluentStyle *>(q_ptr->style());
+    return selectionVisible && q_ptr->isVisible() && q_ptr->isEnabled() && style != nullptr
+        ? style->themeSnapshot()->duration(ZzMotionToken::Normal) : 0;
+}
+
+void ZzActivityBarPrivate::repaintIndicators()
+{
+    for (const QModelIndex &source :
+         {indicatorTransition.outgoingIndex(), indicatorTransition.incomingIndex()}) {
+        if (!source.isValid()) {
+            continue;
+        }
+        for (QListView *view : {primaryView, secondaryView}) {
+            const auto *projection = static_cast<ZzActivityProjectionModel *>(view->model());
+            const QModelIndex index = projection->mapFromSource(source);
+            if (index.isValid()) {
+                view->viewport()->update(view->visualRect(index));
+            }
+        }
+    }
 }
 
 void ZzActivityBarPrivate::sanitizeActiveIndexes()
@@ -729,6 +789,13 @@ void ZzActivityBarPrivate::sanitizeActiveIndexes()
 bool ZzActivityBarPrivate::isSourceIndexActive(const QModelIndex &index) const
 {
     return activeSourceIndexes.contains(index);
+}
+
+QModelIndex ZzActivityBarPrivate::sourceIndexForProjection(const QModelIndex &index) const
+{
+    const auto *projection = index.model() == primaryProjection ? primaryProjection
+        : index.model() == secondaryProjection ? secondaryProjection : nullptr;
+    return projection != nullptr ? projection->mapToSource(index) : QModelIndex();
 }
 
 bool ZzActivityBarPrivate::isProjectionIndexActive(

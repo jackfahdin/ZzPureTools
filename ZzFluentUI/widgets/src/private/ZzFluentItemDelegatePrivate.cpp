@@ -1,8 +1,5 @@
 #include "ZzFluentItemDelegatePrivate.h"
 
-#include <QtCore/QAbstractAnimation>
-#include <QtCore/QItemSelectionModel>
-#include <QtCore/QVariantAnimation>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QStyle>
@@ -10,12 +7,9 @@
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
-#include <ZzFluentUI/ZzAnimationPolicy.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
-#include <ZzFluentUI/ZzMotionToken.h>
 #include <ZzFluentUI/ZzNavigationView.h>
-#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzItemViewVisual.h"
 #include "ZzNavigationViewPrivate.h"
@@ -51,13 +45,11 @@ void ZzFluentItemDelegatePrivate::paint(
     QStyle *style = adjusted.widget != nullptr
         ? adjusted.widget->style()
         : QApplication::style();
+    adjusted.index = index;
     QStyleOptionViewItem content = adjusted;
     auto *treeView = qobject_cast<QTreeView *>(
         const_cast<QWidget *>(adjusted.widget));
     const bool isTreeView = treeView != nullptr;
-    if (isTreeView) {
-        observeTreeSelection(treeView);
-    }
     painter->save();
     const bool selected = adjusted.state.testFlag(QStyle::State_Selected);
     const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
@@ -70,21 +62,11 @@ void ZzFluentItemDelegatePrivate::paint(
             .drawSurface = !isTreeView,
             .ownsIndicator = ownsIndicator};
         if (navigationView != nullptr) {
+            visualOptions.animateSelection = false;
             visualOptions.forceIndicator =
                 navigationView->d_ptr->forcesIndicator(index);
             visualOptions.indicatorScale =
                 navigationView->d_ptr->indicatorScale(index, selected);
-        } else if (isTreeView) {
-            const auto snapshot = fluentStyle->themeSnapshot();
-            if (snapshot != nullptr && snapshot->reducedMotion()
-                && treeTransition->animation()->state()
-                    != QAbstractAnimation::Stopped) {
-                treeTransition->finish();
-            }
-            visualOptions.forceIndicator =
-                treeTransition->forcesIndicator(index);
-            visualOptions.indicatorScale =
-                treeTransition->scaleFor(index, selected);
         }
         const ZzItemViewVisualLayout layout = ZzItemViewVisual::draw(
             *fluentStyle,
@@ -92,6 +74,7 @@ void ZzFluentItemDelegatePrivate::paint(
             painter,
             visualOptions);
         content.rect = layout.contentRect;
+        content.version = zzItemContentOptionVersion;
         if (selected || hovered) {
             content.state.setFlag(QStyle::State_Selected, false);
             content.state.setFlag(QStyle::State_MouseOver, false);
@@ -132,131 +115,6 @@ void ZzFluentItemDelegatePrivate::paint(
             adjusted.widget);
     }
     painter->restore();
-}
-
-void ZzFluentItemDelegatePrivate::observeTreeSelection(
-    QTreeView *treeView) const
-{
-    Q_ASSERT(treeView != nullptr);
-    ensureTreeTransition();
-    QItemSelectionModel *selectionModel = treeView->selectionModel();
-    if (observedTreeView == treeView
-        && observedSelectionModel == selectionModel) {
-        return;
-    }
-
-    QObject::disconnect(selectionChangedConnection);
-    observedTreeView = treeView;
-    observedSelectionModel = selectionModel;
-    selectionChangedConnection = {};
-    if (selectionModel == nullptr) {
-        return;
-    }
-
-    const QPointer<QTreeView> guardedView(treeView);
-    selectionChangedConnection = QObject::connect(
-        selectionModel,
-        &QItemSelectionModel::selectionChanged,
-        q_ptr,
-        [this, guardedView] {
-            if (guardedView != nullptr) {
-                transitionTreeSelection();
-            }
-        });
-    treeTransition->transitionTo(selectedTreeIndex(), 0);
-    repaintTreeTransitionRows();
-}
-
-void ZzFluentItemDelegatePrivate::ensureTreeTransition() const
-{
-    if (treeTransition != nullptr) {
-        return;
-    }
-    treeTransition = std::make_unique<ZzSelectionIndicatorTransition>(q_ptr);
-    QObject::connect(
-        treeTransition->animation(),
-        &QVariantAnimation::valueChanged,
-        q_ptr,
-        [this] {
-            repaintTreeTransitionRows();
-        });
-    QObject::connect(
-        treeTransition->animation(),
-        &QVariantAnimation::finished,
-        q_ptr,
-        [this] {
-            repaintTreeTransitionRows();
-        });
-}
-
-QModelIndex ZzFluentItemDelegatePrivate::selectedTreeIndex() const
-{
-    if (observedTreeView == nullptr || observedSelectionModel == nullptr) {
-        return {};
-    }
-    const QModelIndexList selectedRows = observedSelectionModel->selectedRows(
-        observedTreeView->treePosition());
-    for (const QModelIndex &index : selectedRows) {
-        if (index.isValid()) {
-            return index;
-        }
-    }
-    return {};
-}
-
-void ZzFluentItemDelegatePrivate::transitionTreeSelection() const
-{
-    repaintTreeTransitionRows();
-    treeTransition->transitionTo(
-        selectedTreeIndex(),
-        treeTransitionDuration());
-    repaintTreeTransitionRows();
-}
-
-void ZzFluentItemDelegatePrivate::repaintTreeTransitionRows() const
-{
-    if (observedTreeView == nullptr
-        || observedTreeView->viewport() == nullptr) {
-        return;
-    }
-    QWidget *const viewport = observedTreeView->viewport();
-    const auto updateRow = [this, viewport](const QModelIndex &index) {
-        if (!index.isValid()) {
-            return;
-        }
-        QRect rowRect = observedTreeView->visualRect(index);
-        if (rowRect.isEmpty()) {
-            return;
-        }
-        rowRect.setLeft(viewport->rect().left());
-        rowRect.setRight(viewport->rect().right());
-        viewport->update(rowRect);
-    };
-    if (treeTransition == nullptr) {
-        return;
-    }
-    updateRow(treeTransition->outgoingIndex());
-    updateRow(treeTransition->incomingIndex());
-}
-
-int ZzFluentItemDelegatePrivate::treeTransitionDuration() const
-{
-    if (observedTreeView == nullptr) {
-        return 0;
-    }
-    const auto *fluentStyle = qobject_cast<const ZzFluentStyle *>(
-        observedTreeView->style());
-    if (fluentStyle == nullptr) {
-        return 0;
-    }
-    const auto snapshot = fluentStyle->themeSnapshot();
-    if (snapshot == nullptr) {
-        return 0;
-    }
-    return ZzAnimationPolicy::adjustedDuration(
-        snapshot->duration(ZzMotionToken::Normal),
-        snapshot->reducedMotion(),
-        false);
 }
 
 } // namespace ZzFluentUI

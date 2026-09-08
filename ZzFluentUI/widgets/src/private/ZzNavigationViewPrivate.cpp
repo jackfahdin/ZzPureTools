@@ -161,6 +161,7 @@ private:
                     const ZzNavigationView *>(option.widget)) {
                 visualOptions.forceIndicator =
                     navigationView->d_ptr->forcesIndicator(option.index);
+                visualOptions.animateSelection = false;
                 visualOptions.indicatorScale =
                     navigationView->d_ptr->indicatorScale(
                         option.index,

@@ -9,6 +9,7 @@
 
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
+#include "ZzSelectionIndicatorTransition.h"
 
 class QAbstractItemModel;
 class QEvent;
@@ -55,6 +56,10 @@ public:
 
     /** @brief 设置是否绘制 ActivityBar 的选中背景和指示条。 */
     void setSelectionVisible(bool visible);
+    /** @brief 只重绘源索引过渡涉及的主区和次区行。 */
+    void repaintIndicators();
+    /** @brief 返回遵守主题与可见性策略的切换时长。 */
+    [[nodiscard]] int indicatorDuration() const;
 
     /** @brief 清除当前模型或物理侧投影外的失效活动索引。 */
     void sanitizeActiveIndexes();
@@ -64,6 +69,8 @@ public:
 
     /** @brief 判断投影视图索引映射的源项是否处于活动集合。 */
     [[nodiscard]] bool isProjectionIndexActive(const QModelIndex &index) const;
+    /** @brief 将本活动栏的投影索引转换为非拥有源索引。 */
+    [[nodiscard]] QModelIndex sourceIndexForProjection(const QModelIndex &index) const;
 
     /** @brief 判断索引是否属于当前模型、顶层 column 0 和物理侧投影。 */
     [[nodiscard]] bool acceptsSourceIndex(const QModelIndex &index) const;
@@ -96,6 +103,7 @@ public:
     [[nodiscard]] ZzActivityArea areaForView(const QListView *view) const;
 
     ZzActivityBar *const q_ptr;
+    ZzSelectionIndicatorTransition indicatorTransition;
     ZzActivityProjectionModel *primaryProjection = nullptr;
     ZzActivityProjectionModel *secondaryProjection = nullptr;
     QListView *primaryView = nullptr;

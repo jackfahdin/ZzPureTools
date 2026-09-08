@@ -1,11 +1,15 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 
 #include "private/ZzFluentStylePrivate.h"
+#include "private/ZzItemViewVisual.h"
 
 #include <QtCore/QThread>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QAbstractSpinBox>
+#include <QtWidgets/QAbstractItemView>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QTreeView>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
@@ -16,6 +20,7 @@
 
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentPainter.h>
+#include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
@@ -24,6 +29,19 @@
 namespace ZzFluentUI {
 
 namespace {
+
+/** @brief 普通原生图标网格保留平台选中表现，不新增行式指示条。 */
+[[nodiscard]] bool zzUsesItemIndicatorStyle(
+    const QWidget *widget, const QModelIndex &index)
+{
+    const auto *view = qobject_cast<const QAbstractItemView *>(widget);
+    if (view == nullptr) {
+        return false;
+    }
+    const auto *list = qobject_cast<const QListView *>(view);
+    return list == nullptr || list->viewMode() != QListView::IconMode
+        || qobject_cast<const ZzFluentItemDelegate *>(view->itemDelegateForIndex(index)) != nullptr;
+}
 
 /** @brief 判断输入编辑器是否已经由父级组合控件统一绘制。 */
 [[nodiscard]] bool zzInputParentOwnsSurface(
@@ -272,6 +290,29 @@ QSize ZzFluentStyle::sizeFromContents(
     if (type == CT_ToolButton) {
         result = result.expandedTo(QSize(32, 32));
     }
+    if (type == CT_TabBarTab) {
+        const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
+        if (tab != nullptr) {
+            // Preserve the measured label area when painting reserves the indicator gutter.
+            const int gutter = qCeil(d_ptr->snapshot->metric(
+                ZzMetricToken::SelectionIndicatorThickness)
+                + d_ptr->snapshot->metric(ZzMetricToken::SelectionIndicatorContentGap));
+            // The base style also shrinks unselected labels by its vertical shift.
+            // Budget for both states so changing selection cannot clip the font.
+            const int labelShift = qAbs(pixelMetric(PM_TabBarTabShiftVertical, option, widget));
+            switch (tab->shape) {
+            case QTabBar::RoundedWest:
+            case QTabBar::RoundedEast:
+            case QTabBar::TriangularWest:
+            case QTabBar::TriangularEast:
+                result.rwidth() += gutter + labelShift;
+                break;
+            default:
+                result.rheight() += gutter + labelShift;
+                break;
+            }
+        }
+    }
     if (type == CT_ItemViewItem
         && d_ptr->isComboBoxPopupContext(widget)) {
         result.setHeight(qMax(result.height(), 32));
@@ -480,12 +521,28 @@ void ZzFluentStyle::drawControl(
     }
     if (element == CE_ItemViewItem
         && option != nullptr && painter != nullptr
-        && d_ptr->isComboBoxPopupContext(widget)) {
+        && option->version != zzItemContentOptionVersion) {
         const auto *item = qstyleoption_cast<
             const QStyleOptionViewItem *>(option);
         if (item != nullptr) {
-            d_ptr->drawComboBoxPopupItem(item, painter, widget);
-            return;
+            if (d_ptr->isComboBoxPopupContext(widget)) {
+                d_ptr->drawComboBoxPopupItem(item, painter, widget);
+                return;
+            }
+            const QWidget *viewWidget = item->widget != nullptr ? item->widget : widget;
+            if (zzUsesItemIndicatorStyle(viewWidget, item->index)) {
+                QStyleOptionViewItem adjusted = *item;
+                adjusted.widget = viewWidget;
+                const auto layout = ZzItemViewVisual::draw(*this, adjusted, painter,
+                    {.drawSurface = qobject_cast<const QTreeView *>(viewWidget) == nullptr,
+                     .ownsIndicator = ZzItemViewVisual::ownsIndicator(viewWidget, item->index)});
+                adjusted.rect = layout.contentRect;
+                adjusted.version = zzItemContentOptionVersion;
+                adjusted.state.setFlag(State_Selected, false);
+                adjusted.state.setFlag(State_MouseOver, false);
+                QProxyStyle::drawControl(element, &adjusted, painter, widget);
+                return;
+            }
         }
     }
     if (element == CE_PushButton) {
@@ -593,6 +650,45 @@ void ZzFluentStyle::drawComplexControl(
         }
     }
     QProxyStyle::drawComplexControl(control, option, painter, widget);
+}
+
+QRect ZzFluentStyle::subElementRect(
+    SubElement element, const QStyleOption *option, const QWidget *widget) const
+{
+    if (element == SE_TabBarTabText) {
+        const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
+        if (tab != nullptr && tab->version != zzItemContentOptionVersion) {
+            auto content = *tab;
+            const int gutter = qCeil(d_ptr->snapshot->metric(
+                ZzMetricToken::SelectionIndicatorThickness)
+                + d_ptr->snapshot->metric(ZzMetricToken::SelectionIndicatorContentGap));
+            switch (tab->shape) {
+            case QTabBar::RoundedSouth:
+            case QTabBar::TriangularSouth: content.rect.adjust(0, gutter, 0, 0); break;
+            case QTabBar::RoundedEast:
+            case QTabBar::TriangularEast: content.rect.adjust(gutter, 0, 0, 0); break;
+            case QTabBar::RoundedWest:
+            case QTabBar::TriangularWest: content.rect.adjust(0, 0, -gutter, 0); break;
+            default: content.rect.adjust(0, 0, 0, -gutter); break;
+            }
+            content.version = zzItemContentOptionVersion;
+            return QProxyStyle::subElementRect(element, &content, widget);
+        }
+    }
+    if (element == SE_ItemViewItemText || element == SE_ItemViewItemDecoration
+        || element == SE_ItemViewItemCheckIndicator || element == SE_ItemViewItemFocusRect) {
+        const auto *item = qstyleoption_cast<const QStyleOptionViewItem *>(option);
+        if (item != nullptr && item->version != zzItemContentOptionVersion
+            && zzUsesItemIndicatorStyle(item->widget, item->index)) {
+            auto content = *item;
+            content.rect = ZzItemViewVisual::layout(*d_ptr->snapshot, *item,
+                {.ownsIndicator = ZzItemViewVisual::ownsIndicator(item->widget, item->index)})
+                .contentRect;
+            content.version = zzItemContentOptionVersion;
+            return QProxyStyle::subElementRect(element, &content, widget);
+        }
+    }
+    return QProxyStyle::subElementRect(element, option, widget);
 }
 
 QRect ZzFluentStyle::subControlRect(

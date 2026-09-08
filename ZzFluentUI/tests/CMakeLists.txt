@@ -1,5 +1,18 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzSelectionIndicatorTransitionTest
+    ZzSelectionIndicatorTransitionTest.cpp
+    ../widgets/src/private/ZzSelectionIndicatorTransition.cpp)
+target_link_libraries(ZzSelectionIndicatorTransitionTest PRIVATE
+    Qt6::Test Zz::FluentUI)
+set_target_properties(ZzSelectionIndicatorTransitionTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSelectionIndicatorTransitionTest)
+zz_enable_sanitizers(ZzSelectionIndicatorTransitionTest)
+add_test(NAME fluent.selection-indicator COMMAND ZzSelectionIndicatorTransitionTest)
+set_tests_properties(fluent.selection-indicator PROPERTIES
+    LABELS "unit;component;fluent;widgets"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzWorkspaceTransferRegistryPrivateTest
     ZzWorkspaceTransferRegistryPrivateTest.cpp
 )

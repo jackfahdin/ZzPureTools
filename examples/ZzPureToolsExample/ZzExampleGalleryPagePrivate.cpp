@@ -10,6 +10,7 @@
 #include <QtGui/QIcon>
 #include <QtGui/QPainter>
 #include <QtGui/QPixmap>
+#include <QtGui/QStandardItemModel>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QFormLayout>
@@ -17,6 +18,10 @@
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QHeaderView>
+#include <QtWidgets/QTableView>
+#include <QtWidgets/QTabBar>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QRadioButton>
@@ -27,6 +32,11 @@
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzActionCard.h>
+#include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzActivityItemRole.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzNavigationView.h>
+#include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
@@ -156,6 +166,157 @@ void zzAddSection(
     scrollArea->setWidget(content);
     pageLayout->addWidget(scrollArea);
     return {content, contentLayout};
+}
+
+/** @brief 在现有控件页中并排展示选中指示条，不共享各控件的选择模型。 */
+[[nodiscard]] QWidget *zzSelectionIndicatorPreview(QWidget *parent)
+{
+    auto *section = new QWidget(parent);
+    section->setObjectName(QStringLiteral("zzExampleSelectionIndicatorPreview"));
+    auto *layout = new QVBoxLayout(section);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *hint = new QLabel(QCoreApplication::translate(
+        "ZzPureToolsExample",
+        "点击各控件独立切换，或连续点击统一切换比较动画。主题与减少动态效果沿用应用设置。"), section);
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
+
+    auto *commands = new QHBoxLayout;
+    auto *next = new ZzFluentUI::ZzPushButton(QCoreApplication::translate(
+        "ZzPureToolsExample", "统一切换到下一项"), section);
+    auto *rtl = new QCheckBox(QStringLiteral("RTL"), section);
+    auto *largeText = new QCheckBox(QCoreApplication::translate(
+        "ZzPureToolsExample", "大字体标签"), section);
+    rtl->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample", "指示条预览使用从右到左布局"));
+    commands->addWidget(next);
+    commands->addWidget(rtl);
+    commands->addWidget(largeText);
+    commands->addStretch(1);
+    layout->addLayout(commands);
+
+    auto *host = new QWidget(section);
+    auto *flow = new ZzFluentUI::ZzFlowLayout(12, 12, host);
+    flow->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(host);
+    const auto addPanel = [host, flow](const QString &title, QWidget *control) {
+        auto *panel = new QWidget(host);
+        panel->setFixedSize(260, 230);
+        auto *panelLayout = new QVBoxLayout(panel);
+        panelLayout->setContentsMargins(0, 0, 0, 0);
+        panelLayout->addWidget(zzSectionTitle(title, panel));
+        control->setAccessibleName(title);
+        panelLayout->addWidget(control, 1);
+        flow->addWidget(panel);
+    };
+
+    const QStringList labels{
+        QCoreApplication::translate("ZzPureToolsExample", "概览"),
+        QCoreApplication::translate("ZzPureToolsExample", "资源"),
+        QCoreApplication::translate("ZzPureToolsExample", "设置")};
+    auto *model = new QStandardItemModel(3, 2, host);
+    model->setHorizontalHeaderLabels({
+        QCoreApplication::translate("ZzPureToolsExample", "选项"),
+        QCoreApplication::translate("ZzPureToolsExample", "状态")});
+    for (int row = 0; row < 3; ++row) {
+        model->setData(model->index(row, 0), labels.at(row));
+        model->setData(model->index(row, 0), QSize(140, 36), Qt::SizeHintRole);
+        model->setData(model->index(row, 1), QCoreApplication::translate(
+            "ZzPureToolsExample", "就绪"));
+    }
+    model->item(0, 0)->appendRow(new QStandardItem(
+        QCoreApplication::translate("ZzPureToolsExample", "子项目")));
+
+    auto *list = new QListView(host);
+    auto *tree = new QTreeView(host);
+    auto *table = new QTableView(host);
+    auto *navigation = new ZzFluentUI::ZzNavigationView(host);
+    const std::array<QAbstractItemView *, 4> views{list, tree, table, navigation};
+    for (auto *view : views) {
+        view->setModel(model);
+        view->setSelectionMode(QAbstractItemView::SingleSelection);
+        view->setSelectionBehavior(QAbstractItemView::SelectRows);
+    }
+    tree->setColumnHidden(1, true);
+    tree->setHeaderHidden(true);
+    tree->expandAll();
+    table->verticalHeader()->hide();
+    table->verticalHeader()->setDefaultSectionSize(36);
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionsMovable(true);
+    addPanel(QCoreApplication::translate("ZzPureToolsExample", "列表"), list);
+    addPanel(QCoreApplication::translate("ZzPureToolsExample", "树形"), tree);
+    addPanel(QCoreApplication::translate("ZzPureToolsExample", "表格"), table);
+    addPanel(QCoreApplication::translate("ZzPureToolsExample", "导航"), navigation);
+
+    auto *activities = new QStandardItemModel(3, 1, host);
+    const std::array icons{ZzFluentUI::ZzBundledSvgIcon::ComputerSystem,
+        ZzFluentUI::ZzBundledSvgIcon::Pin, ZzFluentUI::ZzBundledSvgIcon::MoreLine};
+    for (int row = 0; row < 3; ++row) {
+        const auto index = activities->index(row, 0);
+        activities->setData(index, labels.at(row));
+        activities->setData(index, QVariant::fromValue(
+            ZzFluentUI::ZzIconDescriptor::fromBundledSvg(
+                icons.at(static_cast<std::size_t>(row)))), Qt::DecorationRole);
+        activities->setData(index, QVariant::fromValue(
+            row == 2 ? ZzFluentUI::ZzActivityArea::LeftSecondary
+                     : ZzFluentUI::ZzActivityArea::LeftPrimary),
+            static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area));
+    }
+    auto *activity = new ZzFluentUI::ZzActivityBar(ZzFluentUI::ZzSidePaneEdge::Left, host);
+    activity->setModel(activities);
+    QObject::connect(activity, &ZzFluentUI::ZzActivityBar::activationRequested,
+        activity, &ZzFluentUI::ZzActivityBar::setCurrentSourceIndex);
+    addPanel(QCoreApplication::translate("ZzPureToolsExample", "活动栏"), activity);
+
+    auto *horizontal = new QWidget(host);
+    auto *horizontalLayout = new QVBoxLayout(horizontal);
+    horizontalLayout->setContentsMargins(0, 0, 0, 0);
+    auto *tabs = new QTabBar(horizontal);
+    auto *pivot = new ZzFluentUI::ZzPivot(horizontal);
+    for (const auto &label : labels) {
+        tabs->addTab(label);
+        pivot->addItem(label);
+    }
+    tabs->setTabText(2, QCoreApplication::translate("ZzPureToolsExample", "项目设置 Agjp"));
+    pivot->setItemText(2, QCoreApplication::translate("ZzPureToolsExample", "项目设置 Agjp"));
+    const QFont tabFont = tabs->font();
+    const QFont pivotFont = pivot->font();
+    QObject::connect(largeText, &QCheckBox::toggled, horizontal,
+        [tabs, pivot, tabFont, pivotFont](bool checked) {
+            QFont nextTabFont = tabFont;
+            QFont nextPivotFont = pivotFont;
+            if (checked) {
+                nextTabFont.setPointSize(24);
+                nextPivotFont.setPointSize(24);
+            }
+            tabs->setFont(nextTabFont);
+            pivot->setFont(nextPivotFont);
+        });
+    horizontalLayout->addWidget(new QLabel(QStringLiteral("Tab"), horizontal));
+    horizontalLayout->addWidget(tabs);
+    horizontalLayout->addWidget(new QLabel(QStringLiteral("Pivot"), horizontal));
+    horizontalLayout->addWidget(pivot);
+    horizontalLayout->addStretch(1);
+    addPanel(QCoreApplication::translate("ZzPureToolsExample", "横向选项"), horizontal);
+
+    const auto selectAll = [views, model, activity, activities, tabs, pivot](int row) {
+        for (auto *view : views) {
+            view->setCurrentIndex(model->index(row, 0));
+        }
+        activity->setCurrentSourceIndex(activities->index(row, 0));
+        tabs->setCurrentIndex(row);
+        pivot->setCurrentIndex(row);
+    };
+    selectAll(0);
+    QObject::connect(next, &QAbstractButton::clicked, host, [selectAll, tabs] {
+        selectAll((tabs->currentIndex() + 1) % 3);
+    });
+    rtl->setChecked(host->layoutDirection() == Qt::RightToLeft);
+    QObject::connect(rtl, &QCheckBox::toggled, host, [host](bool checked) {
+        host->setLayoutDirection(checked ? Qt::RightToLeft : Qt::LeftToRight);
+    });
+    return section;
 }
 
 } // namespace
@@ -334,6 +495,9 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
         content);
     description->setWordWrap(true);
     layout->addWidget(description);
+
+    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "选中指示条对比"), content);
+    layout->addWidget(zzSelectionIndicatorPreview(content));
 
     zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "命令与状态"), content);
     auto *commandRow = new QHBoxLayout;

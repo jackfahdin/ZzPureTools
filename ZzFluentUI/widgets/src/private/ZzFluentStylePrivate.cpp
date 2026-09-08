@@ -1,6 +1,8 @@
 #include "ZzFluentStylePrivate.h"
 
 #include "ZzItemViewVisual.h"
+#include "ZzTabIndicatorAnimation.h"
+#include <QtWidgets/QTabBar>
 
 #include <algorithm>
 #include <exception>
@@ -488,7 +490,8 @@ void ZzFluentStylePrivate::drawCheckIndicator(
     if (radio) {
         painter->drawEllipse(rect);
     } else {
-        painter->drawRoundedRect(rect, 3.0, 3.0);
+        constexpr qreal zzCheckCornerRadius = 3.0;
+        painter->drawRoundedRect(rect, zzCheckCornerRadius, zzCheckCornerRadius);
     }
     if (marked) {
         const QColor mark = option->palette.color(
@@ -850,7 +853,8 @@ void ZzFluentStylePrivate::drawDigitalDisplayFrame(
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(stroke, 1.0));
     painter->setBrush(fill);
-    painter->drawRoundedRect(panel, 6.0, 6.0);
+    constexpr qreal zzDisplayCornerRadius = 6.0;
+    painter->drawRoundedRect(panel, zzDisplayCornerRadius, zzDisplayCornerRadius);
     painter->restore();
 }
 
@@ -1000,22 +1004,22 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
             snapshot->metric(ZzMetricToken::CornerRadiusSmall));
-        if (selected) {
-            const QRect logicalIndicator(
-                adjusted.rect.left() + 4,
-                adjusted.rect.center().y() - 8,
-                3,
-                16);
-            const QRect indicator = QStyle::visualRect(
-                adjusted.direction,
-                adjusted.rect,
-                logicalIndicator);
-            painter->setBrush(snapshot->color(ZzColorToken::Accent));
-            painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
-        }
+
         painter->restore();
     }
 
+    QStyleOptionViewItem visualOption;
+    visualOption.rect = option->rect;
+    visualOption.direction = option->direction;
+    visualOption.palette = option->palette;
+    visualOption.state = option->state;
+    visualOption.widget = widget;
+    visualOption.state.setFlag(QStyle::State_Selected, selected);
+    visualOption.index = option->index;
+    const auto visual = ZzItemViewVisual::draw(*q_ptr, visualOption, painter,
+        {.drawSurface = false});
+    adjusted.rect = visual.contentRect;
+    adjusted.version = zzItemContentOptionVersion;
     adjusted.state.setFlag(QStyle::State_Selected, false);
     adjusted.state.setFlag(QStyle::State_MouseOver, false);
     const QPalette::ColorGroup group = enabled
@@ -1056,24 +1060,24 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
             snapshot->metric(ZzMetricToken::CornerRadiusSmall));
-        if (current) {
-            const QRect logicalIndicator(
-                adjusted.rect.left() + 4,
-                adjusted.rect.center().y() - 8,
-                3,
-                16);
-            const QRect indicator = QStyle::visualRect(
-                adjusted.direction,
-                adjusted.rect,
-                logicalIndicator);
-            painter->setBrush(snapshot->color(ZzColorToken::Accent));
-            painter->drawRoundedRect(QRectF(indicator), 1.5, 1.5);
-        }
+
         painter->restore();
     }
 
     adjusted.checked = false;
     adjusted.checkType = QStyleOptionMenuItem::NotCheckable;
+    QStyleOptionViewItem visualOption;
+    visualOption.rect = option->rect;
+    visualOption.direction = option->direction;
+    visualOption.palette = option->palette;
+    visualOption.state = option->state;
+    visualOption.widget = widget;
+    visualOption.state.setFlag(QStyle::State_Selected, current);
+
+    const auto visual = ZzItemViewVisual::draw(*q_ptr, visualOption, painter,
+        {.drawSurface = false, .animateSelection = false});
+    adjusted.rect = visual.contentRect;
+    adjusted.version = zzItemContentOptionVersion;
     adjusted.state.setFlag(QStyle::State_Selected, false);
     adjusted.state.setFlag(QStyle::State_MouseOver, false);
     const QPalette::ColorGroup group = enabled
@@ -1396,12 +1400,34 @@ void ZzFluentStylePrivate::drawTabBarTab(
     painter->setPen(Qt::NoPen);
     painter->setBrush(fill);
     painter->drawRect(option->rect);
-    if (selected) {
-        QRect indicator = option->rect;
-        indicator.setTop(indicator.bottom() - 2);
-        painter->fillRect(
-            indicator,
-            option->palette.color(QPalette::Highlight));
+    if (auto *bar = qobject_cast<QTabBar *>(const_cast<QWidget *>(widget))) {
+        auto it = tabAnimations.find(bar);
+        if (it == tabAnimations.end()) {
+            auto *animation = new ZzTabIndicatorAnimation(bar, q_ptr);
+            it = tabAnimations.insert(bar, animation);
+            QObject::connect(bar, &QObject::destroyed, animation, [this, bar] {
+                delete tabAnimations.take(bar);
+            });
+            if (controller != nullptr) {
+                QObject::connect(controller, &ZzThemeController::snapshotChanged,
+                    animation, [animation] { animation->settle(); });
+            }
+        }
+        const QRectF indicator = it.value()->rect();
+        painter->setClipRect(option->rect, Qt::IntersectClip);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        const qreal radius = qMin(indicator.width(), indicator.height()) / 2.0;
+        painter->drawRoundedRect(indicator, radius, radius);
+    } else if (selected) {
+        const qreal thickness = snapshot->metric(ZzMetricToken::SelectionIndicatorThickness);
+        const qreal extent = qMin(snapshot->metric(ZzMetricToken::SelectionIndicatorExtent),
+            static_cast<qreal>(option->rect.width()));
+        const QRectF indicator(option->rect.center().x() - extent / 2.0,
+            option->rect.bottom() + 1.0 - thickness, extent, thickness);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        painter->drawRoundedRect(indicator, thickness / 2.0, thickness / 2.0);
     }
     painter->restore();
     q_ptr->QProxyStyle::drawControl(

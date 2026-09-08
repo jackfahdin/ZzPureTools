@@ -126,7 +126,10 @@ public:
     [[nodiscard]] QPalette standardPalette() const override;
 
     /**
-     * @brief 为输入控件、工具按钮和菜单项提供可缩放的最小尺寸。
+     * @brief 为输入控件、工具按钮和菜单项提供最小尺寸，并为标签指示条预留空间。
+     * @note CT_TabBarTab 在基础样式测量之外增加指示条厚度与内容间距；
+     * 横向增加高度，竖向增加宽度，不能通过压缩字体内容区域实现留白。
+     * 同时为基础样式的未选中标签偏移预留预算，选中前后自然尺寸一致。
      * @param type Qt 内容类型。
      * @param option 可选绘制状态。
      * @param contentsSize 平台根据文本和字体计算的内容尺寸。
@@ -204,6 +207,19 @@ public:
         ComplexControl control,
         const QStyleOptionComplex *option,
         const QPoint &position,
+        const QWidget *widget = nullptr) const override;
+
+    /**
+     * @brief 返回与指示条绘制共享槽位的内容、勾选及编辑区域。
+     * @note 标签内容槽位与 sizeFromContents 的尺寸预算配套；调用方应尊重
+     * 控件 sizeHint，不能用固定高度覆盖字体与指示条所需的自然尺寸。
+     * @param element Qt 子元素类型。
+     * @param option 非拥有的布局状态。
+     * @param widget 可选所属控件。
+     * @return 已按主题和布局方向预留指示条的区域。
+     */
+    [[nodiscard]] QRect subElementRect(
+        SubElement element, const QStyleOption *option,
         const QWidget *widget = nullptr) const override;
 
 protected:

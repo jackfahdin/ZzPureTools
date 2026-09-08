@@ -370,7 +370,7 @@ private Q_SLOTS:
             QItemSelectionModel::ClearAndSelect
                 | QItemSelectionModel::Rows);
 
-        const auto animations = delegate->findChildren<QAbstractAnimation *>();
+        const auto animations = style.findChildren<QAbstractAnimation *>();
         QCOMPARE(animations.size(), 1);
         QCOMPARE(animations.constFirst()->state(), QAbstractAnimation::Running);
 
@@ -389,9 +389,9 @@ private Q_SLOTS:
             QItemSelectionModel::ClearAndSelect
                 | QItemSelectionModel::Rows);
 
-        QCOMPARE(delegate->findChildren<QAbstractAnimation *>().size(), 1);
+        QCOMPARE(style.findChildren<QAbstractAnimation *>().size(), 1);
         QCOMPARE(
-            delegate->findChildren<QAbstractAnimation *>()
+            style.findChildren<QAbstractAnimation *>()
                 .constFirst()
                 ->state(),
             QAbstractAnimation::Running);

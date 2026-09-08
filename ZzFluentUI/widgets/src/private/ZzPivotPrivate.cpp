@@ -198,6 +198,7 @@ void ZzPivotPrivate::initLabelStyleOption(
 {
     Q_ASSERT(option != nullptr);
     q_ptr->initStyleOption(option, index);
+    option->version = 100; // 内容已预留指示条槽位，基础样式不得重复扣减。
     const int visibleTop = std::max(
         option->rect.top(),
         q_ptr->rect().top());
@@ -215,7 +216,8 @@ void ZzPivotPrivate::initLabelStyleOption(
     const int gutterHeight = std::max(
         0,
         qCeil(snapshot->metric(
-            ZzMetricToken::SelectionIndicatorThickness)));
+            ZzMetricToken::SelectionIndicatorThickness)
+            + snapshot->metric(ZzMetricToken::SelectionIndicatorContentGap)));
     option->rect.setHeight(std::max(
         0,
         option->rect.height() - gutterHeight));

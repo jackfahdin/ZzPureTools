@@ -14,6 +14,9 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QStyle>
+#include <QtWidgets/QStyleOptionTab>
+#include <QtCore/QDir>
+#include <memory>
 
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -53,6 +56,151 @@ class ZzTabControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 捕获只缩减文字区域、却未为指示条增加标签尺寸的回归。 */
+    void indicatorGutterPreservesMeasuredLabel_data()
+    {
+        QTest::addColumn<int>("shape");
+        QTest::addColumn<int>("fontSize");
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("selected");
+        for (int shape = QTabBar::RoundedNorth; shape <= QTabBar::TriangularEast; ++shape) {
+            for (int fontSize : {12, 24}) {
+                for (bool rtl : {false, true}) {
+                    for (bool selected : {false, true}) {
+                        QTest::newRow(qPrintable(QStringLiteral("shape-%1-font-%2-rtl-%3-selected-%4")
+                            .arg(shape).arg(fontSize).arg(rtl).arg(selected)))
+                            << shape << fontSize << rtl << selected;
+                    }
+                }
+            }
+        }
+    }
+
+    void indicatorGutterPreservesMeasuredLabel()
+    {
+        QFETCH(int, shape);
+        QFETCH(int, fontSize);
+        QFETCH(bool, rtl);
+        QFETCH(bool, selected);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QFont font = QApplication::font();
+        font.setPointSize(fontSize);
+        QStyleOptionTab option;
+        option.shape = static_cast<QTabBar::Shape>(shape);
+        option.fontMetrics = QFontMetrics(font);
+        option.text = QStringLiteral("项目设置 Agjp");
+        option.direction = rtl ? Qt::RightToLeft : Qt::LeftToRight;
+        option.state = QStyle::State_Enabled;
+        option.state.setFlag(QStyle::State_Selected, selected);
+        const bool vertical = ZzFluentUI::zzIsVerticalTabShape(option.shape);
+        // QTabBar includes style padding before calling CT_TabBarTab.
+        QSize contents(option.fontMetrics.horizontalAdvance(option.text)
+                + style.pixelMetric(QStyle::PM_TabBarTabHSpace, &option),
+            option.fontMetrics.height()
+                + style.pixelMetric(QStyle::PM_TabBarTabVSpace, &option));
+        if (vertical) {
+            contents.transpose();
+        }
+        const QSize baseSize = style.QProxyStyle::sizeFromContents(
+            QStyle::CT_TabBarTab, &option, contents, nullptr);
+        option.rect = QRect(QPoint(), baseSize);
+        const QRect originalLabel = style.QProxyStyle::subElementRect(
+            QStyle::SE_TabBarTabText, &option, nullptr);
+        option.rect.setSize(style.sizeFromContents(QStyle::CT_TabBarTab, &option, contents));
+        const QRect label = style.subElementRect(QStyle::SE_TabBarTabText, &option);
+        QVERIFY2(label.width() >= originalLabel.width(), "Indicator reduced measured label width");
+        QVERIFY2(label.height() >= originalLabel.height(), "Indicator reduced measured label height");
+        QVERIFY2(label.height() >= option.fontMetrics.height(), "Font height exceeds label area");
+    }
+
+    /** @brief 在真实标签及页面宿主中检查图标、关闭按钮和大字体的布局。 */
+    void actualTabLabelsFit_data()
+    {
+        QTest::addColumn<int>("kind");
+        QTest::addColumn<int>("fontSize");
+        QTest::addColumn<bool>("rtl");
+        for (int kind = 0; kind < 3; ++kind) {
+            for (int fontSize : {12, 24}) {
+                for (bool rtl : {false, true}) {
+                    QTest::newRow(qPrintable(QStringLiteral("kind-%1-font-%2-rtl-%3")
+                        .arg(kind).arg(fontSize).arg(rtl))) << kind << fontSize << rtl;
+                }
+            }
+        }
+    }
+
+    void actualTabLabelsFit()
+    {
+        QFETCH(int, kind);
+        QFETCH(int, fontSize);
+        QFETCH(bool, rtl);
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        std::unique_ptr<QWidget> owner;
+        QTabBar *bar = nullptr;
+        if (kind == 2) {
+            auto *tabs = new ZzFluentUI::ZzTabWidget;
+            owner.reset(tabs);
+            tabs->addTab(new QWidget, QStringLiteral("项目设置 Agjp"));
+            tabs->addTab(new QWidget, QStringLiteral("概览 Overview"));
+            bar = tabs->fluentTabBar();
+        } else {
+            bar = kind == 0 ? new QTabBar : new ZzFluentUI::ZzTabBar;
+            owner.reset(bar);
+            bar->addTab(QStringLiteral("项目设置 Agjp"));
+            bar->addTab(QStringLiteral("概览 Overview"));
+        }
+        owner->setStyle(&style);
+        bar->setStyle(&style);
+        owner->setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        QFont font = bar->font();
+        font.setPointSize(fontSize);
+        bar->setFont(font);
+        bar->setExpanding(false);
+        bar->setTabsClosable(true);
+        QPixmap icon(16, 16);
+        icon.fill(Qt::green);
+        bar->setTabIcon(0, QIcon(icon));
+        owner->resize(kind == 2 ? QSize(900, 160) : bar->sizeHint());
+        owner->show();
+        QVERIFY(QTest::qWaitForWindowExposed(owner.get()));
+        for (int selected = 0; selected < bar->count(); ++selected) {
+            bar->setCurrentIndex(selected);
+            for (int index = 0; index < bar->count(); ++index) {
+                QStyleOptionTab option;
+                option.initFrom(bar);
+                option.rect = bar->tabRect(index);
+                option.shape = bar->shape();
+                option.text = bar->tabText(index);
+                option.icon = bar->tabIcon(index);
+                option.iconSize = bar->iconSize();
+                option.fontMetrics = QFontMetrics(bar->font());
+                option.state.setFlag(QStyle::State_Selected, selected == index);
+                if (auto *button = bar->tabButton(index, QTabBar::LeftSide)) {
+                    option.leftButtonSize = button->size();
+                }
+                if (auto *button = bar->tabButton(index, QTabBar::RightSide)) {
+                    option.rightButtonSize = button->size();
+                }
+                const QRect label = style.subElementRect(QStyle::SE_TabBarTabText, &option, bar);
+                QVERIFY2(label.height() >= option.fontMetrics.height(),
+                    qPrintable(QStringLiteral("tabHeight=%1 labelHeight=%2 fontHeight=%3 selected=%4")
+                        .arg(option.rect.height()).arg(label.height())
+                        .arg(option.fontMetrics.height()).arg(selected == index)));
+                QVERIFY(label.width() >= option.fontMetrics.horizontalAdvance(option.text));
+                QVERIFY(bar->rect().contains(option.rect));
+            }
+        }
+        const QString directory = qEnvironmentVariable("ZZ_INDICATOR_REPORT_DIR");
+        if (!directory.isEmpty()) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(owner->grab().save(QDir(directory).filePath(
+                QStringLiteral("tab-label-%1.png").arg(QString::fromLatin1(QTest::currentDataTag())))));
+        }
+    }
+
     void contextMenuProviderIsInvoked()
     {
         ZzFluentUI::ZzTabWidget tabs;

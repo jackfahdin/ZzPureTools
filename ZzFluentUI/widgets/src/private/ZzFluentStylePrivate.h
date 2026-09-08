@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QtCore/QPointer>
+#include <QtCore/QHash>
 #include <QtCore/QPoint>
 #include <QtCore/QSize>
 #include <QtCore/Qt>
@@ -15,11 +16,16 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzThemeChangeKind.h>
 
+class QAbstractItemView;
+class QTabBar;
+
 namespace ZzFluentUI {
 
 class ZzFluentStyle;
 class ZzThemeController;
 class ZzThemeSnapshot;
+class ZzItemSelectionAnimation;
+class ZzTabIndicatorAnimation;
 
 /** @brief 菜单正文与快捷键列之间保留的最小逻辑像素间距。 */
 inline constexpr int zzMenuShortcutSpacing = 12;
@@ -31,10 +37,15 @@ inline constexpr int zzMenuTrailingIndicatorWidth = 28;
 class ZzFluentStylePrivate final
 {
 public:
+    /** @brief 获取由样式拥有、随视图销毁回收的唯一选择动画。 */
+    ZzItemSelectionAnimation *itemAnimation(QAbstractItemView *view);
+    QHash<QAbstractItemView *, ZzItemSelectionAnimation *> itemAnimations;
+    mutable QHash<QTabBar *, ZzTabIndicatorAnimation *> tabAnimations;
     /** @brief 绑定控制器并用首个快照初始化固定视觉槽。 */
     ZzFluentStylePrivate(
         ZzFluentStyle *q,
         ZzThemeController *controller);
+    ~ZzFluentStylePrivate();
 
     /** @brief 在 GUI 线程执行有界 SVG 资源渲染和缓存。 */
     [[nodiscard]] QPixmap iconPixmap(

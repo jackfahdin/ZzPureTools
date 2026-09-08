@@ -11,6 +11,10 @@ class QWidget;
 namespace ZzFluentUI {
 
 class ZzFluentStyle;
+class ZzThemeSnapshot;
+
+/** @brief 标记已预留指示条槽位的内容 option，防止代理样式重复扣减。 */
+inline constexpr int zzItemContentOptionVersion = 100;
 
 /** @brief 指定 item 强调条使用逻辑方向或固定物理边。 */
 enum class ZzItemIndicatorPlacement : unsigned char
@@ -36,6 +40,8 @@ struct ZzItemViewVisualOptions final
     bool showSelection = true;
     /** @brief 强调条沿长轴绘制的比例，自动收敛到 0 至 1。 */
     qreal indicatorScale = 1.0;
+    /** @brief 自动使用视图选择过渡；自有导航或活动状态的控件关闭此项。 */
+    bool animateSelection = true;
     /** @brief 强调条的逻辑或固定物理边放置策略。 */
     ZzItemIndicatorPlacement indicatorPlacement =
         ZzItemIndicatorPlacement::LogicalLeading;
@@ -58,6 +64,11 @@ struct ZzItemViewVisualLayout final
 class ZzItemViewVisual final
 {
 public:
+    /** @brief 无绘制地计算主题指示条与内容槽位，供编辑器和绘制共同使用。 */
+    [[nodiscard]] static ZzItemViewVisualLayout layout(
+        const ZzThemeSnapshot &snapshot,
+        const QStyleOptionViewItem &option,
+        ZzItemViewVisualOptions options = {});
     /**
      * @brief 判断当前 index 是否拥有所在行的唯一强调条。
      * @param widget 当前 item 所属视图。

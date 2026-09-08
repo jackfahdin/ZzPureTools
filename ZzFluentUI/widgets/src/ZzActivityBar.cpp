@@ -121,6 +121,12 @@ void ZzActivityBar::setActiveSourceIndexes(const QList<QModelIndex> &indexes)
 
 bool ZzActivityBar::eventFilter(QObject *watched, QEvent *event)
 {
+    if (event != nullptr && (event->type() == QEvent::Hide
+            || event->type() == QEvent::EnabledChange
+            || event->type() == QEvent::StyleChange)) {
+        d_ptr->indicatorTransition.finish();
+        d_ptr->repaintIndicators();
+    }
     auto *view = qobject_cast<QListView *>(watched);
     if (event == nullptr) {
         return QWidget::eventFilter(watched, event);

@@ -18,14 +18,13 @@
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzFluentStylePrivate.h"
+#include "ZzItemSelectionAnimation.h"
 
 namespace ZzFluentUI {
 
 namespace {
 
 constexpr int zzItemSurfaceInset = 2;
-constexpr int zzItemIndicatorLeading = 4;
-constexpr int zzItemContentLeading = 10;
 constexpr int zzItemHoverAccentAlpha = 32;
 
 /** @brief 返回表格按当前视觉顺序排列的首个可见逻辑列。 */
@@ -49,21 +48,22 @@ constexpr int zzItemHoverAccentAlpha = 32;
 [[nodiscard]] QRect zzContentRect(
     const QStyleOptionViewItem &option,
     bool reserveIndicator,
-    ZzItemIndicatorPlacement placement) noexcept
+    ZzItemIndicatorPlacement placement,
+    int leading) noexcept
 {
     if (!reserveIndicator || option.rect.isEmpty()) {
         return option.rect;
     }
     if (placement == ZzItemIndicatorPlacement::PhysicalLeft) {
-        return option.rect.adjusted(zzItemContentLeading, 0, 0, 0);
+        return option.rect.adjusted(qMin(leading, option.rect.width()), 0, 0, 0);
     }
     if (placement == ZzItemIndicatorPlacement::PhysicalRight) {
-        return option.rect.adjusted(0, 0, -zzItemContentLeading, 0);
+        return option.rect.adjusted(0, 0, -qMin(leading, option.rect.width()), 0);
     }
     QRect logical = option.rect;
     logical.setLeft(std::min(
         logical.right() + 1,
-        logical.left() + zzItemContentLeading));
+        logical.left() + leading));
     return QStyle::visualRect(option.direction, option.rect, logical);
 }
 
@@ -74,7 +74,9 @@ bool ZzItemViewVisual::ownsIndicator(
     const QModelIndex &index) noexcept
 {
     if (const auto *treeView = qobject_cast<const QTreeView *>(widget)) {
-        return index.isValid() && index.column() == treeView->treePosition();
+        const int column = treeView->treePosition() < 0
+            ? treeView->header()->logicalIndex(0) : treeView->treePosition();
+        return index.isValid() && index.column() == column;
     }
     const auto *tableView = qobject_cast<const QTableView *>(widget);
     if (tableView != nullptr
@@ -85,24 +87,22 @@ bool ZzItemViewVisual::ownsIndicator(
     return true;
 }
 
-ZzItemViewVisualLayout ZzItemViewVisual::draw(
-    const ZzFluentStyle &style,
+ZzItemViewVisualLayout ZzItemViewVisual::layout(
+    const ZzThemeSnapshot &snapshot,
     const QStyleOptionViewItem &option,
-    QPainter *painter,
     ZzItemViewVisualOptions options)
 {
-    Q_ASSERT(painter != nullptr);
-    const auto &snapshot = style.d_ptr->snapshot;
-    const int indicatorWidth = snapshot == nullptr
-        ? 0
-        : qRound(snapshot->metric(
-              ZzMetricToken::SelectionIndicatorThickness));
-    const int indicatorHeight = snapshot == nullptr
-        ? 0
-        : qRound(snapshot->metric(
-              ZzMetricToken::SelectionIndicatorExtent));
+    const int leading = qRound(snapshot.metric(
+        ZzMetricToken::SelectionIndicatorLeading));
+    const int thickness = qRound(snapshot.metric(
+        ZzMetricToken::SelectionIndicatorThickness));
+    const int indicatorWidth = qMin(thickness,
+        qMax(0, option.rect.width() - leading));
+    const int indicatorHeight = qMin(qRound(snapshot.metric(
+        ZzMetricToken::SelectionIndicatorExtent)),
+        qMax(0, option.rect.height() - 2 * zzItemSurfaceInset));
     const QRect logicalIndicator(
-        option.rect.left() + zzItemIndicatorLeading,
+        option.rect.left() + leading,
         option.rect.center().y() - indicatorHeight / 2,
         indicatorWidth,
         indicatorHeight);
@@ -119,14 +119,14 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
         break;
     case ZzItemIndicatorPlacement::PhysicalRight:
         placedIndicatorRect = QRect(
-            option.rect.right() - zzItemIndicatorLeading
+            option.rect.right() - leading
                 - indicatorWidth + 1,
             logicalIndicator.top(),
             indicatorWidth,
             indicatorHeight);
         break;
     }
-    ZzItemViewVisualLayout result{
+    return {
         QRectF(option.rect).adjusted(
             zzItemSurfaceInset,
             zzItemSurfaceInset,
@@ -136,7 +136,32 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
         zzContentRect(
             option,
             options.ownsIndicator,
-            options.indicatorPlacement)};
+            options.indicatorPlacement,
+            leading + thickness + qRound(snapshot.metric(
+                ZzMetricToken::SelectionIndicatorContentGap)))};
+}
+
+ZzItemViewVisualLayout ZzItemViewVisual::draw(
+    const ZzFluentStyle &style,
+    const QStyleOptionViewItem &option,
+    QPainter *painter,
+    ZzItemViewVisualOptions options)
+{
+    const auto &snapshot = style.d_ptr->snapshot;
+    if (snapshot == nullptr) {
+        return {QRectF(option.rect), {}, option.rect};
+    }
+    const auto result = layout(*snapshot, option, options);
+    if (options.animateSelection && options.showSelection && options.ownsIndicator) {
+        auto *view = qobject_cast<QAbstractItemView *>(
+            const_cast<QWidget *>(option.widget));
+        if (view != nullptr && option.index.isValid()) {
+            auto *animation = style.d_ptr->itemAnimation(view);
+            options.indicatorScale = animation->scaleFor(option.index,
+                option.state.testFlag(QStyle::State_Selected));
+            options.forceIndicator = animation->forcesIndicator(option.index);
+        }
+    }
 
     if (painter == nullptr || snapshot == nullptr) {
         return result;
@@ -148,7 +173,7 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
         options.indicatorScale,
         0.0,
         1.0);
-    const bool drawsIndicator = options.ownsIndicator
+    const bool drawsIndicator = options.showSelection && options.ownsIndicator
         && indicatorScale > 0.0
         && (selected || options.forceIndicator);
     if (!selected && !hovered && !drawsIndicator) {

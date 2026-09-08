@@ -110,6 +110,9 @@ qreal ZzSelectionIndicatorTransition::scaleFor(
     const QModelIndex &index,
     bool staticallySelected) const noexcept
 {
+    if (!index.isValid()) {
+        return 0.0;
+    }
     if (index == outgoingIndex_) {
         return outgoingScale_;
     }
@@ -153,8 +156,10 @@ void ZzSelectionIndicatorTransition::updateScales(qreal progress) noexcept
     outgoingScale_ = 0.0;
     const qreal incomingProgress = (bounded - zzHalfProgress)
         / zzHalfProgress;
-    incomingScale_ = incomingStartScale_
-        + ((1.0 - incomingStartScale_) * incomingProgress);
+    incomingScale_ = incomingIndex_.isValid()
+        ? incomingStartScale_
+            + ((1.0 - incomingStartScale_) * incomingProgress)
+        : 0.0;
 }
 
 qreal ZzSelectionIndicatorTransition::trackedScale(

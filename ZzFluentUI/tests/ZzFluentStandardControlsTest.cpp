@@ -894,7 +894,8 @@ private Q_SLOTS:
         style.drawControl(QStyle::CE_TabBarTab, &tab, &painter);
         painter.end();
         QCOMPARE(image.pixelColor(40, 16), QColor(Qt::blue));
-        QCOMPARE(image.pixelColor(40, 30), QColor(Qt::green));
+        QCOMPARE(image.pixelColor(40, 30), controller.snapshot()->color(
+            ZzFluentUI::ZzColorToken::Accent));
 
         QStyleOptionProgressBar busy;
         busy.rect = QRect(0, 0, 120, 16);

@@ -110,6 +110,8 @@ ZzThemeSnapshot ZzThemeSnapshot::create(
         40.0,
         32.0,
         16.0,
+        3.0,
+        4.0,
         3.0};
     QFont base = QGuiApplication::font();
     if (base.family().isEmpty()) {

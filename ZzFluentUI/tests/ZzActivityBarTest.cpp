@@ -6,6 +6,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QMimeData>
 #include <QtCore/QPointer>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QAction>
 #include <QtGui/QColor>
 #include <QtGui/QContextMenuEvent>
@@ -349,6 +350,28 @@ private Q_SLOTS:
                  "Activity Bar 没有绘制 badge 背板");
         QVERIFY2(!visualBounds.intersects(badgeBounds),
                  "Activity Bar 的 badge 覆盖了图标或首字符区域");
+    }
+
+    void animatesSingleActivityAndSettlesWhenHidden()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzActivityRowsModel model;
+        model.rows[1].area = ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[1].enabled = true;
+        ZzFluentUI::ZzActivityBar bar;
+        bar.setStyle(&style);
+        bar.setModel(&model);
+        zzShow(&bar);
+        bar.setCurrentSourceIndex(model.index(0, 0));
+        bar.setCurrentSourceIndex(model.index(1, 0));
+        const auto animations = bar.findChildren<QVariantAnimation *>();
+        QCOMPARE(animations.size(), 1);
+        QCOMPARE(animations.first()->state(), QAbstractAnimation::Running);
+        QCOMPARE(animations.first()->duration(), 167);
+        bar.hide();
+        QCOMPARE(animations.first()->state(), QAbstractAnimation::Stopped);
+        QCOMPARE(bar.currentSourceIndex(), model.index(1, 0));
     }
 
     void rendersFontAndSvgDescriptors_data()

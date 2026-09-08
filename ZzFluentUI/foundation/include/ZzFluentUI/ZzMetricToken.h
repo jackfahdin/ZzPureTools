@@ -37,6 +37,8 @@ enum class ZzMetricToken : std::uint16_t
     CommandBarMoreExtent,
     AnnotatedScrollBarExtent,
     ScrollMarkerThickness,
+    SelectionIndicatorLeading,
+    SelectionIndicatorContentGap,
     Count
 };
 
