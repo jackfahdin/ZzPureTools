@@ -48,6 +48,7 @@ Pivot 保留与内容宽度适配的下划线；原生 Tab 使用标准短条。
 - 视图析构期间的 Hide 事件必须检查对象仍是 QAbstractItemView；仅检查 QPointer 非空不足以保证视图接口可调用。
 - 表格整行选择按行归一化，指示条属于首个可见视觉列。单元格选择不转为行选择。
 - 多选、批量变化和多活动项保持已有静态标记语义，不把 selectedIndexes 展开为逐项动画对象。
+- 活动栏的 Fluent 选中背景和指示条只消费已提交的活动源索引，不使用内部列表鼠标按下产生的临时选中状态。释放后保留延迟激活及模型有效性复核；提交后按共用时序收缩旧条、展开新条，不能先画新条再收回。悬停、键盘焦点和重复点击折叠意图保持独立。
 
 ## 入口覆盖
 
@@ -69,6 +70,7 @@ Pivot 保留与内容宽度适配的下划线；原生 Tab 使用标准短条。
 
 - `fluent.selection-indicator`：共用状态、原生与 Fluent Delegate 的三视图接入、视图隔离、多选、横向滑动及主题方向矩阵。
 - 现有 Fluent ItemDelegate、Navigation、ActivityBar、Pivot、Tab、ComboBox、StandardControls 和 ThemeSnapshot 测试继续作为回归约束。
+- ActivityBar 的 mouseActivationMatchesNavigationFrames 使用真实鼠标按下、释放和事件队列，检查提交前没有新条，并与 Navigation 在 0/41/83/125/167 ms 比较指示条像素；覆盖左右物理边、主次分组、RTL 和减少动态效果。
 - 设置 `ZZ_INDICATOR_REPORT_DIR` 可让新测试的 `visualMatrix` 保存当前环境截图；这些图片属于本机观察证据，不替代 Linux 参考基线。
 - 视觉变更仍需在项目规定的 Linux 参考环境更新受影响基线、关闭更新模式重跑并人工核对；Windows 本机图片不得写入 Linux 基线目录。
 
@@ -91,3 +93,12 @@ docs/superpowers/plans/2026-09-08-selection-indicator-unification.md。
 - Fluent 与架构回归共 67 个独立 CTest 条目通过。公开头检查首次因未初始化 MSVC 环境失败，在开发者环境中重跑后通过。
 - ZzPureToolsExample 编译成功，包含混排标题和大字体开关；原生 ZzTabWidget 的 24 pt 截图已观察，中文及 Agjp 未发生上下裁切。未把控件截图检查表述为完整示例的人工交互验收。
 - 本机证据保存在 build/indicator-tests 下的 tab-layout-negative-control.txt、tab-layout-dpr-*.txt、tab-layout-native.txt、tab-layout-regression-final.log 和 reports/tab-layout；不替代 Linux 参考基线。
+
+### 活动栏鼠标切换闪跳修复验收
+
+- 根因通过鼠标关键帧复现：活动项提交前，内部 QListView 的临时 State_Selected 使新条提前出现。修复将 Fluent 选中背景及指示条的静态依据统一为已提交的活动源索引，保留延迟激活、安全复核、悬停、焦点和多活动项语义。
+- 16 个新增场景覆盖左右物理边、同组及跨组、LTR/RTL 和减少动态效果；修复前提交前像素断言失败，修复后四档缩放均通过。提交后的五个受控时间点与 Navigation 指示条像素一致。
+- 测试对照导航使用独立的普通模型，不将活动栏 Area 数据交给导航解释；这两类模型的私有角色可能重合，不能仅因行数相同就共用测试模型。局部样式测试也显式给活动栏内部视图设置 Fluent 样式。
+- Windows 原生后端新增场景 18 项通过（含初始化及清理）；Fluent 与架构回归 67 项通过；ZzPureToolsExample 编译成功，并补充按住、释放活动项的观察说明。
+- 完整 ActivityBar 测试在 DPR 1 和 2 下各 58 项通过，在 1.25 和 1.5 下各 56 项通过、2 项字体图标像素测试失败。这两个失败在修复前 DLL 上也能复现，本次不扩展修复、不标记为通过。
+- 本机日志：build/indicator-tests/activity-click-before.txt、activity-click-after.txt、activity-click-dpr-*.txt、activity-click-native.txt、activity-click-regression.log，以及 activity-icon-baseline-*.txt。未更新 Linux 截图基线，未进行完整工作区人工交互验收。

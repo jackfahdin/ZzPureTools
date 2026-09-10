@@ -177,7 +177,7 @@ void zzAddSection(
     layout->setContentsMargins(0, 0, 0, 0);
     auto *hint = new QLabel(QCoreApplication::translate(
         "ZzPureToolsExample",
-        "点击各控件独立切换，或连续点击统一切换比较动画。主题与减少动态效果沿用应用设置。"), section);
+        "点击各控件独立切换，或连续点击统一切换比较动画。按住活动栏的非当前项时旧条应保持，释放并激活后再收缩、展开，不应提前闪出新条。主题与减少动态效果沿用应用设置。"), section);
     hint->setWordWrap(true);
     layout->addWidget(hint);
 

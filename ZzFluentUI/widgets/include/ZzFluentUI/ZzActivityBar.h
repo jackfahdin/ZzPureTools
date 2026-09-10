@@ -79,6 +79,8 @@ public:
     /**
      * @brief 从 Shell 同步当前源索引。
      * @param index 当前模型的 column 0 顶层索引；不属于当前两组时清空选择。
+     * @note Fluent 选中背景和指示条只依据已提交的活动源索引；内部列表的
+     * 鼠标临时选择不提前显示新活动项。鼠标释放后的延迟激活与状态复核保持不变。
      */
     void setCurrentSourceIndex(const QModelIndex &index);
 

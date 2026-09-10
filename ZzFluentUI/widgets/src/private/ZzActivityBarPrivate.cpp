@@ -163,11 +163,14 @@ public:
             }
             const QModelIndex sourceIndex = owner_->sourceIndexForProjection(index);
             const bool active = owner_->isProjectionIndexActive(index);
+            // Mouse selection precedes deferred activation. It must not paint a
+            // new active surface or indicator before the source state commits.
+            adjusted.state.setFlag(QStyle::State_Selected, active);
             visualOptions.showSelection = owner_->selectionVisible;
             visualOptions.forceIndicator = owner_->selectionVisible
                 && (active || owner_->indicatorTransition.forcesIndicator(sourceIndex));
             visualOptions.indicatorScale = owner_->indicatorTransition.scaleFor(
-                sourceIndex, active || adjusted.state.testFlag(QStyle::State_Selected));
+                sourceIndex, active);
             visualOptions.indicatorPlacement =
                 owner_->edge == ZzSidePaneEdge::Left
                 ? ZzItemIndicatorPlacement::PhysicalLeft

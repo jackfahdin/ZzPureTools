@@ -35,6 +35,7 @@
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -288,6 +289,121 @@ class ZzActivityBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 捕获鼠标临时选择先画出新条、活动提交后又将其收回的闪跳。 */
+    void mouseActivationMatchesNavigationFrames_data()
+    {
+        QTest::addColumn<bool>("right");
+        QTest::addColumn<bool>("crossGroup");
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("reduced");
+        for (bool right : {false, true}) {
+            for (bool crossGroup : {false, true}) {
+                for (bool rtl : {false, true}) {
+                    for (bool reduced : {false, true}) {
+                        QTest::newRow(qPrintable(QStringLiteral("right-%1-cross-%2-rtl-%3-reduced-%4")
+                            .arg(right).arg(crossGroup).arg(rtl).arg(reduced)))
+                            << right << crossGroup << rtl << reduced;
+                    }
+                }
+            }
+        }
+    }
+
+    void mouseActivationMatchesNavigationFrames()
+    {
+        QFETCH(bool, right);
+        QFETCH(bool, crossGroup);
+        QFETCH(bool, rtl);
+        QFETCH(bool, reduced);
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(reduced);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzActivityRowsModel model;
+        model.rows[0].area = right ? ZzFluentUI::ZzActivityArea::RightPrimary
+                                  : ZzFluentUI::ZzActivityArea::LeftPrimary;
+        model.rows[0].badge = 0;
+        model.rows[1].area = crossGroup
+            ? (right ? ZzFluentUI::ZzActivityArea::RightSecondary
+                     : ZzFluentUI::ZzActivityArea::LeftSecondary)
+            : model.rows[0].area;
+        model.rows[1].enabled = true;
+        // Navigation has private roles that overlap Activity Area; compare with
+        // an equivalent plain model rather than feeding it activity metadata.
+        QStandardItemModel navigationModel(2, 1);
+        navigationModel.setData(navigationModel.index(0, 0), model.rows[0].text);
+        navigationModel.setData(navigationModel.index(1, 0), model.rows[1].text);
+        ZzFluentUI::ZzActivityBar bar(right ? ZzFluentUI::ZzSidePaneEdge::Right
+                                         : ZzFluentUI::ZzSidePaneEdge::Left);
+        ZzFluentUI::ZzNavigationView navigation;
+        for (QWidget *widget : {static_cast<QWidget *>(&bar),
+                 static_cast<QWidget *>(&navigation)}) {
+            widget->setStyle(&style);
+            widget->setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        }
+        bar.setModel(&model);
+        navigation.setModel(&navigationModel);
+        // A per-widget Qt style is not inherited by the Activity Bar's child views.
+        for (auto *view : bar.findChildren<QListView *>()) {
+            view->setStyle(&style);
+        }
+        const auto oldIndex = model.index(0, 0);
+        const auto newIndex = model.index(1, 0);
+        bar.setCurrentSourceIndex(oldIndex);
+        navigation.setCurrentIndex(navigationModel.index(0, 0));
+        zzShow(&navigation);
+        zzShow(&bar);
+        auto *oldView = zzActivityView(&bar, QStringLiteral("zzActivityPrimaryView"));
+        auto *newView = crossGroup
+            ? zzActivityView(&bar, QStringLiteral("zzActivitySecondaryView")) : oldView;
+        const auto projectedOld = oldView->model()->index(0, 0);
+        const auto projectedNew = newView->model()->index(crossGroup ? 0 : 1, 0);
+        const QColor accent = controller.snapshot()->color(ZzFluentUI::ZzColorToken::Accent);
+        const auto pixels = [&accent](QListView *view, const QModelIndex &index, bool physicalRight) {
+            QRect strip = view->visualRect(index);
+            strip.setLeft(physicalRight ? strip.right() - 6 : strip.left() + 4);
+            strip.setWidth(3);
+            return zzCountPixelsNearColor(zzRenderWidget(view->viewport()), strip, accent);
+        };
+        const int originalPixels = pixels(oldView, projectedOld, right);
+        QVERIFY(originalPixels > 0);
+        QSignalSpy activated(&bar, &ZzFluentUI::ZzActivityBar::activationRequested);
+        const QPoint target = newView->visualRect(projectedNew).center();
+        QTest::mousePress(newView->viewport(), Qt::LeftButton, Qt::NoModifier, target);
+        const int pressedNewPixels = pixels(newView, projectedNew, right);
+        const int pressedOldPixels = pixels(oldView, projectedOld, right);
+        QTest::mouseRelease(newView->viewport(), Qt::LeftButton, Qt::NoModifier, target);
+        QCOMPARE(pressedNewPixels, 0);
+        QCOMPARE(pressedOldPixels, originalPixels);
+        QCOMPARE(bar.currentSourceIndex(), oldIndex);
+        QCOMPARE(activated.count(), 0);
+        QCOMPARE(pixels(newView, projectedNew, right), 0);
+        QTRY_COMPARE(activated.count(), 1);
+        QCOMPARE(bar.currentSourceIndex(), newIndex);
+        navigation.setCurrentIndex(navigationModel.index(1, 0));
+        const auto activityAnimations = bar.findChildren<QVariantAnimation *>();
+        const auto navigationAnimations = navigation.findChildren<QVariantAnimation *>();
+        QCOMPARE(activityAnimations.size(), 1);
+        QCOMPARE(navigationAnimations.size(), 1);
+        auto *activityAnimation = activityAnimations.first();
+        auto *navigationAnimation = navigationAnimations.first();
+        if (!reduced) {
+            QCOMPARE(activityAnimation->duration(), navigationAnimation->duration());
+            QCOMPARE(activityAnimation->easingCurve(), navigationAnimation->easingCurve());
+            for (int time : {0, 41, 83, 125, 167}) {
+                activityAnimation->setCurrentTime(time);
+                navigationAnimation->setCurrentTime(time);
+                QCOMPARE(pixels(oldView, projectedOld, right),
+                    pixels(&navigation, navigationModel.index(0, 0), rtl));
+                QCOMPARE(pixels(newView, projectedNew, right),
+                    pixels(&navigation, navigationModel.index(1, 0), rtl));
+            }
+        }
+        QCOMPARE(pixels(oldView, projectedOld, right), 0);
+        QCOMPARE(pixels(newView, projectedNew, right), originalPixels);
+        QCOMPARE(activityAnimation->state(), QAbstractAnimation::Stopped);
+        QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>{newIndex});
+    }
+
     void keepsBadgeSeparateFromEntryVisual_data()
     {
         QTest::addColumn<ZzFluentUI::ZzIconDescriptor>("descriptor");
