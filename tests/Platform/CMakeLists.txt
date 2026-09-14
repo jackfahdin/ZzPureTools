@@ -105,6 +105,13 @@ add_test(NAME platform.gate-script-contract
 set_tests_properties(platform.gate-script-contract PROPERTIES
     LABELS "platform;contract")
 
+add_test(NAME platform.local-development-gate-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzLocalDevelopmentGateContract.cmake")
+set_tests_properties(platform.local-development-gate-contract PROPERTIES
+    LABELS "platform;contract")
+
 add_test(NAME platform.performance-threshold-contract
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"

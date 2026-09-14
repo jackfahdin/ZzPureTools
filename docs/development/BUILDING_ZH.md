@@ -18,6 +18,55 @@
 
 构建并安装后，外部项目使用 `find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)`，链接目标仍为 `Zz::Core`、`Zz::WindowKit`、`Zz::FluentUI` 和 `Zz::PureTools`。
 
+## 开发机最小门禁
+
+普通开发机只需安装一种与本机 Qt ABI 匹配的原生 shared 工具链。提交生产代码前，
+统一入口会检查工作区和暂存区空白错误、完整编译库/测试/Example、运行不依赖参考
+环境的普通测试，并要求调用方提供至少一个实际匹配的定向 CTest 正则。它不会下载
+SDK、安装 Git hook、修改 Git 配置、暂存或提交文件，也不会把报告写入源码树。
+
+Linux 使用：
+
+```bash
+bash scripts/ci/run-local-development-gate.sh \
+  --preset linux-gcc-debug \
+  --tests '^fluent\.selection-indicator$'
+```
+
+macOS 使用同一入口，并按开发机原生架构选择
+`macos-clang-release-arm64` 或 `macos-clang-release-x86_64`。不要求普通开发机同时安装
+另一 CPU 架构的 Qt SDK。
+
+Windows PowerShell 7 使用：
+
+```powershell
+pwsh -NoProfile -File scripts/ci/run-local-development-gate.ps1 `
+  -Preset windows-msvc2022-release `
+  -Tests '^fluent\.selection-indicator$'
+```
+
+只安装 Qt 官方 MinGW 时，把 preset 替换为 `windows-mingw-release`；一台 Windows
+开发机不要求同时具备 MSVC 与 MinGW。定向正则只能匹配普通测试，带有
+`benchmark`、`screenshot`、`install`、`packaging` 或 `release` 标签的专项测试不会
+被本机入口执行，也不能用作零项匹配的成功结果。
+
+纯文档提交显式选择文档模式，不配置或编译工程：
+
+```bash
+bash scripts/ci/run-local-development-gate.sh --docs-only
+```
+
+```powershell
+pwsh -NoProfile -File scripts/ci/run-local-development-gate.ps1 -DocsOnly
+```
+
+`--docs-only`/`-DocsOnly` 不能与构建参数混用。该模式仍会执行工作区和暂存区的
+`git diff --check`，并直接运行 `tests/Architecture/ZzDocumentationAudit.cmake`。
+
+入口会输出宿主、架构、CMake、Qt、编译器、preset、定向正则和排除标签。本机门禁
+通过只证明当前原生工具链上的普通矩阵成立；未在本机执行的其他平台 CI、
+ASan/UBSan、clang-tidy、视觉、性能和真机交互必须继续记录为“待验证”。
+
 ## 构建事实源
 
 根 `CMakeLists.txt` 定义项目选项、依赖和安装规则，`CMakePresets.json` 定义受支持的平台矩阵。`CMakeUserPresets.json.example` 只展示如何从父进程环境传值；本机可将其内容用于 `CMakeUserPresets.json`，后者已由 `.gitignore` 排除，不得提交本机 SDK 绝对路径。
@@ -231,6 +280,11 @@ pwsh -NoProfile -File scripts/ci/run-windows-gates.ps1
 ```
 
 当前 Linux runner 直接在活动本机参考环境运行 GCC shared/static/LTO、Clang 检查、sanitizer、四示例编译与 offscreen 冒烟，以及性能比较。Windows 和 macOS runner 在每个 shared/static 组合中编译四个示例，但不将自动构建记录为真机交互结果。只有设置合法 `ZZ_UBUNTU2204_BUILD_IMAGE` 时才追加 `scripts/ci/run-ubuntu2204-release-gates.sh`；原 Ubuntu 22.04 档案与本机档案不得混用。
+
+这些聚合 runner 服务 CI、发布候选和登记的参考机，不是普通开发机每次提交的最低
+要求。`run-local-development-gate.sh` 与 `run-local-development-gate.ps1` 产生的
+单工具链结果不能替代 shared/static、LTO、安装、打包、Sanitizer、视觉、性能或
+目标平台真机证据。
 
 Linux runner 的编译器下限负向合同仅在主机存在 `g++-12` 时执行，并验证配置明确
 拒绝旧编译器。主机没有 `g++-12` 时输出 `compiler capabilities contract not
