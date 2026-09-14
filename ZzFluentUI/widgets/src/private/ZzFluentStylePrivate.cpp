@@ -1,5 +1,6 @@
 #include "ZzFluentStylePrivate.h"
 
+#include "ZzItemSelectionAnimation.h"
 #include "ZzItemViewVisual.h"
 #include "ZzTabIndicatorAnimation.h"
 #include <QtWidgets/QTabBar>
@@ -217,6 +218,12 @@ ZzFluentStylePrivate::ZzFluentStylePrivate(
         [this](quint64, ZzThemeChangeKinds changes) {
             applySnapshot(changes);
         });
+}
+
+ZzFluentStylePrivate::~ZzFluentStylePrivate()
+{
+    qDeleteAll(itemAnimations);
+    qDeleteAll(tabAnimations);
 }
 
 void ZzFluentStylePrivate::handleInputEvent(

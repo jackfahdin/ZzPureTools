@@ -101,12 +101,17 @@ QRectF ZzTabIndicatorAnimation::rect()
 
 bool ZzTabIndicatorAnimation::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == bar_ && (event->type() == QEvent::Hide
-            || event->type() == QEvent::Resize
-            || event->type() == QEvent::LayoutRequest
-            || event->type() == QEvent::LayoutDirectionChange
-            || event->type() == QEvent::EnabledChange
-            || event->type() == QEvent::StyleChange)) {
+    // 析构期 QPointer 尚未清空，必须先依据事件接收者确认派生类型仍然有效。
+    auto *bar = qobject_cast<QTabBar *>(watched);
+    if (bar == nullptr || bar != bar_.data()) {
+        return QObject::eventFilter(watched, event);
+    }
+    if (event->type() == QEvent::Hide
+        || event->type() == QEvent::Resize
+        || event->type() == QEvent::LayoutRequest
+        || event->type() == QEvent::LayoutDirectionChange
+        || event->type() == QEvent::EnabledChange
+        || event->type() == QEvent::StyleChange) {
         settle();
     }
     return QObject::eventFilter(watched, event);

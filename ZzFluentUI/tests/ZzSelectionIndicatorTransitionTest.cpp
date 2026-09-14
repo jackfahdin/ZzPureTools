@@ -162,6 +162,38 @@ private Q_SLOTS:
         QCOMPARE(bar.currentIndex(), 2);
     }
 
+    void itemViewCanBeDestroyedWhileStyleRemainsAlive()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStandardItemModel model(2, 1);
+        auto view = std::make_unique<QListView>();
+        view->setStyle(&style);
+        view->setModel(&model);
+        view->show();
+        QVERIFY(QTest::qWaitForWindowExposed(view.get()));
+        (void)view->viewport()->grab();
+        QCOMPARE(style.findChildren<QVariantAnimation *>().size(), 1);
+        view.reset();
+        QCOMPARE(style.findChildren<QVariantAnimation *>().size(), 0);
+    }
+
+    void tabBarCanBeDestroyedWhileStyleRemainsAlive()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        auto bar = std::make_unique<QTabBar>();
+        bar->setStyle(&style);
+        bar->addTab(QStringLiteral("First"));
+        bar->addTab(QStringLiteral("Second"));
+        bar->show();
+        QVERIFY(QTest::qWaitForWindowExposed(bar.get()));
+        (void)bar->grab();
+        QCOMPARE(style.findChildren<QVariantAnimation *>().size(), 1);
+        bar.reset();
+        QCOMPARE(style.findChildren<QVariantAnimation *>().size(), 0);
+    }
+
     void nativeIconGridDoesNotAcquireRowIndicators()
     {
         ZzFluentUI::ZzThemeController controller;

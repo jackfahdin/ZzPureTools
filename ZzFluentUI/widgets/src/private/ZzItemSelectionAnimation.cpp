@@ -15,15 +15,8 @@
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "ZzFluentStylePrivate.h"
-#include "ZzTabIndicatorAnimation.h"
 
 namespace ZzFluentUI {
-
-ZzFluentStylePrivate::~ZzFluentStylePrivate()
-{
-    qDeleteAll(itemAnimations);
-    qDeleteAll(tabAnimations);
-}
 
 ZzItemSelectionAnimation::ZzItemSelectionAnimation(
     QAbstractItemView *view, ZzFluentStyle *style)
@@ -170,13 +163,15 @@ void ZzItemSelectionAnimation::repaintRows()
 
 bool ZzItemSelectionAnimation::eventFilter(QObject *watched, QEvent *event)
 {
-    // QWidget destruction can deliver Hide after the item-view destructor.
-    // QPointer is not cleared yet, but item-view APIs are no longer safe.
-    if (watched == view_ && qobject_cast<QAbstractItemView *>(watched) != nullptr
-        && (event->type() == QEvent::Hide
-            || event->type() == QEvent::EnabledChange
-            || event->type() == QEvent::StyleChange
-            || event->type() == QEvent::LayoutDirectionChange)) {
+    // 析构期 QPointer 尚未清空，必须先依据事件接收者确认派生类型仍然有效。
+    auto *view = qobject_cast<QAbstractItemView *>(watched);
+    if (view == nullptr || view != view_.data()) {
+        return QObject::eventFilter(watched, event);
+    }
+    if (event->type() == QEvent::Hide
+        || event->type() == QEvent::EnabledChange
+        || event->type() == QEvent::StyleChange
+        || event->type() == QEvent::LayoutDirectionChange) {
         settle();
     }
     return QObject::eventFilter(watched, event);
