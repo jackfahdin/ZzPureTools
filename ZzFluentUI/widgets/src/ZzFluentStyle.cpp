@@ -282,9 +282,15 @@ QSize ZzFluentStyle::sizeFromContents(
         option,
         contentsSize,
         widget);
-    if (type == CT_LineEdit
-        || type == CT_SpinBox
-        || type == CT_ComboBox) {
+    if (type == CT_LineEdit || type == CT_SpinBox) {
+        result = result.expandedTo(QSize(96, 32));
+    }
+    if (type == CT_ComboBox) {
+        const int fluentContentWidth = contentsSize.width()
+            + zzComboBoxLeadingInset
+            + zzComboBoxArrowWidth
+            + zzComboBoxLabelHorizontalMargin;
+        result.setWidth(qMax(result.width(), fluentContentWidth));
         result = result.expandedTo(QSize(96, 32));
     }
     if (type == CT_ToolButton) {

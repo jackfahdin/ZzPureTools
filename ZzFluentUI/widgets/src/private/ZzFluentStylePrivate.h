@@ -33,6 +33,15 @@ inline constexpr int zzMenuShortcutSpacing = 12;
 /** @brief 子菜单自绘 chevron 独占的尾部逻辑像素宽度。 */
 inline constexpr int zzMenuTrailingIndicatorWidth = 28;
 
+/** @brief 组合框标签区域的起始逻辑像素内边距。 */
+inline constexpr int zzComboBoxLeadingInset = 12;
+
+/** @brief 组合框箭头独占的尾部逻辑像素宽度。 */
+inline constexpr int zzComboBoxArrowWidth = 32;
+
+/** @brief 基础样式标签在编辑区域内消耗的水平逻辑像素。 */
+inline constexpr int zzComboBoxLabelHorizontalMargin = 4;
+
 /** @brief 持有主题快照、非拥有控制器引用和 Widgets 私有缓存。 */
 class ZzFluentStylePrivate final
 {

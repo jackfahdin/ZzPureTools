@@ -928,7 +928,7 @@ QRect ZzFluentStylePrivate::comboBoxSubControlRect(
     }
 
     const QRect bounds = option->rect;
-    const int arrowWidth = qMin(32, bounds.width());
+    const int arrowWidth = qMin(zzComboBoxArrowWidth, bounds.width());
     const QRect logicalArrow(
         bounds.right() - arrowWidth + 1,
         bounds.top(),
@@ -941,7 +941,9 @@ QRect ZzFluentStylePrivate::comboBoxSubControlRect(
             logicalArrow);
     }
     if (subControl == QStyle::SC_ComboBoxEditField) {
-        const int left = qMin(bounds.right() + 1, bounds.left() + 12);
+        const int left = qMin(
+            bounds.right() + 1,
+            bounds.left() + zzComboBoxLeadingInset);
         const int right = logicalArrow.left() - 1;
         if (right < left) {
             return {};

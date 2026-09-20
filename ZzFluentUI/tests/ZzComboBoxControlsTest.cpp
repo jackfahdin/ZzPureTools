@@ -7,6 +7,7 @@
 #include <QtCore/QEvent>
 #include <QtCore/QTimer>
 #include <QtGui/QAccessible>
+#include <QtGui/QFont>
 #include <QtGui/QImage>
 #include <QtGui/QIntValidator>
 #include <QtGui/QPainter>
@@ -26,6 +27,19 @@
 #include <ZzFluentUI/ZzThemeMode.h>
 
 namespace {
+
+/** @brief 向测试公开标准组合框的样式选项初始化结果。 */
+class ZzComboBoxStyleOptionProbe final : public QComboBox
+{
+public:
+    /** @brief 返回与当前控件状态一致的组合框样式选项。 */
+    [[nodiscard]] QStyleOptionComboBox styleOption() const
+    {
+        QStyleOptionComboBox option;
+        initStyleOption(&option);
+        return option;
+    }
+};
 
 /** @brief 立即处理事件与延迟销毁对象，使对象预算可重复测量。 */
 void zzFlushDeferredObjects()
@@ -67,6 +81,99 @@ class ZzComboBoxControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void keepsNaturalSizeContentVisible_data()
+    {
+        QTest::addColumn<QString>("text");
+        QTest::addColumn<bool>("hasIcon");
+        QTest::addColumn<int>("fontPointSize");
+        QTest::addColumn<bool>("editable");
+
+        QTest::newRow("long-text")
+            << QStringLiteral("Production cluster with extended label")
+            << false
+            << 0
+            << false;
+        QTest::newRow("icon")
+            << QStringLiteral("Remote session with icon")
+            << true
+            << 0
+            << false;
+        QTest::newRow("large-font")
+            << QStringLiteral("Large font selection")
+            << false
+            << 18
+            << false;
+        QTest::newRow("editable")
+            << QStringLiteral("Editable custom session name")
+            << false
+            << 0
+            << true;
+    }
+
+    void keepsNaturalSizeContentVisible()
+    {
+        QFETCH(QString, text);
+        QFETCH(bool, hasIcon);
+        QFETCH(int, fontPointSize);
+        QFETCH(bool, editable);
+
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const Qt::LayoutDirection direction : {
+                 Qt::LeftToRight,
+                 Qt::RightToLeft}) {
+            ZzComboBoxStyleOptionProbe comboBox;
+            comboBox.setStyle(&style);
+            comboBox.setLayoutDirection(direction);
+            comboBox.setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            comboBox.setEditable(editable);
+            if (fontPointSize > 0) {
+                QFont font = comboBox.font();
+                font.setPointSize(fontPointSize);
+                comboBox.setFont(font);
+            }
+
+            QPixmap decoration(16, 16);
+            decoration.fill(Qt::blue);
+            if (hasIcon) {
+                comboBox.setIconSize(decoration.size());
+                comboBox.addItem(QIcon(decoration), text);
+            } else {
+                comboBox.addItem(text);
+            }
+            if (editable) {
+                comboBox.setEditText(text);
+            }
+
+            comboBox.ensurePolished();
+            comboBox.resize(comboBox.sizeHint());
+            const QStyleOptionComboBox option = comboBox.styleOption();
+            const QRect editField = style.subControlRect(
+                QStyle::CC_ComboBox,
+                &option,
+                QStyle::SC_ComboBoxEditField,
+                &comboBox);
+            const int decorationWidth = hasIcon
+                ? comboBox.iconSize().width() + 4
+                : 0;
+            const int requiredWidth = comboBox.fontMetrics().boundingRect(
+                text).width()
+                + decorationWidth
+                + 4;
+
+            QVERIFY2(
+                editField.width() >= requiredWidth,
+                qPrintable(QStringLiteral(
+                    "自然尺寸裁切内容：direction=%1 hint=%2 edit=%3 required=%4")
+                               .arg(direction == Qt::LeftToRight
+                                        ? QStringLiteral("LTR")
+                                        : QStringLiteral("RTL"))
+                               .arg(comboBox.sizeHint().width())
+                               .arg(editField.width())
+                               .arg(requiredWidth)));
+        }
+    }
+
     void preservesModelAndSelectionSemantics()
     {
         QStandardItemModel model;
