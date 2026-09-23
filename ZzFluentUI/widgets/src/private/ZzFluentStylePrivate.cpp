@@ -101,8 +101,8 @@ struct ZzProgressBarLayout final
         zzProgressTrackThickness,
         indicatorThickness);
 
-    qreal indicatorCrossStart = horizontal ? bounds.top() : bounds.left();
-    qreal trackCrossStart = indicatorCrossStart;
+    qreal indicatorCrossStart;
+    qreal trackCrossStart;
     if (option.textVisible) {
         const qreal gap = qMin(
             zzProgressTextGap,
