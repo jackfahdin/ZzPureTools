@@ -36,6 +36,8 @@
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QVBoxLayout>
 
+#include <limits>
+
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -60,6 +62,28 @@ bool zzContainsColor(const QImage &image, const QColor &expected)
         }
     }
     return false;
+}
+
+/** @brief 返回接近目标颜色的不透明像素包围盒。 */
+[[nodiscard]] QRect zzColorBounds(
+    const QImage &image,
+    const QColor &expected)
+{
+    QRect bounds;
+    constexpr int tolerance = 8;
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            const QColor actual = image.pixelColor(x, y);
+            const bool matches = actual.alpha() > 0
+                && qAbs(actual.red() - expected.red()) <= tolerance
+                && qAbs(actual.green() - expected.green()) <= tolerance
+                && qAbs(actual.blue() - expected.blue()) <= tolerance;
+            if (matches) {
+                bounds = bounds.united(QRect(x, y, 1, 1));
+            }
+        }
+    }
+    return bounds;
 }
 
 /** @brief 判断图像是否包含任何不透明绘制结果。 */
@@ -625,6 +649,372 @@ private Q_SLOTS:
         QCOMPARE(tabs.count(), 2);
         QCOMPARE(menu.style(), &style);
         QCOMPARE(dialog.style(), &style);
+    }
+
+    /** @brief 验证细进度线与独立标签区域不会互相覆盖。 */
+    void laysOutThinProgressWithoutCoveringText()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QPalette palette;
+        const QColor track(Qt::red);
+        const QColor indicator(Qt::green);
+        palette.setColor(QPalette::Active, QPalette::Mid, track);
+        palette.setColor(QPalette::Active, QPalette::Highlight, indicator);
+        palette.setColor(QPalette::Active, QPalette::Text, QColor(Qt::blue));
+        palette.setColor(
+            QPalette::Active,
+            QPalette::HighlightedText,
+            QColor(Qt::blue));
+
+        const auto render = [&style, &palette](
+                                const QSize &size,
+                                bool horizontal,
+                                int value) {
+            QStyleOptionProgressBar option;
+            option.rect = QRect(QPoint(), size);
+            option.minimum = 0;
+            option.maximum = 100;
+            option.progress = value;
+            option.text = QStringLiteral("%1%").arg(value);
+            option.textVisible = true;
+            option.state = QStyle::State_Enabled;
+            option.state.setFlag(QStyle::State_Horizontal, horizontal);
+            option.palette = palette;
+            QImage image(size, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawControl(QStyle::CE_ProgressBar, &option, &painter);
+            return image;
+        };
+
+        const QImage horizontal = render(QSize(160, 36), true, 50);
+        const QRect horizontalTrack = zzColorBounds(
+            render(QSize(160, 36), true, 0),
+            track);
+        const QRect horizontalIndicator = zzColorBounds(horizontal, indicator);
+        const QRect horizontalText = zzColorBounds(horizontal, QColor(Qt::blue));
+        QVERIFY(horizontalTrack.height() <= 5);
+        QVERIFY(horizontalIndicator.height() <= 5);
+        QVERIFY(!horizontalText.isEmpty());
+        QVERIFY(horizontalText.bottom() < horizontalTrack.top());
+        QVERIFY(qAbs(horizontalIndicator.width()
+                     - horizontalTrack.width() / 2)
+                <= 2);
+        QVERIFY(horizontalTrack.top() > horizontal.height() / 2);
+
+        const QImage vertical = render(QSize(36, 160), false, 25);
+        const QRect verticalTrack = zzColorBounds(
+            render(QSize(36, 160), false, 0),
+            track);
+        const QRect verticalIndicator = zzColorBounds(vertical, indicator);
+        const QRect verticalText = zzColorBounds(vertical, QColor(Qt::blue));
+        QVERIFY(verticalTrack.width() <= 5);
+        QVERIFY(verticalIndicator.width() <= 5);
+        QVERIFY(!verticalText.isEmpty());
+        QVERIFY(verticalText.right() < verticalTrack.left());
+        QVERIFY(qAbs(verticalIndicator.height()
+                     - verticalTrack.height() / 4)
+                <= 2);
+        QVERIFY(verticalTrack.left() > vertical.width() / 2);
+    }
+
+    /** @brief 验证分离标签区域会进入进度条自然尺寸预算。 */
+    void sizesProgressForSeparatedText()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionProgressBar option;
+        option.text = QStringLiteral("50%");
+        option.textVisible = true;
+        option.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+        const int textBudget = option.fontMetrics.height() + 8;
+        const QSize horizontal = style.sizeFromContents(
+            QStyle::CT_ProgressBar,
+            &option,
+            QSize(1, 1));
+        QVERIFY(horizontal.height() >= textBudget);
+
+        option.state.setFlag(QStyle::State_Horizontal, false);
+        const QSize vertical = style.sizeFromContents(
+            QStyle::CT_ProgressBar,
+            &option,
+            QSize(1, 1));
+        QVERIFY(vertical.width() >= textBudget);
+
+        option.textVisible = false;
+        option.state.setFlag(QStyle::State_Horizontal, true);
+        const QSize baseHorizontal = style.baseStyle()->sizeFromContents(
+            QStyle::CT_ProgressBar,
+            &option,
+            QSize(1, 1));
+        const QSize noTextHorizontal = style.sizeFromContents(
+            QStyle::CT_ProgressBar,
+            &option,
+            QSize(1, 1));
+        QCOMPARE(
+            noTextHorizontal.height(),
+            qMax(baseHorizontal.height(), 4));
+
+        option.state.setFlag(QStyle::State_Horizontal, false);
+        const QSize baseVertical = style.baseStyle()->sizeFromContents(
+            QStyle::CT_ProgressBar,
+            &option,
+            QSize(1, 1));
+        const QSize noTextVertical = style.sizeFromContents(
+            QStyle::CT_ProgressBar,
+            &option,
+            QSize(1, 1));
+        QCOMPARE(noTextVertical.width(), qMax(baseVertical.width(), 4));
+    }
+
+    /** @brief 验证极小 option rect 的进度绘制不会越过逻辑边界。 */
+    void keepsTinyProgressInsideOptionRect()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const QSize size : {QSize(1, 1), QSize(2, 3), QSize(3, 2)}) {
+            for (const bool horizontal : {true, false}) {
+                QStyleOptionProgressBar option;
+                option.rect = QRect(1, 1, size.width(), size.height());
+                option.minimum = 0;
+                option.maximum = 100;
+                option.progress = 50;
+                option.textVisible = false;
+                option.state = QStyle::State_Enabled;
+                option.state.setFlag(QStyle::State_Horizontal, horizontal);
+                option.palette = style.standardPalette();
+                const QColor sentinel(Qt::magenta);
+                QImage image(
+                    size + QSize(2, 2),
+                    QImage::Format_ARGB32_Premultiplied);
+                image.fill(sentinel);
+                QPainter painter(&image);
+                style.drawControl(QStyle::CE_ProgressBar, &option, &painter);
+                painter.end();
+                for (int y = 0; y < image.height(); ++y) {
+                    for (int x = 0; x < image.width(); ++x) {
+                        if (!option.rect.contains(x, y)) {
+                            QCOMPARE(image.pixelColor(x, y), sentinel);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** @brief 验证样式绘制不改写 QProgressBar 的公开协议。 */
+    void preservesLinearProgressProtocol()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QProgressBar progress;
+        progress.setStyle(&style);
+        progress.setRange(-5, 15);
+        progress.setValue(7);
+        progress.setFormat(QStringLiteral("完成 %v/%m"));
+        progress.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        progress.setOrientation(Qt::Vertical);
+        QSignalSpy values(&progress, &QProgressBar::valueChanged);
+        progress.setValue(8);
+        QCOMPARE(values.count(), 1);
+        progress.resize(36, 160);
+        QImage image(progress.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        progress.render(&painter);
+        painter.end();
+        QCOMPARE(progress.format(), QStringLiteral("完成 %v/%m"));
+        QCOMPARE(progress.alignment(), Qt::AlignRight | Qt::AlignVCenter);
+        QCOMPARE(progress.orientation(), Qt::Vertical);
+        QCOMPARE(progress.minimum(), -5);
+        QCOMPARE(progress.maximum(), 15);
+        QCOMPARE(progress.value(), 8);
+        QAccessibleInterface *accessible =
+            QAccessible::queryAccessibleInterface(&progress);
+        QVERIFY(accessible != nullptr);
+        QCOMPARE(accessible->role(), QAccessible::ProgressBar);
+        QAccessibleValueInterface *valuesInterface =
+            accessible->valueInterface();
+        QVERIFY(valuesInterface != nullptr);
+        QCOMPARE(valuesInterface->currentValue().toInt(), 8);
+    }
+
+    /** @brief 验证范围、方向和各调色板颜色组决定线性进度绘制。 */
+    void respectsProgressRangeDirectionAndPalette()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const QColor activeTrack(Qt::red);
+        const QColor activeIndicator(Qt::green);
+        const QColor disabledTrack(Qt::cyan);
+        const QColor disabledIndicator(Qt::yellow);
+        QPalette palette;
+        palette.setColor(QPalette::Active, QPalette::Mid, activeTrack);
+        palette.setColor(
+            QPalette::Active,
+            QPalette::Highlight,
+            activeIndicator);
+        palette.setColor(QPalette::Disabled, QPalette::Mid, disabledTrack);
+        palette.setColor(
+            QPalette::Disabled,
+            QPalette::Highlight,
+            disabledIndicator);
+
+        const auto render = [&style](const QStyleOptionProgressBar &option) {
+            QImage image(
+                option.rect.size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawControl(QStyle::CE_ProgressBar, &option, &painter);
+            return image;
+        };
+        const auto horizontal = [&palette, &render, activeTrack, activeIndicator](
+                                    Qt::LayoutDirection direction,
+                                    bool inverted,
+                                    bool fromMaximum) {
+            QStyleOptionProgressBar option;
+            option.rect = QRect(0, 0, 160, 36);
+            option.minimum = 0;
+            option.maximum = 100;
+            option.progress = 50;
+            option.textVisible = false;
+            option.direction = direction;
+            option.invertedAppearance = inverted;
+            option.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+            option.palette = palette;
+            const QImage image = render(option);
+            QStyleOptionProgressBar emptyOption = option;
+            emptyOption.progress = 0;
+            const QRect track = zzColorBounds(
+                render(emptyOption),
+                activeTrack);
+            const QRect indicator = zzColorBounds(image, activeIndicator);
+            QVERIFY(!track.isEmpty());
+            QVERIFY(!indicator.isEmpty());
+            QVERIFY(qAbs(indicator.width() - track.width() / 2) <= 2);
+            if (fromMaximum) {
+                QVERIFY(indicator.right() >= track.right() - 1);
+            } else {
+                QVERIFY(indicator.left() <= track.left() + 1);
+            }
+        };
+        horizontal(Qt::LeftToRight, false, false);
+        horizontal(Qt::RightToLeft, false, true);
+        horizontal(Qt::LeftToRight, true, true);
+        horizontal(Qt::RightToLeft, true, false);
+
+        QStyleOptionProgressBar range;
+        range.rect = QRect(0, 0, 160, 36);
+        range.minimum = 20;
+        range.maximum = 120;
+        range.progress = 70;
+        range.textVisible = false;
+        range.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+        range.palette = palette;
+        QImage image = render(range);
+        QStyleOptionProgressBar emptyRange = range;
+        emptyRange.progress = range.minimum;
+        const QRect nonZeroTrack = zzColorBounds(
+            render(emptyRange),
+            activeTrack);
+        QVERIFY(qAbs(zzColorBounds(image, activeIndicator).width()
+                     - nonZeroTrack.width() / 2)
+                <= 2);
+
+        range.minimum = std::numeric_limits<int>::min();
+        range.maximum = std::numeric_limits<int>::max();
+        range.progress = 0;
+        image = render(range);
+        QStyleOptionProgressBar emptyExtreme = range;
+        emptyExtreme.progress = range.minimum;
+        const QRect extremeTrack = zzColorBounds(
+            render(emptyExtreme),
+            activeTrack);
+        QVERIFY(qAbs(zzColorBounds(image, activeIndicator).width()
+                     - extremeTrack.width() / 2)
+                <= 2);
+
+        range.minimum = 0;
+        range.maximum = 100;
+        range.progress = 0;
+        image = render(range);
+        QVERIFY(zzColorBounds(image, activeIndicator).isEmpty());
+        const QRect completeTrack = zzColorBounds(image, activeTrack);
+        range.progress = 100;
+        image = render(range);
+        QVERIFY(qAbs(zzColorBounds(image, activeIndicator).width()
+                     - completeTrack.width())
+                <= 2);
+        range.minimum = 9;
+        range.maximum = 8;
+        range.progress = 9;
+        image = render(range);
+        QVERIFY(zzColorBounds(image, activeIndicator).isEmpty());
+
+        QStyleOptionProgressBar vertical;
+        vertical.rect = QRect(0, 0, 36, 160);
+        vertical.minimum = 0;
+        vertical.maximum = 100;
+        vertical.progress = 25;
+        vertical.textVisible = false;
+        vertical.state = QStyle::State_Enabled;
+        vertical.palette = palette;
+        image = render(vertical);
+        QStyleOptionProgressBar emptyVertical = vertical;
+        emptyVertical.progress = 0;
+        const QRect verticalTrack = zzColorBounds(
+            render(emptyVertical),
+            activeTrack);
+        const QRect bottomIndicator = zzColorBounds(image, activeIndicator);
+        QVERIFY(bottomIndicator.bottom() >= verticalTrack.bottom() - 1);
+        QVERIFY(qAbs(bottomIndicator.height() - verticalTrack.height() / 4)
+                <= 2);
+        vertical.invertedAppearance = true;
+        image = render(vertical);
+        const QRect topIndicator = zzColorBounds(image, activeIndicator);
+        QVERIFY(topIndicator.top() <= verticalTrack.top() + 1);
+        vertical.bottomToTop = false;
+        image = render(vertical);
+        QCOMPARE(zzColorBounds(image, activeIndicator), topIndicator);
+        vertical.bottomToTop = true;
+        image = render(vertical);
+        QCOMPARE(zzColorBounds(image, activeIndicator), topIndicator);
+
+        range.minimum = 0;
+        range.maximum = 100;
+        range.progress = 50;
+        range.state = QStyle::State_None | QStyle::State_Horizontal;
+        image = render(range);
+        QVERIFY(zzContainsColor(image, disabledTrack));
+        QVERIFY(zzContainsColor(image, disabledIndicator));
+        QVERIFY(!zzContainsColor(image, activeTrack));
+        QVERIFY(!zzContainsColor(image, activeIndicator));
+
+        for (const ZzFluentUI::ZzThemeMode mode : {
+                 ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark,
+                 ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            QStyleOptionProgressBar themed;
+            themed.rect = QRect(0, 0, 160, 36);
+            themed.minimum = 0;
+            themed.maximum = 100;
+            themed.progress = 50;
+            themed.textVisible = false;
+            themed.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+            themed.palette = style.standardPalette();
+            image = render(themed);
+            const QPalette::ColorGroup group =
+                themed.palette.currentColorGroup();
+            QVERIFY(zzContainsColor(
+                image,
+                themed.palette.color(group, QPalette::Mid)));
+            QVERIFY(zzContainsColor(
+                image,
+                themed.palette.color(group, QPalette::Highlight)));
+        }
     }
 
     void preservesDigitalDisplayProtocol()

@@ -296,6 +296,20 @@ QSize ZzFluentStyle::sizeFromContents(
     if (type == CT_ToolButton) {
         result = result.expandedTo(QSize(32, 32));
     }
+    if (type == CT_ProgressBar) {
+        const auto *progress = qstyleoption_cast<
+            const QStyleOptionProgressBar *>(option);
+        if (progress != nullptr) {
+            const int crossAxis = progress->textVisible
+                ? progress->fontMetrics.height() + 8
+                : 4;
+            if (progress->state.testFlag(QStyle::State_Horizontal)) {
+                result.setHeight(qMax(result.height(), crossAxis));
+            } else {
+                result.setWidth(qMax(result.width(), crossAxis));
+            }
+        }
+    }
     if (type == CT_TabBarTab) {
         const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
         if (tab != nullptr) {

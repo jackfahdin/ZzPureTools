@@ -47,6 +47,183 @@ namespace ZzFluentUI {
 
 namespace {
 
+/** @brief 线性进度轨道的逻辑像素厚度。 */
+constexpr qreal zzProgressTrackThickness = 3.0;
+
+/** @brief 线性进度指示器的逻辑像素厚度。 */
+constexpr qreal zzProgressIndicatorThickness = 4.0;
+
+/** @brief 线性进度长轴两端的逻辑像素缩进。 */
+constexpr qreal zzProgressAxisInset = 2.0;
+
+/** @brief 标签与线性进度区之间的逻辑像素间距。 */
+constexpr qreal zzProgressTextGap = 4.0;
+
+/** @brief 保存进度轨道、指示器和标签的独立绘制几何。 */
+struct ZzProgressBarLayout final
+{
+    QRectF trackRect;
+    QRectF indicatorRect;
+    QRect labelRect;
+};
+
+/** @brief 计算不暴露于样式 ABI 的确定性线性进度布局。 */
+[[nodiscard]] ZzProgressBarLayout zzProgressBarLayout(
+    const QStyleOptionProgressBar &option,
+    qreal busyPhase,
+    bool animateBusy) noexcept
+{
+    Q_UNUSED(busyPhase);
+    Q_UNUSED(animateBusy);
+
+    ZzProgressBarLayout layout;
+    const QRectF bounds(option.rect);
+    if (bounds.isEmpty()) {
+        return layout;
+    }
+
+    const bool horizontal = option.state.testFlag(QStyle::State_Horizontal);
+    const qreal longLength = horizontal ? bounds.width() : bounds.height();
+    const qreal inset = longLength >= 8.0
+        ? zzProgressAxisInset
+        : longLength / 4.0;
+    const qreal axisLength = qMax(0.0, longLength - 2.0 * inset);
+    const qreal crossLength = horizontal ? bounds.height() : bounds.width();
+    const qreal indicatorThickness = qMin(
+        zzProgressIndicatorThickness,
+        crossLength);
+    const qreal trackThickness = qMin(
+        zzProgressTrackThickness,
+        indicatorThickness);
+
+    qreal indicatorCrossStart = horizontal ? bounds.top() : bounds.left();
+    qreal trackCrossStart = indicatorCrossStart;
+    if (option.textVisible) {
+        const qreal gap = qMin(
+            zzProgressTextGap,
+            qMax(0.0, crossLength - indicatorThickness));
+        const qreal labelLength = qMax(
+            0.0,
+            crossLength - gap - indicatorThickness);
+        if (horizontal) {
+            layout.labelRect = QRect(
+                option.rect.left(),
+                option.rect.top(),
+                option.rect.width(),
+                qFloor(labelLength));
+            indicatorCrossStart = bounds.bottom() - indicatorThickness;
+        } else if (option.direction == Qt::RightToLeft) {
+            layout.labelRect = QRect(
+                qCeil(bounds.left() + indicatorThickness + gap),
+                option.rect.top(),
+                qMax(0, option.rect.width()
+                    - qCeil(indicatorThickness + gap)),
+                option.rect.height());
+            indicatorCrossStart = bounds.left();
+        } else {
+            layout.labelRect = QRect(
+                option.rect.left(),
+                option.rect.top(),
+                qFloor(labelLength),
+                option.rect.height());
+            indicatorCrossStart = bounds.right() - indicatorThickness;
+        }
+        trackCrossStart = indicatorCrossStart
+            + (indicatorThickness - trackThickness) / 2.0;
+    } else {
+        indicatorCrossStart = (horizontal ? bounds.center().y()
+                                          : bounds.center().x())
+            - indicatorThickness / 2.0;
+        trackCrossStart = (horizontal ? bounds.center().y()
+                                      : bounds.center().x())
+            - trackThickness / 2.0;
+    }
+
+    if (horizontal) {
+        layout.trackRect = QRectF(
+            bounds.left() + inset,
+            trackCrossStart,
+            axisLength,
+            trackThickness);
+    } else {
+        layout.trackRect = QRectF(
+            trackCrossStart,
+            bounds.top() + inset,
+            trackThickness,
+            axisLength);
+    }
+    if (layout.trackRect.isEmpty()) {
+        return layout;
+    }
+
+    const bool busy = option.minimum == 0 && option.maximum == 0;
+    qreal ratio = 0.0;
+    if (busy) {
+        ratio = 1.0 / 3.0;
+    } else {
+        const qint64 span = qint64(option.maximum) - qint64(option.minimum);
+        const qint64 elapsed = qint64(option.progress) - qint64(option.minimum);
+        ratio = span > 0
+            ? std::clamp(
+                  qreal(elapsed) / qreal(span),
+                  qreal(0.0),
+                  qreal(1.0))
+            : 0.0;
+    }
+    if (ratio <= 0.0) {
+        return layout;
+    }
+
+    const qreal indicatorLength = axisLength * ratio;
+    if (horizontal) {
+        layout.indicatorRect = QRectF(
+            bounds.left() + inset,
+            indicatorCrossStart,
+            indicatorLength,
+            indicatorThickness);
+        const bool fromMaximum = option.invertedAppearance
+            != (option.direction == Qt::RightToLeft);
+        if (busy) {
+            layout.indicatorRect.moveCenter(layout.trackRect.center());
+        } else if (fromMaximum) {
+            layout.indicatorRect.moveRight(layout.trackRect.right());
+        }
+    } else {
+        layout.indicatorRect = QRectF(
+            indicatorCrossStart,
+            bounds.top() + inset,
+            indicatorThickness,
+            indicatorLength);
+        const bool fromMaximum = !option.invertedAppearance;
+        if (busy) {
+            layout.indicatorRect.moveCenter(layout.trackRect.center());
+        } else if (fromMaximum) {
+            layout.indicatorRect.moveBottom(layout.trackRect.bottom());
+        }
+    }
+    return layout;
+}
+
+/** @brief 返回不超过当前短边与长边一半的圆角半径。 */
+[[nodiscard]] qreal zzProgressCornerRadius(const QRectF &rect) noexcept
+{
+    return qMax(0.0, qMin(rect.width(), rect.height()) / 2.0);
+}
+
+/** @brief 在当前画家裁剪范围内绘制单条圆角进度几何。 */
+void zzDrawProgressRect(
+    QPainter *painter,
+    const QRectF &rect,
+    const QColor &color)
+{
+    if (rect.isEmpty()) {
+        return;
+    }
+    painter->setBrush(color);
+    const qreal radius = zzProgressCornerRadius(rect);
+    painter->drawRoundedRect(rect, radius, radius);
+}
+
 /** @brief 请求焦点控件及关联视口刷新焦点视觉。 */
 void zzUpdateFocusVisual(QWidget *widget)
 {
@@ -1582,67 +1759,44 @@ void ZzFluentStylePrivate::drawProgressBar(
     QPainter *painter,
     const QWidget *widget) const
 {
+    if (option == nullptr || painter == nullptr || option->rect.isEmpty()) {
+        return;
+    }
+    const ZzProgressBarLayout layout = zzProgressBarLayout(
+        *option,
+        0.0,
+        false);
+    const QPalette::ColorGroup group = option->state.testFlag(
+        QStyle::State_Enabled)
+        ? option->palette.currentColorGroup()
+        : QPalette::Disabled;
+
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
-    const QRectF groove = QRectF(option->rect).adjusted(
-        0.5,
-        0.5,
-        -0.5,
-        -0.5);
+    painter->setClipRect(option->rect);
     painter->setPen(Qt::NoPen);
-    painter->setBrush(option->palette.color(QPalette::Mid));
-    const qreal cornerRadius = snapshot->metric(
-        ZzMetricToken::CornerRadiusSmall);
-    painter->drawRoundedRect(groove, cornerRadius, cornerRadius);
-
-    QRectF chunk = groove;
-    const bool horizontal = option->state.testFlag(
-        QStyle::State_Horizontal);
-    const bool indeterminate = option->minimum == 0
-        && option->maximum == 0;
-    if (indeterminate) {
-        if (horizontal) {
-            chunk.setWidth(groove.width() / 3.0);
-            chunk.moveCenter(groove.center());
-        } else {
-            chunk.setHeight(groove.height() / 3.0);
-            chunk.moveCenter(groove.center());
-        }
-    } else {
-        const qint64 span = qint64(option->maximum)
-            - qint64(option->minimum);
-        const qreal ratio = span > 0
-            ? std::clamp(
-                  qreal(qint64(option->progress)
-                        - qint64(option->minimum))
-                      / qreal(span),
-                  qreal(0.0),
-                  qreal(1.0))
-            : qreal(0.0);
-        if (horizontal) {
-            chunk.setWidth(groove.width() * ratio);
-            const bool fromRight = option->invertedAppearance
-                != (option->direction == Qt::RightToLeft);
-            if (fromRight) {
-                chunk.moveRight(groove.right());
-            }
-        } else {
-            chunk.setHeight(groove.height() * ratio);
-            if (!option->invertedAppearance) {
-                chunk.moveBottom(groove.bottom());
-            }
-        }
-    }
-    if (!chunk.isEmpty()) {
-        painter->setBrush(option->palette.color(QPalette::Highlight));
-        painter->drawRoundedRect(chunk, cornerRadius, cornerRadius);
-    }
+    zzDrawProgressRect(
+        painter,
+        layout.trackRect,
+        option->palette.color(group, QPalette::Mid));
+    zzDrawProgressRect(
+        painter,
+        layout.indicatorRect,
+        option->palette.color(group, QPalette::Highlight));
     painter->restore();
 
-    if (option->textVisible) {
+    if (option->textVisible && !layout.labelRect.isEmpty()) {
+        QStyleOptionProgressBar labelOption = *option;
+        labelOption.rect = layout.labelRect;
+        const QColor text = option->palette.color(group, QPalette::Text);
+        labelOption.palette.setColor(group, QPalette::Text, text);
+        labelOption.palette.setColor(
+            group,
+            QPalette::HighlightedText,
+            text);
         q_ptr->QProxyStyle::drawControl(
             QStyle::CE_ProgressBarLabel,
-            option,
+            &labelOption,
             painter,
             widget);
     }
