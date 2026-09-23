@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <QtCore/QList>
 #include <QtCore/QPointer>
 #include <QtCore/QHash>
 #include <QtCore/QPoint>
@@ -17,7 +18,9 @@
 #include <ZzFluentUI/ZzThemeChangeKind.h>
 
 class QAbstractItemView;
+class QProgressBar;
 class QTabBar;
+class QVariantAnimation;
 
 namespace ZzFluentUI {
 
@@ -193,7 +196,7 @@ public:
     void drawProgressBar(
         const QStyleOptionProgressBar *option,
         QPainter *painter,
-        const QWidget *widget) const;
+        const QWidget *widget);
     /** @brief 绘制滑块轨道、活动区和手柄。 */
     void drawSlider(
         const QStyleOptionSlider *option,
@@ -223,10 +226,23 @@ public:
         QPainter *painter,
         const QWidget *widget) const;
 
+    /** @brief 幂等注册由本样式驱动的可见忙碌进度条。 */
+    void registerBusyProgressBar(QProgressBar *progressBar);
+    /** @brief 清除销毁或已不满足动画条件的弱引用。 */
+    void removeIneligibleBusyProgressBars();
+    /** @brief 停止共享动画并按需刷新注册控件的静态外观。 */
+    void stopBusyProgressAnimation(bool refreshWidgets);
+
     ZzFluentStyle *const q_ptr;
     QPointer<ZzThemeController> controller;
     std::shared_ptr<const ZzThemeSnapshot> snapshot;
     QPointer<QWidget> focusVisualWidget;
+    /** @brief 本样式所有线性忙碌进度条复用的唯一循环动画。 */
+    QVariantAnimation *busyProgressAnimation = nullptr;
+    /** @brief 仅保存控件弱引用，避免样式延长控件生命周期。 */
+    QList<QPointer<QProgressBar>> busyProgressBars;
+    /** @brief 当前循环相位，由共享动画值直接更新。 */
+    qreal busyProgressPhase = 0.0;
     bool keyboardFocusVisuals = false;
     quint64 iconRevision = 0;
     ZzStyleCache cache{4 * 1024 * 1024};

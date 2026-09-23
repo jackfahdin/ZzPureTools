@@ -2,6 +2,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QtGlobal>
 #include <QtCore/QAbstractAnimation>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QAccessible>
 #include <QtGui/QAction>
 #include <QtGui/QActionGroup>
@@ -391,19 +392,60 @@ private Q_SLOTS:
         model->setData(model->index(1, 0), QStringLiteral("Two"));
         listView->setModel(model);
 
+        host.resize(320, 180);
+        host.show();
+        QCoreApplication::processEvents();
+
+        const auto renderProgress = [progress] {
+            QImage image(
+                progress->size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            progress->render(&painter);
+        };
+
         const qsizetype descendants = host.findChildren<QObject *>().size();
         const qsizetype animations = host.findChildren<QAbstractAnimation *>().size();
         const qsizetype timers = host.findChildren<QTimer *>().size();
+        qsizetype styleDescendants = -1;
         for (int iteration = 0; iteration < 1000; ++iteration) {
             checkBox->setChecked(iteration % 2 == 0);
             comboBox->setCurrentIndex(iteration % 2);
+            progress->setRange(0, iteration % 2 == 0 ? 0 : 100);
             progress->setValue(iteration % 101);
+            progress->setEnabled(iteration % 5 != 0);
+            progress->setVisible(iteration % 7 != 0);
+            controller.setReducedMotion(iteration % 11 == 0);
             listView->setCurrentIndex(model->index(iteration % 2, 0));
             if (iteration % 2 == 0) {
                 controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
             } else {
                 controller.setMode(ZzFluentUI::ZzThemeMode::Light);
             }
+            renderProgress();
+            QCoreApplication::processEvents();
+            QVERIFY(style.findChildren<QVariantAnimation *>().size() <= 1);
+            QVERIFY(style.findChildren<QTimer *>().isEmpty());
+            if (styleDescendants < 0
+                && !style.findChildren<QVariantAnimation *>().isEmpty()) {
+                styleDescendants = style.findChildren<QObject *>().size();
+            }
+            if (styleDescendants >= 0) {
+                QCOMPARE(style.findChildren<QObject *>().size(), styleDescendants);
+            }
+        }
+        controller.setReducedMotion(false);
+        progress->show();
+        progress->setEnabled(true);
+        progress->setRange(0, 100);
+        QCoreApplication::processEvents();
+        const auto styleAnimations = style.findChildren<QVariantAnimation *>();
+        QVERIFY(styleAnimations.size() <= 1);
+        if (!styleAnimations.isEmpty()) {
+            QTRY_COMPARE(
+                styleAnimations.constFirst()->state(),
+                QAbstractAnimation::Stopped);
         }
         QCOMPARE(host.findChildren<QObject *>().size(), descendants);
         QCOMPARE(host.findChildren<QAbstractAnimation *>().size(), animations);
@@ -1015,6 +1057,142 @@ private Q_SLOTS:
                 image,
                 themed.palette.color(group, QPalette::Highlight)));
         }
+    }
+
+    /** @brief 验证同一样式的忙碌进度条共享唯一循环动画并及时停机。 */
+    void sharesOneBusyProgressAnimation()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget host;
+        auto *layout = new QVBoxLayout(&host);
+        auto *first = new QProgressBar(&host);
+        auto *second = new QProgressBar(&host);
+        first->setStyle(&style);
+        second->setStyle(&style);
+        first->setRange(0, 0);
+        second->setRange(0, 0);
+        first->setTextVisible(false);
+        second->setTextVisible(false);
+        layout->addWidget(first);
+        layout->addWidget(second);
+        host.resize(240, 80);
+        host.show();
+        QCoreApplication::processEvents();
+
+        const auto render = [](QProgressBar *progress) {
+            QImage image(
+                progress->size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            progress->render(&painter);
+            return image;
+        };
+
+        const QImage firstFrame = render(first);
+        render(second);
+        const auto animations = style.findChildren<QAbstractAnimation *>();
+        QCOMPARE(animations.size(), 1);
+        auto *animation = qobject_cast<QVariantAnimation *>(
+            animations.constFirst());
+        QVERIFY(animation != nullptr);
+        QCOMPARE(animation->duration(), 1800);
+        QCOMPARE(animation->loopCount(), -1);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        QTRY_VERIFY_WITH_TIMEOUT(render(first) != firstFrame, 600);
+
+        first->setRange(0, 100);
+        QCoreApplication::processEvents();
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        second->hide();
+        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+
+        first->setRange(0, 0);
+        render(first);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        first->setEnabled(false);
+        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+
+        QSignalSpy stoppedUpdates(
+            animation,
+            &QVariantAnimation::valueChanged);
+        QTest::qWait(250);
+        QCOMPARE(stoppedUpdates.count(), 0);
+
+        first->setEnabled(true);
+        render(first);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        controller.setReducedMotion(true);
+        QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+        controller.setReducedMotion(false);
+        render(first);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        first->setStyle(style.baseStyle());
+        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+
+        second->show();
+        render(second);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        delete second;
+        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+    }
+
+    /** @brief 验证减少动效与无控件上下文只绘制居中的固定短段。 */
+    void keepsBusyProgressStaticWhenMotionIsReduced()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QProgressBar progress;
+        progress.setStyle(&style);
+        progress.setRange(0, 0);
+        progress.setTextVisible(false);
+        progress.resize(200, 24);
+        progress.show();
+        QCoreApplication::processEvents();
+
+        const auto renderWidget = [&progress] {
+            QImage image(
+                progress.size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            progress.render(&painter);
+            return image;
+        };
+        const QImage firstFrame = renderWidget();
+        QTest::qWait(100);
+        QCOMPARE(renderWidget(), firstFrame);
+        QVERIFY(style.findChildren<QAbstractAnimation *>().isEmpty());
+
+        const QColor track(Qt::red);
+        const QColor indicator(Qt::green);
+        QStyleOptionProgressBar option;
+        option.rect = QRect(0, 0, 200, 24);
+        option.minimum = 0;
+        option.maximum = 0;
+        option.progress = 0;
+        option.textVisible = false;
+        option.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+        option.palette.setColor(QPalette::Active, QPalette::Mid, track);
+        option.palette.setColor(
+            QPalette::Active,
+            QPalette::Highlight,
+            indicator);
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_ProgressBar, &option, &painter, nullptr);
+        painter.end();
+
+        const QRect trackBounds = zzColorBounds(image, track);
+        const QRect indicatorBounds = zzColorBounds(image, indicator);
+        QVERIFY(!trackBounds.isEmpty());
+        QVERIFY(!indicatorBounds.isEmpty());
+        QVERIFY(qAbs(indicatorBounds.width() - trackBounds.width() * 0.28) <= 2);
+        QVERIFY(qAbs(indicatorBounds.center().x() - trackBounds.center().x()) <= 1);
+        QVERIFY(style.findChildren<QAbstractAnimation *>().isEmpty());
     }
 
     void preservesDigitalDisplayProtocol()

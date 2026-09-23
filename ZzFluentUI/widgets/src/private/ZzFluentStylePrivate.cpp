@@ -13,6 +13,7 @@
 #include <QtCore/QEvent>
 #include <QtCore/QItemSelectionModel>
 #include <QtCore/QThread>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QImage>
 #include <QtGui/QFocusEvent>
 #include <QtGui/QKeyEvent>
@@ -26,6 +27,7 @@
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHeaderView>
+#include <QtWidgets/QProgressBar>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
@@ -59,6 +61,12 @@ constexpr qreal zzProgressAxisInset = 2.0;
 /** @brief 标签与线性进度区之间的逻辑像素间距。 */
 constexpr qreal zzProgressTextGap = 4.0;
 
+/** @brief 忙碌进度完成一次无缝循环所需的毫秒数。 */
+constexpr int zzBusyProgressDuration = 1800;
+
+/** @brief 静态忙碌短段占轨道长轴的比例。 */
+constexpr qreal zzBusyProgressStaticLength = 0.28;
+
 /** @brief 保存进度轨道、指示器和标签的独立绘制几何。 */
 struct ZzProgressBarLayout final
 {
@@ -73,9 +81,6 @@ struct ZzProgressBarLayout final
     qreal busyPhase,
     bool animateBusy) noexcept
 {
-    Q_UNUSED(busyPhase);
-    Q_UNUSED(animateBusy);
-
     ZzProgressBarLayout layout;
     const QRectF bounds(option.rect);
     if (bounds.isEmpty()) {
@@ -157,49 +162,67 @@ struct ZzProgressBarLayout final
     }
 
     const bool busy = option.minimum == 0 && option.maximum == 0;
-    qreal ratio = 0.0;
+    qreal logicalStart = 0.0;
+    qreal logicalEnd = 0.0;
     if (busy) {
-        ratio = 1.0 / 3.0;
+        if (animateBusy) {
+            /** 将相位平滑后生成先伸长再收缩、并可裁切出入轨道的逻辑区间。 */
+            const qreal phase = std::clamp(
+                busyPhase,
+                qreal(0.0),
+                qreal(1.0));
+            const qreal smooth = phase * phase * (3.0 - 2.0 * phase);
+            const qreal length = 0.18
+                + 0.18 * 4.0 * phase * (1.0 - phase);
+            const qreal leading = -length + (1.0 + length) * smooth;
+            logicalStart = std::clamp(
+                leading,
+                qreal(0.0),
+                qreal(1.0));
+            logicalEnd = std::clamp(
+                leading + length,
+                qreal(0.0),
+                qreal(1.0));
+        } else {
+            logicalStart = (1.0 - zzBusyProgressStaticLength) / 2.0;
+            logicalEnd = logicalStart + zzBusyProgressStaticLength;
+        }
     } else {
         const qint64 span = qint64(option.maximum) - qint64(option.minimum);
         const qint64 elapsed = qint64(option.progress) - qint64(option.minimum);
-        ratio = span > 0
+        logicalEnd = span > 0
             ? std::clamp(
                   qreal(elapsed) / qreal(span),
                   qreal(0.0),
                   qreal(1.0))
             : 0.0;
     }
-    if (ratio <= 0.0) {
+    if (logicalEnd <= logicalStart) {
         return layout;
     }
 
-    const qreal indicatorLength = axisLength * ratio;
+    const qreal indicatorLength = axisLength * (logicalEnd - logicalStart);
     if (horizontal) {
+        const bool fromMaximum = option.invertedAppearance
+            != (option.direction == Qt::RightToLeft);
+        const qreal indicatorStart = fromMaximum
+            ? 1.0 - logicalEnd
+            : logicalStart;
         layout.indicatorRect = QRectF(
-            bounds.left() + inset,
+            layout.trackRect.left() + axisLength * indicatorStart,
             indicatorCrossStart,
             indicatorLength,
             indicatorThickness);
-        const bool fromMaximum = option.invertedAppearance
-            != (option.direction == Qt::RightToLeft);
-        if (busy) {
-            layout.indicatorRect.moveCenter(layout.trackRect.center());
-        } else if (fromMaximum) {
-            layout.indicatorRect.moveRight(layout.trackRect.right());
-        }
     } else {
+        const bool fromMaximum = !option.invertedAppearance;
+        const qreal indicatorStart = fromMaximum
+            ? 1.0 - logicalEnd
+            : logicalStart;
         layout.indicatorRect = QRectF(
             indicatorCrossStart,
-            bounds.top() + inset,
+            layout.trackRect.top() + axisLength * indicatorStart,
             indicatorThickness,
             indicatorLength);
-        const bool fromMaximum = !option.invertedAppearance;
-        if (busy) {
-            layout.indicatorRect.moveCenter(layout.trackRect.center());
-        } else if (fromMaximum) {
-            layout.indicatorRect.moveBottom(layout.trackRect.bottom());
-        }
     }
     return layout;
 }
@@ -1757,15 +1780,29 @@ void ZzFluentStylePrivate::drawMenuBarItem(
 void ZzFluentStylePrivate::drawProgressBar(
     const QStyleOptionProgressBar *option,
     QPainter *painter,
-    const QWidget *widget) const
+    const QWidget *widget)
 {
     if (option == nullptr || painter == nullptr || option->rect.isEmpty()) {
         return;
     }
+    const bool busy = option->minimum == 0 && option->maximum == 0;
+    auto *progressBar = qobject_cast<QProgressBar *>(
+        const_cast<QWidget *>(widget));
+    const bool animateBusy = busy
+        && progressBar != nullptr
+        && progressBar->isVisible()
+        && progressBar->isEnabled()
+        && progressBar->minimum() == 0
+        && progressBar->maximum() == 0
+        && progressBar->style() == q_ptr
+        && !snapshot->reducedMotion();
+    if (animateBusy) {
+        registerBusyProgressBar(progressBar);
+    }
     const ZzProgressBarLayout layout = zzProgressBarLayout(
         *option,
-        0.0,
-        false);
+        busyProgressPhase,
+        animateBusy);
     const QPalette::ColorGroup group = option->state.testFlag(
         QStyle::State_Enabled)
         ? option->palette.currentColorGroup()
@@ -1800,6 +1837,82 @@ void ZzFluentStylePrivate::drawProgressBar(
             painter,
             widget);
     }
+}
+
+void ZzFluentStylePrivate::registerBusyProgressBar(QProgressBar *progressBar)
+{
+    Q_ASSERT(progressBar != nullptr);
+    if (progressBar == nullptr) {
+        return;
+    }
+    const auto existing = std::find_if(
+        busyProgressBars.cbegin(),
+        busyProgressBars.cend(),
+        [progressBar](const QPointer<QProgressBar> &registered) {
+            return registered.data() == progressBar;
+        });
+    if (existing == busyProgressBars.cend()) {
+        busyProgressBars.append(progressBar);
+    }
+
+    if (busyProgressAnimation == nullptr) {
+        busyProgressAnimation = new QVariantAnimation(q_ptr);
+        busyProgressAnimation->setStartValue(0.0);
+        busyProgressAnimation->setEndValue(1.0);
+        busyProgressAnimation->setDuration(zzBusyProgressDuration);
+        busyProgressAnimation->setLoopCount(-1);
+        QObject::connect(
+            busyProgressAnimation,
+            &QVariantAnimation::valueChanged,
+            q_ptr,
+            [this](const QVariant &value) {
+                busyProgressPhase = value.toReal();
+                removeIneligibleBusyProgressBars();
+                if (busyProgressBars.isEmpty()) {
+                    stopBusyProgressAnimation(false);
+                    return;
+                }
+                for (const QPointer<QProgressBar> &registered
+                     : std::as_const(busyProgressBars)) {
+                    registered->update();
+                }
+            });
+    }
+    if (busyProgressAnimation->state() != QAbstractAnimation::Running) {
+        busyProgressAnimation->start();
+    }
+}
+
+void ZzFluentStylePrivate::removeIneligibleBusyProgressBars()
+{
+    for (qsizetype index = busyProgressBars.size(); index > 0; --index) {
+        QProgressBar *const progressBar = busyProgressBars.at(index - 1).data();
+        if (progressBar == nullptr
+            || !progressBar->isVisible()
+            || !progressBar->isEnabled()
+            || progressBar->minimum() != 0
+            || progressBar->maximum() != 0
+            || progressBar->style() != q_ptr) {
+            busyProgressBars.removeAt(index - 1);
+        }
+    }
+}
+
+void ZzFluentStylePrivate::stopBusyProgressAnimation(bool refreshWidgets)
+{
+    if (refreshWidgets) {
+        for (const QPointer<QProgressBar> &progressBar
+             : std::as_const(busyProgressBars)) {
+            if (progressBar != nullptr) {
+                progressBar->update();
+            }
+        }
+    }
+    busyProgressBars.clear();
+    if (busyProgressAnimation != nullptr) {
+        busyProgressAnimation->stop();
+    }
+    busyProgressPhase = 0.0;
 }
 
 void ZzFluentStylePrivate::drawSlider(
@@ -2237,6 +2350,10 @@ void ZzFluentStylePrivate::applySnapshot(ZzThemeChangeKinds changes)
         ZzThemeChangeKind::Geometry);
     const bool motionChanged = changes.testFlag(
         ZzThemeChangeKind::Motion);
+
+    if (motionChanged && snapshot->reducedMotion()) {
+        stopBusyProgressAnimation(true);
+    }
 
     if (colorsChanged) {
         cache.rebuildVisuals(*snapshot);
