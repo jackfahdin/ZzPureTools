@@ -307,12 +307,20 @@ void zzMaskVisibleIndexes(
         }
         if (auto *progress = qobject_cast<QProgressBar *>(widget)) {
             if (progress->isTextVisible()) {
+                QRect textRect = progress->contentsRect();
+                if (progress->orientation() == Qt::Horizontal) {
+                    textRect.adjust(0, 0, 0, -8);
+                } else if (progress->layoutDirection() == Qt::RightToLeft) {
+                    textRect.adjust(8, 0, 0, 0);
+                } else {
+                    textRect.adjust(0, 0, -8, 0);
+                }
                 zzPaintTextMask(
                     &painter,
                     progress,
                     zzTextBounds(
                         progress,
-                        progress->contentsRect(),
+                        textRect,
                         Qt::AlignCenter,
                         progress->text()),
                     &window);
@@ -676,13 +684,37 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
             return false;
         }
         checkableButton->click();
+        auto *determinate = page->findChild<QProgressBar *>(
+            QStringLiteral("zzExampleProgressDeterminate"));
+        auto *busy = page->findChild<QProgressBar *>(
+            QStringLiteral("zzExampleProgressBusy"));
+        auto *disabled = page->findChild<QProgressBar *>(
+            QStringLiteral("zzExampleProgressDisabled"));
+        auto *vertical = page->findChild<QProgressBar *>(
+            QStringLiteral("zzExampleProgressVertical"));
         return !page->findChildren<QLineEdit *>().isEmpty()
             && !page->findChildren<QPlainTextEdit *>().isEmpty()
             && !page->findChildren<QComboBox *>().isEmpty()
             && !page->findChildren<QCheckBox *>().isEmpty()
             && page->findChildren<QRadioButton *>().size() >= 2
             && !page->findChildren<QSlider *>().isEmpty()
-            && !page->findChildren<QProgressBar *>().isEmpty()
+            && determinate != nullptr
+            && determinate->minimum() == 0
+            && determinate->maximum() == 100
+            && determinate->value() == 68
+            && busy != nullptr
+            && busy->minimum() == 0
+            && busy->maximum() == 0
+            && disabled != nullptr
+            && !disabled->isEnabled()
+            && disabled->minimum() == 0
+            && disabled->maximum() == 100
+            && disabled->value() == 42
+            && vertical != nullptr
+            && vertical->minimum() == 0
+            && vertical->maximum() == 100
+            && vertical->value() == 64
+            && vertical->orientation() == Qt::Vertical
             && !page->findChildren<ZzFluentUI::ZzToggleSwitch *>().isEmpty()
             && checkableButton->isChecked();
     }

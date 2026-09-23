@@ -1339,12 +1339,41 @@ QWidget *ZzFluentControlsGalleryPrivate::buildStandardSurfacesHost(
     rangeLayout->setSpacing(6);
     auto *slider = new QSlider(Qt::Horizontal, ranges);
     slider->setRange(0, 100);
-    slider->setValue(62);
+    slider->setValue(68);
     slider->setAccessibleName(QStringLiteral("Standard range"));
-    auto *progress = new QProgressBar(ranges);
-    progress->setRange(0, 100);
-    progress->setValue(68);
-    progress->setFormat(QStringLiteral("68% complete"));
+    auto *progressHost = new QWidget(ranges);
+    progressHost->setFixedHeight(112);
+    auto *progressRow = new QHBoxLayout(progressHost);
+    progressRow->setContentsMargins(0, 0, 0, 0);
+    progressRow->setSpacing(12);
+    auto *horizontalProgresses = new QVBoxLayout;
+    horizontalProgresses->setContentsMargins(0, 0, 0, 0);
+    horizontalProgresses->setSpacing(8);
+    auto *determinate = new QProgressBar(progressHost);
+    determinate->setAccessibleName(QStringLiteral("Standard progress 68 percent"));
+    determinate->setRange(0, 100);
+    determinate->setValue(68);
+    determinate->setFormat(QStringLiteral("68% complete"));
+    auto *busy = new QProgressBar(progressHost);
+    busy->setAccessibleName(QStringLiteral("Standard progress in progress"));
+    busy->setTextVisible(false);
+    busy->setRange(0, 0);
+    auto *disabled = new QProgressBar(progressHost);
+    disabled->setAccessibleName(QStringLiteral("Standard progress disabled 42 percent"));
+    disabled->setRange(0, 100);
+    disabled->setValue(42);
+    disabled->setEnabled(false);
+    horizontalProgresses->addWidget(determinate);
+    horizontalProgresses->addWidget(busy);
+    horizontalProgresses->addWidget(disabled);
+    auto *vertical = new QProgressBar(progressHost);
+    vertical->setAccessibleName(QStringLiteral("Standard progress vertical 64 percent"));
+    vertical->setOrientation(Qt::Vertical);
+    vertical->setRange(0, 100);
+    vertical->setValue(64);
+    vertical->setFixedHeight(112);
+    progressRow->addLayout(horizontalProgresses, 1);
+    progressRow->addWidget(vertical);
     auto *display = new QLCDNumber(6, ranges);
     display->setFrameStyle(QFrame::Box | QFrame::Plain);
     display->setSegmentStyle(QLCDNumber::Flat);
@@ -1352,8 +1381,13 @@ QWidget *ZzFluentControlsGalleryPrivate::buildStandardSurfacesHost(
     display->setFixedHeight(42);
     display->setAccessibleName(QStringLiteral("Build number"));
     rangeLayout->addWidget(slider);
-    rangeLayout->addWidget(progress);
+    rangeLayout->addWidget(progressHost);
     rangeLayout->addWidget(display);
+    QObject::connect(
+        slider,
+        &QSlider::valueChanged,
+        determinate,
+        &QProgressBar::setValue);
     grid->addWidget(ranges, 0, 2);
 
     auto *standardListModel = new QStandardItemModel(host);

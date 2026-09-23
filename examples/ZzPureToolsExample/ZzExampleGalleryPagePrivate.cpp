@@ -670,24 +670,57 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
     slider->setRange(0, 100);
     slider->setValue(68);
     slider->setMinimumWidth(220);
-    auto *progress = new QProgressBar(content);
-    progress->setRange(0, 100);
-    progress->setValue(68);
-    progress->setMinimumWidth(220);
+    auto *linearProgresses = new QVBoxLayout;
+    linearProgresses->setSpacing(8);
+    auto *determinate = new QProgressBar(content);
+    determinate->setObjectName(QStringLiteral("zzExampleProgressDeterminate"));
+    determinate->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample", "确定进度 68%"));
+    determinate->setRange(0, 100);
+    determinate->setValue(68);
+    determinate->setFormat(QStringLiteral("68% complete"));
+    determinate->setMinimumWidth(220);
+    auto *busy = new QProgressBar(content);
+    busy->setObjectName(QStringLiteral("zzExampleProgressBusy"));
+    busy->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample", "忙碌进度"));
+    busy->setTextVisible(false);
+    busy->setRange(0, 0);
+    busy->setMinimumWidth(220);
+    auto *disabled = new QProgressBar(content);
+    disabled->setObjectName(QStringLiteral("zzExampleProgressDisabled"));
+    disabled->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample", "禁用进度 42%"));
+    disabled->setRange(0, 100);
+    disabled->setValue(42);
+    disabled->setEnabled(false);
+    disabled->setMinimumWidth(220);
+    linearProgresses->addWidget(slider);
+    linearProgresses->addWidget(determinate);
+    linearProgresses->addWidget(busy);
+    linearProgresses->addWidget(disabled);
+    auto *vertical = new QProgressBar(content);
+    vertical->setObjectName(QStringLiteral("zzExampleProgressVertical"));
+    vertical->setAccessibleName(QCoreApplication::translate(
+        "ZzPureToolsExample", "纵向进度 64%"));
+    vertical->setOrientation(Qt::Vertical);
+    vertical->setRange(0, 100);
+    vertical->setValue(64);
+    vertical->setFixedHeight(112);
     auto *ring = new ZzFluentUI::ZzProgressRing(content);
     ring->setValue(68);
     auto *busyRing = new ZzFluentUI::ZzProgressRing(content);
     busyRing->setTextVisible(false);
     busyRing->setRange(0, 0);
-    progressRow->addWidget(slider, 1);
-    progressRow->addWidget(progress, 1);
+    progressRow->addLayout(linearProgresses, 1);
+    progressRow->addWidget(vertical);
     progressRow->addWidget(ring);
     progressRow->addWidget(busyRing);
     layout->addLayout(progressRow);
     QObject::connect(
         slider,
         &QSlider::valueChanged,
-        progress,
+        determinate,
         &QProgressBar::setValue);
     QObject::connect(
         slider,
