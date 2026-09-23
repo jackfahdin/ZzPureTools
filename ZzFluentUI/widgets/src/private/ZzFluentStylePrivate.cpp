@@ -97,9 +97,8 @@ struct ZzProgressBarLayout final
     const qreal indicatorThickness = qMin(
         zzProgressIndicatorThickness,
         crossLength);
-    const qreal trackThickness = qMin(
-        zzProgressTrackThickness,
-        indicatorThickness);
+    const qreal trackThickness = zzProgressTrackThickness
+        * indicatorThickness / zzProgressIndicatorThickness;
 
     qreal indicatorCrossStart;
     qreal trackCrossStart;
@@ -1810,7 +1809,7 @@ void ZzFluentStylePrivate::drawProgressBar(
 
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setClipRect(option->rect);
+    painter->setClipRect(option->rect, Qt::IntersectClip);
     painter->setPen(Qt::NoPen);
     zzDrawProgressRect(
         painter,
@@ -1823,19 +1822,33 @@ void ZzFluentStylePrivate::drawProgressBar(
     painter->restore();
 
     if (option->textVisible && !layout.labelRect.isEmpty()) {
-        QStyleOptionProgressBar labelOption = *option;
-        labelOption.rect = layout.labelRect;
         const QColor text = option->palette.color(group, QPalette::Text);
-        labelOption.palette.setColor(group, QPalette::Text, text);
-        labelOption.palette.setColor(
-            group,
-            QPalette::HighlightedText,
-            text);
-        q_ptr->QProxyStyle::drawControl(
-            QStyle::CE_ProgressBarLabel,
-            &labelOption,
-            painter,
-            widget);
+        const Qt::Alignment alignment = QStyle::visualAlignment(
+            option->direction,
+            option->textAlignment);
+        const QRectF labelRect(layout.labelRect);
+        painter->save();
+        painter->setClipRect(layout.labelRect, Qt::IntersectClip);
+        painter->setPen(text);
+        painter->setRenderHint(QPainter::TextAntialiasing, true);
+        if (option->state.testFlag(QStyle::State_Horizontal)) {
+            painter->drawText(layout.labelRect, alignment, option->text);
+        } else if (option->bottomToTop) {
+            painter->translate(labelRect.left(), labelRect.bottom());
+            painter->rotate(-90.0);
+            painter->drawText(
+                QRectF(0.0, 0.0, labelRect.height(), labelRect.width()),
+                alignment,
+                option->text);
+        } else {
+            painter->translate(labelRect.right(), labelRect.top());
+            painter->rotate(90.0);
+            painter->drawText(
+                QRectF(0.0, 0.0, labelRect.height(), labelRect.width()),
+                alignment,
+                option->text);
+        }
+        painter->restore();
     }
 }
 

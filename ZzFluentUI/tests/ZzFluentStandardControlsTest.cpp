@@ -6,6 +6,7 @@
 #include <QtGui/QAccessible>
 #include <QtGui/QAction>
 #include <QtGui/QActionGroup>
+#include <QtGui/QFont>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
@@ -759,6 +760,99 @@ private Q_SLOTS:
                      - verticalTrack.height() / 4)
                 <= 2);
         QVERIFY(verticalTrack.left() > vertical.width() / 2);
+    }
+
+    /** @brief 验证水平进度标签保留 QProgressBar 的逻辑文字对齐。 */
+    void honorsHorizontalProgressLabelAlignment()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const QColor text(Qt::blue);
+        QPalette palette;
+        palette.setColor(QPalette::All, QPalette::Mid, Qt::red);
+        palette.setColor(QPalette::All, QPalette::Highlight, Qt::green);
+        palette.setColor(QPalette::All, QPalette::Text, text);
+
+        const auto render = [&style, &palette](Qt::Alignment alignment) {
+            QProgressBar progress;
+            progress.setStyle(&style);
+            progress.setPalette(palette);
+            progress.setFont(QFont(QStringLiteral("DejaVu Sans"), 18));
+            progress.setRange(0, 100);
+            progress.setValue(50);
+            progress.setFormat(QStringLiteral("50%"));
+            progress.setAlignment(alignment | Qt::AlignVCenter);
+            progress.resize(180, 48);
+            QImage image(
+                progress.size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            progress.render(&painter);
+            return image;
+        };
+
+        const QRect leftText = zzColorBounds(
+            render(Qt::AlignLeft),
+            text);
+        const QRect rightText = zzColorBounds(
+            render(Qt::AlignRight),
+            text);
+        QVERIFY(!leftText.isEmpty());
+        QVERIFY(!rightText.isEmpty());
+        QVERIFY(leftText.left() <= 3);
+        QVERIFY(rightText.right() >= 176);
+        QVERIFY(leftText.left() + 40 < rightText.left());
+    }
+
+    /** @brief 验证竖向进度标签旋转，并由 bottomToTop 改变文字方向。 */
+    void rotatesVerticalProgressLabelAndHonorsBottomToTop()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const QColor text(Qt::blue);
+        const QColor indicator(Qt::green);
+        QPalette palette;
+        palette.setColor(QPalette::All, QPalette::Mid, Qt::red);
+        palette.setColor(QPalette::All, QPalette::Highlight, indicator);
+        palette.setColor(QPalette::All, QPalette::Text, text);
+
+        const auto render = [&style, &palette](bool bottomToTop) {
+            QProgressBar progress;
+            progress.setStyle(&style);
+            progress.setPalette(palette);
+            progress.setFont(QFont(QStringLiteral("DejaVu Sans"), 18));
+            progress.setOrientation(Qt::Vertical);
+            progress.setRange(0, 100);
+            progress.setValue(50);
+            progress.setFormat(QStringLiteral("50%"));
+            progress.setAlignment(Qt::AlignCenter);
+            progress.setTextDirection(
+                bottomToTop
+                    ? QProgressBar::BottomToTop
+                    : QProgressBar::TopToBottom);
+            progress.resize(64, 220);
+            QImage image(
+                progress.size(),
+                QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            progress.render(&painter);
+            return image;
+        };
+
+        const QImage bottomToTop = render(true);
+        const QImage topToBottom = render(false);
+        const QRect bottomToTopText = zzColorBounds(bottomToTop, text);
+        const QRect topToBottomText = zzColorBounds(topToBottom, text);
+        QVERIFY(!bottomToTopText.isEmpty());
+        QVERIFY(!topToBottomText.isEmpty());
+        QVERIFY(bottomToTopText.height() > bottomToTopText.width());
+        QVERIFY(topToBottomText.height() > topToBottomText.width());
+        QCOMPARE(
+            zzColorBounds(bottomToTop, indicator),
+            zzColorBounds(topToBottom, indicator));
+        QVERIFY(bottomToTop != topToBottom);
     }
 
     /** @brief 验证分离标签区域会进入进度条自然尺寸预算。 */
