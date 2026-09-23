@@ -595,9 +595,17 @@ QImage zzBuildTextMask(
         if (auto *progress = qobject_cast<QProgressBar *>(widget);
             progress != nullptr && progress->isTextVisible()
             && !progress->text().isEmpty()) {
+            QRect textBounds = progress->rect();
+            if (progress->orientation() == Qt::Horizontal) {
+                textBounds.adjust(0, 0, 0, -8);
+            } else if (progress->layoutDirection() == Qt::RightToLeft) {
+                textBounds.adjust(8, 0, 0, 0);
+            } else {
+                textBounds.adjust(0, 0, -8, 0);
+            }
             const QRect textRect = zzAlignedTextRect(
                 progress,
-                progress->rect(),
+                textBounds,
                 Qt::AlignCenter,
                 progress->text());
             zzPaintMaskRect(
@@ -1150,15 +1158,36 @@ private:
         verticalSlider->setValue(38);
         verticalSlider->setFixedHeight(120);
         layout->addWidget(verticalSlider, 0, Qt::AlignHCenter);
-        auto *progress = new QProgressBar(column);
-        progress->setRange(0, 100);
-        progress->setValue(68);
-        progress->setFormat(QStringLiteral("68% complete"));
-        layout->addWidget(progress);
-        auto *busyProgress = new QProgressBar(column);
+        auto *progressHost = new QWidget(column);
+        progressHost->setFixedHeight(112);
+        auto *progressRow = new QHBoxLayout(progressHost);
+        progressRow->setContentsMargins(0, 0, 0, 0);
+        progressRow->setSpacing(12);
+        auto *horizontalProgresses = new QVBoxLayout;
+        horizontalProgresses->setContentsMargins(0, 0, 0, 0);
+        horizontalProgresses->setSpacing(8);
+        auto *determinate = new QProgressBar(progressHost);
+        determinate->setRange(0, 100);
+        determinate->setValue(68);
+        determinate->setFormat(QStringLiteral("68% complete"));
+        auto *busyProgress = new QProgressBar(progressHost);
         busyProgress->setRange(0, 0);
         busyProgress->setTextVisible(false);
-        layout->addWidget(busyProgress);
+        auto *disabled = new QProgressBar(progressHost);
+        disabled->setRange(0, 100);
+        disabled->setValue(42);
+        disabled->setEnabled(false);
+        horizontalProgresses->addWidget(determinate);
+        horizontalProgresses->addWidget(busyProgress);
+        horizontalProgresses->addWidget(disabled);
+        auto *vertical = new QProgressBar(progressHost);
+        vertical->setOrientation(Qt::Vertical);
+        vertical->setRange(0, 100);
+        vertical->setValue(64);
+        vertical->setFixedSize(48, 112);
+        progressRow->addLayout(horizontalProgresses, 1);
+        progressRow->addWidget(vertical);
+        layout->addWidget(progressHost);
         auto *lcd = new QLCDNumber(6, column);
         lcd->setFrameStyle(QFrame::Box | QFrame::Plain);
         lcd->setSegmentStyle(QLCDNumber::Flat);
