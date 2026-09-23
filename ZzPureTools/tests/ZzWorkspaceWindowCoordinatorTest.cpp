@@ -297,8 +297,10 @@ void zzPatchTopologyScreenName(QByteArray *encoded, QStringView name)
     quint16 oldLength = 0;
     stream >> oldLength;
     Q_ASSERT(oldLength <= 256);
-    Q_ASSERT(stream.skipRawData(static_cast<qint64>(oldLength) * 2)
-        == static_cast<qint64>(oldLength) * 2);
+    const qint64 nameBytesSkipped =
+        stream.skipRawData(static_cast<qint64>(oldLength) * 2);
+    Q_ASSERT(nameBytesSkipped == static_cast<qint64>(oldLength) * 2);
+    Q_UNUSED(nameBytesSkipped);
 
     QByteArray replacement;
     QDataStream replacementStream(&replacement, QIODevice::WriteOnly);
