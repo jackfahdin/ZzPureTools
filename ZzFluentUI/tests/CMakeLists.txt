@@ -19,6 +19,7 @@ add_executable(ZzWorkspaceTransferRegistryPrivateTest
 target_link_libraries(ZzWorkspaceTransferRegistryPrivateTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzWorkspaceTransferRegistryPrivateTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceTransferRegistryPrivateTest)
+zz_enable_sanitizers(ZzWorkspaceTransferRegistryPrivateTest)
 add_test(NAME fluent.workspace-transfer-registry-private COMMAND ZzWorkspaceTransferRegistryPrivateTest)
 set_tests_properties(fluent.workspace-transfer-registry-private PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:ZzFluentUI>:$<TARGET_FILE_DIR:ZzCore>:$<TARGET_FILE_DIR:ZzLog>:$<TARGET_FILE_DIR:Qt6::Core>")
@@ -32,6 +33,7 @@ target_link_libraries(ZzWorkspaceTransferRegistryLifetimeTest PRIVATE
 )
 set_target_properties(ZzWorkspaceTransferRegistryLifetimeTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspaceTransferRegistryLifetimeTest)
+zz_enable_sanitizers(ZzWorkspaceTransferRegistryLifetimeTest)
 add_test(NAME fluent.workspace-transfer-registry-lifetime COMMAND ZzWorkspaceTransferRegistryLifetimeTest)
 set_tests_properties(fluent.workspace-transfer-registry-lifetime PROPERTIES
     LABELS "unit;fluent;widgets"
