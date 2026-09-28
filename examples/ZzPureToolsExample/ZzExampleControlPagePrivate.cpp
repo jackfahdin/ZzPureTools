@@ -23,6 +23,7 @@
 #include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
@@ -167,8 +168,12 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
             button = icon;
         } else {
             auto *tool = new QToolButton(host);
+            tool->setObjectName(QStringLiteral("zzExampleToolButton%1").arg(i));
             tool->setText(labels[i]);
             tool->setAutoRaise(i == 2);
+            tool->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            tool->setIconSize(QSize(18, 18));
+            tool->setMinimumSize(36, 36);
             button = tool;
         }
         ZzFluentUI::ZzControlAppearance::setButtonAppearance(button, appearances[i]);
@@ -213,9 +218,32 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
         });
         zzAdd(variants, reset);
     } else if (kind == ZzExampleControlKind::ToolButton) {
+        auto *icons = section(QCoreApplication::translate("ZzPureToolsExample", "纯图标与保持选中"));
+        for (int i = 0; i < 3; ++i) {
+            auto *button = new QToolButton(icons);
+            button->setObjectName(QStringLiteral("zzExampleToolButtonIcon%1").arg(i));
+            const QString label = QCoreApplication::translate("ZzPureToolsExample", "收藏");
+            button->setAccessibleName(label);
+            button->setToolTip(label);
+            button->setIconSize(QSize(18, 18));
+            button->setMinimumSize(36, 36);
+            button->setAutoRaise(i == 1);
+            button->setCheckable(true);
+            button->setChecked(i == 2);
+            QObject::connect(button, &QToolButton::toggled, status, [this](bool checked) {
+                status->setText(checked
+                    ? QCoreApplication::translate("ZzPureToolsExample", "已选中")
+                    : QCoreApplication::translate("ZzPureToolsExample", "未选中"));
+            });
+            zzAdd(icons, button);
+        }
         auto *variants = section(QCoreApplication::translate("ZzPureToolsExample", "菜单按钮"));
         auto *tool = new QToolButton(variants);
+        tool->setObjectName(QStringLiteral("zzExampleToolButtonMenu"));
         tool->setText(QCoreApplication::translate("ZzPureToolsExample", "更多操作"));
+        tool->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        tool->setIconSize(QSize(18, 18));
+        tool->setMinimumHeight(36);
         auto *menu = new QMenu(tool);
         menu->addAction(QCoreApplication::translate("ZzPureToolsExample", "复制"), status, [this] {
             status->setText(QCoreApplication::translate("ZzPureToolsExample", "已选择复制"));
@@ -226,12 +254,46 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
         tool->setMenu(menu);
         tool->setPopupMode(QToolButton::InstantPopup);
         zzAdd(variants, tool);
+        refreshToolIcons();
+    }
+}
+
+void ZzExampleControlPagePrivate::refreshToolIcons()
+{
+    auto *style = qobject_cast<ZzFluentUI::ZzFluentStyle *>(q_ptr->style());
+    if (style == nullptr) {
+        return;
+    }
+    const auto descriptor = ZzFluentUI::ZzIconDescriptor::fromFontIcon(ZzFluentUI::ZzFontIcon::Star);
+    for (auto *tool : q_ptr->findChildren<QToolButton *>()) {
+        if (!tool->objectName().startsWith(QStringLiteral("zzExampleToolButton"))) {
+            continue;
+        }
+        QIcon icon;
+        for (const auto mode : {QIcon::Normal, QIcon::Disabled, QIcon::Active, QIcon::Selected}) {
+            const auto group = mode == QIcon::Disabled ? QPalette::Disabled : QPalette::Active;
+            const auto role = tool->property("accent").toBool() && mode != QIcon::Disabled
+                ? QPalette::HighlightedText : QPalette::ButtonText;
+            const auto pixmap = style->iconPixmap(descriptor, tool->iconSize(),
+                q_ptr->devicePixelRatioF(), q_ptr->palette().color(group, role), tool->layoutDirection());
+            icon.addPixmap(pixmap, mode, QIcon::Off);
+            icon.addPixmap(pixmap, mode, QIcon::On);
+        }
+        tool->setIcon(icon);
     }
 }
 
 void ZzExampleControlPagePrivate::buildSelection(ZzExampleControlKind kind)
 {
     auto *host = section(QCoreApplication::translate("ZzPureToolsExample", "选择与禁用状态"));
+    if (kind == ZzExampleControlKind::RadioButton) {
+        auto *column = new QWidget(host);
+        auto *choices = new QVBoxLayout(column);
+        choices->setContentsMargins(0, 0, 0, 0);
+        choices->setSpacing(8);
+        zzAdd(host, column);
+        host = column;
+    }
     auto *group = kind == ZzExampleControlKind::RadioButton ? new QButtonGroup(host) : nullptr;
     const std::array labels { QCoreApplication::translate("ZzPureToolsExample", "选项一"),
         QCoreApplication::translate("ZzPureToolsExample", "选项二"),
@@ -258,6 +320,14 @@ void ZzExampleControlPagePrivate::buildSelection(ZzExampleControlKind kind)
                                     : QCoreApplication::translate("ZzPureToolsExample", "未选中")));
             });
         zzAdd(host, button);
+    }
+    if (kind == ZzExampleControlKind::RadioButton) {
+        auto *disabled = new QRadioButton(
+            QCoreApplication::translate("ZzPureToolsExample", "已选中（禁用）"), host);
+        disabled->setAutoExclusive(false);
+        disabled->setChecked(true);
+        disabled->setEnabled(false);
+        zzAdd(host, disabled);
     }
     if (kind == ZzExampleControlKind::CheckBox) {
         auto *mixed = section(QCoreApplication::translate("ZzPureToolsExample", "三态选择"));

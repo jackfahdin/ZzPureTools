@@ -115,6 +115,70 @@ class ZzCommandStatusSurfacesTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 普通工具按钮在静止与禁用时仍有表面，轻量按钮静止透明。 */
+    void distinguishesStandardAndAutoRaiseToolSurfaces()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionToolButton option;
+        option.rect = QRect(0, 0, 40, 32);
+        option.palette = style.standardPalette();
+        option.state = QStyle::State_Enabled | QStyle::State_Raised;
+        const auto standard = zzRenderPrimitive(&style, QStyle::PE_PanelButtonTool, option);
+        QVERIFY(zzOpaquePixelCount(standard) > 0);
+        option.state |= QStyle::State_AutoRaise;
+        QCOMPARE(zzOpaquePixelCount(zzRenderPrimitive(
+            &style, QStyle::PE_PanelButtonTool, option)), 0);
+        option.state = QStyle::State_None;
+        QVERIFY(zzOpaquePixelCount(zzRenderPrimitive(
+            &style, QStyle::PE_PanelButtonTool, option)) > 0);
+    }
+
+    /** @brief 即时菜单箭头独占尾部整高区域，不挤到文字右下角，并镜像 RTL。 */
+    void reservesTrailingMenuAreaForInstantPopup()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzToolButtonProbe button;
+        button.setStyle(&style);
+        QMenu menu;
+        menu.addAction(QStringLiteral("Open"));
+        button.setMenu(&menu);
+        button.setPopupMode(QToolButton::InstantPopup);
+        button.resize(120, 36);
+        for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            button.setLayoutDirection(direction);
+            const auto option = button.styleOption();
+            const auto body = style.subControlRect(QStyle::CC_ToolButton, &option,
+                QStyle::SC_ToolButton, &button);
+            const auto arrow = style.subControlRect(QStyle::CC_ToolButton, &option,
+                QStyle::SC_ToolButtonMenu, &button);
+            QCOMPARE(arrow.center().y(), button.rect().center().y());
+            QVERIFY(!body.intersects(arrow));
+            QVERIFY(direction == Qt::LeftToRight ? arrow.left() > body.right()
+                                                 : arrow.right() < body.left());
+        }
+        QPixmap pixmap(16, 16);
+        pixmap.fill(Qt::red);
+        button.setIcon(QIcon(pixmap));
+        button.setIconSize(QSize(16, 16));
+        button.resize(36, 32);
+        auto narrow = button.styleOption();
+        narrow.state = QStyle::State_Enabled | QStyle::State_Raised;
+        QImage image(button.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawComplexControl(QStyle::CC_ToolButton, &narrow, &painter, &button);
+        painter.end();
+        int redPixels = 0;
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                redPixels += image.pixelColor(x, y) == QColor(Qt::red) ? 1 : 0;
+            }
+        }
+        QCOMPARE(redPixels, 16 * 16);
+    }
+
     void exposesStableMetricsWithoutShrinkingContent()
     {
         ZzFluentUI::ZzThemeController controller;
@@ -354,7 +418,7 @@ private Q_SLOTS:
 
         QStyleOption normalButton;
         normalButton.rect = QRect(0, 0, 48, 32);
-        normalButton.state = QStyle::State_Enabled;
+        normalButton.state = QStyle::State_Enabled | QStyle::State_AutoRaise;
         QCOMPARE(
             zzOpaquePixelCount(zzRenderPrimitive(
                 &style,
@@ -382,6 +446,7 @@ private Q_SLOTS:
                 ZzFluentUI::ZzColorToken::ControlFillPressed)));
 
         QStyleOption checkedButton = normalButton;
+        checkedButton.state &= ~QStyle::State_AutoRaise;
         checkedButton.state |= QStyle::State_On;
         const QImage checked = zzRenderPrimitive(
             &style,
@@ -389,7 +454,7 @@ private Q_SLOTS:
             checkedButton);
         QVERIFY(zzContainsColor(
             checked,
-            snapshot->color(ZzFluentUI::ZzColorToken::ControlFill)));
+            snapshot->color(ZzFluentUI::ZzColorToken::ControlFillPressed)));
         QVERIFY(zzContainsColor(
             checked,
             snapshot->color(ZzFluentUI::ZzColorToken::ControlStroke)));

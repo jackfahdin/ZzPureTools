@@ -153,6 +153,34 @@ private Q_SLOTS:
         QCOMPARE(style.styleHint(QStyle::SH_Menu_SubMenuPopupDelay), 200);
     }
 
+    /** @brief 单选框提供可见交互反馈，禁用后不会随 hover/press 改变。 */
+    void radioIndicatorRespondsOnlyWhenEnabled()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionButton option;
+        option.rect = QRect(0, 0, 18, 18);
+        option.palette = style.standardPalette();
+        const auto render = [&style, &option](QStyle::State state) {
+            option.state = state;
+            QImage image(18, 18, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawPrimitive(QStyle::PE_IndicatorRadioButton, &option, &painter);
+            painter.end();
+            return image;
+        };
+        for (const auto selected : {QStyle::State_Off, QStyle::State_On}) {
+            const auto normal = render(QStyle::State_Enabled | selected);
+            const auto hovered = render(QStyle::State_Enabled | selected | QStyle::State_MouseOver);
+            const auto pressed = render(QStyle::State_Enabled | selected | QStyle::State_Sunken);
+            QVERIFY(normal != hovered);
+            QVERIFY(hovered != pressed);
+            const auto disabled = render(selected);
+            QCOMPARE(disabled, render(selected | QStyle::State_MouseOver | QStyle::State_Sunken));
+        }
+    }
+
     void preservesKeyboardSemantics()
     {
         QWidget host;

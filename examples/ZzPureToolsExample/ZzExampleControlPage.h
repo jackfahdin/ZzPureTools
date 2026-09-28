@@ -26,6 +26,10 @@ public:
     /** @brief 释放私有展示状态和所属控件。 */
     ~ZzExampleControlPage() override;
 
+protected:
+    /** @brief 主题或屏幕缩放变化后刷新工具按钮的演示图标。 */
+    bool event(QEvent *event) override;
+
 private:
     std::unique_ptr<ZzExampleControlPagePrivate> d_ptr;
 };

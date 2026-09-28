@@ -669,11 +669,56 @@ QImage ZzFluentStylePrivate::renderIconShape(
     return image;
 }
 
+void ZzFluentStylePrivate::drawRadioIndicator(
+    const QStyleOption *option, QPainter *painter) const
+{
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const bool checked = option->state.testFlag(QStyle::State_On);
+    const bool hovered = enabled && option->state.testFlag(QStyle::State_MouseOver);
+    const bool pressed = enabled && option->state.testFlag(QStyle::State_Sunken);
+    const qreal diameter = qMin(option->rect.width(), option->rect.height()) - 2.0;
+    if (diameter <= 0.0) {
+        return;
+    }
+    const QPointF center = QRectF(option->rect).center();
+    const qreal radius = diameter / 2.0;
+    QColor stroke = option->palette.color(
+        enabled ? QPalette::Active : QPalette::Disabled, QPalette::Text);
+    const bool highContrast = snapshot->mode() == ZzThemeMode::HighContrast;
+    stroke.setAlphaF(highContrast ? 1.0F : enabled ? 0.6F : 0.35F);
+    QColor fill = snapshot->color(!enabled ? ZzColorToken::ControlFillDisabled
+        : pressed ? ZzColorToken::ControlFillPressed
+        : hovered ? ZzColorToken::ControlFillHover : ZzColorToken::ControlFill);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    if (checked) {
+        // 选中环本身使用强调色，不再叠加复选框的深色轮廓。
+        fill = enabled ? ZzControlAppearancePrivate::fill(option->palette, hovered, pressed)
+                       : stroke;
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(fill);
+        painter->drawEllipse(center, radius, radius);
+        const qreal innerRadius = radius / (pressed ? 2.5 : hovered ? 1.8 : 2.0);
+        painter->setBrush(option->palette.color(QPalette::Window));
+        painter->drawEllipse(center, innerRadius, innerRadius);
+    } else {
+        painter->setPen(QPen(stroke, 1.0));
+        painter->setBrush(fill);
+        painter->drawEllipse(center, radius - 0.5, radius - 0.5);
+    }
+    painter->restore();
+}
+
 void ZzFluentStylePrivate::drawCheckIndicator(
     const QStyleOption *option,
     QPainter *painter,
     bool radio) const
 {
+    if (radio) {
+        drawRadioIndicator(option, painter);
+        return;
+    }
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     const bool enabled = option->state.testFlag(QStyle::State_Enabled);
@@ -694,12 +739,8 @@ void ZzFluentStylePrivate::drawCheckIndicator(
         -1.0);
     painter->setPen(QPen(border, 1.0));
     painter->setBrush(fill);
-    if (radio) {
-        painter->drawEllipse(rect);
-    } else {
-        constexpr qreal zzCheckCornerRadius = 3.0;
-        painter->drawRoundedRect(rect, zzCheckCornerRadius, zzCheckCornerRadius);
-    }
+    constexpr qreal zzCheckCornerRadius = 3.0;
+    painter->drawRoundedRect(rect, zzCheckCornerRadius, zzCheckCornerRadius);
     if (marked) {
         const QColor mark = option->palette.color(
             group,
@@ -709,10 +750,6 @@ void ZzFluentStylePrivate::drawCheckIndicator(
             painter->drawLine(
                 QPointF(rect.left() + 4.0, rect.center().y()),
                 QPointF(rect.right() - 4.0, rect.center().y()));
-        } else if (radio) {
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(mark);
-            painter->drawEllipse(rect.center(), 4.0, 4.0);
         } else {
             QPainterPath path;
             path.moveTo(rect.left() + 4.0, rect.center().y());
@@ -831,11 +868,14 @@ void ZzFluentStylePrivate::drawToolButtonPanel(
         && !(widget != nullptr
              && widget->property("zzFluentSuppressCheckedSurface").toBool());
     const bool accentAppearance = widget != nullptr && widget->property("accent").toBool();
-    if (!accentAppearance && (!enabled || (!pressed && !hovered && !checked))) {
+    const bool subtle = !accentAppearance
+        && (option->state.testFlag(QStyle::State_AutoRaise)
+            || (widget != nullptr && widget->property("zzFluentSubtle").toBool()));
+    if (subtle && (!enabled || (!pressed && !hovered && !checked))) {
         return;
     }
 
-    const ZzColorToken fillToken = pressed
+    const ZzColorToken fillToken = !enabled ? ZzColorToken::ControlFillDisabled : (pressed || checked)
         ? ZzColorToken::ControlFillPressed
         : (hovered
                ? ZzColorToken::ControlFillHover
@@ -845,7 +885,7 @@ void ZzFluentStylePrivate::drawToolButtonPanel(
     const qreal radius = snapshot->metric(
         ZzMetricToken::CornerRadiusSmall);
     QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
-    if (!checked) {
+    if (subtle || accentAppearance) {
         stroke.setAlpha(0);
     }
 
@@ -865,6 +905,52 @@ void ZzFluentStylePrivate::drawToolButtonPanel(
         radius,
         radius);
     painter->restore();
+}
+
+void ZzFluentStylePrivate::drawToolButtonWithMenu(
+    const QStyleOptionToolButton *option, QPainter *painter, const QWidget *widget) const
+{
+    QStyleOptionToolButton button = *option;
+    if (widget != nullptr && widget->property("accent").toBool()) {
+        const QColor text = button.state.testFlag(QStyle::State_Enabled)
+            ? ZzControlAppearancePrivate::text(button.palette)
+            : button.palette.color(QPalette::Disabled, QPalette::ButtonText);
+        button.palette.setColor(QPalette::ButtonText, text);
+        button.palette.setColor(QPalette::WindowText, text);
+    }
+    drawToolButtonPanel(&button, painter, widget);
+    const QRect body = q_ptr->subControlRect(
+        QStyle::CC_ToolButton, option, QStyle::SC_ToolButton, widget);
+    const QRect menu = q_ptr->subControlRect(
+        QStyle::CC_ToolButton, option, QStyle::SC_ToolButtonMenu, widget);
+    QStyleOptionToolButton label = button;
+    const int contentWidth = button.icon.isNull() ? 0 : button.iconSize.width();
+    const int margin = qMin(6, qMax(0, (body.width() - contentWidth) / 2));
+    label.rect = body.adjusted(margin, 2, -margin, -2);
+    // 菜单预留已由统一几何处理，基础标签绘制不再预留旧版角落箭头。
+    label.features &= ~(QStyleOptionToolButton::HasMenu | QStyleOptionToolButton::MenuButtonPopup);
+    if (button.subControls.testFlag(QStyle::SC_ToolButton)) {
+        q_ptr->QProxyStyle::drawControl(QStyle::CE_ToolButtonLabel, &label, painter, widget);
+    }
+    if (button.subControls.testFlag(QStyle::SC_ToolButtonMenu)
+        || !button.features.testFlag(QStyleOptionToolButton::MenuButtonPopup)) {
+        QStyleOption arrow = button;
+        arrow.rect = menu;
+        q_ptr->drawPrimitive(QStyle::PE_IndicatorArrowDown, &arrow, painter, widget);
+    }
+    if (button.features.testFlag(QStyleOptionToolButton::MenuButtonPopup)) {
+        const qreal x = button.direction == Qt::LeftToRight ? menu.left() : menu.right();
+        painter->save();
+        painter->setPen(snapshot->color(ZzColorToken::ControlStroke));
+        painter->drawLine(QPointF(x, menu.top() + 7), QPointF(x, menu.bottom() - 7));
+        painter->restore();
+    }
+    if (button.state.testFlag(QStyle::State_HasFocus)) {
+        QStyleOptionFocusRect focus;
+        focus.QStyleOption::operator=(button);
+        focus.rect = button.rect.adjusted(2, 2, -2, -2);
+        q_ptr->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, painter, widget);
+    }
 }
 
 void ZzFluentStylePrivate::drawToolBarPanel(

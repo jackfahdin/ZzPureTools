@@ -4,6 +4,18 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>纯图标与保持选中</source>
+        <translation>Icon-only and toggle buttons</translation>
+    </message>
+    <message>
+        <source>收藏</source>
+        <translation>Favorite</translation>
+    </message>
+    <message>
+        <source>已选中（禁用）</source>
+        <translation>Selected (disabled)</translation>
+    </message>
+    <message>
         <source>独立预览当前控件，尝试不同状态与交互；颜色跟随应用主题。</source>
         <translation>Explore this control and its states. Colors follow the application theme.</translation>
     </message>

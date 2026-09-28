@@ -45,6 +45,9 @@ inline constexpr int zzComboBoxArrowWidth = 32;
 /** @brief 基础样式标签在编辑区域内消耗的水平逻辑像素。 */
 inline constexpr int zzComboBoxLabelHorizontalMargin = 4;
 
+/** @brief 工具按钮菜单箭头区宽度，与尺寸提示和命中区域共用。 */
+inline constexpr int zzToolButtonMenuWidth = 20;
+
 /** @brief 持有主题快照、非拥有控制器引用和 Widgets 私有缓存。 */
 class ZzFluentStylePrivate final
 {
@@ -88,6 +91,8 @@ public:
         const QStyleOption *option,
         QPainter *painter) const;
 
+    /** @brief 绘制强调色圆环单选框，按交互状态调整内圆。 */
+    void drawRadioIndicator(const QStyleOption *option, QPainter *painter) const;
     /** @brief 绘制复选框或单选框指示器。 */
     void drawCheckIndicator(
         const QStyleOption *option,
@@ -98,11 +103,14 @@ public:
         const QStyleOptionButton *option,
         QPainter *painter,
         const QWidget *widget) const;
-    /** @brief 绘制标准工具按钮的轻量交互表面。 */
+    /** @brief 绘制工具按钮的普通、轻量或强调色交互表面。 */
     void drawToolButtonPanel(
         const QStyleOption *option,
         QPainter *painter,
         const QWidget *widget) const;
+    /** @brief 在同一表面绘制菜单工具按钮，文字与尾部箭头各占独立区域。 */
+    void drawToolButtonWithMenu(const QStyleOptionToolButton *option,
+        QPainter *painter, const QWidget *widget) const;
     /** @brief 绘制标准工具栏背景和停靠方向边界。 */
     void drawToolBarPanel(
         const QStyleOption *option,

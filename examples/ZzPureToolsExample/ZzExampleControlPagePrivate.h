@@ -22,6 +22,8 @@ public:
     QWidget *section(const QString &title);
     /** @brief 构造按钮、图标按钮或工具按钮的变体。 */
     void buildButtons(ZzExampleControlKind kind);
+    /** @brief 使用缓存的字体图标生成适配当前主题、禁用态和 DPR 的 QIcon。 */
+    void refreshToolIcons();
     /** @brief 构造单选、复选或开关状态。 */
     void buildSelection(ZzExampleControlKind kind);
     /** @brief 构造文本输入或组合框的独立示例。 */

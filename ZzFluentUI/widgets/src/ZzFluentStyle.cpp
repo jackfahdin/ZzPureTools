@@ -19,6 +19,8 @@
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolButton>
+#include <QtGui/QPainterPath>
 
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentPainter.h>
@@ -151,7 +153,11 @@ int ZzFluentStyle::pixelMetric(
             ZzMetricToken::HorizontalPadding));
     case PM_IndicatorWidth:
     case PM_IndicatorHeight:
+    case PM_ExclusiveIndicatorWidth:
+    case PM_ExclusiveIndicatorHeight:
         return 18;
+    case PM_RadioButtonLabelSpacing:
+        return 8;
     case PM_SliderLength:
         return 20;
     case PM_SliderThickness:
@@ -299,6 +305,13 @@ QSize ZzFluentStyle::sizeFromContents(
     }
     if (type == CT_ToolButton) {
         result = result.expandedTo(QSize(32, 32));
+        if (const auto *tool = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+            tool != nullptr && tool->features.testFlag(QStyleOptionToolButton::HasMenu)) {
+            result.setWidth(qMax(result.width(), contentsSize.width() + 12 + zzToolButtonMenuWidth));
+        }
+    }
+    if (type == CT_RadioButton) {
+        result.setHeight(qMax(result.height(), 28));
     }
     if (type == CT_ProgressBar) {
         const auto *progress = qstyleoption_cast<
@@ -401,6 +414,24 @@ void ZzFluentStyle::drawPrimitive(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (element == PE_IndicatorArrowDown && option != nullptr && painter != nullptr
+        && qobject_cast<const QToolButton *>(widget) != nullptr) {
+        // 菜单按钮使用细线折角，位置仍由 Qt 的菜单子区域计算。
+        const QPointF center = QRectF(option->rect).center();
+        const qreal halfWidth = qMin(3.0, option->rect.width() / 4.0);
+        QPainterPath path;
+        path.moveTo(center + QPointF(-halfWidth, -halfWidth / 2.0));
+        path.lineTo(center + QPointF(0, halfWidth / 2.0));
+        path.lineTo(center + QPointF(halfWidth, -halfWidth / 2.0));
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(QPen(option->palette.color(
+            option->state.testFlag(State_Enabled) ? QPalette::Active : QPalette::Disabled,
+            QPalette::ButtonText), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter->drawPath(path);
+        painter->restore();
+        return;
+    }
     if ((element == PE_IndicatorCheckBox
          || element == PE_IndicatorRadioButton)
         && option != nullptr && painter != nullptr) {
@@ -673,6 +704,13 @@ void ZzFluentStyle::drawComplexControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_ToolButton && painter != nullptr) {
+        if (const auto *tool = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+            tool != nullptr && tool->features.testFlag(QStyleOptionToolButton::HasMenu)) {
+            d_ptr->drawToolButtonWithMenu(tool, painter, widget);
+            return;
+        }
+    }
     if (control == CC_ToolButton && widget != nullptr
         && widget->property("accent").toBool()) {
         if (const auto *button = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
@@ -771,6 +809,20 @@ QRect ZzFluentStyle::subControlRect(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_ToolButton
+        && (subControl == SC_ToolButton || subControl == SC_ToolButtonMenu)) {
+        if (const auto *tool = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+            tool != nullptr && tool->features.testFlag(QStyleOptionToolButton::HasMenu)) {
+            // 固定宽度的标题栏按钮也必须保留完整图标；紧凑时优先收窄箭头区。
+            const int iconSpace = tool->icon.isNull() ? 0 : tool->iconSize.width() + 4;
+            const int menuWidth = qMin(zzToolButtonMenuWidth,
+                qMax(0, tool->rect.width() - iconSpace));
+            const QRect logical = subControl == SC_ToolButtonMenu
+                ? QRect(tool->rect.right() - menuWidth + 1, tool->rect.top(), menuWidth, tool->rect.height())
+                : tool->rect.adjusted(0, 0, -menuWidth, 0);
+            return visualRect(tool->direction, tool->rect, logical);
+        }
+    }
     QRect result = QProxyStyle::subControlRect(
         control,
         option,
