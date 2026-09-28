@@ -1307,6 +1307,19 @@ ZzWorkspaceLayoutCodecPrivate::encodeVersionThree(
     return ZzCore::ZzResult<QByteArray>::success(std::move(encoded));
 }
 
+QByteArray ZzWorkspaceLayoutCodecPrivate::stackedCenterState()
+{
+    // 复用布局信封的纯值槽位；标记无标签模式，不保存应用页面或伪造 GUI 标签组。
+    static const QByteArray state = [] {
+        ZzLayoutState::ZzSplitProjection split;
+        split.root.groupId = QStringLiteral("zz-stacked-center");
+        split.activeGroup = split.root.groupId;
+        split.groupOrder = {split.root.groupId};
+        return zzWriteSplit(split);
+    }();
+    return state;
+}
+
 ZzCore::ZzResult<QByteArray>
 ZzWorkspaceLayoutCodecPrivate::canonicalizeSplit(const QByteArray &encoded)
 {

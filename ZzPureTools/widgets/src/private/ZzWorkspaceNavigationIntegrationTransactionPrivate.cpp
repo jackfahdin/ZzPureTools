@@ -6,6 +6,7 @@
 #include <QtCore/QPersistentModelIndex>
 #include <QtCore/QPointer>
 #include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
@@ -133,7 +134,8 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
 {
     auto *const window = qobject_cast<ZzApplicationWindow *>(shell.host.data());
     if (window == nullptr || shell.q_ptr == nullptr
-        || shell.workspaceRoot == nullptr || shell.splitWorkspace == nullptr
+        || shell.workspaceRoot == nullptr
+        || (shell.splitWorkspace == nullptr && shell.centerStack == nullptr)
         || shell.activityModel == nullptr) {
         return zzIntegrationFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -190,11 +192,13 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
             panelId);
     }
 
-    ZzFluentUI::ZzTabWidget *const tabs = shell.splitWorkspace->tabWidget(
-        shell.splitWorkspace->activeGroupId());
+    ZzFluentUI::ZzTabWidget *const tabs = shell.splitWorkspace != nullptr
+        ? shell.splitWorkspace->tabWidget(shell.splitWorkspace->activeGroupId())
+        : nullptr;
     ZzFluentUI::ZzSidePane *const pane = zzIsLeftArea(area)
         ? shell.leftSidePane.data() : shell.rightSidePane.data();
-    if (tabs == nullptr || pane == nullptr || pane->panelStack() == nullptr) {
+    if ((tabs == nullptr && shell.centerStack == nullptr)
+        || pane == nullptr || pane->panelStack() == nullptr) {
         return zzIntegrationFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("Workspace navigation targets are unavailable"),
@@ -206,6 +210,8 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
     const QPointer<QWidget> rootGuard(shell.workspaceRoot);
     const QPointer<ZzFluentUI::ZzSplitWorkspace> splitGuard(
         shell.splitWorkspace);
+    const QPointer<QStackedWidget> stackGuard(shell.centerStack);
+    const bool stacked = stackGuard != nullptr;
     const QPointer<QAbstractItemModel> activityModelGuard(shell.activityModel);
     const QPointer<QWidget> bodyGuard(application->body);
     QWidget *const bodyIdentity = application->bodyIdentity;
@@ -229,8 +235,18 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
         shell.rightSidePane, shell.rightActivityBar,
         shell.rightCurrentPanel, shell.rightPaneExpanded);
     const ZzRouteId routeBefore = controllerIdentity->currentRoute();
-    const int currentTabBefore = tabs->currentIndex();
-    const int tabCountBefore = tabs->count();
+    const auto centerAlive = [&] {
+        return stacked ? stackGuard != nullptr : tabsGuard != nullptr;
+    };
+    const auto centerIndexOf = [&](QWidget *page) {
+        return stacked ? stackGuard->indexOf(page) : tabsGuard->indexOf(page);
+    };
+    const auto centerCount = [&] {
+        return stacked ? stackGuard->count() : tabsGuard->count();
+    };
+    const int currentTabBefore = stacked
+        ? stackGuard->currentIndex() : tabs->currentIndex();
+    const int tabCountBefore = centerCount();
     bool navigationRegistered = false;
     bool pageAdded = false;
     bool centralTaken = false;
@@ -246,10 +262,12 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
     const auto surfacesIntact = [&] {
         return shellAlive() && applicationAlive()
             && rootGuard != nullptr && rootGuard == shell.workspaceRoot
-            && splitGuard != nullptr && splitGuard == shell.splitWorkspace
+            && (stacked
+                ? stackGuard != nullptr && stackGuard == shell.centerStack
+                : splitGuard != nullptr && splitGuard == shell.splitWorkspace)
             && activityModelGuard != nullptr
             && activityModelGuard == shell.activityModel
-            && tabsGuard != nullptr && tabsGuard == tabsIdentity
+            && (stacked || (tabsGuard != nullptr && tabsGuard == tabsIdentity))
             && paneGuard != nullptr && paneGuard == pane
             && paneGuard == (zzIsLeftArea(area)
                     ? shell.leftSidePane : shell.rightSidePane)
@@ -399,12 +417,20 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
         QObject::disconnect(shell.navigationTabCloseConnection);
         shell.navigationTabPinnedConnection = {};
         shell.navigationTabCloseConnection = {};
-        if (pageAdded && tabsGuard != nullptr && pageGuard != nullptr) {
-            const int currentPageIndex = tabsGuard->indexOf(pageGuard);
+        QObject::disconnect(shell.navigationRouteConnection);
+        QObject::disconnect(shell.navigationActivationConnection);
+        shell.navigationRouteConnection = {};
+        shell.navigationActivationConnection = {};
+        if (pageAdded && centerAlive() && pageGuard != nullptr) {
+            const int currentPageIndex = centerIndexOf(pageGuard);
             if (currentPageIndex >= 0) {
-                tabsGuard->removeTab(currentPageIndex);
+                if (stacked) {
+                    stackGuard->removeWidget(pageGuard);
+                } else {
+                    tabsGuard->removeTab(currentPageIndex);
+                }
                 if (!shellAlive() || !applicationAlive()
-                    || tabsGuard == nullptr || pageGuard == nullptr) {
+                    || !centerAlive() || pageGuard == nullptr) {
                     return false;
                 }
                 if (pageGuard->parent() != nullptr) {
@@ -475,12 +501,16 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
             }
             centralTaken = false;
         }
-        if (tabsGuard != nullptr && tabsGuard->count() == tabCountBefore
+        if (centerAlive() && centerCount() == tabCountBefore
             && currentTabBefore >= -1
-            && currentTabBefore < tabsGuard->count()) {
-            tabsGuard->setCurrentIndex(currentTabBefore);
+            && currentTabBefore < centerCount()) {
+            if (stacked) {
+                stackGuard->setCurrentIndex(currentTabBefore);
+            } else {
+                tabsGuard->setCurrentIndex(currentTabBefore);
+            }
             if (!shellAlive() || !applicationAlive()
-                || tabsGuard == nullptr) {
+                || !centerAlive()) {
                 return false;
             }
         }
@@ -532,41 +562,44 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
         return fail(QStringLiteral("Page host detachment was interrupted"));
     }
 
-    const int integratedTabIndex = tabsGuard->addTab(
-        pageGuard, normalizedTabTitle);
+    const int integratedTabIndex = stacked ? stackGuard->addWidget(pageGuard)
+        : tabsGuard->addTab(pageGuard, normalizedTabTitle);
     pageAdded = integratedTabIndex >= 0;
     if (!pageAdded || !identitiesIntact()
-        || tabsGuard == nullptr || tabsGuard != tabsIdentity
-        || tabsGuard->indexOf(pageGuard) != integratedTabIndex
-        || !splitGuard->isAncestorOf(pageGuard)) {
+        || !centerAlive()
+        || centerIndexOf(pageGuard) != integratedTabIndex
+        || !(stacked ? stackGuard->isAncestorOf(pageGuard)
+                     : splitGuard->isAncestorOf(pageGuard))) {
         return fail(QStringLiteral("Page host tab insertion was interrupted"));
     }
-    tabsGuard->setTabPinned(integratedTabIndex, true);
-    if (!shellAlive()) {
-        return zzIntegrationFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace was destroyed while fixing the page tab"),
-            panelId);
-    }
-    if (!identitiesIntact() || tabsGuard == nullptr || pageGuard == nullptr) {
-        return fail(QStringLiteral("Page host fixed tab state was interrupted"));
-    }
-    const int fixedTabIndex = tabsGuard->indexOf(pageGuard);
-    if (fixedTabIndex < 0 || !tabsGuard->isTabPinned(fixedTabIndex)) {
-        return fail(QStringLiteral("Page host fixed tab state was interrupted"));
-    }
-    tabsGuard->setTabCloseEnabled(fixedTabIndex, false);
-    if (!shellAlive()) {
-        return zzIntegrationFailure<void>(
-            ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("Workspace was destroyed while fixing the page tab"),
-            panelId);
-    }
-    if (!identitiesIntact() || tabsGuard == nullptr || pageGuard == nullptr
-        || tabsGuard->indexOf(pageGuard) != fixedTabIndex
-        || !tabsGuard->isTabPinned(fixedTabIndex)
-        || tabsGuard->isTabCloseEnabled(fixedTabIndex)) {
-        return fail(QStringLiteral("Page host fixed tab state was interrupted"));
+    if (!stacked) {
+        tabsGuard->setTabPinned(integratedTabIndex, true);
+        if (!shellAlive()) {
+            return zzIntegrationFailure<void>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Workspace was destroyed while fixing the page tab"),
+                panelId);
+        }
+        if (!identitiesIntact() || tabsGuard == nullptr || pageGuard == nullptr) {
+            return fail(QStringLiteral("Page host fixed tab state was interrupted"));
+        }
+        const int fixedTabIndex = tabsGuard->indexOf(pageGuard);
+        if (fixedTabIndex < 0 || !tabsGuard->isTabPinned(fixedTabIndex)) {
+            return fail(QStringLiteral("Page host fixed tab state was interrupted"));
+        }
+        tabsGuard->setTabCloseEnabled(fixedTabIndex, false);
+        if (!shellAlive()) {
+            return zzIntegrationFailure<void>(
+                ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Workspace was destroyed while fixing the page tab"),
+                panelId);
+        }
+        if (!identitiesIntact() || tabsGuard == nullptr || pageGuard == nullptr
+            || tabsGuard->indexOf(pageGuard) != fixedTabIndex
+            || !tabsGuard->isTabPinned(fixedTabIndex)
+            || tabsGuard->isTabCloseEnabled(fixedTabIndex)) {
+            return fail(QStringLiteral("Page host fixed tab state was interrupted"));
+        }
     }
 
     QWidget *const takenBody = windowGuard->takeCentralWidget();
@@ -576,34 +609,51 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
         || layoutGuard == nullptr || layoutGuard->count() != 0) {
         return fail(QStringLiteral("Application body release was interrupted"));
     }
-    shell.navigationTabPinnedConnection = QObject::connect(
-        tabsGuard,
-        &ZzFluentUI::ZzTabWidget::tabPinnedChanged,
-        shell.q_ptr,
-        [fixedPage = pageGuard, fixedTabs = tabsGuard](int, bool pinned) {
-            if (pinned || fixedPage == nullptr || fixedTabs == nullptr) {
-                return;
+    if (!stacked) {
+        shell.navigationTabPinnedConnection = QObject::connect(
+            tabsGuard,
+            &ZzFluentUI::ZzTabWidget::tabPinnedChanged,
+            shell.q_ptr,
+            [fixedPage = pageGuard, fixedTabs = tabsGuard](int, bool pinned) {
+                if (pinned || fixedPage == nullptr || fixedTabs == nullptr) {
+                    return;
+                }
+                const int index = fixedTabs->indexOf(fixedPage);
+                if (index >= 0) {
+                    fixedTabs->setTabPinned(index, true);
+                }
+            });
+        shell.navigationTabCloseConnection = QObject::connect(
+            tabsGuard,
+            &ZzFluentUI::ZzTabWidget::tabCloseEnabledChanged,
+            shell.q_ptr,
+            [fixedPage = pageGuard, fixedTabs = tabsGuard](int, bool enabled) {
+                if (!enabled || fixedPage == nullptr || fixedTabs == nullptr) {
+                    return;
+                }
+                const int index = fixedTabs->indexOf(fixedPage);
+                if (index >= 0) {
+                    fixedTabs->setTabCloseEnabled(index, false);
+                }
+            });
+    }
+    // 同一路由再次点击时控制器不发 currentRouteChanged，导航请求也必须切回页面宿主。
+    if (stacked) {
+        const auto activatePageHost = [stackGuard, pageGuard] {
+            if (stackGuard != nullptr && pageGuard != nullptr
+                && stackGuard->indexOf(pageGuard) >= 0) {
+                stackGuard->setCurrentWidget(pageGuard);
             }
-            const int index = fixedTabs->indexOf(fixedPage);
-            if (index >= 0) {
-                fixedTabs->setTabPinned(index, true);
-            }
-        });
-    shell.navigationTabCloseConnection = QObject::connect(
-        tabsGuard,
-        &ZzFluentUI::ZzTabWidget::tabCloseEnabledChanged,
-        shell.q_ptr,
-        [fixedPage = pageGuard, fixedTabs = tabsGuard](int, bool enabled) {
-            if (!enabled || fixedPage == nullptr || fixedTabs == nullptr) {
-                return;
-            }
-            const int index = fixedTabs->indexOf(fixedPage);
-            if (index >= 0) {
-                fixedTabs->setTabCloseEnabled(index, false);
-            }
-        });
-    if (!shell.navigationTabPinnedConnection
-        || !shell.navigationTabCloseConnection || !identitiesIntact()
+        };
+        shell.navigationRouteConnection = QObject::connect(
+            controllerIdentity, &ZzNavigationController::currentRouteChanged,
+            shell.q_ptr, activatePageHost);
+        shell.navigationActivationConnection = QObject::connect(
+            navigationGuard, &ZzFluentUI::ZzNavigationPane::navigationRequested,
+            shell.q_ptr, activatePageHost);
+    }
+    if ((!stacked && (!shell.navigationTabPinnedConnection
+        || !shell.navigationTabCloseConnection)) || !identitiesIntact()
         || bodyGuard == nullptr || windowGuard->centralWidget() != nullptr) {
         return fail(QStringLiteral("Page host fixed tab guard was interrupted"));
     }

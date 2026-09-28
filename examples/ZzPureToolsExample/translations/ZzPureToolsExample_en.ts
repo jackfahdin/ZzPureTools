@@ -1342,6 +1342,10 @@
         <translation>Component Examples</translation>
     </message>
     <message>
+        <source>已打开的页面</source>
+        <translation>Open Pages</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleWindowShellPrivate.cpp" line="210"/>
         <source>属性</source>
         <translation>Properties</translation>

@@ -183,7 +183,7 @@ private Q_SLOTS:
             ZzPureTools::ZzRouteId(QStringLiteral("handle"))));
         QVERIFY(builder.setWindowSetupCallback(
             [&shell](ZzPureTools::ZzApplicationWindow &window) {
-                auto created = ZzPureTools::ZzWorkspaceShell::create(&window);
+                auto created = ZzPureTools::ZzWorkspaceShell::create(&window, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
                 if (!created) {
                     return ZzCore::ZzResult<void>::failure(created.error());
                 }
@@ -297,7 +297,7 @@ private Q_SLOTS:
         QMainWindow host;
         ZzFluentUI::ZzFluentTitleBar titleBar(&host);
         auto created = ZzPureTools::ZzWorkspaceShell::create(
-            &host, &titleBar);
+            &host, &titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(created);
         auto shell = std::move(created).value();
 
@@ -327,7 +327,7 @@ private Q_SLOTS:
     void registersAndReturnsOwnedPanels()
     {
         QMainWindow host;
-        auto created = ZzPureTools::ZzWorkspaceShell::create(&host);
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(created);
         auto shell = std::move(created).value();
 
@@ -386,7 +386,7 @@ private Q_SLOTS:
     void keepsFactoryLazyAndRetryable()
     {
         QMainWindow host;
-        auto created = ZzPureTools::ZzWorkspaceShell::create(&host);
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(created);
         auto shell = std::move(created).value();
 
@@ -430,7 +430,7 @@ private Q_SLOTS:
         QMainWindow host;
         ZzFluentUI::ZzFluentTitleBar titleBar(&host);
         auto created = ZzPureTools::ZzWorkspaceShell::create(
-            &host, &titleBar);
+            &host, &titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(created);
         auto shell = std::move(created).value();
         host.setCentralWidget(shell->workspaceWidget());

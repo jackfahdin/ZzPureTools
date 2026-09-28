@@ -6,6 +6,7 @@
 #include <QtCore/QThread>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
@@ -58,8 +59,15 @@ template<typename ZzValue>
 ZzCore::ZzResult<std::unique_ptr<ZzWorkspaceShell>>
 ZzWorkspaceShell::create(
     QMainWindow *host,
-    ZzFluentUI::ZzFluentTitleBar *titleBar)
+    ZzFluentUI::ZzFluentTitleBar *titleBar,
+    ZzWorkspaceCenterMode centerMode)
 {
+    if (centerMode != ZzWorkspaceCenterMode::Stacked
+        && centerMode != ZzWorkspaceCenterMode::Tabbed) {
+        return zzWorkspaceCreateFailure<std::unique_ptr<ZzWorkspaceShell>>(
+            ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("Invalid workspace center mode"));
+    }
     if (host == nullptr) {
         return zzWorkspaceCreateFailure<std::unique_ptr<ZzWorkspaceShell>>(
             ZzCore::ZzErrorCode::InvalidArgument,
@@ -86,15 +94,16 @@ ZzWorkspaceShell::create(
     }
     return ZzCore::ZzResult<std::unique_ptr<ZzWorkspaceShell>>::success(
         std::unique_ptr<ZzWorkspaceShell>(
-            new ZzWorkspaceShell(host, titleBar)));
+            new ZzWorkspaceShell(host, titleBar, centerMode)));
 }
 
 ZzWorkspaceShell::ZzWorkspaceShell(
     QMainWindow *host,
-    ZzFluentUI::ZzFluentTitleBar *titleBar)
+    ZzFluentUI::ZzFluentTitleBar *titleBar,
+    ZzWorkspaceCenterMode centerMode)
     : QObject(nullptr)
     , d_ptr(std::make_unique<ZzWorkspaceShellPrivate>(
-          this, host, titleBar))
+          this, host, titleBar, centerMode))
 {
 }
 
@@ -107,6 +116,12 @@ QWidget *ZzWorkspaceShell::workspaceWidget() const noexcept
         return nullptr;
     }
     return d_ptr->workspaceRoot.data();
+}
+
+QStackedWidget *ZzWorkspaceShell::stackWidget() const noexcept
+{
+    Q_ASSERT(zzIsShellThread(this));
+    return zzIsShellThread(this) ? d_ptr->centerStack.data() : nullptr;
 }
 
 ZzFluentUI::ZzTabWidget *ZzWorkspaceShell::tabWidget() const noexcept

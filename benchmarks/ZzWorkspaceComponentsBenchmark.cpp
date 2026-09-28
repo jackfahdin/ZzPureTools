@@ -413,7 +413,7 @@ int main(int argc, char *argv[])
         QStringLiteral("Workspace"));
     workspaceMenu->addAction(QStringLiteral("Toggle panel"));
     auto shellResult = ZzPureTools::ZzWorkspaceShell::create(
-        &host, &titleBar);
+        &host, &titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
     if (!shellResult) {
         return zzFail(shellResult.error().technicalMessage());
     }

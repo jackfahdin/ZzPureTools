@@ -5,6 +5,7 @@
 #include <QtCore/QPointer>
 
 #include <ZzCore/ZzResult.h>
+#include <ZzPureTools/ZzWorkspaceCenterMode.h>
 
 #include <ZzFluentUI/ZzThemeMode.h>
 
@@ -47,7 +48,8 @@ public:
         ZzPureTools::ZzApplicationWindow *applicationWindow,
         std::shared_ptr<ZzExampleApplicationContext> applicationContext,
         ZzPureTools::ZzPureApplication *pureApplication,
-        bool enableCloseGuard);
+        bool enableCloseGuard,
+        ZzPureTools::ZzWorkspaceCenterMode centerMode);
 
     /** @brief 在完整类型可见处释放公开 Shell 和本地会话模型。 */
     ~ZzExampleWindowShellPrivate();
@@ -70,8 +72,8 @@ public:
     /** @brief 执行命令模型选中的窗口级展示意图。 */
     void dispatchWorkspaceCommand(ZzExampleCommandId command);
 
-    /** @brief 创建并激活一个本地终端展示标签。 */
-    void createTerminalTab();
+    /** @brief 打开指定会话或新建终端页；已打开的指定会话直接复用。 */
+    void createTerminalPage(const QString &sessionName = {});
 
     /** @brief 关闭当前允许关闭的终端展示标签。 */
     void closeCurrentTerminal();
@@ -112,6 +114,7 @@ public:
     QStatusBar *statusBar = nullptr;
     QLabel *routeLabel = nullptr;
     int terminalSequence = 0;
+    ZzPureTools::ZzWorkspaceCenterMode centerMode;
     bool closeGuardEnabled = true;
     bool closeGuardActive = false;
 };

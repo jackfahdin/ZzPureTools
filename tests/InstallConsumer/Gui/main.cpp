@@ -245,7 +245,7 @@ int main(int argc, char *argv[]) {
       QStringList{QStringLiteral("installed"), QStringLiteral("workspace")},
       static_cast<int>(ZzFluentUI::ZzCommandItemRole::Keywords));
   auto workspaceResult = ZzPureTools::ZzWorkspaceShell::create(
-      &workspaceWindow, workspaceTitleBar);
+      &workspaceWindow, workspaceTitleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
   if (!workspaceResult) {
     return 28;
   }

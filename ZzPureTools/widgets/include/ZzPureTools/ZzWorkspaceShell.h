@@ -16,9 +16,11 @@
 #include <ZzPureTools/ZzWorkspaceActivityId.h>
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
+#include <ZzPureTools/ZzWorkspaceCenterMode.h>
 
 class QAction;
 class QMainWindow;
+class QStackedWidget;
 class QWidget;
 
 namespace ZzFluentUI {
@@ -56,12 +58,14 @@ public:
      * @brief 校验宿主和可选标题栏后创建工作区。
      * @param host 非空、当前 GUI 线程中的顶层 QMainWindow。
      * @param titleBar 可空；非空时必须是 host 的同线程后代。
+     * @param centerMode 默认堆叠页面；仅显式 Tabbed 创建内置标签分屏工作区。
      * @return 成功时返回独占 Shell，失败时不创建工作区对象。
      */
     [[nodiscard]] static ZzCore::ZzResult<std::unique_ptr<ZzWorkspaceShell>>
     create(
         QMainWindow *host,
-        ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr);
+        ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr,
+        ZzWorkspaceCenterMode centerMode = ZzWorkspaceCenterMode::Stacked);
 
     /** @brief 移除 Shell 创建的 Dock；保留已提交集成且由 host 接管的工作区。 */
     ~ZzWorkspaceShell() override;
@@ -70,12 +74,21 @@ public:
     [[nodiscard]] QWidget *workspaceWidget() const noexcept;
 
     /**
+     * @brief 返回无标签中央容器；Tabbed 模式或宿主销毁后返回 nullptr。
+     *
+     * addWidget() 将页面交给 Qt 父子树，removeWidget() 不销毁页面。
+     * 应用通过 setCurrentWidget() 切页，也可在某页嵌入自己的标签或分屏组件。
+     * 当前页面的 windowTitle 用于跟随页面的窗口标题策略。
+     */
+    [[nodiscard]] QStackedWidget *stackWidget() const noexcept;
+
+    /**
      * @brief 返回当前活动标签组的标签控件。
-     * @return 指针会随活动组改变；宿主销毁后返回 nullptr。
+     * @return 指针会随活动组改变；Stacked 模式或宿主销毁后返回 nullptr。
      */
     [[nodiscard]] ZzFluentUI::ZzTabWidget *tabWidget() const noexcept;
 
-    /** @brief 返回承载全部中央标签组的分屏工作区。 */
+    /** @brief 返回显式 Tabbed 模式的分屏工作区；Stacked 模式返回 nullptr。 */
     [[nodiscard]] ZzFluentUI::ZzSplitWorkspace *splitWorkspace() const noexcept;
 
     /** @brief 返回中央区域底部的工具面板。 */
@@ -120,7 +133,7 @@ public:
      * @param panelTitle 导航 Side Panel 的展示标题。
      * @param icon 导航 Activity 的图标描述。
      * @param area 导航 Activity 所属的侧栏区域。
-     * @param centralTabTitle 页面宿主固定中央标签的标题。
+     * @param centralTabTitle 页面宿主标题；仅 Tabbed 模式显示为固定标签。
      * @return 全部表面迁移并保持导航身份时成功；失败时回滚原状态。
      */
     [[nodiscard]] ZzCore::ZzResult<void> integrateApplicationNavigation(
@@ -209,7 +222,8 @@ public:
 private:
     ZzWorkspaceShell(
         QMainWindow *host,
-        ZzFluentUI::ZzFluentTitleBar *titleBar);
+        ZzFluentUI::ZzFluentTitleBar *titleBar,
+        ZzWorkspaceCenterMode centerMode);
 
     std::unique_ptr<ZzWorkspaceShellPrivate> d_ptr;
 };

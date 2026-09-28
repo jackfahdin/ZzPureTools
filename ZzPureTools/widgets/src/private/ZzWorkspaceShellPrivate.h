@@ -134,7 +134,8 @@ public:
     ZzWorkspaceShellPrivate(
         ZzWorkspaceShell *publicObject,
         QMainWindow *host,
-        ZzFluentUI::ZzFluentTitleBar *titleBar);
+        ZzFluentUI::ZzFluentTitleBar *titleBar,
+        ZzWorkspaceCenterMode centerMode);
 
     /** @brief 在宿主仍存活时同步移除并销毁 Shell 对象。 */
     ~ZzWorkspaceShellPrivate();
@@ -319,6 +320,7 @@ public:
     QPointer<ZzFluentUI::ZzSidePane> leftSidePane;
     QPointer<ZzFluentUI::ZzSidePane> rightSidePane;
     QPointer<QWidget> centerHost;
+    QPointer<QStackedWidget> centerStack;
     QPointer<ZzFluentUI::ZzSplitWorkspace> splitWorkspace;
     QPointer<ZzFluentUI::ZzBottomPane> bottomPane;
     QPointer<ZzFluentUI::ZzTabWidget> activeTabs;
@@ -343,6 +345,8 @@ public:
     QMetaObject::Connection currentTabTitleConnection;
     QMetaObject::Connection navigationTabPinnedConnection;
     QMetaObject::Connection navigationTabCloseConnection;
+    QMetaObject::Connection navigationRouteConnection;
+    QMetaObject::Connection navigationActivationConnection;
 
     friend class ZzWorkspaceLayoutTransactionPrivate;
     friend class ZzWorkspaceNavigationIntegrationTransactionPrivate;

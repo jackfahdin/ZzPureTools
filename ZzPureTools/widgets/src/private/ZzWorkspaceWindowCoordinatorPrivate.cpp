@@ -1,5 +1,7 @@
 #include "ZzWorkspaceWindowCoordinatorPrivate.h"
 
+#include <QtWidgets/QStackedWidget>
+
 #include <algorithm>
 #include <exception>
 #include <limits>
@@ -629,6 +631,27 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinatorPrivate::closeWindow(
 
     if (record->closeState == ZzCloseState::DispatchingClose) {
         record->internalCloseDispatch = false;
+    }
+
+    if (record->shell != nullptr && record->shell->stackWidget() != nullptr) {
+        // 普通堆叠页面归当前窗口所有，关闭窗口不将它们迁移到其他窗口。
+        const QPointer<QStackedWidget> stack(record->shell->stackWidget());
+        const QPointer<ZzApplicationWindow> windowGuard(record->window);
+        const QUuid id = record->windowId;
+        QList<QWidget *> pages;
+        for (int index = 0; index < stack->count(); ++index) {
+            pages.append(stack->widget(index));
+        }
+        record->closeState = ZzCloseState::NotifyingClose;
+        Q_EMIT q_ptr->windowAboutToClose(window, pages);
+        record = findWindowId(id);
+        if (record == records.end() || windowGuard == nullptr || stack == nullptr) {
+            return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Stacked window disappeared during close notification"));
+        }
+        record->internalCloseDispatch = false;
+        record->closeState = ZzCloseState::CloseAccepted;
+        return ZzCore::ZzResult<void>::success();
     }
 
     const QUuid closingWindowId = record->windowId;
@@ -1340,8 +1363,10 @@ ZzWorkspaceWindowCoordinatorPrivate::saveTopology() const
         auto *const workspace = record.shell->splitWorkspace();
         if (workspace == nullptr) {
             return zzCoordinatorFailure<QByteArray>(
-                ZzCore::ZzErrorCode::InvalidState,
-                QStringLiteral("workspace window has no split workspace"));
+                record.shell->stackWidget() != nullptr
+                    ? ZzCore::ZzErrorCode::Unsupported
+                    : ZzCore::ZzErrorCode::InvalidState,
+                QStringLiteral("Tab topology persistence requires tabbed workspaces"));
         }
         const QByteArray workspaceState = workspace->saveLayout();
         if (workspaceState.isEmpty()) {

@@ -17,6 +17,9 @@ namespace ZzPureTools {
 class ZzWorkspaceLayoutCodecPrivate final
 {
 public:
+    /** @brief 返回无标签中央区域的稳定空布局标记，不创建任何 GUI 对象。 */
+    [[nodiscard]] static QByteArray stackedCenterState();
+
     /** @brief 解码 schema 1、2 或 3 为完整的纯值布局请求。 */
     [[nodiscard]] static ZzCore::ZzResult<
         ZzWorkspaceLayoutStatePrivate::ZzLayoutRequest>

@@ -17,6 +17,9 @@ UI 只通过信号或公开意图接口通知应用层。Presenter/ViewModel 将
 
 ## 最小窗口装配
 
+默认中央区域是无标签堆叠页面，接入见 [中央堆叠页面](STACKED_WORKSPACE_ZH.md)。
+下文含标签撕出与拓扑恢复的示例显式选择 `Tabbed` 模式；普通堆叠应用不需要这些步骤。
+
 应用通常从 `ZzPureApplication` 和 `ZzApplicationBuilder` 开始，在窗口设置回调中创建
 工作区。下面的代码展示核心顺序，页面注册和错误处理应保留在应用自己的启动模块中。
 工作区指针应保存到应用自己的窗口装配对象中，不能让局部 `unique_ptr` 在回调返回时销毁：
@@ -46,7 +49,7 @@ private:
 auto setupResult = builder.setWindowSetupCallback(
     [](ZzPureTools::ZzApplicationWindow &window) {
         auto shellResult = ZzPureTools::ZzWorkspaceShell::create(
-            &window, window.titleBar());
+            &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         if (!shellResult) {
             return ZzCore::ZzResult<void>::failure(shellResult.error());
         }
@@ -176,13 +179,14 @@ auto sessions = shell->registerSidePanelFactory(
 | 表面 | 注册接口 | 适合内容 | 内容所有者 |
 |---|---|---|---|
 | 左右侧栏 | `registerSidePanel()` / `registerSidePanelFactory()` | 会话、文件、属性、任务、导航 | `ZzWorkspaceShell` 注册成功后接管 |
-| 中央标签 | `tabWidget()->addTab()` | 文档、终端、编辑器、预览 | `ZzTabWidget` 按 Qt 标签页规则管理 |
+| 中央堆叠页面（默认） | `stackWidget()->addWidget()` | 任意应用页面 | `QStackedWidget` 接管页面；移除不销毁 |
+| 中央标签（显式 Tabbed） | `tabWidget()->addTab()` | 文档、终端、编辑器、预览 | `ZzTabWidget` 按 Qt 标签页规则管理 |
 | 底部工具区 | `registerBottomPanel()` | 日志、输出、诊断、任务结果 | `ZzWorkspaceShell` 注册成功后接管 |
 | 原生停靠区 | `registerDockPanel()` | 需要自由浮动或重新停靠的工具 | `ZzDockPanel`/`QMainWindow` 管理 |
 | 固定动作 | `registerFixedActivityAction()` | 设置、帮助等稳定入口 | `QAction` 由应用层拥有，Shell 非拥有观察 |
 
 应用导航面板使用 `integrateApplicationNavigation()`。该操作会把已有
-`ZzNavigationPane` 放入侧栏，把 `ZzPageHost` 放入中央固定标签；调用方不应再复制一套
+`ZzNavigationPane` 放入侧栏，把 `ZzPageHost` 放入中央堆叠页面（显式 Tabbed 模式才是固定标签）；调用方不应再复制一套
 导航模型，也不应把设置页面伪装成普通路由。
 
 ## 命令和标签

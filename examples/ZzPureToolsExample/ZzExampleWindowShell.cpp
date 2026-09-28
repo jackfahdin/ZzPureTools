@@ -19,7 +19,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShell::attach(
     ZzPureTools::ZzApplicationWindow &window,
     std::shared_ptr<ZzExampleApplicationContext> context,
     ZzPureTools::ZzPureApplication &application,
-    bool closeGuardEnabled)
+    bool closeGuardEnabled,
+    ZzPureTools::ZzWorkspaceCenterMode centerMode)
 {
     try {
         auto shell = std::unique_ptr<ZzExampleWindowShell>(
@@ -27,7 +28,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShell::attach(
                 window,
                 std::move(context),
                 application,
-                closeGuardEnabled));
+                closeGuardEnabled, centerMode));
         auto initialized = shell->d_ptr->initialize();
         if (!initialized) {
             return initialized;
@@ -78,14 +79,15 @@ ZzExampleWindowShell::ZzExampleWindowShell(
     ZzPureTools::ZzApplicationWindow &window,
     std::shared_ptr<ZzExampleApplicationContext> context,
     ZzPureTools::ZzPureApplication &application,
-    bool closeGuardEnabled)
+    bool closeGuardEnabled,
+    ZzPureTools::ZzWorkspaceCenterMode centerMode)
     : QObject(&window)
     , d_ptr(std::make_unique<ZzExampleWindowShellPrivate>(
           this,
           &window,
           std::move(context),
           &application,
-          closeGuardEnabled))
+          closeGuardEnabled, centerMode))
 {
     setObjectName(QStringLiteral("zzExampleWindowShell"));
 }

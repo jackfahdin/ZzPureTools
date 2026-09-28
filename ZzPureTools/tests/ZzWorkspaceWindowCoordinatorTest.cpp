@@ -103,7 +103,7 @@ namespace {
 [[nodiscard]] ZzCore::ZzResult<std::unique_ptr<ZzPureTools::ZzWorkspaceShell>>
 zzCreateShell(ZzPureTools::ZzApplicationWindow *window)
 {
-    return ZzPureTools::ZzWorkspaceShell::create(window);
+    return ZzPureTools::ZzWorkspaceShell::create(window, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
 }
 
 [[nodiscard]] ZzPureTools::ZzWorkspaceWindowConfiguration zzConfiguration()
@@ -1649,6 +1649,45 @@ private Q_SLOTS:
         QVERIFY(sawRollback);
     }
 
+    void stackedClosingHonorsPoliciesAndRejectsReentry()
+    {
+        auto &application = zzApplication();
+        QVERIFY(zzBuildApplication(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        auto created = ZzPureTools::ZzWorkspaceShell::create(window);
+        QVERIFY(created);
+        auto shell = std::move(created).value();
+        auto configuration = zzConfiguration();
+        configuration.closePolicy = ZzPureTools::ZzWindowClosePolicy::Deny;
+        auto *coordinator = application.workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({window, shell.get()}, configuration, true));
+        QVERIFY(!window->close());
+        QCOMPARE(application.windowCount(), 1);
+        ZzPureTools::ZzWorkspaceWindowConfigurationPatch patch;
+        patch.closePolicy = ZzPureTools::ZzWindowClosePolicy::Delegate;
+        QVERIFY(coordinator->applyConfiguration(window, patch));
+        QSignalSpy approvals(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowCloseApprovalRequested);
+        QVERIFY(!window->close());
+        QVERIFY(!window->close());
+        QCOMPARE(approvals.count(), 1);
+        bool closeRejected = false;
+        bool unregisterRejected = false;
+        QObject::connect(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::windowAboutToClose,
+            coordinator, [&](ZzPureTools::ZzApplicationWindow *closing) {
+                closeRejected = !coordinator->closeWindow(closing);
+                unregisterRejected = !coordinator->unregisterWindow(closing);
+            });
+        QVERIFY(coordinator->approveDelegatedClose(window));
+        QVERIFY(closeRejected);
+        QVERIFY(unregisterRejected);
+        QVERIFY(QTest::qWaitFor([&] { return application.windowCount() == 0; }));
+        QVERIFY(!coordinator->approveDelegatedClose(window));
+        application.beginShutdown();
+    }
+
     void denyPolicyIgnoresSystemCloseEvent()
     {
         auto &application = zzApplication();
@@ -2471,7 +2510,7 @@ private Q_SLOTS:
             }
             targetWindow = created.value();
             auto shellResult =
-                ZzPureTools::ZzWorkspaceShell::create(targetWindow.data());
+                ZzPureTools::ZzWorkspaceShell::create(targetWindow.data(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!shellResult) {
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::
                     failure(shellResult.error());
@@ -3011,7 +3050,7 @@ private Q_SLOTS:
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(result.error());
             }
             auto *window = result.value();
-            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(window);
+            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(window, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!createdShell) {
                 window->close();
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(createdShell.error());
@@ -3067,7 +3106,7 @@ private Q_SLOTS:
                     created.error());
             }
             createdWindow = created.value();
-            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(createdWindow.data());
+            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(createdWindow.data(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!createdShell) {
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
                     createdShell.error());
@@ -3114,7 +3153,7 @@ private Q_SLOTS:
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
                     created.error());
             }
-            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(created.value());
+            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(created.value(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!createdShell) {
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
                     createdShell.error());
@@ -3187,7 +3226,7 @@ private Q_SLOTS:
                 }
                 targetWindow = created.value();
                 auto targetShellResult = ZzPureTools::ZzWorkspaceShell::create(
-                    targetWindow.data());
+                    targetWindow.data(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
                 if (!targetShellResult) {
                     return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(
                         targetShellResult.error());
@@ -3268,7 +3307,7 @@ private Q_SLOTS:
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(created.error());
             }
             stagedWindow = created.value();
-            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(stagedWindow.data());
+            auto createdShell = ZzPureTools::ZzWorkspaceShell::create(stagedWindow.data(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!createdShell) {
                 return ZzCore::ZzResult<ZzPureTools::ZzWorkspaceWindowHandle>::failure(createdShell.error());
             }

@@ -277,6 +277,7 @@ zz_enable_project_warnings(ZzWorkspaceWindowCoordinatorTest)
 zz_enable_sanitizers(ZzWorkspaceWindowCoordinatorTest)
 set(workspace_window_coordinator_scenarios
     forwardsWorkspaceActivityWithWindowIdentityAndDisconnectsOnUnregister
+    stackedClosingHonorsPoliciesAndRejectsReentry
     aboutToCloseRejectsReentrantCloseAndUnregister
     committedTransferMayDestroySourceWorkspaceSafely
     nonMonotonicOriginsRestoreExactOrder

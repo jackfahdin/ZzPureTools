@@ -5,6 +5,7 @@
 #include <QtCore/QObject>
 
 #include <ZzCore/ZzResult.h>
+#include <ZzPureTools/ZzWorkspaceCenterMode.h>
 
 namespace ZzPureTools {
 class ZzApplicationWindow;
@@ -35,13 +36,16 @@ public:
      * @param context 非空跨窗口共享上下文。
      * @param application 创建新窗口和访问应用主题的宿主。
      * @param closeGuardEnabled 是否安装交互式关闭守卫。
+     * @param centerMode 默认无标签堆叠页面；显式 Tabbed 用于多文档工作区演示。
      * @return 装配成功，或输入及控件创建状态错误。
      */
     [[nodiscard]] static ZzCore::ZzResult<void> attach(
         ZzPureTools::ZzApplicationWindow &window,
         std::shared_ptr<ZzExampleApplicationContext> context,
         ZzPureTools::ZzPureApplication &application,
-        bool closeGuardEnabled = true);
+        bool closeGuardEnabled = true,
+        ZzPureTools::ZzWorkspaceCenterMode centerMode =
+            ZzPureTools::ZzWorkspaceCenterMode::Stacked);
 
     /**
      * @brief 返回指定窗口已经完成装配的示例壳层。
@@ -96,7 +100,8 @@ private:
         ZzPureTools::ZzApplicationWindow &window,
         std::shared_ptr<ZzExampleApplicationContext> context,
         ZzPureTools::ZzPureApplication &application,
-        bool closeGuardEnabled);
+        bool closeGuardEnabled,
+        ZzPureTools::ZzWorkspaceCenterMode centerMode);
 
     std::unique_ptr<ZzExampleWindowShellPrivate> d_ptr;
 };

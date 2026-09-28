@@ -11,9 +11,9 @@ enum class ZzWorkspaceTitleMode : std::uint8_t
 {
     /** @brief 只显示应用标题。 */
     Application,
-    /** @brief 显示当前标签标题，无标签时回退应用标题。 */
+    /** @brief 显示当前页面标题；Tabbed 模式可回退标签文字，无页面时回退应用标题。 */
     CurrentTab,
-    /** @brief 显示“当前标签 - 应用标题”。 */
+    /** @brief 显示“当前页面 - 应用标题”，支持堆叠页面与标签页面。 */
     CurrentTabAndApplication,
     /** @brief 显示显式自定义标题，空值时回退应用标题。 */
     Custom

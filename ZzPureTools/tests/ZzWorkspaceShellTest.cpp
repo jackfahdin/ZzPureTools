@@ -124,7 +124,7 @@ struct ZzShellFixture final
     ZzShellFixture()
     {
         auto result = ZzPureTools::ZzWorkspaceShell::create(
-            &host, &titleBar);
+            &host, &titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         Q_ASSERT(result);
         shell = std::move(result).value();
     }
@@ -779,15 +779,101 @@ class ZzWorkspaceShellTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void defaultCenterDoesNotCreateTabControls()
+    {
+        QMainWindow host;
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host);
+        QVERIFY(created);
+        auto shell = std::move(created).value();
+        host.setCentralWidget(shell->workspaceWidget());
+        QVERIFY(shell->tabWidget() == nullptr);
+        QVERIFY(shell->splitWorkspace() == nullptr);
+        QVERIFY(shell->stackWidget() != nullptr);
+        QVERIFY(shell->stackWidget()->findChildren<QTabBar *>().isEmpty());
+    }
+
+    void stackedPagesFollowTitlesAndAllowApplicationOwnedTabs()
+    {
+        QMainWindow host;
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host);
+        QVERIFY(created);
+        auto shell = std::move(created).value();
+        host.setCentralWidget(shell->workspaceWidget());
+        shell->setApplicationTitle(QStringLiteral("App"));
+        shell->setTitleMode(ZzPureTools::ZzWorkspaceTitleMode::CurrentTabAndApplication);
+        auto *stack = shell->stackWidget();
+        QVERIFY(stack != nullptr);
+        auto *first = new QWidget;
+        first->setWindowTitle(QStringLiteral("First"));
+        stack->addWidget(first);
+        auto *tabs = new ZzFluentUI::ZzTabWidget;
+        tabs->setWindowTitle(QStringLiteral("Documents"));
+        tabs->addTab(new QWidget, QStringLiteral("One"));
+        tabs->addTab(new QWidget, QStringLiteral("Two"));
+        stack->addWidget(tabs);
+        QCOMPARE(host.windowTitle(), QStringLiteral("First - App"));
+        stack->setCurrentWidget(tabs);
+        QCOMPARE(host.windowTitle(), QStringLiteral("Documents - App"));
+        tabs->setCurrentIndex(1);
+        QCOMPARE(stack->currentWidget(), tabs);
+        tabs->setWindowTitle(QStringLiteral("Renamed"));
+        QCOMPARE(host.windowTitle(), QStringLiteral("Renamed - App"));
+        stack->removeWidget(tabs);
+        delete tabs;
+        QCOMPARE(host.windowTitle(), QStringLiteral("First - App"));
+    }
+
+    void stackedLayoutRestoresPanelsWithoutReplacingPages()
+    {
+        QMainWindow host;
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host);
+        QVERIFY(created);
+        auto shell = std::move(created).value();
+        host.setCentralWidget(shell->workspaceWidget());
+        auto *page = new QWidget;
+        shell->stackWidget()->addWidget(page);
+        const ZzPureTools::ZzWorkspacePanelId panelId(QStringLiteral("left"));
+        QVERIFY(shell->registerSidePanel(panelId, QStringLiteral("Left"), {},
+            ZzFluentUI::ZzActivityArea::LeftPrimary, new QWidget));
+        QVERIFY(shell->showPanel(panelId));
+        auto *pane = shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left);
+        pane->setPaneWidth(310);
+        auto saved = shell->saveLayout();
+        QVERIFY(saved);
+        pane->setPaneWidth(420);
+        QVERIFY(shell->showPanel(panelId, false));
+        QVERIFY(shell->restoreLayout(saved.value()));
+        QCOMPARE(pane->paneWidth(), 310);
+        QVERIFY(!pane->isCollapsed());
+        QCOMPARE(shell->stackWidget()->currentWidget(), page);
+    }
+
+    void rejectsLayoutFromDifferentCenterModeWithoutChangingPanels()
+    {
+        QMainWindow stackWindow;
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&stackWindow);
+        QVERIFY(created);
+        auto stacked = std::move(created).value();
+        ZzShellFixture tabbed;
+        const auto stackedState = stacked->saveLayout();
+        const auto tabbedState = tabbed.shell->saveLayout();
+        QVERIFY(stackedState);
+        QVERIFY(tabbedState);
+        QVERIFY(!stacked->restoreLayout(tabbedState.value()));
+        QVERIFY(!tabbed.shell->restoreLayout(stackedState.value()));
+        QCOMPARE(stacked->saveLayout().value(), stackedState.value());
+        QCOMPARE(tabbed.shell->saveLayout().value(), tabbedState.value());
+    }
+
     void validatesFactoryInputsAndThreadsBeforeAllocation()
     {
-        auto nullHost = ZzPureTools::ZzWorkspaceShell::create(nullptr);
+        auto nullHost = ZzPureTools::ZzWorkspaceShell::create(nullptr, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(!nullHost);
         QCOMPARE(nullHost.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
 
         QMainWindow outer;
         QMainWindow nested(&outer);
-        auto nestedHost = ZzPureTools::ZzWorkspaceShell::create(&nested);
+        auto nestedHost = ZzPureTools::ZzWorkspaceShell::create(&nested, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(!nestedHost);
         QCOMPARE(
             nestedHost.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
@@ -796,7 +882,7 @@ private Q_SLOTS:
         QMainWindow otherHost;
         ZzFluentUI::ZzFluentTitleBar foreignTitleBar(&otherHost);
         auto foreignTitle = ZzPureTools::ZzWorkspaceShell::create(
-            &host, &foreignTitleBar);
+            &host, &foreignTitleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(!foreignTitle);
         QCOMPARE(
             foreignTitle.error().code(), ZzCore::ZzErrorCode::InvalidArgument);
@@ -804,7 +890,7 @@ private Q_SLOTS:
         bool crossThreadRejected = false;
         ZzCore::ZzErrorCode crossThreadCode = ZzCore::ZzErrorCode::None;
         std::thread worker([&] {
-            auto result = ZzPureTools::ZzWorkspaceShell::create(&host);
+            auto result = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             crossThreadRejected = !result;
             if (!result) {
                 crossThreadCode = result.error().code();
@@ -820,7 +906,7 @@ private Q_SLOTS:
         QMainWindow host;
         QWidget existing;
         host.setCentralWidget(&existing);
-        auto result = ZzPureTools::ZzWorkspaceShell::create(&host);
+        auto result = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(result);
         auto shell = std::move(result).value();
 
@@ -1681,7 +1767,7 @@ private Q_SLOTS:
     void fixedActivityRegistrationStopsWhenAboutToInsertDestroysHost()
     {
         auto host = std::make_unique<QMainWindow>();
-        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(shellResult);
         auto shell = std::move(shellResult).value();
         QAction settingsAction(QStringLiteral("Settings"));
@@ -3981,7 +4067,7 @@ private Q_SLOTS:
     void hostDestructionPreservesContentWhileDockCleanupIsPending()
     {
         auto host = std::make_unique<QMainWindow>();
-        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(shellResult);
         auto shell = std::move(shellResult).value();
         auto content = std::make_unique<ZzParentRemovedWidget>();
@@ -4038,7 +4124,7 @@ private Q_SLOTS:
     {
         QFETCH(bool, destroyHostFirst);
         auto host = std::make_unique<QMainWindow>();
-        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(shellResult);
         auto shell = std::move(shellResult).value();
         auto content = std::make_unique<ZzParentRemovedWidget>();
@@ -4111,7 +4197,7 @@ private Q_SLOTS:
         QFETCH(bool, destroyHostFirst);
         constexpr std::size_t injectionCount = 12;
         auto host = std::make_unique<QMainWindow>();
-        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(host.get(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(shellResult);
         auto shell = std::move(shellResult).value();
         auto content = std::make_unique<ZzParentRemovedWidget>();
@@ -7539,7 +7625,7 @@ private Q_SLOTS:
         ZzVisibilityAuditWindow host;
         ZzFluentUI::ZzFluentTitleBar titleBar(&host);
         auto shellResult = ZzPureTools::ZzWorkspaceShell::create(
-            &host, &titleBar);
+            &host, &titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(shellResult);
         auto shell = std::move(shellResult).value();
 
@@ -9130,7 +9216,7 @@ private Q_SLOTS:
     void restoresLayoutWithoutOptionalTitleBar()
     {
         QMainWindow host;
-        auto created = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr);
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(created);
         std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell =
             std::move(created).value();
@@ -10800,7 +10886,7 @@ private Q_SLOTS:
         auto host = std::make_unique<ZzLayoutTornDownMainWindow>();
         auto *titleBar = new ZzFluentUI::ZzFluentTitleBar(host.get());
         auto result = ZzPureTools::ZzWorkspaceShell::create(
-            host.get(), titleBar);
+            host.get(), titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(result);
         auto shell = std::move(result).value();
         auto content = std::make_unique<QWidget>();
@@ -10828,7 +10914,7 @@ private Q_SLOTS:
     void destroysHostOwnedShellWithMultipleDocksAfterHostLayoutIsTornDown()
     {
         auto host = std::make_unique<QMainWindow>();
-        auto result = ZzPureTools::ZzWorkspaceShell::create(host.get());
+        auto result = ZzPureTools::ZzWorkspaceShell::create(host.get(), nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(result);
         auto shell = std::move(result).value();
         for (const auto &[id, area] : std::array{

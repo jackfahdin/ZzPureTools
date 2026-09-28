@@ -1,5 +1,7 @@
 #include "ZzWorkspaceShellPrivate.h"
 
+#include <QtWidgets/QStackedWidget>
+
 #include <algorithm>
 #include <exception>
 #include <utility>
@@ -656,7 +658,8 @@ private:
 ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     ZzWorkspaceShell *publicObject,
     QMainWindow *hostWindow,
-    ZzFluentUI::ZzFluentTitleBar *fluentTitleBar)
+    ZzFluentUI::ZzFluentTitleBar *fluentTitleBar,
+    ZzWorkspaceCenterMode centerMode)
     : q_ptr(publicObject)
     , host(hostWindow)
     , hostObject(hostWindow)
@@ -674,8 +677,16 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     leftSidePane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
     centerHost = new QWidget(workspaceRoot);
     centerHost->setObjectName(QStringLiteral("zzWorkspaceCenterHost"));
-    splitWorkspace = new ZzFluentUI::ZzSplitWorkspace(centerHost);
-    splitWorkspace->setObjectName(QStringLiteral("zzWorkspaceSplitWorkspace"));
+    if (centerMode == ZzWorkspaceCenterMode::Tabbed) {
+        splitWorkspace = new ZzFluentUI::ZzSplitWorkspace(centerHost);
+        splitWorkspace->setObjectName(QStringLiteral("zzWorkspaceSplitWorkspace"));
+    } else {
+        centerStack = new QStackedWidget(centerHost);
+        centerStack->setObjectName(QStringLiteral("zzWorkspaceCenterStack"));
+        centerStack->setFrameShape(QFrame::NoFrame);
+        QObject::connect(centerStack, &QStackedWidget::currentChanged,
+            q_ptr, [this] { refreshCurrentTabConnection(); });
+    }
     bottomPane = new ZzFluentUI::ZzBottomPane(centerHost);
     bottomPane->setObjectName(QStringLiteral("zzWorkspaceBottomPane"));
     bottomPane->setCollapsed(true);
@@ -709,7 +720,9 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
     auto *centerLayout = new QVBoxLayout(centerHost);
     centerLayout->setContentsMargins(0, 0, 0, 0);
     centerLayout->setSpacing(0);
-    centerLayout->addWidget(splitWorkspace, 1);
+    centerLayout->addWidget(centerStack != nullptr
+        ? static_cast<QWidget *>(centerStack.data())
+        : static_cast<QWidget *>(splitWorkspace.data()), 1);
     centerLayout->addWidget(bottomPane);
 
     auto *layout = new QHBoxLayout(workspaceRoot);
@@ -754,9 +767,11 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
                    ZzFluentUI::ZzActivityArea area, int row) {
             moveSidePanel(index, area, row);
         });
-    QObject::connect(
-        splitWorkspace, &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged,
-        q_ptr, [this] { refreshActiveTabConnections(); });
+    if (splitWorkspace != nullptr) {
+        QObject::connect(
+            splitWorkspace, &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged,
+            q_ptr, [this] { refreshActiveTabConnections(); });
+    }
     if (titleBar != nullptr) {
         QObject::connect(
             titleBar, &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested,
@@ -774,6 +789,8 @@ ZzWorkspaceShellPrivate::~ZzWorkspaceShellPrivate()
     QObject::disconnect(currentTabTitleConnection);
     QObject::disconnect(navigationTabPinnedConnection);
     QObject::disconnect(navigationTabCloseConnection);
+    QObject::disconnect(navigationRouteConnection);
+    QObject::disconnect(navigationActivationConnection);
     for (ZzPanelRecord &record : panels) {
         QObject::disconnect(record.contentDestroyedConnection);
     }
@@ -2850,11 +2867,12 @@ void ZzWorkspaceShellPrivate::refreshTitle()
     const std::uint64_t refreshGeneration = ++titleRefreshGeneration;
     QString pageTitle;
     const QPointer<ZzFluentUI::ZzTabWidget> tabsGuard(activeTabs);
-    const QPointer<QWidget> pageGuard = tabsGuard != nullptr
-        ? tabsGuard->currentWidget() : nullptr;
-    if (tabsGuard != nullptr && pageGuard != nullptr) {
+    const QPointer<QWidget> pageGuard = centerStack != nullptr
+        ? centerStack->currentWidget()
+        : (tabsGuard != nullptr ? tabsGuard->currentWidget() : nullptr);
+    if (pageGuard != nullptr) {
         pageTitle = pageGuard->windowTitle();
-        if (pageTitle.isEmpty()) {
+        if (pageTitle.isEmpty() && tabsGuard != nullptr) {
             pageTitle = tabsGuard->tabText(tabsGuard->currentIndex());
         }
     }
@@ -2923,8 +2941,9 @@ void ZzWorkspaceShellPrivate::refreshCurrentTabConnection()
     QObject::disconnect(currentTabTitleConnection);
     currentTabTitleConnection = {};
     const QPointer<ZzFluentUI::ZzTabWidget> tabsGuard(activeTabs);
-    const QPointer<QWidget> pageGuard = tabsGuard != nullptr
-        ? tabsGuard->currentWidget() : nullptr;
+    const QPointer<QWidget> pageGuard = centerStack != nullptr
+        ? centerStack->currentWidget()
+        : (tabsGuard != nullptr ? tabsGuard->currentWidget() : nullptr);
     if (pageGuard != nullptr) {
         currentTabTitleConnection = QObject::connect(
             pageGuard, &QWidget::windowTitleChanged,

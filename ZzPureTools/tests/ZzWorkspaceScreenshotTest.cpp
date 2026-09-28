@@ -209,7 +209,7 @@ public:
         fileMenu->addAction(QStringLiteral("Open"));
         titleBar.menuBar()->addMenu(QStringLiteral("View"));
         window.setMenuWidget(&titleBar);
-        auto result = ZzPureTools::ZzWorkspaceShell::create(&window, &titleBar);
+        auto result = ZzPureTools::ZzWorkspaceShell::create(&window, &titleBar, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         if (!requireResult(result, QStringLiteral("failed to create workspace shell"))) {
             return;
         }

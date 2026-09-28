@@ -21,6 +21,8 @@
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMenu>
+#include <QtWidgets/QStackedWidget>
+#include <QtWidgets/QTabBar>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QTableView>
@@ -179,7 +181,7 @@ private Q_SLOTS:
     {
         QMainWindow host;
         host.resize(1100, 720);
-        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(&host);
+        auto shellResult = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(shellResult);
         auto shell = std::move(shellResult).value();
         host.setCentralWidget(shell->workspaceWidget());
@@ -355,7 +357,7 @@ private Q_SLOTS:
                         });
                 }
                 auto shellResult = ZzExample::ZzExampleWindowShell::attach(
-                    window, context_, *application, false);
+                    window, context_, *application, false, centerMode_);
                 if (!shellResult) {
                     return shellResult;
                 }
@@ -901,6 +903,72 @@ private Q_SLOTS:
         closeApplicationWindow(window);
     }
 
+    void stackedWindowNavigatesWithoutOuterTabsAndKeepsPageEntrypoints()
+    {
+        const auto previousMode = centerMode_;
+        centerMode_ = ZzPureTools::ZzWorkspaceCenterMode::Stacked;
+        auto *window = createAdditionalWindow();
+        centerMode_ = previousMode;
+        QVERIFY(window != nullptr);
+        auto *shell = ZzExample::ZzExampleWindowShell::attachedTo(*window)->workspaceShell();
+        auto *stack = shell->stackWidget();
+        QVERIFY(stack != nullptr);
+        QVERIFY(shell->tabWidget() == nullptr);
+        QVERIFY(shell->splitWorkspace() == nullptr);
+        QCOMPARE(stack->count(), 1);
+        QCOMPARE(stack->currentWidget(), window->pageHost());
+        QVERIFY(stack->findChildren<QTabBar *>().isEmpty());
+
+        auto *application = static_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        auto *coordinator = application->workspaceWindowCoordinator();
+        QVERIFY(coordinator->registerWindow({window, shell}, {}));
+        QSignalSpy pageChanges(coordinator,
+            &ZzPureTools::ZzWorkspaceWindowCoordinator::activePageChanged);
+        auto *commands = shell->commandPalette()->model();
+        QVERIFY(commands != nullptr);
+        Q_EMIT shell->commandPalette()->commandActivated(commands->index(0, 0));
+        QCOMPARE(stack->count(), 2);
+        QVERIFY(stack->currentWidget() != window->pageHost());
+        QVERIFY(!pageChanges.isEmpty());
+        const QPointer<QWidget> terminal(stack->currentWidget());
+        auto *pagesMenu = window->findChild<QMenu *>(QStringLiteral("zzExampleOpenPagesMenu"));
+        QVERIFY(pagesMenu != nullptr);
+        Q_EMIT pagesMenu->aboutToShow();
+        QCOMPARE(pagesMenu->actions().size(), 2);
+        pagesMenu->actions().constFirst()->trigger();
+        QCOMPARE(stack->currentWidget(), window->pageHost());
+        pagesMenu->actions().constLast()->trigger();
+        QCOMPARE(stack->currentWidget(), terminal.data());
+
+        const auto currentRoute = window->navigationController()->currentRoute();
+        auto currentNode = window->navigationModel()->indexForRoute(currentRoute);
+        QVERIFY(currentNode);
+        Q_EMIT window->navigationPane()->navigationRequested(currentNode.value());
+        QCOMPARE(stack->currentWidget(), window->pageHost());
+        QCOMPARE(window->navigationController()->currentRoute(), currentRoute);
+        stack->setCurrentWidget(terminal);
+        QVERIFY(window->navigationController()->navigate(
+            ZzPureTools::ZzRouteId(QStringLiteral("controls"))));
+        QCOMPARE(stack->currentWidget(), window->pageHost());
+        stack->setCurrentWidget(terminal);
+        Q_EMIT shell->commandPalette()->commandActivated(commands->index(1, 0));
+        QVERIFY(terminal.isNull());
+        QCOMPARE(stack->currentWidget(), window->pageHost());
+        QCOMPARE(stack->count(), 1);
+
+        ZzPureTools::ZzWorkspaceWindowCreateOptions options;
+        options.sourceWindow = window;
+        options.configurationSource = ZzPureTools::ZzWorkspaceConfigurationSource::SourceWindow;
+        centerMode_ = ZzPureTools::ZzWorkspaceCenterMode::Stacked;
+        auto second = coordinator->createWindow(options);
+        centerMode_ = previousMode;
+        QVERIFY(second);
+        QVERIFY(second.value().shell->stackWidget() != stack);
+        QVERIFY(coordinator->closeWindow(second.value().window));
+        QVERIFY(coordinator->closeWindow(window));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    }
+
     void settingsActionCreatesOneWindowModalChildPerMainWindow()
     {
         auto *window = createAdditionalWindow();
@@ -1443,6 +1511,8 @@ private:
     }
 
     std::shared_ptr<ZzExample::ZzExampleApplicationContext> context_;
+    ZzPureTools::ZzWorkspaceCenterMode centerMode_ =
+        ZzPureTools::ZzWorkspaceCenterMode::Tabbed;
     ZzPureTools::ZzApplicationWindow *initialWindow_ = nullptr;
     qsizetype baselineWindowCount_ = 0;
 };

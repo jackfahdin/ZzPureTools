@@ -21,7 +21,19 @@ workspaceShell_ = std::move(result).value();
 window.setCentralWidget(workspaceShell_->workspaceWidget());
 ```
 
-`workspaceWidget()`、`activityBar()`、`sidePane()`、`splitWorkspace()`、`bottomPane()`
+默认中央区域是无标签 `QStackedWidget`，通过 `stackWidget()` 访问。调用
+`addWidget()` 添加页面、`setCurrentWidget()` 切换；框架不生成标签或页面关闭按钮。
+页面的 `windowTitle` 用于跟随页面的标题策略。`integrateApplicationNavigation()` 将
+应用已有的 `ZzPageHost` 直接放入该容器，点击侧边导航时显示对应页面。
+
+需要多标签时，应用可以直接在某个堆叠页面内嵌入 `ZzTabWidget` 或 `ZzSplitWorkspace`。
+若需要框架内置标签迁移与拓扑协调，创建时显式使用
+`create(&window, windowTitleBar, ZzWorkspaceCenterMode::Tabbed)`。
+Stacked 模式的 `tabWidget()` / `splitWorkspace()` 返回 `nullptr`；Tabbed 模式的
+`stackWidget()` 返回 `nullptr`。模式只在创建时选择，不能运行中切换。
+完整示例见 [中央堆叠页面接入](STACKED_WORKSPACE_ZH.md)。
+
+`workspaceWidget()`、`stackWidget()`、`activityBar()`、`sidePane()`、`splitWorkspace()`、`bottomPane()`
 和 `commandPalette()` 都是非拥有观察指针，生命周期不超过 Shell 和宿主窗口。
 
 ## 面板所有权
@@ -55,7 +67,8 @@ if (removed) {
 | 表面 | 注册接口 | 框架职责 | 应用职责 |
 |---|---|---|---|
 | 左右侧栏 | `registerSidePanel()` / `registerSidePanelFactory()` | Activity、显隐、宽度、布局 | 提供内容和业务快照 |
-| 中央标签 | `tabWidget()->addTab()` | 标签顺序、固定、脏状态、关闭意图 | 决定保存、关闭和页面生命周期 |
+| 中央堆叠页面（默认） | `stackWidget()->addWidget()` | 页面容器、当前页标题同步 | 提供页面导航与关闭意图 |
+| 中央标签（显式 Tabbed） | `tabWidget()->addTab()` | 标签顺序、固定、脏状态、关闭意图 | 决定保存、关闭和页面生命周期 |
 | 底部工具区 | `registerBottomPanel()` | 面板显隐、尺寸和布局 | 提供日志、输出或诊断视图 |
 | 原生停靠区 | `registerDockPanel()` | Fluent 标题栏和 Qt 停靠协议 | 决定停靠区域和内容销毁 |
 | 固定入口 | `registerFixedActivityAction()` | 非拥有观察 `QAction` 状态 | 拥有 QAction 并执行实际命令 |

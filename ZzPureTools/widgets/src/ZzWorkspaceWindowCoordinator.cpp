@@ -1,5 +1,7 @@
 #include <ZzPureTools/ZzWorkspaceWindowCoordinator.h>
 
+#include <QtWidgets/QStackedWidget>
+
 #include <algorithm>
 #include <exception>
 #include <utility>
@@ -211,10 +213,11 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
             ZzCore::ZzErrorCode::InvalidArgument,
             QStringLiteral("workspace shell does not belong to the application window"));
     }
-    if (handle.shell->splitWorkspace() == nullptr) {
+    if (handle.shell->splitWorkspace() == nullptr
+        && handle.shell->stackWidget() == nullptr) {
         return zzCoordinatorFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
-            QStringLiteral("workspace shell has no split workspace"));
+            QStringLiteral("workspace shell has no central container"));
     }
     if (primary && std::any_of(
             d_ptr->records.cbegin(),
@@ -264,64 +267,75 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::registerWindow(
         });
     handle.window->installEventFilter(this);
     handle.shell->installEventFilter(this);
-    record.tearOffConnection = QObject::connect(
-        handle.shell->splitWorkspace(),
-        &ZzFluentUI::ZzSplitWorkspace::tabTearOffRequested,
-        this,
-        [this, workspace = QPointer<ZzFluentUI::ZzSplitWorkspace>(
-                   handle.shell->splitWorkspace())](
-            const ZzFluentUI::ZzTabGroupId &group,
-            int index,
-            const ZzFluentUI::ZzWorkspacePageId &,
-            const QPoint &position,
-            const QSize &recommended) {
-            if (workspace.isNull()) {
-                return;
-            }
-            ZzWorkspaceWindowCreateOptions options;
-            options.configurationSource =
-                ZzWorkspaceConfigurationSource::SourceWindow;
-            options.sourceWindow = qobject_cast<ZzApplicationWindow *>(
-                workspace->window());
-            options.configuration.initialGeometry =
-                zzConvergedTearOffGeometry(position, recommended);
-            static_cast<void>(tearOff(workspace.data(), group, index, options));
-        });
-    record.transferConnection = QObject::connect(handle.shell->splitWorkspace(),
-        &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
-        this,
-        [this, targetWindow = record.windowIdentity](
-            ZzFluentUI::ZzSplitWorkspace *sourceWorkspace,
-            const ZzFluentUI::ZzTabGroupId &sourceGroup,
-            int sourceIndex,
-            const ZzFluentUI::ZzTabGroupId &,
-            QWidget *page,
-            const ZzFluentUI::ZzWorkspacePageId &pageId,
-            ZzFluentUI::ZzWorkspaceDropZone) {
-            d_ptr->recordTransfer(targetWindow,
-                sourceWorkspace,
-                sourceGroup,
-                sourceIndex,
-                page,
-                pageId);
-        });
-    record.activePageConnection = QObject::connect(
-        handle.shell->splitWorkspace(),
-        &ZzFluentUI::ZzSplitWorkspace::activePageChanged,
-        this,
-        [this, window = record.windowIdentity](
-            QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id) {
-            Q_EMIT activePageChanged(window, page, id);
-        });
-    record.pageActivityConnection = QObject::connect(
-        handle.shell->splitWorkspace(),
-        &ZzFluentUI::ZzSplitWorkspace::pageActivityChanged,
-        this,
-        [this, window = record.windowIdentity](
-            QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id,
-            bool modified, bool attention) {
-            Q_EMIT pageActivityChanged(window, page, id, modified, attention);
-        });
+    if (handle.shell->splitWorkspace() != nullptr) {
+        record.tearOffConnection = QObject::connect(
+            handle.shell->splitWorkspace(),
+            &ZzFluentUI::ZzSplitWorkspace::tabTearOffRequested,
+            this,
+            [this, workspace = QPointer<ZzFluentUI::ZzSplitWorkspace>(
+                       handle.shell->splitWorkspace())](
+                const ZzFluentUI::ZzTabGroupId &group,
+                int index,
+                const ZzFluentUI::ZzWorkspacePageId &,
+                const QPoint &position,
+                const QSize &recommended) {
+                if (workspace.isNull()) {
+                    return;
+                }
+                ZzWorkspaceWindowCreateOptions options;
+                options.configurationSource =
+                    ZzWorkspaceConfigurationSource::SourceWindow;
+                options.sourceWindow = qobject_cast<ZzApplicationWindow *>(
+                    workspace->window());
+                options.configuration.initialGeometry =
+                    zzConvergedTearOffGeometry(position, recommended);
+                static_cast<void>(tearOff(workspace.data(), group, index, options));
+            });
+        record.transferConnection = QObject::connect(handle.shell->splitWorkspace(),
+            &ZzFluentUI::ZzSplitWorkspace::tabTransferCommitted,
+            this,
+            [this, targetWindow = record.windowIdentity](
+                ZzFluentUI::ZzSplitWorkspace *sourceWorkspace,
+                const ZzFluentUI::ZzTabGroupId &sourceGroup,
+                int sourceIndex,
+                const ZzFluentUI::ZzTabGroupId &,
+                QWidget *page,
+                const ZzFluentUI::ZzWorkspacePageId &pageId,
+                ZzFluentUI::ZzWorkspaceDropZone) {
+                d_ptr->recordTransfer(targetWindow,
+                    sourceWorkspace,
+                    sourceGroup,
+                    sourceIndex,
+                    page,
+                    pageId);
+            });
+        record.activePageConnection = QObject::connect(
+            handle.shell->splitWorkspace(),
+            &ZzFluentUI::ZzSplitWorkspace::activePageChanged,
+            this,
+            [this, window = record.windowIdentity](
+                QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id) {
+                Q_EMIT activePageChanged(window, page, id);
+            });
+        record.pageActivityConnection = QObject::connect(
+            handle.shell->splitWorkspace(),
+            &ZzFluentUI::ZzSplitWorkspace::pageActivityChanged,
+            this,
+            [this, window = record.windowIdentity](
+                QWidget *page, const ZzFluentUI::ZzWorkspacePageId &id,
+                bool modified, bool attention) {
+                Q_EMIT pageActivityChanged(window, page, id, modified, attention);
+            });
+    } else {
+        const QPointer<QStackedWidget> stack(handle.shell->stackWidget());
+        record.activePageConnection = QObject::connect(
+            stack, &QStackedWidget::currentChanged, this,
+            [this, window = record.windowIdentity, stack] {
+                if (stack != nullptr) {
+                    Q_EMIT activePageChanged(window, stack->currentWidget(), {});
+                }
+            });
+    }
     handle.window->setCloseAcceptanceCallback(
         [coordinator = QPointer<ZzWorkspaceWindowCoordinator>(this),
             window = record.windowIdentity] {
@@ -574,6 +588,12 @@ ZzCore::ZzResult<void> ZzWorkspaceWindowCoordinator::tearOff(
     const QUuid targetWindowId = targetRecord != d_ptr->records.cend()
                                      ? targetRecord->windowId
                                      : sourceWindowId;
+    if (handle.shell->splitWorkspace() == nullptr) {
+        static_cast<void>(unregisterWindow(handle.window.data()));
+        zzCloseStagedWindow(handle.window.data());
+        return zzCoordinatorFailure<void>(ZzCore::ZzErrorCode::Unsupported,
+            QStringLiteral("Tab tear-off requires a tabbed target workspace"));
+    }
     const auto groups = handle.shell->splitWorkspace()->groupIds();
     auto transferred = sourceWorkspace->transferTabToWorkspace(sourceGroup, sourceIndex,
         handle.shell->splitWorkspace(), groups.constFirst());

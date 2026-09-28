@@ -57,7 +57,7 @@ public:
         int sourceIndex,
         const ZzWorkspaceWindowCreateOptions &options = {});
 
-    /** @brief 按已登记窗口的关闭策略回收页面并请求关闭窗口。 */
+    /** @brief 按窗口策略关闭；Tabbed 回收迁移页面，Stacked 页面随所属窗口销毁。 */
     [[nodiscard]] ZzCore::ZzResult<void> closeWindow(
         ZzApplicationWindow *window);
 
@@ -95,7 +95,7 @@ public:
 
     /**
      * @brief 按登记顺序保存全部窗口、工作区页面和来源栈拓扑。
-     * @return 成功时返回带 SHA-256 校验的 `ZZWT` 字节；页面观察不完整时返回错误。
+     * @return 成功时返回带 SHA-256 校验的 `ZZWT` 字节；含 Stacked 窗口时返回 Unsupported。
      */
     [[nodiscard]] ZzCore::ZzResult<QByteArray> saveTopology() const;
 
@@ -122,7 +122,7 @@ Q_SIGNALS:
         ZzApplicationWindow *window,
         const ZzWorkspaceWindowConfiguration &configuration);
 
-    /** @brief 页面已锁定且窗口即将回收并关闭时发出；接收期间禁止公开迁移。 */
+    /** @brief 关闭已获批准时发出；Tabbed 页面被锁定，Stacked 页面保持普通 Qt 所有权。 */
     void windowAboutToClose(
         ZzApplicationWindow *window,
         const QList<QWidget *> &pages);
@@ -133,7 +133,7 @@ Q_SIGNALS:
     /** @brief 找不到任何回收目标时按稳定顺序报告保留的页面。 */
     void orphanedPages(const QList<QWidget *> &pages);
 
-    /** @brief 转发登记工作区活动页面并附加窗口身份。 */
+    /** @brief 转发活动页面并附加窗口身份；Stacked 页面没有标签身份，id 为空。 */
     void activePageChanged(
         ZzApplicationWindow *window, QWidget *page,
         const ZzFluentUI::ZzWorkspacePageId &id);

@@ -1,5 +1,7 @@
 #include "ZzWorkspaceLayoutTransactionPrivate.h"
 
+#include <QtWidgets/QStackedWidget>
+
 #include <algorithm>
 #include <array>
 #include <optional>
@@ -89,7 +91,9 @@ template<typename ZzValue>
     const ZzWorkspaceShellPrivate &shell)
 {
     QString pageTitle;
-    if (shell.activeTabs != nullptr
+    if (shell.centerStack != nullptr && shell.centerStack->currentWidget() != nullptr) {
+        pageTitle = shell.centerStack->currentWidget()->windowTitle();
+    } else if (shell.activeTabs != nullptr
         && shell.activeTabs->currentWidget() != nullptr) {
         pageTitle = shell.activeTabs->currentWidget()->windowTitle();
         if (pageTitle.isEmpty()) {
@@ -130,6 +134,7 @@ struct ZzRuntimeGuards final
     QPointer<ZzFluentUI::ZzActivityBar> rightActivity;
     QPointer<QAbstractListModel> activityModel;
     QPointer<ZzFluentUI::ZzFluentTitleBar> titleBar;
+    QPointer<QStackedWidget> centerStack;
 };
 
 struct ZzSideOwnerIdentity final
@@ -328,7 +333,8 @@ void zzWriteSide(
     const ZzWorkspaceShellPrivate &shell)
 {
     if (shell.host == nullptr || shell.leftSidePane == nullptr
-        || shell.rightSidePane == nullptr || shell.splitWorkspace == nullptr
+        || shell.rightSidePane == nullptr
+        || (shell.splitWorkspace == nullptr && shell.centerStack == nullptr)
         || shell.bottomPane == nullptr || shell.activityModel == nullptr) {
         return {};
     }
@@ -356,7 +362,9 @@ void zzWriteSide(
         stream << row.id.value() << static_cast<quint8>(row.area)
                << static_cast<qint32>(areaOrders.at(areaIndex)++);
     }
-    stream << shell.splitWorkspace->saveLayout()
+    stream << (shell.centerStack != nullptr
+                   ? ZzWorkspaceLayoutCodecPrivate::stackedCenterState()
+                   : shell.splitWorkspace->saveLayout())
            << static_cast<quint8>(shell.bottomPane->isCollapsed() ? 1 : 0)
            << static_cast<qint32>(shell.bottomPane->paneHeight())
            << zzIdForWidget(ids, shell.bottomPane->currentWidget())
@@ -468,7 +476,7 @@ void zzWriteSide(
     result.guards = {
         shell.host, shell.splitWorkspace, shell.leftSidePane,
         shell.rightSidePane, shell.bottomPane, shell.leftActivityBar,
-        shell.rightActivityBar, shell.activityModel, shell.titleBar};
+        shell.rightActivityBar, shell.activityModel, shell.titleBar, shell.centerStack};
 
     QHash<QWidget *, QString> ids;
     ids.reserve(shell.panels.size());
@@ -669,7 +677,10 @@ void zzWriteSide(
     const ZzRuntimeGuards &guards)
 {
     return guards.host != nullptr && guards.host == shell.host
-        && guards.split != nullptr && guards.split == shell.splitWorkspace
+        && ((guards.centerStack != nullptr && guards.centerStack == shell.centerStack
+                && guards.split == nullptr && shell.splitWorkspace == nullptr)
+            || (guards.split != nullptr && guards.split == shell.splitWorkspace
+                && guards.centerStack == nullptr && shell.centerStack == nullptr))
         && guards.leftSide != nullptr && guards.leftSide == shell.leftSidePane
         && guards.rightSide != nullptr && guards.rightSide == shell.rightSidePane
         && guards.bottom != nullptr && guards.bottom == shell.bottomPane
@@ -1146,7 +1157,10 @@ struct ZzRestoreMaterialization final
     int migrationCurrent = -1)
 {
     if (shell.splitWorkspace == nullptr) {
-        return false;
+        return shell.centerStack != nullptr && migrationGroup.isEmpty()
+            && migrationCurrent < 0
+            && expected.canonicalState
+                == ZzWorkspaceLayoutCodecPrivate::stackedCenterState();
     }
     auto canonical = ZzWorkspaceLayoutCodecPrivate::canonicalizeSplit(
         shell.splitWorkspace->saveLayout());
@@ -1451,6 +1465,11 @@ struct ZzRestoreMaterialization final
     int migrationCurrent = -1)
 {
     if (observed == nullptr) {
+        return migrationGroup.isEmpty() && migrationCurrent < 0
+            && target->canonicalState
+                == ZzWorkspaceLayoutCodecPrivate::stackedCenterState();
+    }
+    if (target->canonicalState == ZzWorkspaceLayoutCodecPrivate::stackedCenterState()) {
         return false;
     }
     if (!migrationGroup.isEmpty()) {
@@ -1534,6 +1553,10 @@ private:
     const QByteArray &alternateCanonical = {})
 {
     const QPointer<ZzFluentUI::ZzSplitWorkspace> guard(shell.splitWorkspace);
+    if (shell.centerStack != nullptr) {
+        return zzStableGuards(shell, runtime.guards)
+            && zzAuditSplit(shell, target, migrationGroup, migrationCurrent);
+    }
     std::optional<QByteArray> observedCanonical;
     if (guard != nullptr) {
         auto canonical = ZzWorkspaceLayoutCodecPrivate::canonicalizeSplit(
@@ -2597,6 +2620,7 @@ ZzWorkspaceLayoutTransactionPrivate::restore(
     const QString migrationGroup = versionOne
         ? initialSnapshot.projection.split.groupOrder.value(0) : QString{};
     auto *const snapshotMigrationTabs = !migrationGroup.isEmpty()
+            && shell_.splitWorkspace != nullptr
         ? shell_.splitWorkspace->tabWidget(
             ZzFluentUI::ZzTabGroupId(migrationGroup))
         : nullptr;

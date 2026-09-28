@@ -1,4 +1,8 @@
 #include "ZzExampleWindowShellPrivate.h"
+
+#include <QtWidgets/QStackedWidget>
+#include <QtWidgets/QTreeView>
+#include <ZzPureTools/ZzNavigationModel.h>
 #include "ZzExampleFileModel.h"
 
 #include <array>
@@ -83,11 +87,13 @@ ZzExampleWindowShellPrivate::ZzExampleWindowShellPrivate(
     ZzPureTools::ZzApplicationWindow *applicationWindow,
     std::shared_ptr<ZzExampleApplicationContext> applicationContext,
     ZzPureTools::ZzPureApplication *pureApplication,
-    bool enableCloseGuard)
+    bool enableCloseGuard,
+    ZzPureTools::ZzWorkspaceCenterMode requestedCenterMode)
     : q_ptr(shell)
     , window(applicationWindow)
     , context(std::move(applicationContext))
     , application(pureApplication)
+    , centerMode(requestedCenterMode)
     , closeGuardEnabled(enableCloseGuard)
 {
 }
@@ -116,7 +122,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     }
 
     auto created = ZzPureTools::ZzWorkspaceShell::create(
-        window, window->titleBar());
+        window, window->titleBar(), centerMode);
     if (!created) {
         return ZzCore::ZzResult<void>::failure(created.error());
     }
@@ -205,6 +211,27 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     navigationMenu->addAction(openPaletteAction);
     viewMenu->addAction(settingsAction);
     viewMenu->addAction(themeAction);
+    if (auto *stack = workspace->stackWidget()) {
+        auto *pagesMenu = viewMenu->addMenu(QCoreApplication::translate(
+            "ZzPureToolsExample", "已打开的页面"));
+        pagesMenu->setObjectName(QStringLiteral("zzExampleOpenPagesMenu"));
+        QObject::connect(pagesMenu, &QMenu::aboutToShow, q_ptr,
+            [this, pagesMenu, stack] {
+                pagesMenu->clear();
+                for (int index = 0; index < stack->count(); ++index) {
+                    const QPointer<QWidget> page(stack->widget(index));
+                    auto *action = pagesMenu->addAction(page->windowTitle());
+                    action->setCheckable(true);
+                    action->setChecked(page == stack->currentWidget());
+                    QObject::connect(action, &QAction::triggered, q_ptr,
+                        [stack, page] {
+                            if (page != nullptr && stack->indexOf(page) >= 0) {
+                                stack->setCurrentWidget(page);
+                            }
+                        });
+                }
+            });
+    }
     helpMenu->addAction(aboutAction);
     titleBar->setThemeMode(theme->mode());
     titleBar->setThemeInteractionMode(
@@ -242,9 +269,23 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
             QStringLiteral(
                 ":/ZzPureToolsExample/workspace-icons/Sessions.svg")),
         ZzFluentUI::ZzActivityArea::LeftPrimary,
-        [sessionModel = sessions.get()] {
+        [this, sessionModel = sessions.get()] {
+            auto panel = ZzExampleWorkspaceContent::createSessionPanel(sessionModel);
+            auto *tree = panel->findChild<QTreeView *>();
+            QObject::connect(tree, &QTreeView::clicked, q_ptr,
+                [this](const QModelIndex &index) {
+                    if (index.isValid()) {
+                        createTerminalPage(index.data(Qt::DisplayRole).toString());
+                    }
+                });
+            QObject::connect(tree, &QTreeView::activated, q_ptr,
+                [this](const QModelIndex &index) {
+                    if (index.isValid()) {
+                        createTerminalPage(index.data(Qt::DisplayRole).toString());
+                    }
+                });
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
-                ZzExampleWorkspaceContent::createSessionPanel(sessionModel));
+                std::move(panel));
         });
     if (!side) {
         return side;
@@ -368,10 +409,13 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
             panel.content.release();
     }
 
-    const int navigationIndex =
-        workspace->tabWidget()->indexOf(window->pageHost());
-    createTerminalTab();
-    workspace->tabWidget()->setCurrentIndex(navigationIndex);
+    window->pageHost()->setWindowTitle(QCoreApplication::translate(
+        "ZzPureToolsExample", "组件示例"));
+    if (auto *tabs = workspace->tabWidget()) {
+        const int navigationIndex = tabs->indexOf(window->pageHost());
+        createTerminalPage();
+        tabs->setCurrentIndex(navigationIndex);
+    }
 
     QObject::connect(
         workspace->bottomPane(), &ZzFluentUI::ZzBottomPane::collapsedChanged,
@@ -411,6 +455,9 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     QObject::connect(navigation,
         &ZzPureTools::ZzNavigationController::currentRouteChanged,
         q_ptr, [this](const ZzPureTools::ZzRouteId &routeId) {
+            if (auto node = window->navigationModel()->indexForRoute(routeId); node) {
+                window->pageHost()->setWindowTitle(node.value().data(Qt::DisplayRole).toString());
+            }
             routeLabel->setText(QCoreApplication::translate(
                 "ZzPureToolsExample", "路由：%1").arg(routeId.value()));
             recordActivity(QCoreApplication::translate(
@@ -494,7 +541,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         workspace->commandPalette(),
         &ZzFluentUI::ZzCommandPalette::open);
     QObject::connect(newTerminalAction, &QAction::triggered,
-        q_ptr, [this] { createTerminalTab(); });
+        q_ptr, [this] { createTerminalPage(); });
     QObject::connect(closeTerminalAction, &QAction::triggered,
         q_ptr, [this] { closeCurrentTerminal(); });
     QObject::connect(workspace->commandPalette(),
@@ -502,17 +549,19 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         q_ptr, [this](const QModelIndex &index) {
             dispatchWorkspaceCommand(sessions->commandId(index));
         });
-    QObject::connect(workspace->tabWidget(),
-        &QTabWidget::tabCloseRequested, q_ptr, [this](int index) {
-            if (workspace->tabWidget()->isTabCloseEnabled(index)) {
-                QWidget *const page = workspace->tabWidget()->widget(index);
-                workspace->tabWidget()->removeTab(index);
-                delete page;
-            }
-        });
-    QObject::connect(workspace->tabWidget(),
-        &ZzFluentUI::ZzTabWidget::newTabRequested,
-        q_ptr, [this] { createTerminalTab(); });
+    if (workspace->tabWidget() != nullptr) {
+        QObject::connect(workspace->tabWidget(),
+            &QTabWidget::tabCloseRequested, q_ptr, [this](int index) {
+                if (workspace->tabWidget()->isTabCloseEnabled(index)) {
+                    QWidget *const page = workspace->tabWidget()->widget(index);
+                    workspace->tabWidget()->removeTab(index);
+                    delete page;
+                }
+            });
+        QObject::connect(workspace->tabWidget(),
+            &ZzFluentUI::ZzTabWidget::newTabRequested,
+            q_ptr, [this] { createTerminalPage(); });
+    }
 
     syncHistoryActions(
         navigation->canGoBack(), navigation->canGoForward());
@@ -595,7 +644,7 @@ void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(
 {
     switch (command) {
     case ZzExampleCommandId::NewTerminal:
-        createTerminalTab();
+        createTerminalPage();
         break;
     case ZzExampleCommandId::CloseTerminal:
         closeCurrentTerminal();
@@ -628,27 +677,55 @@ void ZzExampleWindowShellPrivate::dispatchWorkspaceCommand(
     }
 }
 
-void ZzExampleWindowShellPrivate::createTerminalTab()
+void ZzExampleWindowShellPrivate::createTerminalPage(const QString &sessionName)
 {
-    if (workspace == nullptr || workspace->tabWidget() == nullptr) {
+    if (workspace == nullptr) {
         return;
     }
+    auto *stack = workspace->stackWidget();
+    if (stack != nullptr && !sessionName.isEmpty()) {
+        for (int index = 0; index < stack->count(); ++index) {
+            if (stack->widget(index)->windowTitle() == sessionName) {
+                stack->setCurrentIndex(index);
+                return;
+            }
+        }
+    }
     ++terminalSequence;
-    const QString title = QCoreApplication::translate(
-        "ZzPureToolsExample", "终端 %1").arg(terminalSequence);
+    const QString title = sessionName.isEmpty() ? QCoreApplication::translate(
+        "ZzPureToolsExample", "终端 %1").arg(terminalSequence) : sessionName;
     auto terminal = ZzExampleWorkspaceContent::createTerminalPage(title);
-    const int index = workspace->tabWidget()->addTab(
-        terminal.release(), title);
-    workspace->tabWidget()->setCurrentIndex(index);
+    terminal->setWindowTitle(title);
+    if (stack != nullptr) {
+        QWidget *const page = terminal.release();
+        stack->addWidget(page);
+        stack->setCurrentWidget(page);
+    } else if (auto *tabs = workspace->tabWidget()) {
+        const int index = tabs->addTab(terminal.release(), title);
+        tabs->setCurrentIndex(index);
+    }
     recordActivity(QCoreApplication::translate(
         "ZzPureToolsExample", "已创建 %1").arg(title));
 }
 
 void ZzExampleWindowShellPrivate::closeCurrentTerminal()
 {
-    if (workspace == nullptr || workspace->tabWidget() == nullptr) {
+    if (workspace == nullptr) {
         return;
     }
+    if (auto *stack = workspace->stackWidget()) {
+        QWidget *const page = stack->currentWidget();
+        if (page == nullptr || page == window->pageHost()) {
+            return;
+        }
+        stack->removeWidget(page);
+        delete page;
+        stack->setCurrentWidget(window->pageHost());
+        recordActivity(QCoreApplication::translate(
+            "ZzPureToolsExample", "已关闭当前终端"));
+        return;
+    }
+    if (workspace->tabWidget() == nullptr) return;
     const int index = workspace->tabWidget()->currentIndex();
     if (!workspace->tabWidget()->isTabCloseEnabled(index)) {
         return;

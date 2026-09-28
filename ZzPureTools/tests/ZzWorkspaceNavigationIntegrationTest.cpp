@@ -12,6 +12,7 @@
 #include <ZzTestEventLoop.h>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
@@ -165,8 +166,16 @@ private Q_SLOTS:
         zzApplication().beginShutdown();
     }
 
+    void integratesNavigationPaneAndPageHostWithoutChangingRoute_data()
+    {
+        QTest::addColumn<bool>("stacked");
+        QTest::newRow("stacked") << true;
+        QTest::newRow("tabbed") << false;
+    }
+
     void integratesNavigationPaneAndPageHostWithoutChangingRoute()
     {
+        QFETCH(bool, stacked);
         std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
         QPointer<QWidget> originalBody;
         QPointer<QWidget> workspace;
@@ -186,7 +195,9 @@ private Q_SLOTS:
             pageHostBefore = window.pageHost();
             routeBefore = controllerBefore->currentRoute();
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), stacked
+                    ? ZzPureTools::ZzWorkspaceCenterMode::Stacked
+                    : ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -213,10 +224,13 @@ private Q_SLOTS:
                 && navigationBefore != nullptr
                 && navigationBefore->isTreeMode()
                 && navigationBefore->treeView() != nullptr
-                && tabs != nullptr && pageIndex >= 0
-                && tabs->isTabPinned(pageIndex)
-                && !tabs->isTabCloseEnabled(pageIndex)
-                && shell->splitWorkspace()->isAncestorOf(pageHostBefore)
+                && (stacked
+                    ? shell->stackWidget() != nullptr
+                        && shell->stackWidget()->currentWidget() == pageHostBefore
+                    : tabs != nullptr && pageIndex >= 0
+                        && tabs->isTabPinned(pageIndex)
+                        && !tabs->isTabCloseEnabled(pageIndex)
+                        && shell->splitWorkspace()->isAncestorOf(pageHostBefore))
                 && window.navigationModel() == modelBefore
                 && window.navigationController() == controllerBefore
                 && window.navigationPane() == navigationBefore
@@ -282,6 +296,50 @@ private Q_SLOTS:
         QVERIFY(pageHostBefore.isNull());
     }
 
+    void stackedIntegrationRollsBackInterruptedPageInsertion()
+    {
+        std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
+        bool rolledBack = false;
+        currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
+            auto created = ZzPureTools::ZzWorkspaceShell::create(&window);
+            if (!created) return ZzCore::ZzResult<void>::failure(created.error());
+            shell = std::move(created).value();
+            auto *body = window.centralWidget();
+            auto *stack = shell->stackWidget();
+            auto *navigationPane = window.navigationPane();
+            auto *pageHost = window.pageHost();
+            auto *model = window.navigationModel();
+            const auto connection = QObject::connect(stack, &QStackedWidget::currentChanged,
+                &window, [&](int index) {
+                    if (index >= 0) {
+                        // 模拟接入方在迁入回调中将页面移出，事务必须归还全部表面。
+                        stack->removeWidget(pageHost);
+                    }
+                });
+            const auto interrupted = shell->integrateApplicationNavigation(
+                zzPanelId("components"), QStringLiteral("Components"), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, QStringLiteral("Examples"));
+            QObject::disconnect(connection);
+            rolledBack = !interrupted && window.centralWidget() == body
+                && navigationPane->parentWidget() == body
+                && pageHost->parentWidget() == body && stack->count() == 0
+                && window.navigationModel() == model
+                && shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left)
+                    ->panelStack()->panelCount() == 0;
+            if (!rolledBack) return zzFailure(QStringLiteral("Stacked integration rollback failed"));
+            auto retried = shell->integrateApplicationNavigation(
+                zzPanelId("components"), QStringLiteral("Components"), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, QStringLiteral("Examples"));
+            if (retried) window.setCentralWidget(shell->workspaceWidget());
+            return retried;
+        };
+        auto createdWindow = zzApplication().createWindow();
+        QVERIFY(createdWindow);
+        QVERIFY(rolledBack);
+        QCOMPARE(shell->stackWidget()->currentWidget(), createdWindow.value()->pageHost());
+        closeWindow(createdWindow.value());
+    }
+
     void preservesIntegratedSurfacesBeforeWorkspaceMount()
     {
         std::unique_ptr<ZzPureTools::ZzWorkspaceShell> shell;
@@ -298,7 +356,7 @@ private Q_SLOTS:
             controller = window.navigationController();
             routeBefore = controller->currentRoute();
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -370,7 +428,7 @@ private Q_SLOTS:
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -427,7 +485,7 @@ private Q_SLOTS:
         QMainWindow host;
         auto *const body = new QWidget(&host);
         host.setCentralWidget(body);
-        auto created = ZzPureTools::ZzWorkspaceShell::create(&host);
+        auto created = ZzPureTools::ZzWorkspaceShell::create(&host, nullptr, ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
         QVERIFY(created);
         auto shell = std::move(created).value();
         auto *const tabs = shell->tabWidget();
@@ -484,7 +542,7 @@ private Q_SLOTS:
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -558,7 +616,7 @@ private Q_SLOTS:
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -707,7 +765,7 @@ private Q_SLOTS:
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -739,7 +797,7 @@ private Q_SLOTS:
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
@@ -780,7 +838,7 @@ private Q_SLOTS:
 
         currentSetup_ = [&](ZzPureTools::ZzApplicationWindow &window) {
             auto created = ZzPureTools::ZzWorkspaceShell::create(
-                &window, window.titleBar());
+                &window, window.titleBar(), ZzPureTools::ZzWorkspaceCenterMode::Tabbed);
             if (!created) {
                 return ZzCore::ZzResult<void>::failure(created.error());
             }
