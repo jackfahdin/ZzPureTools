@@ -11,6 +11,10 @@ class ZzApplicationWindow;
 class ZzPureApplication;
 }
 
+namespace ZzFluentUI {
+class ZzThemeController;
+}
+
 namespace ZzExample {
 
 class ZzExampleApplicationContext;
@@ -23,6 +27,15 @@ class ZzExampleWindowShell;
 class ZzExampleSystemPresenter final : public QObject
 {
 public:
+    /**
+     * @brief 启动时恢复应用外观；新建窗口或打开设置时不重复加载。
+     * @param context 保存用户设置的应用上下文。
+     * @param theme 应用唯一的主题控制器。
+     */
+    static void restoreAppearanceSettings(
+        ZzExampleApplicationContext &context,
+        ZzFluentUI::ZzThemeController &theme);
+
     /**
      * @brief 使用 composition root 注入的非 UI 服务和窗口端口装配页面。
      * @param kind 页面种类。

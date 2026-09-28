@@ -1045,6 +1045,22 @@
         <translation>Theme mode</translation>
     </message>
     <message>
+        <source>强调色</source>
+        <translation>Accent color</translation>
+    </message>
+    <message>
+        <source>强调色无效</source>
+        <translation>Invalid accent color</translation>
+    </message>
+    <message>
+        <source>强调色已保存</source>
+        <translation>Accent color saved</translation>
+    </message>
+    <message>
+        <source>强调色已更新</source>
+        <translation>Accent color updated</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleSystemPagePrivate.cpp" line="163"/>
         <source>日志等级</source>
         <translation>Log level</translation>
@@ -1467,6 +1483,17 @@
         <location filename="../ZzExampleWindowShellPrivate.cpp" line="187"/>
         <source>帮助</source>
         <translation>Help</translation>
+    </message>
+</context>
+<context>
+    <name>ZzFluentUI::ZzFluentTitleBar</name>
+    <message>
+        <source>切换到浅色</source>
+        <translation>Switch to light</translation>
+    </message>
+    <message>
+        <source>切换到深色</source>
+        <translation>Switch to dark</translation>
     </message>
 </context>
 </TS>

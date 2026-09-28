@@ -6,11 +6,13 @@
 
 class QAbstractItemModel;
 class QComboBox;
+class QColor;
 class QLabel;
 class QVBoxLayout;
 class QWidget;
 
 namespace ZzFluentUI {
+class ZzColorPicker;
 class ZzToggleSwitch;
 }
 
@@ -34,6 +36,7 @@ public:
     /** @brief 无信号地同步 Presenter 提供的设置快照。 */
     void setSettingsSnapshot(
         int themeMode,
+        const QColor &accentColor,
         int logLevel,
         bool reducedMotion,
         bool activityDockVisible);
@@ -46,6 +49,7 @@ public:
 
     ZzExampleSystemPage *q_ptr = nullptr;
     QComboBox *themeModeBox = nullptr;
+    ZzFluentUI::ZzColorPicker *accentColorPicker = nullptr;
     QComboBox *logLevelBox = nullptr;
     ZzFluentUI::ZzToggleSwitch *reducedMotionSwitch = nullptr;
     ZzFluentUI::ZzToggleSwitch *activityDockSwitch = nullptr;

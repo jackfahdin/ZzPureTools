@@ -32,6 +32,8 @@
 #include <ZzCore/ZzSettingsStore.h>
 
 #include <ZzFluentUI/ZzCommandPalette.h>
+#include <ZzFluentUI/ZzColorPicker.h>
+#include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzCommandBar.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityArea.h>
@@ -66,6 +68,7 @@
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSettingsWindow.h"
 #include "ZzExampleSystemPage.h"
+#include "ZzExampleSystemPresenter.h"
 #include "ZzExampleSystemViewModel.h"
 #include "ZzExampleWindowShell.h"
 
@@ -861,32 +864,36 @@ private Q_SLOTS:
         if (settingsThemeBox == nullptr) {
             return;
         }
+        QCOMPARE(settingsThemeBox->count(), 3);
+        QCOMPARE(settingsThemeBox->itemData(0).toInt(), static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+        QCOMPARE(settingsThemeBox->itemData(1).toInt(), static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
+        QCOMPARE(settingsThemeBox->itemData(2).toInt(), static_cast<int>(ZzFluentUI::ZzThemeMode::System));
         settingsThemeBox->setCurrentIndex(
-            static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
+            settingsThemeBox->findData(static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)));
         ZZ_VERIFY_EVENTUALLY(
             settingsTitleBar->themeMode() == ZzFluentUI::ZzThemeMode::Dark);
         ZZ_VERIFY_EVENTUALLY(
             window->titleBar()->themeMode() == ZzFluentUI::ZzThemeMode::Dark);
 
-        QAction *themeMenuAction = nullptr;
-        if (auto *const menu = window->titleBar()->themeMenu(); menu != nullptr) {
-            for (QAction *const candidate : menu->actions()) {
-                if (candidate != nullptr
-                    && candidate->data().toInt()
-                        == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)) {
-                    themeMenuAction = candidate;
-                    break;
-                }
-            }
-        }
-        QVERIFY(themeMenuAction != nullptr);
-        if (themeMenuAction == nullptr) {
-            return;
-        }
-        themeMenuAction->trigger();
+        auto *const themeButton = window->titleBar()->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarThemeButton"));
+        QVERIFY(themeButton != nullptr);
+        QVERIFY(themeButton->menu() == nullptr);
+        themeButton->click();
         ZZ_VERIFY_EVENTUALLY(
-            settingsThemeBox->currentIndex()
-            == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+            settingsThemeBox->currentData().toInt()
+            == static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+        settingsThemeBox->setCurrentIndex(2);
+        QCOMPARE(window->titleBar()->themeMode(), ZzFluentUI::ZzThemeMode::System);
+        auto *const application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        const auto beforeToggle = application->themeController()->resolvedMode();
+        themeButton->click();
+        QCOMPARE(application->themeController()->mode(),
+                 beforeToggle == ZzFluentUI::ZzThemeMode::Dark
+                     ? ZzFluentUI::ZzThemeMode::Light : ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(settingsThemeBox->currentData().toInt(),
+                 static_cast<int>(application->themeController()->mode()));
 
         closeSettings(settings);
         closeApplicationWindow(window);
@@ -905,33 +912,21 @@ private Q_SLOTS:
             static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
         QVERIFY(persistedLight);
 
-        QAction *themeMenuAction = nullptr;
-        if (auto *const menu = window->titleBar()->themeMenu(); menu != nullptr) {
-            for (QAction *const candidate : menu->actions()) {
-                if (candidate != nullptr
-                    && candidate->data().toInt()
-                        == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)) {
-                    themeMenuAction = candidate;
-                    break;
-                }
-            }
-        }
-        QVERIFY(themeMenuAction != nullptr);
-        if (themeMenuAction == nullptr) {
-            closeApplicationWindow(window);
-            return;
-        }
-
-        themeMenuAction->trigger();
+        application->themeController()->setMode(ZzFluentUI::ZzThemeMode::Light);
+        auto *const themeButton = window->titleBar()->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarThemeButton"));
+        QVERIFY(themeButton != nullptr);
+        QVERIFY(themeButton->menu() == nullptr);
+        themeButton->click();
         ZZ_VERIFY_EVENTUALLY(
             window->titleBar()->themeMode()
-            == ZzFluentUI::ZzThemeMode::HighContrast);
+            == ZzFluentUI::ZzThemeMode::Dark);
         const auto persistedTheme = context_->settingsStore().read(
             QStringView(QStringLiteral("appearance/themeMode")), -1);
         QVERIFY(persistedTheme);
         QCOMPARE(
             persistedTheme.value().toInt(),
-            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
 
         QAction *const settings = settingsAction(window);
         QVERIFY(settings != nullptr);
@@ -953,13 +948,80 @@ private Q_SLOTS:
 
         QCOMPARE(
             static_cast<int>(window->titleBar()->themeMode()),
-            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
         QCOMPARE(
-            settingsThemeBox->currentIndex(),
-            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+            settingsThemeBox->currentData().toInt(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
 
         closeSettings(settingsWindow);
         closeApplicationWindow(window);
+    }
+
+    void accentSelectionUpdatesThemeAndPersistsWithoutFeedback()
+    {
+        auto *const window = createAdditionalWindow();
+        auto *const application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
+        QVERIFY(application != nullptr);
+        auto *const theme = application->themeController();
+        settingsAction(window)->trigger();
+        auto *settings = settingsWindow(window);
+        QVERIFY(settings != nullptr);
+        auto *picker = settings->findChild<ZzFluentUI::ZzColorPicker *>();
+        QVERIFY(picker != nullptr);
+        QVERIFY(!picker->isAlphaEnabled());
+        auto *const otherWindow = createAdditionalWindow();
+        settingsAction(otherWindow)->trigger();
+        auto *const otherSettings = settingsWindow(otherWindow);
+        QVERIFY(otherSettings != nullptr);
+        auto *const otherPicker = otherSettings->findChild<ZzFluentUI::ZzColorPicker *>();
+        QVERIFY(otherPicker != nullptr);
+        const QColor accent(QStringLiteral("#9c42bf"));
+        picker->setCurrentColor(accent);
+        QCOMPARE(theme->accentColor(), accent);
+        QCOMPARE(otherPicker->currentColor(), accent);
+        const auto saved = context_->settingsStore().read(
+            QStringView(QStringLiteral("appearance/accentColor")), QString());
+        QVERIFY(saved);
+        QCOMPARE(saved.value().toString(), QStringLiteral("#9c42bf"));
+
+        ZzFluentUI::ZzThemeController restoredTheme;
+        ZzExample::ZzExampleSystemPresenter::restoreAppearanceSettings(*context_, restoredTheme);
+        QCOMPARE(restoredTheme.accentColor(), accent);
+        QCOMPARE(restoredTheme.mode(), theme->mode());
+
+        // 外部主题通知只更新界面，不应触发保存或覆盖运行时主题。
+        const QColor externalAccent(QStringLiteral("#217a46"));
+        theme->setAccentColor(externalAccent);
+        QCOMPARE(picker->currentColor(), externalAccent);
+        QCOMPARE(otherPicker->currentColor(), externalAccent);
+        const auto unchanged = context_->settingsStore().read(
+            QStringView(QStringLiteral("appearance/accentColor")), QString());
+        QVERIFY(unchanged);
+        QCOMPARE(unchanged.value(), saved.value());
+        closeSettings(settings);
+        settingsAction(window)->trigger();
+        settings = settingsWindow(window);
+        QVERIFY(settings != nullptr);
+        picker = settings->findChild<ZzFluentUI::ZzColorPicker *>();
+        QVERIFY(picker != nullptr);
+        QCOMPARE(picker->currentColor(), externalAccent);
+        closeSettings(settings);
+        closeSettings(otherSettings);
+        closeApplicationWindow(otherWindow, baselineWindowCount_ + 1);
+        closeApplicationWindow(window);
+    }
+
+    void restoresInvalidAppearanceSettingsWithSafeDefaults()
+    {
+        QVERIFY(context_->settingsStore().write(
+            QStringView(QStringLiteral("appearance/themeMode")), 3));
+        QVERIFY(context_->settingsStore().write(
+            QStringView(QStringLiteral("appearance/accentColor")), QStringLiteral("invalid")));
+        ZzFluentUI::ZzThemeController restoredTheme;
+        const auto defaultAccent = restoredTheme.accentColor();
+        ZzExample::ZzExampleSystemPresenter::restoreAppearanceSettings(*context_, restoredTheme);
+        QCOMPARE(restoredTheme.mode(), ZzFluentUI::ZzThemeMode::System);
+        QCOMPARE(restoredTheme.accentColor(), defaultAccent);
     }
 
     void aboutActionCreatesResizableWindowWithOneCloseCommand()

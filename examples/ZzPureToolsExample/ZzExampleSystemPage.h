@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QtCore/QString>
+#include <QtGui/QColor>
 #include <QtWidgets/QWidget>
 
 #include "ZzExampleSystemPageKind.h"
@@ -50,13 +51,15 @@ public:
 
     /**
      * @brief 由 Presenter 同步设置页当前值且不发用户意图。
-     * @param themeMode 主题模式索引。
+     * @param themeMode 主题模式枚举值，与控件排列顺序无关。
+     * @param accentColor 当前强调色。
      * @param logLevel 日志等级索引。
      * @param reducedMotion 是否减少动效。
      * @param activityDockVisible 活动 Dock 是否可见。
      */
     void setSettingsSnapshot(
         int themeMode,
+        const QColor &accentColor,
         int logLevel,
         bool reducedMotion,
         bool activityDockVisible);
@@ -67,6 +70,9 @@ public:
 Q_SIGNALS:
     /** @brief 用户请求切换主题模式。 */
     void themeModeRequested(int mode);
+
+    /** @brief 用户请求改变应用强调色。 */
+    void accentColorRequested(const QColor &color);
 
     /** @brief 用户请求切换日志等级。 */
     void logLevelRequested(int level);

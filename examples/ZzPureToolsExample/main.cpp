@@ -41,6 +41,7 @@
 #endif
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSmokeController.h"
+#include "ZzExampleSystemPresenter.h"
 #include "ZzExampleWindowShell.h"
 
 namespace {
@@ -122,6 +123,11 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     auto context = std::move(contextResult).value();
+    // 自动化场景使用确定的默认外观，普通启动才恢复用户偏好。
+    if (!testMode) {
+        ZzExample::ZzExampleSystemPresenter::restoreAppearanceSettings(
+            *context, *application.themeController());
+    }
     auto smokeController = std::make_shared<
         ZzExample::ZzExampleSmokeController>(
         smokeMode, application, context);

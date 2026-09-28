@@ -7,6 +7,8 @@
 
 #include "ZzExampleSystemPageKind.h"
 
+class QColor;
+
 namespace ZzCore {
 class ZzSettingsStore;
 }
@@ -32,6 +34,11 @@ class ZzExampleWindowShell;
 class ZzExampleSystemPresenterPrivate final
 {
 public:
+    /** @brief 读取并校验持久化外观，在首个窗口创建前应用。 */
+    static void restoreAppearanceSettings(
+        ZzExampleApplicationContext &context,
+        ZzFluentUI::ZzThemeController &theme);
+
     /** @brief 保存由页面实例保证生命周期的注入端口。 */
     ZzExampleSystemPresenterPrivate(
         ZzExampleSystemPresenter *presenter,
@@ -51,11 +58,14 @@ public:
     /** @brief 填充版本、编译器、许可证和第三方信息。 */
     void populateAboutRows();
 
-    /** @brief 读取并应用持久化设置后连接用户意图。 */
+    /** @brief 同步当前外观与持久化的非外观设置后连接用户意图。 */
     void initializeSettings();
 
     /** @brief 应用并持久化主题模式。 */
     void applyThemeMode(int mode);
+
+    /** @brief 应用不透明强调色并以 RGB 十六进制保存。 */
+    void applyAccentColor(const QColor &color);
 
     /** @brief 应用并持久化日志等级。 */
     void applyLogLevel(int level);

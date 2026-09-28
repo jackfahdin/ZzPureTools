@@ -280,8 +280,21 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
         q_ptr->devicePixelRatioF()));
 
     const QString menuText = ZzFluentTitleBar::tr("应用菜单");
-    const QString themeText = ZzFluentTitleBar::tr("主题：%1").arg(
-        zzThemeModeText(themeMode));
+    const bool toggleThemeIcon = themeInteractionMode
+        == ZzTitleBarThemeInteractionMode::Toggle;
+    auto effectiveMode = themeMode;
+    if (toggleThemeIcon && themeMode == ZzThemeMode::System) {
+        const auto *style = qobject_cast<ZzFluentStyle *>(q_ptr->style());
+        effectiveMode = style != nullptr && style->themeSnapshot() != nullptr
+            ? style->themeSnapshot()->mode()
+            : (q_ptr->palette().color(QPalette::Window).lightness() < 128
+                   ? ZzThemeMode::Dark : ZzThemeMode::Light);
+    }
+    const QString themeText = toggleThemeIcon
+        ? (effectiveMode == ZzThemeMode::Dark
+               ? ZzFluentTitleBar::tr("切换到浅色")
+               : ZzFluentTitleBar::tr("切换到深色"))
+        : ZzFluentTitleBar::tr("主题：%1").arg(zzThemeModeText(themeMode));
     const QString alwaysOnTopText = ZzFluentTitleBar::tr("置顶");
     const QString minimizeText = ZzFluentTitleBar::tr("最小化");
     const QString maximizeText = maximized
@@ -307,6 +320,8 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     closeButton->setToolTip(closeText);
     closeButton->setAccessibleName(closeText);
 
+    // Toggle 模式必须卸下菜单，才能同时去掉箭头和长按弹出行为。
+    themeButton->setMenu(toggleThemeIcon ? nullptr : themeMenu);
     themeButton->setPopupMode(
         themeInteractionMode == ZzTitleBarThemeInteractionMode::Menu
             ? QToolButton::InstantPopup
@@ -315,12 +330,11 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     compactMenuButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::MoreLine));
     // 菜单模式展示当前主题；Toggle 模式展示点击后将切换到的主题。
-    const bool toggleThemeIcon = themeInteractionMode
-        == ZzTitleBarThemeInteractionMode::Toggle;
-    const ZzBundledSvgIcon themeIcon = themeMode == ZzThemeMode::Light
-        ? (toggleThemeIcon ? ZzBundledSvgIcon::Moon : ZzBundledSvgIcon::Sun)
-        : themeMode == ZzThemeMode::Dark
-        ? (toggleThemeIcon ? ZzBundledSvgIcon::Sun : ZzBundledSvgIcon::Moon)
+    const ZzBundledSvgIcon themeIcon = toggleThemeIcon
+        ? (effectiveMode == ZzThemeMode::Dark
+               ? ZzBundledSvgIcon::Sun : ZzBundledSvgIcon::Moon)
+        : themeMode == ZzThemeMode::Light ? ZzBundledSvgIcon::Sun
+        : themeMode == ZzThemeMode::Dark ? ZzBundledSvgIcon::Moon
         : ZzBundledSvgIcon::ComputerSystem;
     themeButton->setIcon(zzTitleBarIcon(q_ptr, themeIcon));
     alwaysOnTopButton->setIcon(zzTitleBarIcon(

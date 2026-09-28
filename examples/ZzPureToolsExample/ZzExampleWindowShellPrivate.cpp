@@ -206,6 +206,13 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     viewMenu->addAction(themeAction);
     helpMenu->addAction(aboutAction);
     titleBar->setThemeMode(theme->mode());
+    titleBar->setThemeInteractionMode(
+        ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested,
+        q_ptr,
+        [this] { cycleTheme(); });
     QObject::connect(
         titleBar,
         &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
@@ -540,19 +547,8 @@ void ZzExampleWindowShellPrivate::navigateFromSearch()
 void ZzExampleWindowShellPrivate::cycleTheme()
 {
     auto *theme = application->themeController();
-    const auto nextMode = [mode = theme->mode()] {
-        switch (mode) {
-        case ZzFluentUI::ZzThemeMode::System:
-            return ZzFluentUI::ZzThemeMode::Light;
-        case ZzFluentUI::ZzThemeMode::Light:
-            return ZzFluentUI::ZzThemeMode::Dark;
-        case ZzFluentUI::ZzThemeMode::Dark:
-            return ZzFluentUI::ZzThemeMode::HighContrast;
-        case ZzFluentUI::ZzThemeMode::HighContrast:
-            return ZzFluentUI::ZzThemeMode::System;
-        }
-        Q_UNREACHABLE();
-    }();
+    const auto nextMode = theme->resolvedMode() == ZzFluentUI::ZzThemeMode::Dark
+        ? ZzFluentUI::ZzThemeMode::Light : ZzFluentUI::ZzThemeMode::Dark;
     const bool persisted = applyThemeMode(nextMode);
     statusBar->showMessage(
         persisted

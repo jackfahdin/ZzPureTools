@@ -12,6 +12,8 @@
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
+#include <ZzFluentUI/ZzColorPicker.h>
+#include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
 
@@ -104,6 +106,7 @@ void ZzExampleSystemPagePrivate::initialize(
 
 void ZzExampleSystemPagePrivate::setSettingsSnapshot(
     int themeMode,
+    const QColor &accentColor,
     int logLevel,
     bool reducedMotion,
     bool activityDockVisible)
@@ -114,10 +117,12 @@ void ZzExampleSystemPagePrivate::setSettingsSnapshot(
         return;
     }
     const QSignalBlocker themeBlocker(themeModeBox);
+    const QSignalBlocker accentBlocker(accentColorPicker);
     const QSignalBlocker logBlocker(logLevelBox);
     const QSignalBlocker motionBlocker(reducedMotionSwitch);
     const QSignalBlocker dockBlocker(activityDockSwitch);
-    themeModeBox->setCurrentIndex(themeMode);
+    themeModeBox->setCurrentIndex(themeModeBox->findData(themeMode));
+    accentColorPicker->setCurrentColor(accentColor);
     logLevelBox->setCurrentIndex(logLevel);
     reducedMotionSwitch->setChecked(reducedMotion);
     activityDockSwitch->setChecked(activityDockVisible);
@@ -144,11 +149,21 @@ void ZzExampleSystemPagePrivate::buildSettings(
     form->setHorizontalSpacing(18);
     form->setVerticalSpacing(12);
     themeModeBox = new QComboBox(parent);
-    themeModeBox->addItems({
-        QCoreApplication::translate("ZzPureToolsExample", "跟随系统"),
+    themeModeBox->setObjectName(QStringLiteral("zzExampleThemeModeBox"));
+    themeModeBox->addItem(
         QCoreApplication::translate("ZzPureToolsExample", "浅色"),
+        static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+    themeModeBox->addItem(
         QCoreApplication::translate("ZzPureToolsExample", "深色"),
-        QCoreApplication::translate("ZzPureToolsExample", "高对比度")});
+        static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
+    themeModeBox->addItem(
+        QCoreApplication::translate("ZzPureToolsExample", "跟随系统"),
+        static_cast<int>(ZzFluentUI::ZzThemeMode::System));
+    accentColorPicker = new ZzFluentUI::ZzColorPicker(parent);
+    accentColorPicker->setObjectName(QStringLiteral("zzExampleAccentColorPicker"));
+    accentColorPicker->setAccessibleName(
+        QCoreApplication::translate("ZzPureToolsExample", "强调色"));
+    accentColorPicker->setAlphaEnabled(false);
     logLevelBox = new QComboBox(parent);
     logLevelBox->addItems({
         QStringLiteral("Trace"),
@@ -161,6 +176,7 @@ void ZzExampleSystemPagePrivate::buildSettings(
     reducedMotionSwitch = new ZzFluentUI::ZzToggleSwitch(parent);
     activityDockSwitch = new ZzFluentUI::ZzToggleSwitch(parent);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "主题模式"), themeModeBox);
+    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "强调色"), accentColorPicker);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "日志等级"), logLevelBox);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "减少动效"), reducedMotionSwitch);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "活动 Dock"), activityDockSwitch);
@@ -169,7 +185,16 @@ void ZzExampleSystemPagePrivate::buildSettings(
         themeModeBox,
         &QComboBox::currentIndexChanged,
         q_ptr,
-        &ZzExampleSystemPage::themeModeRequested);
+        [this](int index) {
+            if (index >= 0) {
+                Q_EMIT q_ptr->themeModeRequested(themeModeBox->itemData(index).toInt());
+            }
+        });
+    QObject::connect(
+        accentColorPicker,
+        &ZzFluentUI::ZzColorPicker::currentColorChanged,
+        q_ptr,
+        &ZzExampleSystemPage::accentColorRequested);
     QObject::connect(
         logLevelBox,
         &QComboBox::currentIndexChanged,

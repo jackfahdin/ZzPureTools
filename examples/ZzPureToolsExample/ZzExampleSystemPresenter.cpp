@@ -6,6 +6,13 @@
 
 namespace ZzExample {
 
+void ZzExampleSystemPresenter::restoreAppearanceSettings(
+    ZzExampleApplicationContext &context,
+    ZzFluentUI::ZzThemeController &theme)
+{
+    ZzExampleSystemPresenterPrivate::restoreAppearanceSettings(context, theme);
+}
+
 ZzExampleSystemPresenter::ZzExampleSystemPresenter(
     ZzExampleSystemPageKind kind,
     ZzExampleSystemPage *view,

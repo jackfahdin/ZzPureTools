@@ -39,7 +39,7 @@ namespace ZzExample {
 
 namespace {
 
-constexpr int zzThemeModeCount = 4;
+constexpr int zzThemeModeCount = 3;
 constexpr int zzLogLevelCount = 7;
 
 /** @brief 返回当前编译器的稳定用户可读名称。 */
@@ -248,32 +248,22 @@ void ZzExampleSystemPresenterPrivate::populateAboutRows()
 
 void ZzExampleSystemPresenterPrivate::initializeSettings()
 {
-    const int currentTheme = static_cast<int>(theme->mode());
-    const int themeMode = zzBoundedSetting(
-        readSetting(
-            QStringLiteral("appearance/themeMode"), currentTheme),
-        currentTheme,
-        zzThemeModeCount);
     currentLogLevel = zzBoundedSetting(
         readSetting(QStringLiteral("logging/level"), currentLogLevel),
         currentLogLevel,
         zzLogLevelCount);
-    const bool reducedMotion = readSetting(
-        QStringLiteral("appearance/reducedMotion"),
-        theme->reducedMotion()).toBool();
     const bool dockVisible = readSetting(
         QStringLiteral("window/activityDockVisible"),
         shell->isActivityDockVisible()).toBool();
 
-    theme->setMode(static_cast<ZzFluentUI::ZzThemeMode>(themeMode));
-    theme->setReducedMotion(reducedMotion);
     static_cast<void>(ZzLog::setConsoleLevel(
         static_cast<ZzLog::ZzLogLevel>(currentLogLevel)));
     static_cast<void>(ZzLog::setFileLevel(
         static_cast<ZzLog::ZzLogLevel>(currentLogLevel)));
     shell->setActivityDockVisible(dockVisible);
     view->setSettingsSnapshot(
-        themeMode, currentLogLevel, reducedMotion, dockVisible);
+        static_cast<int>(theme->mode()), theme->accentColor(),
+        currentLogLevel, theme->reducedMotion(), dockVisible);
     viewModel->setRows({
         {QCoreApplication::translate("ZzPureToolsExample", "配置目录"), context->paths().configDirectory()},
         {QCoreApplication::translate("ZzPureToolsExample", "日志目录"), context->paths().logDirectory()},
@@ -286,6 +276,11 @@ void ZzExampleSystemPresenterPrivate::initializeSettings()
         &ZzExampleSystemPage::themeModeRequested,
         q_ptr,
         [this](int mode) { applyThemeMode(mode); });
+    QObject::connect(
+        view,
+        &ZzExampleSystemPage::accentColorRequested,
+        q_ptr,
+        [this](const QColor &color) { applyAccentColor(color); });
     QObject::connect(
         view,
         &ZzExampleSystemPage::logLevelRequested,
@@ -308,6 +303,7 @@ void ZzExampleSystemPresenterPrivate::initializeSettings()
         [this] {
             view->setSettingsSnapshot(
                 static_cast<int>(theme->mode()),
+                theme->accentColor(),
                 currentLogLevel,
                 theme->reducedMotion(),
                 shell->isActivityDockVisible());
@@ -319,10 +315,54 @@ void ZzExampleSystemPresenterPrivate::initializeSettings()
         [this](bool visible) {
             view->setSettingsSnapshot(
                 static_cast<int>(theme->mode()),
+                theme->accentColor(),
                 currentLogLevel,
                 theme->reducedMotion(),
                 visible);
         });
+}
+
+void ZzExampleSystemPresenterPrivate::restoreAppearanceSettings(
+    ZzExampleApplicationContext &context,
+    ZzFluentUI::ZzThemeController &theme)
+{
+    const auto read = [&context](const QString &key, const QVariant &fallback) {
+        const auto result = context.settingsStore().read(QStringView(key), fallback);
+        if (!result) {
+            qWarning().noquote() << "ZzPureToolsExample appearance read failed:"
+                                 << key << result.error().technicalMessage();
+            return fallback;
+        }
+        return result.value();
+    };
+    const int mode = zzBoundedSetting(
+        read(QStringLiteral("appearance/themeMode"),
+             static_cast<int>(ZzFluentUI::ZzThemeMode::System)),
+        static_cast<int>(ZzFluentUI::ZzThemeMode::System), zzThemeModeCount);
+    QColor accent(read(QStringLiteral("appearance/accentColor"),
+                       theme.accentColor().name(QColor::HexRgb)).toString());
+    if (accent.isValid()) {
+        accent.setAlpha(255);
+        theme.setAccentColor(accent);
+    }
+    theme.setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+    theme.setReducedMotion(read(QStringLiteral("appearance/reducedMotion"),
+                                theme.reducedMotion()).toBool());
+}
+
+void ZzExampleSystemPresenterPrivate::applyAccentColor(const QColor &color)
+{
+    if (!color.isValid()) {
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "强调色无效"));
+        return;
+    }
+    QColor accent = color;
+    accent.setAlpha(255);
+    theme->setAccentColor(accent);
+    if (writeSetting(QStringLiteral("appearance/accentColor"), accent.name(QColor::HexRgb))) {
+        view->setStatusText(QCoreApplication::translate("ZzPureToolsExample", "强调色已保存"));
+        recordActivity(QCoreApplication::translate("ZzPureToolsExample", "强调色已更新"));
+    }
 }
 
 void ZzExampleSystemPresenterPrivate::applyThemeMode(int mode)

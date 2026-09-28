@@ -101,6 +101,10 @@ private Q_SLOTS:
         QTest::mouseClick(button, Qt::LeftButton);
         QCOMPARE(modeSpy.count(), 0);
         QCOMPARE(toggleSpy.count(), 1);
+        QVERIFY(button->menu() == nullptr);
+        titleBar.setThemeInteractionMode(
+            ZzFluentUI::ZzTitleBarThemeInteractionMode::Menu);
+        QCOMPARE(button->menu(), titleBar.themeMenu());
     }
 
     void emitsThemeModeIntentFromMenuAction()
@@ -925,7 +929,7 @@ private Q_SLOTS:
 
         QAction *lightAction = nullptr;
         QAction *darkAction = nullptr;
-        for (QAction *const action : themeButton->menu()->actions()) {
+        for (QAction *const action : titleBar.themeMenu()->actions()) {
             if (action->data().toInt()
                 == static_cast<int>(ZzFluentUI::ZzThemeMode::Light)) {
                 lightAction = action;
@@ -949,6 +953,16 @@ private Q_SLOTS:
                 .pixmap(QSize(16, 16), titleBar.devicePixelRatioF())
                 .toImage(),
             expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+
+        // 请求模式保持 System 时，图标仍应随实际配色改变。
+        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::System);
+        controller.setMode(ZzFluentUI::ZzThemeMode::Light);
+        QEvent paletteChange(QEvent::PaletteChange);
+        QCoreApplication::sendEvent(&titleBar, &paletteChange);
+        QCOMPARE(iconImage(themeButton), expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+        controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
+        QCoreApplication::sendEvent(&titleBar, &paletteChange);
+        QCOMPARE(iconImage(themeButton), expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
     }
 
     void refreshesTranslatedChromeText()

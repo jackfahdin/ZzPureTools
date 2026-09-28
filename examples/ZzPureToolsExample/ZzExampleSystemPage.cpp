@@ -19,12 +19,13 @@ ZzExampleSystemPage::~ZzExampleSystemPage() = default;
 
 void ZzExampleSystemPage::setSettingsSnapshot(
     int themeMode,
+    const QColor &accentColor,
     int logLevel,
     bool reducedMotion,
     bool activityDockVisible)
 {
     d_ptr->setSettingsSnapshot(
-        themeMode, logLevel, reducedMotion, activityDockVisible);
+        themeMode, accentColor, logLevel, reducedMotion, activityDockVisible);
 }
 
 void ZzExampleSystemPage::setStatusText(const QString &text)
