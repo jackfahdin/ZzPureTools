@@ -9,7 +9,7 @@ namespace ZzExample {
 
 class ZzExampleGalleryPagePrivate;
 
-/** @brief 提供不访问应用服务的首页与基础控件展示 View。 */
+/** @brief 提供不访问应用服务的首页与指示条对比 View。 */
 class ZzExampleGalleryPage final : public QWidget
 {
     Q_OBJECT
@@ -19,7 +19,7 @@ public:
     enum class ZzPageKind
     {
         Home,
-        Controls
+        SelectionIndicators
     };
     Q_ENUM(ZzPageKind)
 

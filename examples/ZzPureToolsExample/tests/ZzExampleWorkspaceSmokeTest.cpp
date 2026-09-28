@@ -29,6 +29,7 @@
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QTreeView>
+#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QWidget>
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
@@ -546,7 +547,7 @@ private Q_SLOTS:
 
         auto *navigationModel = window->navigationModel();
         QVERIFY(navigationModel != nullptr);
-        QCOMPARE(navigationModel->rowCount(), 10);
+        QCOMPARE(navigationModel->rowCount(), 29);
         QVERIFY(!navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
         QVERIFY(!navigationModel->indexForRoute(
@@ -566,13 +567,13 @@ private Q_SLOTS:
         QCOMPARE(window->pageHost()->currentRoute(),
             ZzPureTools::ZzRouteId(QStringLiteral("home")));
         QVERIFY(window->navigationController()->navigate(
-            ZzPureTools::ZzRouteId(QStringLiteral("controls"))));
+            ZzPureTools::ZzRouteId(QStringLiteral("push-button"))));
         QCOMPARE(window->pageHost()->currentRoute(),
-            ZzPureTools::ZzRouteId(QStringLiteral("controls")));
+            ZzPureTools::ZzRouteId(QStringLiteral("push-button")));
         QVERIFY(!window->navigationController()->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("about"))));
         QCOMPARE(window->pageHost()->currentRoute(),
-            ZzPureTools::ZzRouteId(QStringLiteral("controls")));
+            ZzPureTools::ZzRouteId(QStringLiteral("push-button")));
         QCOMPARE(window->findChild<QWidget *>(
                      QStringLiteral("zzExampleSessionPanel")), nullptr);
         QCOMPARE(window->findChild<QWidget *>(
@@ -897,7 +898,10 @@ private Q_SLOTS:
                     rowHeight = currentHeight;
                 }
                 QCOMPARE(currentHeight, rowHeight);
-                QCOMPARE(tree->viewport()->width(), tree->width());
+                // 独立控件页增加导航行数，滚动条可占用视口宽度。
+                const int scrollBarWidth = tree->verticalScrollBar()->isVisible()
+                    ? tree->verticalScrollBar()->width() : 0;
+                QCOMPARE(tree->viewport()->width() + scrollBarWidth, tree->width());
             }
         }
         closeApplicationWindow(window);
@@ -948,7 +952,7 @@ private Q_SLOTS:
         QCOMPARE(window->navigationController()->currentRoute(), currentRoute);
         stack->setCurrentWidget(terminal);
         QVERIFY(window->navigationController()->navigate(
-            ZzPureTools::ZzRouteId(QStringLiteral("controls"))));
+            ZzPureTools::ZzRouteId(QStringLiteral("push-button"))));
         QCOMPARE(stack->currentWidget(), window->pageHost());
         stack->setCurrentWidget(terminal);
         Q_EMIT shell->commandPalette()->commandActivated(commands->index(1, 0));

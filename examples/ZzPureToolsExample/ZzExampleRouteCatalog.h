@@ -1,7 +1,9 @@
 #pragma once
 
 #include <span>
+#include <optional>
 #include <string_view>
+#include "ZzExampleControlKind.h"
 
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 
@@ -26,6 +28,9 @@ struct ZzExampleRouteDescriptor final
 
     /** @brief 页面在主导航或固定页脚中的位置。 */
     ZzFluentUI::ZzNavigationPlacement placement;
+
+    /** @brief 独立控件页的类型；组合展示页不设置。 */
+    std::optional<ZzExampleControlKind> controlKind = std::nullopt;
 };
 
 /** @brief 提供全进程只读且无动态分配的正式示例路由表。 */
@@ -35,7 +40,7 @@ public:
     /** @brief 禁止实例化只读静态路由目录。 */
     ZzExampleRouteCatalog() = delete;
 
-    /** @brief 返回按导航展示顺序排列的十条路由。 */
+    /** @brief 返回按导航展示顺序排列的全部路由。 */
     [[nodiscard]] static std::span<const ZzExampleRouteDescriptor>
     routes() noexcept;
 };

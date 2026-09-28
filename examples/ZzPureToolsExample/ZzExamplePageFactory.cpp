@@ -25,6 +25,8 @@
 #include "ZzExampleDataPresenter.h"
 #include "ZzExampleDataViewModel.h"
 #include "ZzExampleGalleryPage.h"
+#include "ZzExampleControlPage.h"
+#include "ZzExampleRouteCatalog.h"
 #include "ZzExampleNavigationPresenter.h"
 #include "ZzExampleShowcasePage.h"
 #include "ZzExampleSystemPage.h"
@@ -43,8 +45,8 @@ zzGalleryPageKind(const ZzPureTools::ZzRouteId &routeId)
     if (routeId.value() == QStringLiteral("home")) {
         return ZzExampleGalleryPage::ZzPageKind::Home;
     }
-    if (routeId.value() == QStringLiteral("controls")) {
-        return ZzExampleGalleryPage::ZzPageKind::Controls;
+    if (routeId.value() == QStringLiteral("selection-indicators")) {
+        return ZzExampleGalleryPage::ZzPageKind::SelectionIndicators;
     }
     return std::nullopt;
 }
@@ -266,6 +268,16 @@ ZzExamplePageFactory::createPage(
     }
 
     title = title.trimmed();
+    for (const auto &route : ZzExampleRouteCatalog::routes()) {
+        if (route.controlKind.has_value()
+            && routeId.value() == QString::fromUtf8(
+                route.routeId.data(), static_cast<qsizetype>(route.routeId.size()))) {
+            auto view = std::make_unique<ZzExampleControlPage>(
+                *route.controlKind, routeId.value(), title, pageParent);
+            return ZzPureTools::ZzPageInstance::create(pageParent, view.release(),
+                std::make_unique<QObject>(), std::make_unique<QObject>());
+        }
+    }
     if (const auto kind = zzGalleryPageKind(routeId); kind.has_value()) {
         return zzCreateGalleryPage(*kind, title, pageParent);
     }

@@ -1,4 +1,5 @@
 #include "ZzExampleGalleryPagePrivate.h"
+#include "ZzExampleRouteCatalog.h"
 
 #include <array>
 #include <utility>
@@ -37,23 +38,9 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPivot.h>
-#include <ZzFluentUI/ZzButtonAppearance.h>
-#include <ZzFluentUI/ZzControlAppearance.h>
-#include <ZzFluentUI/ZzIconButton.h>
-#include <ZzFluentUI/ZzFontIcon.h>
-#include <ZzFluentUI/ZzCalendarPicker.h>
-#include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
-#include <ZzFluentUI/ZzMessageBar.h>
-#include <ZzFluentUI/ZzInfoBadge.h>
-#include <ZzFluentUI/ZzMessageSeverity.h>
-#include <ZzFluentUI/ZzMultiSelectComboBox.h>
-#include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
-#include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzScrollArea.h>
-#include <ZzFluentUI/ZzSpinBox.h>
-#include <ZzFluentUI/ZzToggleSwitch.h>
 
 namespace ZzExample {
 
@@ -339,8 +326,8 @@ void ZzExampleGalleryPagePrivate::initialize(
     case ZzExampleGalleryPage::ZzPageKind::Home:
         buildHome(title);
         break;
-    case ZzExampleGalleryPage::ZzPageKind::Controls:
-        buildControls(title);
+    case ZzExampleGalleryPage::ZzPageKind::SelectionIndicators:
+        buildSelectionIndicators(title);
         break;
     }
 }
@@ -397,7 +384,8 @@ void ZzExampleGalleryPagePrivate::buildHome(const QString &title)
     summaryLayout->setContentsMargins(4, 4, 4, 4);
     summaryLayout->setSpacing(16);
     for (const QString &metric : {
-             QCoreApplication::translate("ZzPureToolsExample", "12 个集成页面"),
+             QCoreApplication::translate("ZzPureToolsExample", "%1 个演示页面")
+                 .arg(static_cast<qulonglong>(ZzExampleRouteCatalog::routes().size())),
              QCoreApplication::translate("ZzPureToolsExample", "4 档主题与对比度"),
              QCoreApplication::translate("ZzPureToolsExample", "3 个桌面平台"),
              QCoreApplication::translate("ZzPureToolsExample", "共享/静态双构建")}) {
@@ -434,7 +422,7 @@ void ZzExampleGalleryPagePrivate::buildHome(const QString &title)
         quickLayout->addWidget(card);
     };
     addRouteCard(
-        QStringLiteral("controls"),
+        QStringLiteral("push-button"),
         QCoreApplication::translate("ZzPureToolsExample", "基础控件"),
         QCoreApplication::translate("ZzPureToolsExample", "按钮、输入、选择和进度"),
         QStyle::SP_FileDialogDetailedView);
@@ -488,287 +476,13 @@ void ZzExampleGalleryPagePrivate::buildHome(const QString &title)
     q_ptr->setAccessibleName(title);
 }
 
-void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
+void ZzExampleGalleryPagePrivate::buildSelectionIndicators(const QString &title)
 {
-    q_ptr->setObjectName(QStringLiteral("zzExampleControlsPage"));
+    q_ptr->setObjectName(QStringLiteral("zzExampleSelectionIndicatorsPage"));
     auto [content, layout] = zzPageContent(q_ptr);
     layout->addWidget(zzPageTitle(title, content));
-    auto *description = new QLabel(
-        QCoreApplication::translate("ZzPureToolsExample", "常用输入与状态控件在统一主题、键盘和无障碍语义下协同工作"),
-        content);
-    description->setWordWrap(true);
-    layout->addWidget(description);
-
-    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "选中指示条对比"), content);
     layout->addWidget(zzSelectionIndicatorPreview(content));
-
-    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "命令与状态"), content);
-    auto *commandRow = new QHBoxLayout;
-    commandRow->setSpacing(10);
-    auto *standardButton = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "标准"), content);
-    auto *accentButton = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "主要操作"), content);
-    accentButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
-    auto *subtleButton = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "次要操作"), content);
-    subtleButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Subtle);
-    auto *disabledButton = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "不可用"), content);
-    disabledButton->setEnabled(false);
-    auto *checkableButton = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "保持预览"),
-        content);
-    checkableButton->setObjectName(
-        QStringLiteral("zzExampleCheckableButton"));
-    checkableButton->setAccessibleName(
-        QCoreApplication::translate("ZzPureToolsExample", "保持预览"));
-    checkableButton->setCheckable(true);
-    checkableButton->setChecked(true);
-    checkableButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Subtle);
-    auto *enabledSwitch = new ZzFluentUI::ZzToggleSwitch(
-        QCoreApplication::translate("ZzPureToolsExample", "启用标准按钮"), content);
-    enabledSwitch->setChecked(true);
-    commandRow->addWidget(standardButton);
-    commandRow->addWidget(accentButton);
-    commandRow->addWidget(subtleButton);
-    commandRow->addWidget(disabledButton);
-    commandRow->addWidget(checkableButton);
-    commandRow->addStretch(1);
-    commandRow->addWidget(enabledSwitch);
-    layout->addLayout(commandRow);
-
-    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "强调色与局部外观"), content);
-    auto *accentPreview = new QWidget(content);
-    auto *accentFlow = new ZzFluentUI::ZzFlowLayout(accentPreview);
-    auto *localButton = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "紫色按钮"), accentPreview);
-    localButton->setObjectName(QStringLiteral("zzExampleLocalAccentButton"));
-    localButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
-    ZzFluentUI::ZzControlAppearance::setAccentColor(localButton, QColor(QStringLiteral("#8752b5")));
-    auto *nativeButton = new QPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "原生强调色按钮"), accentPreview);
-    nativeButton->setProperty("accent", true);
-    ZzFluentUI::ZzControlAppearance::setAccentColor(nativeButton, QColor(QStringLiteral("#167344")));
-    auto *toolButton = new QToolButton(accentPreview);
-    toolButton->setText(QCoreApplication::translate("ZzPureToolsExample", "强调色工具按钮"));
-    ZzFluentUI::ZzControlAppearance::setButtonAppearance(toolButton, ZzFluentUI::ZzButtonAppearance::Accent);
-    auto *iconButton = new ZzFluentUI::ZzIconButton(accentPreview);
-    iconButton->setFixedSize(36, 36);
-    iconButton->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "强调色收藏图标"));
-    iconButton->setIconDescriptor(ZzFluentUI::ZzIconDescriptor::fromFontIcon(ZzFluentUI::ZzFontIcon::Star));
-    iconButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
-    auto *localSwitch = new ZzFluentUI::ZzToggleSwitch(
-        QCoreApplication::translate("ZzPureToolsExample", "局部强调色"), accentPreview);
-    localSwitch->setChecked(true);
-    ZzFluentUI::ZzControlAppearance::setAccentColor(localSwitch, QColor(QStringLiteral("#8752b5")));
-    auto *resetAccent = new ZzFluentUI::ZzPushButton(
-        QCoreApplication::translate("ZzPureToolsExample", "恢复跟随主题"), accentPreview);
-    QObject::connect(resetAccent, &QAbstractButton::clicked, accentPreview, [localButton, nativeButton, localSwitch] {
-        ZzFluentUI::ZzControlAppearance::resetAccentColor(localButton);
-        ZzFluentUI::ZzControlAppearance::resetAccentColor(nativeButton);
-        ZzFluentUI::ZzControlAppearance::resetAccentColor(localSwitch);
-        localButton->setText(QCoreApplication::translate("ZzPureToolsExample", "跟随主题"));
-    });
-    for (QWidget *widget : std::array<QWidget *, 6>{localButton, nativeButton, toolButton, iconButton, localSwitch, resetAccent}) {
-        accentFlow->addWidget(widget);
-    }
-    layout->addWidget(accentPreview);
-
-    auto *message = new ZzFluentUI::ZzMessageBar(content);
-    message->setObjectName(QStringLiteral("zzExampleControlsMessage"));
-    message->setText(QCoreApplication::translate("ZzPureToolsExample", "控件状态已准备"));
-    message->setSeverity(ZzFluentUI::ZzMessageSeverity::Information);
-    QObject::connect(
-        enabledSwitch,
-        &QAbstractButton::toggled,
-        standardButton,
-        &QWidget::setEnabled);
-    QObject::connect(
-        accentButton,
-        &QAbstractButton::clicked,
-        message,
-        [message] {
-            message->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
-            message->setText(QCoreApplication::translate("ZzPureToolsExample", "主要操作已执行"));
-            message->show();
-        });
-    QObject::connect(
-        checkableButton,
-        &QAbstractButton::toggled,
-        message,
-        [message](bool checked) {
-            message->setText(QCoreApplication::translate(
-                "ZzPureToolsExample",
-                checked ? "预览已保持" : "预览已释放"));
-            message->setSeverity(
-                checked
-                    ? ZzFluentUI::ZzMessageSeverity::Information
-                    : ZzFluentUI::ZzMessageSeverity::Warning);
-            message->show();
-        });
-    QObject::connect(
-        message,
-        &ZzFluentUI::ZzMessageBar::closeRequested,
-        message,
-        &QWidget::hide);
-    auto *feedbackRow = new QHBoxLayout;
-    feedbackRow->setSpacing(10);
-    feedbackRow->addWidget(message, 1);
-    auto *successBadge = new ZzFluentUI::ZzInfoBadge(content);
-    successBadge->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
-    auto *countBadge = new ZzFluentUI::ZzInfoBadge(content);
-    countBadge->setKind(ZzFluentUI::ZzInfoBadgeKind::Number);
-    countBadge->setValue(12);
-    feedbackRow->addWidget(successBadge);
-    feedbackRow->addWidget(countBadge);
-    layout->addLayout(feedbackRow);
-
-    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "文本与选择"), content);
-    auto *form = new QFormLayout;
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    form->setHorizontalSpacing(18);
-    form->setVerticalSpacing(12);
-    auto *nameEdit = new QLineEdit(content);
-    nameEdit->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "项目名称"));
-    nameEdit->setPlaceholderText(QStringLiteral("ZzPureToolsExample"));
-    auto *notesEdit = new QPlainTextEdit(content);
-    notesEdit->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "项目说明"));
-    notesEdit->setPlaceholderText(QCoreApplication::translate("ZzPureToolsExample", "项目说明"));
-    notesEdit->setMaximumHeight(88);
-    auto *environment = new QComboBox(content);
-    environment->addItems({
-        QStringLiteral("Linux Desktop"),
-        QStringLiteral("Windows Desktop"),
-        QStringLiteral("macOS Desktop")});
-    auto *scopes = new ZzFluentUI::ZzMultiSelectComboBox(content);
-    scopes->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "构建范围"));
-    scopes->setPlaceholderText(QCoreApplication::translate("ZzPureToolsExample", "选择构建范围"));
-    scopes->setOptions({
-        {QStringLiteral("shared"), QCoreApplication::translate("ZzPureToolsExample", "共享库"), {}, {}, true, true},
-        {QStringLiteral("static"), QCoreApplication::translate("ZzPureToolsExample", "静态库"), {}, {}, true, true},
-        {QStringLiteral("tests"), QCoreApplication::translate("ZzPureToolsExample", "测试"), {}, {}, true, false},
-        {QStringLiteral("legacy"), QCoreApplication::translate("ZzPureToolsExample", "旧版兼容"), {}, {}, false, false}});
-    auto *check = new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "启用严格警告"), content);
-    check->setChecked(true);
-    auto *radioHost = new QWidget(content);
-    auto *radioLayout = new QHBoxLayout(radioHost);
-    radioLayout->setContentsMargins(0, 0, 0, 0);
-    auto *balanced = new QRadioButton(QCoreApplication::translate("ZzPureToolsExample", "均衡"), radioHost);
-    auto *performance = new QRadioButton(QCoreApplication::translate("ZzPureToolsExample", "性能优先"), radioHost);
-    balanced->setChecked(true);
-    radioLayout->addWidget(balanced);
-    radioLayout->addWidget(performance);
-    radioLayout->addStretch(1);
-    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "名称"), nameEdit);
-    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "说明"), notesEdit);
-    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "平台"), environment);
-    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "范围"), scopes);
-    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "诊断"), check);
-    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "策略"), radioHost);
-    layout->addLayout(form);
-
-    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "数值、日期与滚轮"), content);
-    auto *valueForm = new QFormLayout;
-    valueForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    valueForm->setHorizontalSpacing(18);
-    valueForm->setVerticalSpacing(12);
-    auto *workers = new ZzFluentUI::ZzSpinBox(content);
-    workers->setRange(1, 64);
-    workers->setValue(8);
-    workers->setSuffix(QCoreApplication::translate("ZzPureToolsExample", " 线程"));
-    auto *budget = new ZzFluentUI::ZzDoubleSpinBox(content);
-    budget->setRange(0.1, 50.0);
-    budget->setDecimals(1);
-    budget->setSingleStep(0.5);
-    budget->setValue(8.0);
-    budget->setSuffix(QStringLiteral(" MiB"));
-    auto *date = new ZzFluentUI::ZzCalendarPicker(content);
-    date->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
-    date->setDateRange(QDate(2026, 1, 1), QDate(2035, 12, 31));
-    date->setDate(QDate(2026, 8, 6));
-    auto *time = new ZzFluentUI::ZzRollerPicker(content);
-    time->setColumns({
-        {QStringLiteral("hour"),
-         {QStringLiteral("08"), QStringLiteral("09"), QStringLiteral("10"),
-          QStringLiteral("11"), QStringLiteral("12")},
-         1, true, 88},
-        {QStringLiteral("minute"),
-         {QStringLiteral("00"), QStringLiteral("15"), QStringLiteral("30"),
-          QStringLiteral("45")},
-         2, true, 88}});
-    valueForm->addRow(QCoreApplication::translate("ZzPureToolsExample", "并发任务"), workers);
-    valueForm->addRow(QCoreApplication::translate("ZzPureToolsExample", "资源预算"), budget);
-    valueForm->addRow(QCoreApplication::translate("ZzPureToolsExample", "计划日期"), date);
-    valueForm->addRow(QCoreApplication::translate("ZzPureToolsExample", "计划时间"), time);
-    layout->addLayout(valueForm);
-
-    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "进度"), content);
-    auto *progressRow = new QHBoxLayout;
-    progressRow->setSpacing(12);
-    auto *slider = new QSlider(Qt::Horizontal, content);
-    slider->setRange(0, 100);
-    slider->setValue(68);
-    slider->setMinimumWidth(220);
-    auto *linearProgresses = new QVBoxLayout;
-    linearProgresses->setSpacing(8);
-    auto *determinate = new QProgressBar(content);
-    determinate->setObjectName(QStringLiteral("zzExampleProgressDeterminate"));
-    determinate->setAccessibleName(QCoreApplication::translate(
-        "ZzPureToolsExample", "确定进度 68%"));
-    determinate->setRange(0, 100);
-    determinate->setValue(68);
-    determinate->setFormat(QStringLiteral("68% complete"));
-    determinate->setMinimumWidth(220);
-    auto *busy = new QProgressBar(content);
-    busy->setObjectName(QStringLiteral("zzExampleProgressBusy"));
-    busy->setAccessibleName(QCoreApplication::translate(
-        "ZzPureToolsExample", "忙碌进度"));
-    busy->setTextVisible(false);
-    busy->setRange(0, 0);
-    busy->setMinimumWidth(220);
-    auto *disabled = new QProgressBar(content);
-    disabled->setObjectName(QStringLiteral("zzExampleProgressDisabled"));
-    disabled->setAccessibleName(QCoreApplication::translate(
-        "ZzPureToolsExample", "禁用进度 42%"));
-    disabled->setRange(0, 100);
-    disabled->setValue(42);
-    disabled->setEnabled(false);
-    disabled->setMinimumWidth(220);
-    linearProgresses->addWidget(slider);
-    linearProgresses->addWidget(determinate);
-    linearProgresses->addWidget(busy);
-    linearProgresses->addWidget(disabled);
-    auto *vertical = new QProgressBar(content);
-    vertical->setObjectName(QStringLiteral("zzExampleProgressVertical"));
-    vertical->setAccessibleName(QCoreApplication::translate(
-        "ZzPureToolsExample", "纵向进度 64%"));
-    vertical->setOrientation(Qt::Vertical);
-    vertical->setRange(0, 100);
-    vertical->setValue(64);
-    vertical->setFixedHeight(112);
-    auto *ring = new ZzFluentUI::ZzProgressRing(content);
-    ring->setValue(68);
-    auto *busyRing = new ZzFluentUI::ZzProgressRing(content);
-    busyRing->setTextVisible(false);
-    busyRing->setRange(0, 0);
-    progressRow->addLayout(linearProgresses, 1);
-    progressRow->addWidget(vertical);
-    progressRow->addWidget(ring);
-    progressRow->addWidget(busyRing);
-    layout->addLayout(progressRow);
-    QObject::connect(
-        slider,
-        &QSlider::valueChanged,
-        determinate,
-        &QProgressBar::setValue);
-    QObject::connect(
-        slider,
-        &QSlider::valueChanged,
-        ring,
-        &QProgressBar::setValue);
     layout->addStretch(1);
-
     q_ptr->setAccessibleName(title);
 }
 

@@ -42,6 +42,15 @@
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QTreeView>
+#include <QtWidgets/QToolButton>
+#include <ZzFluentUI/ZzCalendarPicker.h>
+#include <ZzFluentUI/ZzRollerPicker.h>
+#include <ZzFluentUI/ZzSpinBox.h>
+#include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzMultiSelectComboBox.h>
+#include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzMessageBar.h>
+#include <ZzFluentUI/ZzInfoBadge.h>
 
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
@@ -583,6 +592,43 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             fail("route smoke did not start on the home route");
             return;
         }
+        // 独立路由必须创建专属预览，而非隐藏旧的混合页内容。
+        if (!controller->navigate(ZzPureTools::ZzRouteId(
+                QStringLiteral("push-button")))) {
+            fail("button demo route is unavailable");
+            return;
+        }
+        auto *buttonPage = window.findChild<QWidget *>(
+            QStringLiteral("zzExampleControlPage_push-button"));
+        if (buttonPage == nullptr
+            || buttonPage->findChildren<ZzFluentUI::ZzPushButton *>().isEmpty()
+            || !buttonPage->findChildren<QProgressBar *>().isEmpty()
+            || !buttonPage->findChildren<QLineEdit *>().isEmpty()) {
+            fail("button demo is not isolated");
+            return;
+        }
+        if (!controller->navigate(ZzPureTools::ZzRouteId(
+                QStringLiteral("progress-bar")))) {
+            fail("progress demo route is unavailable");
+            return;
+        }
+        auto *progressPage = window.findChild<QWidget *>(
+            QStringLiteral("zzExampleControlPage_progress-bar"));
+        auto *progress = progressPage != nullptr
+            ? progressPage->findChild<QProgressBar *>(
+                QStringLiteral("zzExampleProgressDeterminate")) : nullptr;
+        auto *valueSlider = progressPage != nullptr
+            ? progressPage->findChild<QSlider *>(
+                QStringLiteral("zzExampleControlValue")) : nullptr;
+        if (progress == nullptr || valueSlider == nullptr) {
+            fail("progress demo has no adjustable preview");
+            return;
+        }
+        valueSlider->setValue(37);
+        if (progress->value() != 37 || progress->text() != QStringLiteral("37%")) {
+            fail("progress demo value and label are not synchronized");
+            return;
+        }
         for (const auto &route : ZzExampleRouteCatalog::routes()) {
             const QString routeId = zzFromUtf8(route.routeId);
             auto result = controller->navigate(
@@ -600,6 +646,19 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke icon integration failed");
                 return;
             }
+            // 可选人工验收产物，仅在烟测模式下按路由导出真实窗口。
+            const QString previewDirectory = qEnvironmentVariable(
+                "ZZ_EXAMPLE_ROUTE_SCREENSHOT_DIR");
+            if (!previewDirectory.isEmpty()) {
+                // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
+                QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
+                if (!QDir().mkpath(previewDirectory)
+                    || !window.grab().save(QDir(previewDirectory).filePath(
+                        routeId + QStringLiteral(".png")))) {
+                    fail("could not export route preview", routeId);
+                    return;
+                }
+            }
         }
 
         settingsAction->trigger();
@@ -613,11 +672,11 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
         settingsWindow->close();
 
         const QString routeBeforeSearch = controller->currentRoute().value();
-        searchEdit->setText(QStringLiteral("controls"));
+        searchEdit->setText(QStringLiteral("push-button"));
         if (!QMetaObject::invokeMethod(
                 searchEdit, "returnPressed", Qt::DirectConnection)
             || controller->currentRoute().value()
-                != QStringLiteral("controls")
+                != QStringLiteral("push-button")
             || !searchEdit->text().isEmpty()
             || !backAction->isEnabled()) {
             fail("route smoke search integration failed");
@@ -631,7 +690,7 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
         }
         forwardAction->trigger();
         if (controller->currentRoute().value()
-            != QStringLiteral("controls")) {
+            != QStringLiteral("push-button")) {
             fail("route smoke forward action integration failed");
             return;
         }
@@ -646,7 +705,7 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
         auto homeResult = controller->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("home")));
         auto *controlsCard = window.findChild<QAbstractButton *>(
-            QStringLiteral("zzExampleRouteCard_controls"));
+            QStringLiteral("zzExampleRouteCard_push-button"));
         if (!homeResult || controlsCard == nullptr
             || !controlsCard->isVisibleTo(&window)) {
             fail("route smoke could not reach the home quick actions");
@@ -654,7 +713,7 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
         }
         controlsCard->click();
         if (controller->currentRoute().value()
-            != QStringLiteral("controls")) {
+            != QStringLiteral("push-button")) {
             fail("route smoke home quick action integration failed");
             return;
         }
@@ -667,56 +726,56 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
     ZzPureTools::ZzApplicationWindow &window,
     const QString &routeId) const
 {
-    if (routeId == QStringLiteral("controls")) {
+    for (const auto &route : ZzExampleRouteCatalog::routes()) {
+        if (!route.controlKind.has_value() || zzFromUtf8(route.routeId) != routeId) {
+            continue;
+        }
         auto *page = window.findChild<QWidget *>(
-            QStringLiteral("zzExampleControlsPage"));
-        if (page == nullptr) {
+            QStringLiteral("zzExampleControlPage_%1").arg(routeId));
+        if (page == nullptr || !page->isVisibleTo(&window)) {
             return false;
         }
-        auto *checkableButton = page->findChild<ZzFluentUI::ZzPushButton *>(
-            QStringLiteral("zzExampleCheckableButton"));
-        if (checkableButton == nullptr || !checkableButton->isCheckable()
-            || !checkableButton->isChecked()) {
-            return false;
+        const auto has = [page]<typename Control>() {
+            return !page->findChildren<Control *>().isEmpty();
+        };
+        using Kind = ZzExampleControlKind;
+        switch (*route.controlKind) {
+        case Kind::PushButton: {
+            auto *button = page->findChild<ZzFluentUI::ZzPushButton *>(
+                QStringLiteral("zzExampleCheckableButton"));
+            if (button == nullptr || !button->isCheckable()) return false;
+            const bool before = button->isChecked();
+            button->click();
+            const bool changed = button->isChecked() != before;
+            button->click();
+            return changed && button->isChecked() == before;
         }
-        checkableButton->click();
-        if (checkableButton->isChecked()) {
-            return false;
+        case Kind::IconButton: return has.operator()<ZzFluentUI::ZzIconButton>();
+        case Kind::ToolButton: return has.operator()<QToolButton>();
+        case Kind::RadioButton: return has.operator()<QRadioButton>();
+        case Kind::CheckBox: return page->findChildren<QCheckBox *>().size() >= 4;
+        case Kind::ToggleSwitch: return has.operator()<ZzFluentUI::ZzToggleSwitch>();
+        case Kind::LineEdit: return has.operator()<QLineEdit>();
+        case Kind::PlainTextEdit: return has.operator()<QPlainTextEdit>();
+        case Kind::ComboBox: return has.operator()<QComboBox>();
+        case Kind::MultiSelectComboBox: return has.operator()<ZzFluentUI::ZzMultiSelectComboBox>();
+        case Kind::SpinBox: return has.operator()<ZzFluentUI::ZzSpinBox>();
+        case Kind::DoubleSpinBox: return has.operator()<ZzFluentUI::ZzDoubleSpinBox>();
+        case Kind::CalendarPicker: return has.operator()<ZzFluentUI::ZzCalendarPicker>();
+        case Kind::RollerPicker: return has.operator()<ZzFluentUI::ZzRollerPicker>();
+        case Kind::Slider: return has.operator()<QSlider>();
+        case Kind::ProgressRing: return has.operator()<ZzFluentUI::ZzProgressRing>();
+        case Kind::MessageBar: return has.operator()<ZzFluentUI::ZzMessageBar>();
+        case Kind::InfoBadge: return has.operator()<ZzFluentUI::ZzInfoBadge>();
+        case Kind::ProgressBar: {
+            auto *busy = page->findChild<QProgressBar *>(QStringLiteral("zzExampleProgressBusy"));
+            auto *disabled = page->findChild<QProgressBar *>(QStringLiteral("zzExampleProgressDisabled"));
+            auto *vertical = page->findChild<QProgressBar *>(QStringLiteral("zzExampleProgressVertical"));
+            return busy != nullptr && busy->minimum() == 0 && busy->maximum() == 0
+                && disabled != nullptr && !disabled->isEnabled() && disabled->value() == 42
+                && vertical != nullptr && vertical->orientation() == Qt::Vertical;
         }
-        checkableButton->click();
-        auto *determinate = page->findChild<QProgressBar *>(
-            QStringLiteral("zzExampleProgressDeterminate"));
-        auto *busy = page->findChild<QProgressBar *>(
-            QStringLiteral("zzExampleProgressBusy"));
-        auto *disabled = page->findChild<QProgressBar *>(
-            QStringLiteral("zzExampleProgressDisabled"));
-        auto *vertical = page->findChild<QProgressBar *>(
-            QStringLiteral("zzExampleProgressVertical"));
-        return !page->findChildren<QLineEdit *>().isEmpty()
-            && !page->findChildren<QPlainTextEdit *>().isEmpty()
-            && !page->findChildren<QComboBox *>().isEmpty()
-            && !page->findChildren<QCheckBox *>().isEmpty()
-            && page->findChildren<QRadioButton *>().size() >= 2
-            && !page->findChildren<QSlider *>().isEmpty()
-            && determinate != nullptr
-            && determinate->minimum() == 0
-            && determinate->maximum() == 100
-            && determinate->value() == 68
-            && busy != nullptr
-            && busy->minimum() == 0
-            && busy->maximum() == 0
-            && disabled != nullptr
-            && !disabled->isEnabled()
-            && disabled->minimum() == 0
-            && disabled->maximum() == 100
-            && disabled->value() == 42
-            && vertical != nullptr
-            && vertical->minimum() == 0
-            && vertical->maximum() == 100
-            && vertical->value() == 64
-            && vertical->orientation() == Qt::Vertical
-            && !page->findChildren<ZzFluentUI::ZzToggleSwitch *>().isEmpty()
-            && checkableButton->isChecked();
+        }
     }
     if (routeId == QStringLiteral("list-view")) {
         auto *view = window.findChild<QListView *>(
@@ -857,7 +916,7 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
 
         const int activityRows = context->activityModel().rowCount();
         auto firstRoute = firstNavigation->navigate(
-            ZzPureTools::ZzRouteId(QStringLiteral("controls")));
+            ZzPureTools::ZzRouteId(QStringLiteral("push-button")));
         auto secondRoute = secondNavigation->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("platform")));
         auto *secondSettingsAction = secondWindow->findChild<QAction *>(
@@ -873,7 +932,7 @@ void ZzExampleSmokeControllerPrivate::scheduleMultiWindowSmoke(
         firstShell->setActivityDockVisible(!secondDockWasVisible);
         if (!firstRoute || !secondRoute
             || firstNavigation->currentRoute().value()
-                != QStringLiteral("controls")
+                != QStringLiteral("push-button")
             || secondNavigation->currentRoute().value()
                 != QStringLiteral("platform")
             || secondSettingsAction == nullptr

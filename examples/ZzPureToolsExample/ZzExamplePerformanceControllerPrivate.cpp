@@ -467,7 +467,7 @@ void ZzExamplePerformanceControllerPrivate::measureNavigation(
         return;
     }
     static constexpr std::array routes = {
-        "controls", "cards", "list-view", "table-view",
+        "push-button", "cards", "list-view", "table-view",
         "tree-view", "navigation", "feedback", "icons"};
     ZzBenchmarks::ZzPerformanceReporter reporter;
     if (!initializeReporter(

@@ -4,6 +4,266 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>独立预览当前控件，尝试不同状态与交互；颜色跟随应用主题。</source>
+        <translation>Explore this control and its states. Colors follow the application theme.</translation>
+    </message>
+    <message>
+        <source>操作控件以查看结果</source>
+        <translation>Interact with the control to see the result</translation>
+    </message>
+    <message>
+        <source>启用演示控件</source>
+        <translation>Enable demo controls</translation>
+    </message>
+    <message>
+        <source>标准、强调色、轻量与禁用</source>
+        <translation>Standard, accent, subtle, and disabled</translation>
+    </message>
+    <message>
+        <source>已点击：%1</source>
+        <translation>Clicked: %1</translation>
+    </message>
+    <message>
+        <source>可选中与局部强调色</source>
+        <translation>Checkable button and local accent</translation>
+    </message>
+    <message>
+        <source>菜单按钮</source>
+        <translation>Menu button</translation>
+    </message>
+    <message>
+        <source>更多操作</source>
+        <translation>More actions</translation>
+    </message>
+    <message>
+        <source>复制</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>粘贴</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <source>已选择复制</source>
+        <translation>Copy selected</translation>
+    </message>
+    <message>
+        <source>已选择粘贴</source>
+        <translation>Paste selected</translation>
+    </message>
+    <message>
+        <source>选择与禁用状态</source>
+        <translation>Selection and disabled states</translation>
+    </message>
+    <message>
+        <source>选项一</source>
+        <translation>Option one</translation>
+    </message>
+    <message>
+        <source>选项二</source>
+        <translation>Option two</translation>
+    </message>
+    <message>
+        <source>%1：%2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>已选中</source>
+        <translation>Selected</translation>
+    </message>
+    <message>
+        <source>未选中</source>
+        <translation>Not selected</translation>
+    </message>
+    <message>
+        <source>三态选择</source>
+        <translation>Tri-state selection</translation>
+    </message>
+    <message>
+        <source>部分选中</source>
+        <translation>Partially checked</translation>
+    </message>
+    <message>
+        <source>普通、密码与只读输入</source>
+        <translation>Standard, password, and read-only input</translation>
+    </message>
+    <message>
+        <source>输入文本</source>
+        <translation>Enter text</translation>
+    </message>
+    <message>
+        <source>只读内容</source>
+        <translation>Read-only content</translation>
+    </message>
+    <message>
+        <source>字符数：%1</source>
+        <translation>Characters: %1</translation>
+    </message>
+    <message>
+        <source>多行输入与只读内容</source>
+        <translation>Multiline input and read-only content</translation>
+    </message>
+    <message>
+        <source>在此输入多行文本</source>
+        <translation>Enter multiple lines of text</translation>
+    </message>
+    <message>
+        <source>多行文本</source>
+        <translation>Multiline text</translation>
+    </message>
+    <message>
+        <source>标准与可编辑组合框</source>
+        <translation>Standard and editable combo boxes</translation>
+    </message>
+    <message>
+        <source>可编辑选项</source>
+        <translation>Editable options</translation>
+    </message>
+    <message>
+        <source>标准选项</source>
+        <translation>Standard options</translation>
+    </message>
+    <message>
+        <source>多项选择与禁用选项</source>
+        <translation>Multiple selection and disabled options</translation>
+    </message>
+    <message>
+        <source>多项选择</source>
+        <translation>Multiple selection</translation>
+    </message>
+    <message>
+        <source>基本用法</source>
+        <translation>Basic usage</translation>
+    </message>
+    <message>
+        <source>整数值</source>
+        <translation>Integer value</translation>
+    </message>
+    <message>
+        <source>小数值</source>
+        <translation>Decimal value</translation>
+    </message>
+    <message>
+        <source>水平与垂直滑块</source>
+        <translation>Horizontal and vertical sliders</translation>
+    </message>
+    <message>
+        <source>水平滑块</source>
+        <translation>Horizontal slider</translation>
+    </message>
+    <message>
+        <source>垂直滑块</source>
+        <translation>Vertical slider</translation>
+    </message>
+    <message>
+        <source>确定进度、忙碌与禁用状态</source>
+        <translation>Determinate, busy, and disabled states</translation>
+    </message>
+    <message>
+        <source>确定进度</source>
+        <translation>Determinate progress</translation>
+    </message>
+    <message>
+        <source>垂直进度</source>
+        <translation>Vertical progress</translation>
+    </message>
+    <message>
+        <source>调整进度值</source>
+        <translation>Adjust progress</translation>
+    </message>
+    <message>
+        <source>进度值</source>
+        <translation>Progress value</translation>
+    </message>
+    <message>
+        <source>重新显示</source>
+        <translation>Show again</translation>
+    </message>
+    <message>
+        <source>反馈与状态</source>
+        <translation>Feedback and status</translation>
+    </message>
+    <message>
+        <source>消息条(MessageBar)</source>
+        <translation>Message bar(MessageBar)</translation>
+    </message>
+    <message>
+        <source>信息徽标(InfoBadge)</source>
+        <translation>Info badge(InfoBadge)</translation>
+    </message>
+    <message>
+        <source>%1 个演示页面</source>
+        <translation>%1 demo pages</translation>
+    </message>
+    <message>
+        <source>按钮(PushButton)</source>
+        <translation>PushButton</translation>
+    </message>
+    <message>
+        <source>图标按钮(IconButton)</source>
+        <translation>IconButton</translation>
+    </message>
+    <message>
+        <source>工具按钮(ToolButton)</source>
+        <translation>ToolButton</translation>
+    </message>
+    <message>
+        <source>单选框(RadioButton)</source>
+        <translation>RadioButton</translation>
+    </message>
+    <message>
+        <source>复选框(CheckBox)</source>
+        <translation>CheckBox</translation>
+    </message>
+    <message>
+        <source>开关(ToggleSwitch)</source>
+        <translation>ToggleSwitch</translation>
+    </message>
+    <message>
+        <source>单行输入(LineEdit)</source>
+        <translation>LineEdit</translation>
+    </message>
+    <message>
+        <source>多行输入(PlainTextEdit)</source>
+        <translation>PlainTextEdit</translation>
+    </message>
+    <message>
+        <source>组合框(ComboBox)</source>
+        <translation>ComboBox</translation>
+    </message>
+    <message>
+        <source>多选组合框(MultiSelectComboBox)</source>
+        <translation>MultiSelectComboBox</translation>
+    </message>
+    <message>
+        <source>整数输入(SpinBox)</source>
+        <translation>SpinBox</translation>
+    </message>
+    <message>
+        <source>小数输入(DoubleSpinBox)</source>
+        <translation>DoubleSpinBox</translation>
+    </message>
+    <message>
+        <source>日期选择(CalendarPicker)</source>
+        <translation>CalendarPicker</translation>
+    </message>
+    <message>
+        <source>滚轮选择(RollerPicker)</source>
+        <translation>RollerPicker</translation>
+    </message>
+    <message>
+        <source>滑块(Slider)</source>
+        <translation>Slider</translation>
+    </message>
+    <message>
+        <source>进度条(ProgressBar)</source>
+        <translation>ProgressBar</translation>
+    </message>
+    <message>
+        <source>进度环(ProgressRing)</source>
+        <translation>ProgressRing</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleApplicationModulePrivate.cpp" line="71"/>
         <source>应用模块已启动</source>
         <translation>Application module started</translation>
