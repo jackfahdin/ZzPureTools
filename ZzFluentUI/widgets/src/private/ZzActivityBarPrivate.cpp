@@ -12,7 +12,6 @@
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
-#include <QtCore/QVariantAnimation>
 #include <QtCore/QUuid>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QPainter>
@@ -28,7 +27,6 @@
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
-#include <ZzFluentUI/ZzMotionToken.h>
 #include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
@@ -157,24 +155,12 @@ public:
         painter->save();
         ZzItemViewVisualOptions visualOptions;
         visualOptions.animateSelection = false;
+        visualOptions.ownsIndicator = false;
         if (owner_ != nullptr) {
-            if (owner_->indicatorDuration() == 0) {
-                owner_->indicatorTransition.finish();
-            }
-            const QModelIndex sourceIndex = owner_->sourceIndexForProjection(index);
             const bool active = owner_->isProjectionIndexActive(index);
-            // Mouse selection precedes deferred activation. It must not paint a
-            // new active surface or indicator before the source state commits.
+            // 只以已提交的活动项着色，鼠标临时选择不提前改变选中图标。
             adjusted.state.setFlag(QStyle::State_Selected, active);
             visualOptions.showSelection = owner_->selectionVisible;
-            visualOptions.forceIndicator = owner_->selectionVisible
-                && (active || owner_->indicatorTransition.forcesIndicator(sourceIndex));
-            visualOptions.indicatorScale = owner_->indicatorTransition.scaleFor(
-                sourceIndex, active);
-            visualOptions.indicatorPlacement =
-                owner_->edge == ZzSidePaneEdge::Left
-                ? ZzItemIndicatorPlacement::PhysicalLeft
-                : ZzItemIndicatorPlacement::PhysicalRight;
         }
         const ZzItemViewVisualLayout visual =
             ZzItemViewVisual::draw(
@@ -186,7 +172,10 @@ public:
         const QPalette::ColorGroup colorGroup = enabled
             ? QPalette::Normal : QPalette::Disabled;
         const QColor foreground = adjusted.palette.color(
-            colorGroup, QPalette::Text);
+            colorGroup,
+            enabled && visualOptions.showSelection
+                    && adjusted.state.testFlag(QStyle::State_Selected)
+                ? QPalette::Highlight : QPalette::Text);
         const QVariant descriptorValue = index.data(Qt::DecorationRole);
         const ZzIconDescriptor descriptor =
             descriptorValue.value<ZzIconDescriptor>();
@@ -501,7 +490,6 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     ZzActivityBar *publicObject,
     ZzSidePaneEdge initialEdge)
     : q_ptr(publicObject)
-    , indicatorTransition(publicObject)
     , edge(initialEdge)
 {
     Q_ASSERT(q_ptr != nullptr);
@@ -563,10 +551,6 @@ ZzActivityBarPrivate::ZzActivityBarPrivate(
     layout->setSpacing(0);
     layout->addWidget(primaryView, 1);
     layout->addWidget(secondaryView);
-    QObject::connect(indicatorTransition.animation(), &QVariantAnimation::valueChanged,
-        q_ptr, [this] { repaintIndicators(); });
-    QObject::connect(indicatorTransition.animation(), &QVariantAnimation::finished,
-        q_ptr, [this] { repaintIndicators(); });
     updateSecondaryViewGeometry();
 }
 
@@ -727,11 +711,6 @@ void ZzActivityBarPrivate::setActiveSourceIndexes(
     if (activeSourceIndexes == next) {
         return;
     }
-    repaintIndicators();
-    const bool singleChange = activeSourceIndexes.size() <= 1 && next.size() <= 1;
-    indicatorTransition.transitionTo(
-        next.size() == 1 ? QModelIndex(next.first()) : QModelIndex(),
-        singleChange ? indicatorDuration() : 0);
     activeSourceIndexes = next;
     primaryView->viewport()->update();
     secondaryView->viewport()->update();
@@ -749,34 +728,9 @@ void ZzActivityBarPrivate::setSelectionVisible(bool visible)
         return;
     }
     selectionVisible = visible;
-    indicatorTransition.finish();
     primaryView->viewport()->update();
     secondaryView->viewport()->update();
     Q_EMIT q_ptr->selectionVisibleChanged(visible);
-}
-
-int ZzActivityBarPrivate::indicatorDuration() const
-{
-    const auto *style = qobject_cast<const ZzFluentStyle *>(q_ptr->style());
-    return selectionVisible && q_ptr->isVisible() && q_ptr->isEnabled() && style != nullptr
-        ? style->themeSnapshot()->duration(ZzMotionToken::Normal) : 0;
-}
-
-void ZzActivityBarPrivate::repaintIndicators()
-{
-    for (const QModelIndex &source :
-         {indicatorTransition.outgoingIndex(), indicatorTransition.incomingIndex()}) {
-        if (!source.isValid()) {
-            continue;
-        }
-        for (QListView *view : {primaryView, secondaryView}) {
-            const auto *projection = static_cast<ZzActivityProjectionModel *>(view->model());
-            const QModelIndex index = projection->mapFromSource(source);
-            if (index.isValid()) {
-                view->viewport()->update(view->visualRect(index));
-            }
-        }
-    }
 }
 
 void ZzActivityBarPrivate::sanitizeActiveIndexes()
@@ -792,13 +746,6 @@ void ZzActivityBarPrivate::sanitizeActiveIndexes()
 bool ZzActivityBarPrivate::isSourceIndexActive(const QModelIndex &index) const
 {
     return activeSourceIndexes.contains(index);
-}
-
-QModelIndex ZzActivityBarPrivate::sourceIndexForProjection(const QModelIndex &index) const
-{
-    const auto *projection = index.model() == primaryProjection ? primaryProjection
-        : index.model() == secondaryProjection ? secondaryProjection : nullptr;
-    return projection != nullptr ? projection->mapToSource(index) : QModelIndex();
 }
 
 bool ZzActivityBarPrivate::isProjectionIndexActive(

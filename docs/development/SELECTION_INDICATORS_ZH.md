@@ -17,8 +17,9 @@
 槽位不随选中状态改变。绘制、复选框、文字和编辑器使用同一内容区域，
 不把展开箭头或树层级缩进计入指示条间隔。
 
-逻辑起始侧跟随 RTL；活动栏按停靠侧使用物理左右边。活动栏图标和徽标
-共享剩余内容宽度预算，大徽标不能覆盖图标。横向标签为内容预留厚度加间距的区域。
+逻辑起始侧跟随 RTL。Activity Bar 不绘制指示条，也不预留指示条槽位，
+其主题图标在选中时使用强调色，未选中时使用随深浅主题变化的文字色。
+活动栏图标和徽标共享内容宽度预算，大徽标不能覆盖图标。横向标签为内容预留厚度加间距的区域。
 Pivot 保留与内容宽度适配的下划线；原生 Tab 使用标准短条。
 
 ### 标签文字尺寸契约
@@ -48,7 +49,7 @@ Pivot 保留与内容宽度适配的下划线；原生 Tab 使用标准短条。
 - 视图析构期间的 Hide 事件必须检查对象仍是 QAbstractItemView；仅检查 QPointer 非空不足以保证视图接口可调用。
 - 表格整行选择按行归一化，指示条属于首个可见视觉列。单元格选择不转为行选择。
 - 多选、批量变化和多活动项保持已有静态标记语义，不把 selectedIndexes 展开为逐项动画对象。
-- 活动栏的 Fluent 选中背景和指示条只消费已提交的活动源索引，不使用内部列表鼠标按下产生的临时选中状态。释放后保留延迟激活及模型有效性复核；提交后按共用时序收缩旧条、展开新条，不能先画新条再收回。悬停、键盘焦点和重复点击折叠意图保持独立。
+- 活动栏的 Fluent 选中背景和强调色图标只消费已提交的活动源索引，不使用内部列表鼠标按下产生的临时选中状态。释放后保留延迟激活及模型有效性复核；提交后直接更新图标颜色，无指示条动画。面板收起（selectionVisible=false）后恢复默认图标颜色。悬停、键盘焦点和重复点击折叠意图保持独立。
 
 ## 入口覆盖
 
@@ -57,7 +58,7 @@ Pivot 保留与内容宽度适配的下划线；原生 Tab 使用标准短条。
 | 原生 QListView 行模式、QTreeView、QTableView | ZzFluentStyle → ZzItemViewVisual | 每视图 ZzItemSelectionAnimation |
 | 显式 ZzFluentItemDelegate | ZzItemViewVisual，已调整内容 option 防止重复留白 | 同一视图级状态 |
 | ZzNavigationView、NavigationPane 主区和底区 | ZzItemViewVisual | 现有导航状态复用 ZzSelectionIndicatorTransition |
-| ZzActivityBar 主区和次区 | ZzItemViewVisual、共享内容宽度预算 | 源活动索引驱动的 ZzSelectionIndicatorTransition |
+| ZzActivityBar 主区和次区 | ZzItemViewVisual 背板、居中图标与徽标 | 源活动索引驱动图标强调色，无指示条及其动画 |
 | Pivot | 内容适配的底部条及统一厚度、间距 | 连续滑动变体 |
 | QTabBar、ZzTabBar、TabWidget 内部标签栏 | Style 绘制统一短条 | 每标签栏滑动状态 |
 | QComboBox 普通列表弹出项 | 统一行式短条和槽位，保留弹出项背板 | 有有效模型索引时使用视图过渡 |
@@ -70,7 +71,7 @@ Pivot 保留与内容宽度适配的下划线；原生 Tab 使用标准短条。
 
 - `fluent.selection-indicator`：共用状态、原生与 Fluent Delegate 的三视图接入、视图隔离、多选、横向滑动及主题方向矩阵。
 - 现有 Fluent ItemDelegate、Navigation、ActivityBar、Pivot、Tab、ComboBox、StandardControls 和 ThemeSnapshot 测试继续作为回归约束。
-- ActivityBar 的 mouseActivationMatchesNavigationFrames 使用真实鼠标按下、释放和事件队列，检查提交前没有新条，并与 Navigation 在 0/41/83/125/167 ms 比较指示条像素；覆盖左右物理边、主次分组、RTL 和减少动态效果。
+- ActivityBar 的 mouseActivationColorsOnlyCommittedIcons 使用真实鼠标按下、释放和事件队列，检查提交前图标不提前变色；覆盖左右物理边、主次分组、RTL 和减少动态效果。像素测试同时检查深浅主题的默认色、选中强调色、两侧无指示条及收起后的状态恢复。
 - 设置 `ZZ_INDICATOR_REPORT_DIR` 可让新测试的 `visualMatrix` 保存当前环境截图；这些图片属于本机观察证据，不替代 Linux 参考基线。
 - 视觉变更仍需在项目规定的 Linux 参考环境更新受影响基线、关闭更新模式重跑并人工核对；Windows 本机图片不得写入 Linux 基线目录。
 

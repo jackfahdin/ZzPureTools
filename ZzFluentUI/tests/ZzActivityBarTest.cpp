@@ -34,8 +34,6 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
-#include <ZzFluentUI/ZzMetricToken.h>
-#include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -289,8 +287,44 @@ class ZzActivityBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
-    /** @brief 捕获鼠标临时选择先画出新条、活动提交后又将其收回的闪跳。 */
-    void mouseActivationMatchesNavigationFrames_data()
+    void selectedIconsUseAccentWithoutEdgeIndicator()
+    {
+        for (const auto edge : {ZzFluentUI::ZzSidePaneEdge::Left, ZzFluentUI::ZzSidePaneEdge::Right}) {
+            for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
+                ZzFluentUI::ZzThemeController controller;
+                controller.setMode(mode);
+                controller.setAccentColor(QColor(QStringLiteral("#d832a1")));
+                ZzFluentUI::ZzFluentStyle style(&controller);
+                ZzActivityRowsModel model;
+                const int row = edge == ZzFluentUI::ZzSidePaneEdge::Left ? 0 : 2;
+                model.rows[row].badge = 0;
+                model.rows[row].icon = ZzFluentUI::ZzIconDescriptor::fromFontIcon(ZzFluentUI::ZzFontIcon::House);
+                ZzFluentUI::ZzActivityBar bar(edge);
+                bar.setModel(&model);
+                auto *view = zzActivityView(&bar, QStringLiteral("zzActivityPrimaryView"));
+                view->setStyle(&style);
+                view->setFocusPolicy(Qt::NoFocus);
+                zzShow(&bar);
+                const QRect rect = view->visualRect(view->model()->index(0, 0));
+                const QRect center = rect.adjusted(10, 5, -10, -5);
+                const QColor accent = view->palette().color(QPalette::Highlight);
+                const QColor foreground = view->palette().color(QPalette::Text);
+                QVERIFY(zzCountPixelsNearColor(zzRenderWidget(view->viewport()), center, foreground) > 3);
+                bar.setCurrentSourceIndex(model.index(row, 0));
+                const QImage selected = zzRenderWidget(view->viewport());
+                QVERIFY(zzCountPixelsNearColor(selected, center, accent) > 3);
+                QCOMPARE(zzCountPixelsNearColor(selected, QRect(rect.left(), rect.top(), 7, rect.height()), accent), 0);
+                QCOMPARE(zzCountPixelsNearColor(selected, QRect(rect.right() - 6, rect.top(), 7, rect.height()), accent), 0);
+                bar.setSelectionVisible(false);
+                const QImage hidden = zzRenderWidget(view->viewport());
+                QVERIFY(zzCountPixelsNearColor(hidden, center, foreground) > 3);
+                QCOMPARE(zzCountPixelsNearColor(hidden, center, accent), 0);
+            }
+        }
+    }
+
+    /** @brief 鼠标临时选择不能提前为新图标着色。 */
+    void mouseActivationColorsOnlyCommittedIcons_data()
     {
         QTest::addColumn<bool>("right");
         QTest::addColumn<bool>("crossGroup");
@@ -309,7 +343,7 @@ private Q_SLOTS:
         }
     }
 
-    void mouseActivationMatchesNavigationFrames()
+    void mouseActivationColorsOnlyCommittedIcons()
     {
         QFETCH(bool, right);
         QFETCH(bool, crossGroup);
@@ -327,21 +361,13 @@ private Q_SLOTS:
                      : ZzFluentUI::ZzActivityArea::LeftSecondary)
             : model.rows[0].area;
         model.rows[1].enabled = true;
-        // Navigation has private roles that overlap Activity Area; compare with
-        // an equivalent plain model rather than feeding it activity metadata.
-        QStandardItemModel navigationModel(2, 1);
-        navigationModel.setData(navigationModel.index(0, 0), model.rows[0].text);
-        navigationModel.setData(navigationModel.index(1, 0), model.rows[1].text);
+        model.rows[0].icon = ZzFluentUI::ZzIconDescriptor::fromFontIcon(ZzFluentUI::ZzFontIcon::House);
+        model.rows[1].icon = model.rows[0].icon;
         ZzFluentUI::ZzActivityBar bar(right ? ZzFluentUI::ZzSidePaneEdge::Right
                                          : ZzFluentUI::ZzSidePaneEdge::Left);
-        ZzFluentUI::ZzNavigationView navigation;
-        for (QWidget *widget : {static_cast<QWidget *>(&bar),
-                 static_cast<QWidget *>(&navigation)}) {
-            widget->setStyle(&style);
-            widget->setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
-        }
+        bar.setStyle(&style);
+        bar.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
         bar.setModel(&model);
-        navigation.setModel(&navigationModel);
         // A per-widget Qt style is not inherited by the Activity Bar's child views.
         for (auto *view : bar.findChildren<QListView *>()) {
             view->setStyle(&style);
@@ -349,8 +375,6 @@ private Q_SLOTS:
         const auto oldIndex = model.index(0, 0);
         const auto newIndex = model.index(1, 0);
         bar.setCurrentSourceIndex(oldIndex);
-        navigation.setCurrentIndex(navigationModel.index(0, 0));
-        zzShow(&navigation);
         zzShow(&bar);
         auto *oldView = zzActivityView(&bar, QStringLiteral("zzActivityPrimaryView"));
         auto *newView = crossGroup
@@ -358,49 +382,28 @@ private Q_SLOTS:
         const auto projectedOld = oldView->model()->index(0, 0);
         const auto projectedNew = newView->model()->index(crossGroup ? 0 : 1, 0);
         const QColor accent = controller.snapshot()->color(ZzFluentUI::ZzColorToken::Accent);
-        const auto pixels = [&accent](QListView *view, const QModelIndex &index, bool physicalRight) {
-            QRect strip = view->visualRect(index);
-            strip.setLeft(physicalRight ? strip.right() - 6 : strip.left() + 4);
-            strip.setWidth(3);
-            return zzCountPixelsNearColor(zzRenderWidget(view->viewport()), strip, accent);
+        const auto pixels = [&accent](QListView *view, const QModelIndex &index) {
+            const QRect center = view->visualRect(index).adjusted(10, 5, -10, -5);
+            return zzCountPixelsNearColor(zzRenderWidget(view->viewport()), center, accent);
         };
-        const int originalPixels = pixels(oldView, projectedOld, right);
+        const int originalPixels = pixels(oldView, projectedOld);
         QVERIFY(originalPixels > 0);
         QSignalSpy activated(&bar, &ZzFluentUI::ZzActivityBar::activationRequested);
         const QPoint target = newView->visualRect(projectedNew).center();
         QTest::mousePress(newView->viewport(), Qt::LeftButton, Qt::NoModifier, target);
-        const int pressedNewPixels = pixels(newView, projectedNew, right);
-        const int pressedOldPixels = pixels(oldView, projectedOld, right);
+        const int pressedNewPixels = pixels(newView, projectedNew);
+        const int pressedOldPixels = pixels(oldView, projectedOld);
         QTest::mouseRelease(newView->viewport(), Qt::LeftButton, Qt::NoModifier, target);
         QCOMPARE(pressedNewPixels, 0);
         QCOMPARE(pressedOldPixels, originalPixels);
         QCOMPARE(bar.currentSourceIndex(), oldIndex);
         QCOMPARE(activated.count(), 0);
-        QCOMPARE(pixels(newView, projectedNew, right), 0);
+        QCOMPARE(pixels(newView, projectedNew), 0);
         QTRY_COMPARE(activated.count(), 1);
         QCOMPARE(bar.currentSourceIndex(), newIndex);
-        navigation.setCurrentIndex(navigationModel.index(1, 0));
-        const auto activityAnimations = bar.findChildren<QVariantAnimation *>();
-        const auto navigationAnimations = navigation.findChildren<QVariantAnimation *>();
-        QCOMPARE(activityAnimations.size(), 1);
-        QCOMPARE(navigationAnimations.size(), 1);
-        auto *activityAnimation = activityAnimations.first();
-        auto *navigationAnimation = navigationAnimations.first();
-        if (!reduced) {
-            QCOMPARE(activityAnimation->duration(), navigationAnimation->duration());
-            QCOMPARE(activityAnimation->easingCurve(), navigationAnimation->easingCurve());
-            for (int time : {0, 41, 83, 125, 167}) {
-                activityAnimation->setCurrentTime(time);
-                navigationAnimation->setCurrentTime(time);
-                QCOMPARE(pixels(oldView, projectedOld, right),
-                    pixels(&navigation, navigationModel.index(0, 0), rtl));
-                QCOMPARE(pixels(newView, projectedNew, right),
-                    pixels(&navigation, navigationModel.index(1, 0), rtl));
-            }
-        }
-        QCOMPARE(pixels(oldView, projectedOld, right), 0);
-        QCOMPARE(pixels(newView, projectedNew, right), originalPixels);
-        QCOMPARE(activityAnimation->state(), QAbstractAnimation::Stopped);
+        QVERIFY(bar.findChildren<QVariantAnimation *>().isEmpty());
+        QCOMPARE(pixels(oldView, projectedOld), 0);
+        QCOMPARE(pixels(newView, projectedNew), originalPixels);
         QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>{newIndex});
     }
 
@@ -468,7 +471,7 @@ private Q_SLOTS:
                  "Activity Bar 的 badge 覆盖了图标或首字符区域");
     }
 
-    void animatesSingleActivityAndSettlesWhenHidden()
+    void changesActivityWithoutAllocatingIndicatorAnimation()
     {
         ZzFluentUI::ZzThemeController controller;
         ZzFluentUI::ZzFluentStyle style(&controller);
@@ -482,11 +485,8 @@ private Q_SLOTS:
         bar.setCurrentSourceIndex(model.index(0, 0));
         bar.setCurrentSourceIndex(model.index(1, 0));
         const auto animations = bar.findChildren<QVariantAnimation *>();
-        QCOMPARE(animations.size(), 1);
-        QCOMPARE(animations.first()->state(), QAbstractAnimation::Running);
-        QCOMPARE(animations.first()->duration(), 167);
+        QVERIFY(animations.isEmpty());
         bar.hide();
-        QCOMPARE(animations.first()->state(), QAbstractAnimation::Stopped);
         QCOMPARE(bar.currentSourceIndex(), model.index(1, 0));
     }
 
@@ -840,7 +840,7 @@ private Q_SLOTS:
         QCOMPARE(bar.activeSourceIndexes(), QList<QModelIndex>({second}));
     }
 
-    void indicatorUsesSingleShortPhysicalEdgeInLtrAndRtl()
+    void accentStaysInIconAreaInLtrAndRtl()
     {
         const QColor indicatorColor(QStringLiteral("#00ff55"));
         for (const ZzFluentUI::ZzSidePaneEdge edge : {
@@ -873,32 +873,9 @@ private Q_SLOTS:
                 const QImage rendered = zzRenderWidget(view->viewport());
                 const QRect indicator = zzPixelBoundsNearColor(
                     rendered, rowRect, indicatorColor);
-                const int expectedHeight = qCeil(
-                    controller.snapshot()->metric(
-                        ZzFluentUI::ZzMetricToken::SelectionIndicatorExtent));
-                const int expectedWidth = qCeil(
-                    controller.snapshot()->metric(
-                        ZzFluentUI::ZzMetricToken::SelectionIndicatorThickness));
-
-                QVERIFY2(!indicator.isEmpty(),
-                         "Activity Bar 没有绘制当前入口短指示条");
-                QVERIFY2(qAbs(indicator.height() - expectedHeight) <= 2,
-                         "Activity Bar 指示条高度没有遵循 Fluent 令牌");
-                QVERIFY2(indicator.height() <= expectedHeight + 2,
-                         "Activity Bar 仍在绘制全行高的第二条指示");
-                QVERIFY2(qAbs(indicator.width() - expectedWidth) <= 2,
-                         "Activity Bar 指示条厚度没有遵循 Fluent 令牌");
-                QVERIFY2(indicator.width() <= expectedWidth + 2,
-                         "Activity Bar 指示条厚度超出 Fluent 令牌");
-                if (edge == ZzFluentUI::ZzSidePaneEdge::Left) {
-                    QVERIFY2(indicator.left() <= rowRect.left() + 6,
-                             "左 Activity Bar 指示条没有贴物理左边");
-                    QVERIFY(indicator.right() < rowRect.center().x());
-                } else {
-                    QVERIFY2(indicator.right() >= rowRect.right() - 6,
-                             "右 Activity Bar 指示条没有贴物理右边");
-                    QVERIFY(indicator.left() > rowRect.center().x());
-                }
+                QVERIFY2(!indicator.isEmpty(), "Activity Bar 没有绘制强调色图标或文字后备");
+                QVERIFY(indicator.left() > rowRect.left() + 7);
+                QVERIFY(indicator.right() < rowRect.right() - 7);
             }
         }
     }
@@ -933,7 +910,7 @@ private Q_SLOTS:
             !zzPixelBoundsNearColor(
                  selectedImage, rowRect, indicatorColor)
                  .isEmpty(),
-            "选中入口没有绘制指示条");
+            "选中入口没有绘制强调色图标");
 
         const QList<QModelIndex> activeBefore = bar.activeSourceIndexes();
         bar.setSelectionVisible(false);
@@ -943,7 +920,7 @@ private Q_SLOTS:
         QVERIFY2(
             zzPixelBoundsNearColor(hiddenImage, rowRect, indicatorColor)
                 .isEmpty(),
-            "侧边栏收缩后仍然绘制 ActivityBar 指示条");
+            "侧边栏收缩后仍然绘制 ActivityBar 强调色图标");
         const QPoint surfaceProbe(
             rowRect.left() + rowRect.width() / 2,
             rowRect.top() + 3);
@@ -962,7 +939,7 @@ private Q_SLOTS:
             !zzPixelBoundsNearColor(
                  restoredImage, rowRect, indicatorColor)
                  .isEmpty(),
-            "恢复 ActivityBar 视觉选择后没有重新绘制指示条");
+            "恢复 ActivityBar 视觉选择后没有重新绘制强调色图标");
     }
 
     void enabledNonSelectableRowOnlyRequestsActivation()

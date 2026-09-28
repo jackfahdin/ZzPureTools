@@ -79,7 +79,7 @@ public:
     /**
      * @brief 从 Shell 同步当前源索引。
      * @param index 当前模型的 column 0 顶层索引；不属于当前两组时清空选择。
-     * @note Fluent 选中背景和指示条只依据已提交的活动源索引；内部列表的
+     * @note Fluent 选中背景和强调色图标只依据已提交的活动源索引；内部列表的
      * 鼠标临时选择不提前显示新活动项。鼠标释放后的延迟激活与状态复核保持不变。
      */
     void setCurrentSourceIndex(const QModelIndex &index);
@@ -87,17 +87,17 @@ public:
     /** @brief 返回最近同步或由用户激活的源模型索引。 */
     [[nodiscard]] QModelIndex currentSourceIndex() const;
 
-    /** @brief 返回是否显示多个活动入口指示条。 */
+    /** @brief 返回是否显示多个活动入口的强调色图标。 */
     [[nodiscard]] bool isMultiActiveEnabled() const noexcept;
 
-    /** @brief 启用或关闭多个活动入口指示条。 */
+    /** @brief 启用或关闭多个活动入口的强调色图标。 */
     void setMultiActiveEnabled(bool enabled);
 
-    /** @brief 返回是否绘制当前活动入口的选中背景和指示条。 */
+    /** @brief 返回是否绘制当前活动入口的选中背景和强调色图标。 */
     [[nodiscard]] bool isSelectionVisible() const noexcept;
 
     /**
-     * @brief 设置是否绘制当前活动入口的选中背景和指示条。
+     * @brief 设置是否绘制当前活动入口的选中背景和强调色图标。
      * @param visible 为 false 时保留语义索引，但隐藏视觉选中状态。
      */
     void setSelectionVisible(bool visible);
@@ -118,7 +118,7 @@ Q_SIGNALS:
     /** @brief 当前源索引变化后发出。 */
     void currentSourceIndexChanged(const QModelIndex &sourceIndex);
 
-    /** @brief 多活动指示条开关实际变化后发出。 */
+    /** @brief 多活动入口开关实际变化后发出。 */
     void multiActiveEnabledChanged(bool enabled);
 
     /** @brief 视觉选中状态开关实际变化后发出。 */
