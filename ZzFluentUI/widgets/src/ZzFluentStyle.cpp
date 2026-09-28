@@ -13,6 +13,7 @@
 #include <QtWidgets/QListView>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QCalendarWidget>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
@@ -35,12 +36,15 @@ namespace ZzFluentUI {
 
 namespace {
 
-/** @brief 普通原生图标网格保留平台选中表现，不新增行式指示条。 */
+/** @brief 日历日期网格和普通图标网格不使用列表行式选择指示槽。 */
 [[nodiscard]] bool zzUsesItemIndicatorStyle(
     const QWidget *widget, const QModelIndex &index)
 {
     const auto *view = qobject_cast<const QAbstractItemView *>(widget);
     if (view == nullptr) {
+        return false;
+    }
+    if (qobject_cast<const QCalendarWidget *>(view->parentWidget()) != nullptr) {
         return false;
     }
     const auto *list = qobject_cast<const QListView *>(view);

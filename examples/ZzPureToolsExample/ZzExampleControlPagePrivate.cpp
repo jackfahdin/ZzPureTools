@@ -20,6 +20,7 @@
 
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
+#include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
@@ -475,6 +476,14 @@ void ZzExampleControlPagePrivate::buildValue(ZzExampleControlKind kind)
         QObject::connect(date, &QDateTimeEdit::dateChanged, status,
             [this](const QDate &value) { status->setText(value.toString(Qt::ISODate)); });
         zzAdd(host, date);
+        auto *calendarHost = section(QCoreApplication::translate("ZzPureToolsExample", "日历(Calendar)"));
+        auto *calendar = new ZzFluentUI::ZzCalendar(calendarHost);
+        calendar->setDateRange(date->minimumDate(), date->maximumDate());
+        calendar->setSelectedDate(date->date());
+        QObject::connect(date, &QDateTimeEdit::dateChanged, calendar, &QCalendarWidget::setSelectedDate);
+        QObject::connect(calendar, &QCalendarWidget::selectionChanged, date,
+            [date, calendar] { date->setDate(calendar->selectedDate()); });
+        zzAdd(calendarHost, calendar);
     } else {
         auto *roller = new ZzFluentUI::ZzRollerPicker(host);
         QStringList hours;

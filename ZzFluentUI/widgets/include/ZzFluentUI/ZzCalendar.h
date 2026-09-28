@@ -34,7 +34,16 @@ public:
     /** @brief 销毁私有绘制缓存，Qt 子对象由 parent 关系释放。 */
     ~ZzCalendar() override;
 
+    /** @brief 返回容纳导航、星期表头和六周日期的自然尺寸。 */
+    [[nodiscard]] QSize sizeHint() const override;
+
+    /** @brief 按当前字体计算日期网格的最小可读尺寸。 */
+    [[nodiscard]] QSize minimumSizeHint() const override;
+
 protected:
+    /** @brief 绘制统一圆角日历表面，子控件继续由 Qt 绘制。 */
+    void paintEvent(QPaintEvent *event) override;
+
     /**
      * @brief 使用当前 palette 绘制单个可见日期。
      * @param painter 非空且已激活的目标 painter。

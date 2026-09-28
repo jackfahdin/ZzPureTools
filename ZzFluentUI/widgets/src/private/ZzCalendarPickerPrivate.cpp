@@ -20,14 +20,21 @@ ZzCalendarPickerPrivate::ZzCalendarPickerPrivate(ZzCalendarPicker *q)
     , calendar(new ZzCalendar(q))
 {
     Q_ASSERT(q_ptr != nullptr);
-    // QDateEdit owns the single Fluent input surface; its internal editor is
-    // content-only so it cannot cover the parent frame while hovering.
+    // 输入外框只由 QDateEdit 绘制，内部编辑器不覆盖父级边框。
     q_ptr->setFrame(true);
     if (auto *edit = q_ptr->findChild<QLineEdit *>()) {
         edit->setFrame(false);
     }
     q_ptr->setCalendarPopup(true);
     q_ptr->setCalendarWidget(calendar);
+    calendar->setLayoutDirection(q_ptr->layoutDirection());
+    // 在首次创建原生窗口之前设置透明表面；位置与屏幕边界仍交给 Qt。
+    QWidget *calendarWindow = calendar->window();
+    if (calendarWindow != q_ptr && calendarWindow->windowFlags().testFlag(Qt::Popup)) {
+        calendarWindow->setWindowFlag(Qt::FramelessWindowHint);
+        calendarWindow->setAttribute(Qt::WA_TranslucentBackground);
+        calendarWindow->setAutoFillBackground(false);
+    }
     q_ptr->setDisplayFormat(
         q_ptr->locale().dateFormat(QLocale::ShortFormat));
     q_ptr->setDate(QDate::currentDate());
@@ -117,6 +124,10 @@ void ZzCalendarPickerPrivate::observeVisiblePopup()
 bool ZzCalendarPickerPrivate::eventFilter(QObject *watched, QEvent *event)
 {
     const QEvent::Type eventType = event->type();
+    if (watched == q_ptr && eventType == QEvent::LayoutDirectionChange) {
+        // Qt::Popup 不自动继承输入控件的局部方向，需显式同步内部日历。
+        calendar->setLayoutDirection(q_ptr->layoutDirection());
+    }
     const bool observedWidgetChanged =
         watched == q_ptr
         && (eventType == QEvent::MouseButtonRelease

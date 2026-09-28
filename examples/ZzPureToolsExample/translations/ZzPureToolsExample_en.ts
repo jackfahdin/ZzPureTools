@@ -873,6 +873,10 @@
     </message>
     <message>
         <location filename="../ZzExampleGalleryPagePrivate.cpp" line="498"/>
+        <source>日历(Calendar)</source>
+        <translation>Calendar</translation>
+    </message>
+    <message>
         <source>计划日期</source>
         <translation>Scheduled date</translation>
     </message>

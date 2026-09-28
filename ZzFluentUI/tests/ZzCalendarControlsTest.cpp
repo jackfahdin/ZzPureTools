@@ -12,11 +12,17 @@
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QCalendarWidget>
+#include <QtWidgets/QToolButton>
+#include <QtWidgets/QSpinBox>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QStyleOptionViewItem>
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QTimer>
 
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzThemeController.h>
 
 namespace {
 
@@ -85,6 +91,161 @@ class ZzCalendarControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 星期单元格不预留列表选择指示槽，文字居中且不被额外裁切。 */
+    void weekdayHeadersUseFullCellWidth()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzCalendar calendar;
+        auto *view = calendar.findChild<QTableView *>();
+        QVERIFY(view);
+        for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            QStyleOptionViewItem option;
+            option.initFrom(view);
+            option.direction = direction;
+            option.widget = view;
+            option.index = view->model()->index(0, 0);
+            option.rect = QRect(0, 0, 40, 40);
+            option.features = QStyleOptionViewItem::HasDisplay;
+            option.text = QStringLiteral("Wed");
+            option.displayAlignment = Qt::AlignCenter;
+            QCOMPARE(style.subElementRect(QStyle::SE_ItemViewItemText, &option, view),
+                style.baseStyle()->subElementRect(QStyle::SE_ItemViewItemText, &option, view));
+        }
+    }
+
+    /** @brief 大字体和不同地区的星期名称在自然尺寸中仍可完整显示。 */
+    void naturalSizeFitsLocalizedWeekdaysAndLargeFonts()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setStyle(&style);
+        auto *view = calendar.findChild<QTableView *>();
+        QVERIFY(view);
+        view->setStyle(&style);
+        for (const auto &locale : {QLocale::c(), QLocale(QStringLiteral("de_DE")),
+                 QLocale(QStringLiteral("ar_EG"))}) {
+            calendar.setLocale(locale);
+            calendar.setLayoutDirection(locale.textDirection());
+            calendar.setFirstDayOfWeek(Qt::Sunday);
+            for (const int pointSize : {10, 20}) {
+                QFont font = calendar.font();
+                font.setPointSize(pointSize);
+                calendar.setFont(font);
+                calendar.resize(calendar.minimumSizeHint());
+                calendar.show();
+                QCoreApplication::processEvents();
+                for (int column = 0; column < 7; ++column) {
+                    const QModelIndex index = view->model()->index(0, column);
+                    const QString text = index.data().toString();
+                    const auto headerFont = index.data(Qt::FontRole).value<QFont>();
+                    // Qt 的单元格文字左右各预留 3 像素，不应出现省略号。
+                    QVERIFY2(view->visualRect(index).width()
+                            >= QFontMetrics(headerFont).horizontalAdvance(text) + 6,
+                        qPrintable(locale.name() + QStringLiteral(": ") + text));
+                }
+            }
+        }
+    }
+
+    /** @brief 导航实际绘制跟随字体放大，不能只有按钮几何变大。 */
+    void navigationPaintUsesCalendarFont()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setStyle(&style);
+        calendar.setSelectedDate(QDate(2026, 8, 5));
+        auto *year = calendar.findChild<QToolButton *>(QStringLiteral("qt_calendar_yearbutton"));
+        QVERIFY(year);
+        const auto textPixels = [&calendar, year](int size) {
+            QFont font = calendar.font();
+            font.setPointSize(size);
+            calendar.setFont(font);
+            calendar.resize(calendar.minimumSizeHint());
+            calendar.show();
+            QCoreApplication::processEvents();
+            const QImage image = year->grab().toImage();
+            const QColor text = year->palette().color(QPalette::Text);
+            int pixels = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    if (image.pixelColor(x, y) == text) {
+                        ++pixels;
+                    }
+                }
+            }
+            return pixels;
+        };
+        const int small = textPixels(10);
+        const int large = textPixels(20);
+        QVERIFY(small > 0);
+        QVERIFY(large > small * 2);
+    }
+
+    /** @brief 年月靠起始侧、翻页靠尾侧，重新布局不能破坏原生年份编辑。 */
+    void navigationGroupsFollowDirectionAndKeepEditing()
+    {
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setLocale(QLocale::c());
+        calendar.setSelectedDate(QDate(2026, 8, 5));
+        calendar.resize(420, 380);
+        calendar.show();
+        auto *month = calendar.findChild<QToolButton *>(QStringLiteral("qt_calendar_monthbutton"));
+        auto *year = calendar.findChild<QToolButton *>(QStringLiteral("qt_calendar_yearbutton"));
+        auto *previous = calendar.findChild<QToolButton *>(QStringLiteral("qt_calendar_prevmonth"));
+        auto *next = calendar.findChild<QToolButton *>(QStringLiteral("qt_calendar_nextmonth"));
+        auto *edit = calendar.findChild<QSpinBox *>(QStringLiteral("qt_calendar_yearedit"));
+        QVERIFY(month && year && previous && next && edit);
+        for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            calendar.setLayoutDirection(direction);
+            calendar.setCurrentPage(2026, 8);
+            QCoreApplication::processEvents();
+            if (direction == Qt::LeftToRight) {
+                QVERIFY(month->geometry().right() < previous->geometry().left());
+                QVERIFY(year->geometry().right() < previous->geometry().left());
+                QVERIFY(previous->geometry().right() < next->geometry().left());
+            } else {
+                QVERIFY(month->geometry().left() > previous->geometry().right());
+                QVERIFY(year->geometry().left() > previous->geometry().right());
+            }
+            QTest::mouseClick(next, Qt::LeftButton);
+            QCOMPARE(calendar.monthShown(), 9);
+            QTest::mouseClick(previous, Qt::LeftButton);
+            QCOMPARE(calendar.monthShown(), 8);
+            QTest::mouseClick(year, Qt::LeftButton);
+            QVERIFY(edit->isVisible());
+            edit->setValue(2027);
+            QTest::keyClick(edit, Qt::Key_Return);
+            QCoreApplication::processEvents();
+            QCOMPARE(calendar.yearShown(), 2027);
+            QCOMPARE(calendar.selectedDate(), QDate(2026, 8, 5));
+        }
+    }
+
+    /** @brief 顶部导航不再整条填充强调色，主题切换后也保持中性表面。 */
+    void navigationUsesNeutralSurfaceInEveryTheme()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzCalendar calendar;
+        calendar.setStyle(&style);
+        calendar.resize(420, 380);
+        calendar.show();
+        auto *nav = calendar.findChild<QWidget *>(QStringLiteral("qt_calendar_navigationbar"));
+        QVERIFY(nav);
+        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark, ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            calendar.setPalette(style.standardPalette());
+            QCoreApplication::processEvents();
+            const QImage image = nav->grab().toImage();
+            QVERIFY(image.pixelColor(image.width() / 2, 1)
+                != calendar.palette().color(QPalette::Highlight));
+        }
+    }
+
     void exposesStableDefaults()
     {
         ZzFluentUI::ZzCalendar calendar;
@@ -101,6 +262,47 @@ private Q_SLOTS:
             calendar.selectionMode(),
             QCalendarWidget::SingleSelection);
         QCOMPARE(calendar.focusPolicy(), Qt::StrongFocus);
+    }
+
+    /** @brief 日期弹层作为独立窗口仍需跟随输入控件的布局方向。 */
+    void pickerPopupFollowsLayoutDirection()
+    {
+        ZzFluentUI::ZzCalendarPicker picker;
+        picker.resize(220, 32);
+        picker.setLayoutDirection(Qt::RightToLeft);
+        picker.show();
+        QCoreApplication::processEvents();
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        auto *popup = calendarPopupFor(&picker);
+        QVERIFY(popup && popup->isVisible());
+        QCOMPARE(picker.calendarWidget()->layoutDirection(), Qt::RightToLeft);
+        picker.setLayoutDirection(Qt::LeftToRight);
+        QCoreApplication::processEvents();
+        QCOMPARE(picker.calendarWidget()->layoutDirection(), Qt::LeftToRight);
+        popup->hide();
+    }
+
+    /** @brief 弹层只保留日历圆角表面，不能再次被原生方形边框包住。 */
+    void pickerPopupHasSingleRoundedSurface()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzCalendarPicker picker;
+        picker.setStyle(&style);
+        picker.resize(220, 32);
+        picker.show();
+        QCoreApplication::processEvents();
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        auto *popup = calendarPopupFor(&picker);
+        QVERIFY(popup && popup->isVisible());
+        const auto image = popup->grab().toImage();
+        QVERIFY(image.pixelColor(0, 0).alpha() < 255);
+        QVERIFY(image.pixelColor(image.width() / 2, image.height() / 2).alpha() == 255);
+        popup->hide();
     }
 
     void preservesDateRangeAndKeyboardNavigation()

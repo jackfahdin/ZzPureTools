@@ -7009,6 +7009,114 @@ private Q_SLOTS:
                 .arg(actualPath, diffPath)));
     }
 
+    /** @brief 实际日期弹层覆盖三主题与进程对应的 DPR。 */
+    void rendersCalendarPopupThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("fileStem");
+        QTest::addColumn<bool>("rightToLeft");
+        QTest::newRow("light") << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("light") << false;
+        QTest::newRow("dark") << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)
+            << QStringLiteral("dark") << false;
+        QTest::newRow("high-contrast") << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)
+            << QStringLiteral("high-contrast") << false;
+        QTest::newRow("light-rtl") << static_cast<int>(ZzFluentUI::ZzThemeMode::Light)
+            << QStringLiteral("light-rtl") << true;
+    }
+
+    /** @brief 比较真实打开的日历弹层，覆盖圆角、选中、悬停和范围外日期。 */
+    void rendersCalendarPopupThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, fileStem);
+        QFETCH(bool, rightToLeft);
+        fileStem.prepend(QStringLiteral("calendar-popup-"));
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzFluentUI::ZzCalendarPicker picker;
+        picker.setLocale(QLocale::c());
+        picker.setLayoutDirection(rightToLeft ? Qt::RightToLeft : Qt::LeftToRight);
+        picker.setDateRange(QDate(2000, 8, 5), QDate(2000, 8, 25));
+        picker.setDate(QDate(2000, 8, 6));
+        picker.resize(220, 32);
+        picker.show();
+        QCoreApplication::processEvents();
+        QTest::mouseClick(&picker, Qt::LeftButton, Qt::NoModifier,
+            QPoint(rightToLeft ? 4 : picker.width() - 4, picker.height() / 2));
+        QCoreApplication::processEvents();
+        auto *calendar = picker.calendarWidget();
+        QVERIFY(calendar);
+        QCOMPARE(calendar->layoutDirection(), picker.layoutDirection());
+        calendar->setFirstDayOfWeek(Qt::Monday);
+        auto *popup = calendar->window();
+        QVERIFY(popup != &picker && popup->isVisible());
+        auto *view = calendar->findChild<QTableView *>();
+        QVERIFY(view && view->model());
+        const QPoint hoverPosition = view->visualRect(view->model()->index(3, 1)).center();
+        // 局部事件建立悬停状态，不移动全局鼠标污染后续截图场景。
+        QMouseEvent hover(QEvent::MouseMove, QPointF(hoverPosition),
+            QPointF(view->viewport()->mapToGlobal(hoverPosition)),
+            Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(view->viewport(), &hover);
+        QCoreApplication::processEvents();
+        const QImage actual = popup->grab().toImage();
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.setDevicePixelRatio(actualDpr_);
+        mask.fill(0);
+        {
+            QPainter painter(&mask);
+            for (int row = 0; row < view->model()->rowCount(); ++row) {
+                for (int column = 0; column < view->model()->columnCount(); ++column) {
+                    const auto index = view->model()->index(row, column);
+                    const QFont font = row == 0
+                        ? index.data(Qt::FontRole).value<QFont>() : calendar->font();
+                    const QRect text = QFontMetrics(font).boundingRect(
+                        view->visualRect(index), Qt::AlignCenter, index.data().toString());
+                    zzPaintMaskRect(&painter, zzMapToSurface(view->viewport(), text, popup));
+                }
+            }
+            for (auto *button : calendar->findChildren<QToolButton *>()) {
+                if (button->isVisible() && !button->text().isEmpty()) {
+                    QStyleOptionToolButton option;
+                    option.initFrom(button);
+                    if (button->menu()) {
+                        option.features |= QStyleOptionToolButton::HasMenu;
+                    }
+                    const QRect contents = button->style()->subControlRect(
+                        QStyle::CC_ToolButton, &option, QStyle::SC_ToolButton, button);
+                    zzPaintMaskRect(&painter, zzMapToSurface(button,
+                        zzAlignedTextRect(button, contents, Qt::AlignCenter, button->text()), popup));
+                }
+            }
+        }
+        popup->hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
+                                      .filePath(baselineSubdirectory_);
+        const QString path = QDir(directory).filePath(fileStem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path, "PNG"));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        QVERIFY(comparison.comparedPixels > 0);
+        const qreal ratio = static_cast<qreal>(comparison.differentPixels)
+            / static_cast<qreal>(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString report = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR))
+                                       .filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(report));
+            QVERIFY(actual.save(QDir(report).filePath(fileStem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(
+                QDir(report).filePath(fileStem + QStringLiteral("-diff.png"))));
+            QFAIL(qPrintable(QStringLiteral("日期弹层差异比例 %1 超过 %2，报告：%3")
+                .arg(ratio).arg(zzMaximumDifferenceRatio()).arg(report)));
+        }
+    }
+
     void rendersThemes_data()
     {
         QTest::addColumn<int>("mode");
