@@ -244,9 +244,21 @@ ZzWorkspaceNavigationIntegrationTransactionPrivate::execute(
     const auto centerCount = [&] {
         return stacked ? stackGuard->count() : tabsGuard->count();
     };
-    const int currentTabBefore = stacked
-        ? stackGuard->currentIndex() : tabs->currentIndex();
-    const int tabCountBefore = centerCount();
+    // 就地检查实际指针，让静态分析无需跨 QPointer 和模式布尔值推导非空关系。
+    int currentTabBefore = -1;
+    int tabCountBefore = 0;
+    if (auto *const stack = stackGuard.data(); stack != nullptr) {
+        currentTabBefore = stack->currentIndex();
+        tabCountBefore = stack->count();
+    } else if (tabs != nullptr) {
+        currentTabBefore = tabs->currentIndex();
+        tabCountBefore = tabs->count();
+    } else {
+        return zzIntegrationFailure<void>(
+            ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace navigation targets are unavailable"),
+            panelId);
+    }
     bool navigationRegistered = false;
     bool pageAdded = false;
     bool centralTaken = false;
