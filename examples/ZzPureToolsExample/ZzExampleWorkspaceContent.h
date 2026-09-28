@@ -24,8 +24,9 @@ public:
     [[nodiscard]] static std::unique_ptr<QWidget> createTerminalPage(
         const QString &sessionName);
 
-    /** @brief 创建固定远端目录样例的无父 SFTP 页面。 */
-    [[nodiscard]] static std::unique_ptr<QWidget> createSftpPanel();
+    /** @brief 创建展示外部目录模型的无父文件页面，模型生命周期由调用方保证。 */
+    [[nodiscard]] static std::unique_ptr<QWidget> createSftpPanel(
+        QAbstractItemModel *files);
 
     /** @brief 创建跟随活动模型尾部的无父日志页面。 */
     [[nodiscard]] static std::unique_ptr<QWidget> createActivityLogPanel(

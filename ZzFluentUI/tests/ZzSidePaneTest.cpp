@@ -2,15 +2,20 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPointer>
+#include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QHeaderView>
+#include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzPanelStack.h>
 #include <ZzFluentUI/ZzSidePane.h>
 #include <ZzFluentUI/ZzSidePaneEdge.h>
 #include <ZzFluentUI/ZzSidePaneMode.h>
+#include <ZzFluentUI/ZzSidePanelAppearance.h>
+#include <ZzFluentUI/ZzFluentItemDelegate.h>
 
 /** @brief 验证 Side Pane 的页面所有权、宽度和物理边缘契约。 */
 class ZzSidePaneTest final : public QObject
@@ -18,6 +23,46 @@ class ZzSidePaneTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void treeAppearancePreservesContentAndReusesDelegate()
+    {
+        QStandardItemModel model;
+        auto *root = new QStandardItem(QStringLiteral("Root"));
+        root->appendRow(new QStandardItem(QStringLiteral("Child")));
+        model.appendRow({root, new QStandardItem(QStringLiteral("Type"))});
+        QTreeView view;
+        view.setModel(&model);
+        view.setExpanded(model.index(0, 0), true);
+        view.setCurrentIndex(model.index(0, 0));
+        view.setEditTriggers(QAbstractItemView::DoubleClicked);
+        view.setExpandsOnDoubleClick(false);
+        view.setSelectionMode(QAbstractItemView::ExtendedSelection);
+        view.header()->resizeSection(0, 180);
+        auto *selection = view.selectionModel();
+        ZzFluentUI::ZzSidePanelAppearance::applyTreeView(&view);
+        auto *delegate = view.itemDelegate();
+        QVERIFY(qobject_cast<ZzFluentUI::ZzFluentItemDelegate *>(delegate) != nullptr);
+        const auto childCount = view.children().size();
+        for (int repeat = 0; repeat < 5; ++repeat) {
+            ZzFluentUI::ZzSidePanelAppearance::applyTreeView(&view);
+        }
+        QCOMPARE(view.itemDelegate(), delegate);
+        QCOMPARE(view.children().size(), childCount);
+        QCOMPARE(view.model(), &model);
+        QCOMPARE(view.selectionModel(), selection);
+        QCOMPARE(view.currentIndex(), model.index(0, 0));
+        QVERIFY(view.isExpanded(model.index(0, 0)));
+        QVERIFY(!view.isHeaderHidden());
+        QCOMPARE(view.header()->sectionSize(0), 180);
+        QCOMPARE(view.editTriggers(), QAbstractItemView::DoubleClicked);
+        QVERIFY(!view.expandsOnDoubleClick());
+        QCOMPARE(view.selectionMode(), QAbstractItemView::ExtendedSelection);
+        QCOMPARE(view.frameShape(), QFrame::NoFrame);
+        QCOMPARE(view.viewport()->backgroundRole(), QPalette::Window);
+        QCOMPARE(view.selectionBehavior(), QAbstractItemView::SelectRows);
+        ZzFluentUI::ZzSidePanelAppearance::applyTreeView(nullptr);
+        ZzFluentUI::ZzSidePanelAppearance::applyFormLayout(nullptr);
+    }
+
     void addsTakesAndRejectsForeignPageTransfersWithoutChangingOwnership()
     {
         ZzFluentUI::ZzSidePane pane;

@@ -43,6 +43,8 @@ zz_configure_library_target(ZzFluentFoundation
 )
 
 set(zz_fluent_ui_sources
+    widgets/src/ZzSidePanelAppearance.cpp
+    widgets/src/private/ZzSidePanelAppearancePrivate.cpp
     widgets/src/ZzControlAppearance.cpp
     widgets/src/private/ZzControlAppearancePrivate.cpp
     widgets/src/private/ZzFluentWidgetVersion.cpp

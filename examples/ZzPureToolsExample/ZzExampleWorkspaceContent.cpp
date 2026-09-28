@@ -10,7 +10,7 @@
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTreeView>
-#include <QtWidgets/QTreeWidget>
+#include <ZzFluentUI/ZzSidePanelAppearance.h>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
@@ -92,13 +92,15 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createSessionPanel(
     auto panel = std::make_unique<QWidget>();
     panel->setObjectName(QStringLiteral("zzExampleSessionPanel"));
     auto *layout = new QVBoxLayout(panel.get());
-    layout->setContentsMargins(8, 8, 8, 8);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
     auto *tree = new QTreeView(panel.get());
     tree->setObjectName(QStringLiteral("zzExampleSessionTree"));
     tree->setAccessibleName(zzTranslate("会话"));
     tree->setHeaderHidden(true);
     tree->setRootIsDecorated(false);
-    tree->setUniformRowHeights(true);
+    tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ZzFluentUI::ZzSidePanelAppearance::applyTreeView(tree);
     tree->setModel(sessions);
     layout->addWidget(tree);
     return panel;
@@ -116,18 +118,26 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createTerminalPage(
     return terminal;
 }
 
-std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createSftpPanel()
+std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createSftpPanel(
+    QAbstractItemModel *files)
 {
-    auto tree = std::make_unique<QTreeWidget>();
+    auto tree = std::make_unique<QTreeView>();
     tree->setObjectName(QStringLiteral("zzExampleSftpPanel"));
-    tree->setHeaderLabels({zzTranslate("名称"), zzTranslate("类型")});
-    auto *root = new QTreeWidgetItem(
-        tree.get(), {QStringLiteral("/srv/example"), zzTranslate("目录")});
-    new QTreeWidgetItem(
-        root, {QStringLiteral("releases"), zzTranslate("目录")});
-    new QTreeWidgetItem(
-        root, {QStringLiteral("README.txt"), zzTranslate("文件")});
-    root->setExpanded(true);
+    tree->setAccessibleName(zzTranslate("文件"));
+    tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ZzFluentUI::ZzSidePanelAppearance::applyTreeView(tree.get());
+    tree->setModel(files);
+    tree->header()->setStretchLastSection(false);
+    if (tree->header()->count() > 0) {
+        tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    }
+    if (tree->header()->count() > 1) {
+        tree->header()->setSectionResizeMode(1, QHeaderView::Interactive);
+        tree->header()->resizeSection(1, 72);
+    }
+    if (files != nullptr) {
+        tree->setExpanded(files->index(0, 0), true);
+    }
     return tree;
 }
 
@@ -157,6 +167,7 @@ ZzExampleWorkspaceContent::createPropertiesPanel()
     auto panel = std::make_unique<QWidget>();
     panel->setObjectName(QStringLiteral("zzExamplePropertiesPanel"));
     auto *layout = new QFormLayout(panel.get());
+    ZzFluentUI::ZzSidePanelAppearance::applyFormLayout(layout);
     layout->addRow(zzTranslate("主机"), new QLabel(QStringLiteral("localhost")));
     layout->addRow(zzTranslate("端口"), new QLabel(QStringLiteral("22")));
     layout->addRow(zzTranslate("编码"), new QLabel(QStringLiteral("UTF-8")));
@@ -165,9 +176,11 @@ ZzExampleWorkspaceContent::createPropertiesPanel()
 
 std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createTasksPanel()
 {
-    return zzCreateLabelPanel(
+    auto panel = zzCreateLabelPanel(
         QStringLiteral("zzExampleTasksPanel"),
         zzTranslate("无正在运行的本地演示任务"));
+    ZzFluentUI::ZzSidePanelAppearance::applyFormLayout(panel->layout());
+    return panel;
 }
 
 } // namespace ZzExample

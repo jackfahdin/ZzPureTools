@@ -10,6 +10,7 @@
 #include <QtGui/QGuiApplication>
 #include <QtGui/QIcon>
 #include <QtGui/QPixmap>
+#include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <ZzTestEventLoop.h>
@@ -25,6 +26,7 @@
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
+#include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
@@ -40,6 +42,7 @@
 #include <ZzFluentUI/ZzActivityItemRole.h>
 #include <ZzFluentUI/ZzBottomPane.h>
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
@@ -71,6 +74,8 @@
 #include "ZzExampleSystemPresenter.h"
 #include "ZzExampleSystemViewModel.h"
 #include "ZzExampleWindowShell.h"
+#include "ZzExampleWorkspaceContent.h"
+#include "ZzExampleFileModel.h"
 
 namespace {
 
@@ -227,6 +232,67 @@ private Q_SLOTS:
             snapshot->horizontalHeader()->sectionResizeMode(1),
             QHeaderView::Stretch);
         QVERIFY(snapshot->horizontalHeader()->sectionSize(0) >= 180);
+    }
+
+    void sessionTreeFillsItsPanelWhenResized()
+    {
+        QStandardItemModel model;
+        model.appendRow(new QStandardItem(QStringLiteral("Session")));
+        auto panel = ZzExample::ZzExampleWorkspaceContent::createSessionPanel(&model);
+        panel->resize(240, 320);
+        panel->show();
+        auto *tree = panel->findChild<QTreeView *>();
+        QVERIFY(tree != nullptr);
+        for (int width : {240, 420}) {
+            panel->resize(width, 320);
+            QCoreApplication::processEvents();
+            QCOMPARE(tree->geometry(), panel->rect());
+            QCOMPARE(tree->viewport()->width(), tree->width());
+            const QModelIndex index = model.index(0, 0);
+            QCOMPARE(tree->visualRect(index).right(), tree->viewport()->rect().right());
+            QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier,
+                             tree->visualRect(index).center());
+            QCOMPARE(tree->currentIndex(), index);
+        }
+    }
+
+    void filePanelPreservesHierarchyAndDoesNotEditDemoData()
+    {
+        ZzExample::ZzExampleFileModel files;
+        auto panel = ZzExample::ZzExampleWorkspaceContent::createSftpPanel(&files);
+        auto *tree = qobject_cast<QTreeView *>(panel.get());
+        QVERIFY(tree != nullptr);
+        panel->resize(340, 320);
+        panel->show();
+        QCoreApplication::processEvents();
+        auto *model = tree->model();
+        QVERIFY(model != nullptr);
+        QCOMPARE(model, &files);
+        QCOMPARE(model->columnCount(), 2);
+        const auto root = model->index(0, 0);
+        QCOMPARE(model->rowCount(root), 2);
+        QVERIFY(tree->isExpanded(root));
+        QCOMPARE(tree->editTriggers(), QAbstractItemView::NoEditTriggers);
+        QVERIFY(!model->flags(root).testFlag(Qt::ItemIsEditable));
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier,
+                         tree->visualRect(root).center());
+        QTest::mouseDClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier,
+                          tree->visualRect(root).center());
+        QVERIFY(!tree->isExpanded(root));
+    }
+
+    void filePanelAcceptsEmptyModels()
+    {
+        QStandardItemModel empty;
+        QStandardItemModel singleColumn(1, 1);
+        for (QAbstractItemModel *model : {static_cast<QAbstractItemModel *>(nullptr),
+                                        static_cast<QAbstractItemModel *>(&empty),
+                                        static_cast<QAbstractItemModel *>(&singleColumn)}) {
+            auto panel = ZzExample::ZzExampleWorkspaceContent::createSftpPanel(model);
+            auto *tree = qobject_cast<QTreeView *>(panel.get());
+            QVERIFY(tree != nullptr);
+            QCOMPARE(tree->model(), model);
+        }
     }
 
     void actualWindowShellShowsRegisteredFilesPanelForSftpCommand()
@@ -799,6 +865,40 @@ private Q_SLOTS:
             {replacementWindow, replacementShell->workspaceShell()},
             firstConfiguration.value(), true));
         initialWindow_ = replacementWindow;
+    }
+
+    void registeredSideTreesShareAppearanceAndFollowPaneWidth()
+    {
+        auto *window = createAdditionalWindow();
+        auto *shell = ZzExample::ZzExampleWindowShell::attachedTo(*window)->workspaceShell();
+        auto *pane = shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left);
+        int rowHeight = -1;
+        for (const auto &id : {"sessions", "files", "components"}) {
+            QVERIFY(shell->showPanel(zzPanelId(id)));
+            QWidget *content = pane->currentWidget();
+            QVERIFY(content != nullptr);
+            auto *tree = qobject_cast<QTreeView *>(content);
+            if (tree == nullptr) {
+                tree = content->findChild<QTreeView *>();
+            }
+            QVERIFY(tree != nullptr);
+            QVERIFY(qobject_cast<ZzFluentUI::ZzFluentItemDelegate *>(tree->itemDelegate()) != nullptr);
+            QCOMPARE(tree->frameShape(), QFrame::NoFrame);
+            QCOMPARE(tree->viewport()->backgroundRole(), QPalette::Window);
+            QCOMPARE(tree->selectionBehavior(), QAbstractItemView::SelectRows);
+            for (int width : {240, 360}) {
+                pane->setPaneWidth(width);
+                QCoreApplication::processEvents();
+                QCOMPARE(tree->width(), content->width());
+                const int currentHeight = tree->visualRect(tree->model()->index(0, 0)).height();
+                if (rowHeight < 0) {
+                    rowHeight = currentHeight;
+                }
+                QCOMPARE(currentHeight, rowHeight);
+                QCOMPARE(tree->viewport()->width(), tree->width());
+            }
+        }
+        closeApplicationWindow(window);
     }
 
     void settingsActionCreatesOneWindowModalChildPerMainWindow()

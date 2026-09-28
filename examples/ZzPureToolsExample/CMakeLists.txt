@@ -14,6 +14,7 @@ set(zz_pure_tools_example_sources
     ZzExampleDataPagePrivate.cpp
     ZzExampleDataPresenter.cpp
     ZzExampleDataViewModel.cpp
+    ZzExampleFileModel.cpp
     ZzExampleGalleryPage.cpp
     ZzExampleGalleryPagePrivate.cpp
     ZzExampleNavigationPresenter.cpp

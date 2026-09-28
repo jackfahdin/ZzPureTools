@@ -17,6 +17,8 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleRouteCatalog.h
     ../ZzExampleSessionModel.cpp
     ../ZzExampleSessionModel.h
+    ../ZzExampleFileModel.cpp
+    ../ZzExampleFileModel.h
     ../ZzExampleSettingsWindow.cpp
     ../ZzExampleSettingsWindow.h
     ../ZzExampleSettingsWindowPrivate.cpp

@@ -33,6 +33,7 @@ class ZzExampleApplicationContext;
 class ZzExampleAboutWindow;
 enum class ZzExampleCommandId : int;
 class ZzExampleSessionModel;
+class ZzExampleFileModel;
 class ZzExampleSettingsWindow;
 class ZzExampleWindowShell;
 
@@ -57,7 +58,7 @@ public:
     /** @brief 按搜索文本激活首个匹配路由。 */
     void navigateFromSearch();
 
-    /** @brief 循环切换 System、Light、Dark 与 HighContrast。 */
+    /** @brief 根据当前实际主题切换浅色或深色。 */
     void cycleTheme();
 
     /**
@@ -100,6 +101,7 @@ public:
     ZzPureTools::ZzNavigationController *navigation = nullptr;
     std::unique_ptr<ZzPureTools::ZzWorkspaceShell> workspace;
     std::unique_ptr<ZzExampleSessionModel> sessions;
+    std::unique_ptr<ZzExampleFileModel> fileModel;
     QAction *backAction = nullptr;
     QAction *forwardAction = nullptr;
     QAction *settingsAction = nullptr;

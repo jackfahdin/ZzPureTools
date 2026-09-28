@@ -72,6 +72,7 @@ Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
 | 导航与内容 | `ZzExpander` | 可展开/折叠的内容区块 |
 | 导航与内容 | `ZzDrawer` | 从边缘滑出的临时面板 |
 | 导航与内容 | `ZzFluentItemDelegate` | 列表/树视图的 Fluent 绘制委托 |
+| 导航与内容 | `ZzSidePanelAppearance` | [侧面板树视图与表单的统一外观配置](docs/development/SIDE_PANEL_APPEARANCE_ZH.md) |
 | 反馈与表面 | `ZzMessageBar` | 页面内状态和操作反馈 |
 | 反馈与表面 | `ZzInfoBadge` | 数量、状态或提醒徽标 |
 | 反馈与表面 | `ZzContentDialog` | 模态确认和输入对话框 |

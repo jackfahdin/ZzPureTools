@@ -1,4 +1,5 @@
 #include "ZzExampleWindowShellPrivate.h"
+#include "ZzExampleFileModel.h"
 
 #include <array>
 #include <utility>
@@ -255,9 +256,12 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         ZzFluentUI::ZzIconDescriptor::fromSvgResource(
             QStringLiteral(
                 ":/ZzPureToolsExample/workspace-icons/Files.svg")),
-        ZzFluentUI::ZzActivityArea::LeftPrimary, [] {
+        ZzFluentUI::ZzActivityArea::LeftPrimary, [this] {
+            if (fileModel == nullptr) {
+                fileModel = std::make_unique<ZzExampleFileModel>();
+            }
             return ZzCore::ZzResult<std::unique_ptr<QWidget>>::success(
-                ZzExampleWorkspaceContent::createSftpPanel());
+                ZzExampleWorkspaceContent::createSftpPanel(fileModel.get()));
         });
     if (!files) {
         return files;

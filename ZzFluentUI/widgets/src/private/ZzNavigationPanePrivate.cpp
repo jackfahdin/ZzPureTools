@@ -13,6 +13,7 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzSidePanelAppearance.h>
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 
@@ -83,21 +84,13 @@ ZzNavigationPanePrivate::ZzNavigationPanePrivate(
     treeView->setObjectName(QStringLiteral("zzNavigationTreeView"));
     treeView->setHeaderHidden(true);
     treeView->setRootIsDecorated(true);
-    treeView->setIndentation(16);
     treeView->setItemsExpandable(true);
     treeView->setExpandsOnDoubleClick(true);
     treeView->setAnimated(false);
-    treeView->setUniformRowHeights(true);
     treeView->setSelectionMode(QAbstractItemView::SingleSelection);
     treeView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    treeView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    treeView->setSizePolicy(
-        QSizePolicy::Expanding,
-        QSizePolicy::Expanding);
-    treeView->setMouseTracking(true);
-    treeView->viewport()->setMouseTracking(true);
-    treeView->setItemDelegate(new ZzFluentItemDelegate(treeView));
+    ZzSidePanelAppearance::applyTreeView(treeView);
     treeView->setModel(treeProjection);
     treeView->hide();
 
