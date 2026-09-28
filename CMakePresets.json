@@ -188,7 +188,7 @@
     {
       "name": "windows-msvc-base",
       "hidden": true,
-      "generator": "Visual Studio 17 2022",
+      "generator": "Visual Studio 18 2026",
       "architecture": {
         "value": "x64",
         "strategy": "set"
@@ -213,7 +213,13 @@
     {
       "name": "windows-msvc2022-release",
       "inherits": "windows-msvc-base",
+      "generator": "Ninja",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
         "BUILD_SHARED_LIBS": true,
         "ZZ_BUILD_BENCHMARKS": false
       }
@@ -221,6 +227,7 @@
     {
       "name": "windows-msvc2022-continuous",
       "inherits": "windows-msvc-base",
+      "generator": "Visual Studio 17 2022",
       "cacheVariables": {
         "BUILD_SHARED_LIBS": true,
         "ZZ_ENABLE_LTO": true,

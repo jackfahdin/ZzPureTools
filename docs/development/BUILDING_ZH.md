@@ -94,7 +94,7 @@ Ninja 可能在生成安装规则时报告无法修改 RPATH。此时应删除�
 |---|---|---|
 | Linux GCC | GCC/G++ 13.1 | 发布参考档案可使用更高版本，但必须记录精确身份 |
 | Linux Clang | Clang/Clang++ 17 | `GCC_13_TOOLCHAIN_ROOT` 必须提供兼容的 libstdc++ 工具链 |
-| Windows MSVC | Visual Studio 2022，MSVC 19.38 | 从 x64 Developer PowerShell 执行 |
+| Windows MSVC | 本地开发使用 Visual Studio 2026；持续发布使用 Visual Studio 2022 | 从对应版本的 x64 Developer PowerShell 执行；本地静态预设需要 CMake 4.2+ |
 | Windows MinGW | Qt SDK 随附的 MinGW-w64 GCC 13+ | Qt kit、工具链和 Ninja 必须来自同一官方 Qt SDK |
 | macOS | Apple Clang 15 | deployment target 最低为 macOS 13.3，以满足 Apple libc++ 的 C++20 format 运行库要求 |
 
@@ -191,7 +191,21 @@ cmake --build --preset linux-gcc-release --target ZzPureToolsExample
 
 ## Windows MSVC preset
 
-在 Visual Studio 2022 x64 Developer PowerShell 中设置 `QT_MSVC_ROOT`：
+本地开发在 Visual Studio 2026 x64 Developer PowerShell 中设置 `QT_MSVC_ROOT`。
+现有 preset 名称保留，其生成器分别为：
+
+| preset | 生成器 | 前提与输出位置 |
+| --- | --- | --- |
+| `windows-msvc2022-release` | Ninja，固定 Release | `cl.exe`、Windows SDK 和 `ninja.exe` 在当前终端可用；程序位于 `build/windows-msvc2022-release/bin/` |
+| `windows-msvc2022-static` | Visual Studio 18 2026 | Visual Studio 2026、CMake 4.2+；Release 程序位于 `build/windows-msvc2022-static/bin/Release/` |
+| `windows-msvc2022-continuous` | Visual Studio 17 2022 | 持续发布仍使用 Visual Studio 2022，见下方打包章节 |
+
+Ninja 不会自动加载 Visual Studio 环境，`architecture.strategy=external` 也不会设置
+编译器的目标架构，因此必须使用 **x64** 开发者终端。Ninja 预设也可在 VS 2022 的
+x64 开发者终端中使用，实际编译器由当前终端决定。
+
+从旧生成器切换时，先把对应的 `build/windows-msvc2022-release` 或
+`build/windows-msvc2022-static` 目录改名备份，再重新配置；不要在原缓存上切换生成器。
 
 ```powershell
 $env:QT_MSVC_ROOT = '<qt-msvc-root>'
@@ -200,7 +214,7 @@ foreach ($preset in @(
     'windows-msvc2022-release',
     'windows-msvc2022-static')) {
     cmake --preset $preset
-    cmake --build --preset $preset
+    cmake --build --preset $preset --parallel
     ctest --preset $preset -C Release --output-on-failure
     cmake --install "build/$preset" --config Release --prefix "install/$preset"
 }
