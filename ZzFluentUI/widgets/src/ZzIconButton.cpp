@@ -13,6 +13,7 @@ ZzIconButton::ZzIconButton(QWidget *parent)
     , d_ptr(std::make_unique<ZzIconButtonPrivate>(this))
 {
     setAutoRaise(true);
+    setAppearance(ZzButtonAppearance::Subtle);
     setToolButtonStyle(Qt::ToolButtonIconOnly);
     setFocusPolicy(Qt::StrongFocus);
 }

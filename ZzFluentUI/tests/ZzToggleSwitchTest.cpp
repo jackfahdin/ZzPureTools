@@ -39,6 +39,30 @@ class ZzToggleSwitchTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 按下提供视觉反馈，单独改变按下状态不修改选中真值。 */
+    void pressedThumbHasVisibleFeedback()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzToggleSwitch toggle;
+        toggle.setStyle(&style);
+        toggle.resize(toggle.sizeHint());
+        const auto render = [&] {
+            QImage image(toggle.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            toggle.render(&painter);
+            return image;
+        };
+        const auto normal = render();
+        toggle.setDown(true);
+        QVERIFY(normal != render());
+        toggle.setDown(false);
+        QCOMPARE(render(), normal);
+        QVERIFY(!toggle.isChecked());
+    }
+
     void spaceTogglesExactlyOnce()
     {
         ZzFluentUI::ZzToggleSwitch toggle;

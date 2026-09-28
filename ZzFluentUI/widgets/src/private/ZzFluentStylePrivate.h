@@ -48,6 +48,9 @@ inline constexpr int zzComboBoxLabelHorizontalMargin = 4;
 /** @brief 工具按钮菜单箭头区宽度，与尺寸提示和命中区域共用。 */
 inline constexpr int zzToolButtonMenuWidth = 20;
 
+/** @brief 带框单行输入额外的两侧内容留白，不应用到嵌入的无框编辑器。 */
+inline constexpr int zzLineEditHorizontalInset = 8;
+
 /** @brief 持有主题快照、非拥有控制器引用和 Widgets 私有缓存。 */
 class ZzFluentStylePrivate final
 {

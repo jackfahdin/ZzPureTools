@@ -119,6 +119,29 @@ private Q_SLOTS:
         QVERIFY(large.height() >= baseLarge.height());
     }
 
+    /** @brief 带框输入留出水平内边距，嵌入的无框编辑器不重复留白。 */
+    void preservesTextSpaceInsidePaddedFrame()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QLineEdit editor;
+        editor.setStyle(&style);
+        QStyleOptionFrame option;
+        option.initFrom(&editor);
+        option.rect = QRect(0, 0, 220, 32);
+        option.lineWidth = 1;
+        const auto contents = style.subElementRect(QStyle::SE_LineEditContents, &option, &editor);
+        QVERIFY(contents.left() >= 8);
+        QVERIFY(contents.right() <= option.rect.right() - 8);
+        const QSize textSize(340, 18);
+        option.rect.setSize(style.sizeFromContents(QStyle::CT_LineEdit, &option, textSize, &editor));
+        QVERIFY(style.subElementRect(QStyle::SE_LineEditContents, &option, &editor).width() >= textSize.width());
+        editor.setFrame(false);
+        option.lineWidth = 0;
+        QCOMPARE(style.subElementRect(QStyle::SE_LineEditContents, &option, &editor),
+            style.baseStyle()->subElementRect(QStyle::SE_LineEditContents, &option, &editor));
+    }
+
     void drawsEveryStandardEditorFrame()
     {
         ZzFluentUI::ZzThemeController controller;
@@ -137,6 +160,7 @@ private Q_SLOTS:
         const QColor focus(Qt::green);
         palette.setColor(QPalette::Base, base);
         palette.setColor(QPalette::Highlight, focus);
+        palette.setColor(QPalette::Accent, focus);
 
         for (QWidget *editor : editors) {
             editor->setStyle(&style);
@@ -146,7 +170,8 @@ private Q_SLOTS:
                 QStyle::State_Enabled | QStyle::State_HasFocus,
                 palette);
             QVERIFY(zzContainsColor(image, base));
-            QVERIFY(zzContainsColor(image, focus));
+            // QTextBrowser 默认只读，不应绘制可编辑输入的强调色底线。
+            QCOMPARE(zzContainsColor(image, focus), editor != &textBrowser);
             QCOMPARE(editor->style(), &style);
         }
     }
@@ -162,6 +187,7 @@ private Q_SLOTS:
         const QColor focus(Qt::green);
         palette.setColor(QPalette::Base, base);
         palette.setColor(QPalette::Highlight, focus);
+        palette.setColor(QPalette::Accent, focus);
 
         const QImage normal = zzRenderFrame(
             &editor,

@@ -148,6 +148,13 @@ int ZzFluentStyle::pixelMetric(
 {
     Q_ASSERT(QThread::currentThread() == thread());
     switch (metric) {
+    case PM_DefaultFrameWidth:
+        // 多行输入的 viewport 不能覆盖外层圆角和底部焦点线。
+        if (qobject_cast<const QPlainTextEdit *>(widget) != nullptr
+            || qobject_cast<const QTextEdit *>(widget) != nullptr) {
+            return 4;
+        }
+        break;
     case PM_ButtonMargin:
         return qRound(d_ptr->snapshot->metric(
             ZzMetricToken::HorizontalPadding));
@@ -157,11 +164,12 @@ int ZzFluentStyle::pixelMetric(
     case PM_ExclusiveIndicatorHeight:
         return 18;
     case PM_RadioButtonLabelSpacing:
+    case PM_CheckBoxLabelSpacing:
         return 8;
     case PM_SliderLength:
         return 20;
     case PM_SliderThickness:
-        return 4;
+        return 24;
     case PM_ProgressBarChunkWidth:
         return 1;
     case PM_ScrollBarExtent:
@@ -200,8 +208,9 @@ int ZzFluentStyle::pixelMetric(
     case PM_ToolTipLabelFrameWidth:
         return 8;
     default:
-        return QProxyStyle::pixelMetric(metric, option, widget);
+        break;
     }
+    return QProxyStyle::pixelMetric(metric, option, widget);
 }
 
 int ZzFluentStyle::styleHint(
@@ -293,6 +302,10 @@ QSize ZzFluentStyle::sizeFromContents(
         contentsSize,
         widget);
     if (type == CT_LineEdit || type == CT_SpinBox) {
+        const auto *line = qobject_cast<const QLineEdit *>(widget);
+        if (type == CT_LineEdit && line != nullptr && line->hasFrame()) {
+            result.rwidth() += 2 * zzLineEditHorizontalInset;
+        }
         result = result.expandedTo(QSize(96, 32));
     }
     if (type == CT_ComboBox) {
@@ -310,7 +323,7 @@ QSize ZzFluentStyle::sizeFromContents(
             result.setWidth(qMax(result.width(), contentsSize.width() + 12 + zzToolButtonMenuWidth));
         }
     }
-    if (type == CT_RadioButton) {
+    if (type == CT_RadioButton || type == CT_CheckBox) {
         result.setHeight(qMax(result.height(), 28));
     }
     if (type == CT_ProgressBar) {
@@ -712,15 +725,19 @@ void ZzFluentStyle::drawComplexControl(
         }
     }
     if (control == CC_ToolButton && widget != nullptr
-        && widget->property("accent").toBool()) {
+        && (widget->property("accent").toBool()
+            || (widget->property("zzFluentSubtle").isValid()
+                && !widget->property("zzFluentSubtle").toBool()))) {
         if (const auto *button = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
             QStyleOptionToolButton adjusted = *button;
-            const QColor text = button->state.testFlag(State_Enabled)
-                ? ZzControlAppearancePrivate::text(button->palette)
-                : button->palette.color(QPalette::Disabled, QPalette::ButtonText);
-            adjusted.palette.setColor(QPalette::ButtonText, text);
-            adjusted.palette.setColor(QPalette::WindowText, text);
-            // Fusion 会跳过 autoRaise 工具按钮的静止面板；仅调整绘制选项，
+            if (widget->property("accent").toBool()) {
+                const QColor text = button->state.testFlag(State_Enabled)
+                    ? ZzControlAppearancePrivate::text(button->palette)
+                    : button->palette.color(QPalette::Disabled, QPalette::ButtonText);
+                adjusted.palette.setColor(QPalette::ButtonText, text);
+                adjusted.palette.setColor(QPalette::WindowText, text);
+            }
+            // 显式标准/强调色外观不受 autoRaise 的静止隐藏影响；仅调整绘制选项，
             // 保留原控件的 autoRaise、菜单子区域和 Qt 激活行为。
             adjusted.state &= ~State_AutoRaise;
             adjusted.state |= State_Raised;
@@ -766,6 +783,14 @@ void ZzFluentStyle::drawComplexControl(
 QRect ZzFluentStyle::subElementRect(
     SubElement element, const QStyleOption *option, const QWidget *widget) const
 {
+    if (element == SE_LineEditContents) {
+        const auto *line = qobject_cast<const QLineEdit *>(widget);
+        if (line != nullptr && line->hasFrame()) {
+            auto rect = QProxyStyle::subElementRect(element, option, widget);
+            const int inset = qMin(zzLineEditHorizontalInset, qMax(0, rect.width() / 2));
+            return rect.adjusted(inset, 0, -inset, 0);
+        }
+    }
     if (element == SE_TabBarTabText) {
         const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
         if (tab != nullptr && tab->version != zzItemContentOptionVersion) {

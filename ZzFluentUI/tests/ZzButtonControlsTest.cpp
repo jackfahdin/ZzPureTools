@@ -26,6 +26,50 @@ class ZzButtonControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 高对比模式下禁用强调色按钮仍须有可辨认的轮廓。 */
+    void disabledAccentKeepsHighContrastOutline()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzPushButton button;
+        button.setStyle(&style);
+        button.setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+        QStyleOptionButton option;
+        option.rect = QRect(0, 0, 120, 32);
+        option.state = QStyle::State_None;
+        option.palette = style.standardPalette();
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        const auto background = option.palette.color(QPalette::Window);
+        image.fill(background);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_PushButton, &option, &painter, &button);
+        painter.end();
+        QVERIFY(image.pixelColor(60, 0) != background);
+    }
+
+    /** @brief 显式普通图标按钮应有表面，不能继续被 autoRaise 隐藏。 */
+    void explicitStandardIconSurfaceDiffersFromSubtle()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzIconButton button;
+        button.setStyle(&style);
+        button.resize(36, 36);
+        const auto render = [&] {
+            QImage image(button.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            button.render(&painter);
+            return image;
+        };
+        button.setAppearance(ZzFluentUI::ZzButtonAppearance::Standard);
+        const auto standard = render();
+        button.setAppearance(ZzFluentUI::ZzButtonAppearance::Subtle);
+        QVERIFY(standard != render());
+        QVERIFY(button.autoRaise());
+    }
+
     void typedAppearanceCanResetDynamicAccent()
     {
         using ZzFluentUI::ZzButtonAppearance;

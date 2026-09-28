@@ -29,6 +29,9 @@
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QProgressBar>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QTextEdit>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
@@ -725,27 +728,33 @@ void ZzFluentStylePrivate::drawCheckIndicator(
     const bool checked = option->state.testFlag(QStyle::State_On);
     const bool mixed = option->state.testFlag(QStyle::State_NoChange);
     const bool marked = checked || mixed;
+    const bool hovered = enabled && option->state.testFlag(QStyle::State_MouseOver);
+    const bool pressed = enabled && option->state.testFlag(QStyle::State_Sunken);
     const QPalette::ColorGroup group = enabled
         ? QPalette::Normal
         : QPalette::Disabled;
-    const QColor border = option->palette.color(group, QPalette::Text);
+    QColor border = option->palette.color(group, QPalette::Text);
+    if (snapshot->mode() != ZzThemeMode::HighContrast) {
+        border.setAlphaF(enabled ? 0.6F : 0.35F);
+    }
     const QColor fill = marked
-        ? option->palette.color(group, QPalette::Highlight)
-        : option->palette.color(group, QPalette::Base);
+        ? (enabled ? ZzControlAppearancePrivate::fill(option->palette, hovered, pressed) : border)
+        : snapshot->color(!enabled ? ZzColorToken::ControlFillDisabled
+            : pressed ? ZzColorToken::ControlFillPressed
+            : hovered ? ZzColorToken::ControlFillHover : ZzColorToken::ControlFill);
     const QRectF rect = QRectF(option->rect).adjusted(
         1.0,
         1.0,
         -1.0,
         -1.0);
-    painter->setPen(QPen(border, 1.0));
+    painter->setPen(marked ? QPen(Qt::NoPen) : QPen(border, 1.0));
     painter->setBrush(fill);
     constexpr qreal zzCheckCornerRadius = 3.0;
     painter->drawRoundedRect(rect, zzCheckCornerRadius, zzCheckCornerRadius);
     if (marked) {
-        const QColor mark = option->palette.color(
-            group,
-            QPalette::HighlightedText);
-        painter->setPen(QPen(mark, 2.0));
+        const QColor mark = enabled ? ZzControlAppearancePrivate::text(option->palette)
+                                    : option->palette.color(QPalette::Window);
+        painter->setPen(QPen(mark, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         if (mixed) {
             painter->drawLine(
                 QPointF(rect.left() + 4.0, rect.center().y()),
@@ -800,12 +809,14 @@ void ZzFluentStylePrivate::drawPushButton(
     } else if (!fill.isValid()) {
         fill = snapshot->color(ZzColorToken::ControlFill);
     }
-    if (subtleAppearance && enabled && !accentAppearance && !hovered && !pressed) {
+    if (subtleAppearance && !accentAppearance && (!enabled || (!hovered && !pressed))) {
         fill.setAlpha(0);
     }
 
     QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
-    if (subtleAppearance && enabled && !hovered && !pressed) {
+    const bool needsDisabledOutline = !enabled && accentAppearance
+        && snapshot->mode() == ZzThemeMode::HighContrast;
+    if ((subtleAppearance || accentAppearance) && !needsDisabledOutline) {
         stroke.setAlpha(0);
     }
     const qreal radius = snapshot->metric(
@@ -869,8 +880,9 @@ void ZzFluentStylePrivate::drawToolButtonPanel(
              && widget->property("zzFluentSuppressCheckedSurface").toBool());
     const bool accentAppearance = widget != nullptr && widget->property("accent").toBool();
     const bool subtle = !accentAppearance
-        && (option->state.testFlag(QStyle::State_AutoRaise)
-            || (widget != nullptr && widget->property("zzFluentSubtle").toBool()));
+        && (widget != nullptr && widget->property("zzFluentSubtle").isValid()
+                ? widget->property("zzFluentSubtle").toBool()
+                : option->state.testFlag(QStyle::State_AutoRaise));
     if (subtle && (!enabled || (!pressed && !hovered && !checked))) {
         return;
     }
@@ -1095,8 +1107,17 @@ void ZzFluentStylePrivate::drawInputPanel(
     QPainter *painter,
     const QWidget *widget) const
 {
-    Q_UNUSED(widget)
     const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    bool readOnly = option->state.testFlag(QStyle::State_ReadOnly);
+    if (const auto *line = qobject_cast<const QLineEdit *>(widget)) {
+        readOnly = line->isReadOnly();
+    } else if (const auto *plain = qobject_cast<const QPlainTextEdit *>(widget)) {
+        readOnly = plain->isReadOnly();
+    } else if (const auto *text = qobject_cast<const QTextEdit *>(widget)) {
+        readOnly = text->isReadOnly();
+    } else if (const auto *spin = qobject_cast<const QAbstractSpinBox *>(widget)) {
+        readOnly = spin->isReadOnly();
+    }
     const QPalette::ColorGroup group = enabled
         ? QPalette::Normal
         : QPalette::Disabled;
@@ -1107,9 +1128,7 @@ void ZzFluentStylePrivate::drawInputPanel(
                && !option->state.testFlag(QStyle::State_HasFocus)) {
         fill = snapshot->color(ZzColorToken::ControlFillHover);
     }
-    const QColor stroke = option->state.testFlag(QStyle::State_HasFocus)
-        ? option->palette.color(group, QPalette::Highlight)
-        : snapshot->color(ZzColorToken::ControlStroke);
+    const QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
     const qreal strokeWidth = snapshot->metric(
         ZzMetricToken::StrokeThin);
     const qreal radius = snapshot->metric(
@@ -1119,14 +1138,21 @@ void ZzFluentStylePrivate::drawInputPanel(
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(stroke, strokeWidth));
     painter->setBrush(fill);
-    painter->drawRoundedRect(
-        QRectF(option->rect).adjusted(
-            strokeWidth / 2.0,
-            strokeWidth / 2.0,
-            -strokeWidth / 2.0,
-            -strokeWidth / 2.0),
-        radius,
-        radius);
+    const QRectF bounds = QRectF(option->rect).adjusted(
+        strokeWidth / 2.0, strokeWidth / 2.0, -strokeWidth / 2.0, -strokeWidth / 2.0);
+    painter->drawRoundedRect(bounds, radius, radius);
+    if (enabled && !readOnly) {
+        const bool focused = option->state.testFlag(QStyle::State_HasFocus);
+        const qreal thickness = focused ? 2.0 : 1.0;
+        const QColor underline = focused ? ZzControlAppearancePrivate::accent(option->palette)
+                                         : option->palette.color(group, QPalette::PlaceholderText);
+        // 底线裁剪在完整圆角轮廓内，避免拐角出现突出的直线或缺口。
+        QPainterPath clip;
+        clip.addRoundedRect(bounds, radius, radius);
+        painter->setClipPath(clip, Qt::IntersectClip);
+        painter->fillRect(QRectF(bounds.left(), bounds.bottom() - thickness,
+            bounds.width(), thickness + 0.5), underline);
+    }
     painter->restore();
 }
 
@@ -1876,7 +1902,7 @@ void ZzFluentStylePrivate::drawMenuBarItem(
     }
 
     QStyleOptionMenuItem adjusted = *option;
-    if ((pressed || hovered)
+    if (enabled && (pressed || hovered)
         && snapshot->mode() == ZzThemeMode::HighContrast) {
         const QColor pressedText = snapshot->color(ZzColorToken::AccentText);
         adjusted.palette.setColor(
@@ -2063,6 +2089,12 @@ void ZzFluentStylePrivate::drawSlider(
 {
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const auto group = enabled ? QPalette::Active : QPalette::Disabled;
+    const bool hovered = enabled && option->state.testFlag(QStyle::State_MouseOver)
+        && option->activeSubControls.testFlag(QStyle::SC_SliderHandle);
+    const bool pressed = enabled && option->state.testFlag(QStyle::State_Sunken)
+        && option->activeSubControls.testFlag(QStyle::SC_SliderHandle);
     QRectF groove = q_ptr->subControlRect(
         QStyle::CC_Slider,
         option,
@@ -2075,13 +2107,13 @@ void ZzFluentStylePrivate::drawSlider(
         widget);
     if (option->orientation == Qt::Horizontal) {
         groove.setHeight(4.0);
-        groove.moveCenter(QRectF(option->rect).center());
+        groove.moveCenter(QPointF(groove.center().x(), QRectF(handle).center().y()));
     } else {
         groove.setWidth(4.0);
-        groove.moveCenter(QRectF(option->rect).center());
+        groove.moveCenter(QPointF(QRectF(handle).center().x(), groove.center().y()));
     }
     painter->setPen(Qt::NoPen);
-    painter->setBrush(option->palette.color(QPalette::Mid));
+    painter->setBrush(option->palette.color(group, QPalette::Mid));
     const qreal cornerRadius = snapshot->metric(
         ZzMetricToken::CornerRadiusSmall);
     painter->drawRoundedRect(groove, cornerRadius, cornerRadius);
@@ -2097,17 +2129,27 @@ void ZzFluentStylePrivate::drawSlider(
     } else {
         active.setBottom(handle.center().y());
     }
-    painter->setBrush(option->palette.color(QPalette::Highlight));
+    const QColor accent = enabled ? ZzControlAppearancePrivate::fill(option->palette, hovered, pressed)
+                                  : option->palette.color(QPalette::Disabled, QPalette::Text);
+    painter->setBrush(accent);
     painter->drawRoundedRect(active, cornerRadius, cornerRadius);
-    painter->drawEllipse(QRectF(handle));
+    const QRectF shell = QRectF(handle).adjusted(0.5, 0.5, -0.5, -0.5);
+    painter->setBrush(snapshot->color(enabled ? ZzColorToken::ControlFill : ZzColorToken::ControlFillDisabled));
+    painter->setPen(snapshot->color(ZzColorToken::ControlStroke));
+    painter->drawEllipse(shell);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(accent);
+    const qreal innerRadius = pressed ? 4.0 : hovered ? 6.0 : 5.0;
+    painter->drawEllipse(shell.center(), innerRadius, innerRadius);
     if (option->state.testFlag(QStyle::State_HasFocus)
         && q_ptr->isFocusVisualVisible(widget)) {
         painter->setBrush(Qt::NoBrush);
         painter->setPen(QPen(
             option->palette.color(QPalette::Highlight),
             2.0));
+        // 焦点描边留在手柄外壳内，最小/最大值和紧凑尺寸下也完整可见。
         painter->drawEllipse(
-            QRectF(handle).adjusted(-2.0, -2.0, 2.0, 2.0));
+            QRectF(handle).adjusted(1.0, 1.0, -1.0, -1.0));
     }
     painter->restore();
 }
@@ -2317,7 +2359,7 @@ void ZzFluentStylePrivate::drawMenuItem(
     const bool pressed = adjusted.state.testFlag(QStyle::State_Sunken);
     const bool hovered = adjusted.state.testFlag(QStyle::State_Selected)
         || adjusted.state.testFlag(QStyle::State_MouseOver);
-    if ((pressed || hovered)
+    if (enabled && (pressed || hovered)
         && snapshot->mode() == ZzThemeMode::HighContrast) {
         const QColor pressedText = snapshot->color(ZzColorToken::AccentText);
         adjusted.palette.setColor(

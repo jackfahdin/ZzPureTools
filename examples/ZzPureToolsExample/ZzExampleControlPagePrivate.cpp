@@ -164,7 +164,7 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
             auto *icon = new ZzFluentUI::ZzIconButton(host);
             icon->setIconDescriptor(
                 ZzFluentUI::ZzIconDescriptor::fromFontIcon(ZzFluentUI::ZzFontIcon::Star));
-            icon->setFixedSize(40, 40);
+            icon->setFixedSize(32, 32);
             button = icon;
         } else {
             auto *tool = new QToolButton(host);
@@ -286,7 +286,8 @@ void ZzExampleControlPagePrivate::refreshToolIcons()
 void ZzExampleControlPagePrivate::buildSelection(ZzExampleControlKind kind)
 {
     auto *host = section(QCoreApplication::translate("ZzPureToolsExample", "选择与禁用状态"));
-    if (kind == ZzExampleControlKind::RadioButton) {
+    if (kind == ZzExampleControlKind::RadioButton || kind == ZzExampleControlKind::CheckBox
+        || kind == ZzExampleControlKind::ToggleSwitch) {
         auto *column = new QWidget(host);
         auto *choices = new QVBoxLayout(column);
         choices->setContentsMargins(0, 0, 0, 0);
@@ -321,10 +322,18 @@ void ZzExampleControlPagePrivate::buildSelection(ZzExampleControlKind kind)
             });
         zzAdd(host, button);
     }
-    if (kind == ZzExampleControlKind::RadioButton) {
-        auto *disabled = new QRadioButton(
-            QCoreApplication::translate("ZzPureToolsExample", "已选中（禁用）"), host);
-        disabled->setAutoExclusive(false);
+    {
+        const auto label = QCoreApplication::translate("ZzPureToolsExample", "已选中（禁用）");
+        QAbstractButton *disabled = nullptr;
+        if (kind == ZzExampleControlKind::RadioButton) {
+            auto *radio = new QRadioButton(label, host);
+            radio->setAutoExclusive(false);
+            disabled = radio;
+        } else if (kind == ZzExampleControlKind::CheckBox) {
+            disabled = new QCheckBox(label, host);
+        } else {
+            disabled = new ZzFluentUI::ZzToggleSwitch(label, host);
+        }
         disabled->setChecked(true);
         disabled->setEnabled(false);
         zzAdd(host, disabled);

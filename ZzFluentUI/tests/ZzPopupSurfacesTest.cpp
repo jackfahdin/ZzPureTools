@@ -270,12 +270,10 @@ private Q_SLOTS:
                 | QStyle::State_Selected;
             item.text.clear();
             image = zzRenderMenuItem(&style, item, &menu);
-            if (mode != ZzFluentUI::ZzThemeMode::HighContrast) {
-                QVERIFY(!zzContainsColor(
-                    image,
-                    snapshot->color(
-                        ZzFluentUI::ZzColorToken::ControlFillHover)));
-            }
+            // 禁用的选择标记可能与悬停填充共享中性色；验证状态不改变
+            // 整项绘制，而不是禁止图中出现某个合法的禁用颜色。
+            item.state = QStyle::State_None;
+            QCOMPARE(image, zzRenderMenuItem(&style, item, &menu));
 
             item.menuItemType = QStyleOptionMenuItem::Separator;
             item.text.clear();

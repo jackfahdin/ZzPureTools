@@ -7,6 +7,7 @@
 #include <QtGui/QAction>
 #include <QtGui/QActionGroup>
 #include <QtGui/QFont>
+#include <QtGui/QFocusEvent>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
@@ -179,6 +180,120 @@ private Q_SLOTS:
             const auto disabled = render(selected);
             QCOMPARE(disabled, render(selected | QStyle::State_MouseOver | QStyle::State_Sunken));
         }
+    }
+
+    /** @brief 复选和半选都有状态反馈，禁用后不保留鲜艳选中色。 */
+    void checkIndicatorRespondsToInteractionAndDisable()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionButton option;
+        option.rect = QRect(0, 0, 18, 18);
+        option.palette = style.standardPalette();
+        const auto render = [&](QStyle::State state) {
+            option.state = state;
+            QImage image(18, 18, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawPrimitive(QStyle::PE_IndicatorCheckBox, &option, &painter);
+            return image;
+        };
+        for (const auto selected : {QStyle::State_Off, QStyle::State_On, QStyle::State_NoChange}) {
+            const auto normal = render(QStyle::State_Enabled | selected);
+            QVERIFY(normal != render(QStyle::State_Enabled | selected | QStyle::State_MouseOver));
+            QVERIFY(normal != render(QStyle::State_Enabled | selected | QStyle::State_Sunken));
+            const auto disabled = render(selected);
+            QCOMPARE(disabled, render(selected | QStyle::State_MouseOver | QStyle::State_Sunken));
+            QVERIFY(!zzContainsColor(disabled, option.palette.color(QPalette::Active, QPalette::Highlight)));
+        }
+    }
+
+    /** @brief 默认尺寸的滑块必须容纳完整手柄，而不是被轨道厚度裁切。 */
+    void sliderSizeHintContainsHandle()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {
+            QSlider slider(orientation);
+            slider.setStyle(&style);
+            slider.resize(slider.sizeHint());
+            QStyleOptionSlider option;
+            option.initFrom(&slider);
+            option.orientation = orientation;
+            option.minimum = 0;
+            option.maximum = 100;
+            option.sliderPosition = 50;
+            const auto handle = style.subControlRect(QStyle::CC_Slider, &option,
+                QStyle::SC_SliderHandle, &slider);
+            QVERIFY(slider.rect().contains(handle));
+        }
+    }
+
+    /** @brief 键盘焦点轮廓在水平/垂直滑块两端都不越出控件。 */
+    void sliderFocusRemainsInsideAtBothEnds()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {
+            QSlider slider(orientation);
+            slider.setStyle(&style);
+            slider.ensurePolished();
+            slider.resize(slider.sizeHint());
+            QFocusEvent focus(QEvent::FocusIn, Qt::TabFocusReason);
+            QCoreApplication::sendEvent(&slider, &focus);
+            QVERIFY(style.isFocusVisualVisible(&slider));
+            QStyleOptionSlider option;
+            option.initFrom(&slider);
+            option.rect = QRect(QPoint(8, 8), slider.size());
+            option.orientation = orientation;
+            option.minimum = 0;
+            option.maximum = 100;
+            option.state = QStyle::State_Enabled | QStyle::State_HasFocus;
+            option.palette = style.standardPalette();
+            for (const int position : {0, 100}) {
+                option.sliderPosition = position;
+                QImage image(slider.size() + QSize(16, 16), QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+                QPainter painter(&image);
+                style.drawComplexControl(QStyle::CC_Slider, &option, &painter, &slider);
+                painter.end();
+                for (int y = 0; y < image.height(); ++y) {
+                    for (int x = 0; x < image.width(); ++x) {
+                        if (!option.rect.contains(x, y)) {
+                            QCOMPARE(image.pixelColor(x, y).alpha(), 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** @brief 输入焦点强调集中在底线，只读输入不显示可编辑提示。 */
+    void inputFocusUsesUnderlineAndRespectsReadOnly()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QLineEdit edit;
+        edit.setStyle(&style);
+        QStyleOptionFrame option;
+        option.rect = QRect(0, 0, 120, 32);
+        option.palette = style.standardPalette();
+        option.palette.setColor(QPalette::Accent, Qt::magenta);
+        option.palette.setColor(QPalette::Highlight, Qt::magenta);
+        option.state = QStyle::State_Enabled | QStyle::State_HasFocus;
+        const auto render = [&] {
+            QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawPrimitive(QStyle::PE_PanelLineEdit, &option, &painter, &edit);
+            return image;
+        };
+        const auto focus = render();
+        const auto accentBounds = zzColorBounds(focus, QColor(Qt::magenta));
+        QVERIFY(!accentBounds.isEmpty());
+        QVERIFY(accentBounds.top() >= 29);
+        edit.setReadOnly(true);
+        QVERIFY(!zzContainsColor(render(), QColor(Qt::magenta)));
     }
 
     void preservesKeyboardSemantics()
