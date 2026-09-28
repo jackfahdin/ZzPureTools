@@ -51,19 +51,22 @@ ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
 页面直接从标题栏下方开始，窗口标题跟随当前页面。已检查 100% 三主题与 200% Light；
 本次仍只更新 Example 的 12 张基线，不放宽截图比较阈值。
 
+2026-09-28 导航树的实心三角展开标记改为细线折角，原位置、布局和操作保持不变。
+已检查 100% 三主题与 200% Light，更新四档 DPR 的 12 张 Example 基线；比较阈值不变。
+
 ## 文件摘要
 
 | 文件 | SHA-256 |
 |---|---|
-| `linux/dpr-100/dark.png` | `6d5bf92ab786651314ba438c123654d98e34d3c3a1e862ea200acb611b9605cb` |
-| `linux/dpr-100/high-contrast.png` | `402501adca1cda041c525961667b958f3a5397d4407b01d3ade9d4a8d57c8267` |
-| `linux/dpr-100/light.png` | `3354c5d677cff7233948caf075bbf3345482ce538cbd23627aa6ba624a3a4ca6` |
-| `linux/dpr-125/dark.png` | `99871b107ee9a368a300f02613caa291c42abc3584c5ac4051853102d1bceaf2` |
-| `linux/dpr-125/high-contrast.png` | `69dd1cbf3e392736b2b405eda7e95a5d0b9802d42605c41f35f8736a9051102b` |
-| `linux/dpr-125/light.png` | `16af2a890d35ba0e46f84bb7e3de61adc046505bdff4664ddfdb17ea3af5a02b` |
-| `linux/dpr-150/dark.png` | `ab5052f2637f3236b0da8c2ce134f17d2484180139641dcb3abe5b1e1cfbb2ce` |
-| `linux/dpr-150/high-contrast.png` | `a55eade64686b9ba919140e6f77a3c32ed994ed3aedb17b58114f6bb64161e7c` |
-| `linux/dpr-150/light.png` | `fb1e95c6073f77db80bc198d93730a4e73df31458e749a3944f86be04f9b5a23` |
-| `linux/dpr-200/dark.png` | `89276a5635ed15a4f3c3c3bd742edd7b3a0a323d2aa414a4fb2a17da68e6101d` |
-| `linux/dpr-200/high-contrast.png` | `362ee28d8d1feb5a92118afa0f70dabf139d7ea1a7f44538e8d33ffbf68a4d83` |
-| `linux/dpr-200/light.png` | `bc52e25919433aad82f9cb53429d3c06fd80941a3130b4d962a62fa52b9ca735` |
+| `linux/dpr-100/dark.png` | `525d3f27055f4409f135712905215d3bc1f2af66796a2a6f7137ba55ceea5b95` |
+| `linux/dpr-100/high-contrast.png` | `0095581c28cb1d65d9470efe2cb050ed828a6d9d09f27cef05d4fddf4c7ea5a5` |
+| `linux/dpr-100/light.png` | `d41e8e462124119309e189f52b2411a93347d78f260a7508afb4b44a83b9758e` |
+| `linux/dpr-125/dark.png` | `2d54771de355c910841dd9f49ec2893246d0e31c4a8bbaff5f2daae8ade27ef0` |
+| `linux/dpr-125/high-contrast.png` | `b2f4a8bda4c879e6689a4c86bc29a1d9f2f3f23491b022836a37e0b3fdd736fd` |
+| `linux/dpr-125/light.png` | `e26b6ad5768e445d621b478bff000384ae79157808d5968fe46d618153d080b3` |
+| `linux/dpr-150/dark.png` | `9cf160968a8053ca88a6801ec8f1e6c915fe5be7b09aca18161ee729d056fda2` |
+| `linux/dpr-150/high-contrast.png` | `38030ae62d8390d84dba3ad4ee3ffbb9bfe0a593438b1d50d83a2b7ea4a69e03` |
+| `linux/dpr-150/light.png` | `97921b5190885762d108b3caacb7c71a5365ebd5b272b1e8ac006ab9fc7a33d2` |
+| `linux/dpr-200/dark.png` | `887becbaf64ca7593c6220ce0d36994d6868aa3a168b9f5a5e4179ab719bc02a` |
+| `linux/dpr-200/high-contrast.png` | `a0e577275d55cae6b956ebf5cd004798163e7500929fe40ca68476b2f8b233e5` |
+| `linux/dpr-200/light.png` | `f3051a60938ead08f639283f6015ea47d3ca1a28ee1c73b20e6d60f9c66b4645` |

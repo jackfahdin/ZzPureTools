@@ -83,6 +83,11 @@ public:
     [[nodiscard]] bool isFocusVisualVisible(
         const QWidget *widget) const noexcept;
 
+    /** @brief 以细线折角绘制导航树展开标记，保留原有分支位置与命中区域。 */
+    void drawNavigationBranch(
+        const QStyleOption *option,
+        QPainter *painter) const;
+
     /** @brief 绘制复选框或单选框指示器。 */
     void drawCheckIndicator(
         const QStyleOption *option,

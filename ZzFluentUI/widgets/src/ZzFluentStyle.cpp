@@ -24,6 +24,7 @@
 #include <ZzFluentUI/ZzFluentPainter.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzTabBar.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -494,6 +495,15 @@ void ZzFluentStyle::drawPrimitive(
             option->rect,
             option->palette.color(QPalette::Window));
         return;
+    }
+    if (element == PE_IndicatorBranch
+        && option != nullptr && painter != nullptr && widget != nullptr) {
+        const auto *pane = qobject_cast<const ZzNavigationPane *>(
+            widget->parentWidget());
+        if (pane != nullptr && pane->treeView() == widget) {
+            d_ptr->drawNavigationBranch(option, painter);
+            return;
+        }
     }
     if (element == PE_PanelItemViewRow
         && option != nullptr && painter != nullptr) {

@@ -1309,6 +1309,40 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
         widget);
 }
 
+void ZzFluentStylePrivate::drawNavigationBranch(
+    const QStyleOption *option,
+    QPainter *painter) const
+{
+    if (!option->state.testFlag(QStyle::State_Children)
+        || option->rect.isEmpty()) {
+        return;
+    }
+    const QPointF center = QRectF(option->rect).center();
+    const qreal extent = std::min(4.0,
+        std::max(0.0, std::min(option->rect.width(), option->rect.height())
+            / 2.0 - 1.0));
+    const qreal direction = option->direction == Qt::RightToLeft ? -1.0 : 1.0;
+    QPointF points[3];
+    if (option->state.testFlag(QStyle::State_Open)) {
+        points[0] = center + QPointF(-extent, -extent / 2.0);
+        points[1] = center + QPointF(0.0, extent / 2.0);
+        points[2] = center + QPointF(extent, -extent / 2.0);
+    } else {
+        points[0] = center + QPointF(-direction * extent / 2.0, -extent);
+        points[1] = center + QPointF(direction * extent / 2.0, 0.0);
+        points[2] = center + QPointF(-direction * extent / 2.0, extent);
+    }
+    const auto group = option->state.testFlag(QStyle::State_Enabled)
+        ? QPalette::Normal : QPalette::Disabled;
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(option->palette.color(group, QPalette::Text),
+        1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPolyline(points, 3);
+    painter->restore();
+}
+
 void ZzFluentStylePrivate::drawItemViewRow(
     const QStyleOptionViewItem *option,
     QPainter *painter,
