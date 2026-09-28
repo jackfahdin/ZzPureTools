@@ -38,6 +38,9 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 #include <ZzFluentUI/ZzPivot.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
+#include <ZzFluentUI/ZzIconButton.h>
+#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzFlowLayout.h>
@@ -534,6 +537,43 @@ void ZzExampleGalleryPagePrivate::buildControls(const QString &title)
     commandRow->addStretch(1);
     commandRow->addWidget(enabledSwitch);
     layout->addLayout(commandRow);
+
+    zzAddSection(layout, QCoreApplication::translate("ZzPureToolsExample", "强调色与局部外观"), content);
+    auto *accentPreview = new QWidget(content);
+    auto *accentFlow = new ZzFluentUI::ZzFlowLayout(accentPreview);
+    auto *localButton = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate("ZzPureToolsExample", "紫色按钮"), accentPreview);
+    localButton->setObjectName(QStringLiteral("zzExampleLocalAccentButton"));
+    localButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+    ZzFluentUI::ZzControlAppearance::setAccentColor(localButton, QColor(QStringLiteral("#8752b5")));
+    auto *nativeButton = new QPushButton(
+        QCoreApplication::translate("ZzPureToolsExample", "原生强调色按钮"), accentPreview);
+    nativeButton->setProperty("accent", true);
+    ZzFluentUI::ZzControlAppearance::setAccentColor(nativeButton, QColor(QStringLiteral("#167344")));
+    auto *toolButton = new QToolButton(accentPreview);
+    toolButton->setText(QCoreApplication::translate("ZzPureToolsExample", "强调色工具按钮"));
+    ZzFluentUI::ZzControlAppearance::setButtonAppearance(toolButton, ZzFluentUI::ZzButtonAppearance::Accent);
+    auto *iconButton = new ZzFluentUI::ZzIconButton(accentPreview);
+    iconButton->setFixedSize(36, 36);
+    iconButton->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "强调色收藏图标"));
+    iconButton->setIconDescriptor(ZzFluentUI::ZzIconDescriptor::fromFontIcon(ZzFluentUI::ZzFontIcon::Star));
+    iconButton->setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+    auto *localSwitch = new ZzFluentUI::ZzToggleSwitch(
+        QCoreApplication::translate("ZzPureToolsExample", "局部强调色"), accentPreview);
+    localSwitch->setChecked(true);
+    ZzFluentUI::ZzControlAppearance::setAccentColor(localSwitch, QColor(QStringLiteral("#8752b5")));
+    auto *resetAccent = new ZzFluentUI::ZzPushButton(
+        QCoreApplication::translate("ZzPureToolsExample", "恢复跟随主题"), accentPreview);
+    QObject::connect(resetAccent, &QAbstractButton::clicked, accentPreview, [localButton, nativeButton, localSwitch] {
+        ZzFluentUI::ZzControlAppearance::resetAccentColor(localButton);
+        ZzFluentUI::ZzControlAppearance::resetAccentColor(nativeButton);
+        ZzFluentUI::ZzControlAppearance::resetAccentColor(localSwitch);
+        localButton->setText(QCoreApplication::translate("ZzPureToolsExample", "跟随主题"));
+    });
+    for (QWidget *widget : std::array<QWidget *, 6>{localButton, nativeButton, toolButton, iconButton, localSwitch, resetAccent}) {
+        accentFlow->addWidget(widget);
+    }
+    layout->addWidget(accentPreview);
 
     auto *message = new ZzFluentUI::ZzMessageBar(content);
     message->setObjectName(QStringLiteral("zzExampleControlsMessage"));

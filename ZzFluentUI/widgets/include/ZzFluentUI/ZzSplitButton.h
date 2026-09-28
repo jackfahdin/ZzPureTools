@@ -113,6 +113,8 @@ Q_SIGNALS:
     void menuRequested();
 
 protected:
+    /** @brief 同步原生 accent 动态属性与类型化外观。 */
+    bool event(QEvent *event) override;
     /** @brief 绘制单一 Fluent 表面、分隔线、主标签和下拉图标。 */
     void paintEvent(QPaintEvent *event) override;
 

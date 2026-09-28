@@ -57,6 +57,8 @@ public:
     void setAppearance(ZzButtonAppearance appearance);
 
 protected:
+    /** @brief 同步原生 accent 动态属性与类型化外观。 */
+    bool event(QEvent *event) override;
     /** @brief 使用当前样式绘制外观 option，并保留按钮原生状态。 */
     void paintEvent(QPaintEvent *event) override;
 

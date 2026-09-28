@@ -1,4 +1,5 @@
 #include "ZzFluentStylePrivate.h"
+#include "ZzControlAppearancePrivate.h"
 
 #include "ZzItemSelectionAnimation.h"
 #include "ZzItemViewVisual.h"
@@ -742,26 +743,28 @@ void ZzFluentStylePrivate::drawPushButton(
     const QColor paletteButton = option->palette.color(
         enabled ? QPalette::Normal : QPalette::Disabled,
         QPalette::Button);
-    const QColor paletteAccent = option->palette.color(
-        QPalette::Highlight);
+    const QColor paletteAccent = ZzControlAppearancePrivate::accent(option->palette);
     const bool accentAppearance = checked
         || defaultButton
-        || paletteButton == paletteAccent;
-    const bool subtleAppearance = paletteButton.alpha() == 0;
+        || paletteButton == paletteAccent
+        || (widget != nullptr && widget->property("accent").toBool());
+    const bool subtleAppearance = paletteButton.alpha() == 0
+        || (widget != nullptr && widget->property("zzFluentSubtle").toBool());
 
     QColor fill = paletteButton;
     if (!enabled) {
         fill = snapshot->color(ZzColorToken::ControlFillDisabled);
     } else if (accentAppearance) {
-        fill = paletteAccent.isValid()
-            ? paletteAccent
-            : snapshot->color(ZzColorToken::Accent);
+        fill = ZzControlAppearancePrivate::fill(option->palette, hovered, pressed);
     } else if (pressed) {
         fill = snapshot->color(ZzColorToken::ControlFillPressed);
     } else if (hovered) {
         fill = snapshot->color(ZzColorToken::ControlFillHover);
     } else if (!fill.isValid()) {
         fill = snapshot->color(ZzColorToken::ControlFill);
+    }
+    if (subtleAppearance && enabled && !accentAppearance && !hovered && !pressed) {
+        fill.setAlpha(0);
     }
 
     QColor stroke = snapshot->color(ZzColorToken::ControlStroke);
@@ -790,7 +793,8 @@ void ZzFluentStylePrivate::drawPushButton(
     if (accentAppearance) {
         labelOption.palette.setColor(
             QPalette::ButtonText,
-            option->palette.color(QPalette::HighlightedText));
+            enabled ? ZzControlAppearancePrivate::text(option->palette)
+                    : option->palette.color(QPalette::Disabled, QPalette::ButtonText));
     }
     q_ptr->QProxyStyle::drawControl(
         QStyle::CE_PushButtonLabel,
@@ -826,7 +830,8 @@ void ZzFluentStylePrivate::drawToolButtonPanel(
     const bool checked = option->state.testFlag(QStyle::State_On)
         && !(widget != nullptr
              && widget->property("zzFluentSuppressCheckedSurface").toBool());
-    if (!enabled || (!pressed && !hovered && !checked)) {
+    const bool accentAppearance = widget != nullptr && widget->property("accent").toBool();
+    if (!accentAppearance && (!enabled || (!pressed && !hovered && !checked))) {
         return;
     }
 
@@ -847,7 +852,10 @@ void ZzFluentStylePrivate::drawToolButtonPanel(
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(stroke, strokeWidth));
-    painter->setBrush(snapshot->color(fillToken));
+    painter->setBrush(accentAppearance
+        ? (enabled ? ZzControlAppearancePrivate::fill(option->palette, hovered, pressed)
+                   : snapshot->color(ZzColorToken::ControlFillDisabled))
+        : snapshot->color(fillToken));
     painter->drawRoundedRect(
         QRectF(option->rect).adjusted(
             strokeWidth / 2.0,
@@ -1624,7 +1632,7 @@ void ZzFluentStylePrivate::drawTabBarTab(
         const QRectF indicator = it.value()->rect();
         painter->setClipRect(option->rect, Qt::IntersectClip);
         painter->setRenderHint(QPainter::Antialiasing, true);
-        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        painter->setBrush(option->palette.color(QPalette::Highlight));
         const qreal radius = qMin(indicator.width(), indicator.height()) / 2.0;
         painter->drawRoundedRect(indicator, radius, radius);
     } else if (selected) {
@@ -1634,7 +1642,7 @@ void ZzFluentStylePrivate::drawTabBarTab(
         const QRectF indicator(option->rect.center().x() - extent / 2.0,
             option->rect.bottom() + 1.0 - thickness, extent, thickness);
         painter->setRenderHint(QPainter::Antialiasing, true);
-        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        painter->setBrush(option->palette.color(QPalette::Highlight));
         painter->drawRoundedRect(indicator, thickness / 2.0, thickness / 2.0);
     }
     painter->restore();

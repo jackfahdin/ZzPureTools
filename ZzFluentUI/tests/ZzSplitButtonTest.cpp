@@ -13,6 +13,7 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzSplitButton.h>
@@ -92,6 +93,32 @@ class ZzSplitButtonTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void accentMainAndMenuHaveIndependentInteractionColors()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        auto style = zzCreateStyle(&controller);
+        ZzFluentUI::ZzSplitButton button;
+        button.setStyle(style.get());
+        QMenu menu;
+        menu.addAction(QStringLiteral("Action"));
+        button.setMenu(&menu);
+        button.resize(180, 40);
+        ZzFluentUI::ZzControlAppearance::setButtonAppearance(&button, ZzFluentUI::ZzButtonAppearance::Accent);
+        const QColor accent(QStringLiteral("#8752b5"));
+        ZzFluentUI::ZzControlAppearance::setAccentColor(&button, accent);
+        button.show();
+        QCoreApplication::processEvents();
+        QTest::mouseMove(&button, QPoint(30, 20));
+        const QImage hover = zzRenderButton(&button);
+        QVERIFY(hover.pixelColor(10, 20) != accent);
+        QCOMPARE(hover.pixelColor(175, 20), accent);
+        QTest::mousePress(&button, Qt::LeftButton, Qt::NoModifier, QPoint(30, 20));
+        const QImage pressed = zzRenderButton(&button);
+        QVERIFY(pressed.pixelColor(10, 20) != hover.pixelColor(10, 20));
+        QCOMPARE(pressed.pixelColor(175, 20), accent);
+        QTest::mouseRelease(&button, Qt::LeftButton, Qt::NoModifier, QPoint(30, 20));
+    }
+
     void checkablePathsUseOnlyTheNativeToggleStateMachine_data()
     {
         QTest::addColumn<int>("appearance");

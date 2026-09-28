@@ -41,6 +41,20 @@ void ZzSplitButton::setAppearance(ZzButtonAppearance appearance)
     d_ptr->setAppearance(appearance);
 }
 
+bool ZzSplitButton::event(QEvent *event)
+{
+    const bool handled = QPushButton::event(event);
+    if (d_ptr && event->type() == QEvent::DynamicPropertyChange
+        && static_cast<const QDynamicPropertyChangeEvent *>(event)->propertyName() == "accent") {
+        if (property("accent").toBool()) {
+            setAppearance(ZzButtonAppearance::Accent);
+        } else if (appearance() == ZzButtonAppearance::Accent) {
+            setAppearance(ZzButtonAppearance::Standard);
+        }
+    }
+    return handled;
+}
+
 QMenu *ZzSplitButton::menu() const noexcept
 {
     return d_ptr->menu.data();

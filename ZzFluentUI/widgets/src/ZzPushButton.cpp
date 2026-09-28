@@ -1,5 +1,7 @@
 #include <ZzFluentUI/ZzPushButton.h>
 
+#include <QtCore/QEvent>
+
 #include <QtWidgets/QStylePainter>
 
 #include "private/ZzPushButtonPrivate.h"
@@ -33,7 +35,22 @@ void ZzPushButton::setAppearance(ZzButtonAppearance appearance)
         return;
     }
     d_ptr->appearance = appearance;
+    setProperty("accent", appearance == ZzButtonAppearance::Accent);
     update();
+}
+
+bool ZzPushButton::event(QEvent *event)
+{
+    const bool handled = QPushButton::event(event);
+    if (d_ptr && event->type() == QEvent::DynamicPropertyChange
+        && static_cast<const QDynamicPropertyChangeEvent *>(event)->propertyName() == "accent") {
+        if (property("accent").toBool()) {
+            setAppearance(ZzButtonAppearance::Accent);
+        } else if (appearance() == ZzButtonAppearance::Accent) {
+            setAppearance(ZzButtonAppearance::Standard);
+        }
+    }
+    return handled;
 }
 
 void ZzPushButton::paintEvent(QPaintEvent *event)

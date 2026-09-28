@@ -1,4 +1,5 @@
 #include <ZzFluentUI/ZzIconButton.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 
 #include <QtCore/QEvent>
 #include <QtGui/QResizeEvent>
@@ -17,6 +18,26 @@ ZzIconButton::ZzIconButton(QWidget *parent)
 }
 
 ZzIconButton::~ZzIconButton() = default;
+
+ZzButtonAppearance ZzIconButton::appearance() const
+{
+    return ZzControlAppearance::buttonAppearance(this);
+}
+
+void ZzIconButton::setAppearance(ZzButtonAppearance appearance)
+{
+    ZzControlAppearance::setButtonAppearance(this, appearance);
+}
+
+bool ZzIconButton::event(QEvent *event)
+{
+    const bool handled = QToolButton::event(event);
+    if (d_ptr && event->type() == QEvent::DynamicPropertyChange
+        && static_cast<const QDynamicPropertyChangeEvent *>(event)->propertyName() == "accent") {
+        d_ptr->refreshIcon();
+    }
+    return handled;
+}
 
 void ZzIconButton::setIconDescriptor(
     const ZzIconDescriptor &descriptor)

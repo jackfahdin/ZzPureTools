@@ -1,4 +1,5 @@
 #include "ZzIconButtonPrivate.h"
+#include "ZzControlAppearancePrivate.h"
 
 #include <algorithm>
 
@@ -39,9 +40,10 @@ void ZzIconButtonPrivate::refreshIcon()
     const QPalette::ColorGroup group = q_ptr->isEnabled()
         ? QPalette::Normal
         : QPalette::Disabled;
-    const QColor paletteColor = q_ptr->palette().color(
-        group,
-        QPalette::ButtonText);
+    const QColor paletteColor = q_ptr->isEnabled()
+            && q_ptr->appearance() == ZzButtonAppearance::Accent
+        ? ZzControlAppearancePrivate::text(q_ptr->palette())
+        : q_ptr->palette().color(group, QPalette::ButtonText);
     ZzIconDescriptor effectiveDescriptor = descriptor;
     if (iconColor.isValid()) {
         effectiveDescriptor.colorMode = ZzIconColorMode::Custom;

@@ -7,6 +7,7 @@
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzButtonAppearance.h>
 
 namespace ZzFluentUI {
 
@@ -20,6 +21,7 @@ class ZzIconButtonPrivate;
 class ZZ_FLUENT_UI_EXPORT ZzIconButton final : public QToolButton
 {
     Q_OBJECT
+    Q_PROPERTY(ZzFluentUI::ZzButtonAppearance appearance READ appearance WRITE setAppearance)
     Q_PROPERTY(
         QColor iconColor
         READ iconColor
@@ -36,6 +38,11 @@ public:
 
     /** @brief 销毁私有图标描述，不改变 QObject parent 所有权。 */
     ~ZzIconButton() override;
+
+    /** @brief 返回按钮的显式外观。 */
+    [[nodiscard]] ZzButtonAppearance appearance() const;
+    /** @brief 设置标准、强调色或轻量外观，不改变点击语义。 */
+    void setAppearance(ZzButtonAppearance appearance);
 
     /**
      * @brief 设置 Foundation 图标描述并刷新当前 DPR 的缓存图像。
@@ -59,6 +66,8 @@ public:
     void resetIconColor();
 
 protected:
+    /** @brief 动态强调色属性变更后同步主题图标缓存。 */
+    bool event(QEvent *event) override;
     /** @brief 在影响图标颜色或比例的 Qt 状态变化后刷新图标。 */
     void changeEvent(QEvent *event) override;
 

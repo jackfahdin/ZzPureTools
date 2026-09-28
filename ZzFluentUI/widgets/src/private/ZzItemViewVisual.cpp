@@ -193,7 +193,7 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
         // 保持文字对比度的同时确保鼠标反馈可见。
         if (hovered
             && surfaceColor == option.palette.color(QPalette::Base)) {
-            surfaceColor = snapshot->color(ZzColorToken::Accent);
+            surfaceColor = option.palette.color(QPalette::Highlight);
             surfaceColor.setAlpha(zzItemHoverAccentAlpha);
         }
         painter->setBrush(surfaceColor);
@@ -207,7 +207,7 @@ ZzItemViewVisualLayout ZzItemViewVisual::draw(
         indicatorRect.setTop(
             indicatorRect.center().y() - (scaledHeight / 2.0));
         indicatorRect.setHeight(scaledHeight);
-        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        painter->setBrush(option.palette.color(QPalette::Highlight));
         const qreal radius = qMin(
             indicatorRect.width(), indicatorRect.height()) / 2.0;
         painter->drawRoundedRect(indicatorRect, radius, radius);

@@ -134,7 +134,7 @@ void ZzPivotPrivate::paint(QPainter *painter)
             Qt::IntersectClip);
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(snapshot->color(ZzColorToken::Accent));
+        painter->setBrush(q_ptr->palette().color(QPalette::Highlight));
         const qreal radius = std::min(
             paintIndicatorRect.width(),
             paintIndicatorRect.height()) / 2.0;

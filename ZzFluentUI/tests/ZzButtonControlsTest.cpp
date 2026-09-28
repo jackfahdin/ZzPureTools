@@ -1,3 +1,5 @@
+#include <array>
+
 #include <QtCore/QCoreApplication>
 #include <QtGui/QAccessible>
 #include <QtGui/QImage>
@@ -5,12 +7,17 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QStyleOptionButton>
+#include <QtWidgets/QStyleOptionToolButton>
 
 #include <ZzFluentUI/ZzButtonAppearance.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzPushButton.h>
+#include <ZzFluentUI/ZzSplitButton.h>
 #include <ZzFluentUI/ZzThemeController.h>
 
 /** @brief 验证 Fluent 按钮的外观、图标缓存和 Qt 原生激活语义。 */
@@ -19,6 +26,179 @@ class ZzButtonControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void typedAppearanceCanResetDynamicAccent()
+    {
+        using ZzFluentUI::ZzButtonAppearance;
+        using ZzFluentUI::ZzControlAppearance;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzPushButton push;
+        ZzFluentUI::ZzSplitButton split;
+        ZzFluentUI::ZzIconButton icon;
+        const std::array<QAbstractButton *, 3> buttons{&push, &split, &icon};
+        for (QAbstractButton *button : buttons) {
+            button->setStyle(&style);
+            button->resize(120, 36);
+            button->setProperty("accent", true);
+            QCOMPARE(ZzControlAppearance::buttonAppearance(button), ZzButtonAppearance::Accent);
+            ZzControlAppearance::setButtonAppearance(button, ZzButtonAppearance::Standard);
+            QCOMPARE(ZzControlAppearance::buttonAppearance(button), ZzButtonAppearance::Standard);
+            QVERIFY(!button->property("accent").toBool());
+            ZzControlAppearance::setButtonAppearance(button, ZzButtonAppearance::Accent);
+            button->setProperty("accent", false);
+            QCOMPARE(ZzControlAppearance::buttonAppearance(button), ZzButtonAppearance::Standard);
+        }
+    }
+
+    void accentToolButtonIncludesMenuSurfaceAndArrow()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QToolButton button;
+        button.setStyle(&style);
+        button.setProperty("accent", true);
+        const QColor accent(QStringLiteral("#402060"));
+        ZzFluentUI::ZzControlAppearance::setAccentColor(&button, accent);
+        QStyleOptionToolButton option;
+        option.initFrom(&button);
+        option.rect = QRect(0, 0, 120, 36);
+        option.state = QStyle::State_Enabled;
+        option.subControls = QStyle::SC_ToolButton | QStyle::SC_ToolButtonMenu;
+        option.features = QStyleOptionToolButton::MenuButtonPopup | QStyleOptionToolButton::HasMenu;
+        const QRect menu = style.subControlRect(QStyle::CC_ToolButton, &option, QStyle::SC_ToolButtonMenu, &button);
+        QVERIFY(!menu.isEmpty());
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawComplexControl(QStyle::CC_ToolButton, &option, &painter, &button);
+        painter.end();
+        QCOMPARE(image.pixelColor(menu.center().x(), menu.top() + 6), accent);
+        bool hasLightArrow = false;
+        for (int y = menu.center().y() - 4; y <= menu.center().y() + 4; ++y) {
+            for (int x = menu.left() + 3; x <= menu.right() - 3; ++x) {
+                // Fusion 对箭头应用 160/255 的透明度；验证混合后的浅色箭头，
+                // 不要求输出为不透明白色。
+                hasLightArrow |= image.pixelColor(x, y).lightness() > 150;
+            }
+        }
+        QVERIFY(hasLightArrow);
+    }
+
+    void localAccentSurvivesThemeChangeAndResetsOnlyItsRoles()
+    {
+        using ZzFluentUI::ZzControlAppearance;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget parent;
+        parent.setStyle(&style);
+        QPushButton button(&parent);
+        QPushButton sibling(&parent);
+        QPalette palette = button.palette();
+        palette.setColor(QPalette::Base, Qt::cyan);
+        button.setPalette(palette);
+        const QColor local(QStringLiteral("#743ab5"));
+        ZzControlAppearance::setAccentColor(&button, local);
+        QCOMPARE(ZzControlAppearance::accentColor(&button), local);
+        QCOMPARE(button.palette().color(QPalette::Highlight), local);
+        QCOMPARE(button.palette().color(QPalette::HighlightedText), QColor(Qt::white));
+        QVERIFY(ZzControlAppearance::accentColor(&sibling) != local);
+        controller.setAccentColor(QColor(QStringLiteral("#148240")));
+        controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
+        QCoreApplication::processEvents();
+        QCOMPARE(ZzControlAppearance::accentColor(&button), local);
+        QCOMPARE(ZzControlAppearance::accentColor(&sibling), controller.accentColor());
+        ZzControlAppearance::resetAccentColor(&button);
+        QCOMPARE(ZzControlAppearance::accentColor(&button), controller.accentColor());
+        QCOMPARE(button.palette().color(QPalette::Base), QColor(Qt::cyan));
+        QCOMPARE(button.palette().color(QPalette::HighlightedText), sibling.palette().color(QPalette::HighlightedText));
+        ZzControlAppearance::setAccentColor(&parent, Qt::yellow);
+        QCOMPARE(ZzControlAppearance::accentColor(&button), QColor(Qt::yellow));
+        ZzControlAppearance::setAccentColor(&button, Qt::red);
+        ZzControlAppearance::setAccentColor(&button, {});
+        QCOMPARE(ZzControlAppearance::accentColor(&button), QColor(Qt::yellow));
+    }
+
+    void accentIconButtonPaintsIdleSurfaceAndContrastingIcon()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzIconButton button;
+        button.setStyle(&style);
+        button.resize(36, 36);
+        button.setIconDescriptor({QStringLiteral(":/zzfluent/buttons/ZzFluentTestSquare.svg"), true});
+        button.setAppearance(ZzFluentUI::ZzButtonAppearance::Accent);
+        ZzFluentUI::ZzControlAppearance::setAccentColor(&button, QColor(Qt::yellow));
+        const auto render = [&] {
+            QImage image(button.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            button.render(&painter);
+            return image;
+        };
+        const QImage yellow = render();
+        QCOMPARE(yellow.pixelColor(3, 18), QColor(Qt::yellow));
+        QCOMPARE(yellow.pixelColor(18, 18), QColor(Qt::black));
+        ZzFluentUI::ZzControlAppearance::setAccentColor(&button, QColor(Qt::blue));
+        const QImage blue = render();
+        QCOMPARE(blue.pixelColor(3, 18), QColor(Qt::blue));
+        QCOMPARE(blue.pixelColor(18, 18), QColor(Qt::white));
+        button.setIconColor(Qt::green);
+        QCOMPARE(render().pixelColor(18, 18), QColor(Qt::green));
+        button.resetIconColor();
+        button.setEnabled(false);
+        QVERIFY(render().pixelColor(3, 18) != QColor(Qt::blue));
+    }
+
+    void nativeButtonsUseAccentProperty_data()
+    {
+        QTest::addColumn<bool>("toolButton");
+        QTest::addColumn<QColor>("accent");
+        QTest::newRow("push-purple") << false << QColor(QStringLiteral("#8752b5"));
+        QTest::newRow("tool-purple") << true << QColor(QStringLiteral("#8752b5"));
+        QTest::newRow("push-black") << false << QColor(Qt::black);
+        QTest::newRow("tool-white") << true << QColor(Qt::white);
+    }
+
+    void nativeButtonsUseAccentProperty()
+    {
+        QFETCH(bool, toolButton);
+        QFETCH(QColor, accent);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QPushButton push;
+        QToolButton tool;
+        QWidget *button = toolButton ? static_cast<QWidget *>(&tool) : &push;
+        button->setStyle(&style);
+        button->setProperty("accent", true);
+        button->resize(120, 36);
+        QPalette palette = button->palette();
+        palette.setColor(QPalette::Accent, accent);
+        button->setPalette(palette);
+        const auto sample = [&](QStyle::State state) {
+            QImage image(button->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            QStyleOptionButton option;
+            option.initFrom(button);
+            option.state = state;
+            if (toolButton) {
+                style.drawPrimitive(QStyle::PE_PanelButtonTool, &option, &painter, button);
+            } else {
+                style.drawControl(QStyle::CE_PushButton, &option, &painter, button);
+            }
+            painter.end();
+            return image.pixelColor(10, 18);
+        };
+        const QColor normal = sample(QStyle::State_Enabled);
+        const QColor hover = sample(QStyle::State_Enabled | QStyle::State_MouseOver);
+        const QColor pressed = sample(QStyle::State_Enabled | QStyle::State_Sunken);
+        QCOMPARE(normal, accent);
+        QVERIFY(hover != normal);
+        QVERIFY(pressed != normal);
+        QVERIFY(pressed != hover);
+        QVERIFY(sample(QStyle::State_None) != accent);
+    }
+
     void checkablePushButtonPreservesToggleSemantics()
     {
         ZzFluentUI::ZzThemeController controller;
@@ -108,6 +288,10 @@ private Q_SLOTS:
         QCOMPARE(
             button.accessibleName(),
             QStringLiteral("Apply changes"));
+
+        // 本断言验证静止填充，避免离屏平台把默认光标放在按钮内而命中 hover。
+        QEvent leave(QEvent::Leave);
+        QCoreApplication::sendEvent(&button, &leave);
 
         QImage image(
             button.size(),

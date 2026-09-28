@@ -416,7 +416,7 @@ void ZzRatingControlPrivate::ensurePixmaps()
         ? snapshot->color(ZzColorToken::TextSecondary)
         : q_ptr->palette().color(QPalette::Disabled, QPalette::Text);
     const QColor filledColor = q_ptr->isEnabled()
-        ? snapshot->color(ZzColorToken::Accent)
+        ? q_ptr->palette().color(QPalette::Highlight)
         : q_ptr->palette().color(QPalette::Disabled, QPalette::Highlight);
     if (auto *fluentStyle = qobject_cast<ZzFluentStyle *>(q_ptr->style())) {
         const ZzIconDescriptor descriptor =

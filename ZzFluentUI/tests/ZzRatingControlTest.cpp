@@ -12,6 +12,7 @@
 #include <QtWidgets/QStyleFactory>
 
 #include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzRatingControl.h>
 #include <ZzFluentUI/ZzRatingPrecision.h>
@@ -73,6 +74,21 @@ class ZzRatingControlTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void localAccentRefreshesCachedStars()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        auto style = zzCreateStyle(&controller);
+        ZzFluentUI::ZzRatingControl control;
+        control.setStyle(style.get());
+        control.setRating(5);
+        control.resize(control.sizeHint());
+        for (const QColor color : {QColor(Qt::red), QColor(Qt::green)}) {
+            ZzFluentUI::ZzControlAppearance::setAccentColor(&control, color);
+            const QImage image = zzRenderRating(&control);
+            QVERIFY(zzAccentPixelCount(image, image.rect(), color) > 30);
+        }
+    }
+
     void exposesStableDefaultsAndBounds()
     {
         ZzFluentUI::ZzRatingControl control;

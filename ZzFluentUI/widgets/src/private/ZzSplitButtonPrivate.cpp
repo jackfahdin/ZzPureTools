@@ -1,4 +1,5 @@
 #include "ZzSplitButtonPrivate.h"
+#include "ZzControlAppearancePrivate.h"
 
 #include <algorithm>
 
@@ -84,6 +85,7 @@ void ZzSplitButtonPrivate::setAppearance(ZzButtonAppearance value)
         return;
     }
     appearance = value;
+    q_ptr->setProperty("accent", value == ZzButtonAppearance::Accent);
     q_ptr->update();
     Q_EMIT q_ptr->appearanceChanged(value);
 }
@@ -177,7 +179,7 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
     if (!enabled) {
         baseFill = snapshot->color(ZzColorToken::ControlFillDisabled);
     } else if (accentAppearance) {
-        baseFill = option.palette.color(QPalette::Highlight);
+        baseFill = ZzControlAppearancePrivate::accent(option.palette);
     } else if (checked) {
         baseFill = snapshot->color(ZzColorToken::ControlFillPressed);
     } else if (subtleAppearance) {
@@ -208,9 +210,9 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
     painter->setPen(Qt::NoPen);
     painter->setBrush(baseFill);
     painter->drawRoundedRect(surface, radius, radius);
-    if (enabled && !accentAppearance) {
+    if (enabled) {
         painter->setClipPath(clipPath);
-        const auto drawInteraction = [painter, snapshot](
+        const auto drawInteraction = [painter, snapshot, accentAppearance, &option](
                                          const QRect &rect,
                                          bool hovered,
                                          bool pressed) {
@@ -219,7 +221,8 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
             }
             painter->fillRect(
                 rect,
-                snapshot->color(pressed
+                accentAppearance ? ZzControlAppearancePrivate::fill(option.palette, hovered, pressed)
+                    : snapshot->color(pressed
                         ? ZzColorToken::ControlFillPressed
                         : ZzColorToken::ControlFillHover));
         };
@@ -260,7 +263,8 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
     if (accentAppearance) {
         labelOption.palette.setColor(
             QPalette::ButtonText,
-            option.palette.color(QPalette::HighlightedText));
+            enabled ? ZzControlAppearancePrivate::text(option.palette)
+                    : option.palette.color(QPalette::Disabled, QPalette::ButtonText));
     }
     q_ptr->style()->drawControl(
         QStyle::CE_PushButtonLabel,
@@ -284,7 +288,7 @@ void ZzSplitButtonPrivate::paint(QPainter *painter) const
             ? QPalette::Normal
             : QPalette::Disabled;
         const QColor iconColor = accentAppearance && enabled
-            ? option.palette.color(QPalette::HighlightedText)
+            ? ZzControlAppearancePrivate::text(option.palette)
             : option.palette.color(group, QPalette::ButtonText);
         auto *fluentStyle = qobject_cast<ZzFluentStyle *>(q_ptr->style());
         if (fluentStyle != nullptr) {
@@ -340,10 +344,10 @@ void ZzSplitButtonPrivate::initStyleOption(
     if (appearance == ZzButtonAppearance::Accent) {
         option->palette.setColor(
             QPalette::Button,
-            option->palette.color(QPalette::Highlight));
-        option->palette.setColor(
-            QPalette::ButtonText,
-            option->palette.color(QPalette::HighlightedText));
+            ZzControlAppearancePrivate::accent(option->palette));
+        const QColor text = ZzControlAppearancePrivate::text(option->palette);
+        option->palette.setColor(QPalette::Active, QPalette::ButtonText, text);
+        option->palette.setColor(QPalette::Inactive, QPalette::ButtonText, text);
     } else if (appearance == ZzButtonAppearance::Subtle) {
         QColor fill = option->palette.color(QPalette::Button);
         fill.setAlpha(0);

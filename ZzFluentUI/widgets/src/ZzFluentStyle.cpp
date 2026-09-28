@@ -1,9 +1,11 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 
 #include "private/ZzFluentStylePrivate.h"
+#include "private/ZzControlAppearancePrivate.h"
 #include "private/ZzItemViewVisual.h"
 
 #include <QtCore/QThread>
+#include <QtCore/QEvent>
 #include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QAbstractSpinBox>
@@ -255,6 +257,7 @@ QPalette ZzFluentStyle::standardPalette() const
     palette.setColor(QPalette::Dark, controlStroke);
     palette.setColor(QPalette::Shadow, controlStroke);
     palette.setColor(QPalette::Highlight, accent);
+    palette.setColor(QPalette::Accent, accent);
     palette.setColor(QPalette::HighlightedText, accentText);
     palette.setColor(QPalette::Link, accent);
     palette.setColor(QPalette::LinkVisited, accent);
@@ -440,7 +443,9 @@ void ZzFluentStyle::drawPrimitive(
         d_ptr->drawMenuBarPanel(option, painter);
         return;
     }
-    if (element == PE_PanelButtonTool
+    const bool accentMenuPanel = element == PE_IndicatorButtonDropDown
+        && widget != nullptr && widget->property("accent").toBool();
+    if ((element == PE_PanelButtonTool || accentMenuPanel)
         && option != nullptr && painter != nullptr) {
         d_ptr->drawToolButtonPanel(option, painter, widget);
         return;
@@ -520,6 +525,14 @@ void ZzFluentStyle::drawPrimitive(
 bool ZzFluentStyle::eventFilter(QObject *watched, QEvent *event)
 {
     d_ptr->handleInputEvent(watched, event);
+    if (event->type() == QEvent::DynamicPropertyChange) {
+        const auto *change = static_cast<const QDynamicPropertyChangeEvent *>(event);
+        if (change->propertyName() == "accent" || change->propertyName() == "zzFluentSubtle") {
+            if (auto *widget = qobject_cast<QWidget *>(watched); widget != nullptr && widget->style() == this) {
+                widget->update();
+            }
+        }
+    }
     return QProxyStyle::eventFilter(watched, event);
 }
 
@@ -530,6 +543,19 @@ void ZzFluentStyle::drawControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (element == CE_ToolButtonLabel && widget != nullptr
+        && widget->property("accent").toBool()) {
+        if (const auto *button = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
+            QStyleOptionToolButton label = *button;
+            const QColor text = button->state.testFlag(State_Enabled)
+                ? ZzControlAppearancePrivate::text(button->palette)
+                : button->palette.color(QPalette::Disabled, QPalette::ButtonText);
+            label.palette.setColor(QPalette::ButtonText, text);
+            label.palette.setColor(QPalette::WindowText, text);
+            QProxyStyle::drawControl(element, &label, painter, widget);
+            return;
+        }
+    }
     if (element == CE_ShapedFrame
         && qobject_cast<const QLCDNumber *>(widget) != nullptr) {
         const auto *frame = qstyleoption_cast<
@@ -637,6 +663,23 @@ void ZzFluentStyle::drawComplexControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_ToolButton && widget != nullptr
+        && widget->property("accent").toBool()) {
+        if (const auto *button = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
+            QStyleOptionToolButton adjusted = *button;
+            const QColor text = button->state.testFlag(State_Enabled)
+                ? ZzControlAppearancePrivate::text(button->palette)
+                : button->palette.color(QPalette::Disabled, QPalette::ButtonText);
+            adjusted.palette.setColor(QPalette::ButtonText, text);
+            adjusted.palette.setColor(QPalette::WindowText, text);
+            // Fusion 会跳过 autoRaise 工具按钮的静止面板；仅调整绘制选项，
+            // 保留原控件的 autoRaise、菜单子区域和 Qt 激活行为。
+            adjusted.state &= ~State_AutoRaise;
+            adjusted.state |= State_Raised;
+            QProxyStyle::drawComplexControl(control, &adjusted, painter, widget);
+            return;
+        }
+    }
     if (control == CC_Slider) {
         const auto *slider = qstyleoption_cast<
             const QStyleOptionSlider *>(option);

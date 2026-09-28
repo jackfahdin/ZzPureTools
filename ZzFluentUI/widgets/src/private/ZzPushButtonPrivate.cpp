@@ -1,4 +1,5 @@
 #include "ZzPushButtonPrivate.h"
+#include "ZzControlAppearancePrivate.h"
 
 #include <ZzFluentUI/ZzPushButton.h>
 
@@ -23,10 +24,10 @@ void ZzPushButtonPrivate::initStyleOption(
     if (appearance == ZzButtonAppearance::Accent) {
         option->palette.setColor(
             QPalette::Button,
-            option->palette.color(QPalette::Highlight));
-        option->palette.setColor(
-            QPalette::ButtonText,
-            option->palette.color(QPalette::HighlightedText));
+            ZzControlAppearancePrivate::accent(option->palette));
+        const QColor text = ZzControlAppearancePrivate::text(option->palette);
+        option->palette.setColor(QPalette::Active, QPalette::ButtonText, text);
+        option->palette.setColor(QPalette::Inactive, QPalette::ButtonText, text);
     } else if (appearance == ZzButtonAppearance::Subtle) {
         QColor fill = option->palette.color(QPalette::Button);
         fill.setAlpha(0);

@@ -1556,8 +1556,8 @@ private Q_SLOTS:
         style.drawControl(QStyle::CE_TabBarTab, &tab, &painter);
         painter.end();
         QCOMPARE(image.pixelColor(40, 16), QColor(Qt::blue));
-        QCOMPARE(image.pixelColor(40, 30), controller.snapshot()->color(
-            ZzFluentUI::ZzColorToken::Accent));
+        // 选中指示条应与同一 palette 中的输入焦点、进度条使用相同局部强调色。
+        QCOMPARE(image.pixelColor(40, 30), QColor(Qt::green));
 
         QStyleOptionProgressBar busy;
         busy.rect = QRect(0, 0, 120, 16);
