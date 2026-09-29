@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cmath>
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QVariantAnimation>
 #include <QtGui/QAccessible>
@@ -39,6 +42,63 @@ class ZzToggleSwitchTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 切换主题时圆点响应深浅，同时在自定义强调色及按压状态中保持可辨识。 */
+    void checkedThumbFollowsThemeAndKeepsContrast()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzToggleSwitch toggle;
+        toggle.setStyle(&style);
+        toggle.setChecked(true);
+        toggle.resize(toggle.sizeHint());
+        const auto luminance = [](const QColor &color) {
+            const auto linear = [](double value) {
+                return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
+            };
+            return 0.2126 * linear(color.redF()) + 0.7152 * linear(color.greenF())
+                + 0.0722 * linear(color.blueF());
+        };
+        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
+            controller.setMode(mode);
+            for (const QColor accent : {QColor("#0067c0"), QColor("#36a6ff"),
+                     QColor("#ffff00"), QColor("#080808"), QColor("#000000"),
+                     QColor("#ffffff"), QColor("#40000000"), QColor("#40ffffff"),
+                     QColor("#6e000000"), QColor("#60ffffff")}) {
+                controller.setAccentColor(accent);
+                toggle.setPalette(style.standardPalette());
+                QColor normalThumb;
+                for (int state = 0; state < 3; ++state) {
+                    toggle.setAttribute(Qt::WA_UnderMouse, state != 0);
+                    toggle.setDown(state == 2);
+                    QImage image(toggle.size(), QImage::Format_ARGB32_Premultiplied);
+                    image.fill(Qt::transparent);
+                    toggle.render(&image);
+                    const QColor thumb = image.pixelColor(30, toggle.rect().center().y());
+                    const QColor track = image.pixelColor(8, toggle.rect().center().y());
+                    const double thumbLuminance = luminance(thumb);
+                    const double trackLuminance = luminance(track);
+                    QVERIFY2((std::max(thumbLuminance, trackLuminance) + 0.05)
+                            / (std::min(thumbLuminance, trackLuminance) + 0.05) >= 3.0,
+                        qPrintable(QStringLiteral("mode=%1 accent=%2 state=%3")
+                            .arg(static_cast<int>(mode)).arg(accent.name(QColor::HexArgb)).arg(state)));
+                    if (state == 0) {
+                        normalThumb = thumb;
+                    } else {
+                        QCOMPARE(thumb, normalThumb);
+                    }
+                    if (accent == QColor("#0067c0")) {
+                        QCOMPARE(thumb, mode == ZzFluentUI::ZzThemeMode::Light
+                            ? QColor(Qt::white) : QColor(Qt::black));
+                    }
+                    if (mode == ZzFluentUI::ZzThemeMode::Dark && accent == QColor("#36a6ff")) {
+                        QCOMPARE(thumb, toggle.palette().color(QPalette::Window));
+                    }
+                }
+            }
+        }
+    }
+
     /** @brief 按下提供视觉反馈，单独改变按下状态不修改选中真值。 */
     void pressedThumbHasVisibleFeedback()
     {

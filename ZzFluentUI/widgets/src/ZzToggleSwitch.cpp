@@ -19,6 +19,34 @@ constexpr int zzTrackHeight = 20;
 constexpr int zzKnobExtent = 12;
 constexpr int zzTrackInset = 3;
 constexpr int zzTextSpacing = 8;
+constexpr double zzMinimumKnobContrast = 3.0;
+
+/** @brief 按表面明暗选择开启态圆点，并为自定义强调色保留至少 3:1 对比。 */
+QColor zzCheckedKnobColor(const QPalette &palette)
+{
+    const QColor surface = palette.color(QPalette::Window);
+    QColor accent = ZzControlAppearancePrivate::accent(palette);
+    if (accent.alpha() != 255) {
+        // 对半透明强调色按轨道落在窗口表面后的实际颜色计算对比。
+        const int alpha = accent.alpha();
+        const auto blend = [alpha](int channel, int background) {
+            return (channel * alpha + background * (255 - alpha) + 127) / 255;
+        };
+        accent = QColor::fromRgb(blend(accent.red(), surface.red()),
+            blend(accent.green(), surface.green()), blend(accent.blue(), surface.blue()));
+    }
+    const bool dark = ZzControlAppearancePrivate::contrastingText(surface) == QColorConstants::White;
+    const QColor preferred = dark ? surface : QColorConstants::White;
+    if (ZzControlAppearancePrivate::contrastRatio(preferred, accent) >= zzMinimumKnobContrast) {
+        return preferred;
+    }
+    // 深灰不足时先尝试黑色，避免默认蓝色轨道在深色主题仍使用白色圆点。
+    const QColor extreme = dark ? QColorConstants::Black : QColorConstants::White;
+    if (ZzControlAppearancePrivate::contrastRatio(extreme, accent) >= zzMinimumKnobContrast) {
+        return extreme;
+    }
+    return ZzControlAppearancePrivate::contrastingText(accent);
+}
 
 } // namespace
 
@@ -102,13 +130,13 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
         : QPalette::Disabled;
     QColor neutral = option.palette.color(group, QPalette::Text);
     neutral.setAlphaF(isEnabled() ? 0.65F : 0.35F);
-    const QColor trackColor = isChecked()
-        ? (isEnabled() ? ZzControlAppearancePrivate::fill(option.palette, hovered, pressed) : neutral)
-        : option.palette.color(group, hovered || pressed ? QPalette::Button : QPalette::Window);
     const QColor knobColor = isChecked()
-        ? (isEnabled() ? ZzControlAppearancePrivate::text(option.palette)
+        ? (isEnabled() ? zzCheckedKnobColor(option.palette)
                        : option.palette.color(QPalette::Window))
         : neutral;
+    const QColor trackColor = isChecked()
+        ? (isEnabled() ? ZzControlAppearancePrivate::fill(option.palette, hovered, pressed, knobColor) : neutral)
+        : option.palette.color(group, hovered || pressed ? QPalette::Button : QPalette::Window);
 
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
