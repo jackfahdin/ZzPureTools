@@ -19,8 +19,10 @@ class ZzPasswordBoxPrivate;
  * @brief 保留 QLineEdit 编辑语义并提供受控密码查看按钮。
  *
  * text 是唯一密码状态；输入法、光标、选择、撤销、validator 和剪贴板
- * 继续由 QLineEdit 管理。Peek 模式只改变纯展示 echoMode，不复制密码，
+ * 继续由 QLineEdit 管理。Peek／Toggle 模式只改变纯展示 echoMode，不复制密码，
  * 也不访问认证或设置业务。
+ * Toggle 初始隐藏，点击查看按钮切换；清空、禁用、隐藏或窗口失活时恢复隐藏，
+ * 同一窗口内的焦点转移不会取消 Toggle 查看。
  */
 class ZZ_FLUENT_UI_EXPORT ZzPasswordBox final : public QLineEdit
 {
@@ -48,7 +50,7 @@ public:
 
     /**
      * @brief 返回当前密码显示策略。
-     * @return Hidden、Peek 或 Visible。
+     * @return Hidden、Peek、Visible 或 Toggle。
      */
     [[nodiscard]] ZzPasswordRevealMode revealMode() const noexcept;
 
@@ -60,7 +62,7 @@ public:
 
     /**
      * @brief 返回当前是否正在以普通文本显示密码。
-     * @return Visible 模式或 Peek 正在按住时返回 true。
+     * @return Visible 模式、Peek 正在按住或 Toggle 已点击显示时返回 true。
      */
     [[nodiscard]] bool isPasswordVisible() const noexcept;
 
@@ -78,7 +80,7 @@ Q_SIGNALS:
     void passwordVisibilityChanged(bool visible);
 
 protected:
-    /** @brief 处理窗口失活和 DPR 变化，并保持 Peek 安全终止。 */
+    /** @brief 处理窗口失活和 DPR 变化，隐藏或失活时终止临时查看。 */
     bool event(QEvent *event) override;
 
     /** @brief 在尺寸变化后更新逻辑 trailing 查看按钮和文本边距。 */
@@ -87,7 +89,7 @@ protected:
     /** @brief 在语言、主题、方向或启用状态变化后刷新展示。 */
     void changeEvent(QEvent *event) override;
 
-    /** @brief 输入框失焦时立即结束临时明文显示。 */
+    /** @brief 输入框失焦时结束 Peek 查看；Toggle 保持到再次点击或窗口失活。 */
     void focusOutEvent(QFocusEvent *event) override;
 
 private:

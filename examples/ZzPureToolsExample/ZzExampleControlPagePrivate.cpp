@@ -30,6 +30,7 @@
 #include <ZzFluentUI/ZzInfoBadge.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
+#include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
@@ -362,15 +363,20 @@ void ZzExampleControlPagePrivate::buildInput(ZzExampleControlKind kind)
         auto *host
             = section(QCoreApplication::translate("ZzPureToolsExample", "普通、密码与只读输入"));
         for (int i = 0; i < 3; ++i) {
-            auto *edit = new QLineEdit(host);
+            QLineEdit *edit = nullptr;
+            if (i == 1) {
+                auto *password = new ZzFluentUI::ZzPasswordBox(host);
+                password->setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Toggle);
+                edit = password;
+            } else {
+                edit = new QLineEdit(host);
+            }
             edit->setMinimumWidth(220);
             edit->setPlaceholderText(i == 1
                     ? QCoreApplication::translate("ZzPureToolsExample", "输入密码")
                     : QCoreApplication::translate("ZzPureToolsExample", "输入文本"));
             edit->setAccessibleName(edit->placeholderText());
-            edit->setClearButtonEnabled(true);
-            if (i == 1)
-                edit->setEchoMode(QLineEdit::Password);
+            edit->setClearButtonEnabled(i != 1);
             if (i == 2) {
                 edit->setText(QCoreApplication::translate("ZzPureToolsExample", "只读内容"));
                 edit->setReadOnly(true);

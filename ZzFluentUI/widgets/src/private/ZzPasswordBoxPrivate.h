@@ -39,8 +39,11 @@ public:
     /** @brief 在 Peek 模式下开始临时显示密码。 */
     void beginPeek();
 
+    /** @brief 在 Toggle 模式下响应点击，切换临时明文状态。 */
+    void toggleVisibility();
+
     /** @brief 结束临时显示并恢复当前策略终态。 */
-    void endPeek();
+    void endReveal();
 
     /** @brief 同步按钮可见性、焦点和文本安全边距。 */
     void syncButtonGeometry();
@@ -53,15 +56,15 @@ public:
     ZzIconButton *const revealButton;
     QMargins baseTextMargins;
     ZzPasswordRevealMode revealMode = ZzPasswordRevealMode::Peek;
-    bool peekActive = false;
+    bool revealActive = false;
 
 private:
-    static constexpr std::size_t zzCallbackConnectionCount = 5;
+    static constexpr std::size_t zzCallbackConnectionCount = 6;
 
     /** @brief 同步 QLineEdit echoMode 并只发一次可见性信号。 */
     void applyVisibility(bool wasVisible);
 
-    /** @brief 返回 Peek 按钮当前是否应该显示。 */
+    /** @brief 返回 Peek 或 Toggle 按钮当前是否应该显示。 */
     [[nodiscard]] bool shouldShowButton() const noexcept;
 
     std::array<QMetaObject::Connection, zzCallbackConnectionCount>

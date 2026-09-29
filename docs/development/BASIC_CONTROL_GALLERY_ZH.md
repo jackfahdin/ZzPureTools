@@ -32,6 +32,22 @@
 
 ## 实现位置
 
+单行输入页的密码示例复用库中的 `ZzPasswordBox`，使用 `Toggle` 模式：默认隐藏，
+输入后点击尾部 `Eye` 图标显示，再点击 `EyeSlash` 隐藏。按钮支持键盘空格，
+文字、光标和选区保持；清空、禁用、隐藏或窗口失活后恢复隐藏。
+密码框只保留查看按钮，普通输入框继续提供原生清除按钮。
+
+```cpp
+#include <ZzFluentUI/ZzPasswordBox.h>
+
+auto *password = new ZzFluentUI::ZzPasswordBox(parent);
+password->setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Toggle);
+password->setPlaceholderText(tr("输入密码"));
+```
+
+库的默认模式仍是 `Peek`（按住查看），调用方也可选择 `Hidden` 或 `Visible`。
+这些行为全部由库组件提供，示例只负责选择模式与展示。
+
 - `examples/ZzPureToolsExample/ZzExampleRouteCatalog.cpp`：路由、双语标题、分区和展示顺序。
 - `ZzExampleControlKind.h`：独立控件页的类型。
 - `ZzExampleControlPage.h/.cpp`：纯展示页面接口。

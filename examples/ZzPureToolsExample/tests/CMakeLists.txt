@@ -2,6 +2,10 @@ include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
 add_executable(ZzExampleWorkspaceSmokeTest
     ZzExampleWorkspaceSmokeTest.cpp
+    ../ZzExampleControlPage.cpp
+    ../ZzExampleControlPage.h
+    ../ZzExampleControlPagePrivate.cpp
+    ../ZzExampleControlPagePrivate.h
     ../ZzExampleActivityModel.cpp
     ../ZzExampleActivityModel.h
     ../ZzExampleActivityModelPrivate.h

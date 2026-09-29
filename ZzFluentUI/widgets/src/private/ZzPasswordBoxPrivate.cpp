@@ -45,7 +45,9 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
         &ZzIconButton::released,
         q_ptr,
         [this] {
-            endPeek();
+            if (revealMode == ZzPasswordRevealMode::Peek) {
+                endReveal();
+            }
         });
     callbackConnections[2] = QObject::connect(
         q_ptr,
@@ -53,7 +55,7 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
         q_ptr,
         [this] {
             if (q_ptr->text().isEmpty()) {
-                endPeek();
+                endReveal();
             }
             syncButtonGeometry();
         });
@@ -62,8 +64,9 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
         &QApplication::focusChanged,
         q_ptr,
         [this](QWidget *, QWidget *current) {
-            if (current != q_ptr && current != revealButton) {
-                endPeek();
+            if (revealMode == ZzPasswordRevealMode::Peek
+                && current != q_ptr && current != revealButton) {
+                endReveal();
             }
         });
     callbackConnections[4] = QObject::connect(
@@ -72,8 +75,12 @@ ZzPasswordBoxPrivate::ZzPasswordBoxPrivate(ZzPasswordBox *q)
         q_ptr,
         [this](Qt::ApplicationState state) {
             if (state != Qt::ApplicationActive) {
-                endPeek();
+                endReveal();
             }
+        });
+    callbackConnections[5] = QObject::connect(
+        revealButton, &ZzIconButton::clicked, q_ptr, [this] {
+            toggleVisibility();
         });
 
     applyVisibility(false);
@@ -92,10 +99,16 @@ void ZzPasswordBoxPrivate::refreshPresentation()
     const bool visible = isPasswordVisible();
     revealButton->setIconDescriptor(ZzIconDescriptor::fromFontIcon(
         visible ? ZzFontIcon::EyeSlash : ZzFontIcon::Eye));
-    revealButton->setAccessibleName(ZzPasswordBox::tr("显示密码"));
-    revealButton->setAccessibleDescription(
-        ZzPasswordBox::tr("按住时临时显示密码"));
-    revealButton->setToolTip(ZzPasswordBox::tr("按住显示密码"));
+    if (revealMode == ZzPasswordRevealMode::Toggle) {
+        const QString action = visible ? ZzPasswordBox::tr("隐藏密码") : ZzPasswordBox::tr("显示密码");
+        revealButton->setAccessibleName(action);
+        revealButton->setAccessibleDescription(action);
+        revealButton->setToolTip(action);
+    } else {
+        revealButton->setAccessibleName(ZzPasswordBox::tr("显示密码"));
+        revealButton->setAccessibleDescription(ZzPasswordBox::tr("按住时临时显示密码"));
+        revealButton->setToolTip(ZzPasswordBox::tr("按住显示密码"));
+    }
     syncButtonGeometry();
 }
 
@@ -112,7 +125,7 @@ void ZzPasswordBoxPrivate::setRevealMode(ZzPasswordRevealMode mode)
     }
     const bool wasVisible = isPasswordVisible();
     revealMode = mode;
-    peekActive = false;
+    revealActive = false;
     applyVisibility(wasVisible);
     refreshPresentation();
     Q_EMIT q_ptr->revealModeChanged(mode);
@@ -125,18 +138,30 @@ void ZzPasswordBoxPrivate::beginPeek()
         return;
     }
     const bool wasVisible = isPasswordVisible();
-    peekActive = true;
+    revealActive = true;
     applyVisibility(wasVisible);
     refreshPresentation();
 }
 
-void ZzPasswordBoxPrivate::endPeek()
+void ZzPasswordBoxPrivate::toggleVisibility()
 {
-    if (!peekActive) {
+    if (revealMode != ZzPasswordRevealMode::Toggle
+        || q_ptr->text().isEmpty() || !q_ptr->isEnabled()) {
         return;
     }
     const bool wasVisible = isPasswordVisible();
-    peekActive = false;
+    revealActive = !revealActive;
+    applyVisibility(wasVisible);
+    refreshPresentation();
+}
+
+void ZzPasswordBoxPrivate::endReveal()
+{
+    if (!revealActive) {
+        return;
+    }
+    const bool wasVisible = isPasswordVisible();
+    revealActive = false;
     applyVisibility(wasVisible);
     refreshPresentation();
 }
@@ -190,7 +215,8 @@ void ZzPasswordBoxPrivate::syncButtonGeometry()
 bool ZzPasswordBoxPrivate::isPasswordVisible() const noexcept
 {
     return revealMode == ZzPasswordRevealMode::Visible
-        || (revealMode == ZzPasswordRevealMode::Peek && peekActive);
+        || ((revealMode == ZzPasswordRevealMode::Peek
+                || revealMode == ZzPasswordRevealMode::Toggle) && revealActive);
 }
 
 void ZzPasswordBoxPrivate::applyVisibility(bool wasVisible)
@@ -205,7 +231,7 @@ void ZzPasswordBoxPrivate::applyVisibility(bool wasVisible)
 
 bool ZzPasswordBoxPrivate::shouldShowButton() const noexcept
 {
-    return revealMode == ZzPasswordRevealMode::Peek
+    return (revealMode == ZzPasswordRevealMode::Peek || revealMode == ZzPasswordRevealMode::Toggle)
         && !q_ptr->text().isEmpty() && q_ptr->isEnabled();
 }
 

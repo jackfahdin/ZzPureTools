@@ -37,7 +37,7 @@ bool ZzPasswordBox::event(QEvent *event)
     if (event != nullptr
         && (event->type() == QEvent::WindowDeactivate
             || event->type() == QEvent::Hide)) {
-        d_ptr->endPeek();
+        d_ptr->endReveal();
     }
     const bool handled = QLineEdit::event(event);
     if (event != nullptr
@@ -62,7 +62,7 @@ void ZzPasswordBox::changeEvent(QEvent *event)
     switch (event->type()) {
     case QEvent::EnabledChange:
         if (!isEnabled()) {
-            d_ptr->endPeek();
+            d_ptr->endReveal();
         }
         d_ptr->refreshPresentation();
         break;
@@ -80,7 +80,9 @@ void ZzPasswordBox::changeEvent(QEvent *event)
 
 void ZzPasswordBox::focusOutEvent(QFocusEvent *event)
 {
-    d_ptr->endPeek();
+    if (d_ptr->revealMode == ZzPasswordRevealMode::Peek) {
+        d_ptr->endReveal();
+    }
     QLineEdit::focusOutEvent(event);
 }
 

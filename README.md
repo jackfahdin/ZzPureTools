@@ -52,7 +52,7 @@ Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
 | 基础与布局 | `ZzScrollBar` | Fluent 滚动条和滚动标记 |
 | 基础与布局 | `ZzScrollArea` | 带主题滚动策略的内容容器 |
 | 基础与布局 | `ZzFlowLayout` | 自适应换行布局 |
-| 输入与选择 | `ZzPasswordBox` | 密码输入、显示和隐藏 |
+| 输入与选择 | `ZzPasswordBox` | 密码输入、按住查看或点击切换显示／隐藏 |
 | 输入与选择 | `ZzKeyBinder` | 键盘快捷键录入与格式化 |
 | 输入与选择 | `ZzColorPicker` | 颜色选择和预览 |
 | 输入与选择 | `ZzRatingControl` | 星级或精度评分输入 |

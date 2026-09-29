@@ -20,6 +20,9 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QLineEdit>
+#include <ZzFluentUI/ZzPasswordBox.h>
+#include <ZzFluentUI/ZzIconButton.h>
+#include "ZzExampleControlPage.h"
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QTabBar>
@@ -171,6 +174,30 @@ class ZzExampleWorkspaceSmokeTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 基础输入页使用库的点击式密码框，不再放置缺少查看入口的裸密码输入。 */
+    void basicInputPageUsesTogglePasswordBox()
+    {
+        ZzExample::ZzExampleControlPage page(ZzExample::ZzExampleControlKind::LineEdit,
+            QStringLiteral("test-line-edit"), QStringLiteral("输入框"), nullptr);
+        page.resize(900, 600);
+        page.show();
+        QCoreApplication::processEvents();
+        const auto boxes = page.findChildren<ZzFluentUI::ZzPasswordBox *>();
+        QCOMPARE(boxes.size(), qsizetype(1));
+        auto *box = boxes.first();
+        QCOMPARE(box->revealMode(), ZzFluentUI::ZzPasswordRevealMode::Toggle);
+        QVERIFY(!box->isClearButtonEnabled());
+        box->setText(QStringLiteral("example-password"));
+        auto *button = box->findChild<ZzFluentUI::ZzIconButton *>(QStringLiteral("zzPasswordRevealButton"));
+        QVERIFY(button != nullptr);
+        QVERIFY(button->isVisible());
+        QVERIFY(!button->icon().isNull());
+        QTest::mouseClick(button, Qt::LeftButton);
+        QVERIFY(box->isPasswordVisible());
+        QTest::mouseClick(button, Qt::LeftButton);
+        QVERIFY(!box->isPasswordVisible());
+    }
+
     void cleanupTestCase()
     {
         auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);

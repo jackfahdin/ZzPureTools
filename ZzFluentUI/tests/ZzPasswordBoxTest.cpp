@@ -13,6 +13,7 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzFontIcon.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
@@ -83,6 +84,136 @@ private:
     }
 
 private Q_SLOTS:
+    /** @brief 查看按钮使用缓存字体眼睛图标，跨主题和 RTL 刷新且不遮挡文本。 */
+    void toggleIconsFollowThemeAndDirection()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        auto style = createStyle(&controller);
+        ZzFluentUI::ZzPasswordBox box;
+        box.setStyle(style.get());
+        box.setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Toggle);
+        box.setText(QStringLiteral("demo-password"));
+        box.resize(320, 40);
+        auto *button = revealButton(&box);
+        button->setStyle(style.get());
+        box.show();
+        QCoreApplication::processEvents();
+        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark, ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            box.setPalette(style->standardPalette());
+            for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+                box.setLayoutDirection(direction);
+                for (int click = 0; click < 2; ++click) {
+                    QTest::mouseClick(button, Qt::LeftButton);
+                    const auto icon = box.isPasswordVisible()
+                        ? ZzFluentUI::ZzFontIcon::EyeSlash : ZzFluentUI::ZzFontIcon::Eye;
+                    const auto expected = style->iconPixmap(
+                        ZzFluentUI::ZzIconDescriptor::fromFontIcon(icon), button->iconSize(),
+                        button->devicePixelRatioF(), button->palette().color(QPalette::ButtonText), direction);
+                    QVERIFY(!button->icon().isNull());
+                    QCOMPARE(button->icon().pixmap(button->iconSize(), button->devicePixelRatioF()).toImage(),
+                        expected.toImage());
+                }
+                QVERIFY(box.contentsRect().contains(button->geometry()));
+                if (direction == Qt::RightToLeft) {
+                    QVERIFY(button->geometry().center().x() < box.width() / 2);
+                    QVERIFY(box.textMargins().left() > button->width());
+                    QCOMPARE(box.textMargins().right(), 0);
+                } else {
+                    QVERIFY(button->geometry().center().x() > box.width() / 2);
+                    QVERIFY(box.textMargins().right() > button->width());
+                    QCOMPARE(box.textMargins().left(), 0);
+                }
+            }
+        }
+    }
+
+    /** @brief 点击切换使用同一个按钮，保留文本、反向选区和光标，键盘也可操作。 */
+    void toggleKeepsEditingStateAndUsesClick()
+    {
+        ZzFluentUI::ZzPasswordBox box;
+        box.setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Toggle);
+        box.setText(QStringLiteral("demo-password"));
+        box.resize(320, 40);
+        box.show();
+        QCoreApplication::processEvents();
+        auto *button = revealButton(&box);
+        QVERIFY(button->isVisible());
+        QVERIFY(!box.isPasswordVisible());
+        box.setSelection(8, -4);
+        const int cursor = box.cursorPosition();
+        const int selectionStart = box.selectionStart();
+        const QString selected = box.selectedText();
+        const qsizetype objectCount = box.findChildren<QObject *>().size();
+        QSignalSpy textSpy(&box, &QLineEdit::textChanged);
+        QSignalSpy visibleSpy(&box, &ZzFluentUI::ZzPasswordBox::passwordVisibilityChanged);
+        for (int i = 0; i < 4; ++i) {
+            const bool visible = i % 2 == 0;
+            if (i < 2) {
+                QTest::mouseClick(button, Qt::LeftButton);
+            } else {
+                button->setFocus();
+                QTest::keyClick(button, Qt::Key_Space);
+            }
+            QCOMPARE(box.isPasswordVisible(), visible);
+            QCOMPARE(box.echoMode(), visible ? QLineEdit::Normal : QLineEdit::Password);
+            QCOMPARE(button->accessibleName(), visible ? QStringLiteral("隐藏密码") : QStringLiteral("显示密码"));
+            QCOMPARE(button->toolTip(), button->accessibleName());
+            QCOMPARE(box.text(), QStringLiteral("demo-password"));
+            QCOMPARE(box.cursorPosition(), cursor);
+            QCOMPARE(box.selectionStart(), selectionStart);
+            QCOMPARE(box.selectedText(), selected);
+        }
+        QCOMPARE(textSpy.count(), 0);
+        QCOMPARE(visibleSpy.count(), 4);
+        QCOMPARE(box.findChildren<QObject *>().size(), objectCount);
+    }
+
+    /** @brief 点击查看在清空、禁用、隐藏和窗口失活后恢复隐藏，模式切换也不遗留状态。 */
+    void toggleResetsWhenInputBecomesUnavailable()
+    {
+        QWidget host;
+        ZzFluentUI::ZzPasswordBox box(&host);
+        QLineEdit other(&host);
+        box.setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Toggle);
+        box.resize(320, 40);
+        other.setGeometry(0, 50, 320, 40);
+        host.resize(340, 100);
+        host.show();
+        auto *button = revealButton(&box);
+        for (int reason = 0; reason < 4; ++reason) {
+            box.setEnabled(true);
+            box.setText(QStringLiteral("secret"));
+            box.show();
+            QCoreApplication::processEvents();
+            QTest::mouseClick(button, Qt::LeftButton);
+            QVERIFY(box.isPasswordVisible());
+            box.setFocus();
+            QVERIFY(box.hasFocus());
+            QVERIFY(box.isPasswordVisible());
+            other.setFocus();
+            QVERIFY(other.hasFocus());
+            QVERIFY(box.isPasswordVisible());
+            if (reason == 0) {
+                box.clear();
+            } else if (reason == 1) {
+                box.setEnabled(false);
+            } else if (reason == 2) {
+                box.hide();
+            } else {
+                QEvent deactivate(QEvent::WindowDeactivate);
+                QCoreApplication::sendEvent(&box, &deactivate);
+            }
+            QVERIFY(!box.isPasswordVisible());
+            QCOMPARE(box.echoMode(), QLineEdit::Password);
+        }
+        box.setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Visible);
+        QVERIFY(box.isPasswordVisible());
+        box.setRevealMode(ZzFluentUI::ZzPasswordRevealMode::Toggle);
+        QVERIFY(!box.isPasswordVisible());
+    }
+
     void defaultsAndModesAreIdempotent()
     {
         ZzFluentUI::ZzPasswordBox box;

@@ -17,6 +17,9 @@ enum class ZzPasswordRevealMode : std::uint8_t
 
     /** @brief 始终以普通文本显示密码且不显示查看按钮。 */
     Visible,
+
+    /** @brief 点击查看按钮切换显示与隐藏，初始隐藏。 */
+    Toggle,
 };
 
 } // namespace ZzFluentUI
