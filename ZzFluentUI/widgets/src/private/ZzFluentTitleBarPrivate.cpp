@@ -1,4 +1,5 @@
 #include "ZzFluentTitleBarPrivate.h"
+#include "ZzControlAppearancePrivate.h"
 
 #include <algorithm>
 #include <array>
@@ -68,8 +69,15 @@ QColor zzSubtleSeparatorColor(const ZzFluentStyle *style)
     return result;
 }
 
-/** @brief 使用样式缓存渲染标题栏内嵌 SVG，必要时执行轻量回退着色。 */
-QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon)
+/**
+ * @brief 使用样式缓存渲染标题栏内嵌 SVG，必要时执行轻量回退着色。
+ * @param widget 提供调色板、缩放比例和布局方向的控件。
+ * @param icon 内嵌图标标识。
+ * @param tint 指定图标颜色；无效颜色表示使用按钮文字色。
+ * @return 已着色的图标。
+ */
+QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon,
+    const QColor &tint = {})
 {
     if (widget == nullptr) {
         return {};
@@ -78,7 +86,8 @@ QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon)
     const QSize logicalSize(16, 16);
     const qreal devicePixelRatio = qMax(
         qreal(1.0), widget->devicePixelRatioF());
-    const QColor color = widget->palette().color(QPalette::ButtonText);
+    const QColor color = tint.isValid()
+        ? tint : widget->palette().color(QPalette::ButtonText);
     if (auto *style = qobject_cast<ZzFluentStyle *>(widget->style());
         style != nullptr) {
         const QPixmap pixmap = style->iconPixmap(
@@ -329,19 +338,19 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
 
     compactMenuButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::MoreLine));
-    // 菜单模式展示当前主题；Toggle 模式展示点击后将切换到的主题。
+    // 图标展示当前主题；Toggle 模式的提示文字描述点击后的动作。
     const ZzBundledSvgIcon themeIcon = toggleThemeIcon
         ? (effectiveMode == ZzThemeMode::Dark
-               ? ZzBundledSvgIcon::Sun : ZzBundledSvgIcon::Moon)
+               ? ZzBundledSvgIcon::Moon : ZzBundledSvgIcon::Sun)
         : themeMode == ZzThemeMode::Light ? ZzBundledSvgIcon::Sun
         : themeMode == ZzThemeMode::Dark ? ZzBundledSvgIcon::Moon
         : ZzBundledSvgIcon::ComputerSystem;
     themeButton->setIcon(zzTitleBarIcon(q_ptr, themeIcon));
     alwaysOnTopButton->setIcon(zzTitleBarIcon(
-        q_ptr,
+        q_ptr, ZzBundledSvgIcon::Pin,
         alwaysOnTop
-            ? ZzBundledSvgIcon::PinFill
-            : ZzBundledSvgIcon::Pin));
+            ? ZzControlAppearancePrivate::accent(q_ptr->palette())
+            : QColor{}));
     minimizeButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::Minimize));
     maximizeButton->setIcon(zzTitleBarIcon(

@@ -921,11 +921,13 @@ private Q_SLOTS:
         titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Light);
         QCOMPARE(
             iconImage(themeButton),
-            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
+        QCOMPARE(themeButton->toolTip(), QStringLiteral("切换到深色"));
         titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Dark);
         QCOMPARE(
             iconImage(themeButton),
-            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
+            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+        QCOMPARE(themeButton->toolTip(), QStringLiteral("切换到浅色"));
 
         QAction *lightAction = nullptr;
         QAction *darkAction = nullptr;
@@ -959,10 +961,42 @@ private Q_SLOTS:
         controller.setMode(ZzFluentUI::ZzThemeMode::Light);
         QEvent paletteChange(QEvent::PaletteChange);
         QCoreApplication::sendEvent(&titleBar, &paletteChange);
-        QCOMPARE(iconImage(themeButton), expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+        QCOMPARE(iconImage(themeButton), expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
         controller.setMode(ZzFluentUI::ZzThemeMode::Dark);
         QCoreApplication::sendEvent(&titleBar, &paletteChange);
-        QCOMPARE(iconImage(themeButton), expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
+        QCOMPARE(iconImage(themeButton), expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
+    }
+
+    /** @brief 置顶复用同一线框图标，仅以强调色区分，主题和强调色变化后立即刷新。 */
+    void pinUsesAccentOnlyForConfirmedAlwaysOnTop()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzFluentTitleBar titleBar;
+        titleBar.setStyle(&style);
+        auto *pin = titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        QVERIFY(pin);
+        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark, ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            for (const QColor accent : {QColor("#0067c0"), QColor("#c239b3")}) {
+                controller.setAccentColor(accent);
+                titleBar.setPalette(style.standardPalette());
+                // 保持置顶跨越强调色和主题变化，先验证刷新，再验证取消与重新置顶。
+                for (const bool pinned : {true, false, true}) {
+                    titleBar.setAlwaysOnTop(pinned);
+                    const QColor color = titleBar.palette().color(
+                        pinned ? QPalette::Accent : QPalette::ButtonText);
+                    const auto expected = style.iconPixmap(
+                        ZzFluentUI::ZzIconDescriptor::fromBundledSvg(ZzFluentUI::ZzBundledSvgIcon::Pin),
+                        QSize(16, 16), titleBar.devicePixelRatioF(), color, titleBar.layoutDirection());
+                    QCOMPARE(pin->icon().pixmap(QSize(16, 16), titleBar.devicePixelRatioF()).toImage(),
+                        expected.toImage());
+                    QCOMPARE(pin->isChecked(), pinned);
+                }
+            }
+        }
     }
 
     void refreshesTranslatedChromeText()
