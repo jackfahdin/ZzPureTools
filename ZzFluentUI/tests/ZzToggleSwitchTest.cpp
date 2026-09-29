@@ -42,8 +42,8 @@ class ZzToggleSwitchTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
-    /** @brief 切换主题时圆点响应深浅，同时在自定义强调色及按压状态中保持可辨识。 */
-    void checkedThumbFollowsThemeAndKeepsContrast()
+    /** @brief 浅色开启圆点保持无描边白色，深色保留对比适配，交互不改变圆点颜色。 */
+    void checkedThumbFollowsThemeWithoutOutline()
     {
         ZzFluentUI::ZzThemeController controller;
         controller.setReducedMotion(true);
@@ -61,7 +61,7 @@ private Q_SLOTS:
         };
         for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
             controller.setMode(mode);
-            for (const QColor accent : {QColor("#0067c0"), QColor("#36a6ff"),
+            for (const QColor accent : {QColor("#0067c0"), QColor("#36a6ff"), QColor("#8752b5"),
                      QColor("#ffff00"), QColor("#080808"), QColor("#000000"),
                      QColor("#ffffff"), QColor("#40000000"), QColor("#40ffffff"),
                      QColor("#6e000000"), QColor("#60ffffff")}) {
@@ -83,17 +83,11 @@ private Q_SLOTS:
                     if (mode == ZzFluentUI::ZzThemeMode::Light) {
                         QCOMPARE(thumb, QColor(Qt::white));
                     }
-                    // 明亮强调色上的白色圆点以轮廓保证辨识，不反转填充色。
+                    // 全局与局部强调色使用相同的纯色圆点，边缘仅允许抗锯齿混色。
                     const double edgeLuminance = luminance(image.pixelColor(36, toggle.rect().center().y()));
-                    const double edgeContrast = (std::max(edgeLuminance, trackLuminance) + 0.05)
-                        / (std::min(edgeLuminance, trackLuminance) + 0.05);
-                    if (state == 0 && fillContrast >= 3.0) {
-                        // 无需描边时，边缘只允许圆点与轨道的抗锯齿混色。
-                        QVERIFY(edgeLuminance <= std::max(thumbLuminance, trackLuminance) + 0.02);
-                        QVERIFY(edgeLuminance >= std::min(thumbLuminance, trackLuminance) - 0.02);
-                    }
-                    QVERIFY2(fillContrast >= 3.0
-                            || (mode == ZzFluentUI::ZzThemeMode::Light && edgeContrast >= 3.0),
+                    QVERIFY(edgeLuminance <= std::max(thumbLuminance, trackLuminance) + 0.02);
+                    QVERIFY(edgeLuminance >= std::min(thumbLuminance, trackLuminance) - 0.02);
+                    QVERIFY2(mode == ZzFluentUI::ZzThemeMode::Light || fillContrast >= 3.0,
                         qPrintable(QStringLiteral("mode=%1 accent=%2 state=%3")
                             .arg(static_cast<int>(mode)).arg(accent.name(QColor::HexArgb)).arg(state)));
                     if (state == 0) {

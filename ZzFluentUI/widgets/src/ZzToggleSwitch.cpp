@@ -22,15 +22,17 @@ constexpr int zzTextSpacing = 8;
 constexpr double zzMinimumKnobContrast = 3.0;
 
 /**
- * @brief 按表面明暗选择开启态圆点，以填充或描边保证与轨道的辨识度。
+ * @brief 按表面明暗选择无描边的开启态圆点。
  * @param palette 控件调色板。
- * @param outline 返回必要的圆点描边颜色；无效颜色表示无需描边。
  * @return 浅色主题保持白色，深色主题优先使用表面深灰色。
  */
-QColor zzCheckedKnobColor(const QPalette &palette, QColor &outline)
+QColor zzCheckedKnobColor(const QPalette &palette)
 {
-    outline = QColor{};
     const QColor surface = palette.color(QPalette::Window);
+    const bool dark = ZzControlAppearancePrivate::contrastingText(surface) == QColorConstants::White;
+    if (!dark) {
+        return QColorConstants::White;
+    }
     QColor accent = ZzControlAppearancePrivate::accent(palette);
     if (accent.alpha() != 255) {
         // 对半透明强调色按轨道落在窗口表面后的实际颜色计算对比。
@@ -41,15 +43,8 @@ QColor zzCheckedKnobColor(const QPalette &palette, QColor &outline)
         accent = QColor::fromRgb(blend(accent.red(), surface.red()),
             blend(accent.green(), surface.green()), blend(accent.blue(), surface.blue()));
     }
-    const bool dark = ZzControlAppearancePrivate::contrastingText(surface) == QColorConstants::White;
-    const QColor preferred = dark ? surface : QColorConstants::White;
-    if (ZzControlAppearancePrivate::contrastRatio(preferred, accent) >= zzMinimumKnobContrast) {
-        return preferred;
-    }
-    if (!dark) {
-        // 亮色轨道上保留白色填充，用细轮廓补足对比，避免同一主题圆点忽黑忽白。
-        outline = QColorConstants::Black;
-        return preferred;
+    if (ZzControlAppearancePrivate::contrastRatio(surface, accent) >= zzMinimumKnobContrast) {
+        return surface;
     }
     // 深灰不足时先尝试黑色，避免默认蓝色轨道在深色主题仍使用白色圆点。
     const QColor extreme = QColorConstants::Black;
@@ -141,9 +136,8 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
         : QPalette::Disabled;
     QColor neutral = option.palette.color(group, QPalette::Text);
     neutral.setAlphaF(isEnabled() ? 0.65F : 0.35F);
-    QColor knobOutline;
     const QColor knobColor = isChecked()
-        ? (isEnabled() ? zzCheckedKnobColor(option.palette, knobOutline)
+        ? (isEnabled() ? zzCheckedKnobColor(option.palette)
                        : option.palette.color(QPalette::Window))
         : neutral;
     const QColor trackColor = isChecked()
@@ -159,9 +153,8 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
         zzTrackHeight / 2.0,
         zzTrackHeight / 2.0);
     painter.setBrush(knobColor);
-    painter.setPen(knobOutline.isValid() ? QPen(knobOutline, 1.0) : QPen(Qt::NoPen));
-    const QRectF knobFill = knobOutline.isValid() ? knob.adjusted(0.5, 0.5, -0.5, -0.5) : knob;
-    painter.drawRoundedRect(knobFill, knobFill.height() / 2.0, knobFill.height() / 2.0);
+    painter.setPen(Qt::NoPen);
+    painter.drawRoundedRect(knob, knobHeight / 2.0, knobHeight / 2.0);
 
     if (!text().isEmpty()) {
         QRect textRect = content;
