@@ -21,9 +21,15 @@ constexpr int zzTrackInset = 3;
 constexpr int zzTextSpacing = 8;
 constexpr double zzMinimumKnobContrast = 3.0;
 
-/** @brief 按表面明暗选择开启态圆点，并为自定义强调色保留至少 3:1 对比。 */
-QColor zzCheckedKnobColor(const QPalette &palette)
+/**
+ * @brief 按表面明暗选择开启态圆点，以填充或描边保证与轨道的辨识度。
+ * @param palette 控件调色板。
+ * @param outline 返回必要的圆点描边颜色；无效颜色表示无需描边。
+ * @return 浅色主题保持白色，深色主题优先使用表面深灰色。
+ */
+QColor zzCheckedKnobColor(const QPalette &palette, QColor &outline)
 {
+    outline = QColor{};
     const QColor surface = palette.color(QPalette::Window);
     QColor accent = ZzControlAppearancePrivate::accent(palette);
     if (accent.alpha() != 255) {
@@ -40,8 +46,13 @@ QColor zzCheckedKnobColor(const QPalette &palette)
     if (ZzControlAppearancePrivate::contrastRatio(preferred, accent) >= zzMinimumKnobContrast) {
         return preferred;
     }
+    if (!dark) {
+        // 亮色轨道上保留白色填充，用细轮廓补足对比，避免同一主题圆点忽黑忽白。
+        outline = QColorConstants::Black;
+        return preferred;
+    }
     // 深灰不足时先尝试黑色，避免默认蓝色轨道在深色主题仍使用白色圆点。
-    const QColor extreme = dark ? QColorConstants::Black : QColorConstants::White;
+    const QColor extreme = QColorConstants::Black;
     if (ZzControlAppearancePrivate::contrastRatio(extreme, accent) >= zzMinimumKnobContrast) {
         return extreme;
     }
@@ -130,8 +141,9 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
         : QPalette::Disabled;
     QColor neutral = option.palette.color(group, QPalette::Text);
     neutral.setAlphaF(isEnabled() ? 0.65F : 0.35F);
+    QColor knobOutline;
     const QColor knobColor = isChecked()
-        ? (isEnabled() ? zzCheckedKnobColor(option.palette)
+        ? (isEnabled() ? zzCheckedKnobColor(option.palette, knobOutline)
                        : option.palette.color(QPalette::Window))
         : neutral;
     const QColor trackColor = isChecked()
@@ -147,8 +159,9 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
         zzTrackHeight / 2.0,
         zzTrackHeight / 2.0);
     painter.setBrush(knobColor);
-    painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(knob, knobHeight / 2.0, knobHeight / 2.0);
+    painter.setPen(knobOutline.isValid() ? QPen(knobOutline, 1.0) : QPen(Qt::NoPen));
+    const QRectF knobFill = knobOutline.isValid() ? knob.adjusted(0.5, 0.5, -0.5, -0.5) : knob;
+    painter.drawRoundedRect(knobFill, knobFill.height() / 2.0, knobFill.height() / 2.0);
 
     if (!text().isEmpty()) {
         QRect textRect = content;

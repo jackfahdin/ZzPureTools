@@ -78,8 +78,22 @@ private Q_SLOTS:
                     const QColor track = image.pixelColor(8, toggle.rect().center().y());
                     const double thumbLuminance = luminance(thumb);
                     const double trackLuminance = luminance(track);
-                    QVERIFY2((std::max(thumbLuminance, trackLuminance) + 0.05)
-                            / (std::min(thumbLuminance, trackLuminance) + 0.05) >= 3.0,
+                    const double fillContrast = (std::max(thumbLuminance, trackLuminance) + 0.05)
+                        / (std::min(thumbLuminance, trackLuminance) + 0.05);
+                    if (mode == ZzFluentUI::ZzThemeMode::Light) {
+                        QCOMPARE(thumb, QColor(Qt::white));
+                    }
+                    // 明亮强调色上的白色圆点以轮廓保证辨识，不反转填充色。
+                    const double edgeLuminance = luminance(image.pixelColor(36, toggle.rect().center().y()));
+                    const double edgeContrast = (std::max(edgeLuminance, trackLuminance) + 0.05)
+                        / (std::min(edgeLuminance, trackLuminance) + 0.05);
+                    if (state == 0 && fillContrast >= 3.0) {
+                        // 无需描边时，边缘只允许圆点与轨道的抗锯齿混色。
+                        QVERIFY(edgeLuminance <= std::max(thumbLuminance, trackLuminance) + 0.02);
+                        QVERIFY(edgeLuminance >= std::min(thumbLuminance, trackLuminance) - 0.02);
+                    }
+                    QVERIFY2(fillContrast >= 3.0
+                            || (mode == ZzFluentUI::ZzThemeMode::Light && edgeContrast >= 3.0),
                         qPrintable(QStringLiteral("mode=%1 accent=%2 state=%3")
                             .arg(static_cast<int>(mode)).arg(accent.name(QColor::HexArgb)).arg(state)));
                     if (state == 0) {
