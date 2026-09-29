@@ -694,9 +694,10 @@ void ZzRollerPickerPrivate::preparePopupGeometry()
 
     const QRect available = screen->availableGeometry();
     desired = desired.boundedTo(available.size());
+    // visualRect 的边界和逻辑矩形必须同属屏幕坐标，否则 LTR 会错误地锚定 x=0。
     const QRect visualAnchor = QStyle::visualRect(
         q_ptr->layoutDirection(), anchor,
-        QRect(0, 0, desired.width(), 1));
+        QRect(anchor.topLeft(), QSize(desired.width(), 1)));
     int x = visualAnchor.left();
     const int below = anchor.bottom() + 1;
     const int above = anchor.top() - desired.height();

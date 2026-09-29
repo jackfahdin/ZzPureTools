@@ -902,10 +902,11 @@ private Q_SLOTS:
             const QScreen *popupScreen = popup->screen();
             QVERIFY(popupScreen != nullptr);
             const QRect available = popupScreen->availableGeometry();
-            const QRect expectedVisual = QStyle::visualRect(
-                direction, triggerGlobal, QRect(0, 0, popup->width(), 1));
+            // 直接验证弹层与触发控件的边缘关系，不能复用生产代码的坐标换算。
+            const int alignedX = direction == Qt::LeftToRight
+                ? triggerGlobal.left() : triggerGlobal.right() - popup->width() + 1;
             const int expectedX = std::clamp(
-                expectedVisual.left(), available.left(),
+                alignedX, available.left(),
                 available.right() - popup->width() + 1);
             QCOMPARE(popup->geometry().left(), expectedX);
             QVERIFY(popup->geometry().top() >= available.top());
@@ -996,6 +997,52 @@ private Q_SLOTS:
         QVERIFY(interface->state().focusable);
     }
 
+    /** @brief 嵌套控件和父窗口移动后，弹层仍锚定触发控件而非屏幕原点。 */
+    void popupTracksTriggerAcrossParentMoves()
+    {
+        const char *variable = "ZZ_FLUENTUI_ROLLER_PICKER_FORCE_NON_GRABBING";
+        const bool wasSet = qEnvironmentVariableIsSet(variable);
+        const QByteArray previous = qgetenv(variable);
+        const auto restoreEnvironment = qScopeGuard([&] {
+            if (wasSet) {
+                qputenv(variable, previous);
+            } else {
+                qunsetenv(variable);
+            }
+        });
+        for (const auto &mode : {QByteArrayLiteral("0"), QByteArrayLiteral("1")}) {
+            qputenv(variable, mode);
+            QWidget host;
+            QWidget panel(&host);
+            panel.setGeometry(50, 30, 300, 200);
+            ZzFluentUI::ZzRollerPicker picker(&panel);
+            picker.setGeometry(40, 20, 220, 36);
+            picker.setColumns({{QStringLiteral("hour"),
+                {QStringLiteral("08"), QStringLiteral("09")}, 0, true, 88}});
+            host.resize(380, 260);
+            host.show();
+            for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+                picker.setLayoutDirection(direction);
+                for (const QPoint position : {QPoint(80, 60), QPoint(160, 120)}) {
+                    host.move(position);
+                    zzFlushRollerEvents();
+                    picker.showPopup();
+                    zzFlushRollerEvents();
+                    auto *popup = zzRollerPickerWindow(&picker);
+                    QVERIFY(popup && popup->isVisible());
+                    const QRect anchor(picker.mapToGlobal(QPoint(0, 0)), picker.size());
+                    if (direction == Qt::LeftToRight) {
+                        QCOMPARE(popup->geometry().left(), anchor.left());
+                    } else {
+                        QCOMPARE(popup->geometry().right(), anchor.right());
+                    }
+                    QCOMPARE(popup->geometry().top(), anchor.bottom() + 1);
+                    picker.cancelPopup();
+                }
+            }
+        }
+    }
+
     void usesNonGrabbingWindowForWaylandFallback()
     {
         const QByteArray variable = QByteArrayLiteral(
@@ -1032,6 +1079,8 @@ private Q_SLOTS:
         QCOMPARE(window->windowType(), Qt::Tool);
         QVERIFY(window->windowType() != Qt::Popup);
         QVERIFY(window->isVisible());
+        QCOMPARE(window->geometry().left(), picker.mapToGlobal(QPoint(0, 0)).x());
+        QCOMPARE(window->geometry().top(), picker.mapToGlobal(QPoint(0, picker.height())).y());
         QSignalSpy canceledSpy(
             &picker,
             &ZzFluentUI::ZzRollerPicker::selectionCanceled);
