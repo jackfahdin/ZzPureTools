@@ -252,20 +252,20 @@ private Q_SLOTS:
                 &option,
                 QStyle::SC_ScrollBarAddPage);
 
-            QCOMPARE(groove, rect);
+            QCOMPARE(groove, orientation == Qt::Horizontal
+                ? rect.adjusted(12, 0, -12, 0) : rect.adjusted(0, 12, 0, -12));
             QVERIFY(rect.contains(slider));
             QVERIFY(!slider.isEmpty());
             QVERIFY(!subPage.intersects(slider));
             QVERIFY(!addPage.intersects(slider));
             QVERIFY(!subPage.intersects(addPage));
-            QVERIFY(style.subControlRect(
-                QStyle::CC_ScrollBar,
-                &option,
-                QStyle::SC_ScrollBarSubLine).isEmpty());
-            QVERIFY(style.subControlRect(
-                QStyle::CC_ScrollBar,
-                &option,
-                QStyle::SC_ScrollBarAddLine).isEmpty());
+            for (const auto part : {QStyle::SC_ScrollBarSubLine, QStyle::SC_ScrollBarAddLine}) {
+                const QRect arrow = style.subControlRect(QStyle::CC_ScrollBar, &option, part);
+                QVERIFY(!arrow.isEmpty());
+                QVERIFY(!arrow.intersects(groove));
+                QCOMPARE(style.hitTestComplexControl(QStyle::CC_ScrollBar,
+                    &option, arrow.center()), part);
+            }
             QCOMPARE(
                 style.hitTestComplexControl(
                     QStyle::CC_ScrollBar,
@@ -329,7 +329,7 @@ private Q_SLOTS:
                 QStyle::CC_ScrollBar,
                 &zero,
                 QStyle::SC_ScrollBarSlider),
-            zero.rect);
+            QRect(0, 12, 12, 56));
 
         QStyleOptionSlider large = zzScrollOption(
             Qt::Vertical,
@@ -344,6 +344,149 @@ private Q_SLOTS:
             QStyle::SC_ScrollBarSlider);
         QVERIFY(large.rect.contains(largeSlider));
         QVERIFY(largeSlider.height() >= 24);
+    }
+
+    void arrowClicksRespectOrientationAndDirection_data()
+    {
+        QTest::addColumn<bool>("horizontal");
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("inverted");
+        for (bool horizontal : {false, true}) {
+            for (bool rtl : {false, true}) {
+                for (bool inverted : {false, true}) {
+                    const QByteArray name = QByteArray::number(horizontal) + '-'
+                        + QByteArray::number(rtl) + '-' + QByteArray::number(inverted);
+                    QTest::newRow(name.constData()) << horizontal << rtl << inverted;
+                }
+            }
+        }
+    }
+
+    void arrowClicksRespectOrientationAndDirection()
+    {
+        QFETCH(bool, horizontal);
+        QFETCH(bool, rtl);
+        QFETCH(bool, inverted);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzScrollBar bar(horizontal ? Qt::Horizontal : Qt::Vertical);
+        bar.setStyle(&style);
+        bar.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        bar.setInvertedAppearance(inverted);
+        bar.setRange(0, 100);
+        bar.setPageStep(20);
+        bar.setSingleStep(3);
+        bar.setValue(40);
+        bar.resize(horizontal ? QSize(240, 12) : QSize(12, 240));
+        bar.show();
+        auto option = zzScrollOption(bar.orientation(), bar.rect(), 0, 100, 20, 40, inverted);
+        option.direction = bar.layoutDirection();
+        const QRect add = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarAddLine);
+        const QRect sub = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSubLine);
+        QVERIFY(!add.isEmpty());
+        QVERIFY(!sub.isEmpty());
+        const bool reversed = inverted != (horizontal && rtl);
+        QCOMPARE(horizontal ? add.left() < sub.left() : add.top() < sub.top(), reversed);
+        QTest::mouseClick(&bar, Qt::LeftButton, Qt::NoModifier, add.center());
+        QCOMPARE(bar.value(), 43);
+        QTest::mouseClick(&bar, Qt::LeftButton, Qt::NoModifier, sub.center());
+        QCOMPARE(bar.value(), 40);
+        bar.setValue(100);
+        QTest::mouseClick(&bar, Qt::LeftButton, Qt::NoModifier, add.center());
+        QCOMPARE(bar.value(), 100);
+        bar.setValue(0);
+        QTest::mouseClick(&bar, Qt::LeftButton, Qt::NoModifier, sub.center());
+        QCOMPARE(bar.value(), 0);
+        option.sliderPosition = 0;
+        const QRect slider = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider);
+        const QRect groove = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarGroove);
+        QTest::mousePress(&bar, Qt::LeftButton, Qt::NoModifier, slider.center());
+        const QPoint destination = horizontal
+            ? QPoint(reversed ? groove.left() : groove.right(), slider.center().y())
+            : QPoint(slider.center().x(), reversed ? groove.top() : groove.bottom());
+        QTest::mouseMove(&bar, destination);
+        QTest::mouseRelease(&bar, Qt::LeftButton, Qt::NoModifier, destination);
+        QCOMPARE(bar.value(), 100);
+    }
+
+    void fadesArrowsAndDimsUnavailableDirection()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const auto alphaSum = [](const QImage &image) {
+            int sum = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) sum += image.pixelColor(x, y).alpha();
+            }
+            return sum;
+        };
+        for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {
+            auto option = zzScrollOption(orientation, orientation == Qt::Horizontal
+                ? QRect(0, 0, 240, 12) : QRect(0, 0, 12, 240), 0, 100, 20, 50);
+            option.palette = style.standardPalette();
+            for (const auto part : {QStyle::SC_ScrollBarSubLine, QStyle::SC_ScrollBarAddLine}) {
+                option.subControls = part;
+                option.sliderPosition = 50;
+                option.state = QStyle::State_Enabled;
+                QCOMPARE(alphaSum(zzRenderScrollOption(style, option)), 0);
+                option.state |= QStyle::State_MouseOver;
+                const int available = alphaSum(zzRenderScrollOption(style, option));
+                QVERIFY(available > 0);
+                option.sliderPosition = part == QStyle::SC_ScrollBarSubLine ? 0 : 100;
+                const int unavailable = alphaSum(zzRenderScrollOption(style, option));
+                QVERIFY(unavailable > 0);
+                QVERIFY(unavailable < available);
+                option.state &= ~QStyle::State_Enabled;
+                QCOMPARE(alphaSum(zzRenderScrollOption(style, option)), 0);
+            }
+        }
+    }
+
+    void repeatsArrowWhileHeldAndStopsOnRelease()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzScrollBar bar;
+        bar.setStyle(&style);
+        bar.setRange(0, 100);
+        bar.setSingleStep(2);
+        bar.resize(12, 240);
+        bar.show();
+        QTest::mousePress(&bar, Qt::LeftButton, Qt::NoModifier, QPoint(6, 234));
+        QCOMPARE(bar.value(), 2);
+        QVERIFY(QTest::qWaitFor([&bar] { return bar.value() > 2; }, 1500));
+        QTest::mouseRelease(&bar, Qt::LeftButton, Qt::NoModifier, QPoint(6, 234));
+        const int released = bar.value();
+        QTest::qWait(120);
+        QCOMPARE(bar.value(), released);
+    }
+
+    void keepsTinyArrowGeometryDisjoint()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {
+            for (int length : {1, 12, 23, 24, 25, 26, 47, 48, 240}) {
+                auto option = zzScrollOption(orientation, orientation == Qt::Horizontal
+                    ? QRect(0, 0, length, 12) : QRect(0, 0, 12, length), 0, 100, 20, 0);
+                const QRect groove = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarGroove);
+                const QRect sub = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSubLine);
+                const QRect add = style.subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarAddLine);
+                QVERIFY(option.rect.contains(groove));
+                QVERIFY(!sub.intersects(groove));
+                QVERIFY(!add.intersects(groove));
+                QVERIFY(!add.intersects(sub));
+                const int grooveLength = orientation == Qt::Horizontal ? groove.width() : groove.height();
+                QVERIFY(grooveLength >= std::min(length, 24));
+                if (length <= 24) {
+                    QVERIFY(sub.isEmpty());
+                    QVERIFY(add.isEmpty());
+                } else if (length >= 48) {
+                    QVERIFY(!sub.isEmpty());
+                    QVERIFY(!add.isEmpty());
+                }
+            }
+        }
     }
 
     void rendersStandardAndAnimatedScrollBars()
@@ -457,7 +600,7 @@ private Q_SLOTS:
         const QImage end = zzRenderScrollOption(style, option, &bar);
         QVERIFY(start != middle);
         QVERIFY(middle != end);
-        const QPoint trackPoint = horizontal ? QPoint(10, 5) : QPoint(5, 10);
+        const QPoint trackPoint = horizontal ? QPoint(30, 5) : QPoint(5, 30);
         QCOMPARE(start.pixelColor(trackPoint).alpha(), 0);
         QVERIFY(middle.pixelColor(trackPoint).alpha() > 0);
         QVERIFY(middle.pixelColor(trackPoint).alpha() < end.pixelColor(trackPoint).alpha());

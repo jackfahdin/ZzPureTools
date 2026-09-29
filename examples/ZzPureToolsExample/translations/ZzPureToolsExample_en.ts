@@ -272,8 +272,8 @@
         <translation>ScrollBar</translation>
     </message>
     <message>
-        <source>横向滚动条：悬停展开，拖动或使用方向键</source>
-        <translation>Horizontal: hover to expand, drag or use arrow keys</translation>
+        <source>横向滚动条：悬停显示箭头，点击步进，长按连续滚动</source>
+        <translation>Horizontal: hover for arrows, click to step, hold to scroll continuously</translation>
     </message>
     <message>
         <source>纵向滚动条：普通与禁用状态</source>

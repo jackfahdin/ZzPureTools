@@ -140,7 +140,7 @@ void ZzExampleControlPagePrivate::initialize(ZzExampleControlKind kind, const QS
 void ZzExampleControlPagePrivate::buildScroll()
 {
     auto *horizontal = section(QCoreApplication::translate(
-        "ZzPureToolsExample", "横向滚动条：悬停展开，拖动或使用方向键"));
+        "ZzPureToolsExample", "横向滚动条：悬停显示箭头，点击步进，长按连续滚动"));
     auto *vertical = section(QCoreApplication::translate(
         "ZzPureToolsExample", "纵向滚动条：普通与禁用状态"));
     for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {

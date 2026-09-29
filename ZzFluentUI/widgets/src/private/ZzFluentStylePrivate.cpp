@@ -2219,7 +2219,7 @@ void ZzFluentStylePrivate::drawScrollBar(
     QPainter *painter,
     const QWidget *widget) const
 {
-    if (!option->subControls.testFlag(QStyle::SC_ScrollBarSlider)) {
+    if (option->rect.isEmpty()) {
         return;
     }
     const QRect slider = scrollBarSubControlRect(
@@ -2233,6 +2233,9 @@ void ZzFluentStylePrivate::drawScrollBar(
     const bool hovered = option->state.testFlag(QStyle::State_MouseOver);
     const bool pressed = option->state.testFlag(QStyle::State_Sunken)
         && option->activeSubControls.testFlag(QStyle::SC_ScrollBarSlider);
+    const bool arrowPressed = option->state.testFlag(QStyle::State_Sunken)
+        && (option->activeSubControls.testFlag(QStyle::SC_ScrollBarSubLine)
+            || option->activeSubControls.testFlag(QStyle::SC_ScrollBarAddLine));
     const bool focused = option->state.testFlag(QStyle::State_HasFocus)
         && q_ptr->isFocusVisualVisible(widget);
     qreal expansion = hovered ? 1.0 : 0.0;
@@ -2241,7 +2244,7 @@ void ZzFluentStylePrivate::drawScrollBar(
         // 悬停只使用动画进度，不能被 MouseOver 状态直接覆盖为终态。
         expansion = std::clamp(fluentScrollBar->d_ptr->expansion, 0.0, 1.0);
     }
-    if (pressed || focused) {
+    if (pressed || arrowPressed || focused) {
         expansion = 1.0;
     }
     if (!enabled) {
@@ -2255,7 +2258,9 @@ void ZzFluentStylePrivate::drawScrollBar(
     painter->setClipRect(option->rect, Qt::IntersectClip);
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(Qt::NoPen);
-    if (!qFuzzyIsNull(expansion)) {
+    if (!qFuzzyIsNull(expansion)
+        && (option->subControls.testFlag(QStyle::SC_ScrollBarGroove)
+            || option->subControls.testFlag(QStyle::SC_ScrollBarSlider))) {
         QColor trackColor = snapshot->color(ZzColorToken::ControlFillHover);
         trackColor.setAlpha(qRound(trackColor.alpha() * expansion));
         painter->setBrush(trackColor);
@@ -2288,8 +2293,40 @@ void ZzFluentStylePrivate::drawScrollBar(
     const QColor handleColor = focused || pressed
         ? option->palette.color(group, QPalette::Highlight)
         : option->palette.color(group, QPalette::PlaceholderText);
-    painter->setBrush(handleColor);
-    painter->drawRoundedRect(handle, thickness / 2.0, thickness / 2.0);
+    if (option->subControls.testFlag(QStyle::SC_ScrollBarSlider)) {
+        painter->setBrush(handleColor);
+        painter->drawRoundedRect(handle, thickness / 2.0, thickness / 2.0);
+    }
+    // 直接绘制内接三角，复用同一动画进度，不创建字体、图标或额外控件。
+    const bool horizontal = option->orientation == Qt::Horizontal;
+    const bool reversed = option->upsideDown
+        != (horizontal && option->direction == Qt::RightToLeft);
+    for (const auto part : {QStyle::SC_ScrollBarSubLine, QStyle::SC_ScrollBarAddLine}) {
+        if (!option->subControls.testFlag(part) || qFuzzyIsNull(expansion)) continue;
+        const QRectF bounds(scrollBarSubControlRect(option, part));
+        if (bounds.isEmpty()) continue;
+        const bool increment = part == QStyle::SC_ScrollBarAddLine;
+        const bool available = enabled && (increment
+            ? option->sliderPosition < option->maximum
+            : option->sliderPosition > option->minimum);
+        QColor color = option->palette.color(group,
+            available && option->activeSubControls.testFlag(part)
+                ? QPalette::Text : QPalette::PlaceholderText);
+        color.setAlpha(qRound(color.alpha() * expansion * (available ? 1.0 : 0.35)));
+        painter->setBrush(color);
+        const qreal radius = std::max(0.0,
+            std::min(2.5, (std::min(bounds.width(), bounds.height()) - 2.0) / 2.0));
+        if (qFuzzyIsNull(radius)) continue;
+        const qreal direction = increment != reversed ? 1.0 : -1.0;
+        const QPointF axis = horizontal ? QPointF(direction, 0.0) : QPointF(0.0, direction);
+        const QPointF cross = horizontal ? QPointF(0.0, 1.0) : QPointF(1.0, 0.0);
+        const QPointF center = bounds.center();
+        const QPointF points[] = {
+            center + axis * (radius * 0.6),
+            center - axis * (radius * 0.6) + cross * radius,
+            center - axis * (radius * 0.6) - cross * radius};
+        painter->drawPolygon(points, 3);
+    }
     painter->restore();
 }
 
@@ -2300,23 +2337,40 @@ QRect ZzFluentStylePrivate::scrollBarSubControlRect(
     if (option == nullptr || option->rect.isEmpty()) {
         return {};
     }
-    if (subControl == QStyle::SC_ScrollBarGroove) {
-        return option->rect;
-    }
-    if (subControl == QStyle::SC_ScrollBarAddLine
-        || subControl == QStyle::SC_ScrollBarSubLine
-        || subControl == QStyle::SC_ScrollBarFirst
+    if (subControl == QStyle::SC_ScrollBarFirst
         || subControl == QStyle::SC_ScrollBarLast) {
         return {};
     }
 
     const bool horizontal = option->orientation == Qt::Horizontal;
-    const int available = horizontal
+    const int totalLength = horizontal
         ? option->rect.width()
         : option->rect.height();
-    if (available <= 0) {
-        return {};
+    const int minimumSlider = q_ptr->pixelMetric(QStyle::PM_ScrollBarSliderMin, option);
+    // 固定预留两端空间，悬停只改变透明度；紧凑尺寸优先保留滑块命中区。
+    const int arrowLength = std::min(q_ptr->pixelMetric(QStyle::PM_ScrollBarExtent, option),
+        std::max(0, (totalLength - minimumSlider) / 2));
+    const QRect groove = horizontal
+        ? option->rect.adjusted(arrowLength, 0, -arrowLength, 0)
+        : option->rect.adjusted(0, arrowLength, 0, -arrowLength);
+    // 与 QScrollBar 将拖动坐标换算为数值的规则保持一致。
+    const bool reversed = option->upsideDown
+        != (horizontal && option->direction == Qt::RightToLeft);
+    if (subControl == QStyle::SC_ScrollBarGroove) {
+        return groove;
     }
+    if (subControl == QStyle::SC_ScrollBarAddLine
+        || subControl == QStyle::SC_ScrollBarSubLine) {
+        if (arrowLength == 0) return {};
+        const bool trailing = (subControl == QStyle::SC_ScrollBarAddLine) != reversed;
+        if (horizontal) {
+            return QRect(trailing ? groove.right() + 1 : option->rect.left(),
+                option->rect.top(), arrowLength, option->rect.height());
+        }
+        return QRect(option->rect.left(), trailing ? groove.bottom() + 1 : option->rect.top(),
+            option->rect.width(), arrowLength);
+    }
+    const int available = horizontal ? groove.width() : groove.height();
     const qint64 range = std::max<qint64>(
         0,
         static_cast<qint64>(option->maximum)
@@ -2350,17 +2404,17 @@ QRect ZzFluentStylePrivate::scrollBarSubControlRect(
               option->maximum,
               boundedPosition,
               travel,
-              option->upsideDown)
+              reversed)
         : 0;
     const QRect slider = horizontal
         ? QRect(
-              option->rect.left() + sliderOffset,
-              option->rect.top(),
+              groove.left() + sliderOffset,
+              groove.top(),
               sliderLength,
               option->rect.height())
         : QRect(
-              option->rect.left(),
-              option->rect.top() + sliderOffset,
+              groove.left(),
+              groove.top() + sliderOffset,
               option->rect.width(),
               sliderLength);
     if (subControl == QStyle::SC_ScrollBarSlider) {
@@ -2369,31 +2423,31 @@ QRect ZzFluentStylePrivate::scrollBarSubControlRect(
 
     const QRect before = horizontal
         ? QRect(
-              option->rect.left(),
-              option->rect.top(),
-              slider.left() - option->rect.left(),
+              groove.left(),
+              groove.top(),
+              slider.left() - groove.left(),
               option->rect.height())
         : QRect(
-              option->rect.left(),
-              option->rect.top(),
+              groove.left(),
+              groove.top(),
               option->rect.width(),
-              slider.top() - option->rect.top());
+              slider.top() - groove.top());
     const QRect after = horizontal
         ? QRect(
               slider.right() + 1,
               option->rect.top(),
-              option->rect.right() - slider.right(),
+              groove.right() - slider.right(),
               option->rect.height())
         : QRect(
               option->rect.left(),
               slider.bottom() + 1,
               option->rect.width(),
-              option->rect.bottom() - slider.bottom());
+              groove.bottom() - slider.bottom());
     if (subControl == QStyle::SC_ScrollBarSubPage) {
-        return option->upsideDown ? after : before;
+        return reversed ? after : before;
     }
     if (subControl == QStyle::SC_ScrollBarAddPage) {
-        return option->upsideDown ? before : after;
+        return reversed ? before : after;
     }
     return {};
 }
@@ -2406,6 +2460,8 @@ QStyle::SubControl ZzFluentStylePrivate::hitTestScrollBar(
         return QStyle::SC_None;
     }
     for (const QStyle::SubControl subControl : {
+             QStyle::SC_ScrollBarSubLine,
+             QStyle::SC_ScrollBarAddLine,
              QStyle::SC_ScrollBarSlider,
              QStyle::SC_ScrollBarSubPage,
              QStyle::SC_ScrollBarAddPage}) {

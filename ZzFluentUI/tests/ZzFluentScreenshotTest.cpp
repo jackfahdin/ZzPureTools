@@ -2512,7 +2512,7 @@ public:
         standard->setValue(62);
         standard->setAttribute(Qt::WA_UnderMouse, true);
 
-        createVertical(680, 5, 24);
+        verticalHoverBar = createVertical(680, 5, 24);
         auto *longVertical = createVertical(800, 72, 68);
         longVertical->setInvertedAppearance(true);
 
@@ -2552,11 +2552,12 @@ public:
                 vertical->setValue(vertical->maximum() / 2);
             }
         }
-        if (hoverBar != nullptr) {
-            hoverBar->setAttribute(Qt::WA_UnderMouse, true);
-            const QPointF center = QRectF(hoverBar->rect()).center();
+        for (auto *bar : {hoverBar.data(), verticalHoverBar.data()}) {
+            if (bar == nullptr) continue;
+            bar->setAttribute(Qt::WA_UnderMouse, true);
+            const QPointF center = QRectF(bar->rect()).center();
             QEnterEvent enter(center, center, center);
-            QCoreApplication::sendEvent(hoverBar, &enter);
+            QCoreApplication::sendEvent(bar, &enter);
         }
         if (pressedBar != nullptr) {
             pressedBar->setAttribute(Qt::WA_UnderMouse, true);
@@ -2645,6 +2646,7 @@ private:
     }
 
     QPointer<ZzFluentUI::ZzScrollBar> hoverBar;
+    QPointer<ZzFluentUI::ZzScrollBar> verticalHoverBar;
     QPointer<ZzFluentUI::ZzScrollBar> pressedBar;
     QPointer<ZzFluentUI::ZzScrollArea> area;
 };
