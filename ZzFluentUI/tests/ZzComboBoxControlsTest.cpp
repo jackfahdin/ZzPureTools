@@ -81,6 +81,112 @@ class ZzComboBoxControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void paintsLabelOnlyInLabelControl()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionComboBox option;
+        option.rect = QRect(0, 0, 220, 36);
+        option.state = QStyle::State_Enabled;
+        option.palette = style.standardPalette();
+        const auto panel = [&] {
+            QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawComplexControl(QStyle::CC_ComboBox, &option, &painter);
+            return image;
+        };
+        const QImage empty = panel();
+        option.currentText = QStringLiteral("Only one label");
+        QPixmap icon(16, 16);
+        icon.fill(Qt::red);
+        option.currentIcon = QIcon(icon);
+        option.iconSize = icon.size();
+        QCOMPARE(panel(), empty);
+
+        QImage label(empty.size(), empty.format());
+        label.fill(Qt::transparent);
+        QPainter painter(&label);
+        style.drawControl(QStyle::CE_ComboBoxLabel, &option, &painter);
+        painter.end();
+        QVERIFY(zzContainsOpaquePixel(label));
+    }
+
+    void respectsFrameAndSeparatesEditableSurface()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionComboBox option;
+        option.rect = QRect(0, 0, 220, 36);
+        option.state = QStyle::State_Enabled;
+        option.palette = style.standardPalette();
+        option.palette.setColor(QPalette::Button, QColor(Qt::cyan));
+        option.palette.setColor(QPalette::Base, QColor(Qt::magenta));
+        option.subControls = QStyle::SC_ComboBoxFrame;
+        const auto panel = [&] {
+            QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawComplexControl(QStyle::CC_ComboBox, &option, &painter);
+            return image;
+        };
+        QCOMPARE(panel().pixelColor(100, 18), QColor(Qt::cyan));
+        option.editable = true;
+        QCOMPARE(panel().pixelColor(100, 18), QColor(Qt::magenta));
+        option.frame = false;
+        QVERIFY(!zzContainsOpaquePixel(panel()));
+        option.frame = true;
+        option.subControls = QStyle::SC_None;
+        QVERIFY(!zzContainsOpaquePixel(panel()));
+    }
+
+    void usesReadableHighContrastPopupText()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox combo;
+        combo.setStyle(&style);
+        combo.addItem(QStringLiteral("Readable selection"));
+        QStyleOptionViewItem option;
+        option.rect = QRect(0, 0, 240, 36);
+        option.state = QStyle::State_Enabled | QStyle::State_Selected;
+        option.palette = style.standardPalette();
+        option.features = QStyleOptionViewItem::HasDisplay;
+        option.text = combo.itemText(0);
+        // 模型背景不能覆盖选中表面，否则高对比反色文字会变为黑底黑字。
+        option.backgroundBrush = QBrush(Qt::black);
+        option.font.setPixelSize(20);
+        option.fontMetrics = QFontMetrics(option.font);
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_ItemViewItem, &option, &painter, combo.view());
+        painter.end();
+        const QColor foreground = option.palette.color(QPalette::HighlightedText);
+        QCOMPARE(image.pixelColor(230, 18), option.palette.color(QPalette::Highlight));
+        int textPixels = 0;
+        for (int y = 8; y < 28; ++y) {
+            for (int x = 20; x < 210; ++x) {
+                textPixels += image.pixelColor(x, y) == foreground ? 1 : 0;
+            }
+        }
+        QVERIFY2(textPixels > 20, "高对比选中项必须使用可读的反色前景");
+        int indicatorPixels = 0;
+        for (int y = 8; y < 28; ++y) {
+            for (int x = 2; x < 10; ++x) {
+                indicatorPixels += image.pixelColor(x, y) == foreground ? 1 : 0;
+            }
+        }
+        QVERIFY2(indicatorPixels > 5, "高对比指示条不能与选中背景同色");
+        option.state = QStyle::State_Enabled;
+        image.fill(Qt::transparent);
+        painter.begin(&image);
+        style.drawControl(QStyle::CE_ItemViewItem, &option, &painter, combo.view());
+        painter.end();
+        QCOMPARE(image.pixelColor(230, 18), QColor(Qt::black));
+    }
+
     void keepsNaturalSizeContentVisible_data()
     {
         QTest::addColumn<QString>("text");
@@ -299,7 +405,10 @@ private Q_SLOTS:
 
     void preservesKeyboardMouseAndPopupSemantics()
     {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
         QComboBox comboBox;
+        comboBox.setStyle(&style);
         comboBox.addItems({
             QStringLiteral("Alpha"),
             QStringLiteral("Beta"),
@@ -322,12 +431,23 @@ private Q_SLOTS:
         QAbstractItemView *popupView = comboBox.view();
         QVERIFY(popupView != nullptr);
         QVERIFY(popupView->window() != nullptr);
+        // 本测试按控件安装样式；真实应用通过 QApplication 安装同一样式。
+        popupView->window()->setStyle(&style);
+        popupView->setStyle(&style);
+        popupView->viewport()->setStyle(&style);
         QTest::keyClick(
             &comboBox,
             Qt::Key_Down,
             Qt::AltModifier);
         QCoreApplication::processEvents();
         QVERIFY(popupView->window()->isVisible());
+        QVERIFY(popupView->window()->geometry().top()
+            >= comboBox.mapToGlobal(comboBox.rect().bottomLeft()).y());
+        // 列表视口必须避开弹出面板的圆角，不能把四角边框覆盖成缺口。
+        const QPoint viewportOrigin = popupView->viewport()->mapTo(
+            popupView->window(), QPoint(0, 0));
+        QVERIFY(viewportOrigin.x() >= 4);
+        QVERIFY(viewportOrigin.y() >= 4);
         QTest::keyClick(popupView, Qt::Key_Escape);
         QCoreApplication::processEvents();
         QVERIFY(!popupView->window()->isVisible());

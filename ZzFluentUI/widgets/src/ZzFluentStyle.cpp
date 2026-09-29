@@ -153,6 +153,11 @@ int ZzFluentStyle::pixelMetric(
     Q_ASSERT(QThread::currentThread() == thread());
     switch (metric) {
     case PM_DefaultFrameWidth:
+        // 给下拉列表留出圆角与边框空间，避免 viewport 覆盖弹出表面。
+        if (widget != nullptr && widget->windowType() == Qt::Popup
+            && d_ptr->isComboBoxPopupContext(widget)) {
+            return qCeil(d_ptr->snapshot->metric(ZzMetricToken::CornerRadiusMedium)) + 2;
+        }
         // 多行输入的 viewport 不能覆盖外层圆角和底部焦点线。
         if (qobject_cast<const QPlainTextEdit *>(widget) != nullptr
             || qobject_cast<const QTextEdit *>(widget) != nullptr) {
@@ -226,6 +231,16 @@ int ZzFluentStyle::styleHint(
     Q_ASSERT(QThread::currentThread() == thread());
     if (hint == SH_Menu_SubMenuPopupDelay) {
         return 200;
+    }
+    // 普通与可编辑组合框均使用标准下拉列表，定位与屏幕避让交给 Qt。
+    if (hint == SH_ComboBox_Popup) {
+        return 0;
+    }
+    if (hint == SH_ComboBox_ListMouseTracking) {
+        return 1;
+    }
+    if (hint == SH_ComboBox_PopupFrameStyle) {
+        return QFrame::StyledPanel | QFrame::Plain;
     }
     if (hint == SH_Widget_Animate) {
         if (d_ptr->snapshot != nullptr
@@ -472,6 +487,12 @@ void ZzFluentStyle::drawPrimitive(
             return;
         }
         d_ptr->drawInputPanel(option, painter, widget);
+        return;
+    }
+    if (element == PE_Frame && option != nullptr && painter != nullptr
+        && widget != nullptr && widget->windowType() == Qt::Popup
+        && d_ptr->isComboBoxPopupContext(widget)) {
+        d_ptr->drawMenuPanel(option, painter);
         return;
     }
     if (element == PE_PanelTipLabel

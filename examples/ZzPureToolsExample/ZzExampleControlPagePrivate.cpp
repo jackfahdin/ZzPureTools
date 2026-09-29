@@ -423,6 +423,35 @@ void ZzExampleControlPagePrivate::buildInput(ZzExampleControlKind kind)
             QObject::connect(combo, &QComboBox::currentTextChanged, status, &QLabel::setText);
             zzAdd(host, combo);
         }
+        auto *variants = section(
+            QCoreApplication::translate("ZzPureToolsExample", "占位、图标与禁用状态"));
+        auto *placeholder = new QComboBox(variants);
+        placeholder->setMinimumWidth(240);
+        placeholder->setPlaceholderText(
+            QCoreApplication::translate("ZzPureToolsExample", "请选择工作环境"));
+        placeholder->addItems({QStringLiteral("Development"), QStringLiteral("Production")});
+        placeholder->setCurrentIndex(-1);
+        placeholder->setAccessibleName(
+            QCoreApplication::translate("ZzPureToolsExample", "占位选项"));
+        QObject::connect(placeholder, &QComboBox::currentTextChanged, status, &QLabel::setText);
+        zzAdd(variants, placeholder);
+
+        auto *decorated = new QComboBox(variants);
+        decorated->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+        decorated->addItem(q_ptr->style()->standardIcon(QStyle::SP_DirIcon),
+            QCoreApplication::translate("ZzPureToolsExample", "包含图标的开发工作目录"));
+        decorated->addItem(q_ptr->style()->standardIcon(QStyle::SP_FileIcon),
+            QCoreApplication::translate("ZzPureToolsExample", "Release configuration"));
+        decorated->setAccessibleName(
+            QCoreApplication::translate("ZzPureToolsExample", "带图标选项"));
+        QObject::connect(decorated, &QComboBox::currentTextChanged, status, &QLabel::setText);
+        zzAdd(variants, decorated);
+
+        auto *disabled = new QComboBox(variants);
+        disabled->setMinimumWidth(240);
+        disabled->addItem(QCoreApplication::translate("ZzPureToolsExample", "不可用的选项"));
+        disabled->setEnabled(false);
+        zzAdd(variants, disabled);
     } else {
         auto *host
             = section(QCoreApplication::translate("ZzPureToolsExample", "多项选择与禁用选项"));

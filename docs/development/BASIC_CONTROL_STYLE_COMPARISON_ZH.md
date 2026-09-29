@@ -12,7 +12,7 @@
 | ToggleSwitch | `drawSwitchButton` / `ZzToggleSwitch` | 关闭态采用描边轨道与较小滑块；hover 放大、press 拉伸；保留单个滑移动画、整轨道/文字命中及 RTL。 |
 | LineEdit | `drawLineEditFrame` / `drawInputPanel` | 参考细边框和底部焦点线；带框输入额外保留两侧 8px 留白，尺寸提示同步，无框嵌入编辑器不重复加边距；保留只读、禁用与输入行为。 |
 | PlainTextEdit | 带框输入绘制 / `drawInputPanel` | 与单行输入统一边框，检查 viewport 对圆角的覆盖。 |
-| ComboBox | `CC_ComboBox` / `drawComboBox` | 保留已有独占箭头区和长文本预留；随公共输入面板同步外观。 |
+| ComboBox | `CC_ComboBox` / `drawComboBox` | 普通框采用按钮表面，可编辑框保留输入焦点线；标签单次绘制，统一原生下拉列表及高对比选中前景。保留独占箭头区、长文本预留和 RTL，详见 [改进记录](../superpowers/plans/2026-09-29-combo-box-fluent-refresh.md)。 |
 | MultiSelectComboBox | 参考项目无等价原生基础控件 / `ZzMultiSelectComboBox` | 保留筛选、多选与摘要逻辑，沿用 ComboBox 的统一外观。 |
 | SpinBox | `CC_SpinBox` / `drawSpinBox` | 保留已实现的四种按钮布局与命中区域，复验公共输入面板变化。 |
 | DoubleSpinBox | 同上 / `ZzDoubleSpinBox` | 与整数输入统一，保留小数精度、范围与输入校验。 |

@@ -1189,12 +1189,44 @@ void ZzFluentStylePrivate::drawComboBox(
     QPainter *painter,
     const QWidget *widget) const
 {
-    drawInputPanel(option, painter, widget);
-    q_ptr->QProxyStyle::drawControl(
-        QStyle::CE_ComboBoxLabel,
-        option,
-        painter,
-        widget);
+    // 标签由 QComboBox::paintEvent 的 CE_ComboBoxLabel 单独绘制。
+    // 此处只负责外框与箭头，避免文字、图标的抗锯齿像素重复叠加。
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    if (option->frame && option->subControls.testFlag(QStyle::SC_ComboBoxFrame)) {
+        if (option->editable) {
+            drawInputPanel(option, painter, widget);
+        } else {
+            QColor fill = option->palette.color(QPalette::Button);
+            if (!enabled) {
+                fill = snapshot->color(ZzColorToken::ControlFillDisabled);
+            } else if (option->state.testFlag(QStyle::State_Sunken)
+                       || option->state.testFlag(QStyle::State_On)) {
+                fill = snapshot->color(ZzColorToken::ControlFillPressed);
+            } else if (option->state.testFlag(QStyle::State_MouseOver)) {
+                fill = snapshot->color(ZzColorToken::ControlFillHover);
+            }
+            const qreal width = snapshot->metric(ZzMetricToken::StrokeThin);
+            const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusMedium);
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing, true);
+            painter->setPen(QPen(snapshot->color(ZzColorToken::ControlStroke), width));
+            painter->setBrush(fill);
+            painter->drawRoundedRect(QRectF(option->rect).adjusted(
+                width / 2.0, width / 2.0, -width / 2.0, -width / 2.0), radius, radius);
+            painter->restore();
+        }
+        if (enabled && option->state.testFlag(QStyle::State_HasFocus)
+            && q_ptr->isFocusVisualVisible(widget)) {
+            QStyleOptionFocusRect focus;
+            focus.QStyleOption::operator=(*option);
+            focus.rect = option->rect.adjusted(2, 2, -2, -2);
+            q_ptr->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, painter, widget);
+        }
+    }
+
+    if (!option->subControls.testFlag(QStyle::SC_ComboBoxArrow)) {
+        return;
+    }
 
     const QRect arrowRect = q_ptr->subControlRect(
         QStyle::CC_ComboBox,
@@ -1318,7 +1350,7 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
     const bool hovered = adjusted.state.testFlag(QStyle::State_MouseOver);
     const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
 
-    if (selected || hovered) {
+    if (enabled && (selected || hovered)) {
         const QRectF surface = QRectF(adjusted.rect).adjusted(
             2.0,
             2.0,
@@ -1327,7 +1359,9 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(zzMenuStateFill(*snapshot, selected));
+        painter->setBrush(snapshot->mode() == ZzThemeMode::HighContrast
+            ? adjusted.palette.color(QPalette::Highlight)
+            : zzMenuStateFill(*snapshot, selected));
         painter->drawRoundedRect(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
@@ -1344,18 +1378,29 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
     visualOption.widget = widget;
     visualOption.state.setFlag(QStyle::State_Selected, selected);
     visualOption.index = option->index;
+    if (enabled && (selected || hovered)) {
+        // 状态表面已由本样式绘制，模型背景只能用于普通项。
+        adjusted.backgroundBrush = Qt::NoBrush;
+        if (snapshot->mode() == ZzThemeMode::HighContrast) {
+            visualOption.palette.setColor(QPalette::Highlight,
+                option->palette.color(QPalette::HighlightedText));
+        }
+    }
     const auto visual = ZzItemViewVisual::draw(*q_ptr, visualOption, painter,
-        {.drawSurface = false});
+        {.drawSurface = false, .animateSelection = false});
     adjusted.rect = visual.contentRect;
     adjusted.version = zzItemContentOptionVersion;
     adjusted.state.setFlag(QStyle::State_Selected, false);
     adjusted.state.setFlag(QStyle::State_MouseOver, false);
+    adjusted.state.setFlag(QStyle::State_HasFocus, false);
     const QPalette::ColorGroup group = enabled
         ? QPalette::Normal
         : QPalette::Disabled;
     adjusted.palette.setColor(
         QPalette::Text,
-        adjusted.palette.color(group, QPalette::Text));
+        adjusted.palette.color(group,
+            enabled && (selected || hovered) && snapshot->mode() == ZzThemeMode::HighContrast
+                ? QPalette::HighlightedText : QPalette::Text));
     q_ptr->QProxyStyle::drawControl(
         QStyle::CE_ItemViewItem,
         &adjusted,
@@ -1374,7 +1419,7 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
         || adjusted.state.testFlag(QStyle::State_MouseOver);
     const bool enabled = adjusted.state.testFlag(QStyle::State_Enabled);
 
-    if (current || hovered) {
+    if (enabled && (current || hovered)) {
         const QRectF surface = QRectF(adjusted.rect).adjusted(
             2.0,
             2.0,
@@ -1383,7 +1428,9 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(zzMenuStateFill(*snapshot, current));
+        painter->setBrush(snapshot->mode() == ZzThemeMode::HighContrast
+            ? adjusted.palette.color(QPalette::Highlight)
+            : zzMenuStateFill(*snapshot, current));
         painter->drawRoundedRect(
             surface,
             snapshot->metric(ZzMetricToken::CornerRadiusSmall),
@@ -1401,6 +1448,10 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
     visualOption.state = option->state;
     visualOption.widget = widget;
     visualOption.state.setFlag(QStyle::State_Selected, current);
+    if (enabled && (current || hovered) && snapshot->mode() == ZzThemeMode::HighContrast) {
+        visualOption.palette.setColor(QPalette::Highlight,
+            option->palette.color(QPalette::HighlightedText));
+    }
 
     const auto visual = ZzItemViewVisual::draw(*q_ptr, visualOption, painter,
         {.drawSurface = false, .animateSelection = false});
@@ -1413,7 +1464,9 @@ void ZzFluentStylePrivate::drawComboBoxPopupMenuItem(
         : QPalette::Disabled;
     adjusted.palette.setColor(
         QPalette::Text,
-        adjusted.palette.color(group, QPalette::Text));
+        adjusted.palette.color(group,
+            enabled && (current || hovered) && snapshot->mode() == ZzThemeMode::HighContrast
+                ? QPalette::HighlightedText : QPalette::Text));
     q_ptr->QProxyStyle::drawControl(
         QStyle::CE_MenuItem,
         &adjusted,

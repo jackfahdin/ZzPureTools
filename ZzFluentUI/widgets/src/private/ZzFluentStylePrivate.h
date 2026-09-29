@@ -139,7 +139,7 @@ public:
     void drawDigitalDisplayFrame(
         const QStyleOptionFrame *option,
         QPainter *painter) const;
-    /** @brief 绘制组合框面板、箭头和平台标签。 */
+    /** @brief 绘制普通或可编辑组合框的面板与箭头；标签交由 Qt 单独绘制。 */
     void drawComboBox(
         const QStyleOptionComboBox *option,
         QPainter *painter,
