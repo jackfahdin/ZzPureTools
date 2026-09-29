@@ -6,6 +6,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtCore/QTimer>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QAccessible>
 #include <QtGui/QFont>
 #include <QtGui/QImage>
@@ -81,6 +82,81 @@ class ZzComboBoxControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 下拉列表复用公共指示条的先收后展动画，并遵循减少动画设置。 */
+    void animatesPopupSelectionWithSharedTransition()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(false);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox combo;
+        combo.setStyle(&style);
+        combo.setPalette(style.standardPalette());
+        combo.addItems({QStringLiteral("Alpha"), QStringLiteral("Beta"), QStringLiteral("Gamma")});
+        combo.resize(220, 36);
+        auto *view = combo.view();
+        view->window()->setStyle(&style);
+        view->setStyle(&style);
+        view->viewport()->setStyle(&style);
+        combo.show();
+        combo.showPopup();
+        QCoreApplication::processEvents();
+
+        const auto render = [&] {
+            QImage image(view->viewport()->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            view->viewport()->render(&painter);
+            return image;
+        };
+        const auto indicatorPixels = [&](const QImage &image, int row) {
+            const QRect bounds = view->visualRect(combo.model()->index(row, 0));
+            int count = 0;
+            for (int y = bounds.top(); y <= bounds.bottom(); ++y) {
+                for (int x = bounds.left(); x < bounds.left() + 10; ++x) {
+                    count += image.pixelColor(x, y) == combo.palette().color(QPalette::Highlight)
+                        ? 1 : 0;
+                }
+            }
+            return count;
+        };
+        const int fullIndicator = indicatorPixels(render(), 0);
+        QVERIFY(fullIndicator > 0);
+        QTest::keyClick(view, Qt::Key_Down);
+        QCOMPARE(view->currentIndex().row(), 1);
+        const auto animations = style.findChildren<QVariantAnimation *>();
+        QCOMPARE(animations.size(), 1);
+        auto *animation = animations.constFirst();
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        animation->pause();
+        animation->setCurrentTime(animation->duration() / 4);
+        const QImage outgoing = render();
+        QVERIFY(indicatorPixels(outgoing, 0) > 0);
+        QVERIFY(indicatorPixels(outgoing, 0) < fullIndicator);
+        QCOMPARE(indicatorPixels(outgoing, 1), 0);
+        animation->setCurrentTime(animation->duration() * 3 / 4);
+        const QImage incoming = render();
+        QCOMPARE(indicatorPixels(incoming, 0), 0);
+        QVERIFY(indicatorPixels(incoming, 1) > 0);
+        QVERIFY(indicatorPixels(incoming, 1) < fullIndicator);
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(indicatorPixels(render(), 1), fullIndicator);
+
+        const QPoint third = view->visualRect(combo.model()->index(2, 0)).center();
+        QTest::mouseMove(view->viewport(), third);
+        QCOMPARE(view->currentIndex().row(), 2);
+        QCOMPARE(animation->state(), QAbstractAnimation::Running);
+        QCOMPARE(style.findChildren<QVariantAnimation *>().size(), 1);
+
+        controller.setReducedMotion(true);
+        QTest::keyClick(view, Qt::Key_Up);
+        const QImage reduced = render();
+        QCOMPARE(view->currentIndex().row(), 1);
+        QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+        QCOMPARE(indicatorPixels(reduced, 1), fullIndicator);
+        QCOMPARE(indicatorPixels(reduced, 2), 0);
+        combo.hidePopup();
+    }
+
     void paintsLabelOnlyInLabelControl()
     {
         ZzFluentUI::ZzThemeController controller;

@@ -1386,8 +1386,9 @@ void ZzFluentStylePrivate::drawComboBoxPopupItem(
                 option->palette.color(QPalette::HighlightedText));
         }
     }
+    // 下拉项与普通列表复用公共指示条过渡，并由公共实现处理减少动画设置。
     const auto visual = ZzItemViewVisual::draw(*q_ptr, visualOption, painter,
-        {.drawSurface = false, .animateSelection = false});
+        {.drawSurface = false});
     adjusted.rect = visual.contentRect;
     adjusted.version = zzItemContentOptionVersion;
     adjusted.state.setFlag(QStyle::State_Selected, false);
