@@ -42,6 +42,7 @@
 #include <limits>
 
 #include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzFluentItemDelegate.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -837,6 +838,99 @@ private Q_SLOTS:
         QCOMPARE(dialog.style(), &style);
     }
 
+    /** @brief 默认轨道须比填充更轻，不能退回近乎等厚的视觉。 */
+    void drawsHairlineProgressTrackByDefault()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QStyleOptionProgressBar option;
+        option.rect = QRect(0, 0, 160, 36);
+        option.minimum = 0;
+        option.maximum = 100;
+        option.progress = 50;
+        option.textVisible = false;
+        option.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+        option.palette.setColor(QPalette::All, QPalette::Mid, Qt::red);
+        option.palette.setColor(QPalette::All, QPalette::Highlight, Qt::green);
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_ProgressBar, &option, &painter);
+        painter.end();
+        const QRect track = zzColorBounds(image, Qt::red);
+        const QRect indicator = zzColorBounds(image, Qt::green);
+        QVERIFY(!track.isEmpty());
+        QVERIFY(!indicator.isEmpty());
+        QVERIFY(track.height() <= 2);
+        QVERIFY(track.height() < indicator.height());
+    }
+
+    /** @brief 两种外观切换只改变线条，不移动标签、泄漏到其他控件或改变进度。 */
+    void switchesProgressAppearanceWithoutMovingTextOrChangingValue()
+    {
+        using ZzFluentUI::ZzControlAppearance;
+        using ZzFluentUI::ZzProgressBarAppearance;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QProgressBar progress;
+        QProgressBar sibling;
+        progress.setStyle(&style);
+        progress.setRange(-50, 50);
+        progress.setValue(0);
+        QSignalSpy values(&progress, &QProgressBar::valueChanged);
+        QStyleOptionProgressBar option;
+        option.rect = QRect(0, 0, 160, 36);
+        option.minimum = -50;
+        option.maximum = 50;
+        option.progress = 0;
+        option.text = QStringLiteral("50%");
+        option.textVisible = true;
+        option.state = QStyle::State_Enabled | QStyle::State_Horizontal;
+        option.palette.setColor(QPalette::All, QPalette::Mid, Qt::red);
+        option.palette.setColor(QPalette::All, QPalette::Highlight, Qt::green);
+        option.palette.setColor(QPalette::All, QPalette::Text, Qt::blue);
+        const auto render = [&] {
+            QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawControl(QStyle::CE_ProgressBar, &option, &painter, &progress);
+            return image;
+        };
+        for (const bool horizontal : {true, false}) {
+            option.state.setFlag(QStyle::State_Horizontal, horizontal);
+            option.rect.setSize(horizontal ? QSize(160, 36) : QSize(36, 160));
+            for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+                option.direction = direction;
+                for (const bool inverted : {false, true}) {
+                    option.invertedAppearance = inverted;
+                    ZzControlAppearance::setProgressBarAppearance(&progress, ZzProgressBarAppearance::Thin);
+                    const QImage thin = render();
+                    const QSize sizeHint = progress.sizeHint();
+                    ZzControlAppearance::setProgressBarAppearance(&progress, ZzProgressBarAppearance::Thick);
+                    const QImage thick = render();
+                    QVERIFY(thick != thin);
+                    QCOMPARE(zzColorBounds(thin, Qt::blue), zzColorBounds(thick, Qt::blue));
+                    const QRect thinTrack = zzColorBounds(thin, Qt::red);
+                    const QRect thickTrack = zzColorBounds(thick, Qt::red);
+                    QVERIFY(horizontal ? thickTrack.height() > thinTrack.height()
+                                       : thickTrack.width() > thinTrack.width());
+                    const QRect thinFill = zzColorBounds(thin, Qt::green);
+                    const QRect thickFill = zzColorBounds(thick, Qt::green);
+                    QVERIFY(qAbs(thinFill.center().x() - thickFill.center().x()) <= 1);
+                    QVERIFY(qAbs(thinFill.center().y() - thickFill.center().y()) <= 1);
+                    QCOMPARE(progress.sizeHint(), sizeHint);
+                    QCOMPARE(ZzControlAppearance::progressBarAppearance(&sibling), ZzProgressBarAppearance::Thin);
+                    ZzControlAppearance::setProgressBarAppearance(&progress, static_cast<ZzProgressBarAppearance>(-1));
+                    QCOMPARE(render(), thin);
+                }
+            }
+        }
+        QCOMPARE(progress.value(), 0);
+        QCOMPARE(values.count(), 0);
+        ZzControlAppearance::setProgressBarAppearance(nullptr, ZzProgressBarAppearance::Thick);
+        QCOMPARE(ZzControlAppearance::progressBarAppearance(nullptr), ZzProgressBarAppearance::Thin);
+    }
+
     /** @brief 验证细进度线与独立标签区域不会互相覆盖。 */
     void laysOutThinProgressWithoutCoveringText()
     {
@@ -1047,11 +1141,23 @@ private Q_SLOTS:
         QCOMPARE(noTextVertical.width(), qMax(baseVertical.width(), 4));
     }
 
+    /** @brief 两种线性外观共享相同的极小尺寸安全约束。 */
+    void keepsTinyProgressInsideOptionRect_data()
+    {
+        QTest::addColumn<int>("appearance");
+        QTest::newRow("thin") << static_cast<int>(ZzFluentUI::ZzProgressBarAppearance::Thin);
+        QTest::newRow("thick") << static_cast<int>(ZzFluentUI::ZzProgressBarAppearance::Thick);
+    }
+
     /** @brief 验证极小 option rect 的进度绘制不会越过逻辑边界。 */
     void keepsTinyProgressInsideOptionRect()
     {
+        QFETCH(int, appearance);
         ZzFluentUI::ZzThemeController controller;
         ZzFluentUI::ZzFluentStyle style(&controller);
+        QProgressBar progress;
+        ZzFluentUI::ZzControlAppearance::setProgressBarAppearance(
+            &progress, static_cast<ZzFluentUI::ZzProgressBarAppearance>(appearance));
         for (const QSize size : {QSize(1, 1), QSize(2, 3), QSize(3, 2)}) {
             for (const bool horizontal : {true, false}) {
                 QStyleOptionProgressBar option;
@@ -1069,7 +1175,7 @@ private Q_SLOTS:
                     QImage::Format_ARGB32_Premultiplied);
                 image.fill(sentinel);
                 QPainter painter(&image);
-                style.drawControl(QStyle::CE_ProgressBar, &option, &painter);
+                style.drawControl(QStyle::CE_ProgressBar, &option, &painter, &progress);
                 painter.end();
                 for (int y = 0; y < image.height(); ++y) {
                     for (int x = 0; x < image.width(); ++x) {
@@ -1119,11 +1225,23 @@ private Q_SLOTS:
         QCOMPARE(valuesInterface->currentValue().toInt(), 8);
     }
 
+    /** @brief 两种线性外观共享范围、方向和颜色组协议。 */
+    void respectsProgressRangeDirectionAndPalette_data()
+    {
+        QTest::addColumn<int>("appearance");
+        QTest::newRow("thin") << static_cast<int>(ZzFluentUI::ZzProgressBarAppearance::Thin);
+        QTest::newRow("thick") << static_cast<int>(ZzFluentUI::ZzProgressBarAppearance::Thick);
+    }
+
     /** @brief 验证范围、方向和各调色板颜色组决定线性进度绘制。 */
     void respectsProgressRangeDirectionAndPalette()
     {
+        QFETCH(int, appearance);
         ZzFluentUI::ZzThemeController controller;
         ZzFluentUI::ZzFluentStyle style(&controller);
+        QProgressBar progress;
+        ZzFluentUI::ZzControlAppearance::setProgressBarAppearance(
+            &progress, static_cast<ZzFluentUI::ZzProgressBarAppearance>(appearance));
         const QColor activeTrack(Qt::red);
         const QColor activeIndicator(Qt::green);
         const QColor disabledTrack(Qt::cyan);
@@ -1140,13 +1258,13 @@ private Q_SLOTS:
             QPalette::Highlight,
             disabledIndicator);
 
-        const auto render = [&style](const QStyleOptionProgressBar &option) {
+        const auto render = [&style, &progress](const QStyleOptionProgressBar &option) {
             QImage image(
                 option.rect.size(),
                 QImage::Format_ARGB32_Premultiplied);
             image.fill(Qt::transparent);
             QPainter painter(&image);
-            style.drawControl(QStyle::CE_ProgressBar, &option, &painter);
+            style.drawControl(QStyle::CE_ProgressBar, &option, &painter, &progress);
             return image;
         };
         const auto horizontal = [&palette, &render, activeTrack, activeIndicator](
@@ -1307,6 +1425,8 @@ private Q_SLOTS:
         auto *second = new QProgressBar(&host);
         first->setStyle(&style);
         second->setStyle(&style);
+        ZzFluentUI::ZzControlAppearance::setProgressBarAppearance(
+            second, ZzFluentUI::ZzProgressBarAppearance::Thick);
         first->setRange(0, 0);
         second->setRange(0, 0);
         first->setTextVisible(false);
@@ -1713,7 +1833,9 @@ private Q_SLOTS:
         style.drawControl(QStyle::CE_ProgressBar, &busy, &painter);
         painter.end();
         QCOMPARE(image.pixelColor(60, 8), QColor(Qt::green));
-        QCOMPARE(image.pixelColor(8, 8), QColor(Qt::red));
+        // 1px 轨道在整数中心线两侧抗锯齿，验证颜色而不强制覆盖率为 100%。
+        QVERIFY(image.pixelColor(8, 8).alpha() > 0);
+        QCOMPARE(image.pixelColor(8, 8).rgb(), QColor(Qt::red).rgb());
 
         QStyleOption toolTip;
         toolTip.rect = QRect(0, 0, 80, 32);
@@ -1808,7 +1930,8 @@ private Q_SLOTS:
         style.drawControl(QStyle::CE_ProgressBar, &progress, &painter);
         painter.end();
         QCOMPARE(image.pixelColor(90, 6), QColor(Qt::green));
-        QCOMPARE(image.pixelColor(10, 6), QColor(Qt::red));
+        QVERIFY(image.pixelColor(10, 6).alpha() > 0);
+        QCOMPARE(image.pixelColor(10, 6).rgb(), QColor(Qt::red).rgb());
 
         QStyleOption check;
         check.rect = QRect(0, 0, 18, 18);

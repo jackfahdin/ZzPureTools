@@ -2,12 +2,36 @@
 
 #include <QtCore/QVariant>
 #include <QtWidgets/QAbstractButton>
+#include <QtWidgets/QProgressBar>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzSplitButton.h>
 
 #include "private/ZzControlAppearancePrivate.h"
 
 namespace ZzFluentUI {
+
+void ZzControlAppearance::setProgressBarAppearance(
+    QProgressBar *progress, ZzProgressBarAppearance appearance)
+{
+    if (progress == nullptr) {
+        return;
+    }
+    const auto normalized = appearance == ZzProgressBarAppearance::Thick
+        ? ZzProgressBarAppearance::Thick : ZzProgressBarAppearance::Thin;
+    if (progressBarAppearance(progress) == normalized) {
+        return;
+    }
+    progress->setProperty(zzProgressBarAppearanceProperty, static_cast<int>(normalized));
+    progress->update();
+}
+
+ZzProgressBarAppearance ZzControlAppearance::progressBarAppearance(const QProgressBar *progress)
+{
+    return progress != nullptr
+            && progress->property(zzProgressBarAppearanceProperty).toInt()
+                == static_cast<int>(ZzProgressBarAppearance::Thick)
+        ? ZzProgressBarAppearance::Thick : ZzProgressBarAppearance::Thin;
+}
 
 void ZzControlAppearance::setButtonAppearance(QAbstractButton *button, ZzButtonAppearance appearance)
 {

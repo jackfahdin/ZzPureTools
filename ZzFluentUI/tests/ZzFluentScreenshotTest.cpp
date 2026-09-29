@@ -83,6 +83,7 @@
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzContentDialog.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzDrawer.h>
 #include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzExplorerPane.h>
@@ -1180,6 +1181,12 @@ private:
         horizontalProgresses->addWidget(determinate);
         horizontalProgresses->addWidget(busyProgress);
         horizontalProgresses->addWidget(disabled);
+        auto *thick = new QProgressBar(progressHost);
+        ZzFluentUI::ZzControlAppearance::setProgressBarAppearance(
+            thick, ZzFluentUI::ZzProgressBarAppearance::Thick);
+        thick->setValue(68);
+        thick->setTextVisible(false);
+        horizontalProgresses->addWidget(thick);
         auto *vertical = new QProgressBar(progressHost);
         vertical->setOrientation(Qt::Vertical);
         vertical->setRange(0, 100);

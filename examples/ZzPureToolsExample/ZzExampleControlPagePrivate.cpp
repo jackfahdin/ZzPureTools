@@ -562,6 +562,8 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
 {
     auto *host = section(kind == ZzExampleControlKind::Slider
             ? QCoreApplication::translate("ZzPureToolsExample", "水平与垂直滑块")
+            : kind == ZzExampleControlKind::ProgressBar
+            ? QCoreApplication::translate("ZzPureToolsExample", "细线(Thin)：确定进度、忙碌与禁用")
             : QCoreApplication::translate("ZzPureToolsExample", "确定进度、忙碌与禁用状态"));
     if (kind == ZzExampleControlKind::Slider) {
         auto *horizontal = new QSlider(Qt::Horizontal, host);
@@ -597,6 +599,7 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
     }
     const bool ringMode = kind == ZzExampleControlKind::ProgressRing;
     QProgressBar *determinate = nullptr;
+    QProgressBar *thickDeterminate = nullptr;
     for (int i = 0; i < 3; ++i) {
         QProgressBar *bar
             = ringMode ? new ZzFluentUI::ZzProgressRing(host) : new QProgressBar(host);
@@ -618,6 +621,24 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
         zzAdd(host, bar);
     }
     if (!ringMode) {
+        auto *thickHost = section(QCoreApplication::translate(
+            "ZzPureToolsExample", "粗线(Thick)：确定进度、忙碌与禁用"));
+        for (int i = 0; i < 3; ++i) {
+            auto *bar = new QProgressBar(thickHost);
+            ZzFluentUI::ZzControlAppearance::setProgressBarAppearance(
+                bar, ZzFluentUI::ZzProgressBarAppearance::Thick);
+            bar->setRange(0, i == 1 ? 0 : 100);
+            bar->setValue(i == 2 ? 42 : 68);
+            bar->setTextVisible(i != 1);
+            bar->setEnabled(i != 2);
+            bar->setMinimumWidth(240);
+            bar->setAccessibleName(i == 1
+                    ? QCoreApplication::translate("ZzPureToolsExample", "粗线忙碌进度")
+                    : QCoreApplication::translate("ZzPureToolsExample", "粗线确定进度"));
+            if (i == 0)
+                thickDeterminate = bar;
+            zzAdd(thickHost, bar);
+        }
         auto *verticalHost = section(QCoreApplication::translate("ZzPureToolsExample", "垂直进度"));
         auto *vertical = new QProgressBar(verticalHost);
         vertical->setObjectName(QStringLiteral("zzExampleProgressVertical"));
@@ -634,6 +655,9 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
     value->setValue(68);
     value->setMinimumWidth(240);
     QObject::connect(value, &QSlider::valueChanged, determinate, &QProgressBar::setValue);
+    if (thickDeterminate != nullptr)
+        QObject::connect(value, &QSlider::valueChanged, thickDeterminate, &QProgressBar::setValue);
+    static_cast<void>(ZzFluentUI::ZzSliderValueTip::attach(value));
     QObject::connect(value, &QSlider::valueChanged, status,
         [this](int current) { status->setText(QString::number(current)); });
     zzAdd(settings, value);

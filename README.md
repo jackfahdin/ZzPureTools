@@ -88,6 +88,7 @@ Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
 `QListView`、`QTableView`、`QTreeView`、`QMenuBar`、`QToolBar` 和
 `QStatusBar`。这些控件继续保留 Qt 的模型、选择、键盘、弹出菜单、无障碍和
 RTL 语义，因此不会为了“组件名一一对应”重复创建同义的 `Zz` 包装类。
+线性进度条提供可复用的[细线／粗线外观配置](docs/development/PROGRESS_BAR_APPEARANCE_ZH.md)。
 旧版 `ZzToggleButton` 的命令切换语义使用 `ZzPushButton::setCheckable(true)`，
 不再新增重复状态机；真正的开关轨道语义由 `ZzToggleSwitch` 提供。
 标准控件的广度合同由 `ZzFluentStandardControlsTest` 和固定尺寸截图场景维护，

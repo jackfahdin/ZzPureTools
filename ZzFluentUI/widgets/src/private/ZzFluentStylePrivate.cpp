@@ -36,6 +36,7 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDpiScale.h>
@@ -83,11 +84,8 @@ namespace {
 /** @brief 数值编辑区域的单侧水平留白。 */
 constexpr int zzSpinBoxTextInset = 8;
 
-/** @brief 线性进度轨道的逻辑像素厚度。 */
-constexpr qreal zzProgressTrackThickness = 3.0;
-
-/** @brief 线性进度指示器的逻辑像素厚度。 */
-constexpr qreal zzProgressIndicatorThickness = 4.0;
+/** @brief 两种线性外观共享的布局槽厚度，切换外观不移动文字。 */
+constexpr qreal zzProgressSlotThickness = 4.0;
 
 /** @brief 线性进度长轴两端的逻辑像素缩进。 */
 constexpr qreal zzProgressAxisInset = 2.0;
@@ -112,6 +110,7 @@ struct ZzProgressBarLayout final
 /** @brief 计算不暴露于样式 ABI 的确定性线性进度布局。 */
 [[nodiscard]] ZzProgressBarLayout zzProgressBarLayout(
     const QStyleOptionProgressBar &option,
+    ZzProgressBarAppearance appearance,
     qreal busyPhase,
     bool animateBusy) noexcept
 {
@@ -128,43 +127,45 @@ struct ZzProgressBarLayout final
         : longLength / 4.0;
     const qreal axisLength = qMax(0.0, longLength - 2.0 * inset);
     const qreal crossLength = horizontal ? bounds.height() : bounds.width();
-    const qreal indicatorThickness = qMin(
-        zzProgressIndicatorThickness,
-        crossLength);
-    const qreal trackThickness = zzProgressTrackThickness
-        * indicatorThickness / zzProgressIndicatorThickness;
+    const qreal slotThickness = qMin(zzProgressSlotThickness, crossLength);
+    const qreal scale = slotThickness / zzProgressSlotThickness;
+    const bool thick = appearance == ZzProgressBarAppearance::Thick;
+    const qreal indicatorThickness = (thick ? 4.0 : 3.0) * scale;
+    const qreal trackThickness = (thick ? 4.0 : 1.0) * scale;
 
     qreal indicatorCrossStart;
     qreal trackCrossStart;
     if (option.textVisible) {
         const qreal gap = qMin(
             zzProgressTextGap,
-            qMax(0.0, crossLength - indicatorThickness));
+            qMax(0.0, crossLength - slotThickness));
         const qreal labelLength = qMax(
             0.0,
-            crossLength - gap - indicatorThickness);
+            crossLength - gap - slotThickness);
         if (horizontal) {
             layout.labelRect = QRect(
                 option.rect.left(),
                 option.rect.top(),
                 option.rect.width(),
                 qFloor(labelLength));
-            indicatorCrossStart = bounds.bottom() - indicatorThickness;
+            indicatorCrossStart = bounds.bottom() - slotThickness
+                + (slotThickness - indicatorThickness) / 2.0;
         } else if (option.direction == Qt::RightToLeft) {
             layout.labelRect = QRect(
-                qCeil(bounds.left() + indicatorThickness + gap),
+                qCeil(bounds.left() + slotThickness + gap),
                 option.rect.top(),
                 qMax(0, option.rect.width()
-                    - qCeil(indicatorThickness + gap)),
+                    - qCeil(slotThickness + gap)),
                 option.rect.height());
-            indicatorCrossStart = bounds.left();
+            indicatorCrossStart = bounds.left() + (slotThickness - indicatorThickness) / 2.0;
         } else {
             layout.labelRect = QRect(
                 option.rect.left(),
                 option.rect.top(),
                 qFloor(labelLength),
                 option.rect.height());
-            indicatorCrossStart = bounds.right() - indicatorThickness;
+            indicatorCrossStart = bounds.right() - slotThickness
+                + (slotThickness - indicatorThickness) / 2.0;
         }
         trackCrossStart = indicatorCrossStart
             + (indicatorThickness - trackThickness) / 2.0;
@@ -2012,6 +2013,7 @@ void ZzFluentStylePrivate::drawProgressBar(
     }
     const ZzProgressBarLayout layout = zzProgressBarLayout(
         *option,
+        ZzControlAppearance::progressBarAppearance(progressBar),
         busyProgressPhase,
         animateBusy);
     const QPalette::ColorGroup group = option->state.testFlag(

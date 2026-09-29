@@ -3,8 +3,10 @@
 #include <QtGui/QColor>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzFluentUIExport.h>
+#include <ZzFluentUI/ZzProgressBarAppearance.h>
 
 class QAbstractButton;
+class QProgressBar;
 class QWidget;
 
 namespace ZzFluentUI {
@@ -13,6 +15,21 @@ namespace ZzFluentUI {
 class ZZ_FLUENT_UI_EXPORT ZzControlAppearance final
 {
 public:
+    /**
+     * @brief 设置使用 ZzFluentStyle 的线性进度条外观并请求重绘。
+     * @param progress 非拥有进度条指针；空指针忽略，不影响其他控件。
+     * @param appearance 细线或粗线；未知值按 Thin 处理。
+     * @note 不改变尺寸、范围、值、文字或动画。环形 ZzProgressRing 不使用此设置。
+     */
+    static void setProgressBarAppearance(QProgressBar *progress, ZzProgressBarAppearance appearance);
+
+    /**
+     * @brief 查询线性进度条外观。
+     * @param progress 非拥有进度条指针，可以为空。
+     * @return 当前外观；空指针或未设置时返回 Thin。
+     */
+    [[nodiscard]] static ZzProgressBarAppearance progressBarAppearance(const QProgressBar *progress);
+
     /**
      * @brief 设置按钮外观；不改变 checked、default、点击或菜单语义。
      * @param button 非拥有按钮指针；空指针忽略。

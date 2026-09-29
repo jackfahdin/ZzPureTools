@@ -4,6 +4,9 @@
 
 namespace ZzFluentUI {
 
+/** @brief 线性进度外观的内部属性名，调用方通过 ZzControlAppearance 设置。 */
+inline constexpr char zzProgressBarAppearanceProperty[] = "zzFluentProgressBarAppearance";
+
 /** @brief 无状态的强调色解析与状态颜色计算；不分配控件或逐帧建立主题快照。 */
 class ZzControlAppearancePrivate final
 {
