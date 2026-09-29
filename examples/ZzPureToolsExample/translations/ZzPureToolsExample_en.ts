@@ -268,6 +268,38 @@
         <translation>Slider</translation>
     </message>
     <message>
+        <source>滚动条(ScrollBar)</source>
+        <translation>ScrollBar</translation>
+    </message>
+    <message>
+        <source>横向滚动条：悬停展开，拖动或使用方向键</source>
+        <translation>Horizontal: hover to expand, drag or use arrow keys</translation>
+    </message>
+    <message>
+        <source>纵向滚动条：普通与禁用状态</source>
+        <translation>Vertical: normal and disabled</translation>
+    </message>
+    <message>
+        <source>滚动位置</source>
+        <translation>Scroll position</translation>
+    </message>
+    <message>
+        <source>普通</source>
+        <translation>Normal</translation>
+    </message>
+    <message>
+        <source>滚动位置：%1 / 100</source>
+        <translation>Scroll position: %1 / 100</translation>
+    </message>
+    <message>
+        <source>双轴滚动区域：滚轮纵向滚动，拖动底部滚动条横向滚动</source>
+        <translation>Scroll area: mouse wheel for vertical scrolling, drag the bottom bar to scroll horizontally</translation>
+    </message>
+    <message>
+        <source>第 %1 行    ·    横向和纵向滚动共享库内样式    ·    向右滚动查看更多内容</source>
+        <translation>Row %1    ·    Horizontal and vertical bars share the library style    ·    Scroll right for more</translation>
+    </message>
+    <message>
         <source>进度条(ProgressBar)</source>
         <translation>ProgressBar</translation>
     </message>

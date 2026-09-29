@@ -36,6 +36,7 @@
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzSliderValueTip.h>
 #include <ZzFluentUI/ZzScrollArea.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
 
@@ -114,6 +115,9 @@ void ZzExampleControlPagePrivate::initialize(ZzExampleControlKind kind, const QS
     case Kind::InfoBadge:
         buildFeedback(kind);
         break;
+    case Kind::ScrollBar:
+        buildScroll();
+        break;
     }
 
     auto *enabled
@@ -131,6 +135,65 @@ void ZzExampleControlPagePrivate::initialize(ZzExampleControlKind kind, const QS
     layout->addStretch(1);
     scroll->setWidget(content);
     outer->addWidget(scroll);
+}
+
+void ZzExampleControlPagePrivate::buildScroll()
+{
+    auto *horizontal = section(QCoreApplication::translate(
+        "ZzPureToolsExample", "横向滚动条：悬停展开，拖动或使用方向键"));
+    auto *vertical = section(QCoreApplication::translate(
+        "ZzPureToolsExample", "纵向滚动条：普通与禁用状态"));
+    for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {
+        QWidget *host = orientation == Qt::Horizontal ? horizontal : vertical;
+        for (int index = 0; index < 2; ++index) {
+            auto *preview = new QWidget(host);
+            auto *previewLayout = new QVBoxLayout(preview);
+            previewLayout->setContentsMargins(0, 0, 0, 0);
+            previewLayout->setSpacing(12);
+            auto *label = new QLabel(index == 0
+                    ? QCoreApplication::translate("ZzPureToolsExample", "普通")
+                    : QCoreApplication::translate("ZzPureToolsExample", "不可用"), preview);
+            previewLayout->addWidget(label);
+            auto *bar = new ZzFluentUI::ZzScrollBar(orientation, preview);
+            const QString name = orientation == Qt::Horizontal
+                ? QStringLiteral("zzExampleScrollHorizontal")
+                : QStringLiteral("zzExampleScrollVertical");
+            bar->setObjectName(index == 0 ? name : name + QStringLiteral("Disabled"));
+            bar->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample",
+                "滚动位置"));
+            bar->setRange(0, 100);
+            bar->setPageStep(25);
+            bar->setValue(35);
+            bar->setEnabled(index == 0);
+            bar->setFocusPolicy(Qt::StrongFocus);
+            if (orientation == Qt::Horizontal) {
+                bar->setFixedWidth(280);
+            } else {
+                bar->setFixedHeight(160);
+            }
+            QObject::connect(bar, &QScrollBar::valueChanged, status, [this](int value) {
+                status->setText(QCoreApplication::translate("ZzPureToolsExample",
+                    "滚动位置：%1 / 100").arg(value));
+            });
+            previewLayout->addWidget(bar);
+            zzAdd(host, preview);
+        }
+    }
+    auto *host = section(QCoreApplication::translate(
+        "ZzPureToolsExample", "双轴滚动区域：滚轮纵向滚动，拖动底部滚动条横向滚动"));
+    auto *area = new ZzFluentUI::ZzScrollArea(host);
+    area->setObjectName(QStringLiteral("zzExampleScrollArea"));
+    area->setFixedSize(320, 200);
+    auto *sheet = new QWidget;
+    auto *rows = new QVBoxLayout(sheet);
+    for (int row = 1; row <= 16; ++row) {
+        rows->addWidget(new QLabel(QCoreApplication::translate("ZzPureToolsExample",
+            "第 %1 行    ·    横向和纵向滚动共享库内样式    ·    向右滚动查看更多内容")
+                .arg(row), sheet));
+    }
+    sheet->setMinimumSize(640, 480);
+    area->setWidget(sheet);
+    zzAdd(host, area);
 }
 
 QWidget *ZzExampleControlPagePrivate::section(const QString &title)

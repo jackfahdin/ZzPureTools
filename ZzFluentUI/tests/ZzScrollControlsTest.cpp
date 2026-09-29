@@ -40,7 +40,8 @@ bool zzContainsOpaquePixel(const QImage &image)
 /** @brief 把滚动条 style option 绘制到同尺寸透明图像。 */
 QImage zzRenderScrollOption(
     const ZzFluentUI::ZzFluentStyle &style,
-    const QStyleOptionSlider &option)
+    const QStyleOptionSlider &option,
+    const QWidget *widget = nullptr)
 {
     QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
     image.fill(Qt::transparent);
@@ -48,7 +49,8 @@ QImage zzRenderScrollOption(
     style.drawComplexControl(
         QStyle::CC_ScrollBar,
         &option,
-        &painter);
+        &painter,
+        widget);
     painter.end();
     return image;
 }
@@ -396,7 +398,7 @@ private Q_SLOTS:
 
         QCOMPARE(
             hoveredImage.pixelColor(sliderCenter),
-            hovered.palette.color(QPalette::Text));
+            hovered.palette.color(QPalette::PlaceholderText));
         QCOMPARE(
             pressedImage.pixelColor(sliderCenter),
             pressed.palette.color(QPalette::Highlight));
@@ -418,6 +420,54 @@ private Q_SLOTS:
         QCOMPARE(
             cornerImage.pixelColor(corner.rect.center()),
             corner.palette.color(QPalette::Window));
+    }
+
+    void paintsIntermediateHoverFrames_data()
+    {
+        QTest::addColumn<bool>("horizontal");
+        QTest::newRow("horizontal") << true;
+        QTest::newRow("vertical") << false;
+    }
+
+    void paintsIntermediateHoverFrames()
+    {
+        QFETCH(bool, horizontal);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzScrollBar bar(horizontal ? Qt::Horizontal : Qt::Vertical);
+        bar.setStyle(&style);
+        bar.resize(horizontal ? QSize(240, 12) : QSize(12, 240));
+        bar.show();
+        zzSendLeave(&bar);
+        auto *animation = bar.findChild<QAbstractAnimation *>();
+        QVERIFY(animation != nullptr);
+        if (animation->state() == QAbstractAnimation::Running) {
+            animation->setCurrentTime(animation->duration());
+        }
+        zzSendEnter(&bar);
+        auto option = zzScrollOption(bar.orientation(), bar.rect(), 0, 100, 25, 50);
+        option.palette = style.standardPalette();
+        option.state |= QStyle::State_MouseOver;
+        const QRect hitRect = style.subControlRect(
+            QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider, &bar);
+        const QImage start = zzRenderScrollOption(style, option, &bar);
+        animation->setCurrentTime(40);
+        const QImage middle = zzRenderScrollOption(style, option, &bar);
+        animation->setCurrentTime(animation->duration());
+        const QImage end = zzRenderScrollOption(style, option, &bar);
+        QVERIFY(start != middle);
+        QVERIFY(middle != end);
+        const QPoint trackPoint = horizontal ? QPoint(10, 5) : QPoint(5, 10);
+        QCOMPARE(start.pixelColor(trackPoint).alpha(), 0);
+        QVERIFY(middle.pixelColor(trackPoint).alpha() > 0);
+        QVERIFY(middle.pixelColor(trackPoint).alpha() < end.pixelColor(trackPoint).alpha());
+        QCOMPARE(style.subControlRect(QStyle::CC_ScrollBar, &option,
+                     QStyle::SC_ScrollBarSlider, &bar), hitRect);
+        zzSendLeave(&bar);
+        animation->setCurrentTime(40);
+        const QImage leaving = zzRenderScrollOption(style, option, &bar);
+        zzSendEnter(&bar);
+        QCOMPARE(zzRenderScrollOption(style, option, &bar), leaving);
     }
 
     void boundsAnimationAndStopsWhenInactive()

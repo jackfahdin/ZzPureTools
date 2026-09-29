@@ -49,6 +49,7 @@
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
 
@@ -764,6 +765,17 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
         case Kind::CalendarPicker: return has.operator()<ZzFluentUI::ZzCalendarPicker>();
         case Kind::RollerPicker: return has.operator()<ZzFluentUI::ZzRollerPicker>();
         case Kind::Slider: return has.operator()<QSlider>();
+        case Kind::ScrollBar: {
+            auto *horizontal = page->findChild<ZzFluentUI::ZzScrollBar *>(
+                QStringLiteral("zzExampleScrollHorizontal"));
+            auto *vertical = page->findChild<ZzFluentUI::ZzScrollBar *>(
+                QStringLiteral("zzExampleScrollVertical"));
+            if (horizontal == nullptr || vertical == nullptr) return false;
+            horizontal->setValue(62);
+            vertical->setValue(47);
+            return horizontal->orientation() == Qt::Horizontal && horizontal->value() == 62
+                && vertical->orientation() == Qt::Vertical && vertical->value() == 47;
+        }
         case Kind::ProgressRing: return has.operator()<ZzFluentUI::ZzProgressRing>();
         case Kind::MessageBar: return has.operator()<ZzFluentUI::ZzMessageBar>();
         case Kind::InfoBadge: return has.operator()<ZzFluentUI::ZzInfoBadge>();

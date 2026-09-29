@@ -574,7 +574,7 @@ private Q_SLOTS:
 
         auto *navigationModel = window->navigationModel();
         QVERIFY(navigationModel != nullptr);
-        QCOMPARE(navigationModel->rowCount(), 29);
+        QCOMPARE(navigationModel->rowCount(), 30);
         QVERIFY(!navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
         QVERIFY(!navigationModel->indexForRoute(

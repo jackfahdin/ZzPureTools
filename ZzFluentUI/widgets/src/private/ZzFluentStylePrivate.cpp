@@ -2235,12 +2235,14 @@ void ZzFluentStylePrivate::drawScrollBar(
         && option->activeSubControls.testFlag(QStyle::SC_ScrollBarSlider);
     const bool focused = option->state.testFlag(QStyle::State_HasFocus)
         && q_ptr->isFocusVisualVisible(widget);
-    qreal expansion = hovered || pressed || focused ? 1.0 : 0.0;
+    qreal expansion = hovered ? 1.0 : 0.0;
     const auto *fluentScrollBar = qobject_cast<const ZzScrollBar *>(widget);
     if (fluentScrollBar != nullptr) {
-        expansion = std::max(
-            expansion,
-            std::clamp(fluentScrollBar->d_ptr->expansion, 0.0, 1.0));
+        // 悬停只使用动画进度，不能被 MouseOver 状态直接覆盖为终态。
+        expansion = std::clamp(fluentScrollBar->d_ptr->expansion, 0.0, 1.0);
+    }
+    if (pressed || focused) {
+        expansion = 1.0;
     }
     if (!enabled) {
         expansion = 0.0;
@@ -2250,10 +2252,13 @@ void ZzFluentStylePrivate::drawScrollBar(
         ? QPalette::Normal
         : QPalette::Disabled;
     painter->save();
+    painter->setClipRect(option->rect, Qt::IntersectClip);
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(Qt::NoPen);
     if (!qFuzzyIsNull(expansion)) {
-        painter->setBrush(snapshot->color(ZzColorToken::ControlFillHover));
+        QColor trackColor = snapshot->color(ZzColorToken::ControlFillHover);
+        trackColor.setAlpha(qRound(trackColor.alpha() * expansion));
+        painter->setBrush(trackColor);
         const QRectF track = QRectF(option->rect).adjusted(
             0.5,
             0.5,
@@ -2266,10 +2271,12 @@ void ZzFluentStylePrivate::drawScrollBar(
         painter->drawRoundedRect(track, trackRadius, trackRadius);
     }
 
-    constexpr qreal compactThickness = 3.0;
+    constexpr qreal compactThickness = 2.5;
     constexpr qreal expandedThickness = 6.0;
-    const qreal thickness = compactThickness
-        + ((expandedThickness - compactThickness) * expansion);
+    const qreal availableThickness = option->orientation == Qt::Horizontal
+        ? slider.height() : slider.width();
+    const qreal thickness = std::min(availableThickness, compactThickness
+        + ((expandedThickness - compactThickness) * expansion));
     QRectF handle(slider);
     if (option->orientation == Qt::Horizontal) {
         handle.setHeight(thickness);
@@ -2280,7 +2287,7 @@ void ZzFluentStylePrivate::drawScrollBar(
     }
     const QColor handleColor = focused || pressed
         ? option->palette.color(group, QPalette::Highlight)
-        : option->palette.color(group, QPalette::Text);
+        : option->palette.color(group, QPalette::PlaceholderText);
     painter->setBrush(handleColor);
     painter->drawRoundedRect(handle, thickness / 2.0, thickness / 2.0);
     painter->restore();
