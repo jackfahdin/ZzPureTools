@@ -327,6 +327,11 @@ QSize ZzFluentStyle::sizeFromContents(
         }
         result = result.expandedTo(QSize(96, 32));
     }
+    if (type == CT_SpinBox) {
+        if (const auto *spin = qstyleoption_cast<const QStyleOptionSpinBox *>(option)) {
+            result = result.expandedTo(d_ptr->spinBoxSizeFromContents(spin, contentsSize, widget));
+        }
+    }
     if (type == CT_ComboBox) {
         const int fluentContentWidth = contentsSize.width()
             + zzComboBoxLeadingInset
@@ -898,7 +903,7 @@ QRect ZzFluentStyle::subControlRect(
         const auto *spinBox = qstyleoption_cast<
             const QStyleOptionSpinBox *>(option);
         if (spinBox != nullptr) {
-            return d_ptr->spinBoxSubControlRect(spinBox, subControl);
+            return d_ptr->spinBoxSubControlRect(spinBox, subControl, widget);
         }
     }
     if (control == CC_ScrollBar) {
@@ -929,7 +934,7 @@ QStyle::SubControl ZzFluentStyle::hitTestComplexControl(
         const auto *spinBox = qstyleoption_cast<
             const QStyleOptionSpinBox *>(option);
         if (spinBox != nullptr) {
-            return d_ptr->hitTestSpinBox(spinBox, position);
+            return d_ptr->hitTestSpinBox(spinBox, position, widget);
         }
     }
     if (control == CC_ScrollBar) {

@@ -36,6 +36,8 @@
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzDoubleSpinBox.h>
+#include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDpiScale.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzIconAssets.h>
@@ -52,6 +54,34 @@
 namespace ZzFluentUI {
 
 namespace {
+
+/** @brief 判断是否为提供四种布局接口的数值控件。 */
+[[nodiscard]] bool zzHasSpinBoxButtonLayout(const QWidget *widget)
+{
+    return qobject_cast<const ZzSpinBox *>(widget) != nullptr
+        || qobject_cast<const ZzDoubleSpinBox *>(widget) != nullptr;
+}
+
+/** @brief 仅对 Zz 数值控件启用可配置布局，其余 Qt 数值/日期控件保持竖排。 */
+[[nodiscard]] ZzSpinBoxButtonLayout zzSpinBoxButtonLayout(const QWidget *widget)
+{
+    if (const auto *integer = qobject_cast<const ZzSpinBox *>(widget)) {
+        return integer->buttonLayout();
+    }
+    if (const auto *floating = qobject_cast<const ZzDoubleSpinBox *>(widget)) {
+        return floating->buttonLayout();
+    }
+    return ZzSpinBoxButtonLayout::Vertical;
+}
+
+/** @brief 按字体提供按钮的自然宽度，供尺寸量测和实际布局共同使用。 */
+[[nodiscard]] int zzSpinBoxButtonWidth(const QStyleOptionSpinBox *option)
+{
+    return qMax(28, option->fontMetrics.height() + 8);
+}
+
+/** @brief 数值编辑区域的单侧水平留白。 */
+constexpr int zzSpinBoxTextInset = 8;
 
 /** @brief 线性进度轨道的逻辑像素厚度。 */
 constexpr qreal zzProgressTrackThickness = 3.0;
@@ -1584,16 +1614,18 @@ void ZzFluentStylePrivate::drawSpinBox(
         return;
     }
 
-    const bool widgetEnabled = option->state.testFlag(
-        QStyle::State_Enabled);
-    const auto drawButton = [this, option, painter, widgetEnabled](
+    const auto *spinBox = qobject_cast<const QAbstractSpinBox *>(widget);
+    const bool widgetEnabled = option->state.testFlag(QStyle::State_Enabled)
+        && (spinBox == nullptr ? !option->state.testFlag(QStyle::State_ReadOnly)
+                              : !spinBox->isReadOnly());
+    const auto drawButton = [this, option, painter, widget, widgetEnabled](
                                 QStyle::SubControl subControl,
                                 QAbstractSpinBox::StepEnabledFlag stepFlag,
                                 bool increase) {
         if (!option->subControls.testFlag(subControl)) {
             return;
         }
-        const QRect rect = spinBoxSubControlRect(option, subControl);
+        const QRect rect = spinBoxSubControlRect(option, subControl, widget);
         if (rect.isEmpty()) {
             return;
         }
@@ -1607,11 +1639,9 @@ void ZzFluentStylePrivate::drawSpinBox(
             QStyle::State_Sunken);
 
         QColor fill = Qt::transparent;
-        if (!widgetEnabled || !stepEnabled) {
-            fill = snapshot->color(ZzColorToken::ControlFillDisabled);
-        } else if (pressed) {
+        if (stepEnabled && pressed) {
             fill = snapshot->color(ZzColorToken::ControlFillPressed);
-        } else if (hovered) {
+        } else if (stepEnabled && hovered) {
             fill = snapshot->color(ZzColorToken::ControlFillHover);
         }
         const QPalette::ColorGroup group = stepEnabled
@@ -1620,7 +1650,6 @@ void ZzFluentStylePrivate::drawSpinBox(
         const QColor glyph = option->palette.color(
             group,
             QPalette::Text);
-        const QPointF center = QRectF(rect).center();
 
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
@@ -1635,8 +1664,8 @@ void ZzFluentStylePrivate::drawSpinBox(
                 frameInset,
                 -frameInset,
                 -frameInset);
-            const QRectF buttonSurface = QRectF(rect).intersected(
-                frameInterior);
+            const QRectF buttonSurface = QRectF(rect).adjusted(2, 2, -2, -3)
+                .intersected(frameInterior);
             if (!buttonSurface.isEmpty()) {
                 const qreal radius = qMax(
                     0.0,
@@ -1647,39 +1676,22 @@ void ZzFluentStylePrivate::drawSpinBox(
                 painter->setClipPath(clipPath, Qt::IntersectClip);
                 painter->setPen(Qt::NoPen);
                 painter->setBrush(fill);
-                painter->drawRect(buttonSurface);
+                painter->drawRoundedRect(buttonSurface, radius, radius);
             }
         }
-        painter->setBrush(Qt::NoBrush);
         const qreal devicePixelRatio = painter->device() != nullptr
             ? painter->device()->devicePixelRatioF()
             : 1.0;
-        const qreal pixelWidth = 1.0 / std::max(1.0, devicePixelRatio);
-        painter->setPen(QPen(
-            glyph,
-            pixelWidth,
-            Qt::SolidLine,
-            Qt::RoundCap,
-            Qt::RoundJoin));
-        QPainterPath symbol;
-        if (option->buttonSymbols == QAbstractSpinBox::PlusMinus) {
-            symbol.moveTo(center.x() - 3.5, center.y());
-            symbol.lineTo(center.x() + 3.5, center.y());
-            if (increase) {
-                symbol.moveTo(center.x(), center.y() - 3.5);
-                symbol.lineTo(center.x(), center.y() + 3.5);
-            }
-        } else {
-            const qreal direction = increase ? -1.0 : 1.0;
-            symbol.moveTo(
-                center.x() - 3.5,
-                center.y() - (1.5 * direction));
-            symbol.lineTo(center.x(), center.y() + (2.0 * direction));
-            symbol.lineTo(
-                center.x() + 3.5,
-                center.y() - (1.5 * direction));
+        const ZzFontIcon icon = option->buttonSymbols == QAbstractSpinBox::PlusMinus
+            ? (increase ? ZzFontIcon::Plus : ZzFontIcon::Minus)
+            : (increase ? ZzFontIcon::ChevronUp : ZzFontIcon::ChevronDown);
+        const int extent = qMin(14, qMin(rect.width() - 4, rect.height() - 2));
+        if (extent > 0) {
+            const QPixmap pixmap = q_ptr->iconPixmap(ZzIconDescriptor::fromFontIcon(icon),
+                QSize(extent, extent), devicePixelRatio, glyph, option->direction);
+            const QPointF origin = QRectF(rect).center() - QPointF(extent / 2.0, extent / 2.0);
+            painter->drawPixmap(origin, pixmap);
         }
-        painter->drawPath(symbol);
         painter->restore();
     };
 
@@ -1691,38 +1703,12 @@ void ZzFluentStylePrivate::drawSpinBox(
         QStyle::SC_SpinBoxDown,
         QAbstractSpinBox::StepDownEnabled,
         false);
-
-    if (option->state.testFlag(QStyle::State_HasFocus)
-        && option->subControls.testFlag(QStyle::SC_SpinBoxEditField)) {
-        const QRect edit = spinBoxSubControlRect(
-            option,
-            QStyle::SC_SpinBoxEditField);
-        if (!edit.isEmpty()) {
-            const qreal devicePixelRatio = painter->device() != nullptr
-                ? painter->device()->devicePixelRatioF()
-                : 1.0;
-            const qreal pixelWidth = 1.0 / std::max(1.0, devicePixelRatio);
-            const QPalette::ColorGroup group = option->state.testFlag(
-                QStyle::State_Enabled)
-                ? QPalette::Normal
-                : QPalette::Disabled;
-            painter->save();
-            painter->setPen(QPen(
-                option->palette.color(group, QPalette::Highlight),
-                pixelWidth,
-                Qt::SolidLine,
-                Qt::SquareCap));
-            painter->drawLine(
-                QPointF(edit.left(), edit.bottom() + pixelWidth / 2.0),
-                QPointF(edit.right(), edit.bottom() + pixelWidth / 2.0));
-            painter->restore();
-        }
-    }
 }
 
 QRect ZzFluentStylePrivate::spinBoxSubControlRect(
     const QStyleOptionSpinBox *option,
-    QStyle::SubControl subControl) const
+    QStyle::SubControl subControl,
+    const QWidget *widget) const
 {
     if (option == nullptr || option->rect.isEmpty()) {
         return {};
@@ -1732,43 +1718,45 @@ QRect ZzFluentStylePrivate::spinBoxSubControlRect(
         return frame;
     }
 
-    const bool hasButtons = option->buttonSymbols
-        != QAbstractSpinBox::NoButtons;
+    const bool configurable = zzHasSpinBoxButtonLayout(widget);
+    const int inset = configurable && option->frame && frame.width() > 2 && frame.height() > 2 ? 1 : 0;
+    const QRect inner = frame.adjusted(inset, inset, -inset, -inset);
+    const auto layout = zzSpinBoxButtonLayout(widget);
+    const bool vertical = layout == ZzSpinBoxButtonLayout::Vertical;
+    const bool sides = layout == ZzSpinBoxButtonLayout::HorizontalSides
+        || layout == ZzSpinBoxButtonLayout::PlusMinusHorizontalSides;
+    const bool hasButtons = option->buttonSymbols != QAbstractSpinBox::NoButtons;
+    const int columns = vertical ? 1 : 2;
     const int buttonWidth = hasButtons
-        ? std::min(28, frame.width())
-        : 0;
-    const int contentWidth = std::max(0, frame.width() - buttonWidth);
-    const int leftPadding = std::min(8, contentWidth / 2);
-    const int rightPadding = std::min(4, std::max(
-        0,
-        contentWidth - leftPadding));
-    const int verticalPadding = frame.height() >= 3 ? 1 : 0;
-    const QRect logicalEdit(
-        frame.left() + leftPadding,
-        frame.top() + verticalPadding,
-        std::max(0, contentWidth - leftPadding - rightPadding),
-        std::max(0, frame.height() - (2 * verticalPadding)));
+        ? qMin(configurable ? zzSpinBoxButtonWidth(option) : 28, inner.width() / columns) : 0;
+    QRect logicalUp;
+    QRect logicalDown;
+    QRect edit = inner;
+    if (hasButtons && buttonWidth > 0) {
+        logicalUp = QRect(inner.right() - buttonWidth + 1, inner.top(), buttonWidth, inner.height());
+        if (vertical) {
+            const int upHeight = (inner.height() + 1) / 2;
+            logicalUp.setHeight(upHeight);
+            logicalDown = QRect(logicalUp.left(), inner.top() + upHeight,
+                buttonWidth, inner.height() - upHeight);
+        } else {
+            logicalDown = QRect(sides ? inner.left() : logicalUp.left() - buttonWidth,
+                inner.top(), buttonWidth, inner.height());
+        }
+        edit.adjust(sides ? buttonWidth : 0, 0,
+            -(sides ? buttonWidth : columns * buttonWidth), 0);
+    }
     if (subControl == QStyle::SC_SpinBoxEditField) {
-        return QStyle::visualRect(
-            option->direction,
-            frame,
-            logicalEdit);
+        const int horizontal = qMin(zzSpinBoxTextInset, qMax(0, edit.width() / 2));
+        const int trailing = configurable ? horizontal : qMin(4, qMax(0, edit.width() - horizontal));
+        const int verticalInset = configurable ? qMin(3, qMax(0, edit.height() / 2))
+                                              : (edit.height() >= 3 ? 1 : 0);
+        edit.adjust(horizontal, verticalInset, -trailing, -verticalInset);
+        return QStyle::visualRect(option->direction, frame, edit);
     }
     if (!hasButtons) {
         return {};
     }
-
-    const int upperHeight = (frame.height() + 1) / 2;
-    const QRect logicalUp(
-        frame.right() - buttonWidth + 1,
-        frame.top(),
-        buttonWidth,
-        upperHeight);
-    const QRect logicalDown(
-        logicalUp.left(),
-        logicalUp.bottom() + 1,
-        buttonWidth,
-        frame.height() - upperHeight);
     if (subControl == QStyle::SC_SpinBoxUp) {
         return QStyle::visualRect(option->direction, frame, logicalUp);
     }
@@ -1778,9 +1766,25 @@ QRect ZzFluentStylePrivate::spinBoxSubControlRect(
     return {};
 }
 
+QSize ZzFluentStylePrivate::spinBoxSizeFromContents(
+    const QStyleOptionSpinBox *option,
+    const QSize &contentsSize,
+    const QWidget *widget) const
+{
+    if (!zzHasSpinBoxButtonLayout(widget)) {
+        return contentsSize;
+    }
+    const int inset = option->frame ? 1 : 0;
+    const int columns = zzSpinBoxButtonLayout(widget) == ZzSpinBoxButtonLayout::Vertical ? 1 : 2;
+    const int buttonsWidth = option->buttonSymbols == QAbstractSpinBox::NoButtons
+        ? 0 : columns * zzSpinBoxButtonWidth(option);
+    return contentsSize + QSize(buttonsWidth + 2 * (inset + zzSpinBoxTextInset), 2 * inset + 6);
+}
+
 QStyle::SubControl ZzFluentStylePrivate::hitTestSpinBox(
     const QStyleOptionSpinBox *option,
-    const QPoint &position) const
+    const QPoint &position,
+    const QWidget *widget) const
 {
     if (option == nullptr || !option->rect.contains(position)) {
         return QStyle::SC_None;
@@ -1789,7 +1793,7 @@ QStyle::SubControl ZzFluentStylePrivate::hitTestSpinBox(
              QStyle::SC_SpinBoxUp,
              QStyle::SC_SpinBoxDown,
              QStyle::SC_SpinBoxEditField}) {
-        if (spinBoxSubControlRect(option, subControl).contains(position)) {
+        if (spinBoxSubControlRect(option, subControl, widget).contains(position)) {
             return subControl;
         }
     }

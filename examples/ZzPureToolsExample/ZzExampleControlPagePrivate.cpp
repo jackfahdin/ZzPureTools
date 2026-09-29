@@ -478,30 +478,50 @@ void ZzExampleControlPagePrivate::buildInput(ZzExampleControlKind kind)
 
 void ZzExampleControlPagePrivate::buildValue(ZzExampleControlKind kind)
 {
+    if (kind == ZzExampleControlKind::SpinBox || kind == ZzExampleControlKind::DoubleSpinBox) {
+        using ZzFluentUI::ZzSpinBoxButtonLayout;
+        const std::array modes{
+            ZzSpinBoxButtonLayout::Vertical,
+            ZzSpinBoxButtonLayout::HorizontalSides,
+            ZzSpinBoxButtonLayout::HorizontalRight,
+            ZzSpinBoxButtonLayout::PlusMinusHorizontalSides};
+        const std::array titles{
+            QCoreApplication::translate("ZzPureToolsExample", "右侧竖排箭头（Vertical）：上增、下减"),
+            QCoreApplication::translate("ZzPureToolsExample", "两侧箭头（HorizontalSides）：左减、右增"),
+            QCoreApplication::translate("ZzPureToolsExample", "右侧横排箭头（HorizontalRight）：右侧先减后增，默认模式"),
+            QCoreApplication::translate("ZzPureToolsExample", "两侧加减（PlusMinusHorizontalSides）：左减号、右加号")};
+        for (std::size_t index = 0; index < modes.size(); ++index) {
+            auto *modeHost = section(titles[index]);
+            if (kind == ZzExampleControlKind::SpinBox) {
+                auto *spin = new ZzFluentUI::ZzSpinBox(modeHost);
+                spin->setButtonLayout(modes[index]);
+                spin->setRange(1, 64);
+                spin->setValue(8);
+                spin->setSuffix(QCoreApplication::translate("ZzPureToolsExample", " 线程"));
+                spin->setMinimumWidth(240);
+                spin->setAccessibleName(titles[index]);
+                QObject::connect(spin, &QSpinBox::valueChanged, status,
+                    [this](int value) { status->setText(QString::number(value)); });
+                zzAdd(modeHost, spin);
+            } else {
+                auto *spin = new ZzFluentUI::ZzDoubleSpinBox(modeHost);
+                spin->setButtonLayout(modes[index]);
+                spin->setRange(0.1, 50.0);
+                spin->setDecimals(2);
+                spin->setSingleStep(0.25);
+                spin->setValue(8.0);
+                spin->setSuffix(QStringLiteral(" MiB"));
+                spin->setMinimumWidth(240);
+                spin->setAccessibleName(titles[index]);
+                QObject::connect(spin, &QDoubleSpinBox::valueChanged, status,
+                    [this](double value) { status->setText(QString::number(value, 'f', 2)); });
+                zzAdd(modeHost, spin);
+            }
+        }
+        return;
+    }
     auto *host = section(QCoreApplication::translate("ZzPureToolsExample", "基本用法"));
-    if (kind == ZzExampleControlKind::SpinBox) {
-        auto *spin = new ZzFluentUI::ZzSpinBox(host);
-        spin->setRange(1, 64);
-        spin->setValue(8);
-        spin->setSuffix(QCoreApplication::translate("ZzPureToolsExample", " 线程"));
-        spin->setMinimumWidth(200);
-        spin->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "整数值"));
-        QObject::connect(spin, &QSpinBox::valueChanged, status,
-            [this](int value) { status->setText(QString::number(value)); });
-        zzAdd(host, spin);
-    } else if (kind == ZzExampleControlKind::DoubleSpinBox) {
-        auto *spin = new ZzFluentUI::ZzDoubleSpinBox(host);
-        spin->setRange(0.1, 50.0);
-        spin->setDecimals(2);
-        spin->setSingleStep(0.25);
-        spin->setValue(8.0);
-        spin->setSuffix(QStringLiteral(" MiB"));
-        spin->setMinimumWidth(200);
-        spin->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "小数值"));
-        QObject::connect(spin, &QDoubleSpinBox::valueChanged, status,
-            [this](double value) { status->setText(QString::number(value, 'f', 2)); });
-        zzAdd(host, spin);
-    } else if (kind == ZzExampleControlKind::CalendarPicker) {
+    if (kind == ZzExampleControlKind::CalendarPicker) {
         auto *date = new ZzFluentUI::ZzCalendarPicker(host);
         date->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
         date->setDateRange(QDate(2026, 1, 1), QDate(2035, 12, 31));

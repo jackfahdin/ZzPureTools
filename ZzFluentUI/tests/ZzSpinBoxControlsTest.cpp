@@ -7,6 +7,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QDoubleSpinBox>
+#include <QtWidgets/QDateTimeEdit>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QStyleOption>
@@ -78,6 +79,199 @@ class ZzSpinBoxControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void supportsEveryButtonLayout_data()
+    {
+        QTest::addColumn<ZzFluentUI::ZzSpinBoxButtonLayout>("layout");
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+        using ZzFluentUI::ZzSpinBoxButtonLayout;
+        for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            for (const auto layout : {ZzSpinBoxButtonLayout::Vertical,
+                     ZzSpinBoxButtonLayout::HorizontalSides,
+                     ZzSpinBoxButtonLayout::HorizontalRight,
+                     ZzSpinBoxButtonLayout::PlusMinusHorizontalSides}) {
+                const QByteArray name = QByteArray::number(static_cast<int>(layout))
+                    + '-' + QByteArray::number(static_cast<int>(direction));
+                QTest::newRow(name.constData()) << layout << direction;
+            }
+        }
+    }
+
+    /** @brief 四种布局在整数/小数、RTL 和运行时切换后均保持原生数值交互。 */
+    void supportsEveryButtonLayout()
+    {
+        QFETCH(ZzFluentUI::ZzSpinBoxButtonLayout, layout);
+        QFETCH(Qt::LayoutDirection, direction);
+        using ZzFluentUI::ZzSpinBoxButtonLayout;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const auto verify = [&](auto &spin) {
+            spin.setStyle(&style);
+            spin.setLayoutDirection(direction);
+            spin.setRange(-1000000, 1000000);
+            spin.setPrefix(QStringLiteral("Total: "));
+            spin.setSuffix(QStringLiteral(" units"));
+            QFont font = spin.font();
+            font.setPointSize(18);
+            spin.setFont(font);
+            spin.show();
+            QCoreApplication::processEvents();
+            spin.setButtonLayout(layout);
+            QCOMPARE(spin.buttonLayout(), layout);
+            spin.resize(spin.sizeHint());
+            QStyleOptionSpinBox option;
+            const auto refresh = [&] {
+                option.initFrom(&spin);
+                option.rect = spin.rect();
+                option.buttonSymbols = spin.buttonSymbols();
+                option.frame = spin.hasFrame();
+            };
+            refresh();
+            const auto rectFor = [&](QStyle::SubControl control) {
+                return style.subControlRect(QStyle::CC_SpinBox, &option, control, &spin);
+            };
+            const QRect up = rectFor(QStyle::SC_SpinBoxUp);
+            const QRect down = rectFor(QStyle::SC_SpinBoxDown);
+            const QRect edit = rectFor(QStyle::SC_SpinBoxEditField);
+            QVERIFY(!up.intersects(down));
+            QVERIFY(!up.intersects(edit));
+            QVERIFY(!down.intersects(edit));
+            const QRect logicalUp = QStyle::visualRect(direction, spin.rect(), up);
+            const QRect logicalDown = QStyle::visualRect(direction, spin.rect(), down);
+            const QRect logicalEdit = QStyle::visualRect(direction, spin.rect(), edit);
+            if (layout == ZzSpinBoxButtonLayout::Vertical) {
+                QCOMPARE(logicalUp.center().x(), logicalDown.center().x());
+                QVERIFY(logicalUp.bottom() < logicalDown.top());
+                QVERIFY(logicalEdit.right() < logicalUp.left());
+            } else {
+                QCOMPARE(logicalUp.center().y(), logicalDown.center().y());
+                QVERIFY(logicalDown.right() < logicalUp.left());
+                if (layout == ZzSpinBoxButtonLayout::HorizontalRight) {
+                    QVERIFY(logicalEdit.right() < logicalDown.left());
+                } else {
+                    QVERIFY(logicalDown.right() < logicalEdit.left());
+                    QVERIFY(logicalEdit.right() < logicalUp.left());
+                }
+            }
+            QCOMPARE(spin.buttonSymbols(), layout == ZzSpinBoxButtonLayout::PlusMinusHorizontalSides
+                ? QAbstractSpinBox::PlusMinus : QAbstractSpinBox::UpDownArrows);
+            auto *editor = spin.template findChild<QLineEdit *>();
+            QVERIFY(editor != nullptr);
+            QCOMPARE(editor->geometry(), edit);
+            const auto initial = spin.value();
+            QTest::mouseClick(&spin, Qt::LeftButton, Qt::NoModifier, up.center());
+            QCOMPARE(spin.value(), initial + spin.singleStep());
+            QTest::mouseClick(&spin, Qt::LeftButton, Qt::NoModifier, down.center());
+            QCOMPARE(spin.value(), initial);
+            spin.setReadOnly(true);
+            QTest::mouseClick(&spin, Qt::LeftButton, Qt::NoModifier, up.center());
+            QCOMPARE(spin.value(), initial);
+            spin.setReadOnly(false);
+            spin.setValue(spin.maximum());
+            QTest::mouseClick(&spin, Qt::LeftButton, Qt::NoModifier, up.center());
+            QCOMPARE(spin.value(), spin.maximum());
+            const QMargins textMargins = editor->textMargins();
+            QVERIFY(editor->contentsRect().width() - textMargins.left() - textMargins.right()
+                >= editor->fontMetrics().horizontalAdvance(spin.text()));
+            QVERIFY(editor->height() >= editor->fontMetrics().height());
+
+            // 不依赖窗口 resize：同符号的不同模式也必须立即重排并刷新 sizeHint 缓存。
+            spin.setValue(initial);
+            spin.setButtonLayout(ZzSpinBoxButtonLayout::Vertical);
+            const QSize verticalHint = spin.sizeHint();
+            editor->setSelection(0, 3);
+            spin.setButtonLayout(ZzSpinBoxButtonLayout::HorizontalSides);
+            refresh();
+            QCOMPARE(editor->geometry(), rectFor(QStyle::SC_SpinBoxEditField));
+            QCOMPARE(editor->selectedText(), QStringLiteral("Tot"));
+            QCOMPARE(spin.value(), initial);
+            QVERIFY(spin.sizeHint().width() > verticalHint.width());
+            spin.setButtonSymbols(QAbstractSpinBox::NoButtons);
+            spin.setButtonLayout(layout);
+            refresh();
+            QVERIFY(rectFor(QStyle::SC_SpinBoxUp).isEmpty());
+            QVERIFY(rectFor(QStyle::SC_SpinBoxDown).isEmpty());
+            QCOMPARE(editor->geometry(), rectFor(QStyle::SC_SpinBoxEditField));
+        };
+        ZzFluentUI::ZzSpinBox integer;
+        verify(integer);
+        ZzFluentUI::ZzDoubleSpinBox floating;
+        floating.setDecimals(3);
+        floating.setSingleStep(0.125);
+        verify(floating);
+    }
+
+    /** @brief 普通 Qt 日期时间控件不受 Zz 默认横排布局影响。 */
+    void preservesDateTimeButtonLayout()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QDateTimeEdit date;
+        date.setStyle(&style);
+        date.resize(240, 36);
+        QStyleOptionSpinBox option;
+        option.initFrom(&date);
+        option.rect = date.rect();
+        const QRect up = style.subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxUp, &date);
+        const QRect down = style.subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxDown, &date);
+        QCOMPARE(up.center().x(), down.center().x());
+        QVERIFY(up.bottom() < down.top());
+    }
+
+    /** @brief 默认数值控件应使用右侧横排，且编辑器不与任一按钮重叠。 */
+    void defaultsToHorizontalButtons()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzSpinBox integer;
+        ZzFluentUI::ZzDoubleSpinBox floating;
+        for (QAbstractSpinBox *spin : {static_cast<QAbstractSpinBox *>(&integer),
+                 static_cast<QAbstractSpinBox *>(&floating)}) {
+            spin->setStyle(&style);
+            spin->resize(220, 36);
+            spin->show();
+            QCoreApplication::processEvents();
+            QStyleOptionSpinBox option;
+            option.initFrom(spin);
+            option.rect = spin->rect();
+            option.buttonSymbols = spin->buttonSymbols();
+            const QRect up = style.subControlRect(QStyle::CC_SpinBox, &option,
+                QStyle::SC_SpinBoxUp, spin);
+            const QRect down = style.subControlRect(QStyle::CC_SpinBox, &option,
+                QStyle::SC_SpinBoxDown, spin);
+            QCOMPARE(up.center().y(), down.center().y());
+            QVERIFY(down.right() < up.left());
+            const auto *editor = spin->findChild<QLineEdit *>();
+            QVERIFY(editor != nullptr);
+            QVERIFY(editor->geometry().right() < down.left());
+        }
+    }
+
+    /** @brief 只读状态不应因聚焦再次绘制输入底线。 */
+    void keepsReadOnlySurfaceWithoutInputUnderline()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzSpinBox spin;
+        spin.setStyle(&style);
+        spin.setReadOnly(true);
+        QStyleOptionSpinBox option;
+        option.initFrom(&spin);
+        option.rect = QRect(0, 0, 220, 36);
+        option.frame = spin.hasFrame();
+        option.subControls = QStyle::SC_All;
+        option.palette = style.standardPalette();
+        const auto render = [&] {
+            QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawComplexControl(QStyle::CC_SpinBox, &option, &painter, &spin);
+            return image;
+        };
+        const QImage normal = render();
+        option.state |= QStyle::State_HasFocus;
+        QCOMPARE(render(), normal);
+    }
+
     void exposesLightweightDefaults()
     {
         ZzFluentUI::ZzSpinBox integer;
@@ -85,10 +279,10 @@ private Q_SLOTS:
 
         QCOMPARE(
             integer.buttonSymbols(),
-            QAbstractSpinBox::PlusMinus);
+            QAbstractSpinBox::UpDownArrows);
         QCOMPARE(
             floating.buttonSymbols(),
-            QAbstractSpinBox::PlusMinus);
+            QAbstractSpinBox::UpDownArrows);
         QCOMPARE(integer.findChildren<QAbstractAnimation *>().size(), 0);
         QCOMPARE(floating.findChildren<QAbstractAnimation *>().size(), 0);
         QCOMPARE(integer.findChildren<QTimer *>().size(), 0);
@@ -137,6 +331,7 @@ private Q_SLOTS:
         QStyleOptionSpinBox option;
         option.initFrom(&spinBox);
         option.rect = spinBox.rect();
+        option.frame = spinBox.hasFrame();
         option.buttonSymbols = spinBox.buttonSymbols();
         option.subControls = QStyle::SC_All;
         option.activeSubControls = QStyle::SC_SpinBoxUp;
@@ -389,6 +584,7 @@ private Q_SLOTS:
             QStyleOptionSpinBox option;
             option.initFrom(spinBox);
             option.rect = QRect(QPoint(0, 0), size);
+            option.frame = spinBox->hasFrame();
             option.subControls = QStyle::SC_All;
             option.buttonSymbols = spinBox->buttonSymbols();
             option.stepEnabled = QAbstractSpinBox::StepUpEnabled

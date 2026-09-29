@@ -173,11 +173,18 @@ public:
     /** @brief 计算数值输入框 frame、edit、up 和 down 稳定矩形。 */
     [[nodiscard]] QRect spinBoxSubControlRect(
         const QStyleOptionSpinBox *option,
-        QStyle::SubControl subControl) const;
+        QStyle::SubControl subControl,
+        const QWidget *widget) const;
+    /** @brief 按相同布局预留按钮、边框和编辑器留白，避免自然尺寸裁切文字。 */
+    [[nodiscard]] QSize spinBoxSizeFromContents(
+        const QStyleOptionSpinBox *option,
+        const QSize &contentsSize,
+        const QWidget *widget) const;
     /** @brief 使用数值输入框稳定矩形执行命中测试。 */
     [[nodiscard]] QStyle::SubControl hitTestSpinBox(
         const QStyleOptionSpinBox *option,
-        const QPoint &position) const;
+        const QPoint &position,
+        const QWidget *widget) const;
     /** @brief 绘制标签页表面、选中指示和平台标签。 */
     void drawTabBarTab(
         const QStyleOptionTab *option,

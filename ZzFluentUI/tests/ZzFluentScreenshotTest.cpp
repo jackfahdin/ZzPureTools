@@ -5143,8 +5143,9 @@ public:
             return spinBox;
         };
 
-        addInteger(0, 0, 24);
+        addInteger(0, 0, 24)->setButtonLayout(ZzFluentUI::ZzSpinBoxButtonLayout::Vertical);
         auto *floating = addFloating(0, 1, 1.25);
+        floating->setButtonLayout(ZzFluentUI::ZzSpinBoxButtonLayout::HorizontalSides);
         floating->setSuffix(QStringLiteral(" ms"));
         auto *standard = new QSpinBox(&window);
         standard->setRange(-100, 100);
@@ -5159,9 +5160,11 @@ public:
         readOnly->setButtonSymbols(QAbstractSpinBox::NoButtons);
         readOnly->setReadOnly(true);
         auto *rtl = addInteger(1, 2, -18);
+        rtl->setButtonLayout(ZzFluentUI::ZzSpinBoxButtonLayout::PlusMinusHorizontalSides);
         rtl->setLayoutDirection(Qt::RightToLeft);
 
         auto *prefix = addInteger(2, 0, 48);
+        prefix->setButtonLayout(ZzFluentUI::ZzSpinBoxButtonLayout::PlusMinusHorizontalSides);
         prefix->setPrefix(QStringLiteral("0x"));
         prefix->setDisplayIntegerBase(16);
         auto *special = addInteger(2, 1, 0);

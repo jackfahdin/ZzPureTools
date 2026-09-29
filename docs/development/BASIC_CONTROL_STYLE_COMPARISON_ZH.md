@@ -14,7 +14,7 @@
 | PlainTextEdit | 带框输入绘制 / `drawInputPanel` | 与单行输入统一边框，检查 viewport 对圆角的覆盖。 |
 | ComboBox | `CC_ComboBox` / `drawComboBox` | 普通框采用按钮表面，可编辑框保留输入焦点线；标签单次绘制，统一原生下拉列表及高对比选中前景。保留独占箭头区、长文本预留和 RTL，详见 [改进记录](../superpowers/plans/2026-09-29-combo-box-fluent-refresh.md)。 |
 | MultiSelectComboBox | 参考项目无等价原生基础控件 / `ZzMultiSelectComboBox` | 保留筛选、多选与摘要逻辑，沿用 ComboBox 的统一外观。 |
-| SpinBox | `CC_SpinBox` / `drawSpinBox` | 保留已实现的四种按钮布局与命中区域，复验公共输入面板变化。 |
+| SpinBox | `CC_SpinBox` / `drawSpinBox` | 支持 Vertical、HorizontalSides、HorizontalRight、PlusMinusHorizontalSides；默认右侧横排，共用尺寸和命中几何、字体图标缓存及单一输入底线。[中文语义与用法](SPIN_BOX_LAYOUTS_ZH.md)。 |
 | DoubleSpinBox | 同上 / `ZzDoubleSpinBox` | 与整数输入统一，保留小数精度、范围与输入校验。 |
 | CalendarPicker | 日期编辑和日历代理 / `ZzCalendarPicker`、`ZzCalendar` | 保留可用的弹出日历，复验边框、日期导航和键盘。 |
 | RollerPicker | 本项目滚轮选择扩展 / `ZzRollerPicker`、`ZzRoller` | 不以普通时间编辑替换滚轮；检查入口、弹层、选中行与主题一致性。 |

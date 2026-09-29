@@ -75,7 +75,9 @@ set(zz_fluent_ui_sources
     widgets/src/ZzFlowLayout.cpp
     widgets/src/private/ZzFlowLayoutPrivate.cpp
     widgets/src/ZzSpinBox.cpp
+    widgets/src/private/ZzSpinBoxPrivate.cpp
     widgets/src/ZzDoubleSpinBox.cpp
+    widgets/src/private/ZzDoubleSpinBoxPrivate.cpp
     widgets/src/ZzPasswordBox.cpp
     widgets/src/private/ZzPasswordBoxPrivate.cpp
     widgets/src/ZzSuggestBox.cpp
