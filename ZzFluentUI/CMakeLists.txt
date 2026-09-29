@@ -88,6 +88,8 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzRollerPrivate.cpp
     widgets/src/ZzRollerPicker.cpp
     widgets/src/private/ZzRollerPickerPrivate.cpp
+    widgets/src/ZzSliderValueTip.cpp
+    widgets/src/private/ZzSliderValueTipPrivate.cpp
     widgets/src/ZzMessageBar.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
     widgets/src/ZzInfoBadge.cpp
@@ -158,6 +160,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
+    widgets/include/ZzFluentUI/ZzSliderValueTip.h
     widgets/include/ZzFluentUI/ZzFluentStyle.h
     widgets/include/ZzFluentUI/ZzPushButton.h
     widgets/include/ZzFluentUI/ZzSplitButton.h

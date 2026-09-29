@@ -34,6 +34,7 @@
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
+#include <ZzFluentUI/ZzSliderValueTip.h>
 #include <ZzFluentUI/ZzScrollArea.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
@@ -574,12 +575,24 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
         vertical->setValue(68);
         vertical->setFixedHeight(150);
         vertical->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "垂直滑块"));
+        static_cast<void>(ZzFluentUI::ZzSliderValueTip::attach(horizontal));
+        static_cast<void>(ZzFluentUI::ZzSliderValueTip::attach(vertical));
         QObject::connect(horizontal, &QSlider::valueChanged, vertical, &QSlider::setValue);
         QObject::connect(vertical, &QSlider::valueChanged, horizontal, &QSlider::setValue);
         QObject::connect(horizontal, &QSlider::valueChanged, status,
-            [this](int value) { status->setText(QString::number(value)); });
+            [this](int value) { status->setText(QString::number(value) + QLatin1Char('%')); });
         zzAdd(host, horizontal);
         zzAdd(host, vertical);
+        auto *rawHost = section(QCoreApplication::translate(
+            "ZzPureToolsExample", "原始数值提示（范围 -20～80）"));
+        auto *raw = new QSlider(Qt::Horizontal, rawHost);
+        raw->setRange(-20, 80);
+        raw->setValue(20);
+        raw->setMinimumWidth(240);
+        raw->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "原始数值滑块"));
+        static_cast<void>(ZzFluentUI::ZzSliderValueTip::attach(
+            raw, ZzFluentUI::ZzSliderValueTipMode::Value));
+        zzAdd(rawHost, raw);
         return;
     }
     const bool ringMode = kind == ZzExampleControlKind::ProgressRing;

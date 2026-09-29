@@ -253,6 +253,17 @@ set_tests_properties(fluent.combo-box-controls PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzSliderValueTipTest ZzSliderValueTipTest.cpp)
+target_link_libraries(ZzSliderValueTipTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzSliderValueTipTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSliderValueTipTest)
+zz_enable_sanitizers(ZzSliderValueTipTest)
+add_test(NAME fluent.slider-value-tip COMMAND ZzSliderValueTipTest)
+set_tests_properties(fluent.slider-value-tip PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzSuggestBoxTest ZzSuggestBoxTest.cpp)
 target_link_libraries(ZzSuggestBoxTest PRIVATE
     Qt6::Test
