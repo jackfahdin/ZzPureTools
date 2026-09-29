@@ -82,7 +82,7 @@ public:
     /** @brief 按当前列快照重建私有 Roller 子树。 */
     void rebuildRollers();
 
-    /** @brief 更新标准按钮图标和 popup 屏幕内几何。 */
+    /** @brief 更新统一字体图标和 popup 屏幕内几何。 */
     void preparePopupGeometry();
 
     /** @brief 从实时列生成按钮摘要并发送必要通知。 */

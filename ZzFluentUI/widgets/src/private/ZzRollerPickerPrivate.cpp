@@ -1,4 +1,5 @@
 #include "ZzRollerPickerPrivate.h"
+#include "ZzControlAppearancePrivate.h"
 
 #include <algorithm>
 #include <functional>
@@ -16,6 +17,7 @@
 #include <QtGui/QPaintEvent>
 #include <QtGui/QScreen>
 #include <QtGui/QWindow>
+#include <QtGui/QIcon>
 #include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
@@ -25,6 +27,9 @@
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzRoller.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzIconDescriptor.h>
+#include <ZzFluentUI/ZzIconFont.h>
 
 namespace ZzFluentUI {
 
@@ -77,6 +82,48 @@ constexpr char ZzForceNonGrabbingEnvironment[] =
     return static_cast<int>(column.items.size());
 }
 
+/** @brief 按按钮前景生成统一字体图标；优先复用 Fluent 缓存，回退不使用系统图标。 */
+void zzRefreshRollerActionIcon(QPushButton *button, ZzFontIcon glyph, bool accent)
+{
+    if (button == nullptr) {
+        return;
+    }
+    const QSize logicalSize(16, 16);
+    const qreal dpr = button->devicePixelRatioF();
+    auto *fluentStyle = qobject_cast<ZzFluentStyle *>(button->style());
+    // QWidget 在禁用时返回 Disabled 当前组，不能据此污染 Normal 图标缓存。
+    QPalette normalPalette = button->palette();
+    normalPalette.setCurrentColorGroup(QPalette::Normal);
+    QIcon icon;
+    for (const auto mode : {QIcon::Normal, QIcon::Disabled}) {
+        const QColor color = mode == QIcon::Disabled
+            ? button->palette().color(QPalette::Disabled, QPalette::ButtonText)
+            : (accent && fluentStyle != nullptr
+                ? ZzControlAppearancePrivate::text(normalPalette)
+                : normalPalette.color(QPalette::ButtonText));
+        QPixmap pixmap;
+        if (fluentStyle != nullptr) {
+            pixmap = fluentStyle->iconPixmap(
+                ZzIconDescriptor::fromFontIcon(glyph), logicalSize, dpr,
+                color, button->layoutDirection());
+        } else if (ZzIconFont::ensureRegistered()) {
+            pixmap = QPixmap(qRound(16 * dpr), qRound(16 * dpr));
+            pixmap.setDevicePixelRatio(dpr);
+            pixmap.fill(Qt::transparent);
+            QPainter painter(&pixmap);
+            painter.setRenderHint(QPainter::TextAntialiasing);
+            painter.setFont(ZzIconFont::font(16));
+            painter.setPen(color);
+            const char32_t codepoint = static_cast<char32_t>(glyph);
+            painter.drawText(QRect(QPoint(), logicalSize), Qt::AlignCenter,
+                QString::fromUcs4(&codepoint, 1));
+        }
+        icon.addPixmap(pixmap, mode);
+    }
+    button->setIconSize(logicalSize);
+    button->setIcon(icon);
+}
+
 } // namespace
 
 /** @brief 使用标准菜单面板绘制并把隐藏原因回传给事务管理器。 */
@@ -90,6 +137,34 @@ public:
         setFrameShape(QFrame::NoFrame);
         setFocusPolicy(Qt::StrongFocus);
         setAutoFillBackground(false);
+    }
+
+    /** @brief 绑定标准操作按钮，保持角色和文本并监听其外观变化。 */
+    void configureActionButtons(QDialogButtonBox *buttons)
+    {
+        actionButtons = buttons;
+        auto *ok = buttons->button(QDialogButtonBox::Ok);
+        auto *cancel = buttons->button(QDialogButtonBox::Cancel);
+        if (ok != nullptr) {
+            ok->setProperty("accent", true);
+            ok->installEventFilter(this);
+        }
+        if (cancel != nullptr) {
+            cancel->installEventFilter(this);
+        }
+        refreshActionIcons();
+    }
+
+    /** @brief 仅在环境变化或打开时刷新图标，不增加动画及常驻计时器。 */
+    void refreshActionIcons()
+    {
+        if (actionButtons == nullptr) {
+            return;
+        }
+        zzRefreshRollerActionIcon(actionButtons->button(QDialogButtonBox::Ok),
+            ZzFontIcon::Check, true);
+        zzRefreshRollerActionIcon(actionButtons->button(QDialogButtonBox::Cancel),
+            ZzFontIcon::Xmark, false);
     }
 
     /** @brief 在非抓取模式下开始接收应用级关闭事件。 */
@@ -124,9 +199,27 @@ public:
     std::function<void()> hidden;
 
 protected:
+    /** @brief 弹窗移至不同缩放屏幕后刷新字体图标的物理像素缓存。 */
+    bool event(QEvent *event) override
+    {
+        const bool result = QFrame::event(event);
+        if (event->type() == QEvent::DevicePixelRatioChange) {
+            refreshActionIcons();
+        }
+        return result;
+    }
+
     /** @brief 在非抓取窗口中复刻 Popup 的外部关闭语义。 */
     bool eventFilter(QObject *watched, QEvent *event) override
     {
+        if (event != nullptr && actionButtons != nullptr
+            && (watched == actionButtons->button(QDialogButtonBox::Ok)
+                || watched == actionButtons->button(QDialogButtonBox::Cancel))
+            && (event->type() == QEvent::PaletteChange
+                || event->type() == QEvent::StyleChange
+                || event->type() == QEvent::LayoutDirectionChange)) {
+            refreshActionIcons();
+        }
         if (!nonGrabbing || !eventFilterInstalled || !isVisible()
             || event == nullptr) {
             return QFrame::eventFilter(watched, event);
@@ -226,6 +319,7 @@ protected:
     }
 
 private:
+    QDialogButtonBox *actionButtons = nullptr;
     const bool nonGrabbing;
     bool eventFilterInstalled = false;
 };
@@ -255,6 +349,7 @@ ZzRollerPickerPrivate::ZzRollerPickerPrivate(ZzRollerPicker *q)
     popupLayout->setSpacing(ZzPopupSpacing);
     popupLayout->addWidget(rollerHost);
     popupLayout->addWidget(buttonBox);
+    popup->configureActionButtons(buttonBox);
 
     QObject::connect(
         q_ptr,
@@ -641,18 +736,7 @@ void ZzRollerPickerPrivate::rebuildRollers()
 
 void ZzRollerPickerPrivate::preparePopupGeometry()
 {
-    if (okButton != nullptr) {
-        okButton->setIcon(okButton->style()->standardIcon(
-            QStyle::SP_DialogOkButton,
-            nullptr,
-            okButton));
-    }
-    if (cancelButton != nullptr) {
-        cancelButton->setIcon(cancelButton->style()->standardIcon(
-            QStyle::SP_DialogCancelButton,
-            nullptr,
-            cancelButton));
-    }
+    popup->refreshActionIcons();
 
     QSize desired = popup->sizeHint();
     // Keep every column readable while honoring the trigger width.  The

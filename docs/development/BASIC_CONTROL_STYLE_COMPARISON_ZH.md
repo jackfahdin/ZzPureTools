@@ -17,7 +17,7 @@
 | SpinBox | `CC_SpinBox` / `drawSpinBox` | 支持 Vertical、HorizontalSides、HorizontalRight、PlusMinusHorizontalSides；默认右侧横排，共用尺寸和命中几何、字体图标缓存及单一输入底线。[中文语义与用法](SPIN_BOX_LAYOUTS_ZH.md)。 |
 | DoubleSpinBox | 同上 / `ZzDoubleSpinBox` | 与整数输入统一，保留小数精度、范围与输入校验。 |
 | CalendarPicker | 日期编辑和日历代理 / `ZzCalendarPicker`、`ZzCalendar` | 保留可用的弹出日历，复验边框、日期导航和键盘。 |
-| RollerPicker | 本项目滚轮选择扩展 / `ZzRollerPicker`、`ZzRoller` | 不以普通时间编辑替换滚轮；检查入口、弹层、选中行与主题一致性。 |
+| RollerPicker | 本项目滚轮选择扩展 / `ZzRollerPicker`、`ZzRoller` | 确定与取消使用统一的 Check/Xmark 字体图标，随主题和 DPR 刷新；确认采用强调色，浅强调色选中底搭配正文前景，悬停与选中行圆角一致。保留滚轮交互及弹层定位。 |
 | Slider | `CC_Slider` / `drawSlider` | 原来将轨道厚度误用为控件厚度，手柄被裁切；已修复默认尺寸，采用外壳+强调色内圆及 hover/press 反馈；键盘焦点描边收在手柄内，避免两端裁切。 |
 | ProgressBar | `CE_ProgressBar*` / `drawProgressBar` | 已有独立细线、圆端、忙碌设计，保留；复验主题、禁用、纵向及数值联动。 |
 | ProgressRing | `drawProgressRing` / `ZzProgressRing` | 保留独立环形组件与已有动画生命周期，复验确定/忙碌与禁用。 |

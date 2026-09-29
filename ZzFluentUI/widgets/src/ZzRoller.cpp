@@ -369,12 +369,14 @@ void ZzRoller::paintEvent(QPaintEvent *event)
             QColor hover = zzWithScaledAlpha(
                 palette().color(group, QPalette::Midlight),
                 0.6);
-            painter.fillRect(rowRect.adjusted(2, 2, -2, -2), hover);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(hover);
+            painter.drawRoundedRect(rowRect.adjusted(2, 2, -2, -2),
+                ZzRollerSelectionCornerRadius, ZzRollerSelectionCornerRadius);
         }
 
-        QColor textColor = offset == 0
-            ? palette().color(group, QPalette::HighlightedText)
-            : palette().color(group, QPalette::Text);
+        // 选中底是浅强调色叠层，使用正文前景；HighlightedText 仅适合实色强调底。
+        QColor textColor = palette().color(group, QPalette::Text);
         if (offset != 0) {
             const qreal opacity = std::max(
                 0.45,

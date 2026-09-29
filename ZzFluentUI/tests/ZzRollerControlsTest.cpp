@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -111,6 +112,110 @@ class ZzRollerControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void selectedRowRemainsReadable_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::newRow("light") << static_cast<int>(ZzFluentUI::ZzThemeMode::Light);
+        QTest::newRow("dark") << static_cast<int>(ZzFluentUI::ZzThemeMode::Dark);
+        QTest::newRow("high-contrast") << static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast);
+    }
+
+    /** @brief 捕获浅强调色选中底误配白字导致的文字低对比度。 */
+    void selectedRowRemainsReadable()
+    {
+        QFETCH(int, mode);
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzRoller roller;
+        roller.setStyle(&style);
+        roller.setPalette(style.standardPalette());
+        roller.setItems({QStringLiteral("MMMM")});
+        QFont font = roller.font();
+        font.setPixelSize(20);
+        font.setBold(true);
+        roller.setFont(font);
+        const QImage image = zzRenderRoller(&roller);
+        const auto luminance = [](QColor color) {
+            const auto linear = [](double channel) {
+                return channel <= 0.04045 ? channel / 12.92
+                    : std::pow((channel + 0.055) / 1.055, 2.4);
+            };
+            return 0.2126 * linear(color.redF())
+                + 0.7152 * linear(color.greenF())
+                + 0.0722 * linear(color.blueF());
+        };
+        const double background = luminance(image.pixelColor(14, image.height() / 2));
+        double bestContrast = 1.0;
+        for (int y = image.height() / 2 - 10; y <= image.height() / 2 + 10; ++y) {
+            for (int x = 20; x < image.width() - 20; ++x) {
+                const double foreground = luminance(image.pixelColor(x, y));
+                bestContrast = std::max(bestContrast,
+                    (std::max(background, foreground) + 0.05)
+                        / (std::min(background, foreground) + 0.05));
+            }
+        }
+        QVERIFY2(bestContrast >= 4.5, "选中行实心文字必须与实际背景保持足够对比度");
+    }
+
+    void actionIconsFollowPalette_data()
+    {
+        QTest::addColumn<bool>("fluent");
+        QTest::newRow("fluent-cache") << true;
+        QTest::newRow("font-fallback") << false;
+    }
+
+    /** @brief 捕获系统彩色图标和主题变化后仍保留旧颜色的图标。 */
+    void actionIconsFollowPalette()
+    {
+        QFETCH(bool, fluent);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzRollerPicker picker;
+        picker.setColumns({{QStringLiteral("value"), zzRollerItems(5), 0, true, 96}});
+        auto *buttons = picker.findChild<QDialogButtonBox *>();
+        QVERIFY(buttons != nullptr);
+        picker.showPopup();
+        for (const auto role : {QDialogButtonBox::Ok, QDialogButtonBox::Cancel}) {
+            auto *button = buttons->button(role);
+            QVERIFY(button != nullptr);
+            if (fluent) {
+                button->setStyle(&style);
+            }
+            for (const QColor color : {QColor(210, 40, 70), QColor(20, 160, 220)}) {
+                QPalette palette = button->palette();
+                palette.setColor(QPalette::ButtonText, color);
+                palette.setColor(QPalette::HighlightedText, color);
+                palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(110, 110, 110));
+                palette.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor(110, 110, 110));
+                button->setEnabled(false);
+                button->setPalette(palette);
+                button->setEnabled(true);
+                zzFlushRollerEvents();
+                for (const auto iconMode : {QIcon::Normal, QIcon::Disabled}) {
+                    const QImage rendered = button->icon().pixmap(QSize(16, 16), iconMode).toImage();
+                    QVERIFY(!rendered.isNull());
+                    const QColor expected = iconMode == QIcon::Normal ? color : QColor(110, 110, 110);
+                    int visiblePixels = 0;
+                    for (int y = 0; y < rendered.height(); ++y) {
+                        for (int x = 0; x < rendered.width(); ++x) {
+                            const QColor actual = rendered.pixelColor(x, y);
+                            // 16px 细线图标经抗锯齿后不一定含有完全不透明像素。
+                            if (actual.alpha() >= 128) {
+                                ++visiblePixels;
+                                QVERIFY(std::abs(actual.red() - expected.red()) <= 2);
+                                QVERIFY(std::abs(actual.green() - expected.green()) <= 2);
+                                QVERIFY(std::abs(actual.blue() - expected.blue()) <= 2);
+                            }
+                        }
+                    }
+                    QVERIFY(visiblePixels > 0);
+                }
+            }
+        }
+        picker.cancelPopup();
+    }
+
     void preservesEmptyAndMutationBoundaries()
     {
         ZzFluentUI::ZzRoller roller;
