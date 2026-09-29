@@ -20,7 +20,7 @@ ZzProgressRingPrivate::ZzProgressRingPrivate(ZzProgressRing *q)
     Q_ASSERT(q_ptr != nullptr);
     animation->setStartValue(0.0);
     animation->setEndValue(1.0);
-    animation->setDuration(1200);
+    animation->setDuration(indeterminateDuration);
     animation->setLoopCount(-1);
     animation->setEasingCurve(QEasingCurve::Linear);
     QObject::connect(
@@ -71,6 +71,33 @@ void ZzProgressRingPrivate::stopAnimation() noexcept
 bool ZzProgressRingPrivate::isIndeterminate() const noexcept
 {
     return q_ptr->minimum() == 0 && q_ptr->maximum() == 0;
+}
+
+void ZzProgressRingPrivate::setIndeterminateDuration(int milliseconds)
+{
+    const qreal previousPhase = phase;
+    indeterminateDuration = milliseconds;
+    animation->setDuration(milliseconds);
+    if (animation->state() != QAbstractAnimation::Stopped) {
+        // 归一化相位映射到新周期；不重启或在循环边界跳回零度。
+        animation->setCurrentTime(std::min(milliseconds - 1, qRound(previousPhase * milliseconds)));
+    }
+}
+
+QFont ZzProgressRingPrivate::valueFont() const
+{
+    QFont result = q_ptr->font();
+    if (!q_ptr->testAttribute(Qt::WA_SetFont)) {
+        constexpr qreal valueExtentRatio = 0.18;
+        constexpr int minimumValuePixels = 12;
+        constexpr int maximumValuePixels = 32;
+        const QRect content = q_ptr->contentsRect();
+        result.setPixelSize(std::clamp(
+            qRound(std::min(content.width(), content.height()) * valueExtentRatio),
+            minimumValuePixels, maximumValuePixels));
+        result.setWeight(QFont::DemiBold);
+    }
+    return result;
 }
 
 } // namespace ZzFluentUI

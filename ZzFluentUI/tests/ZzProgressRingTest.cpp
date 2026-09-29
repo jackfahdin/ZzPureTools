@@ -119,6 +119,96 @@ class ZzProgressRingTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 放大圆环时中央数值随之放大，显式字体则保持调用方的选择。 */
+    void scalesValueTextAndHonorsExplicitFont()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        ring.setValue(68);
+        QPalette palette = ring.palette();
+        palette.setColor(QPalette::All, QPalette::Text, Qt::green);
+        palette.setColor(QPalette::All, QPalette::Window, Qt::black);
+        ring.setPalette(palette);
+        QRect textBounds;
+        const auto textPixels = [&ring, &textBounds](int extent) {
+            textBounds = {};
+            ring.resize(extent, extent);
+            QImage image(ring.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            ring.render(&painter);
+            painter.end();
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    const QColor color = image.pixelColor(x, y);
+                    if (color.green() > color.red() + 48
+                        && color.green() > color.blue() + 48) {
+                        ++count;
+                        textBounds = textBounds.united(QRect(x, y, 1, 1));
+                    }
+                }
+            }
+            return count;
+        };
+        const int small = textPixels(80);
+        const int large = textPixels(160);
+        QVERIFY(small > 0);
+        QVERIFY(large > small * 2);
+        QFont custom = ring.font();
+        custom.setPixelSize(14);
+        ring.setFont(custom);
+        QVERIFY(textPixels(80) > 0);
+        const QRect customSmallBounds = textBounds;
+        const int customLarge = textPixels(160);
+        // 相同字号允许亚像素起点产生覆盖率差异，但字形尺寸不能随环放大。
+        QVERIFY(qAbs(customSmallBounds.width() - textBounds.width()) <= 1);
+        QVERIFY(qAbs(customSmallBounds.height() - textBounds.height()) <= 1);
+        ring.setFont(QFont());
+        QVERIFY(textPixels(160) > customLarge * 2);
+        ring.setFormat(QString(100, QLatin1Char('W')));
+        QVERIFY(textPixels(80) > 0);
+        QVERIFY(QRect(19, 19, 42, 42).contains(textBounds));
+        QCOMPARE(textPixels(24), 0);
+    }
+
+    /** @brief 改速保持当前相位、动画实例和业务值，非法周期不能造成零除。 */
+    void changesDurationWithoutJumpingOrAllocating()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller, new ZzProgressAnimationStyle);
+        ZzFluentUI::ZzProgressRing ring;
+        ring.setStyle(&style);
+        ring.setRange(0, 0);
+        ring.show();
+        auto *animation = ring.findChild<QVariantAnimation *>();
+        QVERIFY(animation != nullptr);
+        QSignalSpy durations(&ring, &ZzFluentUI::ZzProgressRing::indeterminateDurationChanged);
+        const qsizetype objects = ring.findChildren<QObject *>().size();
+        // 静态元属性缺失时 setProperty 返回 false，不能把动态属性误当实现。
+        QVERIFY(ring.setProperty("indeterminateDuration", 1600));
+        QCOMPARE(animation->duration(), 1600);
+        QCOMPARE(ring.indeterminateDuration(), 1600);
+        QCOMPARE(durations.count(), 1);
+        ring.setIndeterminateDuration(1600);
+        QCOMPARE(durations.count(), 1);
+        animation->setCurrentTime(400);
+        const qreal before = animation->currentValue().toReal();
+        const int value = ring.value();
+        QVERIFY(ring.setProperty("indeterminateDuration", 800));
+        QCOMPARE(animation->duration(), 800);
+        QVERIFY(qAbs(animation->currentValue().toReal() - before) < 0.002);
+        QCOMPARE(ring.value(), value);
+        QCOMPARE(ring.findChildren<QObject *>().size(), objects);
+        QCOMPARE(ring.findChild<QVariantAnimation *>(), animation);
+        QVERIFY(ring.setProperty("indeterminateDuration", 0));
+        QCOMPARE(animation->duration(), 200);
+        QVERIFY(ring.setProperty("indeterminateDuration", 100000));
+        QCOMPARE(animation->duration(), 60000);
+        ring.hide();
+        QVERIFY(ring.setProperty("indeterminateDuration", 800));
+        QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+    }
+
     void exposesStableDefaults()
     {
         ZzFluentUI::ZzProgressRing ring;
@@ -126,9 +216,10 @@ private Q_SLOTS:
         QCOMPARE(ring.minimum(), 0);
         QCOMPARE(ring.maximum(), 100);
         QCOMPARE(ring.value(), 0);
-        QCOMPARE(ring.ringWidth(), 4);
-        QCOMPARE(ring.sizeHint(), QSize(48, 48));
-        QCOMPARE(ring.minimumSizeHint(), QSize(24, 24));
+        QCOMPARE(ring.ringWidth(), 6);
+        QCOMPARE(ring.sizeHint(), QSize(120, 120));
+        QCOMPARE(ring.minimumSizeHint(), QSize(48, 48));
+        QCOMPARE(ring.indeterminateDuration(), 800);
         QCOMPARE(ring.findChildren<QVariantAnimation *>().size(), 1);
         QVERIFY(ring.findChildren<QTimer *>().isEmpty());
     }
@@ -140,7 +231,7 @@ private Q_SLOTS:
             &ring,
             &ZzFluentUI::ZzProgressRing::ringWidthChanged);
 
-        ring.setRingWidth(4);
+        ring.setRingWidth(6);
         QCOMPARE(spy.count(), 0);
         ring.setRingWidth(0);
         QCOMPARE(ring.ringWidth(), 1);
@@ -152,8 +243,8 @@ private Q_SLOTS:
         QCOMPARE(spy.count(), 2);
         ring.setRingWidth(100);
         QCOMPARE(spy.count(), 2);
-        QCOMPARE(ring.minimumSizeHint(), QSize(132, 132));
-        QCOMPARE(ring.sizeHint(), QSize(132, 132));
+        QCOMPARE(ring.minimumSizeHint(), QSize(136, 136));
+        QCOMPARE(ring.sizeHint(), QSize(136, 136));
     }
 
     void preservesNativeRangeValueAndSignalSemantics()

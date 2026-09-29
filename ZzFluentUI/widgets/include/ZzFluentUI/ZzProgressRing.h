@@ -20,6 +20,8 @@ class ZzProgressRingPrivate;
  *
  * minimum 与 maximum 同为 0 时进入 Qt 标准不确定状态。控件必须在
  * GUI 线程创建和调用；动画只影响呈现，不改变值或业务状态。
+ * 默认数值字号随尺寸调整；显式 setFont() 后使用指定字体，
+ * setFont(QFont()) 恢复自动字号。环宽与旋转速度可分别配置。
  */
 class ZZ_FLUENT_UI_EXPORT ZzProgressRing final : public QProgressBar
 {
@@ -30,6 +32,8 @@ class ZZ_FLUENT_UI_EXPORT ZzProgressRing final : public QProgressBar
         READ ringWidth
         WRITE setRingWidth
         NOTIFY ringWidthChanged)
+    Q_PROPERTY(int indeterminateDuration READ indeterminateDuration
+        WRITE setIndeterminateDuration NOTIFY indeterminateDurationChanged)
 
 public:
     /**
@@ -49,6 +53,16 @@ public:
      * @param width 逻辑像素；收敛到 1 至 64。
      */
     void setRingWidth(int width);
+
+    /** @brief 返回忙碌圆弧旋转一周的毫秒数，默认 800。 */
+    [[nodiscard]] int indeterminateDuration() const noexcept;
+
+    /**
+     * @brief 设置忙碌圆弧旋转周期，运行中切换保留当前角度。
+     * @param milliseconds 周期毫秒数，收敛到 200 至 60000。
+     * @note 复用同一动画；隐藏、禁用、减少动效或确定进度时不启动动画。
+     */
+    void setIndeterminateDuration(int milliseconds);
 
     /** @brief 返回稳定的默认正方形建议尺寸。 */
     [[nodiscard]] QSize sizeHint() const override;
@@ -79,6 +93,9 @@ public Q_SLOTS:
 Q_SIGNALS:
     /** @brief 有效圆环线宽实际变化后发出。 */
     void ringWidthChanged(int width);
+
+    /** @brief 有效旋转周期实际改变后发出，单位毫秒。 */
+    void indeterminateDurationChanged(int milliseconds);
 
 protected:
     /** @brief 使用 palette、范围和值绘制圆环和可选文本。 */

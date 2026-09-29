@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 #include <QtCore/QEvent>
 #include <QtGui/QHideEvent>
@@ -16,12 +17,15 @@ namespace ZzFluentUI {
 
 namespace {
 
-constexpr int zzDefaultExtent = 48;
-constexpr int zzMinimumExtent = 24;
+constexpr int zzDefaultExtent = 120;
+constexpr int zzMinimumExtent = 48;
 constexpr int zzMaximumRingWidth = 64;
-constexpr int zzIndeterminateSpanDegrees = 96;
+constexpr int zzIndeterminateSpanDegrees = 90;
 constexpr int zzFullCircleDegrees = 360;
 constexpr int zzQtAngleScale = 16;
+/** @brief 圆环外围留白与文字到内圆的安全间距，单位逻辑像素。 */
+constexpr int zzRingOuterMargin = 2;
+constexpr int zzRingTextGap = 3;
 
 /** @brief 返回适合当前控件状态的 palette 颜色组。 */
 QPalette::ColorGroup zzProgressColorGroup(
@@ -54,7 +58,7 @@ QColor zzBlendProgressColor(
             + (background.alphaF() * backgroundRatio));
 }
 
-/** @brief 返回不执行除法的确定进度比例。 */
+/** @brief 使用 64 位差值计算进度比例，退化范围不执行除法。 */
 qreal zzProgressRatio(const ZzProgressRing *ring) noexcept
 {
     const qint64 minimum = ring->minimum();
@@ -98,6 +102,23 @@ void ZzProgressRing::setRingWidth(int width)
     Q_EMIT ringWidthChanged(bounded);
 }
 
+int ZzProgressRing::indeterminateDuration() const noexcept
+{
+    return d_ptr->indeterminateDuration;
+}
+
+void ZzProgressRing::setIndeterminateDuration(int milliseconds)
+{
+    constexpr int minimumDuration = 200;
+    constexpr int maximumDuration = 60000;
+    const int bounded = std::clamp(milliseconds, minimumDuration, maximumDuration);
+    if (d_ptr->indeterminateDuration == bounded) {
+        return;
+    }
+    d_ptr->setIndeterminateDuration(bounded);
+    Q_EMIT indeterminateDurationChanged(bounded);
+}
+
 QSize ZzProgressRing::sizeHint() const
 {
     const QSize minimum = minimumSizeHint();
@@ -110,7 +131,7 @@ QSize ZzProgressRing::minimumSizeHint() const
 {
     const int extent = std::max(
         zzMinimumExtent,
-        (2 * d_ptr->ringWidth) + 4);
+        (2 * d_ptr->ringWidth) + (4 * zzRingOuterMargin));
     return QSize(extent, extent);
 }
 
@@ -139,9 +160,9 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
     QStyleOptionProgressBar option;
     initStyleOption(&option);
 
-    const QRect content = contentsRect();
-    const int extent = std::min(content.width(), content.height());
-    if (extent <= 2) {
+    const QRectF content(contentsRect());
+    const qreal extent = std::min(content.width(), content.height());
+    if (extent <= 2 * zzRingOuterMargin) {
         return;
     }
     const QRectF square(
@@ -149,11 +170,11 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
         content.center().y() - (extent / 2.0),
         extent,
         extent);
-    const qreal maximumPenWidth = std::max(1.0, (extent / 2.0) - 1.0);
+    const qreal maximumPenWidth = std::max(1.0, (extent / 2.0) - zzRingOuterMargin);
     const qreal penWidth = std::min(
         static_cast<qreal>(d_ptr->ringWidth),
         maximumPenWidth);
-    const qreal inset = (penWidth / 2.0) + 1.0;
+    const qreal inset = (penWidth / 2.0) + zzRingOuterMargin;
     const QRectF ringRect = square.adjusted(inset, inset, -inset, -inset);
     if (ringRect.width() <= 0.0 || ringRect.height() <= 0.0) {
         return;
@@ -214,17 +235,22 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
     if (!d_ptr->isIndeterminate()
         && option.textVisible
         && !option.text.isEmpty()) {
-        const int textInset = static_cast<int>(std::ceil(penWidth)) + 3;
-        const QRect textRect = ringRect.toAlignedRect().adjusted(
-            textInset,
-            textInset,
-            -textInset,
-            -textInset);
-        if (!textRect.isEmpty()) {
-            const QString visibleText = option.fontMetrics.elidedText(
+        // 内接正方形保证文字的四角也位于内圆中，不会压住圆环。
+        const qreal innerRadius = std::max(0.0,
+            (ringRect.width() - penWidth) / 2.0 - zzRingTextGap);
+        const qreal side = innerRadius * std::numbers::sqrt2_v<qreal>;
+        QRectF textBounds(0.0, 0.0, side, side);
+        textBounds.moveCenter(ringRect.center());
+        const QRect textRect = textBounds.toRect();
+        const QFont valueFont = d_ptr->valueFont();
+        const QFontMetrics metrics(valueFont);
+        if (!textRect.isEmpty() && metrics.height() <= textRect.height()) {
+            const QString visibleText = metrics.elidedText(
                 option.text,
                 Qt::ElideRight,
                 textRect.width());
+            painter.setFont(valueFont);
+            painter.setClipRect(textRect, Qt::IntersectClip);
             style()->drawItemText(
                 &painter,
                 textRect,

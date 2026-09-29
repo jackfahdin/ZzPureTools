@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtCore/qglobal.h>
+#include <QtGui/QFont>
 
 class QVariantAnimation;
 
@@ -27,10 +28,17 @@ public:
     /** @brief 返回 minimum/maximum 是否表达 Qt 不确定进度。 */
     [[nodiscard]] bool isIndeterminate() const noexcept;
 
+    /** @brief 以当前相位重定向同一动画的周期；参数已由公开接口收敛。 */
+    void setIndeterminateDuration(int milliseconds);
+
+    /** @brief 返回显式字体或按圆环短边自动缩放的数值字体。 */
+    [[nodiscard]] QFont valueFont() const;
+
     ZzProgressRing *const q_ptr;
     QVariantAnimation *const animation;
     qreal phase = 0.0;
-    int ringWidth = 4;
+    int ringWidth = 6;
+    int indeterminateDuration = 800;
 };
 
 } // namespace ZzFluentUI

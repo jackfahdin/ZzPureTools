@@ -46,7 +46,7 @@ Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
 | 基础与布局 | `ZzSplitButton` | 主命令与下拉命令组合 |
 | 基础与布局 | `ZzIconButton` | 图标优先的紧凑操作 |
 | 基础与布局 | `ZzToggleSwitch` | 二态开关轨道与键盘语义 |
-| 基础与布局 | `ZzProgressRing` | 不确定进度的环形指示 |
+| 基础与布局 | `ZzProgressRing` | [确定／忙碌环形进度，可调环宽与旋转周期](docs/development/PROGRESS_RING_ZH.md) |
 | 基础与布局 | `ZzSpinBox` | 整数步进输入，支持[四种按钮布局](docs/development/SPIN_BOX_LAYOUTS_ZH.md) |
 | 基础与布局 | `ZzDoubleSpinBox` | 浮点步进输入，支持[四种按钮布局](docs/development/SPIN_BOX_LAYOUTS_ZH.md) |
 | 基础与布局 | `ZzScrollBar` | Fluent 滚动条和滚动标记 |

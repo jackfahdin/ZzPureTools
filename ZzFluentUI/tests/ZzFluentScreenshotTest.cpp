@@ -2432,11 +2432,16 @@ public:
                                  int row,
                                  int column,
                                  int value,
-                                 int ringWidth = 4) {
+                                 int ringWidth = 6) {
             auto *ring = new ZzFluentUI::ZzProgressRing(&window);
             ring->setFixedSize(150, 150);
             ring->setValue(value);
             ring->setRingWidth(ringWidth);
+            // 固定与 150px 自动字号一致的字体，使跨 Qt 文字遮罩使用同一度量。
+            QFont valueFont = ring->font();
+            valueFont.setPixelSize(27);
+            valueFont.setWeight(QFont::DemiBold);
+            ring->setFont(valueFont);
             grid->addWidget(ring, row, column, Qt::AlignCenter);
             return ring;
         };

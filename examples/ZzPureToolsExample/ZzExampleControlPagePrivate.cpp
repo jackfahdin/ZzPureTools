@@ -600,9 +600,12 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
     const bool ringMode = kind == ZzExampleControlKind::ProgressRing;
     QProgressBar *determinate = nullptr;
     QProgressBar *thickDeterminate = nullptr;
+    std::array<ZzFluentUI::ZzProgressRing *, 3> rings{};
     for (int i = 0; i < 3; ++i) {
         QProgressBar *bar
             = ringMode ? new ZzFluentUI::ZzProgressRing(host) : new QProgressBar(host);
+        if (ringMode)
+            rings[static_cast<std::size_t>(i)] = static_cast<ZzFluentUI::ZzProgressRing *>(bar);
         bar->setRange(0, i == 1 ? 0 : 100);
         bar->setValue(i == 2 ? 42 : 68);
         bar->setTextVisible(i != 1);
@@ -619,6 +622,39 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
         if (i == 0)
             determinate = bar;
         zzAdd(host, bar);
+    }
+    if (ringMode) {
+        auto *compactHost = section(QCoreApplication::translate(
+            "ZzPureToolsExample", "紧凑加载指示：无文字、细圆环"));
+        auto *compact = new ZzFluentUI::ZzProgressRing(compactHost);
+        compact->setFixedSize(32, 32);
+        compact->setRingWidth(3);
+        compact->setRange(0, 0);
+        compact->setTextVisible(false);
+        compact->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "紧凑加载指示"));
+        zzAdd(compactHost, compact);
+        auto *options = section(QCoreApplication::translate("ZzPureToolsExample", "圆环外观与速度"));
+        auto *width = new ZzFluentUI::ZzSpinBox(options);
+        width->setRange(1, 16);
+        width->setValue(rings[0]->ringWidth());
+        width->setPrefix(QCoreApplication::translate("ZzPureToolsExample", "环宽："));
+        width->setSuffix(QStringLiteral(" px"));
+        width->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "圆环线宽"));
+        for (auto *ring : rings)
+            QObject::connect(width, &QSpinBox::valueChanged, ring, &ZzFluentUI::ZzProgressRing::setRingWidth);
+        zzAdd(options, width);
+        auto *duration = new ZzFluentUI::ZzSpinBox(options);
+        duration->setRange(200, 60000);
+        duration->setSingleStep(100);
+        duration->setValue(rings[1]->indeterminateDuration());
+        duration->setPrefix(QCoreApplication::translate("ZzPureToolsExample", "周期："));
+        duration->setSuffix(QStringLiteral(" ms"));
+        duration->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "旋转一周的毫秒数"));
+        QObject::connect(duration, &QSpinBox::valueChanged, rings[1],
+            &ZzFluentUI::ZzProgressRing::setIndeterminateDuration);
+        QObject::connect(duration, &QSpinBox::valueChanged, compact,
+            &ZzFluentUI::ZzProgressRing::setIndeterminateDuration);
+        zzAdd(options, duration);
     }
     if (!ringMode) {
         auto *thickHost = section(QCoreApplication::translate(
