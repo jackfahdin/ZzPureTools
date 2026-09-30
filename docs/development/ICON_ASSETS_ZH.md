@@ -28,6 +28,25 @@
 | `ZzFluentUI/resources/icons/Restore.svg` | `a8e38e47aad92b7ef70a90fbc1725c52bee0ba80a180d6aeaef511e6e0c9a640` |
 | `ZzFluentUI/resources/icons/Sun.svg` | `0b97336032d8d1315f679a461c89fcc2e01e5a661c2f91fd6c65d072683f1f59` |
 
+## Segoe Fluent Icons 来源记录
+
+TabBar 图标直接复用参考项目 `FluentUIStyle/fluentui3style/resource/Segoe Fluent Icons.ttf`，
+保持原始字体字节及内嵌版权信息；该字体不适用上文针对 ZzAwesome 和 SVG 的授权结论，
+也不因导入而改为仓库根许可证。用户于 2026-09-30 明确要求沿用参考项目实际使用的
+TTF 图标资源；此记录描述来源与导入范围，不构成新的字体许可授权。
+
+| 路径 | SHA-256 |
+|---|---|
+| `ZzFluentUI/resources/fonts/SegoeFluentIcons.ttf` | `82f5dc0e0cb9f41efad49e5423c76768ae0fc96e062a0893b6c729b863033013` |
+
+`ZzSegoeIconFont::icon(ZzSegoeIcon::Home)` 创建按目标尺寸和 DPR 绘制的 `QIcon`。
+默认颜色随应用调色板更新；在 Fluent TabBar 中随标签的选中、禁用、自定义前景色更新。
+传入显式 `QColor` 时保持该颜色。字体随 Qt Resource 内嵌，不要求 Windows 或安装系统字体。
+TabBar 示例使用 `galleryIcon()` 保留原版字形与画布比例：Pivot 为 22/22 px，
+其余图标先按 25/30 px 绘制再缩到 16 px，关闭叉号为 27/30 px（U+E894）。
+Gallery 图标通常保持应用调色板的黑/白文字色，不随标签选中状态变灰；
+高对比度标签会显式使用可读前景色。画布按 DPR 生成，不依赖预置的低分辨率位图。
+
 ## 构建与运行边界
 
 - CMake 把全部资源编译进 `ZzFluentFoundation`，安装包不依赖源码目录或宿主字体。

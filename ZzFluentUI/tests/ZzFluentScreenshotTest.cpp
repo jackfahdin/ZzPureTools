@@ -121,6 +121,7 @@
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzSegoeIconFont.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTeachingTip.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -7616,16 +7617,32 @@ private Q_SLOTS:
             bar->setExpanding(false);
             bar->setFocusPolicy(Qt::NoFocus);
             if (i == 9) bar->setShape(QTabBar::RoundedWest);
-            for (const QString &text : {QStringLiteral("Home"), QStringLiteral("Search"), QStringLiteral("Settings"), QStringLiteral("Disabled")})
-                bar->addTab(bar->style()->standardIcon(QStyle::SP_DirIcon), i == 11 ? QString() : text);
+            bar->setIconSize(i >= 2 && i <= 4 ? QSize(22, 22) : QSize(16, 16));
+            if (i >= 2 && i <= 4) {
+                auto font = bar->font();
+                font.setPixelSize(15);
+                font.setBold(true);
+                bar->setFont(font);
+            }
+            bar->setTabsClosable(i == 1 || i == 5);
+            const QStringList labels {QStringLiteral("Home"), QStringLiteral("Search"), QStringLiteral("Settings"), QStringLiteral("Disabled")};
+            const QList<ZzSegoeIcon> glyphs = i >= 6 && i <= 8
+                ? QList<ZzSegoeIcon>{ZzSegoeIcon::CompanionApp, ZzSegoeIcon::PlayerSettings, ZzSegoeIcon::Robot, ZzSegoeIcon::RingerSilent}
+                : i == 11 ? QList<ZzSegoeIcon>{ZzSegoeIcon::Camera, ZzSegoeIcon::Video, ZzSegoeIcon::MusicInfo, ZzSegoeIcon::Cloud}
+                : QList<ZzSegoeIcon>{ZzSegoeIcon::Home, ZzSegoeIcon::Search, ZzSegoeIcon::Settings, ZzSegoeIcon::Help};
+            for (int index = 0; index < labels.size(); ++index) {
+                const auto icon = i == 5 || i == 10 ? QIcon()
+                    : ZzSegoeIconFont::galleryIcon(glyphs[index], i >= 2 && i <= 4 ? 22 : 0);
+                bar->addTab(icon, i == 11 ? QString() : labels[index]);
+            }
             bar->setTabEnabled(3, false);
             bar->setCurrentIndex(1);
             if (i >= 10) {
                 bar->setSegmentedRounded(true);
                 bar->setSegmentedColors({.background = QColor("#d9d9dd"), .selected = QColor("#7e57e8"),
-                    .hover = {}, .pressed = {}, .text = {}, .selectedText = {}},
+                    .hover = {}, .pressed = {}, .text = Qt::black, .selectedText = Qt::black},
                     {.background = QColor("#3f3f46"), .selected = QColor("#6e4fd6"),
-                    .hover = {}, .pressed = {}, .text = {}, .selectedText = {}});
+                    .hover = {}, .pressed = {}, .text = Qt::white, .selectedText = Qt::white});
             }
             grid->addWidget(new QLabel(i <= 9 ? titles[i - 1] : QStringLiteral("Custom / Icons"), &surface), i, 0);
             grid->addWidget(bar, i, 1);

@@ -9,6 +9,7 @@ set(zz_fluent_foundation_sources
     foundation/src/ZzIconAssets.cpp
     foundation/src/ZzIconDescriptor.cpp
     foundation/src/ZzIconFont.cpp
+    foundation/src/ZzSegoeIconFont.cpp
     foundation/src/ZzIconCacheKey.cpp
     foundation/src/ZzThemeController.cpp
     foundation/src/private/ZzThemeControllerPrivate.cpp

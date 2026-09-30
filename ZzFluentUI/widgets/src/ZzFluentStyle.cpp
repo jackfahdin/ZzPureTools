@@ -33,6 +33,7 @@
 #include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzSegoeIconFont.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
@@ -466,6 +467,27 @@ void ZzFluentStyle::drawPrimitive(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (element == PE_IndicatorTabClose && option != nullptr && painter != nullptr) {
+        const bool enabled = option->state.testFlag(State_Enabled);
+        const bool hot = option->state.testFlag(State_Raised) || option->state.testFlag(State_Sunken)
+            || option->state.testFlag(State_Selected);
+        const QWidget *tabBar = qobject_cast<const QTabBar *>(widget);
+        if (!tabBar && widget) tabBar = qobject_cast<const QTabBar *>(widget->parentWidget());
+        const auto appearance = ZzTabBarStylePrivate::appearance(tabBar);
+        const bool highlighted = d_ptr->snapshot->mode() == ZzThemeMode::HighContrast
+            && option->state.testFlag(State_Selected)
+            && appearance != ZzTabBarAppearance::Standard
+            && appearance != ZzTabBarAppearance::PivotGrow
+            && appearance != ZzTabBarAppearance::PivotSlide
+            && appearance != ZzTabBarAppearance::PivotStretch;
+        const auto color = !enabled ? option->palette.color(QPalette::Disabled, QPalette::WindowText)
+            : highlighted ? option->palette.color(QPalette::HighlightedText)
+            : (hot ? option->palette.color(QPalette::WindowText) : d_ptr->snapshot->color(ZzColorToken::TextSecondary));
+        const int extent = pixelMetric(PM_SmallIconSize, option, widget);
+        const QRect rect = alignedRect(option->direction, Qt::AlignCenter, QSize(extent, extent), option->rect);
+        ZzSegoeIconFont::withForegroundColor(ZzSegoeIconFont::galleryIcon(ZzSegoeIcon::Close, 27, 30), color).paint(painter, rect);
+        return;
+    }
     if (element == PE_IndicatorArrowDown && option != nullptr && painter != nullptr
         && qobject_cast<const QToolButton *>(widget) != nullptr) {
         // 菜单按钮使用细线折角，位置仍由 Qt 的菜单子区域计算。
@@ -940,7 +962,7 @@ QRect ZzFluentStyle::subElementRect(
                 return visualRect(tab->direction, tab->rect, button);
             }
             if (element == SE_TabBarTabText) {
-                QRect text = tab->rect.adjusted(13, 4, -8, -4);
+                QRect text = tab->rect.adjusted(5, 4, -8, -4);
                 if (!tab->icon.isNull()) text.adjust(tab->iconSize.width() + 8, 0, 0, 0);
                 if (!tab->leftButtonSize.isEmpty()) text.adjust(tab->leftButtonSize.width() + 4, 0, 0, 0);
                 if (!tab->rightButtonSize.isEmpty()) text.adjust(0, 0, -tab->rightButtonSize.width() - 4, 0);

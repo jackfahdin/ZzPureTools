@@ -19,6 +19,7 @@
 #include <memory>
 
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzSegoeIconFont.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -65,6 +66,235 @@ class ZzTabControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 短文字标签仍须显示选中指示条，不能因原版边距而被压缩为零。 */
+    void shortPivotTabsKeepVisibleIndicator()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        for (const auto appearance : {ZzTabBarAppearance::PivotGrow,
+                 ZzTabBarAppearance::PivotSlide, ZzTabBarAppearance::PivotStretch}) {
+            for (const auto shape : {QTabBar::RoundedNorth, QTabBar::RoundedWest}) {
+                ZzTabBar bar;
+                bar.setStyle(&style);
+                bar.setAppearance(appearance);
+                bar.setShape(shape);
+                bar.setExpanding(false);
+                QFont font = bar.font(); font.setPixelSize(12); bar.setFont(font);
+                ZzControlAppearance::setAccentColor(&bar, Qt::magenta);
+                bar.addTab(QStringLiteral("I"));
+                bar.resize(100, 100); bar.show();
+                QCoreApplication::processEvents();
+                const auto image = bar.grab().toImage();
+                int ink = 0;
+                for (int y = 0; y < image.height(); ++y)
+                    for (int x = 0; x < image.width(); ++x)
+                        if (image.pixelColor(x, y) == QColor(Qt::magenta)) ++ink;
+                QVERIFY2(ink >= 8, "Short pivot lost its selection indicator");
+            }
+        }
+    }
+
+    /** @brief 居中图标与 WinUI3 标签必须避开两侧的宽按钮，包括 RTL 和旋转布局。 */
+    void centeredIconsAvoidTabButtons_data()
+    {
+        QTest::addColumn<int>("appearance");
+        QTest::addColumn<int>("shape");
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("withText");
+        using A = ZzFluentUI::ZzTabBarAppearance;
+        for (const auto appearance : {A::Pill, A::SegmentedWinUI3})
+            for (const auto shape : {QTabBar::RoundedNorth, QTabBar::RoundedSouth,
+                     QTabBar::RoundedWest, QTabBar::RoundedEast})
+                for (const bool rtl : {false, true})
+                    for (const bool withText : {false, true})
+                        QTest::newRow(qPrintable(QStringLiteral("%1-%2-%3-%4")
+                            .arg(int(appearance)).arg(int(shape)).arg(rtl).arg(withText)))
+                            << int(appearance) << int(shape) << rtl << withText;
+    }
+
+    void centeredIconsAvoidTabButtons()
+    {
+        QFETCH(int, appearance); QFETCH(int, shape);
+        QFETCH(bool, rtl); QFETCH(bool, withText);
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        ZzInspectableTabBar bar;
+        bar.setStyle(&style);
+        ZzControlAppearance::setTabBarAppearance(&bar, ZzTabBarAppearance(appearance));
+        bar.setShape(QTabBar::Shape(shape));
+        bar.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        bar.setExpanding(false);
+        QPixmap marker(16, 16); marker.fill(Qt::magenta);
+        bar.addTab(QIcon(marker), withText ? QStringLiteral("Home") : QString());
+        auto *button = new QWidget(&bar);
+        const bool vertical = shape == QTabBar::RoundedWest || shape == QTabBar::RoundedEast;
+        button->setFixedSize(vertical ? QSize(20, 80) : QSize(80, 20));
+        bar.setTabButton(0, QTabBar::RightSide, button);
+        bar.resize(300, 300); bar.show();
+        QCoreApplication::processEvents();
+        QStyleOptionTab option; bar.initStyleOption(&option, 0);
+        const QRect occupied = style.subElementRect(QStyle::SE_TabBarTabRightButton, &option, &bar);
+        QImage image(bar.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_TabBarTab, &option, &painter, &bar);
+        painter.end();
+        int ink = 0;
+        for (int y = 0; y < image.height(); ++y) for (int x = 0; x < image.width(); ++x)
+            if (image.pixelColor(x, y) == QColor(Qt::magenta)) {
+                ++ink;
+                QVERIFY2(!occupied.contains(x, y), "Centered icon overlaps tab button");
+            }
+        QVERIFY(ink > 0);
+    }
+
+    /** @brief 原版导航前导留白为 5 px；以真实图标像素验证布局而非只读常量。 */
+    void navigationIconLeadingInsetMatchesReference()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(ZzTabBarAppearance::Navigation);
+        bar.setShape(QTabBar::RoundedWest);
+        bar.setExpanding(false);
+        QPixmap marker(16, 16); marker.fill(Qt::magenta);
+        bar.addTab(QIcon(marker), QStringLiteral("Home"));
+        bar.resize(160, 100); bar.show();
+        QCoreApplication::processEvents();
+        const auto image = bar.grab().toImage();
+        int left = image.width();
+        for (int y = 0; y < image.height(); ++y)
+            for (int x = 0; x < image.width(); ++x)
+                if (image.pixelColor(x, y) == QColor(Qt::magenta)) left = qMin(left, x);
+        QCOMPARE(left, 5);
+    }
+
+    /** @brief 标签关闭按钮应使用单色字体叉号，不能回落到平台彩色方框位图。 */
+    void tabCloseIndicatorIsMonochrome_data()
+    {
+        QTest::addColumn<bool>("highContrast");
+        QTest::newRow("light") << false;
+        QTest::newRow("high-contrast") << true;
+    }
+
+    void tabCloseIndicatorIsMonochrome()
+    {
+        QFETCH(bool, highContrast);
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setMode(highContrast ? ZzThemeMode::HighContrast : ZzThemeMode::Light);
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(ZzTabBarAppearance::Capsule);
+        QImage image(24, 24, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        QStyleOption option;
+        option.initFrom(&bar);
+        option.rect = image.rect();
+        option.state = QStyle::State_Enabled | QStyle::State_Selected;
+        option.palette.setColor(QPalette::WindowText, highContrast ? Qt::white : Qt::black);
+        option.palette.setColor(QPalette::HighlightedText, Qt::black);
+        style.drawPrimitive(QStyle::PE_IndicatorTabClose, &option, &painter, &bar);
+        painter.end();
+        int ink = 0;
+        for (int y = 0; y < image.height(); ++y) for (int x = 0; x < image.width(); ++x) {
+            const auto pixel = image.pixelColor(x, y);
+            if (pixel.alpha() < 30) continue;
+            ++ink;
+            QVERIFY(qAbs(pixel.red() - pixel.green()) <= 1);
+            QVERIFY(qAbs(pixel.green() - pixel.blue()) <= 1);
+            QVERIFY2(pixel.red() < 2, "Selected close must use contrasting foreground");
+        }
+        QVERIFY(ink > 5);
+        QVERIFY(image.pixelColor(4, 4).alpha() < 30);
+    }
+
+    /** @brief Stretch 前段应在原标签内蓄力拉伸，不能提前滑向目标标签。 */
+    void pivotStretchHoldsTrailingEdgeDuringFirstPhase()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setMode(ZzThemeMode::Light);
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(ZzTabBarAppearance::PivotStretch);
+        ZzControlAppearance::setAccentColor(&bar, Qt::magenta);
+        bar.addTab(QString()); bar.addTab(QString()); bar.addTab(QString());
+        bar.resize(300, 50); bar.show();
+        QCoreApplication::processEvents();
+        const auto bounds = [&] {
+            QRect pixels;
+            const auto image = bar.grab().toImage();
+            for (int y = 0; y < image.height(); ++y) for (int x = 0; x < image.width(); ++x)
+                if (image.pixelColor(x, y) == QColor(Qt::magenta)) pixels = pixels.united(QRect(x, y, 1, 1));
+            return pixels;
+        };
+        const QRect initial = bounds();
+        QVERIFY(!initial.isEmpty());
+        bar.setCurrentIndex(2);
+        QVariantAnimation *running = nullptr;
+        for (auto *animation : style.findChildren<QVariantAnimation *>())
+            if (animation->state() == QAbstractAnimation::Running) running = animation;
+        QVERIFY(running);
+        running->setCurrentTime(225);
+        const QRect half = bounds();
+        QVERIFY(qAbs(half.left() - initial.left()) <= 1);
+        QVERIFY(half.width() > initial.width());
+        QVERIFY(half.right() <= initial.right() + 21);
+        running->setCurrentTime(running->duration());
+        QVERIFY(bounds().center().x() > bar.tabRect(2).left());
+    }
+
+    /** @brief 字体图标跟随分段标签的自定义前景色，固定色与普通位图保持原色。 */
+    void tabIconsRespectForegroundAndExplicitColors()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setMode(ZzThemeMode::Light);
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(ZzTabBarAppearance::SegmentedSlide);
+        const ZzTabBarColors colors {.background = Qt::white, .selected = Qt::white,
+            .hover = Qt::white, .pressed = Qt::white, .text = Qt::blue, .selectedText = Qt::blue};
+        bar.setSegmentedColors(colors, colors);
+        bar.setIconSize(QSize(24, 24));
+        bar.addTab(ZzSegoeIconFont::icon(ZzSegoeIcon::Home), QString());
+        bar.addTab(ZzSegoeIconFont::icon(ZzSegoeIcon::Home, Qt::red), QString());
+        QPixmap marker(24, 24);
+        marker.fill(Qt::green);
+        bar.addTab(QIcon(marker), QString());
+        bar.resize(300, 50);
+        bar.show();
+        QCoreApplication::processEvents();
+        const auto previousPalette = QApplication::palette();
+        auto transparentPalette = previousPalette;
+        transparentPalette.setColor(QPalette::WindowText, QColor(0, 0, 0, 64));
+        QApplication::setPalette(transparentPalette);
+        const auto image = bar.grab().toImage();
+        QApplication::setPalette(previousPalette);
+        const QList<QColor> expected {Qt::blue, Qt::red, Qt::green};
+        for (int index = 0; index < 3; ++index) {
+            const auto rect = bar.tabRect(index);
+            int matching = 0;
+            for (int y = rect.top(); y <= rect.bottom(); ++y)
+                for (int x = rect.left(); x <= rect.right(); ++x)
+                    if (image.pixelColor(x, y) == expected[index]) ++matching;
+            QVERIFY2(matching > 10, qPrintable(QStringLiteral("图标 %1 的颜色不正确").arg(index)));
+        }
+    }
+
     /** @brief 新外观不能吞掉 QTabBar 原有的逐标签文字颜色覆盖。 */
     void appearancePreservesExplicitTabTextColor()
     {

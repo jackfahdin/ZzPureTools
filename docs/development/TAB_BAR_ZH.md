@@ -46,11 +46,24 @@ bar->setExpanding(false);
 
 原生标签栏对应 `ZzControlAppearance::setTabBarColors()`、`setTabBarRounded()`。图标、提示、无障碍名称、关闭按钮、隐藏标签、滚动、方向键等沿用 QTabBar 公开 API。纯图标标签应设置 `setAccessibleTabName()` 和 `setTabToolTip()`。
 
+示例沿用 FluentUIStyle 的原始 `Segoe Fluent Icons.ttf`，通过
+`ZzSegoeIconFont::galleryIcon(ZzSegoeIcon::Home)` 保留原版 25 px 字形 / 30 px 画布
+缩到 16 px 的比例；Pivot 单独采用 22/22 px。普通主题保持原版黑/白图标，
+高对比度使用标签前景色。通用 `icon()` 仍提供跟随标签前景的图标，
+选中、禁用及自定义分段配色均直接使用最终颜色，透明度只应用一次。
+显式传入 `QColor` 的字体图标和调用方提供的普通 `QIcon` 保持原色。
+资源来源和 SHA-256 见 [图标资源记录](ICON_ASSETS_ZH.md)。
+
 独立 `ZzTabBar` 的新建按钮默认隐藏，由 `ZzTabWidget` 宿主接管并显示，避免覆盖第一个标签。新外观不自动修改 movable、tabsClosable、shape、expanding 或当前页面。示例入口为“基础控件 → 标签栏(TabBar)”。
 
 ## 实现取舍与验证
 
-参考实现中的外观和配色迁入私有模块，动画使用公开 `QVariantAnimation`，无需 Qt 私有头文件或在绘制中保存字符串状态。PivotStretch 采用前缘先移动、后缘跟随的连续拉伸，快速切换以当前矩形重定向；SegmentedFade 保留各项当前透明度，避免连续点击跳回完整旧选中块。
+参考实现中的外观和配色迁入私有模块，动画使用公开 `QVariantAnimation`，无需 Qt 私有头文件或在绘制中保存字符串状态。PivotStretch 前 66% 在原位置伸长，后 34% 在目标位置回收并轻微回弹，快速切换以当前矩形重定向；SegmentedFade 保留各项当前透明度，避免连续点击跳回完整旧选中块。
+
+示例页对照原始 `PageTab` 保留五组卡片和 13 个标签栏，包括三组自定义分段标签、
+可关闭的 Pill、带彩色内容页的 Capsule，以及 220 ms OutCubic 纵向内容切换。
+Pivot 使用 15 px 粗体；普通图文间距 4 px，WinUI3 专用间距 6 px，Navigation 前导 5 px。
+关闭按钮使用同一字体的单色叉号。
 
 针对 Qt 拖动标签的局部绘制矩形，使用 `QStyleOptionTab::tabIndex` 与坐标偏移。纵向 RTL 与 Qt 按钮布局保持一致，并为非方形 tabButton 预留正确跨轴空间；更换样式时回收事件观察和动画对象。
 
@@ -62,4 +75,4 @@ ctest --test-dir build/linux-gcc-debug --output-on-failure \
   -R '^(fluent\.(tab-controls|selection-indicator|workspace-transfer-registry-private|workspace-transfer-registry-lifetime|workspace-cross-transfer|split-workspace|screenshot-(100|125|150|200))|example\.(puretools-integration(-english)?|workspace-smoke))$' -j 4
 ```
 
-参考项目只读。相同 Qt/DejaVu Sans 字体的浅深色对比保存在本地 `build/tab-bar-reference/`，示例截图在 `build/tab-bar-preview/`。
+参考项目只读。直接编译原始 `PageTab` 与当前示例源码、使用相同 Qt/DejaVu Sans 字体的浅深色对比保存在本地 `build/tab-bar-details/`，示例截图在 `build/tab-bar-preview/`。

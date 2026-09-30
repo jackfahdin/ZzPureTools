@@ -2,6 +2,7 @@
 #include "ZzControlAppearancePrivate.h"
 
 #include <QtCore/QEvent>
+#include <QtCore/QtMath>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
@@ -10,6 +11,7 @@
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzMotionToken.h>
+#include <ZzFluentUI/ZzSegoeIconFont.h>
 
 namespace ZzFluentUI {
 namespace {
@@ -57,8 +59,6 @@ QSize ZzTabBarStylePrivate::sizeHint(const QStyleOptionTab &tab, QSize base, con
     const auto value = appearance(widget);
     const bool rotated = vertical(tab.shape);
     if (rotated) base.transpose();
-    // Qt 为图标与文字预留 4 px；本样式使用 8 px 间距。
-    if (!tab.icon.isNull() && !tab.text.isEmpty()) base.rwidth() += 4;
     const int visualHeight = qMax(tab.fontMetrics.height(), tab.icon.isNull() ? 0 : tab.iconSize.height());
     const int buttonHeight = rotated && value != Appearance::Navigation
         ? qMax(tab.leftButtonSize.width(), tab.rightButtonSize.width())
@@ -68,7 +68,6 @@ QSize ZzTabBarStylePrivate::sizeHint(const QStyleOptionTab &tab, QSize base, con
     base.setHeight(qMax(value == Appearance::SegmentedSlide || value == Appearance::SegmentedFade ? 42 : 32,
         qMax(visualHeight + padding, buttonHeight + 8)));
     if (value == Appearance::Capsule) base.rwidth() += 30;
-    if (zzPivot(value)) base.setWidth(qMax(base.width(), 72));
     if (value == Appearance::SegmentedWinUI3 && !tab.text.isEmpty() && !tab.icon.isNull())
         base.setWidth(qMax(base.width(), 130));
     if (value == Appearance::Navigation && rotated) {
@@ -83,7 +82,7 @@ QSize ZzTabBarStylePrivate::sizeHint(const QStyleOptionTab &tab, QSize base, con
                 width = qMax(width, measured);
             }
         }
-        return {qMax(40, width + 21), qMax(40, qMax(visualHeight, buttonHeight) + 12)};
+        return {qMax(40, width + 13), qMax(40, qMax(visualHeight, buttonHeight) + 12)};
     }
     if (rotated) base.transpose();
     return base;
@@ -123,7 +122,10 @@ QRectF ZzTabBarStylePrivate::itemRect(int index) const
             rect.adjust(before, 4, -after, -4);
         }
     } else if (appearance_ == Appearance::Navigation && vertical(bar_->shape())) {
-        rect.adjust(0, 2, 0, -2);
+        int first = 0, last = bar_->count() - 1;
+        while (first < bar_->count() && !bar_->isTabVisible(first)) ++first;
+        while (last >= 0 && !bar_->isTabVisible(last)) --last;
+        rect.adjust(0, index == first ? 0 : 2, 0, index == last ? 0 : -2);
     } else if (appearance_ == Appearance::Pill || appearance_ == Appearance::Navigation) {
         rect.adjust(2, 2, -2, -2);
     }
@@ -142,12 +144,17 @@ QRectF ZzTabBarStylePrivate::selectionRect(int index) const
     const bool winui = appearance_ == Appearance::SegmentedWinUI3;
     const qreal extent = winui ? 16 : 24;
     const qreal margin = winui ? 4 : (appearance_ == Appearance::PivotStretch ? 20 : 15);
+    // 短标签也保留至少 8 px 指示条；普通标签继续使用原版边距。
+    const auto indicatorLength = [extent, margin](qreal length) {
+        const qreal inset = qMin(margin, qMax(0.0, (length - 8) / 2));
+        return qMin(extent, qMax(0.0, length - 2 * inset));
+    };
     if (vertical(bar_->shape())) {
-        const qreal height = qMin(extent, qMax(0.0, rect.height() - 2 * margin));
+        const qreal height = indicatorLength(rect.height());
         const bool west = bar_->shape() == QTabBar::RoundedWest || bar_->shape() == QTabBar::TriangularWest;
         return {west ? rect.right() - 4 : rect.left() + 1, rect.center().y() - height / 2, 3, height};
     }
-    const qreal width = qMin(extent, qMax(0.0, rect.width() - 2 * margin));
+    const qreal width = indicatorLength(rect.width());
     const bool south = bar_->shape() == QTabBar::RoundedSouth || bar_->shape() == QTabBar::TriangularSouth;
     return {rect.center().x() - width / 2, south ? rect.top() + 1 : rect.bottom() - 4, width, 3};
 }
@@ -203,7 +210,10 @@ void ZzTabBarStylePrivate::select()
     if (appearance_ == Appearance::SegmentedFade) duration = 600;
     if (appearance_ == Appearance::SegmentedWinUI3) duration = 120;
     if (appearance_ == Appearance::Navigation) duration = 160;
-    selection_.setEasingCurve(appearance_ == Appearance::SegmentedFade ? QEasingCurve::InOutCubic : QEasingCurve::OutCubic);
+    const bool linear = appearance_ == Appearance::PivotGrow || appearance_ == Appearance::PivotStretch
+        || appearance_ == Appearance::SegmentedSlide;
+    selection_.setEasingCurve(appearance_ == Appearance::SegmentedFade ? QEasingCurve::InOutCubic
+        : linear ? QEasingCurve::Linear : QEasingCurve::OutCubic);
     selection_.setDuration(duration);
     selection_.start();
     advance(0);
@@ -219,16 +229,40 @@ void ZzTabBarStylePrivate::advance(qreal t)
         if (alongY) { current_.setHeight(target_.height() * t); current_.moveCenter(target_.center()); }
         else { current_.setWidth(target_.width() * t); current_.moveCenter(target_.center()); }
     } else if (appearance_ == Appearance::PivotStretch) {
-        // 前缘先抵达、后缘跟随；从当前矩形重定向，不跳回上一个标签。
-        const bool forward = alongY ? target_.center().y() >= from_.center().y() : target_.center().x() >= from_.center().x();
-        const qreal lead = qMin(1.0, t * 1.5);
-        const qreal tail = qMax(0.0, (t - 0.35) / 0.65);
-        if (alongY) {
-            current_.setTop(zzLerp(from_.top(), target_.top(), forward ? tail : lead));
-            current_.setBottom(zzLerp(from_.bottom(), target_.bottom(), forward ? lead : tail));
+        // 原版前 66% 在原标签内蓄力伸长，后段在目标处回收并轻微回弹。
+        // from_ 始终取当前显示矩形，连续点击不会回跳到上一次标签起点。
+        const auto clamp = [](qreal value) { return qBound(0.0, value, 1.0); };
+        const auto smooth = [clamp](qreal value) { value = clamp(value); return value * value * (3 - 2 * value); };
+        const auto cubic = [clamp](qreal value) { value = 1 - clamp(value); return 1 - value * value * value; };
+        const auto back = [clamp](qreal value) { value = clamp(value) - 1; return 1 + 2.15 * value * value * value + 1.15 * value * value; };
+        const qreal start = alongY ? from_.top() : from_.left();
+        const qreal startEnd = alongY ? from_.bottom() : from_.right();
+        const qreal end = alongY ? target_.top() : target_.left();
+        const qreal endEnd = alongY ? target_.bottom() : target_.right();
+        const bool forward = end >= start;
+        qreal leading = start, trailing = startEnd;
+        if (qAbs(end - start) < 0.5) {
+            leading = zzLerp(start, end, smooth(t));
+            trailing = zzLerp(startEnd, endEnd, smooth(t));
+        } else if (t < 0.66) {
+            const qreal released = clamp((t / 0.66 - 0.34) / 0.66);
+            const qreal stretch = cubic(released * released);
+            if (forward) trailing += 20 * stretch;
+            else leading -= 20 * stretch;
         } else {
-            current_.setLeft(zzLerp(from_.left(), target_.left(), forward ? tail : lead));
-            current_.setRight(zzLerp(from_.right(), target_.right(), forward ? lead : tail));
+            const qreal delayed = clamp(((t - 0.66) / 0.34 - 0.04) / 0.96);
+            const qreal settled = smooth(delayed * delayed * delayed);
+            const qreal span = qMin((endEnd - end) * 0.32, 20.0);
+            const qreal bounce = qSin(settled * M_PI) * (1 - settled) * 0.9;
+            leading = forward ? zzLerp(end - span, end, cubic(settled)) : zzLerp(end - bounce, end, back(settled));
+            trailing = forward ? zzLerp(endEnd + bounce, endEnd, back(settled)) : zzLerp(endEnd + span, endEnd, cubic(settled));
+        }
+        if (alongY) {
+            current_.setTop(leading);
+            current_.setBottom(trailing);
+        } else {
+            current_.setLeft(leading);
+            current_.setRight(trailing);
         }
     }
     weights_.resize(bar_->count());
@@ -293,31 +327,50 @@ void ZzTabBarStylePrivate::drawLabel(const QStyleOptionTab &tab, QPainter *paint
         rect = QRect(0, 0, rect.height(), rect.width());
     }
     const bool navigation = appearance_ == Appearance::Navigation && vertical(tab.shape);
-    QRect content = rect.adjusted(navigation ? 13 : 12, 4, navigation ? -8 : -12, -4);
-    if (zzPivot(appearance_)) content.adjust(0, 0, 0, -8);
+    const bool selected = tab.state.testFlag(QStyle::State_Selected);
+    int verticalShift = style_->pixelMetric(QStyle::PM_TabBarTabShiftVertical, &tab, bar_);
+    if (tab.shape == QTabBar::RoundedSouth || tab.shape == QTabBar::TriangularSouth) verticalShift = -verticalShift;
+    const int horizontalShift = style_->pixelMetric(QStyle::PM_TabBarTabShiftHorizontal, &tab, bar_);
+    QRect content = navigation ? rect.adjusted(5, 4, -8, -4)
+        : rect.adjusted(12, (selected ? 0 : verticalShift) + 6, (selected ? 0 : horizontalShift) - 12, -6);
     if (!tab.leftButtonSize.isEmpty()) content.adjust((rotated ? tab.leftButtonSize.height() : tab.leftButtonSize.width()) + 4, 0, 0, 0);
     if (!tab.rightButtonSize.isEmpty()) content.adjust(0, 0, -(rotated ? tab.rightButtonSize.height() : tab.rightButtonSize.width()) - 4, 0);
     const QSize iconSize = tab.icon.isNull() ? QSize(0, 0) : tab.icon.actualSize(tab.iconSize,
         tab.state.testFlag(QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled);
-    const int gap = !tab.text.isEmpty() && !tab.icon.isNull() ? 8 : 0;
+    const bool winui = appearance_ == Appearance::SegmentedWinUI3;
+    const int gap = !tab.text.isEmpty() && !tab.icon.isNull() ? (navigation ? 8 : winui ? 6 : 4) : 0;
     const int textWidth = qMax(0, qMin(content.width() - iconSize.width() - gap,
         tab.fontMetrics.size(Qt::TextShowMnemonic, tab.text).width()));
     const int totalWidth = textWidth + iconSize.width() + gap;
-    const int left = navigation ? content.left() : content.left() + (content.width() - totalWidth) / 2;
+    const bool iconOnly = tab.text.isEmpty();
+    const QRect centeredArea = tab.leftButtonSize.isEmpty() && tab.rightButtonSize.isEmpty() ? rect : content;
+    const int left = winui ? centeredArea.left() + (centeredArea.width() - totalWidth) / 2
+        : iconOnly ? centeredArea.center().x() - iconSize.width() / 2 : content.left();
     QRect iconRect(left, content.center().y() - iconSize.height() / 2, iconSize.width(), iconSize.height());
-    QRect textRect(left + iconSize.width() + gap, content.top(), textWidth, content.height());
+    QRect textRect = content;
+    if (!tab.icon.isNull()) textRect.setLeft(left + iconSize.width() + gap);
+    if (winui) {
+        iconRect.moveTop(rect.center().y() - iconSize.height() / 2);
+        textRect = QRect(left + iconSize.width() + (gap ? gap - 1 : 0), rect.top(), textWidth, rect.height());
+    } else if (iconOnly) iconRect.moveTop(rect.center().y() - iconSize.height() / 2);
     // Qt 的纵向标签按钮不随 RTL 镜像；旋转文字必须保留同一端的占位。
     if (!rotated) {
         iconRect = QStyle::visualRect(tab.direction, rect, iconRect);
         textRect = QStyle::visualRect(tab.direction, rect, textRect);
     }
-    if (!tab.icon.isNull()) tab.icon.paint(painter, iconRect, Qt::AlignCenter,
-        tab.state.testFlag(QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled,
-        tab.state.testFlag(QStyle::State_Selected) ? QIcon::On : QIcon::Off);
+    if (!tab.icon.isNull()) {
+        const auto mode = tab.state.testFlag(QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled;
+        const auto state = tab.state.testFlag(QStyle::State_Selected) ? QIcon::On : QIcon::Off;
+        const bool tint = ZzSegoeIconFont::usesForegroundColor(tab.icon)
+            || style_->themeSnapshot()->mode() == ZzThemeMode::HighContrast;
+        const auto icon = tint ? ZzSegoeIconFont::withForegroundColor(tab.icon, text) : tab.icon;
+        icon.paint(painter, iconRect, Qt::AlignCenter, mode, state);
+    }
     auto palette = tab.palette;
     palette.setColor(QPalette::WindowText, text);
     const bool enabled = tab.state.testFlag(QStyle::State_Enabled);
-    int flags = Qt::AlignVCenter | Qt::AlignLeading | Qt::TextShowMnemonic;
+    int flags = Qt::AlignVCenter | ((navigation || appearance_ == Appearance::Capsule) ? Qt::AlignLeading : Qt::AlignHCenter)
+        | Qt::TextShowMnemonic;
     if (!style_->styleHint(QStyle::SH_UnderlineShortcut, &tab, bar_)) flags |= Qt::TextHideMnemonic;
     style_->drawItemText(painter, textRect, flags, palette, enabled,
         tab.fontMetrics.elidedText(tab.text, bar_->elideMode(), textWidth, Qt::TextShowMnemonic), QPalette::WindowText);
@@ -434,11 +487,11 @@ void ZzTabBarStylePrivate::draw(const QStyleOptionTab &tab, QPainter *painter)
         painter->drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
     } else if (!zzPivot(appearance_)) {
         if (pressed || hovered) rounded(rect, pressed ? pressFill : hoverFill, radius);
-        if (appearance_ == Appearance::SegmentedSlide) rounded(selectionRectToDraw, selectedFill, radius);
+        if (appearance_ == Appearance::SegmentedSlide) rounded(selectionRectToDraw.adjusted(0.5, 0.5, -0.5, -0.5), selectedFill, radius);
         else if (appearance_ == Appearance::SegmentedFade) {
             painter->setOpacity(weights_.value(index)); rounded(rect, selectedFill, radius); painter->setOpacity(1);
         } else if (selected) {
-            rounded(rect.adjusted(0.5, 0.5, -0.5, -0.5), selectedFill, radius);
+            rounded(appearance_ == Appearance::Navigation ? rect : rect.adjusted(0.5, 0.5, -0.5, -0.5), selectedFill, radius);
             if (appearance_ == Appearance::SegmentedWinUI3) {
                 painter->setPen(stroke);
                 painter->setBrush(Qt::NoBrush);

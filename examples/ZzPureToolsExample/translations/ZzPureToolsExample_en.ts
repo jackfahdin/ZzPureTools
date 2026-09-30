@@ -4,6 +4,42 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>特点：选中时会有一个生长动画效果。</source>
+        <translation>Selected tabs grow into place.</translation>
+    </message>
+    <message>
+        <source>特点：选中时会有一个滑动动画效果。</source>
+        <translation>Selection slides between tabs.</translation>
+    </message>
+    <message>
+        <source>特点：选中时会有一个拉伸动画效果。</source>
+        <translation>Selection stretches between tabs.</translation>
+    </message>
+    <message>
+        <source>特点：Segmented风格，选中时会有一个滑动动画效果。</source>
+        <translation>Segmented selection slides between tabs.</translation>
+    </message>
+    <message>
+        <source>特点：选中时会有一个淡入淡出动画效果。</source>
+        <translation>Selection fades between tabs.</translation>
+    </message>
+    <message>
+        <source>特点：Segmented风格，WinUI3 的选中指示器效果。</source>
+        <translation>Segmented tabs with a WinUI 3 selection indicator.</translation>
+    </message>
+    <message>
+        <source>特点：半圆胶囊 + 自定义背景/选中/悬停/按下色</source>
+        <translation>Rounded segments with custom background and interaction colors.</translation>
+    </message>
+    <message>
+        <source>特点：浏览器标签样式。</source>
+        <translation>Browser-style tabs.</translation>
+    </message>
+    <message>
+        <source>特点：适合用于侧边栏的导航菜单，选项卡垂直排列，选中时指示器有个变长效果</source>
+        <translation>Vertical sidebar tabs with an expanding selection indicator.</translation>
+    </message>
+    <message>
         <source>标签栏(TabBar)</source>
         <translation>Tab Bar</translation>
     </message>
