@@ -143,10 +143,11 @@ void ZzExampleControlPagePrivate::initialize(ZzExampleControlKind kind, const QS
 
 void ZzExampleControlPagePrivate::buildGroupBox()
 {
-    auto *host = section(QCoreApplication::translate("ZzPureToolsExample", "普通分组与可勾选分组"));
+    auto *host = section(QCoreApplication::translate("ZzPureToolsExample", "普通分组与可勾选分组"), true);
     auto *normal = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "显示方式"), host);
     normal->setObjectName(QStringLiteral("zzExampleGroupBoxNormal"));
     normal->setMinimumWidth(240);
+    normal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     auto *normalLayout = new QVBoxLayout(normal);
     auto *compact = new QRadioButton(QCoreApplication::translate("ZzPureToolsExample", "紧凑布局"), normal);
     compact->setChecked(true);
@@ -157,6 +158,7 @@ void ZzExampleControlPagePrivate::buildGroupBox()
     auto *checkable = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "启用高级选项"), host);
     checkable->setObjectName(QStringLiteral("zzExampleGroupBoxCheckable"));
     checkable->setMinimumWidth(240);
+    checkable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     checkable->setCheckable(true);
     auto *checkableLayout = new QVBoxLayout(checkable);
     auto *option = new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "显示提示信息"), checkable);
@@ -172,10 +174,11 @@ void ZzExampleControlPagePrivate::buildGroupBox()
     });
     zzAdd(host, checkable);
 
-    auto *variants = section(QCoreApplication::translate("ZzPureToolsExample", "禁用状态与扁平分组"));
+    auto *variants = section(QCoreApplication::translate("ZzPureToolsExample", "禁用状态与扁平分组"), true);
     auto *disabled = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "不可用的选项"), variants);
     disabled->setObjectName(QStringLiteral("zzExampleGroupBoxDisabled"));
     disabled->setMinimumWidth(240);
+    disabled->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     auto *disabledLayout = new QVBoxLayout(disabled);
     disabledLayout->addWidget(new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "显示提示信息"), disabled));
     disabledLayout->addWidget(new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "记住上次选择"), disabled));
@@ -184,6 +187,7 @@ void ZzExampleControlPagePrivate::buildGroupBox()
     auto *flat = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "轻量分区"), variants);
     flat->setObjectName(QStringLiteral("zzExampleGroupBoxFlat"));
     flat->setMinimumWidth(240);
+    flat->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     flat->setFlat(true);
     auto *flatLayout = new QVBoxLayout(flat);
     auto *flatHint = new QLabel(QCoreApplication::translate("ZzPureToolsExample", "仅保留顶部分隔线，适合轻量分组。"), flat);
@@ -191,7 +195,7 @@ void ZzExampleControlPagePrivate::buildGroupBox()
     flatLayout->addWidget(flatHint);
     zzAdd(variants, flat);
 
-    auto *nestedHost = section(QCoreApplication::translate("ZzPureToolsExample", "嵌套分组"));
+    auto *nestedHost = section(QCoreApplication::translate("ZzPureToolsExample", "嵌套分组"), true);
     auto *outer = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "工作区选项"), nestedHost);
     outer->setObjectName(QStringLiteral("zzExampleGroupBoxNested"));
     outer->setMinimumWidth(320);
@@ -265,7 +269,7 @@ void ZzExampleControlPagePrivate::buildScroll()
     zzAdd(host, area);
 }
 
-QWidget *ZzExampleControlPagePrivate::section(const QString &title)
+QWidget *ZzExampleControlPagePrivate::section(const QString &title, bool expandingRow)
 {
     auto *label = new QLabel(title, content);
     label->setWordWrap(true);
@@ -275,7 +279,13 @@ QWidget *ZzExampleControlPagePrivate::section(const QString &title)
     layout->addWidget(label);
     auto *host = new QWidget(content);
     host->setObjectName(QStringLiteral("zzExampleControlPreview"));
-    new ZzFluentUI::ZzFlowLayout(12, 12, host);
+    if (expandingRow) {
+        auto *row = new QHBoxLayout(host);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(24);
+    } else {
+        new ZzFluentUI::ZzFlowLayout(12, 12, host);
+    }
     layout->addWidget(host);
     return host;
 }

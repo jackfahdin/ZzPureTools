@@ -23,13 +23,17 @@ auto *layout = new QVBoxLayout(group);
 layout->addWidget(new ZzFluentUI::ZzPushButton(QStringLiteral("执行"), group));
 ```
 
-边框颜色和圆角使用主题令牌，高对比模式保留清晰边界。
+边框对齐 FluentUIStyle 的 `frameColorStrong`：浅色使用约 60.63% 不透明度的黑色，
+深色使用约 60.47% 不透明度的白色，普通框内缩 1.5px，默认圆角为 4px。
+高对比模式使用调色板的按钮文字色，圆角仍读取本库主题令牌。
 标题布局、助记键、焦点、勾选行为、子控件启用状态和无障碍交给 Qt；
 不增加动画、定时器或额外容器控件。
-组合绘制通过 `QCommonStyle` 公共流程调用本库的边框与勾选指示器，
-避免 Fusion 在系统高对比模式下绕过边框绘制、将扁平模式画成完整框。
+边框独立绘制，标题、焦点及勾选指示器使用 `QCommonStyle` 公共流程。
+边框裁剪参照 Fusion 的标题上半区规则，保留标题下方完整的上边线，
+同时避免 Fusion 在系统高对比模式下绕过边框绘制、将扁平模式画成完整框。
 
 Example 的“基础控件 → 分组框(GroupBox)”展示五种模式，支持在不同主题下观察。
+普通/可勾选分组并排伸展，禁用/扁平分组放在第二行，嵌套示例独占一行。
 
 ## 实施范围与验证计划
 
@@ -52,3 +56,18 @@ Example 的“基础控件 → 分组框(GroupBox)”展示五种模式，支持
 - 日志：`build/linux-gcc-debug/groupbox-gate.log`、`groupbox-screenshots.log`。
   页面预览：`build/linux-gcc-debug/groupbox-preview/group-box.png`。
 - Windows/macOS、Qt 6.8、性能门禁及物理桌面人工验收未在本轮执行。
+
+## 视觉修正（2026-09-30）
+
+- 上一次使用过淡的通用边框色，并由公共组合绘制裁掉整个标题矩形，
+  导致标题下方出现缺口；已有 primitive 测试未覆盖完整控件的组合绘制。
+- 本次编译运行本机 FluentUIStyle，以相同 Qt 6.11.1 和字体对照浅/深色截图，
+  对齐边框颜色、内缩及勾选框位置。参考项目源码保持不变。
+  对照工具仅在自身进程中关闭参考样式因离屏色系 Unknown 而误启用的高对比分支。
+- 完整控件的标题下边线回归已验证先失败、修正后通过；样式测试 18 项通过。
+- 本次定向 CTest 共 8 项通过，包含样式测试、四档已有截图回归、中英文 Example
+  集成及工作区烟测。已有截图套件不含 GroupBox 专用基线，其视觉另外通过上述对照图核查。
+- 通常使用的 Debug Example 已重新编译，真实页面截图为
+  `build/linux-gcc-debug/groupbox-preview/group-box.png`。
+- 浅/深色同场景对照为 `build/groupbox-reference/comparison-light.png` 和
+  `comparison-dark.png`。页面背景、复选框等继续使用本库公共样式，并未替换其他控件。

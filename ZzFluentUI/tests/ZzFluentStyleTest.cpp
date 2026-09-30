@@ -67,6 +67,48 @@ class ZzFluentStyleTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void keepsGroupBoxBorderContinuousBelowTitle()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (bool checkable : {false, true}) {
+            QStyleOptionGroupBox option;
+            option.rect = QRect(0, 0, 260, 120);
+            option.state = QStyle::State_Enabled | QStyle::State_On;
+            option.palette = style.standardPalette();
+            option.text = QStringLiteral("GroupBox");
+            option.fontMetrics = QFontMetrics(QFont(QStringLiteral("DejaVu Sans"), 10));
+            option.lineWidth = 1;
+            option.textAlignment = Qt::AlignLeft;
+            option.subControls = QStyle::SC_GroupBoxFrame | QStyle::SC_GroupBoxLabel;
+            if (checkable) option.subControls |= QStyle::SC_GroupBoxCheckBox;
+            const QRect label = style.subControlRect(QStyle::CC_GroupBox, &option,
+                QStyle::SC_GroupBoxLabel);
+            QStyleOptionFrame frame;
+            frame.QStyleOption::operator=(option);
+            frame.lineWidth = 1;
+            frame.rect = style.subControlRect(QStyle::CC_GroupBox, &option,
+                QStyle::SC_GroupBoxFrame);
+            QImage expected(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            expected.fill(Qt::transparent);
+            QPainter framePainter(&expected);
+            style.drawPrimitive(QStyle::PE_FrameGroupBox, &frame, &framePainter);
+            framePainter.end();
+            QImage actual(expected.size(), expected.format());
+            actual.fill(Qt::transparent);
+            QPainter painter(&actual);
+            style.drawComplexControl(QStyle::CC_GroupBox, &option, &painter);
+            painter.end();
+            // 标题下沿覆盖边框几何时，也不能把整段上边框裁成缺口。
+            for (int y = frame.rect.top(); y < frame.rect.top() + 3; ++y) {
+                if (expected.pixelColor(label.center().x(), y).alpha() != 0) {
+                    QCOMPARE(actual.pixelColor(label.center().x(), y),
+                        expected.pixelColor(label.center().x(), y));
+                }
+            }
+        }
+    }
+
     void keepsFlatGroupBoxIndependentOfBaseComplexPainting()
     {
         ZzFluentUI::ZzThemeController controller;
@@ -87,7 +129,7 @@ private Q_SLOTS:
         QCOMPARE(image.pixelColor(80, 40).alpha(), 0);
         QCOMPARE(image.pixelColor(0, 40).alpha(), 0);
         QCOMPARE(image.pixelColor(80, 79).alpha(), 0);
-        QCOMPARE(image.pixelColor(80, 0), QColor(Qt::white));
+        QCOMPARE(image.pixelColor(80, 1), QColor(Qt::white));
     }
 
     void paintsGroupBoxFrameWithoutFillingContents()
@@ -108,15 +150,19 @@ private Q_SLOTS:
                 QPainter painter(&image);
                 style.drawPrimitive(QStyle::PE_FrameGroupBox, &option, &painter);
                 painter.end();
-                const QColor stroke = controller.snapshot()->color(ZzFluentUI::ZzColorToken::ControlStroke);
-                QCOMPARE(image.pixelColor(80, 0), stroke);
+                const QColor stroke = image.pixelColor(80, 1);
+                QVERIFY(stroke.alpha() >= 150);
+                QCOMPARE(stroke.red(), mode == ZzFluentUI::ZzThemeMode::Light ? 0 : 255);
+                QCOMPARE(image.pixelColor(80, 0).alpha(), 0);
                 QCOMPARE(image.pixelColor(80, 40).alpha(), 0);
                 if (flat) {
                     QCOMPARE(image.pixelColor(0, 40).alpha(), 0);
                     QCOMPARE(image.pixelColor(80, 79).alpha(), 0);
                 } else {
-                    QCOMPARE(image.pixelColor(0, 40), stroke);
-                    QCOMPARE(image.pixelColor(80, 79), stroke);
+                    QCOMPARE(image.pixelColor(1, 40), stroke);
+                    QCOMPARE(image.pixelColor(80, 78), stroke);
+                    QCOMPARE(image.pixelColor(0, 40).alpha(), 0);
+                    QCOMPARE(image.pixelColor(80, 79).alpha(), 0);
                 }
             }
         }

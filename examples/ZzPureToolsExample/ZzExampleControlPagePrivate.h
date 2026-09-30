@@ -18,8 +18,12 @@ public:
     explicit ZzExampleControlPagePrivate(ZzExampleControlPage *page);
     /** @brief 创建统一页面结构，仅实例化指定控件的示例。 */
     void initialize(ZzExampleControlKind kind, const QString &title);
-    /** @brief 添加可随宽度换行的同类控件展示区。 */
-    QWidget *section(const QString &title);
+    /**
+     * @brief 添加同类控件展示区。
+     * @param title 展示区标题。
+     * @param expandingRow 为 true 时并排伸展，否则使用自动换行布局。
+     */
+    QWidget *section(const QString &title, bool expandingRow = false);
     /** @brief 构造按钮、图标按钮或工具按钮的变体。 */
     void buildButtons(ZzExampleControlKind kind);
     /** @brief 使用缓存的字体图标生成适配当前主题、禁用态和 DPR 的 QIcon。 */

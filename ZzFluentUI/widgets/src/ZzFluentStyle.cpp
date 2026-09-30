@@ -754,11 +754,36 @@ void ZzFluentStyle::drawComplexControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
-    if (control == CC_GroupBox && painter != nullptr && option != nullptr) {
-        // Fusion 的系统高对比分支会直接画整框，绕过 PE_FrameGroupBox。
-        // 使用公共组合绘制流程，统一复用本样式的边框、标题几何和复选指示器。
+    if (control == CC_GroupBox && painter != nullptr) {
+        const auto *group = qstyleoption_cast<const QStyleOptionGroupBox *>(option);
+        if (group == nullptr) return;
         painter->save();
-        QCommonStyle::drawComplexControl(control, option, painter, widget);
+        if (group->subControls.testFlag(SC_GroupBoxFrame)) {
+            QStyleOptionFrame frame;
+            frame.QStyleOption::operator=(*group);
+            frame.features = group->features;
+            frame.lineWidth = group->lineWidth;
+            frame.midLineWidth = group->midLineWidth;
+            frame.rect = subControlRect(control, group, SC_GroupBoxFrame, widget);
+            painter->save();
+            if (!group->text.isEmpty()) {
+                const QRect label = subControlRect(control, group, SC_GroupBoxLabel, widget);
+                QRect cutout = label;
+                if (group->subControls.testFlag(SC_GroupBoxCheckBox)) {
+                    cutout |= subControlRect(control, group, SC_GroupBoxCheckBox, widget);
+                }
+                // 与参考项目的 Fusion 组合方式一致：只让开标题上半区，
+                // 不将位于文字下方的完整上边框裁断；同时保留调用方裁剪。
+                cutout.adjust(-2, 0, 2, 3 - label.height() / 2);
+                painter->setClipRegion(QRegion(group->rect) - cutout, Qt::IntersectClip);
+            }
+            drawPrimitive(PE_FrameGroupBox, &frame, painter, widget);
+            painter->restore();
+        }
+        // 标题、焦点和勾选框继续复用公共流程；独立画框避免系统高对比绕过样式。
+        QStyleOptionGroupBox foreground(*group);
+        foreground.subControls &= ~SC_GroupBoxFrame;
+        QCommonStyle::drawComplexControl(control, &foreground, painter, widget);
         painter->restore();
         return;
     }
@@ -898,6 +923,9 @@ QRect ZzFluentStyle::subControlRect(
         option,
         subControl,
         widget);
+    if (control == CC_GroupBox && subControl == SC_GroupBoxCheckBox && option != nullptr) {
+        result.moveTop(option->rect.top() + 1);
+    }
     if (control == CC_Slider && subControl == SC_SliderHandle) {
         const int length = pixelMetric(PM_SliderLength, option, widget);
         const QPoint center = result.center();

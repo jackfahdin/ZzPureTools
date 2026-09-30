@@ -2218,14 +2218,23 @@ void ZzFluentStylePrivate::drawGroupBoxFrame(
     const QStyleOptionFrame *option, QPainter *painter) const
 {
     if (option->rect.isEmpty()) return;
-    const QRectF frame = QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5);
+    const QRectF frame = QRectF(option->rect).adjusted(1.5, 1.5, -1.5, -1.5);
     painter->save();
     painter->setClipRect(option->rect, Qt::IntersectClip);
     painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->setPen(QPen(snapshot->color(ZzColorToken::ControlStroke), 1.0));
+    // 参考 FluentUIStyle 的 frameColorStrong：中性前景约 60% 不透明度。
+    // 不复用低对比的通用输入框边框，以免分组边界在浅色主题中消失。
+    QColor stroke = snapshot->mode() == ZzThemeMode::Dark ? QColor(Qt::white) : QColor(Qt::black);
+    stroke.setAlphaF(snapshot->mode() == ZzThemeMode::Dark ? 0.6047F : 0.6063F);
+    if (snapshot->mode() == ZzThemeMode::HighContrast) {
+        stroke = option->palette.color(QPalette::ButtonText);
+    }
+    painter->setPen(QPen(stroke, 1.0));
     painter->setBrush(Qt::NoBrush);
     if (option->features.testFlag(QStyleOptionFrame::Flat)) {
-        painter->drawLine(frame.topLeft(), frame.topRight());
+        painter->setRenderHint(QPainter::Antialiasing, false);
+        painter->drawLine(option->rect.topLeft() + QPoint(0, 1),
+            option->rect.topRight() + QPoint(0, 1));
     } else {
         const qreal radius = std::min(snapshot->metric(ZzMetricToken::CornerRadiusMedium),
             std::min(frame.width(), frame.height()) / 2.0);
