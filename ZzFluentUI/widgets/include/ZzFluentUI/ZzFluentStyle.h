@@ -30,6 +30,13 @@ class ZZ_FLUENT_UI_EXPORT ZzFluentStyle final : public QProxyStyle
     Q_DISABLE_COPY_MOVE(ZzFluentStyle)
 
 public:
+    using QProxyStyle::polish;
+    using QProxyStyle::unpolish;
+    /** @brief 为数据表格启用整行悬停所需的视口跟踪。 */
+    void polish(QWidget *widget) override;
+    /** @brief 切换样式时恢复视口原有跟踪设置。 */
+    void unpolish(QWidget *widget) override;
+
     /**
      * @brief 构造应用级样式。
      *

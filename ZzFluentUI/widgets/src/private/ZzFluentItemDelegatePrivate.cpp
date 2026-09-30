@@ -12,6 +12,7 @@
 #include <ZzFluentUI/ZzNavigationView.h>
 
 #include "ZzItemViewVisual.h"
+#include "ZzDataViewStylePrivate.h"
 #include "ZzNavigationViewPrivate.h"
 
 namespace ZzFluentUI {
@@ -46,6 +47,11 @@ void ZzFluentItemDelegatePrivate::paint(
         ? adjusted.widget->style()
         : QApplication::style();
     adjusted.index = index;
+    if (qobject_cast<const ZzFluentStyle *>(style) != nullptr
+        && ZzDataViewStylePrivate::applies(adjusted.widget)) {
+        style->drawControl(QStyle::CE_ItemViewItem, &adjusted, painter, adjusted.widget);
+        return;
+    }
     QStyleOptionViewItem content = adjusted;
     auto *treeView = qobject_cast<QTreeView *>(
         const_cast<QWidget *>(adjusted.widget));

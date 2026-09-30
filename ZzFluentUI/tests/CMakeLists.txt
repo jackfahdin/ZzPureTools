@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzDataViewsTest ZzDataViewsTest.cpp)
+target_link_libraries(ZzDataViewsTest PRIVATE Qt6::Test Zz::FluentUI)
+set_target_properties(ZzDataViewsTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzDataViewsTest)
+zz_enable_sanitizers(ZzDataViewsTest)
+add_test(NAME fluent.data-views COMMAND ZzDataViewsTest)
+set_tests_properties(fluent.data-views PROPERTIES
+    LABELS "unit;component;fluent;widgets"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzSelectionIndicatorTransitionTest
     ZzSelectionIndicatorTransitionTest.cpp
     ../widgets/src/private/ZzSelectionIndicatorTransition.cpp)

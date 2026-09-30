@@ -71,7 +71,7 @@ void ZzExampleDataPagePrivate::initialize(
 
     layout->addWidget(zzDataPageTitle(title, content));
     auto *description = new QLabel(
-        QCoreApplication::translate("ZzPureToolsExample", "有界模型、代理筛选和局部 delegate 绘制共同保持稳定响应"),
+        QCoreApplication::translate("ZzPureToolsExample", "支持数据筛选、记录追加和多项选择"),
         content);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -147,11 +147,16 @@ void ZzExampleDataPagePrivate::buildList(
     auto *view = new QListView(parent);
     view->setObjectName(QStringLiteral("zzExampleListView"));
     view->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "构建任务列表"));
-    view->setAlternatingRowColors(true);
+    view->setAlternatingRowColors(false);
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setUniformItemSizes(true);
-    view->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(view));
+    auto *delegate = new ZzFluentUI::ZzFluentItemDelegate(view);
+    delegate->setDensity(ZzFluentUI::ZzItemDensity::Compact);
+    view->setItemDelegate(delegate);
+    view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    view->setMouseTracking(true);
     view->setModel(model);
+    view->setCurrentIndex(model->index(0, 0));
     view->setMinimumHeight(440);
     layout->addWidget(view);
 }
@@ -168,12 +173,20 @@ void ZzExampleDataPagePrivate::buildTable(
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setSortingEnabled(true);
-    view->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(view));
+    view->setShowGrid(false);
+    auto *delegate = new ZzFluentUI::ZzFluentItemDelegate(view);
+    delegate->setDensity(ZzFluentUI::ZzItemDensity::Compact);
+    view->setItemDelegate(delegate);
+    view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     view->setModel(model);
     view->verticalHeader()->hide();
+    view->verticalHeader()->setDefaultSectionSize(32);
+    view->horizontalHeader()->setDefaultSectionSize(160);
+    view->horizontalHeader()->setSectionsMovable(true);
     view->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     view->horizontalHeader()->setStretchLastSection(true);
     view->sortByColumn(0, Qt::AscendingOrder);
+    view->setCurrentIndex(model->index(0, 0));
     view->setMinimumHeight(440);
     layout->addWidget(view);
 }
@@ -190,10 +203,15 @@ void ZzExampleDataPagePrivate::buildTree(
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setUniformRowHeights(true);
     view->setAnimated(true);
-    view->setItemDelegate(new ZzFluentUI::ZzFluentItemDelegate(view));
+    auto *delegate = new ZzFluentUI::ZzFluentItemDelegate(view);
+    delegate->setDensity(ZzFluentUI::ZzItemDensity::Compact);
+    view->setItemDelegate(delegate);
+    view->setMouseTracking(true);
+    view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     view->setModel(model);
     view->header()->setStretchLastSection(true);
     view->expandToDepth(1);
+    view->setCurrentIndex(model->index(0, 0));
     view->setMinimumHeight(440);
     layout->addWidget(view);
 }

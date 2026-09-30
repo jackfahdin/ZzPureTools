@@ -3,6 +3,7 @@
 #include "private/ZzFluentStylePrivate.h"
 #include "private/ZzControlAppearancePrivate.h"
 #include "private/ZzItemViewVisual.h"
+#include "private/ZzDataViewStylePrivate.h"
 
 #include <QtCore/QThread>
 #include <QtCore/QEvent>
@@ -12,6 +13,7 @@
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QTreeView>
+#include <QtWidgets/QHeaderView>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCommonStyle>
 #include <QtWidgets/QCalendarWidget>
@@ -163,6 +165,11 @@ int ZzFluentStyle::pixelMetric(
         if (qobject_cast<const QPlainTextEdit *>(widget) != nullptr
             || qobject_cast<const QTextEdit *>(widget) != nullptr) {
             return 4;
+        }
+        break;
+    case PM_TreeViewIndentation:
+        if (ZzDataViewStylePrivate::applies(widget)) {
+            return 30;
         }
         break;
     case PM_ButtonMargin:
@@ -392,6 +399,10 @@ QSize ZzFluentStyle::sizeFromContents(
         && d_ptr->isComboBoxPopupContext(widget)) {
         result.setHeight(qMax(result.height(), 32));
     }
+    if (type == CT_ItemViewItem && ZzDataViewStylePrivate::applies(widget)) {
+        result.setHeight(qMax(result.height(), 32));
+        result.rwidth() += 12;
+    }
     if (type == CT_MenuItem) {
         const auto *menuItem = qstyleoption_cast<
             const QStyleOptionMenuItem *>(option);
@@ -468,6 +479,13 @@ void ZzFluentStyle::drawPrimitive(
             QPalette::ButtonText), 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         painter->drawPath(path);
         painter->restore();
+        return;
+    }
+    if (element == PE_IndicatorItemViewItemCheck && option != nullptr && painter != nullptr
+        && ZzDataViewStylePrivate::applies(widget)) {
+        QStyleOption check = *option;
+        check.rect.adjust(-1, -1, 1, 1);
+        d_ptr->drawCheckIndicator(&check, painter, false);
         return;
     }
     if ((element == PE_IndicatorCheckBox
@@ -585,12 +603,33 @@ void ZzFluentStyle::drawPrimitive(
             d_ptr->drawNavigationBranch(option, painter);
             return;
         }
+        if (ZzDataViewStylePrivate::applies(widget)) {
+            QStyleOption branch = *option;
+            // 普通数据树的箭头向内容侧移动，给行 leading 指示条留白。
+            branch.rect.translate(option->direction == Qt::RightToLeft ? -4 : 4, 0);
+            if (d_ptr->snapshot->mode() == ZzThemeMode::HighContrast
+                && (option->state.testFlag(State_Selected)
+                    || (option->state.testFlag(State_Enabled) && option->state.testFlag(State_MouseOver)))) {
+                branch.palette.setBrush(QPalette::Text, option->palette.brush(QPalette::HighlightedText));
+            } else if (!option->state.testFlag(State_Open)) {
+                branch.palette.setColor(QPalette::Text,
+                    option->palette.color(QPalette::Disabled, QPalette::Text));
+            }
+            d_ptr->drawNavigationBranch(&branch, painter);
+            return;
+        }
     }
     if (element == PE_PanelItemViewRow
         && option != nullptr && painter != nullptr) {
         const auto *item = qstyleoption_cast<
             const QStyleOptionViewItem *>(option);
         if (item != nullptr) {
+            const QWidget *viewWidget = qobject_cast<const QTreeView *>(widget) != nullptr
+                ? widget : widget != nullptr ? widget->parentWidget() : item->widget;
+            if (ZzDataViewStylePrivate::applies(viewWidget)) {
+                ZzDataViewStylePrivate::drawTreeRow(*this, *item, painter, widget);
+                return;
+            }
             d_ptr->drawItemViewRow(item, painter, widget);
             return;
         }
@@ -616,6 +655,12 @@ void ZzFluentStyle::drawPrimitive(
 bool ZzFluentStyle::eventFilter(QObject *watched, QEvent *event)
 {
     d_ptr->handleInputEvent(watched, event);
+    const auto *eventWidget = qobject_cast<const QWidget *>(watched);
+    if (eventWidget != nullptr && (eventWidget->style() == this
+        || (qobject_cast<const QAbstractItemView *>(eventWidget->parentWidget()) != nullptr
+            && eventWidget->parentWidget()->style() == this))) {
+        ZzDataViewStylePrivate::handleEvent(watched, event);
+    }
     if (event->type() == QEvent::DynamicPropertyChange) {
         const auto *change = static_cast<const QDynamicPropertyChangeEvent *>(event);
         if (change->propertyName() == "accent" || change->propertyName() == "zzFluentSubtle") {
@@ -634,6 +679,18 @@ void ZzFluentStyle::drawControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if ((element == CE_HeaderSection || element == CE_HeaderEmptyArea)
+        && painter != nullptr && option != nullptr) {
+        const auto *headerWidget = qobject_cast<const QHeaderView *>(widget);
+        if (headerWidget != nullptr && ZzDataViewStylePrivate::applies(headerWidget->parentWidget())) {
+            if (element == CE_HeaderEmptyArea) {
+                painter->fillRect(option->rect, option->palette.brush(QPalette::Button));
+            } else if (const auto *header = qstyleoption_cast<const QStyleOptionHeader *>(option)) {
+                ZzDataViewStylePrivate::drawHeader(*this, *header, painter);
+            }
+            return;
+        }
+    }
     if (element == CE_ToolButtonLabel && widget != nullptr
         && widget->property("accent").toBool()) {
         if (const auto *button = qstyleoption_cast<const QStyleOptionToolButton *>(option)) {
@@ -667,6 +724,12 @@ void ZzFluentStyle::drawControl(
                 return;
             }
             const QWidget *viewWidget = item->widget != nullptr ? item->widget : widget;
+            if (ZzDataViewStylePrivate::applies(viewWidget)) {
+                QStyleOptionViewItem adjusted = *item;
+                adjusted.widget = viewWidget;
+                ZzDataViewStylePrivate::drawItem(*this, adjusted, painter);
+                return;
+            }
             if (zzUsesItemIndicatorStyle(viewWidget, item->index)) {
                 QStyleOptionViewItem adjusted = *item;
                 adjusted.widget = viewWidget;
@@ -887,7 +950,9 @@ QRect ZzFluentStyle::subElementRect(
         if (item != nullptr && item->version != zzItemContentOptionVersion
             && zzUsesItemIndicatorStyle(item->widget, item->index)) {
             auto content = *item;
-            content.rect = ZzItemViewVisual::layout(*d_ptr->snapshot, *item,
+            content.rect = ZzDataViewStylePrivate::applies(item->widget)
+                ? ZzDataViewStylePrivate::contentRect(*item)
+                : ZzItemViewVisual::layout(*d_ptr->snapshot, *item,
                 {.ownsIndicator = ZzItemViewVisual::ownsIndicator(item->widget, item->index)})
                 .contentRect;
             content.version = zzItemContentOptionVersion;
@@ -957,6 +1022,18 @@ QRect ZzFluentStyle::subControlRect(
         }
     }
     return result;
+}
+
+void ZzFluentStyle::polish(QWidget *widget)
+{
+    QProxyStyle::polish(widget);
+    ZzDataViewStylePrivate::polish(widget, true);
+}
+
+void ZzFluentStyle::unpolish(QWidget *widget)
+{
+    ZzDataViewStylePrivate::polish(widget, false);
+    QProxyStyle::unpolish(widget);
 }
 
 QStyle::SubControl ZzFluentStyle::hitTestComplexControl(

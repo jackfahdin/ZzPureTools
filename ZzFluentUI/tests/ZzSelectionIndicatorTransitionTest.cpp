@@ -35,6 +35,10 @@ class ZzSelectionIndicatorTransitionTest final : public QObject
         const QImage image = view->viewport()->grab().toImage();
         const qreal dpr = image.devicePixelRatio();
         QRectF strip(view->visualRect(index));
+        if (qobject_cast<QTreeView *>(view) != nullptr
+            && view->selectionBehavior() == QAbstractItemView::SelectRows) {
+            strip.setLeft(0);
+        }
         strip.setLeft(strip.left() + 4);
         strip.setWidth(3);
         const QRect pixels(qFloor(strip.left() * dpr), qFloor(strip.top() * dpr),
@@ -333,7 +337,8 @@ private Q_SLOTS:
     {
         QTest::addColumn<int>("kind");
         QTest::addColumn<bool>("fluentDelegate");
-        for (int kind = 0; kind < 3; ++kind) {
+        // 数据表格使用整行边框，不再创建列表式指示条动画。
+        for (int kind = 0; kind < 2; ++kind) {
             for (bool fluent : {false, true}) {
                 QTest::newRow(qPrintable(QStringLiteral("view-%1-delegate-%2")
                     .arg(kind).arg(fluent))) << kind << fluent;
@@ -396,7 +401,7 @@ private Q_SLOTS:
         view->edit(model.index(1, 0));
         auto *editor = view->findChild<QLineEdit *>();
         QVERIFY(editor != nullptr);
-        QVERIFY(editor->geometry().left() >= view->visualRect(model.index(1, 0)).left() + 10);
+        QVERIFY(editor->geometry().left() >= view->visualRect(model.index(1, 0)).left() + 6);
         view->hide();
         QCOMPARE(animations.first()->state(), QAbstractAnimation::Stopped);
         view.reset();

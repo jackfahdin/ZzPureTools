@@ -152,6 +152,7 @@ set(zz_fluent_ui_sources
     widgets/src/ZzFluentItemDelegate.cpp
     widgets/src/private/ZzFluentItemDelegatePrivate.cpp
     widgets/src/private/ZzItemViewVisual.cpp
+    widgets/src/private/ZzDataViewStylePrivate.cpp
     widgets/src/private/ZzItemSelectionAnimation.cpp
     widgets/src/private/ZzTabIndicatorAnimation.cpp
     widgets/src/private/ZzSelectionIndicatorTransition.cpp

@@ -775,7 +775,9 @@ private Q_SLOTS:
             controller.snapshot()->color(
                 ZzFluentUI::ZzColorToken::Accent)));
 
+        // 图标网格仍保留原生尺寸；普通数据列表现在也采用 Fluent 行高。
         QListView ordinaryView;
+        ordinaryView.setViewMode(QListView::IconMode);
         const QSize ordinaryBase = style.baseStyle()->sizeFromContents(
             QStyle::CT_ItemViewItem,
             &item,

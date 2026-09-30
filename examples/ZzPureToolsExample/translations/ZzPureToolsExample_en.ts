@@ -556,8 +556,8 @@
     </message>
     <message>
         <location filename="../ZzExampleDataPagePrivate.cpp" line="74"/>
-        <source>有界模型、代理筛选和局部 delegate 绘制共同保持稳定响应</source>
-        <translation>Bounded models, proxy filtering, and local delegate rendering keep interactions responsive</translation>
+        <source>支持数据筛选、记录追加和多项选择</source>
+        <translation>Filter data, append records, and select multiple items</translation>
     </message>
     <message>
         <location filename="../ZzExampleDataPagePrivate.cpp" line="83"/>

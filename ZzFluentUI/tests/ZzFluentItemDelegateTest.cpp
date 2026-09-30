@@ -185,7 +185,7 @@ private Q_SLOTS:
         QCOMPARE(delegate.sizeHint(option, model.index(0, 0)).height(), 32);
     }
 
-    void sharesIndicatorGeometryAcrossListAndTable()
+    void reservesListContentMarginWithoutAddingTableIndicatorGutters()
     {
         ZzFluentUI::ZzThemeController controller;
         auto *recordingStyle = new ZzItemRectRecordingStyle;
@@ -215,7 +215,7 @@ private Q_SLOTS:
         QCOMPARE(recordingStyle->itemRects().size(), 1);
         QCOMPARE(
             recordingStyle->itemRects().constFirst(),
-            option.rect.adjusted(10, 0, 0, 0));
+            option.rect.adjusted(6, 0, 0, 0));
 
         QTableView tableView;
         tableView.setStyle(&style);
@@ -234,7 +234,7 @@ private Q_SLOTS:
         QCOMPARE(recordingStyle->itemRects().size(), 2);
         QCOMPARE(
             recordingStyle->itemRects().at(0),
-            QRect(0, 0, 160, 40).adjusted(10, 0, 0, 0));
+            QRect(0, 0, 160, 40));
         QCOMPARE(
             recordingStyle->itemRects().at(1),
             QRect(160, 0, 160, 40));
@@ -255,11 +255,11 @@ private Q_SLOTS:
                 }
             }
         }
-        QVERIFY(firstCellAccentPixels > 0);
+        QCOMPARE(firstCellAccentPixels, 0);
         QCOMPARE(secondCellAccentPixels, 0);
     }
 
-    void offsetsAndMarksOnlyTheTreeColumn_data()
+    void offsetsTreeContentAndMarksRowLeadingEdge_data()
     {
         QTest::addColumn<Qt::LayoutDirection>("direction");
         QTest::addColumn<int>("treeColumn");
@@ -270,12 +270,13 @@ private Q_SLOTS:
         QTest::newRow("rtl-second-column") << Qt::RightToLeft << 1;
     }
 
-    void offsetsAndMarksOnlyTheTreeColumn()
+    void offsetsTreeContentAndMarksRowLeadingEdge()
     {
         QFETCH(Qt::LayoutDirection, direction);
         QFETCH(int, treeColumn);
 
         ZzFluentUI::ZzThemeController controller;
+        controller.setReducedMotion(true);
         auto *recordingStyle = new ZzItemRectRecordingStyle;
         ZzFluentUI::ZzFluentStyle style(&controller, recordingStyle);
         QTreeView tree;
@@ -287,6 +288,13 @@ private Q_SLOTS:
         model.setData(model.index(0, 1), QStringLiteral("Details"));
         tree.setModel(&model);
         ZzFluentUI::ZzFluentItemDelegate delegate;
+        tree.resize(300, 180);
+        tree.setHeaderHidden(true);
+        tree.setCurrentIndex(model.index(0, 0));
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        const QImage rendered = tree.viewport()->grab().toImage();
+        recordingStyle->clearItemRects();
 
         QImage image(
             QSize(240, 40),
@@ -307,34 +315,27 @@ private Q_SLOTS:
         QCOMPARE(recordingStyle->itemRects().size(), 2);
         for (int column = 0; column < 2; ++column) {
             QRect expected(column * 120, 0, 120, 40);
-            if (column == treeColumn) {
-                expected.adjust(
-                    direction == Qt::RightToLeft ? 0 : 10,
+            expected.adjust(
+                    direction == Qt::RightToLeft ? 0 : 6,
                     0,
-                    direction == Qt::RightToLeft ? -10 : 0,
+                    direction == Qt::RightToLeft ? -6 : 0,
                     0);
-            }
             QCOMPARE(recordingStyle->itemRects().at(column), expected);
         }
 
         const QColor accent = controller.snapshot()->color(
             ZzFluentUI::ZzColorToken::Accent);
-        for (int column = 0; column < 2; ++column) {
-            const QRect cell(column * 120, 0, 120, 40);
-            int accentPixels = 0;
-            for (int y = cell.top(); y <= cell.bottom(); ++y) {
-                for (int x = cell.left(); x <= cell.right(); ++x) {
-                    if (image.pixelColor(x, y) == accent) {
-                        ++accentPixels;
-                    }
+        int accentPixels = 0;
+        const int leading = direction == Qt::RightToLeft ? rendered.width() - 1 : 0;
+        for (int y = 0; y < rendered.height(); ++y) {
+            for (int x = 0; x < rendered.width(); ++x) {
+                if (rendered.pixelColor(x, y) == accent) {
+                    ++accentPixels;
+                    QVERIFY(qAbs(x - leading) < 8);
                 }
             }
-            if (column == treeColumn) {
-                QVERIFY(accentPixels > 0);
-            } else {
-                QCOMPARE(accentPixels, 0);
-            }
         }
+        QVERIFY(accentPixels > 0);
     }
 
     void migratesTreeSelectionAndKeepsAnimationBudget()
@@ -428,8 +429,7 @@ private Q_SLOTS:
             childRect.center().y());
         QCOMPARE(
             image.pixelColor(indentationBoundary),
-            controller.snapshot()->color(
-                ZzFluentUI::ZzColorToken::ControlFillPressed));
+            QColor(241, 241, 241));
     }
 
     void drawsTreeRowFromGeometryWhenPrimitiveOmitsIndexAndSelection_data()
@@ -495,9 +495,10 @@ private Q_SLOTS:
         painter.end();
 
         QCOMPARE(
-            image.pixelColor(rowRect.center()),
-            controller.snapshot()->color(
-                ZzFluentUI::ZzColorToken::ControlFillPressed));
+            image.pixelColor(option.rect.center()),
+            QColor(241, 241, 241));
+        // 分支原语只负责自己的区域，不能越过相邻单元格的裁剪边界。
+        QCOMPARE(image.pixelColor(rowRect.center()), base);
     }
 
     void ignoresDecorationFeatureForNonTreeRowPrimitive()
