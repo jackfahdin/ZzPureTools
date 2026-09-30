@@ -19,6 +19,7 @@ public:
     enum class ZzPageKind
     {
         Navigation,
+        TabBars,
         Feedback,
         Icons
     };

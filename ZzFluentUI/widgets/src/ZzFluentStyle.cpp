@@ -1,6 +1,7 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 
 #include "private/ZzFluentStylePrivate.h"
+#include "private/ZzTabBarStylePrivate.h"
 #include "private/ZzControlAppearancePrivate.h"
 #include "private/ZzItemViewVisual.h"
 #include "private/ZzDataViewStylePrivate.h"
@@ -375,6 +376,8 @@ QSize ZzFluentStyle::sizeFromContents(
     if (type == CT_TabBarTab) {
         const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
         if (tab != nullptr) {
+            if (ZzTabBarStylePrivate::appearance(widget) != ZzTabBarAppearance::Standard)
+                return ZzTabBarStylePrivate::sizeHint(*tab, result, widget);
             // Preserve the measured label area when painting reserves the indicator gutter.
             const int gutter = qCeil(d_ptr->snapshot->metric(
                 ZzMetricToken::SelectionIndicatorThickness)
@@ -579,6 +582,8 @@ void ZzFluentStyle::drawPrimitive(
         // 窄视口左侧留下一条独立边线，与标签栏和内容表面不一致。
         return;
     }
+    if (element == PE_FrameTabBarBase
+        && ZzTabBarStylePrivate::appearance(widget) != ZzTabBarAppearance::Standard) return;
     if (element == PE_FrameTabBarBase
         && qobject_cast<const ZzTabBar *>(widget) != nullptr
         && widget->parentWidget() != nullptr
@@ -924,8 +929,29 @@ QRect ZzFluentStyle::subElementRect(
             return rect.adjusted(inset, 0, -inset, 0);
         }
     }
+    if (ZzTabBarStylePrivate::appearance(widget) == ZzTabBarAppearance::Navigation) {
+        const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
+        if (tab && ZzTabBarStylePrivate::vertical(tab->shape)) {
+            if (element == SE_TabBarTabLeftButton || element == SE_TabBarTabRightButton) {
+                const bool left = element == SE_TabBarTabLeftButton;
+                const QSize size = left ? tab->leftButtonSize : tab->rightButtonSize;
+                QRect button(left ? tab->rect.left() + 4 : tab->rect.right() - size.width() - 3,
+                    tab->rect.center().y() - size.height() / 2, size.width(), size.height());
+                return visualRect(tab->direction, tab->rect, button);
+            }
+            if (element == SE_TabBarTabText) {
+                QRect text = tab->rect.adjusted(13, 4, -8, -4);
+                if (!tab->icon.isNull()) text.adjust(tab->iconSize.width() + 8, 0, 0, 0);
+                if (!tab->leftButtonSize.isEmpty()) text.adjust(tab->leftButtonSize.width() + 4, 0, 0, 0);
+                if (!tab->rightButtonSize.isEmpty()) text.adjust(0, 0, -tab->rightButtonSize.width() - 4, 0);
+                return visualRect(tab->direction, tab->rect, text);
+            }
+        }
+    }
     if (element == SE_TabBarTabText) {
         const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
+        if (ZzTabBarStylePrivate::appearance(widget) != ZzTabBarAppearance::Standard)
+            return QProxyStyle::subElementRect(element, option, widget);
         if (tab != nullptr && tab->version != zzItemContentOptionVersion) {
             auto content = *tab;
             const int gutter = qCeil(d_ptr->snapshot->metric(
@@ -1032,6 +1058,7 @@ void ZzFluentStyle::polish(QWidget *widget)
 
 void ZzFluentStyle::unpolish(QWidget *widget)
 {
+    if (auto *bar = qobject_cast<QTabBar *>(widget)) delete d_ptr->tabStyles.take(bar);
     ZzDataViewStylePrivate::polish(widget, false);
     QProxyStyle::unpolish(widget);
 }

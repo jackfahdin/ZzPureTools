@@ -22,10 +22,19 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
+#include <QtCore/QVariantAnimation>
 
 #include "../widgets/src/private/ZzTabBarPrivate.h"
 
 namespace {
+
+/** @brief 仅供测试读取 Qt 实际生成的样式选项。 */
+class ZzInspectableTabBar final : public QTabBar
+{
+public:
+    using QTabBar::initStyleOption;
+};
 
 /** @brief 创建带稳定对象名的轻量测试页面。 */
 QWidget *zzCreatePage(const QString &name, QWidget *parent = nullptr)
@@ -56,6 +65,319 @@ class ZzTabControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 新外观不能吞掉 QTabBar 原有的逐标签文字颜色覆盖。 */
+    void appearancePreservesExplicitTabTextColor()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(ZzTabBarAppearance::Pill);
+        bar.addTab(QStringLiteral("Current"));
+        bar.addTab(QStringLiteral("Colored text"));
+        bar.setTabTextColor(1, QColor("#ff0000"));
+        bar.resize(300, 40); bar.show();
+        const QImage image = bar.grab().toImage();
+        int redPixels = 0;
+        for (int y = 0; y < image.height(); ++y) for (int x = 0; x < image.width(); ++x) {
+            const QColor pixel = image.pixelColor(x, y);
+            if (pixel.red() > 200 && pixel.green() < 80 && pixel.blue() < 80) ++redPixels;
+        }
+        QVERIFY(redPixels > 10);
+    }
+
+    /** @brief WinUI3 按下会缩短指示条，释放恢复；减少动态效果仍保留按下反馈。 */
+    void winuiPressAndStyleLifetime()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setMode(ZzThemeMode::Light);
+        ZzFluentStyle style(&controller);
+        QTabBar bar;
+        bar.setStyle(&style);
+        ZzControlAppearance::setTabBarAppearance(&bar, ZzTabBarAppearance::SegmentedWinUI3);
+        ZzControlAppearance::setAccentColor(&bar, QColor("#ff00ff"));
+        bar.addTab(QString()); bar.addTab(QString());
+        bar.resize(200, 32); bar.show();
+        QCoreApplication::processEvents();
+        const auto indicatorPixels = [&] {
+            const auto image = bar.grab().toImage();
+            int pixels = 0;
+            const QRect strip = bar.tabRect(0).adjusted(0, 25, 0, 0);
+            for (int y = strip.top(); y <= strip.bottom(); ++y)
+                for (int x = strip.left(); x <= strip.right(); ++x)
+                    if (image.pixelColor(x, y) == QColor("#ff00ff")) ++pixels;
+            return pixels;
+        };
+        const int releasedPixels = indicatorPixels();
+        QVERIFY(releasedPixels > 0);
+        for (bool reduced : {false, true}) {
+            controller.setReducedMotion(reduced);
+            QTest::mousePress(&bar, Qt::LeftButton, Qt::NoModifier, bar.tabRect(0).center());
+            for (auto *animation : style.findChildren<QVariantAnimation *>()) {
+                if (reduced) QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+                else if (animation->state() == QAbstractAnimation::Running) animation->setCurrentTime(animation->duration());
+            }
+            const int pressedPixels = indicatorPixels();
+            QVERIFY(pressedPixels > 0 && pressedPixels < releasedPixels);
+            QTest::mouseRelease(&bar, Qt::LeftButton, Qt::NoModifier, bar.tabRect(0).center());
+            for (auto *animation : style.findChildren<QVariantAnimation *>())
+                if (animation->state() == QAbstractAnimation::Running) animation->setCurrentTime(animation->duration());
+            QCOMPARE(indicatorPixels(), releasedPixels);
+        }
+        QVERIFY(!style.findChildren<QVariantAnimation *>().isEmpty());
+        bar.setStyle(nullptr);
+        QVERIFY(style.findChildren<QVariantAnimation *>().isEmpty());
+    }
+
+    /** @brief Qt 拖动快照使用局部矩形；第 N 个标签仍必须绘制自己的选中背景。 */
+    void movingTabUsesLocalCoordinates()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        ZzInspectableTabBar bar;
+        bar.setStyle(&style);
+        for (const auto appearance : {ZzTabBarAppearance::Capsule, ZzTabBarAppearance::SegmentedSlide}) {
+            ZzControlAppearance::setTabBarAppearance(&bar, appearance);
+            if (bar.count() == 0) for (int i = 0; i < 4; ++i) bar.addTab(QStringLiteral("Long document %1").arg(i));
+            bar.resize(180, 42);
+            bar.setCurrentIndex(3);
+            bar.show();
+            QCoreApplication::processEvents();
+            QStyleOptionTab option;
+            bar.initStyleOption(&option, 3);
+            option.position = QStyleOptionTab::Moving;
+            option.rect.moveTopLeft(QPoint(0, 0));
+            QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style.drawControl(QStyle::CE_TabBarTab, &option, &painter, &bar);
+            painter.end();
+            QVERIFY(image.pixelColor(12, 10).alpha() > 0);
+            QCOMPARE(image.pixelColor(12, 10), QColor(206, 206, 206));
+        }
+    }
+
+    /** @brief 非方形按钮跨轴必须容纳，RTL 纵向图标不能侵入 Qt 按钮区域。 */
+    void verticalButtonsFitAndDoNotOverlap()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        for (const auto shape : {QTabBar::RoundedWest, QTabBar::RoundedEast}) {
+            for (const QSize buttonSize : {QSize(80, 20), QSize(20, 80)}) {
+                ZzInspectableTabBar bar;
+                bar.setStyle(&style);
+                ZzControlAppearance::setTabBarAppearance(&bar, ZzTabBarAppearance::Pill);
+                bar.setShape(shape);
+                bar.setLayoutDirection(Qt::RightToLeft);
+                bar.setExpanding(false);
+                QPixmap marker(16, 16); marker.fill(QColor("#ff00ff"));
+                bar.addTab(QIcon(marker), QStringLiteral("Agjp"));
+                auto *button = new QWidget(&bar);
+                button->setFixedSize(buttonSize);
+                bar.setTabButton(0, QTabBar::RightSide, button);
+                bar.resize(200, 300); bar.show();
+                QCoreApplication::processEvents();
+                QVERIFY(bar.tabRect(0).width() >= buttonSize.width());
+                QStyleOptionTab option;
+                bar.initStyleOption(&option, 0);
+                const QRect occupied = style.subElementRect(QStyle::SE_TabBarTabRightButton, &option, &bar);
+                QImage image(bar.size(), QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+                QPainter painter(&image);
+                style.drawControl(QStyle::CE_TabBarTab, &option, &painter, &bar);
+                painter.end();
+                int markerPixels = 0;
+                for (int y = 0; y < image.height(); ++y) for (int x = 0; x < image.width(); ++x) {
+                    if (image.pixelColor(x, y) == QColor("#ff00ff")) {
+                        ++markerPixels;
+                        QVERIFY2(!occupied.contains(x, y), "Icon overlaps vertical tab button");
+                    }
+                }
+                QVERIFY(markerPixels > 0);
+            }
+        }
+    }
+
+    /** @brief 外观切换必须刷新 QTabBar 缓存尺寸，同时保留选择、数据和信号语义。 */
+    void appearanceChangesRelayoutWithoutChangingTabs()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setExpanding(false);
+        bar.addTab(QStringLiteral("One"));
+        bar.addTab(QStringLiteral("Two"));
+        bar.setTabData(1, 42);
+        bar.setCurrentIndex(1);
+        bar.show();
+        QSignalSpy selection(&bar, &QTabBar::currentChanged);
+        QSignalSpy appearance(&bar, &ZzTabBar::appearanceChanged);
+        bar.setAppearance(ZzTabBarAppearance::Pill);
+        const auto pillSize = bar.tabRect(0).size();
+        ZzControlAppearance::setTabBarAppearance(&bar, ZzTabBarAppearance::SegmentedSlide);
+        QVERIFY(bar.tabRect(0).height() > pillSize.height());
+        bar.setAppearance(ZzTabBarAppearance::Capsule);
+        QVERIFY(bar.tabRect(0).width() > pillSize.width());
+        bar.setAppearance(ZzTabBarAppearance::Capsule);
+        QCOMPARE(appearance.count(), 3);
+        QCOMPARE(selection.count(), 0);
+        QCOMPARE(bar.currentIndex(), 1);
+        QCOMPARE(bar.tabData(1).toInt(), 42);
+        QVERIFY(!bar.newTabButton()->isVisible());
+        bar.setAppearance(static_cast<ZzTabBarAppearance>(-1));
+        QCOMPARE(bar.appearance(), ZzTabBarAppearance::Standard);
+    }
+
+    /** @brief 自定义颜色必须覆盖像素，并在浅深色和清除覆盖时正确切换。 */
+    void segmentedColorsRespectThemeAndReset()
+    {
+        using namespace ZzFluentUI;
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        QTabBar bar;
+        bar.setStyle(&style);
+        bar.setExpanding(true);
+        ZzControlAppearance::setTabBarAppearance(&bar, ZzTabBarAppearance::SegmentedSlide);
+        ZzControlAppearance::setTabBarColors(&bar,
+            {.background = QColor("#dddddd"), .selected = QColor("#8f27da"), .hover = {}, .pressed = {}, .text = {}, .selectedText = {}},
+            {.background = QColor("#222222"), .selected = QColor("#123456"), .hover = {}, .pressed = {}, .text = {}, .selectedText = {}});
+        bar.addTab(QStringLiteral("One"));
+        bar.addTab(QStringLiteral("Two"));
+        bar.resize(300, 42);
+        bar.show();
+        QCoreApplication::processEvents();
+        const QPoint sample = bar.tabRect(0).topLeft() + QPoint(12, 10);
+        controller.setMode(ZzThemeMode::Light);
+        QCOMPARE(bar.grab().toImage().pixelColor(sample), QColor("#8f27da"));
+        controller.setMode(ZzThemeMode::Dark);
+        QCOMPARE(bar.grab().toImage().pixelColor(sample), QColor("#123456"));
+        controller.setMode(ZzThemeMode::HighContrast);
+        QVERIFY(bar.grab().toImage().pixelColor(sample) != QColor("#123456"));
+        controller.setMode(ZzThemeMode::Light);
+        ZzControlAppearance::setTabBarColors(&bar, {});
+        QVERIFY(bar.grab().toImage().pixelColor(sample) != QColor("#8f27da"));
+    }
+
+    /** @brief 滑动和淡出重定向不跳帧，隐藏、删除和减少动态效果不会留下旧选择。 */
+    void appearanceAnimationsRedirectAndSettle_data()
+    {
+        QTest::addColumn<int>("appearance");
+        for (int value : {3, 4, 6, 7}) QTest::newRow(qPrintable(QString::number(value))) << value;
+    }
+
+    void appearanceAnimationsRedirectAndSettle()
+    {
+        using namespace ZzFluentUI;
+        QFETCH(int, appearance);
+        ZzThemeController controller;
+        controller.setMode(ZzThemeMode::Light);
+        ZzFluentStyle style(&controller);
+        ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(static_cast<ZzTabBarAppearance>(appearance));
+        bar.addTab(QString()); bar.addTab(QString()); bar.addTab(QString());
+        bar.resize(300, 50);
+        bar.show();
+        QCoreApplication::processEvents();
+        (void)bar.grab();
+        const auto animations = style.findChildren<QVariantAnimation *>();
+        bar.setCurrentIndex(1);
+        QVariantAnimation *running = nullptr;
+        for (auto *animation : animations) if (animation->state() == QAbstractAnimation::Running) running = animation;
+        QVERIFY(running);
+        running->setCurrentTime(running->duration() / 3);
+        const auto before = bar.grab().toImage();
+        bar.setCurrentIndex(2);
+        QCOMPARE(bar.grab().toImage(), before);
+        running->setCurrentTime(running->duration());
+        QVERIFY(bar.grab().toImage() != before);
+        bar.setCurrentIndex(0);
+        controller.setReducedMotion(true);
+        for (auto *animation : animations) QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+        const auto still = bar.grab().toImage();
+        controller.setReducedMotion(false);
+        bar.setCurrentIndex(2);
+        bar.setTabVisible(2, false);
+        bar.removeTab(1);
+        (void)bar.grab();
+        for (auto *animation : animations) QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+        QVERIFY(!still.isNull());
+        QCOMPARE(style.findChildren<QVariantAnimation *>(), animations);
+    }
+
+    /** @brief 各种外观必须为大字体、图标、关闭按钮留足空间，兼容四边与 RTL。 */
+    void appearanceGeometry_data()
+    {
+        QTest::addColumn<int>("appearance");
+        QTest::addColumn<int>("shape");
+        QTest::addColumn<bool>("rtl");
+        for (int value = 1; value <= 9; ++value)
+            for (int shape = 0; shape <= 3; ++shape)
+                for (bool rtl : {false, true})
+                    QTest::newRow(qPrintable(QStringLiteral("%1-%2-%3").arg(value).arg(shape).arg(rtl))) << value << shape << rtl;
+    }
+
+    void appearanceGeometry()
+    {
+        using namespace ZzFluentUI;
+        QFETCH(int, appearance); QFETCH(int, shape); QFETCH(bool, rtl);
+        ZzThemeController controller;
+        controller.setReducedMotion(true);
+        ZzFluentStyle style(&controller);
+        QTabBar bar;
+        bar.setStyle(&style);
+        ZzControlAppearance::setTabBarAppearance(&bar, static_cast<ZzTabBarAppearance>(appearance));
+        bar.setShape(static_cast<QTabBar::Shape>(shape));
+        bar.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        bar.setTabsClosable(true);
+        bar.setExpanding(false);
+        auto font = bar.font(); font.setPointSize(24); bar.setFont(font);
+        bar.addTab(style.standardIcon(QStyle::SP_DirIcon), QStringLiteral("Agjp"));
+        bar.addTab(QStringLiteral("Hidden"));
+        bar.setTabVisible(1, false);
+        bar.resize(500, 500);
+        bar.show();
+        QCoreApplication::processEvents();
+        const auto rect = bar.tabRect(0);
+        const bool vertical = shape >= 2;
+        const int cross = vertical && appearance != 9 ? rect.width() : rect.height();
+        QVERIFY(cross >= bar.fontMetrics().height() + 8);
+        const auto side = static_cast<QTabBar::ButtonPosition>(style.styleHint(QStyle::SH_TabBar_CloseButtonPosition));
+        auto *close = bar.tabButton(0, side);
+        QVERIFY(close);
+        QVERIFY(rect.contains(close->geometry().center()));
+        QVERIFY(!bar.grab().isNull());
+    }
+
+    /** @brief 捕获纵向导航仍沿用旋转标签尺寸、导致长标题变成高条的回归。 */
+    void navigationTabsKeepHorizontalLabels()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzTabBar bar;
+        bar.setStyle(&style);
+        bar.setAppearance(ZzFluentUI::ZzTabBarAppearance::Navigation);
+        bar.setShape(QTabBar::RoundedWest);
+        bar.setExpanding(false);
+        bar.addTab(QStringLiteral("Overview"));
+        bar.addTab(QStringLiteral("A much longer settings page"));
+        bar.resize(300, 200);
+        bar.show();
+        QCoreApplication::processEvents();
+        QVERIFY(bar.tabRect(1).width() >= bar.fontMetrics().horizontalAdvance(bar.tabText(1)));
+        QVERIFY(bar.tabRect(1).height() < bar.tabRect(1).width());
+        QCOMPARE(bar.tabRect(0).width(), bar.tabRect(1).width());
+    }
+
     /** @brief 捕获只缩减文字区域、却未为指示条增加标签尺寸的回归。 */
     void indicatorGutterPreservesMeasuredLabel_data()
     {

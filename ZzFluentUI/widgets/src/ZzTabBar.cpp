@@ -1,4 +1,5 @@
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzControlAppearance.h>
 
 #include <QtGui/QDragEnterEvent>
 #include <QtGui/QDragLeaveEvent>
@@ -30,6 +31,8 @@ ZzTabBar::ZzTabBar(QWidget *parent)
     d_ptr->newTabButton->setAutoRaise(true);
     d_ptr->newTabButton->setToolTip(QStringLiteral("新建标签页"));
     d_ptr->newTabButton->setAccessibleName(QStringLiteral("新建标签页"));
+    // 独立标签栏没有为新建按钮预留位置；宿主接管后再按自己的布局显示。
+    d_ptr->newTabButton->hide();
     connect(d_ptr->newTabButton, &QToolButton::clicked, this, &ZzTabBar::newTabRequested);
 }
 
@@ -51,6 +54,31 @@ void ZzTabBar::contextMenuEvent(QContextMenuEvent *event)
 }
 
 ZzTabBar::~ZzTabBar() = default;
+
+ZzTabBarAppearance ZzTabBar::appearance() const
+{
+    return ZzControlAppearance::tabBarAppearance(this);
+}
+
+void ZzTabBar::setAppearance(ZzTabBarAppearance value)
+{
+    ZzControlAppearance::setTabBarAppearance(this, value);
+}
+
+bool ZzTabBar::isSegmentedRounded() const
+{
+    return ZzControlAppearance::isTabBarRounded(this);
+}
+
+void ZzTabBar::setSegmentedRounded(bool rounded)
+{
+    ZzControlAppearance::setTabBarRounded(this, rounded);
+}
+
+void ZzTabBar::setSegmentedColors(const ZzTabBarColors &light, const ZzTabBarColors &dark)
+{
+    ZzControlAppearance::setTabBarColors(this, light, dark);
+}
 
 void ZzTabBar::removeTab(int index)
 {

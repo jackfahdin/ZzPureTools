@@ -30,6 +30,7 @@ ZzTabWidget::ZzTabWidget(QWidget *parent)
         stack->setFrameShape(QFrame::NoFrame);
     }
     setCornerWidget(d_ptr->tabBar->newTabButton(), Qt::TopRightCorner);
+    d_ptr->tabBar->newTabButton()->show();
     setMovable(true);
     connect(this, &QTabWidget::tabCloseRequested, this, [this](int index) {
         if (isTabCloseEnabled(index) && !isTabPinned(index)) {

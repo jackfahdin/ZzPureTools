@@ -7587,6 +7587,77 @@ private Q_SLOTS:
                 .arg(actualPath, diffPath)));
     }
 
+    void rendersTabAppearanceThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("name");
+        QTest::newRow("light") << int(ZzFluentUI::ZzThemeMode::Light) << QStringLiteral("light");
+        QTest::newRow("dark") << int(ZzFluentUI::ZzThemeMode::Dark) << QStringLiteral("dark");
+        QTest::newRow("high-contrast") << int(ZzFluentUI::ZzThemeMode::HighContrast) << QStringLiteral("high-contrast");
+    }
+
+    /** @brief 九种外观、纵向导航、禁用标签和纯图标的主题/DPR 视觉回归。 */
+    void rendersTabAppearanceThemes()
+    {
+        using namespace ZzFluentUI;
+        QFETCH(int, mode); QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(800, 760);
+        auto *grid = new QGridLayout(&surface);
+        const QStringList titles {QStringLiteral("Capsule"), QStringLiteral("Pivot Grow"),
+            QStringLiteral("Pivot Slide"), QStringLiteral("Pivot Stretch"), QStringLiteral("Pill"),
+            QStringLiteral("Segmented Slide"), QStringLiteral("Segmented Fade"),
+            QStringLiteral("Segmented WinUI3"), QStringLiteral("Navigation")};
+        for (int i = 1; i <= 11; ++i) {
+            auto *bar = new ZzTabBar(&surface);
+            bar->setAppearance(static_cast<ZzTabBarAppearance>(i <= 9 ? i : 6));
+            bar->setExpanding(false);
+            bar->setFocusPolicy(Qt::NoFocus);
+            if (i == 9) bar->setShape(QTabBar::RoundedWest);
+            for (const QString &text : {QStringLiteral("Home"), QStringLiteral("Search"), QStringLiteral("Settings"), QStringLiteral("Disabled")})
+                bar->addTab(bar->style()->standardIcon(QStyle::SP_DirIcon), i == 11 ? QString() : text);
+            bar->setTabEnabled(3, false);
+            bar->setCurrentIndex(1);
+            if (i >= 10) {
+                bar->setSegmentedRounded(true);
+                bar->setSegmentedColors({.background = QColor("#d9d9dd"), .selected = QColor("#7e57e8"),
+                    .hover = {}, .pressed = {}, .text = {}, .selectedText = {}},
+                    {.background = QColor("#3f3f46"), .selected = QColor("#6e4fd6"),
+                    .hover = {}, .pressed = {}, .text = {}, .selectedText = {}});
+            }
+            grid->addWidget(new QLabel(i <= 9 ? titles[i - 1] : QStringLiteral("Custom / Icons"), &surface), i, 0);
+            grid->addWidget(bar, i, 1);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        const auto actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("tab-appearances-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const auto reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
+
     void rendersTabThemes_data()
     {
         QTest::addColumn<int>("mode");

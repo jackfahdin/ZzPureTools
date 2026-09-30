@@ -4,9 +4,11 @@
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzProgressBarAppearance.h>
+#include <ZzFluentUI/ZzTabBarAppearance.h>
 
 class QAbstractButton;
 class QProgressBar;
+class QTabBar;
 class QWidget;
 
 namespace ZzFluentUI {
@@ -15,6 +17,20 @@ namespace ZzFluentUI {
 class ZZ_FLUENT_UI_EXPORT ZzControlAppearance final
 {
 public:
+    /** @brief 设置原生或 Fluent 标签栏外观并重新布局；空指针忽略，未知值恢复 Standard。 */
+    static void setTabBarAppearance(QTabBar *bar, ZzTabBarAppearance appearance);
+    /** @brief 查询标签栏外观；空指针或未设置返回 Standard。 */
+    [[nodiscard]] static ZzTabBarAppearance tabBarAppearance(const QTabBar *bar);
+    /** @brief 设置分段标签栏是否使用半圆圆角；不修改 Qt 的 shape 或页面位置。 */
+    static void setTabBarRounded(QTabBar *bar, bool rounded);
+    /** @brief 查询分段标签栏是否使用半圆圆角。 */
+    [[nodiscard]] static bool isTabBarRounded(const QTabBar *bar);
+    /** @brief 设置浅深色分段配色；深色未指定的字段回退浅色，全部无效恢复主题。 */
+    static void setTabBarColors(QTabBar *bar, const ZzTabBarColors &light,
+        const ZzTabBarColors &dark = {});
+    /** @brief 返回指定主题的原始覆盖值，不包含主题默认色。 */
+    [[nodiscard]] static ZzTabBarColors tabBarColors(const QTabBar *bar, bool dark = false);
+
     /**
      * @brief 设置使用 ZzFluentStyle 的线性进度条外观并请求重绘。
      * @param progress 非拥有进度条指针；空指针忽略，不影响其他控件。

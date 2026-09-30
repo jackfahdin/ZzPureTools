@@ -148,6 +148,10 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(zzShowcaseTitle(title, content));
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::TabBars:
+        q_ptr->setObjectName(QStringLiteral("zzExampleTabBarsPage"));
+        buildTabBars(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::Navigation:
         q_ptr->setObjectName(QStringLiteral("zzExampleNavigationPage"));
         buildNavigation(layout, content);

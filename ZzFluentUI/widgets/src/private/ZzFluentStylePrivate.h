@@ -29,6 +29,7 @@ class ZzThemeController;
 class ZzThemeSnapshot;
 class ZzItemSelectionAnimation;
 class ZzTabIndicatorAnimation;
+class ZzTabBarStylePrivate;
 
 /** @brief 菜单正文与快捷键列之间保留的最小逻辑像素间距。 */
 inline constexpr int zzMenuShortcutSpacing = 12;
@@ -59,6 +60,7 @@ public:
     ZzItemSelectionAnimation *itemAnimation(QAbstractItemView *view);
     QHash<QAbstractItemView *, ZzItemSelectionAnimation *> itemAnimations;
     mutable QHash<QTabBar *, ZzTabIndicatorAnimation *> tabAnimations;
+    mutable QHash<QTabBar *, ZzTabBarStylePrivate *> tabStyles;
     /** @brief 绑定控制器并用首个快照初始化固定视觉槽。 */
     ZzFluentStylePrivate(
         ZzFluentStyle *q,

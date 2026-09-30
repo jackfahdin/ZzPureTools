@@ -6,6 +6,7 @@
 #include <QtWidgets/QTabBar>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
+#include <ZzFluentUI/ZzTabBarAppearance.h>
 
 class QDragEnterEvent;
 class QDragLeaveEvent;
@@ -30,6 +31,8 @@ class ZzTabWidget;
 class ZZ_FLUENT_UI_EXPORT ZzTabBar final : public QTabBar
 {
     Q_OBJECT
+    Q_PROPERTY(ZzFluentUI::ZzTabBarAppearance appearance READ appearance WRITE setAppearance NOTIFY appearanceChanged)
+    Q_PROPERTY(bool segmentedRounded READ isSegmentedRounded WRITE setSegmentedRounded NOTIFY segmentedRoundedChanged)
     Q_PROPERTY(
         bool tearOffEnabled
         READ isTearOffEnabled
@@ -51,6 +54,17 @@ public:
 
     /** @brief 销毁私有拖拽状态。 */
     ~ZzTabBar() override;
+
+    /** @brief 返回当前标签外观；默认为 Standard。 */
+    [[nodiscard]] ZzTabBarAppearance appearance() const;
+    /** @brief 切换标签外观并刷新尺寸，不改变当前标签和页面数据。 */
+    void setAppearance(ZzTabBarAppearance appearance);
+    /** @brief 返回分段标签是否使用半圆外形。 */
+    [[nodiscard]] bool isSegmentedRounded() const;
+    /** @brief 设置分段标签的半圆外形。 */
+    void setSegmentedRounded(bool rounded);
+    /** @brief 设置浅深色分段配色；传入空值恢复默认。 */
+    void setSegmentedColors(const ZzTabBarColors &light, const ZzTabBarColors &dark = {});
 
     /** @brief 移除标签；协调器事务期间无副作用。 */
     void removeTab(int index);
@@ -128,6 +142,11 @@ public:
     [[nodiscard]] QWidget *newTabButton() const noexcept;
 
 Q_SIGNALS:
+    /** @brief 标签外观发生变化。 */
+    void appearanceChanged(ZzFluentUI::ZzTabBarAppearance appearance);
+    /** @brief 分段标签的圆角形状发生变化。 */
+    void segmentedRoundedChanged(bool rounded);
+
     /**
      * @brief 拖出能力变化后发出。
      * @param enabled 新状态。

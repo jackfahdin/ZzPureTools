@@ -4,6 +4,26 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>标签栏(TabBar)</source>
+        <translation>Tab Bar</translation>
+    </message>
+    <message>
+        <source>点击标签体验不同的选中动效；也可使用方向键切换。</source>
+        <translation>Select tabs to try each animation, or switch with the arrow keys.</translation>
+    </message>
+    <message>
+        <source>自定义分段标签</source>
+        <translation>Custom segmented tabs</translation>
+    </message>
+    <message>
+        <source>历史</source>
+        <translation>History</translation>
+    </message>
+    <message>
+        <source>新建标签页</source>
+        <translation>New tab</translation>
+    </message>
+    <message>
         <source>纯图标与保持选中</source>
         <translation>Icon-only and toggle buttons</translation>
     </message>

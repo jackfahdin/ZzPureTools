@@ -25,6 +25,9 @@ public:
     /** @brief 创建面包屑与可转移标签。 */
     void buildNavigation(QVBoxLayout *layout, QWidget *parent);
 
+    /** @brief 展示九种标签外观、纯图标和可配置分段标签。 */
+    void buildTabBars(QVBoxLayout *layout, QWidget *parent);
+
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);
 

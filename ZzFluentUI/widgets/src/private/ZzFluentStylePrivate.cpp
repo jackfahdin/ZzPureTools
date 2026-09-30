@@ -4,6 +4,7 @@
 #include "ZzItemSelectionAnimation.h"
 #include "ZzItemViewVisual.h"
 #include "ZzTabIndicatorAnimation.h"
+#include "ZzTabBarStylePrivate.h"
 #include <QtWidgets/QTabBar>
 
 #include <algorithm>
@@ -458,6 +459,7 @@ ZzFluentStylePrivate::~ZzFluentStylePrivate()
 {
     qDeleteAll(itemAnimations);
     qDeleteAll(tabAnimations);
+    qDeleteAll(tabStyles);
 }
 
 void ZzFluentStylePrivate::handleInputEvent(
@@ -1806,6 +1808,21 @@ void ZzFluentStylePrivate::drawTabBarTab(
     QPainter *painter,
     const QWidget *widget) const
 {
+    if (ZzTabBarStylePrivate::appearance(widget) != ZzTabBarAppearance::Standard) {
+        auto *bar = qobject_cast<QTabBar *>(const_cast<QWidget *>(widget));
+        auto it = tabStyles.find(bar);
+        if (it == tabStyles.end()) {
+            auto *visual = new ZzTabBarStylePrivate(bar, q_ptr);
+            it = tabStyles.insert(bar, visual);
+            QObject::connect(bar, &QObject::destroyed, visual, [this, bar] {
+                delete tabStyles.take(bar);
+            });
+            if (controller) QObject::connect(controller, &ZzThemeController::snapshotChanged,
+                visual, [visual] { visual->settle(); });
+        }
+        it.value()->draw(*option, painter);
+        return;
+    }
     const bool enabled = option->state.testFlag(QStyle::State_Enabled);
     const bool selected = option->state.testFlag(QStyle::State_Selected);
     const bool hovered = option->state.testFlag(QStyle::State_MouseOver);

@@ -155,6 +155,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzDataViewStylePrivate.cpp
     widgets/src/private/ZzItemSelectionAnimation.cpp
     widgets/src/private/ZzTabIndicatorAnimation.cpp
+    widgets/src/private/ZzTabBarStylePrivate.cpp
     widgets/src/private/ZzSelectionIndicatorTransition.cpp
     widgets/src/ZzFluentTitleBar.cpp
     widgets/src/private/ZzFluentTitleBarPrivate.cpp
@@ -195,6 +196,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzImageCard.h
     widgets/include/ZzFluentUI/ZzCarouselView.h
     widgets/include/ZzFluentUI/ZzTabBar.h
+    widgets/include/ZzFluentUI/ZzTabBarAppearance.h
     widgets/include/ZzFluentUI/ZzTabWidget.h
     widgets/include/ZzFluentUI/ZzSplitWorkspace.h
     widgets/include/ZzFluentUI/ZzNavigationView.h

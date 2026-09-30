@@ -1,14 +1,66 @@
 #include <ZzFluentUI/ZzControlAppearance.h>
 
 #include <QtCore/QVariant>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QEvent>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QProgressBar>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzSplitButton.h>
+#include <ZzFluentUI/ZzTabBar.h>
 
 #include "private/ZzControlAppearancePrivate.h"
 
 namespace ZzFluentUI {
+
+void ZzControlAppearance::setTabBarAppearance(QTabBar *bar, ZzTabBarAppearance appearance)
+{
+    if (!bar) return;
+    if (appearance < ZzTabBarAppearance::Standard || appearance > ZzTabBarAppearance::Navigation)
+        appearance = ZzTabBarAppearance::Standard;
+    if (tabBarAppearance(bar) == appearance) return;
+    bar->setProperty("zzFluentTabBarAppearance", static_cast<int>(appearance));
+    // QTabBar 缓存尺寸；StyleChange 通过公开事件刷新，包括已有关闭按钮的位置。
+    QEvent change(QEvent::StyleChange);
+    QCoreApplication::sendEvent(bar, &change);
+    bar->updateGeometry();
+    bar->update();
+    if (auto *fluent = qobject_cast<ZzTabBar *>(bar)) Q_EMIT fluent->appearanceChanged(appearance);
+}
+
+ZzTabBarAppearance ZzControlAppearance::tabBarAppearance(const QTabBar *bar)
+{
+    const int value = bar ? bar->property("zzFluentTabBarAppearance").toInt() : 0;
+    return value >= 0 && value <= static_cast<int>(ZzTabBarAppearance::Navigation)
+        ? static_cast<ZzTabBarAppearance>(value) : ZzTabBarAppearance::Standard;
+}
+
+void ZzControlAppearance::setTabBarRounded(QTabBar *bar, bool rounded)
+{
+    if (!bar || isTabBarRounded(bar) == rounded) return;
+    bar->setProperty("zzFluentTabBarRounded", rounded);
+    bar->update();
+    if (auto *fluent = qobject_cast<ZzTabBar *>(bar)) Q_EMIT fluent->segmentedRoundedChanged(rounded);
+}
+
+bool ZzControlAppearance::isTabBarRounded(const QTabBar *bar)
+{
+    return bar && bar->property("zzFluentTabBarRounded").toBool();
+}
+
+void ZzControlAppearance::setTabBarColors(QTabBar *bar, const ZzTabBarColors &light, const ZzTabBarColors &dark)
+{
+    if (!bar) return;
+    bar->setProperty("zzFluentTabBarLightColors", QVariant::fromValue(light));
+    bar->setProperty("zzFluentTabBarDarkColors", QVariant::fromValue(dark));
+    bar->update();
+}
+
+ZzTabBarColors ZzControlAppearance::tabBarColors(const QTabBar *bar, bool dark)
+{
+    return bar ? bar->property(dark ? "zzFluentTabBarDarkColors" : "zzFluentTabBarLightColors")
+        .value<ZzTabBarColors>() : ZzTabBarColors {};
+}
 
 void ZzControlAppearance::setProgressBarAppearance(
     QProgressBar *progress, ZzProgressBarAppearance appearance)
