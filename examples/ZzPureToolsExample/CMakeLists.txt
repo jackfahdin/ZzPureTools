@@ -28,6 +28,7 @@ set(zz_pure_tools_example_sources
     ZzExampleShowcasePage.cpp
     ZzExampleShowcasePagePrivate.cpp
     ZzExampleTabBarsPage.cpp
+    ZzExampleRangeSliderPage.cpp
     ZzExampleSmokeController.cpp
     ZzExampleSmokeControllerPrivate.cpp
     ZzExampleSystemPage.cpp

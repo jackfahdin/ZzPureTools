@@ -574,7 +574,9 @@ private Q_SLOTS:
 
         auto *navigationModel = window->navigationModel();
         QVERIFY(navigationModel != nullptr);
-        QCOMPARE(navigationModel->rowCount(), 32);
+        QCOMPARE(navigationModel->rowCount(), 33);
+        QVERIFY(navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("range-slider"))));
         QVERIFY(!navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("settings"))));
         QVERIFY(!navigationModel->indexForRoute(

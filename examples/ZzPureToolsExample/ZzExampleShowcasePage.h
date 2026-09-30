@@ -20,6 +20,7 @@ public:
     {
         Navigation,
         TabBars,
+        RangeSlider,
         Feedback,
         Icons
     };

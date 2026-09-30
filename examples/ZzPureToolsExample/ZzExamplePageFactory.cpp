@@ -71,6 +71,9 @@ zzDataPageKind(const ZzPureTools::ZzRouteId &routeId)
 [[nodiscard]] std::optional<ZzExampleShowcasePage::ZzPageKind>
 zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
 {
+    if (routeId.value() == QStringLiteral("range-slider")) {
+        return ZzExampleShowcasePage::ZzPageKind::RangeSlider;
+    }
     if (routeId.value() == QStringLiteral("tab-bar")) {
         return ZzExampleShowcasePage::ZzPageKind::TabBars;
     }

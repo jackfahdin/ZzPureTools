@@ -61,6 +61,7 @@ Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
 | 输入与选择 | `ZzRoller` | 滚轮式离散选项选择 |
 | 输入与选择 | `ZzRollerPicker` | 带弹出滚轮的选择器 |
 | 输入与选择 | `ZzSliderValueTip` | [原生滑块的百分比、原始值调节提示](docs/development/SLIDER_VALUE_TIP_ZH.md) |
+| 输入与选择 | `ZzRangeSlider` | [双端点范围选择、刻度、吸附与拖动数值提示](docs/development/RANGE_SLIDER_ZH.md) |
 | 输入与选择 | `ZzCalendar` | 月视图日期选择 |
 | 输入与选择 | `ZzCalendarPicker` | 日期输入与日历弹出层 |
 | 导航与内容 | `ZzBreadcrumbBar` | 层级路径导航 |

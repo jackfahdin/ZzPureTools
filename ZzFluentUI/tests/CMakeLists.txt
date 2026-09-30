@@ -274,6 +274,28 @@ set_tests_properties(fluent.slider-value-tip PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzRangeSliderTest ZzRangeSliderTest.cpp)
+target_link_libraries(ZzRangeSliderTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzRangeSliderTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzRangeSliderTest)
+zz_enable_sanitizers(ZzRangeSliderTest)
+add_test(NAME fluent.range-slider COMMAND ZzRangeSliderTest)
+set_tests_properties(fluent.range-slider PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
+add_executable(ZzRangeSliderAccessibilityTest ZzRangeSliderAccessibilityTest.cpp)
+target_link_libraries(ZzRangeSliderAccessibilityTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzRangeSliderAccessibilityTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzRangeSliderAccessibilityTest)
+zz_enable_sanitizers(ZzRangeSliderAccessibilityTest)
+add_test(NAME fluent.range-slider-accessibility COMMAND ZzRangeSliderAccessibilityTest)
+set_tests_properties(fluent.range-slider-accessibility PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_executable(ZzSuggestBoxTest ZzSuggestBoxTest.cpp)
 target_link_libraries(ZzSuggestBoxTest PRIVATE
     Qt6::Test

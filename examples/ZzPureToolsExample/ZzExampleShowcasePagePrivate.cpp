@@ -145,9 +145,20 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->setSpacing(12);
     scrollArea->setWidget(content);
     rootLayout->addWidget(scrollArea);
-    layout->addWidget(zzShowcaseTitle(title, content));
+    auto *titleLabel = zzShowcaseTitle(title, content);
+    layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::RangeSlider:
+        q_ptr->setObjectName(QStringLiteral("zzExampleRangeSliderPage"));
+        {
+            auto font = titleLabel->font();
+            font.setPointSize(16);
+            font.setBold(true);
+            titleLabel->setFont(font);
+        }
+        buildRangeSlider(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::TabBars:
         q_ptr->setObjectName(QStringLiteral("zzExampleTabBarsPage"));
         buildTabBars(layout, content);

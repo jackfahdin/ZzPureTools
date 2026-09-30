@@ -121,6 +121,7 @@
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzSuggestBox.h>
 #include <ZzFluentUI/ZzTabBar.h>
+#include <ZzFluentUI/ZzRangeSlider.h>
 #include <ZzFluentUI/ZzSegoeIconFont.h>
 #include <ZzFluentUI/ZzTabWidget.h>
 #include <ZzFluentUI/ZzTeachingTip.h>
@@ -7586,6 +7587,75 @@ private Q_SLOTS:
                 .arg(differenceRatio, 0, 'f', 6)
                 .arg(maximumDifferenceRatio, 0, 'f', 6)
                 .arg(actualPath, diffPath)));
+    }
+
+    void rendersRangeSliderThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("name");
+        QTest::newRow("light") << int(ZzFluentUI::ZzThemeMode::Light) << QStringLiteral("light");
+        QTest::newRow("dark") << int(ZzFluentUI::ZzThemeMode::Dark) << QStringLiteral("dark");
+        QTest::newRow("high-contrast") << int(ZzFluentUI::ZzThemeMode::HighContrast) << QStringLiteral("high-contrast");
+    }
+
+    /** @brief 范围滑块三主题四档 DPR，覆盖刻度、RTL、重合、禁用、按下与纵向。 */
+    void rendersRangeSliderThemes()
+    {
+        using namespace ZzFluentUI;
+        QFETCH(int, mode); QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(520, 320);
+        auto *grid = new QGridLayout(&surface);
+        ZzRangeSlider *pressed = nullptr;
+        for (int row = 0; row < 6; ++row) {
+            auto *slider = new ZzRangeSlider(&surface);
+            slider->setValues(row == 3 ? 50 : 20, row == 3 ? 50 : 80);
+            slider->setTickPosition(row != 1);
+            slider->setFocusPolicy(Qt::NoFocus);
+            slider->setEnabled(row != 4);
+            if (row == 2) slider->setLayoutDirection(Qt::RightToLeft);
+            grid->addWidget(slider, row, 0);
+            if (row == 5) pressed = slider;
+        }
+        for (int column = 1; column <= 2; ++column) {
+            auto *slider = new ZzRangeSlider(Qt::Vertical, &surface);
+            slider->setValues(25, 75);
+            slider->setFixedWidth(32);
+            slider->setEnabled(column == 1);
+            slider->setFocusPolicy(Qt::NoFocus);
+            grid->addWidget(slider, 0, column, 6, 1);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        QTest::mousePress(pressed, Qt::LeftButton, Qt::NoModifier,
+            QPoint(qRound(10 + (pressed->width() - 20) * 0.2), pressed->height() / 2));
+        const QImage actual = surface.grab().toImage();
+        QTest::mouseRelease(pressed, Qt::LeftButton);
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("range-sliders-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
     }
 
     void rendersTabAppearanceThemes_data()

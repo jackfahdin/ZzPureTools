@@ -1795,6 +1795,74 @@
         <translation>Properties</translation>
     </message>
     <message>
+        <source>范围滑块(RangeSlider)</source>
+        <translation>Range slider (RangeSlider)</translation>
+    </message>
+    <message>
+        <source>自定义控件</source>
+        <translation>Custom controls</translation>
+    </message>
+    <message>
+        <source>WinUI3 风格双滑块范围选择控件。可调整刻度显示、刻度间隔与 tracking（拖动时是否实时更新数值）。</source>
+        <translation>WinUI3-style range selector with two handles. Adjust ticks, tick spacing, and tracking (update values while dragging).</translation>
+    </message>
+    <message>
+        <source>演示</source>
+        <translation>Demo</translation>
+    </message>
+    <message>
+        <source>范围选择</source>
+        <translation>Range selection</translation>
+    </message>
+    <message>
+        <source>当前范围：%1 – %2</source>
+        <translation>Current range: %1 – %2</translation>
+    </message>
+    <message>
+        <source>显示刻度</source>
+        <translation>Show ticks</translation>
+    </message>
+    <message>
+        <source>刻度间隔</source>
+        <translation>Tick interval</translation>
+    </message>
+    <message>
+        <source>Tracking（拖动时实时更新）</source>
+        <translation>Tracking (update while dragging)</translation>
+    </message>
+    <message>
+        <source>拖动数值 tooltip</source>
+        <translation>Value tooltip while dragging</translation>
+    </message>
+    <message>
+        <source>不吸附</source>
+        <translation>No snapping</translation>
+    </message>
+    <message>
+        <source>始终吸附</source>
+        <translation>Snap always</translation>
+    </message>
+    <message>
+        <source>松开时吸附</source>
+        <translation>Snap on release</translation>
+    </message>
+    <message>
+        <source>吸附模式</source>
+        <translation>Snap mode</translation>
+    </message>
+    <message>
+        <source>步长</source>
+        <translation>Step</translation>
+    </message>
+    <message>
+        <source>垂直方向</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>禁用</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleWindowShellPrivate.cpp" line="267"/>
         <source>终端</source>
         <translation>Terminal</translation>
@@ -1942,6 +2010,17 @@
     <message>
         <source>切换到深色</source>
         <translation>Switch to dark</translation>
+    </message>
+</context>
+<context>
+    <name>ZzRangeSlider</name>
+    <message>
+        <source>下限</source>
+        <translation>Lower bound</translation>
+    </message>
+    <message>
+        <source>上限</source>
+        <translation>Upper bound</translation>
     </message>
 </context>
 </TS>

@@ -38,6 +38,7 @@
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QScrollBar>
 #include <QtWidgets/QSlider>
+#include <QtWidgets/QSpinBox>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QTextEdit>
@@ -45,6 +46,7 @@
 #include <QtWidgets/QToolButton>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
+#include <ZzFluentUI/ZzRangeSlider.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -76,6 +78,38 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
+
+/** @brief 验证范围滑块页面属性与预览的真实连接，并恢复演示默认状态。 */
+[[nodiscard]] bool zzRangeSliderPageReady(const QWidget &window)
+{
+    auto *slider = window.findChild<ZzFluentUI::ZzRangeSlider *>(QStringLiteral("rangeSelector"));
+    auto *ticks = window.findChild<QCheckBox *>(QStringLiteral("zzRangeTicks"));
+    auto *interval = window.findChild<QSpinBox *>(QStringLiteral("zzRangeTickInterval"));
+    auto *tracking = window.findChild<QCheckBox *>(QStringLiteral("zzRangeTracking"));
+    auto *vertical = window.findChild<QCheckBox *>(QStringLiteral("zzRangeVertical"));
+    auto *snap = window.findChild<QComboBox *>(QStringLiteral("zzRangeSnapMode"));
+    auto *label = window.findChild<QLabel *>(QStringLiteral("zzExampleRangeSliderValues"));
+    if (!slider || !ticks || !interval || !tracking || !vertical || !snap || !label)
+        return false;
+    if (slider->lowerValue() != 20 || slider->upperValue() != 80)
+        return false;
+    ticks->click();
+    tracking->click();
+    vertical->click();
+    snap->setCurrentIndex(2);
+    slider->setValues(30, 70);
+    const bool valid = !slider->hasTickPosition() && !interval->isEnabled()
+        && !slider->hasTracking() && slider->orientation() == Qt::Vertical
+        && slider->snapMode() == ZzFluentUI::ZzRangeSlider::SnapMode::SnapOnRelease
+        && label->text().contains(QStringLiteral("30"))
+        && label->text().contains(QStringLiteral("70"));
+    ticks->click();
+    tracking->click();
+    vertical->click();
+    snap->setCurrentIndex(0);
+    slider->setValues(20, 80);
+    return valid;
+}
 
 /** @brief 验证图标路由已通过公开 API 生成完整 SVG 与字体图标集合。 */
 [[nodiscard]] bool zzIconPageReady(
@@ -648,6 +682,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 return;
             }
             // 可选人工验收产物，仅在烟测模式下按路由导出真实窗口。
+            if (routeId == QStringLiteral("range-slider") && !zzRangeSliderPageReady(window)) {
+                fail("route smoke range slider integration failed");
+                return;
+            }
             const QString previewDirectory = qEnvironmentVariable(
                 "ZZ_EXAMPLE_ROUTE_SCREENSHOT_DIR");
             if (!previewDirectory.isEmpty()) {
