@@ -2214,6 +2214,26 @@ void ZzFluentStylePrivate::drawSlider(
     painter->restore();
 }
 
+void ZzFluentStylePrivate::drawGroupBoxFrame(
+    const QStyleOptionFrame *option, QPainter *painter) const
+{
+    if (option->rect.isEmpty()) return;
+    const QRectF frame = QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5);
+    painter->save();
+    painter->setClipRect(option->rect, Qt::IntersectClip);
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(QPen(snapshot->color(ZzColorToken::ControlStroke), 1.0));
+    painter->setBrush(Qt::NoBrush);
+    if (option->features.testFlag(QStyleOptionFrame::Flat)) {
+        painter->drawLine(frame.topLeft(), frame.topRight());
+    } else {
+        const qreal radius = std::min(snapshot->metric(ZzMetricToken::CornerRadiusMedium),
+            std::min(frame.width(), frame.height()) / 2.0);
+        painter->drawRoundedRect(frame, std::max(0.0, radius), std::max(0.0, radius));
+    }
+    painter->restore();
+}
+
 void ZzFluentStylePrivate::drawScrollBar(
     const QStyleOptionSlider *option,
     QPainter *painter,

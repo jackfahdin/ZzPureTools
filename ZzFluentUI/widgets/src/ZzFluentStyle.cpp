@@ -13,6 +13,7 @@
 #include <QtWidgets/QListView>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QCommonStyle>
 #include <QtWidgets/QCalendarWidget>
 #include <QtWidgets/QLCDNumber>
 #include <QtWidgets/QLineEdit>
@@ -482,6 +483,12 @@ void ZzFluentStyle::drawPrimitive(
         && (qobject_cast<const QLineEdit *>(widget) != nullptr
             || qobject_cast<const QTextEdit *>(widget) != nullptr
             || qobject_cast<const QPlainTextEdit *>(widget) != nullptr);
+    if (element == PE_FrameGroupBox && painter != nullptr) {
+        if (const auto *frame = qstyleoption_cast<const QStyleOptionFrame *>(option)) {
+            d_ptr->drawGroupBoxFrame(frame, painter);
+            return;
+        }
+    }
     if ((element == PE_PanelLineEdit
          || element == PE_FrameLineEdit
          || textFrame)
@@ -747,6 +754,14 @@ void ZzFluentStyle::drawComplexControl(
     const QWidget *widget) const
 {
     Q_ASSERT(QThread::currentThread() == thread());
+    if (control == CC_GroupBox && painter != nullptr && option != nullptr) {
+        // Fusion 的系统高对比分支会直接画整框，绕过 PE_FrameGroupBox。
+        // 使用公共组合绘制流程，统一复用本样式的边框、标题几何和复选指示器。
+        painter->save();
+        QCommonStyle::drawComplexControl(control, option, painter, widget);
+        painter->restore();
+        return;
+    }
     if (control == CC_ToolButton && painter != nullptr) {
         if (const auto *tool = qstyleoption_cast<const QStyleOptionToolButton *>(option);
             tool != nullptr && tool->features.testFlag(QStyleOptionToolButton::HasMenu)) {

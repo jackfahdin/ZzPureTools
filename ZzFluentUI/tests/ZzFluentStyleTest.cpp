@@ -6,6 +6,8 @@
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QStyleOptionFrame>
+#include <QtWidgets/QStyleOptionGroupBox>
 
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzFluentPainter.h>
@@ -41,14 +43,85 @@ private:
     int styleChangeCount_ = 0;
 };
 
-/**
- * @brief 验证 Fluent Widgets 样式、绘制和缓存传播行为。
- */
+/** @brief 模拟会自行覆盖整个分组框的基础样式，验证 Fluent 边框契约不依赖其分支。 */
+class ZzOpaqueGroupBoxBaseStyle final : public QProxyStyle
+{
+public:
+    ZzOpaqueGroupBoxBaseStyle() : QProxyStyle(QStringLiteral("Fusion")) {}
+
+    /** @brief 在完整分组框入口填色，其余几何与绘制继续使用 Qt。 */
+    void drawComplexControl(ComplexControl control, const QStyleOptionComplex *option,
+        QPainter *painter, const QWidget *widget = nullptr) const override
+    {
+        if (control == CC_GroupBox) {
+            painter->fillRect(option->rect, Qt::magenta);
+            return;
+        }
+        QProxyStyle::drawComplexControl(control, option, painter, widget);
+    }
+};
+
+/** @brief 验证 Fluent Widgets 样式、绘制和缓存传播行为。 */
 class ZzFluentStyleTest final : public QObject
 {
     Q_OBJECT
 
 private Q_SLOTS:
+    void keepsFlatGroupBoxIndependentOfBaseComplexPainting()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        style.setBaseStyle(new ZzOpaqueGroupBoxBaseStyle);
+        QStyleOptionGroupBox option;
+        option.rect = QRect(0, 0, 160, 80);
+        option.state = QStyle::State_Enabled;
+        option.palette = style.standardPalette();
+        option.features = QStyleOptionFrame::Flat;
+        option.subControls = QStyle::SC_GroupBoxFrame;
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawComplexControl(QStyle::CC_GroupBox, &option, &painter);
+        painter.end();
+        QCOMPARE(image.pixelColor(80, 40).alpha(), 0);
+        QCOMPARE(image.pixelColor(0, 40).alpha(), 0);
+        QCOMPARE(image.pixelColor(80, 79).alpha(), 0);
+        QCOMPARE(image.pixelColor(80, 0), QColor(Qt::white));
+    }
+
+    void paintsGroupBoxFrameWithoutFillingContents()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark, ZzFluentUI::ZzThemeMode::HighContrast}) {
+            controller.setMode(mode);
+            for (bool flat : {false, true}) {
+                QStyleOptionFrame option;
+                option.rect = QRect(0, 0, 160, 80);
+                option.state = QStyle::State_Enabled;
+                option.palette = style.standardPalette();
+                if (flat) option.features |= QStyleOptionFrame::Flat;
+                QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+                QPainter painter(&image);
+                style.drawPrimitive(QStyle::PE_FrameGroupBox, &option, &painter);
+                painter.end();
+                const QColor stroke = controller.snapshot()->color(ZzFluentUI::ZzColorToken::ControlStroke);
+                QCOMPARE(image.pixelColor(80, 0), stroke);
+                QCOMPARE(image.pixelColor(80, 40).alpha(), 0);
+                if (flat) {
+                    QCOMPARE(image.pixelColor(0, 40).alpha(), 0);
+                    QCOMPARE(image.pixelColor(80, 79).alpha(), 0);
+                } else {
+                    QCOMPARE(image.pixelColor(0, 40), stroke);
+                    QCOMPARE(image.pixelColor(80, 79), stroke);
+                }
+            }
+        }
+    }
+
     void mapsMetricsAndPalette()
     {
         ZzFluentUI::ZzThemeController controller;

@@ -34,6 +34,8 @@ public:
     void buildProgress(ZzExampleControlKind kind);
     /** @brief 展示横纵滚动条、禁用状态及真实双轴滚动区域。 */
     void buildScroll();
+    /** @brief 展示标准分组框的普通、可勾选、禁用、扁平与嵌套状态。 */
+    void buildGroupBox();
     /** @brief 构造消息条或信息徽标的语义状态。 */
     void buildFeedback(ZzExampleControlKind kind);
 

@@ -778,6 +778,22 @@ bool ZzExampleSmokeControllerPrivate::verifyStandardSurfaceComposition(
         }
         case Kind::ProgressRing: return has.operator()<ZzFluentUI::ZzProgressRing>();
         case Kind::MessageBar: return has.operator()<ZzFluentUI::ZzMessageBar>();
+        case Kind::GroupBox: {
+            auto *normal = page->findChild<QGroupBox *>(QStringLiteral("zzExampleGroupBoxNormal"));
+            auto *checkable = page->findChild<QGroupBox *>(QStringLiteral("zzExampleGroupBoxCheckable"));
+            auto *disabled = page->findChild<QGroupBox *>(QStringLiteral("zzExampleGroupBoxDisabled"));
+            auto *flat = page->findChild<QGroupBox *>(QStringLiteral("zzExampleGroupBoxFlat"));
+            auto *nested = page->findChild<QGroupBox *>(QStringLiteral("zzExampleGroupBoxNested"));
+            auto *option = page->findChild<QCheckBox *>(QStringLiteral("zzExampleGroupBoxOption"));
+            if (normal == nullptr || checkable == nullptr || disabled == nullptr || flat == nullptr
+                || nested == nullptr || option == nullptr || !checkable->isCheckable()
+                || !checkable->isChecked() || disabled->isEnabled() || !flat->isFlat()
+                || nested->findChildren<QGroupBox *>().isEmpty()) return false;
+            checkable->setChecked(false);
+            const bool disabledByGroup = !option->isEnabled();
+            checkable->setChecked(true);
+            return disabledByGroup && option->isEnabled() && option->isChecked();
+        }
         case Kind::InfoBadge: return has.operator()<ZzFluentUI::ZzInfoBadge>();
         case Kind::ProgressBar: {
             auto *busy = page->findChild<QProgressBar *>(QStringLiteral("zzExampleProgressBusy"));

@@ -21,6 +21,7 @@ enum class ZzExampleControlKind
     RollerPicker,
     Slider,
     ScrollBar,
+    GroupBox,
     ProgressBar,
     ProgressRing,
     MessageBar,

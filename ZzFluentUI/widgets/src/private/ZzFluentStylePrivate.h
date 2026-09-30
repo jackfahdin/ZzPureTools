@@ -139,6 +139,8 @@ public:
     void drawDigitalDisplayFrame(
         const QStyleOptionFrame *option,
         QPainter *painter) const;
+    /** @brief 绘制分组框圆角细线或扁平顶部线，保留调用方对标题区域的裁剪。 */
+    void drawGroupBoxFrame(const QStyleOptionFrame *option, QPainter *painter) const;
     /** @brief 绘制普通或可编辑组合框的面板与箭头；标签交由 Qt 单独绘制。 */
     void drawComboBox(
         const QStyleOptionComboBox *option,

@@ -8,6 +8,7 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QPlainTextEdit>
@@ -118,6 +119,9 @@ void ZzExampleControlPagePrivate::initialize(ZzExampleControlKind kind, const QS
     case Kind::ScrollBar:
         buildScroll();
         break;
+    case Kind::GroupBox:
+        buildGroupBox();
+        break;
     }
 
     auto *enabled
@@ -135,6 +139,71 @@ void ZzExampleControlPagePrivate::initialize(ZzExampleControlKind kind, const QS
     layout->addStretch(1);
     scroll->setWidget(content);
     outer->addWidget(scroll);
+}
+
+void ZzExampleControlPagePrivate::buildGroupBox()
+{
+    auto *host = section(QCoreApplication::translate("ZzPureToolsExample", "普通分组与可勾选分组"));
+    auto *normal = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "显示方式"), host);
+    normal->setObjectName(QStringLiteral("zzExampleGroupBoxNormal"));
+    normal->setMinimumWidth(240);
+    auto *normalLayout = new QVBoxLayout(normal);
+    auto *compact = new QRadioButton(QCoreApplication::translate("ZzPureToolsExample", "紧凑布局"), normal);
+    compact->setChecked(true);
+    normalLayout->addWidget(compact);
+    normalLayout->addWidget(new QRadioButton(QCoreApplication::translate("ZzPureToolsExample", "宽松布局"), normal));
+    zzAdd(host, normal);
+
+    auto *checkable = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "启用高级选项"), host);
+    checkable->setObjectName(QStringLiteral("zzExampleGroupBoxCheckable"));
+    checkable->setMinimumWidth(240);
+    checkable->setCheckable(true);
+    auto *checkableLayout = new QVBoxLayout(checkable);
+    auto *option = new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "显示提示信息"), checkable);
+    option->setObjectName(QStringLiteral("zzExampleGroupBoxOption"));
+    option->setChecked(true);
+    checkableLayout->addWidget(option);
+    checkableLayout->addWidget(new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "记住上次选择"), checkable));
+    QObject::connect(checkable, &QGroupBox::toggled, status, [this](bool checked) {
+        status->setText(QCoreApplication::translate("ZzPureToolsExample",
+            "高级选项：%1").arg(checked
+                ? QCoreApplication::translate("ZzPureToolsExample", "已启用")
+                : QCoreApplication::translate("ZzPureToolsExample", "已禁用")));
+    });
+    zzAdd(host, checkable);
+
+    auto *variants = section(QCoreApplication::translate("ZzPureToolsExample", "禁用状态与扁平分组"));
+    auto *disabled = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "不可用的选项"), variants);
+    disabled->setObjectName(QStringLiteral("zzExampleGroupBoxDisabled"));
+    disabled->setMinimumWidth(240);
+    auto *disabledLayout = new QVBoxLayout(disabled);
+    disabledLayout->addWidget(new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "显示提示信息"), disabled));
+    disabledLayout->addWidget(new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "记住上次选择"), disabled));
+    disabled->setEnabled(false);
+    zzAdd(variants, disabled);
+    auto *flat = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "轻量分区"), variants);
+    flat->setObjectName(QStringLiteral("zzExampleGroupBoxFlat"));
+    flat->setMinimumWidth(240);
+    flat->setFlat(true);
+    auto *flatLayout = new QVBoxLayout(flat);
+    auto *flatHint = new QLabel(QCoreApplication::translate("ZzPureToolsExample", "仅保留顶部分隔线，适合轻量分组。"), flat);
+    flatHint->setWordWrap(true);
+    flatLayout->addWidget(flatHint);
+    zzAdd(variants, flat);
+
+    auto *nestedHost = section(QCoreApplication::translate("ZzPureToolsExample", "嵌套分组"));
+    auto *outer = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "工作区选项"), nestedHost);
+    outer->setObjectName(QStringLiteral("zzExampleGroupBoxNested"));
+    outer->setMinimumWidth(320);
+    auto *outerLayout = new QVBoxLayout(outer);
+    auto *inner = new QGroupBox(QCoreApplication::translate("ZzPureToolsExample", "名称与描述"), outer);
+    auto *innerLayout = new QVBoxLayout(inner);
+    auto *name = new QLineEdit(inner);
+    name->setPlaceholderText(QCoreApplication::translate("ZzPureToolsExample", "输入工作区名称"));
+    name->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "工作区名称"));
+    innerLayout->addWidget(name);
+    outerLayout->addWidget(inner);
+    zzAdd(nestedHost, outer);
 }
 
 void ZzExampleControlPagePrivate::buildScroll()

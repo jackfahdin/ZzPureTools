@@ -83,7 +83,7 @@ Windows、macOS 或 Linux 真实桌面的交互、显示和系统集成检查。
 | 反馈与表面 | `ZzFluentTitleBar` | 无边框窗口标题栏控件 |
 
 标准 Qt Widgets 由应用级 `ZzFluentStyle` 统一提供 Fluent 外观和尺寸契约，
-包括 `QCheckBox`、`QRadioButton`、`QSlider`、`QLineEdit`、
+包括 `QCheckBox`、`QRadioButton`、[QGroupBox](docs/development/GROUP_BOX_ZH.md)、`QSlider`、`QLineEdit`、
 `QPlainTextEdit`、`QComboBox`、`QProgressBar`、`QLCDNumber`、
 `QListView`、`QTableView`、`QTreeView`、`QMenuBar`、`QToolBar` 和
 `QStatusBar`。这些控件继续保留 Qt 的模型、选择、键盘、弹出菜单、无障碍和

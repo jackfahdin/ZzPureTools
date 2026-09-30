@@ -308,6 +308,86 @@
         <translation>ProgressRing</translation>
     </message>
     <message>
+        <source>分组框(GroupBox)</source>
+        <translation>GroupBox</translation>
+    </message>
+    <message>
+        <source>普通分组与可勾选分组</source>
+        <translation>Standard and checkable groups</translation>
+    </message>
+    <message>
+        <source>显示方式</source>
+        <translation>Display mode</translation>
+    </message>
+    <message>
+        <source>紧凑布局</source>
+        <translation>Compact layout</translation>
+    </message>
+    <message>
+        <source>宽松布局</source>
+        <translation>Spacious layout</translation>
+    </message>
+    <message>
+        <source>启用高级选项</source>
+        <translation>Enable advanced options</translation>
+    </message>
+    <message>
+        <source>显示提示信息</source>
+        <translation>Show hints</translation>
+    </message>
+    <message>
+        <source>记住上次选择</source>
+        <translation>Remember last selection</translation>
+    </message>
+    <message>
+        <source>高级选项：%1</source>
+        <translation>Advanced options: %1</translation>
+    </message>
+    <message>
+        <source>已启用</source>
+        <translation>Enabled</translation>
+    </message>
+    <message>
+        <source>已禁用</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <source>禁用状态与扁平分组</source>
+        <translation>Disabled and flat groups</translation>
+    </message>
+    <message>
+        <source>不可用的选项</source>
+        <translation>Unavailable options</translation>
+    </message>
+    <message>
+        <source>轻量分区</source>
+        <translation>Lightweight section</translation>
+    </message>
+    <message>
+        <source>仅保留顶部分隔线，适合轻量分组。</source>
+        <translation>A top separator for lightweight grouping.</translation>
+    </message>
+    <message>
+        <source>嵌套分组</source>
+        <translation>Nested groups</translation>
+    </message>
+    <message>
+        <source>工作区选项</source>
+        <translation>Workspace options</translation>
+    </message>
+    <message>
+        <source>名称与描述</source>
+        <translation>Name and description</translation>
+    </message>
+    <message>
+        <source>输入工作区名称</source>
+        <translation>Enter workspace name</translation>
+    </message>
+    <message>
+        <source>工作区名称</source>
+        <translation>Workspace name</translation>
+    </message>
+    <message>
         <location filename="../ZzExampleApplicationModulePrivate.cpp" line="71"/>
         <source>应用模块已启动</source>
         <translation>Application module started</translation>
