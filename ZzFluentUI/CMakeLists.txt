@@ -118,6 +118,11 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzRangeSliderPrivate.cpp
     widgets/src/private/ZzRangeSliderAccessible.cpp
     widgets/src/ZzMessageBar.cpp
+    widgets/src/ZzInfoBar.cpp
+    widgets/src/ZzInfoBarHost.cpp
+    widgets/src/private/ZzInfoBarLayout.cpp
+    widgets/src/private/ZzInfoBarHostPrivate.cpp
+    widgets/src/private/ZzInfoBarPopupSurface.cpp
     widgets/src/private/ZzMessageBarPrivate.cpp
     widgets/src/ZzInfoBadge.cpp
     widgets/src/private/ZzInfoBadgePrivate.cpp
@@ -220,6 +225,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzRoller.h
     widgets/include/ZzFluentUI/ZzRollerPicker.h
     widgets/include/ZzFluentUI/ZzMessageBar.h
+    widgets/include/ZzFluentUI/ZzInfoBar.h
+    widgets/include/ZzFluentUI/ZzInfoBarHost.h
     widgets/include/ZzFluentUI/ZzInfoBadge.h
     widgets/include/ZzFluentUI/ZzContentDialog.h
     widgets/include/ZzFluentUI/ZzTeachingTip.h

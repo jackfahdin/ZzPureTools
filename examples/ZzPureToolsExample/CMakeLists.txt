@@ -38,6 +38,8 @@ set(zz_pure_tools_example_sources
     ZzExampleTimelinePage.cpp
     ZzExampleTimelineEventEditor.cpp
     ZzExampleTimelineSmoke.cpp
+    ZzExampleInfoBarPage.cpp
+    ZzExampleInfoBarSmoke.cpp
     ZzExampleRadialGaugeHelpers.h
     ZzExampleRadialGaugeHelpers.cpp
     ZzExampleRadialGaugePresets.cpp

@@ -583,6 +583,21 @@ set_tests_properties(fluent.spin-box-controls PROPERTIES
 )
 
 add_executable(ZzMessageBarTest ZzMessageBarTest.cpp)
+add_executable(ZzInfoBarTest ZzInfoBarTest.cpp)
+target_link_libraries(ZzInfoBarTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzInfoBarTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzInfoBarTest)
+zz_enable_sanitizers(ZzInfoBarTest)
+add_test(NAME fluent.info-bar COMMAND ZzInfoBarTest)
+set_tests_properties(fluent.info-bar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(ZzInfoBarHostTest ZzInfoBarHostTest.cpp)
+target_link_libraries(ZzInfoBarHostTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzInfoBarHostTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzInfoBarHostTest)
+zz_enable_sanitizers(ZzInfoBarHostTest)
+add_test(NAME fluent.info-bar-host COMMAND ZzInfoBarHostTest)
+set_tests_properties(fluent.info-bar-host PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 target_link_libraries(ZzMessageBarTest PRIVATE
     Qt6::Test
     Qt6::Widgets

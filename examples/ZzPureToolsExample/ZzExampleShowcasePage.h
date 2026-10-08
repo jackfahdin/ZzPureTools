@@ -27,6 +27,7 @@ public:
         LiquidGauge,
         ProgressRing,
         Timeline,
+        InfoBar,
         Feedback,
         Icons
     };

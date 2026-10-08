@@ -149,6 +149,16 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::InfoBar:
+        q_ptr->setObjectName(QStringLiteral("zzExampleInfoBarPage"));
+        {
+            auto font = titleLabel->font();
+            font.setPointSize(16);
+            font.setBold(true);
+            titleLabel->setFont(font);
+        }
+        buildInfoBar(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::Timeline:
         q_ptr->setObjectName(QStringLiteral("zzExampleTimelinePage"));
         {

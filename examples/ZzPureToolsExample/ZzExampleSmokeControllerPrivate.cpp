@@ -63,6 +63,7 @@
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include "ZzExampleTimelineSmoke.h"
+#include "ZzExampleInfoBarSmoke.h"
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
@@ -1050,6 +1051,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke timeline integration failed");
                 return;
             }
+            if (routeId == QStringLiteral("info-bar") && !zzInfoBarPageReady(window, theme)) {
+                fail("route smoke info bar integration failed");
+                return;
+            }
             if (!previewDirectory.isEmpty()) {
                 // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
@@ -1061,11 +1066,13 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 }
                 if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")
                     || routeId == QStringLiteral("liquid-gauge") || routeId == QStringLiteral("progress-ring")
-                    || routeId == QStringLiteral("timeline")) {
+                    || routeId == QStringLiteral("timeline") || routeId == QStringLiteral("info-bar")) {
+                    const bool infoBar = routeId == QStringLiteral("info-bar");
                     const bool timeline = routeId == QStringLiteral("timeline");
                     const bool liquid = routeId == QStringLiteral("liquid-gauge");
                     const bool progressRing = routeId == QStringLiteral("progress-ring");
-                    auto *page = window.findChild<QWidget *>(timeline ? QStringLiteral("zzExampleTimelinePage")
+                    auto *page = window.findChild<QWidget *>(infoBar ? QStringLiteral("zzExampleInfoBarPage")
+                        : timeline ? QStringLiteral("zzExampleTimelinePage")
                         : progressRing ? QStringLiteral("zzExampleProgressRingPage")
                         : liquid ? QStringLiteral("zzExampleLiquidGaugePage")
                         : routeId == QStringLiteral("radial-gauge") ? QStringLiteral("zzExampleRadialGaugePage")
@@ -1077,8 +1084,9 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         fail("could not export custom widget content preview");
                         return;
                     }
-                    if (routeId == QStringLiteral("radial-gauge") || liquid || timeline) {
-                        auto *tabs = page->findChild<QTabWidget *>(timeline ? QStringLiteral("zzTimeline_editorTabs")
+                    if (routeId == QStringLiteral("radial-gauge") || liquid || timeline || infoBar) {
+                        auto *tabs = page->findChild<QTabWidget *>(infoBar ? QStringLiteral("infoBarEditorTabs")
+                            : timeline ? QStringLiteral("zzTimeline_editorTabs")
                             : liquid ? QStringLiteral("zzLiquidPropertyTabs")
                             : QStringLiteral("zzRadialPropertyTabs"));
                         const bool reducedMotion = theme->reducedMotion();
@@ -1086,7 +1094,7 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         const auto originalMode = theme->mode();
                         for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark,
                                  ZzFluentUI::ZzThemeMode::HighContrast}) {
-                            if (mode == ZzFluentUI::ZzThemeMode::HighContrast && !timeline) continue;
+                            if (mode == ZzFluentUI::ZzThemeMode::HighContrast && !timeline && !infoBar) continue;
                             theme->setMode(mode);
                             QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
                             const QString name = mode == ZzFluentUI::ZzThemeMode::HighContrast

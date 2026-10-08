@@ -4,6 +4,174 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>重置属性</source>
+        <translation>Reset properties</translation>
+    </message>
+    <message>
+        <source>信息栏(InfoBar)</source>
+        <translation>Info Bar</translation>
+    </message>
+    <message>
+        <source>内容</source>
+        <translation>Content</translation>
+    </message>
+    <message>
+        <source>行为</source>
+        <translation>Behavior</translation>
+    </message>
+    <message>
+        <source>弹出通知</source>
+        <translation>Popup notifications</translation>
+    </message>
+    <message>
+        <source>左上</source>
+        <translation>Top left</translation>
+    </message>
+    <message>
+        <source>顶部</source>
+        <translation>Top</translation>
+    </message>
+    <message>
+        <source>右上</source>
+        <translation>Top right</translation>
+    </message>
+    <message>
+        <source>左下</source>
+        <translation>Bottom left</translation>
+    </message>
+    <message>
+        <source>右下</source>
+        <translation>Bottom right</translation>
+    </message>
+    <message>
+        <source>新版本已经可以下载。</source>
+        <translation>A new version is ready to download.</translation>
+    </message>
+    <message>
+        <source>查看更新</source>
+        <translation>View update</translation>
+    </message>
+    <message>
+        <source>使用自定义进度操作</source>
+        <translation>Use a custom progress action</translation>
+    </message>
+    <message>
+        <source>级别</source>
+        <translation>Severity</translation>
+    </message>
+    <message>
+        <source>消息</source>
+        <translation>Message</translation>
+    </message>
+    <message>
+        <source>操作文字</source>
+        <translation>Action text</translation>
+    </message>
+    <message>
+        <source>完成下载</source>
+        <translation>Finish download</translation>
+    </message>
+    <message>
+        <source>显示信息栏</source>
+        <translation>Show info bar</translation>
+    </message>
+    <message>
+        <source>允许关闭</source>
+        <translation>Allow dismissal</translation>
+    </message>
+    <message>
+        <source>显示状态图标</source>
+        <translation>Show status icon</translation>
+    </message>
+    <message>
+        <source>展开收起动画</source>
+        <translation>Expand and collapse animation</translation>
+    </message>
+    <message>
+        <source>不自动关闭</source>
+        <translation>Keep open</translation>
+    </message>
+    <message>
+        <source>弹出位置</source>
+        <translation>Popup position</translation>
+    </message>
+    <message>
+        <source>停留时间</source>
+        <translation>Display duration</translation>
+    </message>
+    <message>
+        <source>窗口边距</source>
+        <translation>Window margin</translation>
+    </message>
+    <message>
+        <source>通知间距</source>
+        <translation>Notification spacing</translation>
+    </message>
+    <message>
+        <source>最大宽度</source>
+        <translation>Maximum width</translation>
+    </message>
+    <message>
+        <source>弹出当前信息栏</source>
+        <translation>Show current notification</translation>
+    </message>
+    <message>
+        <source>在页面内展示重要信息，或在窗口边缘弹出可自动关闭的通知。</source>
+        <translation>Show important information inline or display timed notifications at the window edges.</translation>
+    </message>
+    <message>
+        <source>页面内信息栏</source>
+        <translation>Inline info bars</translation>
+    </message>
+    <message>
+        <source>所有更改均已保存。</source>
+        <translation>All changes have been saved.</translation>
+    </message>
+    <message>
+        <source>网络连接不稳定，部分内容可能延迟。</source>
+        <translation>The connection is unstable. Some content may be delayed.</translation>
+    </message>
+    <message>
+        <source>无法连接到服务，请稍后重试。</source>
+        <translation>Unable to connect to the service. Please try again later.</translation>
+    </message>
+    <message>
+        <source>当前已经是最新版本。</source>
+        <translation>You are already using the latest version.</translation>
+    </message>
+    <message>
+        <source>重新显示全部通知</source>
+        <translation>Reopen all info bars</translation>
+    </message>
+    <message>
+        <source>窗口级弹出</source>
+        <translation>Window notifications</translation>
+    </message>
+    <message>
+        <source>通知在 4.5 秒后自动关闭，鼠标悬停时暂停计时；空间不足时按顺序排队。</source>
+        <translation>Notifications close after 4.5 seconds. Hover to pause; overflow notifications wait in order.</translation>
+    </message>
+    <message>
+        <source>通知 %1</source>
+        <translation>Notification %1</translation>
+    </message>
+    <message>
+        <source>鼠标悬停可暂停自动关闭。</source>
+        <translation>Hover to pause automatic dismissal.</translation>
+    </message>
+    <message>
+        <source>在右上角连续弹出 10 条</source>
+        <translation>Show 10 notifications at the top right</translation>
+    </message>
+    <message>
+        <source>空间不足时等待，关闭后依次补位。</source>
+        <translation>Wait when space is limited, then appear in order as earlier notifications close.</translation>
+    </message>
+    <message>
+        <source>关闭全部弹出通知</source>
+        <translation>Dismiss all popup notifications</translation>
+    </message>
+    <message>
         <source>ZzProgressRing 继承 QProgressBar，复用范围、数值和格式，并提供独立的中央标题、数值样式与自定义中心控件。</source>
         <translation>ZzProgressRing inherits QProgressBar, retaining its range, value and format, with independent title and value styles and a custom center widget.</translation>
     </message>
@@ -3477,6 +3645,17 @@
     <message>
         <source>上限</source>
         <translation>Upper bound</translation>
+    </message>
+</context>
+<context>
+    <name>ZzFluentUI::ZzInfoBar</name>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>关闭通知</source>
+        <translation>Dismiss notification</translation>
     </message>
 </context>
 </TS>

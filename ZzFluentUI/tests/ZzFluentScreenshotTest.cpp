@@ -117,6 +117,8 @@
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzTimeline.h>
+#include <ZzFluentUI/ZzInfoBar.h>
+#include <ZzFluentUI/ZzInfoBarHost.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRatingControl.h>
 #include <ZzFluentUI/ZzRatingPrecision.h>
@@ -7604,6 +7606,77 @@ private Q_SLOTS:
     void rendersProgressRingContentThemes_data() { rendersRangeSliderThemes_data(); }
 
     void rendersTimelineThemes_data() { rendersRangeSliderThemes_data(); }
+
+    void rendersInfoBarThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 四级信息栏的宽窄布局、操作按钮、RTL、禁用及弹出阴影。 */
+    void rendersInfoBarThemes()
+    {
+        using InfoBar = ZzFluentUI::ZzInfoBar;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(1040, 850);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(16, 16, 16, 240);
+        grid->setSpacing(12);
+        grid->setColumnStretch(0, 2);
+        grid->setColumnStretch(1, 1);
+        const QStringList titles { QStringLiteral("Information"), QStringLiteral("Success"),
+            QStringLiteral("Warning"), QStringLiteral("Error") };
+        const QStringList messages { QStringLiteral("A new version is available."),
+            QStringLiteral("All changes have been saved."),
+            QStringLiteral("The connection is unstable. Some content may be delayed."),
+            QStringLiteral("Unable to connect. Please try again later.") };
+        for (int row = 0; row < 4; ++row) {
+            for (int column = 0; column < 2; ++column) {
+                auto *bar = new InfoBar(&surface);
+                bar->setAnimationEnabled(false);
+                bar->setSeverity(static_cast<InfoBar::Severity>(row));
+                bar->setTitle(titles.at(row));
+                bar->setMessage(messages.at(row));
+                if (row == 0) bar->setActionButtonText(QStringLiteral("View update"));
+                if (row == 2 && column == 1) bar->setLayoutDirection(Qt::RightToLeft);
+                if (row == 3 && column == 1) bar->setEnabled(false);
+                grid->addWidget(bar, row, column, Qt::AlignTop);
+                bar->setOpen(true);
+            }
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        ZzFluentUI::ZzInfoBarHost host(&surface);
+        QVERIFY(host.showInfoBar(InfoBar::Informational, QStringLiteral("Notification"),
+            QStringLiteral("This is a popup notification."), ZzFluentUI::ZzInfoBarHost::BottomLeft, 0));
+        QVERIFY(host.showInfoBar(InfoBar::Success, QStringLiteral("Saved"),
+            QStringLiteral("All changes have been saved."), ZzFluentUI::ZzInfoBarHost::BottomRight, 0));
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("info-bar-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
 
     /** @brief 时间轴四种纵向布局、横向布局、状态节点及原始字体图标。 */
     void rendersTimelineThemes()
