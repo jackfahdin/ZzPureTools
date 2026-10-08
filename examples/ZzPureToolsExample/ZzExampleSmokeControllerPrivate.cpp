@@ -47,6 +47,8 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzRangeSlider.h>
+#include <ZzFluentUI/ZzBorderBeam.h>
+#include <ZzFluentUI/ZzBorderBeamButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
@@ -78,6 +80,52 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
+
+/** @brief 通过真实编辑控件检查光束预览、主题覆盖及重置行为。 */
+[[nodiscard]] bool zzBorderBeamPageReady(const QWidget &window)
+{
+    using Beam = ZzFluentUI::ZzBorderBeam;
+    auto *beam = window.findChild<Beam *>(QStringLiteral("zzBorderBeamPreview"));
+    auto *reset = window.findChild<QPushButton *>(QStringLiteral("zzBorderBeamReset"));
+    auto *length = window.findChild<QSlider *>(QStringLiteral("zzBeam_lengthSlider"));
+    auto *width = window.findChild<QSlider *>(QStringLiteral("zzBeam_widthSlider"));
+    auto *radius = window.findChild<QSlider *>(QStringLiteral("zzBeam_radiusSlider"));
+    auto *duration = window.findChild<QSlider *>(QStringLiteral("zzBeam_durationSlider"));
+    auto *progress = window.findChild<QSlider *>(QStringLiteral("zzBeam_progressSlider"));
+    auto *count = window.findChild<QSpinBox *>(QStringLiteral("zzBeam_countSpinBox"));
+    auto *direction = window.findChild<QComboBox *>(QStringLiteral("zzBeam_directionCombo"));
+    auto *theme = window.findChild<QComboBox *>(QStringLiteral("zzBeam_themeCombo"));
+    auto *animation = window.findChild<QCheckBox *>(QStringLiteral("zzBeam_animationCheck"));
+    if (!beam || !reset || !length || !width || !radius || !duration || !progress
+        || !count || !direction || !theme || !animation
+        || !window.findChild<ZzFluentUI::ZzBorderBeamButton *>()) return false;
+    length->setValue(120);
+    width->setValue(7);
+    radius->setValue(24);
+    duration->setValue(3000);
+    progress->setValue(40);
+    count->setValue(3);
+    direction->setCurrentIndex(1);
+    theme->setCurrentIndex(2);
+    animation->setChecked(false);
+    if (beam->beamLength() != 120 || beam->beamWidth() != 3.5 || beam->cornerRadius() != 24
+        || beam->animationDuration() != 3000 || beam->initialProgress() != 0.4 || beam->beamCount() != 3
+        || beam->direction() != Beam::CounterClockwise || beam->themeMode() != Beam::DarkTheme
+        || beam->isAnimationEnabled() || beam->isRunning() || beam->startColor().isValid()) return false;
+    beam->setStartColor(Qt::red);
+    reset->click();
+    const bool valid = beam->beamLength() == 60 && beam->beamWidth() == 2
+        && beam->cornerRadius() == 8 && beam->animationDuration() == 6000
+        && beam->initialProgress() == 0 && beam->beamCount() == 1
+        && beam->direction() == Beam::Clockwise && beam->themeMode() == Beam::AutoTheme
+        && beam->isAnimationEnabled() && !beam->startColor().isValid();
+    // 恢复首次展示参数，便于人工截图检查。
+    length->setValue(90);
+    width->setValue(5);
+    radius->setValue(16);
+    duration->setValue(5000);
+    return valid;
+}
 
 /** @brief 验证范围滑块页面属性与预览的真实连接，并恢复演示默认状态。 */
 [[nodiscard]] bool zzRangeSliderPageReady(const QWidget &window)
@@ -684,6 +732,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             // 可选人工验收产物，仅在烟测模式下按路由导出真实窗口。
             if (routeId == QStringLiteral("range-slider") && !zzRangeSliderPageReady(window)) {
                 fail("route smoke range slider integration failed");
+                return;
+            }
+            if (routeId == QStringLiteral("border-beam") && !zzBorderBeamPageReady(window)) {
+                fail("route smoke border beam integration failed");
                 return;
             }
             const QString previewDirectory = qEnvironmentVariable(

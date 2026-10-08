@@ -21,6 +21,7 @@ public:
         Navigation,
         TabBars,
         RangeSlider,
+        BorderBeam,
         Feedback,
         Icons
     };

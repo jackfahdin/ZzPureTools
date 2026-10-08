@@ -10,6 +10,8 @@
 #include <vector>
 
 #include <QtCore/QAbstractAnimation>
+#include <ZzFluentUI/ZzBorderBeam.h>
+#include <ZzFluentUI/ZzBorderBeamButton.h>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDate>
 #include <QtCore/QDir>
@@ -7587,6 +7589,78 @@ private Q_SLOTS:
                 .arg(differenceRatio, 0, 'f', 6)
                 .arg(maximumDifferenceRatio, 0, 'f', 6)
                 .arg(actualPath, diffPath)));
+    }
+
+    void rendersBorderBeamThemes_data()
+    {
+        rendersRangeSliderThemes_data();
+    }
+
+    /** @brief 固定动画位置，覆盖多光束、反向、宽线、直角、禁用和原生按钮。 */
+    void rendersBorderBeamThemes()
+    {
+        using namespace ZzFluentUI;
+        using Beam = ZzBorderBeam;
+        using BeamButton = ZzBorderBeamButton;
+        QFETCH(int, mode); QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(600, 360);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+        for (int index = 0; index < 4; ++index) {
+            auto *beam = new Beam(&surface);
+            beam->setAnimationEnabled(false);
+            beam->setInitialProgress(index == 3 ? 0.01 : 0.28);
+            beam->setBeamLength(92);
+            beam->setCornerRadius(index == 3 ? 0 : 14);
+            beam->setBeamWidth(index == 2 ? 6 : 2.5);
+            if (index == 1) {
+                beam->setStartColor(QColor("#FFAA40"));
+                beam->setEndColor(QColor("#9C40FF"));
+                beam->setBeamCount(2);
+            }
+            if (index == 2) beam->setDirection(Beam::CounterClockwise);
+            beam->setEnabled(index != 3);
+            grid->addWidget(beam, index / 2, index % 2);
+        }
+        auto *button = new BeamButton(QStringLiteral("Border Beam Button"), &surface);
+        button->setAnimationEnabled(false);
+        button->setInitialProgress(0.3);
+        button->setStartColor(QColor("#22D3EE"));
+        button->setEndColor(QColor("#8B5CF6"));
+        button->setBeamLength(70);
+        button->setMinimumWidth(220);
+        button->setFocusPolicy(Qt::NoFocus);
+        grid->addWidget(button, 2, 0, 1, 2, Qt::AlignHCenter);
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("border-beams-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
     }
 
     void rendersRangeSliderThemes_data()

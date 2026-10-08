@@ -92,6 +92,9 @@ set(zz_fluent_ui_sources
     widgets/src/ZzSliderValueTip.cpp
     widgets/src/private/ZzSliderValueTipPrivate.cpp
     widgets/src/ZzRangeSlider.cpp
+    widgets/src/ZzBorderBeam.cpp
+    widgets/src/ZzBorderBeamButton.cpp
+    widgets/src/private/ZzBorderBeamPrivate.cpp
     widgets/src/private/ZzRangeSliderPrivate.cpp
     widgets/src/private/ZzRangeSliderAccessible.cpp
     widgets/src/ZzMessageBar.cpp
@@ -168,6 +171,8 @@ set(zz_fluent_ui_sources
 set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzSliderValueTip.h
     widgets/include/ZzFluentUI/ZzRangeSlider.h
+    widgets/include/ZzFluentUI/ZzBorderBeam.h
+    widgets/include/ZzFluentUI/ZzBorderBeamButton.h
     widgets/include/ZzFluentUI/ZzFluentStyle.h
     widgets/include/ZzFluentUI/ZzPushButton.h
     widgets/include/ZzFluentUI/ZzSplitButton.h

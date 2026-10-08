@@ -31,6 +31,9 @@ public:
     /** @brief 展示双端点范围滑块及刻度、吸附、拖动提示等属性。 */
     void buildRangeSlider(QVBoxLayout *layout, QWidget *parent);
 
+    /** @brief 展示边框光束容器、按钮及实时属性。 */
+    void buildBorderBeam(QVBoxLayout *layout, QWidget *parent);
+
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);
 

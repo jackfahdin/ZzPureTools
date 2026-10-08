@@ -4,6 +4,138 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>边框光束(BorderBeam)</source>
+        <translation>Border Beam</translation>
+    </message>
+    <message>
+        <source>沿圆角边框真实周长匀速移动的渐变光束。控件继承 QFrame，可直接通过 Qt 布局承载任意内容。</source>
+        <translation>A gradient beam moving at a constant speed along a rounded border. This QFrame container supports ordinary Qt layouts and widgets.</translation>
+    </message>
+    <message>
+        <source>常用组合</source>
+        <translation>Common combinations</translation>
+    </message>
+    <message>
+        <source>主题自适应</source>
+        <translation>Adaptive theme</translation>
+    </message>
+    <message>
+        <source>颜色留空时自动使用当前浅色或深色主题的默认配色。</source>
+        <translation>Unset colors follow the current light or dark theme defaults.</translation>
+    </message>
+    <message>
+        <source>双色双光束</source>
+        <translation>Two colors, two beams</translation>
+    </message>
+    <message>
+        <source>多个光束由一个控件统一绘制并沿路径均匀分布。</source>
+        <translation>Multiple beams are evenly spaced along the same border.</translation>
+    </message>
+    <message>
+        <source>反向运动</source>
+        <translation>Reverse direction</translation>
+    </message>
+    <message>
+        <source>切换方向不会改变当前光束位置。</source>
+        <translation>Changing direction keeps the beam head in place.</translation>
+    </message>
+    <message>
+        <source>Border Beam Button</source>
+        <translation>Border Beam Button</translation>
+    </message>
+    <message>
+        <source>实时属性</source>
+        <translation>Live properties</translation>
+    </message>
+    <message>
+        <source>Qt 原生容器</source>
+        <translation>Native Qt container</translation>
+    </message>
+    <message>
+        <source>内容仍由普通布局和子控件组成</source>
+        <translation>Content uses ordinary layouts and child widgets</translation>
+    </message>
+    <message>
+        <source>示例按钮</source>
+        <translation>Example button</translation>
+    </message>
+    <message>
+        <source>播放动画</source>
+        <translation>Play animation</translation>
+    </message>
+    <message>
+        <source>光束长度</source>
+        <translation>Beam length</translation>
+    </message>
+    <message>
+        <source>光束线宽</source>
+        <translation>Beam width</translation>
+    </message>
+    <message>
+        <source>圆角半径</source>
+        <translation>Corner radius</translation>
+    </message>
+    <message>
+        <source>动画周期</source>
+        <translation>Animation duration</translation>
+    </message>
+    <message>
+        <source>初始位置</source>
+        <translation>Initial position</translation>
+    </message>
+    <message>
+        <source>光束数量</source>
+        <translation>Beam count</translation>
+    </message>
+    <message>
+        <source>运动方向</source>
+        <translation>Direction</translation>
+    </message>
+    <message>
+        <source>起始颜色</source>
+        <translation>Start color</translation>
+    </message>
+    <message>
+        <source>结束颜色</source>
+        <translation>End color</translation>
+    </message>
+    <message>
+        <source>背景颜色</source>
+        <translation>Background color</translation>
+    </message>
+    <message>
+        <source>边框颜色</source>
+        <translation>Border color</translation>
+    </message>
+    <message>
+        <source>顺时针</source>
+        <translation>Clockwise</translation>
+    </message>
+    <message>
+        <source>逆时针</source>
+        <translation>Counterclockwise</translation>
+    </message>
+    <message>
+        <source>跟随应用</source>
+        <translation>Follow application</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Light</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Dark</translation>
+    </message>
+    <message>
+        <source>恢复默认属性</source>
+        <translation>Reset properties</translation>
+    </message>
+    <message>
+        <source>选择颜色</source>
+        <translation>Choose color</translation>
+    </message>
+    <message>
         <source>特点：选中时会有一个生长动画效果。</source>
         <translation>Selected tabs grow into place.</translation>
     </message>

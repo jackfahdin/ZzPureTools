@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzBorderBeamTest ZzBorderBeamTest.cpp)
+target_link_libraries(ZzBorderBeamTest PRIVATE Qt6::Test Zz::FluentUI)
+set_target_properties(ZzBorderBeamTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzBorderBeamTest)
+zz_enable_sanitizers(ZzBorderBeamTest)
+add_test(NAME fluent.border-beam COMMAND ZzBorderBeamTest)
+set_tests_properties(fluent.border-beam PROPERTIES
+    LABELS "unit;component;fluent;widgets"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzDataViewsTest ZzDataViewsTest.cpp)
 target_link_libraries(ZzDataViewsTest PRIVATE Qt6::Test Zz::FluentUI)
 set_target_properties(ZzDataViewsTest PROPERTIES AUTOMOC ON)
