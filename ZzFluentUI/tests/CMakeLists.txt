@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzLiquidGaugeTest ZzLiquidGaugeTest.cpp)
+target_link_libraries(ZzLiquidGaugeTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzLiquidGaugeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzLiquidGaugeTest)
+zz_enable_sanitizers(ZzLiquidGaugeTest)
+add_test(NAME fluent.liquid-gauge COMMAND ZzLiquidGaugeTest)
+set_tests_properties(fluent.liquid-gauge PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzRadialGaugeTest ZzRadialGaugeTest.cpp)
 target_link_libraries(ZzRadialGaugeTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzRadialGaugeTest PROPERTIES AUTOMOC ON)

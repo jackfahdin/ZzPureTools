@@ -78,6 +78,7 @@
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzAudioLevelMeter.h>
 #include <ZzFluentUI/ZzRadialGauge.h>
+#include <ZzFluentUI/ZzLiquidGauge.h>
 #include <ZzFluentUI/ZzMultiRadialGauge.h>
 #include <ZzFluentUI/ZzMultiProgressRing.h>
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
@@ -7596,6 +7597,69 @@ private Q_SLOTS:
     }
 
     void rendersRadialGaugeThemes_data() { rendersRangeSliderThemes_data(); }
+
+    void rendersLiquidGaugeThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 四种裁剪形状、空满液面、双层水波、文字与禁用效果。 */
+    void rendersLiquidGaugeThemes()
+    {
+        using Gauge = ZzFluentUI::ZzLiquidGauge;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(700, 356);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+        const std::array<const char *, 4> colors{"#1677FF", "#13C2C2", "#722ED1", "#FA8C16"};
+        for (int index = 0; index < 8; ++index) {
+            auto *gauge = new Gauge(&surface);
+            gauge->setFixedSize(160, 160);
+            gauge->setAnimationEnabled(false);
+            gauge->setShape(static_cast<Gauge::Shape>(index % 4));
+            gauge->setRange(0, 100);
+            gauge->setValue(index < 4 ? 50 : index == 4 ? 0 : index == 5 ? 100 : 68);
+            if (index < 4) gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(index))));
+            if (index == 6) {
+                gauge->setOutlineWidth(4);
+                gauge->setOutlineDistance(6);
+                gauge->setWaveCount(1);
+                gauge->setWaveAmplitude(14);
+                gauge->setSecondaryWaveOpacity(0);
+                gauge->setFormat(QStringLiteral("%v"));
+            }
+            if (index == 7) gauge->setEnabled(false);
+            grid->addWidget(gauge, index / 4, index % 4);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("liquid-gauges-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
 
     /** @brief 三类仪表的指针、区间、渐变、全圆及禁用状态。 */
     void rendersRadialGaugeThemes()

@@ -24,6 +24,7 @@ public:
         BorderBeam,
         AudioLevelMeter,
         RadialGauge,
+        LiquidGauge,
         Feedback,
         Icons
     };

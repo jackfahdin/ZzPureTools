@@ -53,6 +53,7 @@
 #include <ZzFluentUI/ZzRangeSlider.h>
 #include <ZzFluentUI/ZzAudioLevelMeter.h>
 #include <ZzFluentUI/ZzRadialGauge.h>
+#include <ZzFluentUI/ZzLiquidGauge.h>
 #include <ZzFluentUI/ZzMultiRadialGauge.h>
 #include <ZzFluentUI/ZzMultiProgressRing.h>
 #include <ZzFluentUI/ZzBorderBeam.h>
@@ -88,6 +89,55 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
+
+/** @brief 验证水波页的联动、主题色选择与恢复默认。 */
+[[nodiscard]] bool zzLiquidGaugePageReady(const QWidget &window)
+{
+    using Gauge = ZzFluentUI::ZzLiquidGauge;
+    auto *page = window.findChild<QWidget *>(QStringLiteral("zzExampleLiquidGaugePage"));
+    if (!page) return false;
+    auto *gauge = page->findChild<Gauge *>(QStringLiteral("zzLiquidPreview"));
+    auto *shared = page->findChild<QSlider *>(QStringLiteral("zzLiquidSharedValue"));
+    auto *value = page->findChild<QSlider *>(QStringLiteral("zzLiquidValue"));
+    auto *amplitude = page->findChild<QSlider *>(QStringLiteral("zzLiquidAmplitude"));
+    auto *shape = page->findChild<QComboBox *>(QStringLiteral("zzLiquidShape"));
+    auto *format = page->findChild<QLineEdit *>(QStringLiteral("zzLiquidFormat"));
+    auto *animation = page->findChild<QCheckBox *>(QStringLiteral("zzLiquidAnimation"));
+    auto *automatic = page->findChild<QCheckBox *>(QStringLiteral("zzLiquidAuto_waveColor"));
+    auto *color = page->findChild<QWidget *>(QStringLiteral("zzLiquidColor_waveColor"));
+    auto *outline = page->findChild<QWidget *>(QStringLiteral("zzLiquidColor_outlineColor"));
+    auto *reset = page->findChild<QPushButton *>(QStringLiteral("zzLiquidReset"));
+    auto *tabs = page->findChild<QTabWidget *>(QStringLiteral("zzLiquidPropertyTabs"));
+    if (!gauge || !shared || !value || !amplitude || !shape || !format || !animation
+        || !automatic || !color || !outline || !reset || !tabs || tabs->count() != 2) return false;
+    shared->setValue(37);
+    int matchingSamples = 0;
+    for (auto *sample : page->findChildren<Gauge *>())
+        matchingSamples += sample != gauge && sample->value() == 37;
+    bool ready = matchingSamples == 4;
+    shared->setValue(60);
+    value->setValue(42);
+    shape->setCurrentIndex(shape->findData(Gauge::TriangleShape));
+    format->setText(QStringLiteral("%v / %m"));
+    amplitude->setValue(17);
+    animation->setChecked(false);
+    ready = ready && gauge->value() == 42 && gauge->shape() == Gauge::TriangleShape
+        && gauge->text() == QStringLiteral("42 / 100") && qFuzzyCompare(gauge->waveAmplitude(), 8.5)
+        && !gauge->isAnimationEnabled() && !gauge->isRunning();
+    const QColor swatch = color->property("selectedColor").value<QColor>();
+    automatic->setChecked(false);
+    ready = ready && color->isEnabled() && gauge->waveColor() == swatch;
+    color->setProperty("selectedColor", QColor(Qt::red));
+    ready = ready && gauge->waveColor() == QColor(Qt::red)
+        && outline->property("selectedColor").value<QColor>() == QColor(Qt::red);
+    reset->click();
+    ready = ready && gauge->value() == 68 && gauge->shape() == Gauge::CircleShape
+        && gauge->format() == QStringLiteral("%p%") && qFuzzyCompare(gauge->waveAmplitude(), 6.0)
+        && gauge->isAnimationEnabled() && !gauge->waveColor().isValid()
+        && automatic->isChecked() && !color->isEnabled()
+        && color->property("selectedColor").value<QColor>() == gauge->palette().color(QPalette::Active, QPalette::Accent);
+    return ready;
+}
 
 /** @brief 验证仪表页的真实属性连接、公共联动与重置。 */
 [[nodiscard]] bool zzRadialGaugePageReady(const QWidget &window, ZzFluentUI::ZzThemeController *theme)
@@ -917,6 +967,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke radial gauge integration failed");
                 return;
             }
+            if (routeId == QStringLiteral("liquid-gauge") && !zzLiquidGaugePageReady(window)) {
+                fail("route smoke liquid gauge integration failed");
+                return;
+            }
             if (!previewDirectory.isEmpty()) {
                 // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
@@ -926,9 +980,12 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                     fail("could not export route preview", routeId);
                     return;
                 }
-                if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")) {
-                    auto *page = window.findChild<QWidget *>(routeId == QStringLiteral("radial-gauge")
-                            ? QStringLiteral("zzExampleRadialGaugePage") : QStringLiteral("zzExampleAudioLevelMeterPage"));
+                if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")
+                    || routeId == QStringLiteral("liquid-gauge")) {
+                    const bool liquid = routeId == QStringLiteral("liquid-gauge");
+                    auto *page = window.findChild<QWidget *>(liquid ? QStringLiteral("zzExampleLiquidGaugePage")
+                        : routeId == QStringLiteral("radial-gauge") ? QStringLiteral("zzExampleRadialGaugePage")
+                        : QStringLiteral("zzExampleAudioLevelMeterPage"));
                     auto *scroll = page ? page->findChild<QScrollArea *>() : nullptr;
                     if (!scroll || !scroll->widget()
                         || !scroll->widget()->grab().save(QDir(previewDirectory).filePath(
@@ -936,8 +993,11 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         fail("could not export custom widget content preview");
                         return;
                     }
-                    if (routeId == QStringLiteral("radial-gauge")) {
-                        auto *tabs = page->findChild<QTabWidget *>(QStringLiteral("zzRadialPropertyTabs"));
+                    if (routeId == QStringLiteral("radial-gauge") || liquid) {
+                        auto *tabs = page->findChild<QTabWidget *>(liquid ? QStringLiteral("zzLiquidPropertyTabs")
+                            : QStringLiteral("zzRadialPropertyTabs"));
+                        const bool reducedMotion = theme->reducedMotion();
+                        theme->setReducedMotion(true);
                         const auto originalMode = theme->mode();
                         for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
                             theme->setMode(mode);
@@ -948,14 +1008,15 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                                 tabs->setCurrentIndex(index);
                                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
                                 if (!scroll->widget()->grab().save(QDir(previewDirectory).filePath(
-                                    QStringLiteral("radial-gauge-%1-%2.png").arg(name).arg(index)))) {
-                                    fail("could not export radial gauge editor preview");
+                                    QStringLiteral("%1-%2-%3.png").arg(routeId, name).arg(index)))) {
+                                    fail("could not export gauge editor preview");
                                     return;
                                 }
                             }
                         }
                         tabs->setCurrentIndex(0);
                         theme->setMode(originalMode);
+                        theme->setReducedMotion(reducedMotion);
                         QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
                     }
                 }

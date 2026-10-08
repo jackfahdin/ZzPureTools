@@ -44,6 +44,7 @@ zz_configure_library_target(ZzFluentFoundation
 )
 
 set(zz_fluent_ui_sources
+    widgets/src/ZzLiquidGauge.cpp
     widgets/src/ZzRadialGauge.cpp
     widgets/src/private/ZzRadialGaugePaint.cpp
     widgets/src/private/ZzRadialGaugeProperties.cpp
@@ -181,6 +182,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
+    widgets/include/ZzFluentUI/ZzLiquidGauge.h
     widgets/include/ZzFluentUI/ZzRadialGauge.h
     widgets/include/ZzFluentUI/ZzMultiRadialGauge.h
     widgets/include/ZzFluentUI/ZzMultiProgressRing.h

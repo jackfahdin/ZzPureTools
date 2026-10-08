@@ -4,6 +4,98 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>自动</source>
+        <translation>Automatic</translation>
+    </message>
+    <message>
+        <source>参考 Ant Design Charts Liquid 的水波图控件，继承 QProgressBar，并提供圆形、矩形、水滴和三角形裁剪、双层水波与中心文本。</source>
+        <translation>A liquid gauge inspired by Ant Design Charts Liquid, based on QProgressBar, with circle, rectangle, drop and triangle shapes, two wave layers and centered text.</translation>
+    </message>
+    <message>
+        <source>内置形状</source>
+        <translation>Built-in Shapes</translation>
+    </message>
+    <message>
+        <source>外观</source>
+        <translation>Appearance</translation>
+    </message>
+    <message>
+        <source>播放水波动画</source>
+        <translation>Animate waves</translation>
+    </message>
+    <message>
+        <source>显示中心文本</source>
+        <translation>Show centered text</translation>
+    </message>
+    <message>
+        <source>形状</source>
+        <translation>Shape</translation>
+    </message>
+    <message>
+        <source>文本格式</source>
+        <translation>Text format</translation>
+    </message>
+    <message>
+        <source>文本字号</source>
+        <translation>Text size</translation>
+    </message>
+    <message>
+        <source>波幅</source>
+        <translation>Wave amplitude</translation>
+    </message>
+    <message>
+        <source>波形数量</source>
+        <translation>Wave count</translation>
+    </message>
+    <message>
+        <source>后层水波透明度</source>
+        <translation>Secondary wave opacity</translation>
+    </message>
+    <message>
+        <source>轮廓宽度</source>
+        <translation>Outline width</translation>
+    </message>
+    <message>
+        <source>轮廓间距</source>
+        <translation>Outline gap</translation>
+    </message>
+    <message>
+        <source>水波颜色</source>
+        <translation>Wave color</translation>
+    </message>
+    <message>
+        <source>轮廓颜色</source>
+        <translation>Outline color</translation>
+    </message>
+    <message>
+        <source>液面上文字颜色</source>
+        <translation>Text above water</translation>
+    </message>
+    <message>
+        <source>液面下文字颜色</source>
+        <translation>Text below water</translation>
+    </message>
+    <message>
+        <source>圆形</source>
+        <translation>Circle</translation>
+    </message>
+    <message>
+        <source>矩形</source>
+        <translation>Rectangle</translation>
+    </message>
+    <message>
+        <source>水滴</source>
+        <translation>Drop</translation>
+    </message>
+    <message>
+        <source>三角形</source>
+        <translation>Triangle</translation>
+    </message>
+    <message>
+        <source>水波进度球(LiquidGauge)</source>
+        <translation>Liquid Gauge</translation>
+    </message>
+    <message>
       <source>基于 QDial 的径向仪表盘，保留范围、数值和交互能力；同一控件可组合 Track、Progress、Ranges 刻度环、数字标签和不同指针样式。</source>
       <translation>A radial gauge based on QDial, preserving range, value and interaction. Combine Track, Progress or Ranges scales, numeric labels and different needle styles.</translation>
     </message>

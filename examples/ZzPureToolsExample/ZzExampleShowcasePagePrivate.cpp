@@ -149,6 +149,16 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::LiquidGauge:
+        q_ptr->setObjectName(QStringLiteral("zzExampleLiquidGaugePage"));
+        {
+            auto font = titleLabel->font();
+            font.setPointSize(16);
+            font.setBold(true);
+            titleLabel->setFont(font);
+        }
+        buildLiquidGauge(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::RadialGauge:
         q_ptr->setObjectName(QStringLiteral("zzExampleRadialGaugePage"));
         {

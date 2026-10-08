@@ -574,7 +574,9 @@ private Q_SLOTS:
 
         auto *navigationModel = window->navigationModel();
         QVERIFY(navigationModel != nullptr);
-        QCOMPARE(navigationModel->rowCount(), 36);
+        QVERIFY(navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("liquid-gauge"))));
+        QCOMPARE(navigationModel->rowCount(), 37);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("radial-gauge"))));
         QVERIFY(navigationModel->indexForRoute(
