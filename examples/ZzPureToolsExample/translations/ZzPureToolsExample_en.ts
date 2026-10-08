@@ -4,6 +4,70 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>ZzProgressRing 继承 QProgressBar，复用范围、数值和格式，并提供独立的中央标题、数值样式与自定义中心控件。</source>
+        <translation>ZzProgressRing inherits QProgressBar, retaining its range, value and format, with independent title and value styles and a custom center widget.</translation>
+    </message>
+    <message>
+        <source>基本状态</source>
+        <translation>Basic States</translation>
+    </message>
+    <message>
+        <source>不确定</source>
+        <translation>Indeterminate</translation>
+    </message>
+    <message>
+        <source>已完成</source>
+        <translation>Completed</translation>
+    </message>
+    <message>
+        <source>不确定进度</source>
+        <translation>Indeterminate progress</translation>
+    </message>
+    <message>
+        <source>显示中央文字</source>
+        <translation>Show center content</translation>
+    </message>
+    <message>
+        <source>使用自定义中心控件</source>
+        <translation>Use custom center widget</translation>
+    </message>
+    <message>
+        <source>不确定动画周期</source>
+        <translation>Indeterminate duration</translation>
+    </message>
+    <message>
+        <source>环与 Track 宽度</source>
+        <translation>Ring and track width</translation>
+    </message>
+    <message>
+        <source>进度环颜色</source>
+        <translation>Ring color</translation>
+    </message>
+    <message>
+        <source>数值格式</source>
+        <translation>Value format</translation>
+    </message>
+    <message>
+        <source>标题字号</source>
+        <translation>Title font size</translation>
+    </message>
+    <message>
+        <source>文字间距</source>
+        <translation>Text spacing</translation>
+    </message>
+    <message>
+        <source>标题颜色</source>
+        <translation>Title color</translation>
+    </message>
+    <message>
+        <source>重新开始</source>
+        <translation>Restart</translation>
+    </message>
+    <message>
+        <source>环形进度条(ProgressRing)</source>
+        <translation>Progress Ring</translation>
+    </message>
+    <message>
         <source>自动</source>
         <translation>Automatic</translation>
     </message>

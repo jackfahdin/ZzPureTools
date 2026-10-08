@@ -2,6 +2,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtCore/QPair>
+#include <QtCore/QPointer>
 #include <QtCore/QTimer>
 #include <QtCore/QVariantAnimation>
 #include <QtGui/QAccessible>
@@ -10,12 +11,27 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QProxyStyle>
+#include <limits>
+#include <functional>
 
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzProgressRing.h>
 #include <ZzFluentUI/ZzThemeController.h>
 
 namespace {
+
+/** @brief Real widget callback used to exercise synchronous QWidget lifecycle reentry. */
+class ZzCenterLifecycleWidget final : public QWidget
+{
+public:
+    std::function<void()> onHide;
+protected:
+    void hideEvent(QHideEvent *event) override
+    {
+        QWidget::hideEvent(event);
+        if (onHide) onHide();
+    }
+};
 
 /** @brief 为动画生命周期测试提供确定启用动效的基础样式。 */
 class ZzProgressAnimationStyle final : public QProxyStyle
@@ -55,6 +71,9 @@ QImage zzRenderRing(
     palette.setColor(QPalette::Active, QPalette::Highlight, Qt::red);
     palette.setColor(QPalette::Inactive, QPalette::Highlight, Qt::red);
     palette.setColor(QPalette::Disabled, QPalette::Highlight, Qt::gray);
+    palette.setColor(QPalette::Active, QPalette::Accent, Qt::red);
+    palette.setColor(QPalette::Inactive, QPalette::Accent, Qt::red);
+    palette.setColor(QPalette::Disabled, QPalette::Accent, Qt::gray);
     palette.setColor(QPalette::Active, QPalette::Text, Qt::green);
     palette.setColor(QPalette::Inactive, QPalette::Text, Qt::green);
     ring->setPalette(palette);
@@ -119,6 +138,308 @@ class ZzProgressRingTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // Missing fractional thickness would lose half-pixel input and notify an incoherent legacy width.
+    void fractionalThicknessNormalizesAndNotifiesCoherentState()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        QVERIFY(ring.setProperty("thickness", 6.5));
+        QCOMPARE(ring.property("thickness").toReal(), 6.5);
+        QCOMPARE(ring.ringWidth(), 7);
+        ring.setRingWidth(9);
+        QCOMPARE(ring.property("thickness").toReal(), 9.0);
+        ring.setProperty("thickness", std::numeric_limits<qreal>::infinity());
+        QCOMPARE(ring.property("thickness").toReal(), 9.0);
+        ring.setProperty("thickness", -2.0);
+        QCOMPARE(ring.property("thickness").toReal(), 1.0);
+        ring.setProperty("thickness", 90.0);
+        QCOMPARE(ring.property("thickness").toReal(), 64.0);
+        ring.setTextVisible(false);
+        ring.setThickness(6);
+        const QImage integral = zzRenderRing(&ring, 0, 100, 100);
+        ring.setThickness(6.5);
+        QVERIFY(integral != zzRenderRing(&ring, 0, 100, 100));
+    }
+
+    // Ignoring custom colors, titles, fonts or text hiding must change real rendered pixels.
+    void rendersTitleValueAndCustomRingColors()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        QVERIFY(ring.setProperty("title", QStringLiteral("Build")));
+        ring.setProperty("titleColor", QColor(Qt::blue));
+        ring.setProperty("valueColor", QColor(Qt::green));
+        const QImage titled = zzRenderRing(&ring, 0, 100, 50);
+        int blueTop = 0;
+        int greenBottom = 0;
+        for (int y = 15; y < 65; ++y) {
+            for (int x = 15; x < 65; ++x) {
+                const QColor color = titled.pixelColor(x, y);
+                blueTop += y < 40 && color.blue() > color.red() + 48 && color.blue() > color.green() + 48;
+                greenBottom += y >= 40 && color.green() > color.red() + 48 && color.green() > color.blue() + 48;
+            }
+        }
+        QVERIFY(blueTop > 10);
+        QVERIFY(greenBottom > 10);
+        ring.setTextVisible(false);
+        ring.setProperty("ringColor", QColor(Qt::blue));
+        ring.setProperty("trackColor", QColor(Qt::green));
+        const QImage custom = zzRenderRing(&ring, 0, 100, 50);
+        QCOMPARE(zzRedPixelCount(custom), 0);
+        QVERIFY(custom.pixelColor(75, 40).blue() > 200);
+        QVERIFY(custom.pixelColor(4, 40).green() > 200);
+        ring.setProperty("ringColor", QColor());
+        QVERIFY(zzRedPixelCount(zzRenderRing(&ring, 0, 100, 50)) > 100);
+        ring.setProperty("trackColor", QColor());
+        QCOMPARE(zzRenderRing(&ring, 0, 100, 0).pixelColor(4, 40), QColor(Qt::black));
+    }
+
+    // Separate fonts and spacing must affect actual glyph bounds; oversized text must stay off the ring.
+    void customFontsSpacingAndTextVisibilityAffectPixels()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        ring.setTitle(QStringLiteral("I"));
+        ring.setTitleColor(Qt::blue);
+        ring.setValueColor(Qt::green);
+        QFont titleFont;
+        titleFont.setPixelSize(11);
+        QFont valueFont;
+        valueFont.setPixelSize(14);
+        ring.setTitleFont(titleFont);
+        ring.setValueFont(valueFont);
+        const auto bounds = [](const QImage &image, bool blue) {
+            QRect result;
+            for (int y = 12; y < 68; ++y) {
+                for (int x = 12; x < 68; ++x) {
+                    const QColor color = image.pixelColor(x, y);
+                    const bool matches = blue ? color.blue() > color.red() + 48 && color.blue() > color.green() + 48
+                        : color.green() > color.red() + 48 && color.green() > color.blue() + 48;
+                    if (matches) result = result.united(QRect(x, y, 1, 1));
+                }
+            }
+            return result;
+        };
+        ring.setTextSpacing(-5);
+        const QImage close = zzRenderRing(&ring, 0, 100, 50);
+        const int closeGap = bounds(close, false).top() - bounds(close, true).bottom();
+        QCOMPARE(ring.textSpacing(), 0);
+        ring.setTextSpacing(10);
+        const QImage spaced = zzRenderRing(&ring, 0, 100, 50);
+        QVERIFY(bounds(spaced, false).top() - bounds(spaced, true).bottom() >= closeGap + 9);
+        titleFont.setPixelSize(18);
+        ring.setTitleFont(titleFont);
+        QVERIFY(bounds(zzRenderRing(&ring, 0, 100, 50), true).height() > bounds(close, true).height());
+        valueFont.setPixelSize(200);
+        ring.setValueFont(valueFont);
+        const QImage oversized = zzRenderRing(&ring, 0, 100, 50);
+        QVERIFY(bounds(oversized, true).isEmpty());
+        QVERIFY(bounds(oversized, false).isEmpty());
+        ring.setTitleFont(QFont());
+        ring.setValueFont(QFont());
+        ring.setTextVisible(false);
+        const QImage hidden = zzRenderRing(&ring, 0, 100, 50);
+        QVERIFY(bounds(hidden, true).isEmpty());
+        QVERIFY(bounds(hidden, false).isEmpty());
+        ring.setTextVisible(true);
+        ring.setTextSpacing(999);
+        QCOMPARE(ring.textSpacing(), 100);
+        QVERIFY(bounds(zzRenderRing(&ring, 0, 100, 50), true).isEmpty());
+    }
+
+    // A raw dangling pointer, delayed layout or failure to own replacement widgets is observable here.
+    void ownsAndSynchronizesCenterWidget()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        ring.resize(120, 120);
+        QPointer<QWidget> first = new QWidget;
+        QVERIFY(ring.setProperty("centerWidget", QVariant::fromValue(first.data())));
+        QCOMPARE(first->parentWidget(), &ring);
+        QCOMPARE(first->geometry(), QRect(12, 12, 96, 96));
+        ring.setProperty("thickness", 10.5);
+        QCOMPARE(first->geometry(), QRect(17, 17, 86, 86));
+        ring.setTextVisible(false);
+        QVERIFY(first->isHidden());
+        ring.setTextVisible(true);
+        QVERIFY(!first->isHidden());
+        ring.setProperty("centerWidget", QVariant::fromValue(&ring));
+        QCOMPARE(ring.property("centerWidget").value<QWidget *>(), first.data());
+        auto *descendant = new QWidget(first);
+        ring.setProperty("centerWidget", QVariant::fromValue(descendant));
+        QCOMPARE(ring.property("centerWidget").value<QWidget *>(), first.data());
+        auto *second = new QWidget;
+        ring.setProperty("centerWidget", QVariant::fromValue(second));
+        QVERIFY(first.isNull());
+        QWidget other;
+        second->setParent(&other);
+        QCOMPARE(ring.property("centerWidget").value<QWidget *>(), nullptr);
+        auto *third = new QWidget;
+        ring.setProperty("centerWidget", QVariant::fromValue(third));
+        delete third;
+        QCOMPARE(ring.property("centerWidget").value<QWidget *>(), nullptr);
+    }
+
+    // take must not detach a center re-adopted by its own synchronous hide handler.
+    void takingCenterPreservesReentrantAdoption()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        ring.show();
+        auto *center = new ZzCenterLifecycleWidget;
+        ring.setCenterWidget(center);
+        center->onHide = [&] { ring.setCenterWidget(center); };
+        QWidget *taken = ring.takeCenterWidget();
+        center->onHide = {};
+        QCOMPARE(taken, nullptr);
+        QCOMPARE(ring.centerWidget(), center);
+        QCOMPARE(center->parentWidget(), &ring);
+    }
+
+    // External destruction clears once; a null notification can synchronously install a new center.
+    void externalCenterDeletionCanInstallReplacement()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        auto *center = new QWidget;
+        auto *replacement = new QWidget;
+        ring.setCenterWidget(center);
+        connect(&ring, &ZzFluentUI::ZzProgressRing::centerWidgetChanged, &ring,
+            [&](QWidget *current) { if (!current) ring.setCenterWidget(replacement); });
+        delete center;
+        QCOMPARE(ring.centerWidget(), nullptr);
+        QCoreApplication::processEvents();
+        QCOMPARE(ring.centerWidget(), replacement);
+        QCOMPARE(replacement->parentWidget(), &ring);
+    }
+
+    // A destroyed child is still in QObject's parent list until its destructor finishes.
+    // Null notifications must not let a slot delete that parent midway through child destruction.
+    void externalCenterDeletionCanDeleteRingFromNotification()
+    {
+        QPointer<ZzFluentUI::ZzProgressRing> ring = new ZzFluentUI::ZzProgressRing;
+        auto *center = new QWidget;
+        ring->setCenterWidget(center);
+        bool childDestructorActive = false;
+        bool unsafeNotification = false;
+        connect(ring, &ZzFluentUI::ZzProgressRing::centerWidgetChanged,
+            this, [&](QWidget *current) {
+                if (!current) {
+                    unsafeNotification |= childDestructorActive;
+                    delete ring.data();
+                }
+            });
+        childDestructorActive = true;
+        delete center;
+        childDestructorActive = false;
+        QVERIFY(!unsafeNotification);
+        QCoreApplication::processEvents();
+        QVERIFY(ring.isNull());
+    }
+
+    // take returns no dangling pointer if the ownership-transfer notification deletes the released widget.
+    void takeCenterHandlesDeletionDuringNotification()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        QPointer<QWidget> center = new QWidget;
+        ring.setCenterWidget(center);
+        connect(&ring, &ZzFluentUI::ZzProgressRing::centerWidgetChanged, &ring,
+            [&](QWidget *current) { if (!current) delete center.data(); });
+        QCOMPARE(ring.takeCenterWidget(), nullptr);
+        QVERIFY(center.isNull());
+    }
+
+    // Slots can replace centers during destruction or notification, and can delete the ring itself.
+    void centerReplacementAndNotificationAreReentrant()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        auto *old = new QWidget;
+        auto *winner = new QWidget;
+        auto *unused = new QWidget;
+        ring.setCenterWidget(old);
+        connect(old, &QObject::destroyed, &ring, [&] { ring.setCenterWidget(winner); });
+        ring.setCenterWidget(unused);
+        QCOMPARE(ring.centerWidget(), winner);
+        QCOMPARE(unused->parentWidget(), nullptr);
+        delete unused;
+        auto *taken = ring.takeCenterWidget();
+        QCOMPARE(taken, winner);
+        QCOMPARE(taken->parentWidget(), nullptr);
+        QVERIFY(taken->isHidden());
+        delete taken;
+
+        QPointer<ZzFluentUI::ZzProgressRing> victim = new ZzFluentUI::ZzProgressRing;
+        connect(victim, &ZzFluentUI::ZzProgressRing::centerWidgetChanged, victim,
+            [&] { delete victim.data(); });
+        victim->setCenterWidget(new QWidget);
+        QVERIFY(victim.isNull());
+    }
+
+    // External setParent must finish before notification slots can re-adopt that widget.
+    void externalReparentNotifiesAfterQtCompletesAndSuppressesStaleSignals()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        QWidget other;
+        auto *center = new QWidget;
+        ring.setCenterWidget(center);
+        bool inSetParent = false;
+        bool sawUnsafeNotification = false;
+        const auto connection = connect(&ring, &ZzFluentUI::ZzProgressRing::centerWidgetChanged,
+            &ring, [&](QWidget *current) {
+                if (!current) {
+                    sawUnsafeNotification |= inSetParent;
+                    ring.setCenterWidget(center);
+                }
+            });
+        inSetParent = true;
+        center->setParent(&other);
+        inSetParent = false;
+        QCOMPARE(ring.centerWidget(), nullptr);
+        QCoreApplication::processEvents();
+        QVERIFY(!sawUnsafeNotification);
+        QCOMPARE(ring.centerWidget(), center);
+        QCOMPARE(center->parentWidget(), &ring);
+        disconnect(connection);
+        QSignalSpy spy(&ring, &ZzFluentUI::ZzProgressRing::centerWidgetChanged);
+        center->setParent(&other);
+        auto *replacement = new QWidget;
+        ring.setCenterWidget(replacement);
+        QCoreApplication::processEvents();
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(ring.centerWidget(), replacement);
+    }
+
+    // A deleted sender and recursive thickness changes must not yield stale legacy notifications.
+    void thicknessSignalsTolerateDeletionAndRecursiveChanges()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        QSignalSpy widthSpy(&ring, &ZzFluentUI::ZzProgressRing::ringWidthChanged);
+        connect(&ring, &ZzFluentUI::ZzProgressRing::thicknessChanged, &ring, [&](qreal thickness) {
+            QCOMPARE(ring.thickness(), thickness);
+            QCOMPARE(ring.ringWidth(), qRound(thickness));
+            if (thickness == 6.5) ring.setThickness(9);
+        });
+        ring.setThickness(6.5);
+        QCOMPARE(ring.thickness(), 9.0);
+        QCOMPARE(widthSpy.count(), 1);
+        QCOMPARE(widthSpy.at(0).at(0).toInt(), 9);
+        QPointer<ZzFluentUI::ZzProgressRing> victim = new ZzFluentUI::ZzProgressRing;
+        connect(victim, &ZzFluentUI::ZzProgressRing::thicknessChanged, victim,
+            [&] { delete victim.data(); });
+        victim->setThickness(8.5);
+        QVERIFY(victim.isNull());
+    }
+
+    // A recursive fractional change with the same rounded result must still publish 6 -> 7.
+    void recursiveFractionalThicknessPublishesEffectiveIntegerChange()
+    {
+        ZzFluentUI::ZzProgressRing ring;
+        QSignalSpy widthSpy(&ring, &ZzFluentUI::ZzProgressRing::ringWidthChanged);
+        connect(&ring, &ZzFluentUI::ZzProgressRing::thicknessChanged, &ring,
+            [&](qreal thickness) {
+                if (thickness == 6.5) ring.setThickness(7.2);
+            });
+        ring.setThickness(6.5);
+        QCOMPARE(ring.thickness(), 7.2);
+        QCOMPARE(ring.ringWidth(), 7);
+        QCOMPARE(widthSpy.count(), 1);
+        QCOMPARE(widthSpy.at(0).at(0).toInt(), 7);
+    }
+
     /** @brief 放大圆环时中央数值随之放大，显式字体则保持调用方的选择。 */
     void scalesValueTextAndHonorsExplicitFont()
     {

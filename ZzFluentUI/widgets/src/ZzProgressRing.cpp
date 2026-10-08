@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 
 #include <QtCore/QEvent>
 #include <QtGui/QHideEvent>
@@ -25,7 +24,6 @@ constexpr int zzFullCircleDegrees = 360;
 constexpr int zzQtAngleScale = 16;
 /** @brief 圆环外围留白与文字到内圆的安全间距，单位逻辑像素。 */
 constexpr int zzRingOuterMargin = 2;
-constexpr int zzRingTextGap = 3;
 
 /** @brief 返回适合当前控件状态的 palette 颜色组。 */
 QPalette::ColorGroup zzProgressColorGroup(
@@ -83,23 +81,51 @@ ZzProgressRing::ZzProgressRing(QWidget *parent)
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
-ZzProgressRing::~ZzProgressRing() = default;
+ZzProgressRing::~ZzProgressRing()
+{
+    if (d_ptr->centerWidget) d_ptr->centerWidget->removeEventFilter(this);
+}
 
 int ZzProgressRing::ringWidth() const noexcept
 {
-    return d_ptr->ringWidth;
+    return qRound(d_ptr->thickness);
 }
 
 void ZzProgressRing::setRingWidth(int width)
 {
-    const int bounded = std::clamp(width, 1, zzMaximumRingWidth);
-    if (d_ptr->ringWidth == bounded) {
+    setThickness(width);
+}
+
+qreal ZzProgressRing::thickness() const noexcept
+{
+    return d_ptr->thickness;
+}
+
+void ZzProgressRing::setThickness(qreal thickness)
+{
+    if (!std::isfinite(thickness)) {
         return;
     }
-    d_ptr->ringWidth = bounded;
+    const qreal bounded = std::clamp(thickness, 1.0, qreal(zzMaximumRingWidth));
+    if (d_ptr->thickness == bounded) {
+        return;
+    }
+    d_ptr->thickness = bounded;
+    QPointer<ZzProgressRing> guard(this);
     updateGeometry();
     update();
-    Q_EMIT ringWidthChanged(bounded);
+    updateCenterWidgetGeometry();
+    if (!guard || d_ptr->thickness != bounded) {
+        return;
+    }
+    Q_EMIT thicknessChanged(bounded);
+    if (guard && d_ptr->notifiedRingWidth != ringWidth()) {
+        // Recursive fractional setters may share a rounded width. Compare with
+        // the last published integer, not the intermediate setter's input state.
+        const int width = ringWidth();
+        d_ptr->notifiedRingWidth = width;
+        Q_EMIT ringWidthChanged(width);
+    }
 }
 
 int ZzProgressRing::indeterminateDuration() const noexcept
@@ -131,7 +157,7 @@ QSize ZzProgressRing::minimumSizeHint() const
 {
     const int extent = std::max(
         zzMinimumExtent,
-        (2 * d_ptr->ringWidth) + (4 * zzRingOuterMargin));
+        qCeil(2 * d_ptr->thickness) + (4 * zzRingOuterMargin));
     return QSize(extent, extent);
 }
 
@@ -156,6 +182,11 @@ void ZzProgressRing::setMaximum(int maximum)
 void ZzProgressRing::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
+    QPointer<ZzProgressRing> guard(this);
+    updateCenterWidgetGeometry();
+    if (!guard) {
+        return;
+    }
     d_ptr->syncAnimation();
     QStyleOptionProgressBar option;
     initStyleOption(&option);
@@ -172,7 +203,7 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
         extent);
     const qreal maximumPenWidth = std::max(1.0, (extent / 2.0) - zzRingOuterMargin);
     const qreal penWidth = std::min(
-        static_cast<qreal>(d_ptr->ringWidth),
+        d_ptr->thickness,
         maximumPenWidth);
     const qreal inset = (penWidth / 2.0) + zzRingOuterMargin;
     const QRectF ringRect = square.adjusted(inset, inset, -inset, -inset);
@@ -181,10 +212,10 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
     }
 
     const QPalette::ColorGroup group = zzProgressColorGroup(option);
-    QColor trackColor = option.palette.color(group, QPalette::Mid);
-    QColor progressColor = option.palette.color(
-        group,
-        QPalette::Highlight);
+    QColor trackColor = d_ptr->trackColor.isValid() ? d_ptr->trackColor
+        : option.palette.color(group, QPalette::Mid);
+    QColor progressColor = d_ptr->ringColor.isValid() ? d_ptr->ringColor
+        : option.palette.color(group, QPalette::Accent);
     if (group == QPalette::Disabled) {
         const QColor background = option.palette.color(
             QPalette::Disabled,
@@ -232,34 +263,8 @@ void ZzProgressRing::paintEvent(QPaintEvent *event)
         }
     }
 
-    if (!d_ptr->isIndeterminate()
-        && option.textVisible
-        && !option.text.isEmpty()) {
-        // 内接正方形保证文字的四角也位于内圆中，不会压住圆环。
-        const qreal innerRadius = std::max(0.0,
-            (ringRect.width() - penWidth) / 2.0 - zzRingTextGap);
-        const qreal side = innerRadius * std::numbers::sqrt2_v<qreal>;
-        QRectF textBounds(0.0, 0.0, side, side);
-        textBounds.moveCenter(ringRect.center());
-        const QRect textRect = textBounds.toRect();
-        const QFont valueFont = d_ptr->valueFont();
-        const QFontMetrics metrics(valueFont);
-        if (!textRect.isEmpty() && metrics.height() <= textRect.height()) {
-            const QString visibleText = metrics.elidedText(
-                option.text,
-                Qt::ElideRight,
-                textRect.width());
-            painter.setFont(valueFont);
-            painter.setClipRect(textRect, Qt::IntersectClip);
-            style()->drawItemText(
-                &painter,
-                textRect,
-                Qt::AlignCenter | Qt::TextSingleLine,
-                option.palette,
-                isEnabled(),
-                visibleText,
-                QPalette::Text);
-        }
+    if (option.textVisible && !d_ptr->centerWidget) {
+        d_ptr->drawText(painter, centerContentRect());
     }
 }
 
@@ -285,6 +290,7 @@ void ZzProgressRing::changeEvent(QEvent *event)
     default:
         break;
     }
+    updateCenterWidgetGeometry();
 }
 
 void ZzProgressRing::showEvent(QShowEvent *event)

@@ -80,7 +80,9 @@ set(zz_fluent_ui_sources
     widgets/src/ZzToggleSwitch.cpp
     widgets/src/private/ZzToggleSwitchPrivate.cpp
     widgets/src/ZzProgressRing.cpp
+    widgets/src/ZzProgressRingContent.cpp
     widgets/src/private/ZzProgressRingPrivate.cpp
+    widgets/src/private/ZzProgressRingText.cpp
     widgets/src/ZzScrollBar.cpp
     widgets/src/private/ZzScrollBarPrivate.cpp
     widgets/src/ZzAnnotatedScrollBar.cpp

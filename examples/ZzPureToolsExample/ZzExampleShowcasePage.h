@@ -25,6 +25,7 @@ public:
         AudioLevelMeter,
         RadialGauge,
         LiquidGauge,
+        ProgressRing,
         Feedback,
         Icons
     };

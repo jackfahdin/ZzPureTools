@@ -198,6 +198,22 @@ private Q_SLOTS:
         QVERIFY(!box->isPasswordVisible());
     }
 
+    /** @brief 环形进度入口使用自定义组合页，并紧随水波页。 */
+    void progressRingRouteUsesCustomShowcase()
+    {
+        std::string_view previous;
+        bool found = false;
+        for (const auto &route : ZzExample::ZzExampleRouteCatalog::routes()) {
+            if (route.routeId == "progress-ring") {
+                QVERIFY(!route.controlKind.has_value());
+                QVERIFY(previous == "liquid-gauge");
+                found = true;
+            }
+            previous = route.routeId;
+        }
+        QVERIFY(found);
+    }
+
     void cleanupTestCase()
     {
         auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);

@@ -35,6 +35,7 @@ ZzProgressRingPrivate::ZzProgressRingPrivate(ZzProgressRing *q)
 
 ZzProgressRingPrivate::~ZzProgressRingPrivate()
 {
+    QObject::disconnect(centerDestroyedConnection);
     animation->stop();
     QObject::disconnect(animation, nullptr, q_ptr, nullptr);
 }
@@ -86,6 +87,9 @@ void ZzProgressRingPrivate::setIndeterminateDuration(int milliseconds)
 
 QFont ZzProgressRingPrivate::valueFont() const
 {
+    if (customValueFont != QFont()) {
+        return customValueFont;
+    }
     QFont result = q_ptr->font();
     if (!q_ptr->testAttribute(Qt::WA_SetFont)) {
         constexpr qreal valueExtentRatio = 0.18;
@@ -96,6 +100,19 @@ QFont ZzProgressRingPrivate::valueFont() const
             qRound(std::min(content.width(), content.height()) * valueExtentRatio),
             minimumValuePixels, maximumValuePixels));
         result.setWeight(QFont::DemiBold);
+    }
+    return result;
+}
+
+QFont ZzProgressRingPrivate::titleFont() const
+{
+    if (customTitleFont != QFont()) {
+        return customTitleFont;
+    }
+    QFont result = q_ptr->font();
+    if (!q_ptr->testAttribute(Qt::WA_SetFont)) {
+        result.setPixelSize(std::clamp(qRound(
+            std::min(q_ptr->width(), q_ptr->height()) * 0.09), 9, 14));
     }
     return result;
 }

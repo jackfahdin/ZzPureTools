@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QtWidgets/QProgressBar>
+#include <QtGui/QColor>
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 
@@ -10,6 +11,7 @@ class QEvent;
 class QHideEvent;
 class QPaintEvent;
 class QShowEvent;
+class QResizeEvent;
 
 namespace ZzFluentUI {
 
@@ -34,6 +36,17 @@ class ZZ_FLUENT_UI_EXPORT ZzProgressRing final : public QProgressBar
         NOTIFY ringWidthChanged)
     Q_PROPERTY(int indeterminateDuration READ indeterminateDuration
         WRITE setIndeterminateDuration NOTIFY indeterminateDurationChanged)
+    Q_PROPERTY(qreal thickness READ thickness WRITE setThickness NOTIFY thicknessChanged)
+    Q_PROPERTY(QColor ringColor READ ringColor WRITE setRingColor NOTIFY ringColorChanged)
+    Q_PROPERTY(QColor trackColor READ trackColor WRITE setTrackColor NOTIFY trackColorChanged)
+    Q_PROPERTY(QString title READ title WRITE setTitle NOTIFY titleChanged)
+    Q_PROPERTY(QFont titleFont READ titleFont WRITE setTitleFont NOTIFY titleFontChanged)
+    Q_PROPERTY(QFont valueFont READ valueFont WRITE setValueFont NOTIFY valueFontChanged)
+    Q_PROPERTY(QColor titleColor READ titleColor WRITE setTitleColor NOTIFY titleColorChanged)
+    Q_PROPERTY(QColor valueColor READ valueColor WRITE setValueColor NOTIFY valueColorChanged)
+    Q_PROPERTY(int textSpacing READ textSpacing WRITE setTextSpacing NOTIFY textSpacingChanged)
+    Q_PROPERTY(QWidget* centerWidget READ centerWidget WRITE setCenterWidget NOTIFY centerWidgetChanged)
+    Q_PROPERTY(bool textVisible READ isTextVisible WRITE setTextVisible)
 
 public:
     /**
@@ -53,6 +66,36 @@ public:
      * @param width 逻辑像素；收敛到 1 至 64。
      */
     void setRingWidth(int width);
+
+    /** @brief 逻辑像素厚度，支持小数；收敛至 [1,64]，忽略非有限值。 */
+    [[nodiscard]] qreal thickness() const noexcept;
+    void setThickness(qreal thickness);
+    /** @brief 无效颜色恢复 palette 的 Accent / Mid。 */
+    [[nodiscard]] QColor ringColor() const;
+    void setRingColor(QColor color);
+    [[nodiscard]] QColor trackColor() const;
+    void setTrackColor(QColor color);
+    [[nodiscard]] QString title() const;
+    void setTitle(QString title);
+    /** @brief 默认 QFont() 使用尺寸适配字体；显式 setFont() 仍有效。 */
+    [[nodiscard]] QFont titleFont() const;
+    void setTitleFont(QFont font);
+    [[nodiscard]] QFont valueFont() const;
+    void setValueFont(QFont font);
+    /** @brief 无效颜色恢复 palette 文本色，标题默认降低不透明度。 */
+    [[nodiscard]] QColor titleColor() const;
+    void setTitleColor(QColor color);
+    [[nodiscard]] QColor valueColor() const;
+    void setValueColor(QColor color);
+    [[nodiscard]] int textSpacing() const noexcept;
+    void setTextSpacing(int spacing);
+    [[nodiscard]] QWidget *centerWidget() const noexcept;
+    /** @brief 接管 widget 并删除旧中心；拒绝自身、祖先及旧中心后代。 */
+    void setCenterWidget(QWidget *widget);
+    /** @brief 隐藏、解除父对象并返回中心控件；调用方接管所有权。 */
+    [[nodiscard]] QWidget *takeCenterWidget();
+    /** @brief 同时同步内置文字和中心控件的可见性。 */
+    void setTextVisible(bool visible);
 
     /** @brief 返回忙碌圆弧旋转一周的毫秒数，默认 800。 */
     [[nodiscard]] int indeterminateDuration() const noexcept;
@@ -96,8 +139,20 @@ Q_SIGNALS:
 
     /** @brief 有效旋转周期实际改变后发出，单位毫秒。 */
     void indeterminateDurationChanged(int milliseconds);
+    void thicknessChanged(qreal thickness);
+    void ringColorChanged(QColor color);
+    void trackColorChanged(QColor color);
+    void titleChanged(QString title);
+    void titleFontChanged(QFont font);
+    void valueFontChanged(QFont font);
+    void titleColorChanged(QColor color);
+    void valueColorChanged(QColor color);
+    void textSpacingChanged(int spacing);
+    void centerWidgetChanged(QWidget *widget);
 
 protected:
+    void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     /** @brief 使用 palette、范围和值绘制圆环和可选文本。 */
     void paintEvent(QPaintEvent *event) override;
 
@@ -111,6 +166,9 @@ protected:
     void hideEvent(QHideEvent *event) override;
 
 private:
+    [[nodiscard]] QRectF centerContentRect() const;
+    void updateCenterWidgetGeometry();
+    void releaseCenterWidget();
     std::unique_ptr<ZzProgressRingPrivate> d_ptr;
 };
 

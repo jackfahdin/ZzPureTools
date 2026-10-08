@@ -90,6 +90,76 @@ constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
 
+/** @brief 验证环形进度条的真实属性连接与中心控件交互。 */
+[[nodiscard]] bool zzProgressRingPageReady(const QWidget &window, ZzFluentUI::ZzThemeController *theme)
+{
+    using Ring = ZzFluentUI::ZzProgressRing;
+    auto *page = window.findChild<QWidget *>(QStringLiteral("zzExampleProgressRingPage"));
+    if (!page) return false;
+    auto *ring = page->findChild<Ring *>(QStringLiteral("zzProgressRingPreview"));
+    auto *value = page->findChild<QSlider *>(QStringLiteral("zzProgressRingValue"));
+    auto *title = page->findChild<QLineEdit *>(QStringLiteral("zzProgressRingTitle"));
+    auto *format = page->findChild<QLineEdit *>(QStringLiteral("zzProgressRingFormat"));
+    auto *duration = page->findChild<QSpinBox *>(QStringLiteral("zzProgressRingDuration"));
+    auto *thickness = page->findChild<QDoubleSpinBox *>(QStringLiteral("zzProgressRingThickness"));
+    auto *titleSize = page->findChild<QSpinBox *>(QStringLiteral("zzProgressRingTitleSize"));
+    auto *valueSize = page->findChild<QSpinBox *>(QStringLiteral("zzProgressRingValueSize"));
+    auto *spacing = page->findChild<QSpinBox *>(QStringLiteral("zzProgressRingSpacing"));
+    auto *busy = page->findChild<QCheckBox *>(QStringLiteral("zzProgressRingBusy"));
+    auto *custom = page->findChild<QCheckBox *>(QStringLiteral("zzProgressRingCustom"));
+    auto *visible = page->findChild<QCheckBox *>(QStringLiteral("zzProgressRingTextVisible"));
+    auto *disabled = page->findChild<QCheckBox *>(QStringLiteral("zzProgressRingDisabled"));
+    auto *automatic = page->findChild<QCheckBox *>(QStringLiteral("zzProgressRingAuto_ringColor"));
+    auto *color = page->findChild<QWidget *>(QStringLiteral("zzProgressRingColor_ringColor"));
+    auto *reset = page->findChild<QPushButton *>(QStringLiteral("zzProgressRingReset"));
+    if (!ring || !value || !title || !format || !duration || !thickness || !titleSize || !valueSize
+        || !spacing || !busy || !custom || !visible || !disabled || !automatic || !color || !reset) return false;
+    bool ready = page->findChildren<Ring *>().size() == 7;
+    value->setValue(42);
+    title->setText(QStringLiteral("Edited"));
+    format->setText(QStringLiteral("%v / %m"));
+    duration->setValue(1600);
+    thickness->setValue(8.5);
+    titleSize->setValue(15);
+    valueSize->setValue(26);
+    spacing->setValue(8);
+    ready = ready && ring->value() == 42 && ring->title() == QStringLiteral("Edited")
+        && ring->text() == QStringLiteral("42 / 100") && ring->indeterminateDuration() == 1600
+        && qFuzzyCompare(ring->thickness(), 8.5) && ring->titleFont().pixelSize() == 15
+        && ring->valueFont().pixelSize() == 26 && ring->textSpacing() == 8;
+    automatic->setChecked(false);
+    ready = ready && ring->ringColor() == color->property("selectedColor").value<QColor>();
+    color->setProperty("selectedColor", QColor(Qt::red));
+    const auto mode = theme->mode();
+    theme->setMode(ZzFluentUI::ZzThemeMode::Dark);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+    ready = ready && ring->ringColor() == QColor(Qt::red)
+        && color->property("selectedColor").value<QColor>() == QColor(Qt::red);
+    theme->setMode(mode);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+    busy->setChecked(true);
+    ready = ready && ring->minimum() == 0 && ring->maximum() == 0 && !value->isEnabled();
+    custom->setChecked(true);
+    QPointer<QWidget> center = ring->centerWidget();
+    auto *restart = ring->findChild<QPushButton *>(QStringLiteral("zzProgressRingRestart"));
+    if (!center || !restart) return false;
+    restart->click();
+    ready = ready && ring->value() == 0 && ring->maximum() == 100 && value->isEnabled();
+    visible->setChecked(false);
+    static_cast<void>(ring->grab());
+    ready = ready && center->isHidden();
+    disabled->setChecked(true);
+    reset->click();
+    ready = ready && center.isNull() && !ring->centerWidget() && !custom->isChecked()
+        && ring->value() == 65 && ring->isEnabled() && ring->isTextVisible()
+        && ring->title() == QCoreApplication::translate("ZzPureToolsExample", "已完成")
+        && ring->format() == QStringLiteral("%p%") && qFuzzyCompare(ring->thickness(), 6.0)
+        && ring->indeterminateDuration() == 800 && ring->titleFont().pixelSize() == 12
+        && ring->valueFont().pixelSize() == 24 && ring->textSpacing() == 4
+        && !ring->ringColor().isValid() && automatic->isChecked() && !color->isEnabled();
+    return ready;
+}
+
 /** @brief 验证水波页的联动、主题色选择与恢复默认。 */
 [[nodiscard]] bool zzLiquidGaugePageReady(const QWidget &window)
 {
@@ -971,6 +1041,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke liquid gauge integration failed");
                 return;
             }
+            if (routeId == QStringLiteral("progress-ring") && !zzProgressRingPageReady(window, theme)) {
+                fail("route smoke progress ring integration failed");
+                return;
+            }
             if (!previewDirectory.isEmpty()) {
                 // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
@@ -981,9 +1055,11 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                     return;
                 }
                 if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")
-                    || routeId == QStringLiteral("liquid-gauge")) {
+                    || routeId == QStringLiteral("liquid-gauge") || routeId == QStringLiteral("progress-ring")) {
                     const bool liquid = routeId == QStringLiteral("liquid-gauge");
-                    auto *page = window.findChild<QWidget *>(liquid ? QStringLiteral("zzExampleLiquidGaugePage")
+                    const bool progressRing = routeId == QStringLiteral("progress-ring");
+                    auto *page = window.findChild<QWidget *>(progressRing ? QStringLiteral("zzExampleProgressRingPage")
+                        : liquid ? QStringLiteral("zzExampleLiquidGaugePage")
                         : routeId == QStringLiteral("radial-gauge") ? QStringLiteral("zzExampleRadialGaugePage")
                         : QStringLiteral("zzExampleAudioLevelMeterPage"));
                     auto *scroll = page ? page->findChild<QScrollArea *>() : nullptr;
@@ -1015,6 +1091,31 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                             }
                         }
                         tabs->setCurrentIndex(0);
+                        theme->setMode(originalMode);
+                        theme->setReducedMotion(reducedMotion);
+                        QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+                    }
+                    if (progressRing) {
+                        const auto originalMode = theme->mode();
+                        const bool reducedMotion = theme->reducedMotion();
+                        theme->setReducedMotion(true);
+                        auto *custom = page->findChild<QCheckBox *>(QStringLiteral("zzProgressRingCustom"));
+                        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
+                            theme->setMode(mode);
+                            QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+                            for (int index = 0; index < 2; ++index) {
+                                custom->setChecked(index == 1);
+                                QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
+                                const QString name = mode == ZzFluentUI::ZzThemeMode::Dark
+                                    ? QStringLiteral("dark") : QStringLiteral("light");
+                                if (!scroll->widget()->grab().save(QDir(previewDirectory).filePath(
+                                        QStringLiteral("progress-ring-%1-%2.png").arg(name).arg(index)))) {
+                                    fail("could not export progress ring editor preview");
+                                    return;
+                                }
+                            }
+                        }
+                        custom->setChecked(false);
                         theme->setMode(originalMode);
                         theme->setReducedMotion(reducedMotion);
                         QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);

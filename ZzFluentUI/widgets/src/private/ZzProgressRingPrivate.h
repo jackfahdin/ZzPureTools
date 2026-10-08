@@ -2,8 +2,14 @@
 
 #include <QtCore/qglobal.h>
 #include <QtGui/QFont>
+#include <QtGui/QColor>
+#include <QtCore/QPointer>
+#include <QtCore/QMetaObject>
+#include <QtCore/QString>
 
 class QVariantAnimation;
+class QPainter;
+class QWidget;
 
 namespace ZzFluentUI {
 
@@ -33,12 +39,26 @@ public:
 
     /** @brief 返回显式字体或按圆环短边自动缩放的数值字体。 */
     [[nodiscard]] QFont valueFont() const;
+    [[nodiscard]] QFont titleFont() const;
+    void drawText(QPainter &painter, const QRectF &contentRect) const;
 
     ZzProgressRing *const q_ptr;
     QVariantAnimation *const animation;
     qreal phase = 0.0;
-    int ringWidth = 6;
+    qreal thickness = 6.0;
+    int notifiedRingWidth = 6;
     int indeterminateDuration = 800;
+    QString title;
+    QFont customTitleFont;
+    QFont customValueFont;
+    QColor ringColor;
+    QColor trackColor;
+    QColor titleColor;
+    QColor valueColor;
+    int textSpacing = 4;
+    QPointer<QWidget> centerWidget;
+    QMetaObject::Connection centerDestroyedConnection;
+    quint64 centerRevision = 0;
 };
 
 } // namespace ZzFluentUI

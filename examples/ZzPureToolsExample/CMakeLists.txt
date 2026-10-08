@@ -34,6 +34,7 @@ set(zz_pure_tools_example_sources
     ZzExampleAudioLevelMeterPage.cpp
     ZzExampleRadialGaugePage.cpp
     ZzExampleLiquidGaugePage.cpp
+    ZzExampleProgressRingPage.cpp
     ZzExampleRadialGaugeHelpers.h
     ZzExampleRadialGaugeHelpers.cpp
     ZzExampleRadialGaugePresets.cpp

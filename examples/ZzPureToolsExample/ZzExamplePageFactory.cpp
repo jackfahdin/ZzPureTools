@@ -71,6 +71,9 @@ zzDataPageKind(const ZzPureTools::ZzRouteId &routeId)
 [[nodiscard]] std::optional<ZzExampleShowcasePage::ZzPageKind>
 zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
 {
+    if (routeId.value() == QStringLiteral("progress-ring")) {
+        return ZzExampleShowcasePage::ZzPageKind::ProgressRing;
+    }
     if (routeId.value() == QStringLiteral("liquid-gauge")) {
         return ZzExampleShowcasePage::ZzPageKind::LiquidGauge;
     }

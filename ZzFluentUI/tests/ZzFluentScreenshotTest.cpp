@@ -7600,6 +7600,80 @@ private Q_SLOTS:
 
     void rendersLiquidGaugeThemes_data() { rendersRangeSliderThemes_data(); }
 
+    void rendersProgressRingContentThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 标题、独立字体/颜色、半像素环宽以及替代中央文字的控件。 */
+    void rendersProgressRingContentThemes()
+    {
+        using Ring = ZzFluentUI::ZzProgressRing;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(700, 356);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+        for (int index = 0; index < 8; ++index) {
+            auto *ring = new Ring(&surface);
+            ring->setFixedSize(160, 160);
+            ring->setValue(index == 0 ? 0 : index == 1 ? 100 : 65);
+            if (index > 1) ring->setTitle(QStringLiteral("Completed"));
+            if (index == 3) {
+                ring->setThickness(8.5);
+                ring->setRingColor(QColor("#13c2c2"));
+                ring->setTrackColor(QColor("#888888"));
+                ring->setTitleColor(QColor("#b060d0"));
+                ring->setValueColor(QColor("#1677ff"));
+                QFont title = ring->font();
+                title.setPixelSize(12);
+                ring->setTitleFont(title);
+                QFont value = ring->font();
+                value.setPixelSize(24);
+                value.setBold(true);
+                ring->setValueFont(value);
+                ring->setTextSpacing(8);
+                ring->setFormat(QStringLiteral("%v / %m"));
+            }
+            if (index == 4) {
+                auto *label = new QLabel(QStringLiteral("Custom\ncenter"));
+                label->setAlignment(Qt::AlignCenter);
+                ring->setCenterWidget(label);
+            }
+            if (index == 5) ring->setTextVisible(false);
+            if (index == 6) ring->setEnabled(false);
+            if (index == 7) ring->setRange(0, 0);
+            grid->addWidget(ring, index / 4, index % 4);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("progress-ring-content-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
+
     /** @brief 四种裁剪形状、空满液面、双层水波、文字与禁用效果。 */
     void rendersLiquidGaugeThemes()
     {
