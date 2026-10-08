@@ -44,6 +44,15 @@ zz_configure_library_target(ZzFluentFoundation
 )
 
 set(zz_fluent_ui_sources
+    widgets/src/ZzRadialGauge.cpp
+    widgets/src/private/ZzRadialGaugePaint.cpp
+    widgets/src/private/ZzRadialGaugeProperties.cpp
+    widgets/src/ZzMultiRadialGauge.cpp
+    widgets/src/private/ZzMultiRadialGaugePaint.cpp
+    widgets/src/private/ZzMultiRadialGaugeProperties.cpp
+    widgets/src/ZzMultiProgressRing.cpp
+    widgets/src/private/ZzMultiProgressRingPaint.cpp
+    widgets/src/private/ZzMultiProgressRingProperties.cpp
     widgets/src/ZzAudioLevelMeter.cpp
     widgets/src/private/ZzAudioLevelMeterPrivate.cpp
     widgets/src/private/ZzAudioLevelMeterPaint.cpp
@@ -172,6 +181,9 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
+    widgets/include/ZzFluentUI/ZzRadialGauge.h
+    widgets/include/ZzFluentUI/ZzMultiRadialGauge.h
+    widgets/include/ZzFluentUI/ZzMultiProgressRing.h
     widgets/include/ZzFluentUI/ZzAudioLevelMeter.h
     widgets/include/ZzFluentUI/ZzSliderValueTip.h
     widgets/include/ZzFluentUI/ZzRangeSlider.h

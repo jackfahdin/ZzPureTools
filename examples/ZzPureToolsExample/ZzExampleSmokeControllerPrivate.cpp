@@ -15,6 +15,7 @@
 #include <QtCore/QModelIndex>
 #include <QtCore/QPointer>
 #include <QtCore/QRect>
+#include <QtCore/QSignalBlocker>
 #include <QtCore/QString>
 #include <QtCore/QTimer>
 #include <QtGui/QAction>
@@ -51,6 +52,9 @@
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzRangeSlider.h>
 #include <ZzFluentUI/ZzAudioLevelMeter.h>
+#include <ZzFluentUI/ZzRadialGauge.h>
+#include <ZzFluentUI/ZzMultiRadialGauge.h>
+#include <ZzFluentUI/ZzMultiProgressRing.h>
 #include <ZzFluentUI/ZzBorderBeam.h>
 #include <ZzFluentUI/ZzBorderBeamButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
@@ -84,6 +88,108 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
+
+/** @brief 验证仪表页的真实属性连接、公共联动与重置。 */
+[[nodiscard]] bool zzRadialGaugePageReady(const QWidget &window, ZzFluentUI::ZzThemeController *theme)
+{
+    using namespace ZzFluentUI;
+    auto *page = window.findChild<QWidget *>(QStringLiteral("zzExampleRadialGaugePage"));
+    if (!page) return false;
+    auto *gauge = page->findChild<ZzRadialGauge *>(QStringLiteral("radialGaugePreview"));
+    auto *ring = page->findChild<ZzMultiProgressRing *>(QStringLiteral("multiProgressRingPreview"));
+    auto *multi = page->findChild<ZzMultiRadialGauge *>(QStringLiteral("multiRadialGaugePreview"));
+    auto *tabs = page->findChild<QTabWidget *>(QStringLiteral("zzRadialPropertyTabs"));
+    auto *shared = page->findChild<QSlider *>(QStringLiteral("zzRadialSharedValue"));
+    auto *value = page->findChild<QSlider *>(QStringLiteral("zzRadialEditor_valueSlider"));
+    auto *width = page->findChild<QSlider *>(QStringLiteral("zzRadialEditor_needleWidthSlider"));
+    auto *reset = page->findChild<QPushButton *>(QStringLiteral("zzRadialEditor_resetButton"));
+    auto *ringValue = page->findChild<QSlider *>(QStringLiteral("zzRadialEditor_perfectValueSlider"));
+    auto *ringLabel = page->findChild<QLineEdit *>(QStringLiteral("zzRadialEditor_perfectLabelEdit"));
+    auto *ringTrackColor = page->findChild<QObject *>(QStringLiteral("zzRadialEditor_ringTrackColorButton"));
+    auto *overlap = page->findChild<QCheckBox *>(QStringLiteral("zzRadialEditor_multiGaugeProgressOverlapCheck"));
+    auto *autoDetailColor = page->findChild<QCheckBox *>(QStringLiteral("zzRadialEditor_autoDetailTextColorCheck"));
+    auto *detailColor = page->findChild<QWidget *>(QStringLiteral("zzRadialEditor_multiGaugeDetailTextColorButton"));
+    if (!gauge || !ring || !multi || !tabs || tabs->count() != 3 || !shared
+        || !value || !width || !reset || !ringValue || !ringLabel || !overlap || !ringTrackColor
+        || !autoDetailColor || !detailColor
+        || ring->items().size() != 3 || multi->items().size() != 3) return false;
+    const bool reducedMotion = theme->reducedMotion();
+    theme->setReducedMotion(true);
+    shared->setValue(37);
+    bool ready = true;
+    int matchingSamples = 0;
+    for (auto *sample : page->findChildren<ZzRadialGauge *>())
+        matchingSamples += sample != gauge && sample->value() == 37;
+    ready = ready && matchingSamples == 3;
+    shared->setValue(70);
+    value->setValue(123);
+    width->setValue(17);
+    ready = ready && gauge->value() == 123 && qFuzzyCompare(gauge->needleWidth(), 8.5);
+    reset->click();
+    ready = ready && gauge->value() == 210 && qFuzzyCompare(gauge->needleWidth(), 5.0)
+        && gauge->valueAnimationDuration() == 500 && qFuzzyCompare(gauge->hubRadius(), 11.0);
+    tabs->setCurrentIndex(1);
+    const QString label = ringLabel->text();
+    ringValue->setValue(73);
+    ringLabel->setText(QStringLiteral("Edited"));
+    ready = ready && qFuzzyCompare(ring->items().first()->value(), 73.0)
+        && ring->items().first()->label() == QStringLiteral("Edited");
+    ringValue->setValue(20);
+    ringLabel->setText(label);
+    tabs->setCurrentIndex(2);
+    const bool oldOverlap = overlap->isChecked();
+    overlap->setChecked(!oldOverlap);
+    ready = ready && multi->isProgressOverlap() == !oldOverlap;
+    overlap->setChecked(oldOverlap);
+    const bool originalAutoDetailColor = autoDetailColor->isChecked();
+    const QColor originalDetailColor = multi->detailTextColor();
+    const QVariant originalDetailSelection = detailColor->property("selectedColor");
+    ready = ready && originalAutoDetailColor && !originalDetailColor.isValid() && !detailColor->isEnabled();
+    detailColor->setProperty("selectedColor", QColor(Qt::white));
+    autoDetailColor->setChecked(false);
+    ready = ready && detailColor->isEnabled() && multi->detailTextColor() == QColor(Qt::white);
+    autoDetailColor->setChecked(true);
+    ready = ready && !detailColor->isEnabled() && !multi->detailTextColor().isValid();
+    {
+        const QSignalBlocker blocker(detailColor);
+        detailColor->setProperty("selectedColor", originalDetailSelection);
+    }
+    autoDetailColor->setChecked(originalAutoDetailColor);
+    multi->setDetailTextColor(originalDetailColor);
+    tabs->setCurrentIndex(0);
+    const auto originalMode = theme->mode();
+    const QColor originalTrackColor = ring->trackColor();
+    const QVariant originalTrackSelection = ringTrackColor->property("selectedColor");
+    ringTrackColor->setProperty("selectedColor", QColor(Qt::red));
+    ready = ready && ring->trackColor() == QColor(Qt::red);
+    tabs->setCurrentIndex(1);
+    auto *classic = page->findChild<ZzRadialGauge *>(QStringLiteral("zzRadialSample0"));
+    auto *speed = page->findChild<ZzRadialGauge *>(QStringLiteral("zzRadialSample2"));
+    for (const auto mode : {ZzThemeMode::Dark, ZzThemeMode::Light}) {
+        theme->setMode(mode);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+        QEvent trackPaletteChange(QEvent::PaletteChange);
+        QCoreApplication::sendEvent(ringTrackColor, &trackPaletteChange);
+        QColor expected = classic ? classic->palette().color(QPalette::Text) : QColor();
+        expected.setAlpha(220);
+        ready = ready && classic && speed && classic->palette().color(QPalette::Mid) == expected
+            && speed->tickColor() == expected
+            && (classic->palette().color(QPalette::Window).lightness() < 128) == (mode == ZzThemeMode::Dark);
+        ready = ready && ring->trackColor() == QColor(Qt::red)
+            && ringTrackColor->property("selectedColor").value<QColor>() == QColor(Qt::red);
+    }
+    theme->setMode(originalMode);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+    {
+        const QSignalBlocker blocker(ringTrackColor);
+        ringTrackColor->setProperty("selectedColor", originalTrackSelection);
+    }
+    ring->setTrackColor(originalTrackColor);
+    tabs->setCurrentIndex(0);
+    theme->setReducedMotion(reducedMotion);
+    return ready;
+}
+
 
 /** @brief 验证真实音频页编辑器连接，并恢复初始展示。 */
 [[nodiscard]] bool zzAudioLevelMeterPageReady(const QWidget &window, ZzFluentUI::ZzThemeController *theme)
@@ -807,6 +913,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
             }
             const QString previewDirectory = qEnvironmentVariable(
                 "ZZ_EXAMPLE_ROUTE_SCREENSHOT_DIR");
+            if (routeId == QStringLiteral("radial-gauge") && !zzRadialGaugePageReady(window, theme)) {
+                fail("route smoke radial gauge integration failed");
+                return;
+            }
             if (!previewDirectory.isEmpty()) {
                 // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
@@ -816,14 +926,37 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                     fail("could not export route preview", routeId);
                     return;
                 }
-                if (routeId == QStringLiteral("audio-level-meter")) {
-                    auto *page = window.findChild<QWidget *>(QStringLiteral("zzExampleAudioLevelMeterPage"));
+                if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")) {
+                    auto *page = window.findChild<QWidget *>(routeId == QStringLiteral("radial-gauge")
+                            ? QStringLiteral("zzExampleRadialGaugePage") : QStringLiteral("zzExampleAudioLevelMeterPage"));
                     auto *scroll = page ? page->findChild<QScrollArea *>() : nullptr;
                     if (!scroll || !scroll->widget()
                         || !scroll->widget()->grab().save(QDir(previewDirectory).filePath(
-                            QStringLiteral("audio-level-meter-content.png")))) {
-                        fail("could not export audio meter content preview");
+                            routeId + QStringLiteral("-content.png")))) {
+                        fail("could not export custom widget content preview");
                         return;
+                    }
+                    if (routeId == QStringLiteral("radial-gauge")) {
+                        auto *tabs = page->findChild<QTabWidget *>(QStringLiteral("zzRadialPropertyTabs"));
+                        const auto originalMode = theme->mode();
+                        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
+                            theme->setMode(mode);
+                            QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
+                            const QString name = mode == ZzFluentUI::ZzThemeMode::Dark
+                                ? QStringLiteral("dark") : QStringLiteral("light");
+                            for (int index = 0; index < tabs->count(); ++index) {
+                                tabs->setCurrentIndex(index);
+                                QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
+                                if (!scroll->widget()->grab().save(QDir(previewDirectory).filePath(
+                                    QStringLiteral("radial-gauge-%1-%2.png").arg(name).arg(index)))) {
+                                    fail("could not export radial gauge editor preview");
+                                    return;
+                                }
+                            }
+                        }
+                        tabs->setCurrentIndex(0);
+                        theme->setMode(originalMode);
+                        QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
                     }
                 }
             }

@@ -149,6 +149,16 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::RadialGauge:
+        q_ptr->setObjectName(QStringLiteral("zzExampleRadialGaugePage"));
+        {
+            auto font = titleLabel->font();
+            font.setPointSize(16);
+            font.setBold(true);
+            titleLabel->setFont(font);
+        }
+        buildRadialGauge(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::AudioLevelMeter:
         q_ptr->setObjectName(QStringLiteral("zzExampleAudioLevelMeterPage"));
         {

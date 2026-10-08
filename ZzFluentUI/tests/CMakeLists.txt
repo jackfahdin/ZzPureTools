@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzRadialGaugeTest ZzRadialGaugeTest.cpp)
+target_link_libraries(ZzRadialGaugeTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzRadialGaugeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzRadialGaugeTest)
+zz_enable_sanitizers(ZzRadialGaugeTest)
+add_test(NAME fluent.radial-gauge COMMAND ZzRadialGaugeTest)
+set_tests_properties(fluent.radial-gauge PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzBorderBeamTest ZzBorderBeamTest.cpp)
 target_link_libraries(ZzBorderBeamTest PRIVATE Qt6::Test Zz::FluentUI)
 set_target_properties(ZzBorderBeamTest PROPERTIES AUTOMOC ON)

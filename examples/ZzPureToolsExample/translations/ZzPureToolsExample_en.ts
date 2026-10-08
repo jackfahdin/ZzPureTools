@@ -4,6 +4,594 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+      <source>基于 QDial 的径向仪表盘，保留范围、数值和交互能力；同一控件可组合 Track、Progress、Ranges 刻度环、数字标签和不同指针样式。</source>
+      <translation>A radial gauge based on QDial, preserving range, value and interaction. Combine Track, Progress or Ranges scales, numeric labels and different needle styles.</translation>
+    </message>
+    <message>
+      <source>同一控件的三种配置</source>
+      <translation>Three configurations of one control</translation>
+    </message>
+    <message>
+      <source>经典指针</source>
+      <translation>Classic needle</translation>
+    </message>
+    <message>
+      <source>进度指针</source>
+      <translation>Progress needle</translation>
+    </message>
+    <message>
+      <source>彩色区间</source>
+      <translation>Colored ranges</translation>
+    </message>
+    <message>
+      <source>公共数值</source>
+      <translation>Shared value</translation>
+    </message>
+    <message>
+      <source>ECharts 仪表盘配置</source>
+      <translation>ECharts gauge presets</translation>
+    </message>
+    <message>
+      <source>单值示例由 ZzRadialGauge 的属性组合；多标题示例使用 ZzMultiRadialGauge，共享刻度并绘制多条进度和指针。</source>
+      <translation>Single-value presets combine ZzRadialGauge properties. Multi-title presets use ZzMultiRadialGauge to share a scale with multiple progress arcs and needles.</translation>
+    </message>
+    <message>
+      <source>基础仪表盘</source>
+      <translation>Basic gauge</translation>
+    </message>
+    <message>
+      <source>简单仪表盘</source>
+      <translation>Simple gauge</translation>
+    </message>
+    <message>
+      <source>速度仪表盘</source>
+      <translation>Speed gauge</translation>
+    </message>
+    <message>
+      <source>进度仪表盘</source>
+      <translation>Progress gauge</translation>
+    </message>
+    <message>
+      <source>阶段速度仪表盘</source>
+      <translation>Stage speed gauge</translation>
+    </message>
+    <message>
+      <source>等级仪表盘</source>
+      <translation>Grade gauge</translation>
+    </message>
+    <message>
+      <source>多标题仪表盘</source>
+      <translation>Multi-title gauge</translation>
+    </message>
+    <message>
+      <source>气温仪表盘</source>
+      <translation>Temperature gauge</translation>
+    </message>
+    <message>
+      <source>得分环</source>
+      <translation>Score rings</translation>
+    </message>
+    <message>
+      <source>气压表</source>
+      <translation>Barometer</translation>
+    </message>
+    <message>
+      <source>公共百分比（拖动后同步）</source>
+      <translation>Shared percentage (drag to sync)</translation>
+    </message>
+    <message>
+      <source>刻度与标签</source>
+      <translation>Ticks and labels</translation>
+    </message>
+    <message>
+      <source>指针与文本</source>
+      <translation>Needle and text</translation>
+    </message>
+    <message>
+      <source>进度渐变</source>
+      <translation>Progress gradient</translation>
+    </message>
+    <message>
+      <source>Track（纯轨道）</source>
+      <translation>Track</translation>
+    </message>
+    <message>
+      <source>Progress（数值进度）</source>
+      <translation>Progress</translation>
+    </message>
+    <message>
+      <source>Ranges（彩色区间）</source>
+      <translation>Ranges</translation>
+    </message>
+    <message>
+      <source>FlatCap</source>
+      <translation>FlatCap</translation>
+    </message>
+    <message>
+      <source>SquareCap</source>
+      <translation>SquareCap</translation>
+    </message>
+    <message>
+      <source>RoundCap</source>
+      <translation>RoundCap</translation>
+    </message>
+    <message>
+      <source>允许鼠标、键盘和滚轮交互</source>
+      <translation>Enable mouse, keyboard and wheel interaction</translation>
+    </message>
+    <message>
+      <source>显示数值</source>
+      <translation>Show value</translation>
+    </message>
+    <message>
+      <source>进度环使用渐变色</source>
+      <translation>Use a gradient for the progress arc</translation>
+    </message>
+    <message>
+      <source>显示指针扫过扇形</source>
+      <translation>Show needle sweep sector</translation>
+    </message>
+    <message>
+      <source>中心</source>
+      <translation>Center</translation>
+    </message>
+    <message>
+      <source>底部</source>
+      <translation>Bottom</translation>
+    </message>
+    <message>
+      <source>显示刻度数值</source>
+      <translation>Show tick labels</translation>
+    </message>
+    <message>
+      <source>显示指针轴心</source>
+      <translation>Show needle hub</translation>
+    </message>
+    <message>
+      <source>无指针</source>
+      <translation>No needle</translation>
+    </message>
+    <message>
+      <source>线形指针</source>
+      <translation>Line needle</translation>
+    </message>
+    <message>
+      <source>三角指针</source>
+      <translation>Triangle needle</translation>
+    </message>
+    <message>
+      <source>禁用状态</source>
+      <translation>Disabled</translation>
+    </message>
+    <message>
+      <source>Scale 模式</source>
+      <translation>Scale mode</translation>
+    </message>
+    <message>
+      <source>数值</source>
+      <translation>Value</translation>
+    </message>
+    <message>
+      <source>数值动画时长</source>
+      <translation>Value animation duration</translation>
+    </message>
+    <message>
+      <source>刻度环宽度</source>
+      <translation>Scale width</translation>
+    </message>
+    <message>
+      <source>起始角度</source>
+      <translation>Start angle</translation>
+    </message>
+    <message>
+      <source>结束角度</source>
+      <translation>End angle</translation>
+    </message>
+    <message>
+      <source>外圈边距</source>
+      <translation>Outer padding</translation>
+    </message>
+    <message>
+      <source>Track 颜色</source>
+      <translation>Track color</translation>
+    </message>
+    <message>
+      <source>主刻度数量</source>
+      <translation>Major tick count</translation>
+    </message>
+    <message>
+      <source>每段次刻度数量</source>
+      <translation>Minor ticks per interval</translation>
+    </message>
+    <message>
+      <source>次刻度长度</source>
+      <translation>Minor tick length</translation>
+    </message>
+    <message>
+      <source>次刻度宽度</source>
+      <translation>Minor tick width</translation>
+    </message>
+    <message>
+      <source>主刻度长度</source>
+      <translation>Major tick length</translation>
+    </message>
+    <message>
+      <source>主刻度宽度</source>
+      <translation>Major tick width</translation>
+    </message>
+    <message>
+      <source>刻度边距</source>
+      <translation>Tick padding</translation>
+    </message>
+    <message>
+      <source>刻线颜色</source>
+      <translation>Tick color</translation>
+    </message>
+    <message>
+      <source>标签边距</source>
+      <translation>Label padding</translation>
+    </message>
+    <message>
+      <source>标签字号</source>
+      <translation>Label font size</translation>
+    </message>
+    <message>
+      <source>标签颜色</source>
+      <translation>Label color</translation>
+    </message>
+    <message>
+      <source>Track 端点</source>
+      <translation>Track cap</translation>
+    </message>
+    <message>
+      <source>环端点</source>
+      <translation>Ring cap</translation>
+    </message>
+    <message>
+      <source>指针样式</source>
+      <translation>Needle style</translation>
+    </message>
+    <message>
+      <source>指针宽度</source>
+      <translation>Needle width</translation>
+    </message>
+    <message>
+      <source>指针长度比例</source>
+      <translation>Needle length ratio</translation>
+    </message>
+    <message>
+      <source>指针颜色</source>
+      <translation>Needle color</translation>
+    </message>
+    <message>
+      <source>轴心半径</source>
+      <translation>Hub radius</translation>
+    </message>
+    <message>
+      <source>数值位置</source>
+      <translation>Value position</translation>
+    </message>
+    <message>
+      <source>标题</source>
+      <translation>Title</translation>
+    </message>
+    <message>
+      <source>单位</source>
+      <translation>Unit</translation>
+    </message>
+    <message>
+      <source>数值字号</source>
+      <translation>Value font size</translation>
+    </message>
+    <message>
+      <source>数值颜色</source>
+      <translation>Value color</translation>
+    </message>
+    <message>
+      <source>扇形不透明度</source>
+      <translation>Sector opacity</translation>
+    </message>
+    <message>
+      <source>起点颜色</source>
+      <translation>Start color</translation>
+    </message>
+    <message>
+      <source>终点颜色</source>
+      <translation>End color</translation>
+    </message>
+    <message>
+      <source>区间 1 起点</source>
+      <translation>Range 1 start</translation>
+    </message>
+    <message>
+      <source>区间 1 终点</source>
+      <translation>Range 1 end</translation>
+    </message>
+    <message>
+      <source>区间 1 颜色</source>
+      <translation>Range 1 color</translation>
+    </message>
+    <message>
+      <source>区间 2 起点</source>
+      <translation>Range 2 start</translation>
+    </message>
+    <message>
+      <source>区间 2 终点</source>
+      <translation>Range 2 end</translation>
+    </message>
+    <message>
+      <source>区间 2 颜色</source>
+      <translation>Range 2 color</translation>
+    </message>
+    <message>
+      <source>区间 3 起点</source>
+      <translation>Range 3 start</translation>
+    </message>
+    <message>
+      <source>区间 3 终点</source>
+      <translation>Range 3 end</translation>
+    </message>
+    <message>
+      <source>区间 3 颜色</source>
+      <translation>Range 3 color</translation>
+    </message>
+    <message>
+      <source>角度以正上方为 0°，顺时针为正；起止角度相同表示完整的 360°。</source>
+      <translation>Angles start at the top (0°) and increase clockwise. Equal start and end angles produce a full 360° circle.</translation>
+    </message>
+    <message>
+      <source>环与布局</source>
+      <translation>Rings and layout</translation>
+    </message>
+    <message>
+      <source>数据</source>
+      <translation>Data</translation>
+    </message>
+    <message>
+      <source>详情</source>
+      <translation>Details</translation>
+    </message>
+    <message>
+      <source>显示 Track</source>
+      <translation>Show track</translation>
+    </message>
+    <message>
+      <source>最小值</source>
+      <translation>Minimum</translation>
+    </message>
+    <message>
+      <source>最大值</source>
+      <translation>Maximum</translation>
+    </message>
+    <message>
+      <source>扫过角度</source>
+      <translation>Sweep angle</translation>
+    </message>
+    <message>
+      <source>环宽度</source>
+      <translation>Ring width</translation>
+    </message>
+    <message>
+      <source>环间距</source>
+      <translation>Ring spacing</translation>
+    </message>
+    <message>
+      <source>端点样式</source>
+      <translation>Cap style</translation>
+    </message>
+    <message>
+      <source>项目 1 名称</source>
+      <translation>Item 1 label</translation>
+    </message>
+    <message>
+      <source>项目 1 数值</source>
+      <translation>Item 1 value</translation>
+    </message>
+    <message>
+      <source>项目 1 颜色</source>
+      <translation>Item 1 color</translation>
+    </message>
+    <message>
+      <source>项目 2 名称</source>
+      <translation>Item 2 label</translation>
+    </message>
+    <message>
+      <source>项目 2 数值</source>
+      <translation>Item 2 value</translation>
+    </message>
+    <message>
+      <source>项目 2 颜色</source>
+      <translation>Item 2 color</translation>
+    </message>
+    <message>
+      <source>项目 3 名称</source>
+      <translation>Item 3 label</translation>
+    </message>
+    <message>
+      <source>项目 3 数值</source>
+      <translation>Item 3 value</translation>
+    </message>
+    <message>
+      <source>项目 3 颜色</source>
+      <translation>Item 3 color</translation>
+    </message>
+    <message>
+      <source>显示中央详情</source>
+      <translation>Show center details</translation>
+    </message>
+    <message>
+      <source>数值使用徽标边框</source>
+      <translation>Outline value badges</translation>
+    </message>
+    <message>
+      <source>数值后缀</source>
+      <translation>Value suffix</translation>
+    </message>
+    <message>
+      <source>数值小数位</source>
+      <translation>Value decimal places</translation>
+    </message>
+    <message>
+      <source>名称字号（0 自动）</source>
+      <translation>Label font size (0 = auto)</translation>
+    </message>
+    <message>
+      <source>数值字号（0 自动）</source>
+      <translation>Value font size (0 = auto)</translation>
+    </message>
+    <message>
+      <source>名称颜色</source>
+      <translation>Label color</translation>
+    </message>
+    <message>
+      <source>每个数据项对应一条独立圆环；数值、名称和颜色均可单独设置，其余属性由控件统一管理。</source>
+      <translation>Each item has its own ring. Edit its value, label and color independently; other properties apply to the whole control.</translation>
+    </message>
+    <message>
+      <source>范围与环</source>
+      <translation>Range and arcs</translation>
+    </message>
+    <message>
+      <source>指针</source>
+      <translation>Needle</translation>
+    </message>
+    <message>
+      <source>位置</source>
+      <translation>Position</translation>
+    </message>
+    <message>
+      <source>文本</source>
+      <translation>Text</translation>
+    </message>
+    <message>
+      <source>显示进度弧</source>
+      <translation>Show progress arcs</translation>
+    </message>
+    <message>
+      <source>进度弧重叠</source>
+      <translation>Overlap progress arcs</translation>
+    </message>
+    <message>
+      <source>Track 宽度</source>
+      <translation>Track width</translation>
+    </message>
+    <message>
+      <source>进度弧宽度</source>
+      <translation>Progress arc width</translation>
+    </message>
+    <message>
+      <source>同心弧间距</source>
+      <translation>Concentric arc spacing</translation>
+    </message>
+    <message>
+      <source>进度弧端点</source>
+      <translation>Progress arc cap</translation>
+    </message>
+    <message>
+      <source>显示刻度标签</source>
+      <translation>Show tick labels</translation>
+    </message>
+    <message>
+      <source>刻度内边距</source>
+      <translation>Tick padding</translation>
+    </message>
+    <message>
+      <source>刻度颜色</source>
+      <translation>Tick color</translation>
+    </message>
+    <message>
+      <source>标签内边距</source>
+      <translation>Label padding</translation>
+    </message>
+    <message>
+      <source>显示公共轴心</source>
+      <translation>Show shared hub</translation>
+    </message>
+    <message>
+      <source>指针中心 X</source>
+      <translation>Needle center X</translation>
+    </message>
+    <message>
+      <source>指针中心 Y</source>
+      <translation>Needle center Y</translation>
+    </message>
+    <message>
+      <source>轴心颜色</source>
+      <translation>Hub color</translation>
+    </message>
+    <message>
+      <source>项目 %1</source>
+      <translation>Item %1</translation>
+    </message>
+    <message>
+      <source>显示</source>
+      <translation>Visible</translation>
+    </message>
+    <message>
+      <source> 可见</source>
+      <translation> visible</translation>
+    </message>
+    <message>
+      <source> 名称</source>
+      <translation> label</translation>
+    </message>
+    <message>
+      <source> 数值</source>
+      <translation> value</translation>
+    </message>
+    <message>
+      <source> 颜色</source>
+      <translation> color</translation>
+    </message>
+    <message>
+      <source> 标题 X</source>
+      <translation> title X</translation>
+    </message>
+    <message>
+      <source> 标题 Y</source>
+      <translation> title Y</translation>
+    </message>
+    <message>
+      <source> 数值 X</source>
+      <translation> value X</translation>
+    </message>
+    <message>
+      <source> 数值 Y</source>
+      <translation> value Y</translation>
+    </message>
+    <message>
+      <source>显示名称</source>
+      <translation>Show labels</translation>
+    </message>
+    <message>
+      <source>数值使用实心徽标</source>
+      <translation>Fill value badges</translation>
+    </message>
+    <message>
+      <source>名称字号</source>
+      <translation>Label font size</translation>
+    </message>
+    <message>
+      <source>数值文字颜色</source>
+      <translation>Value text color</translation>
+    </message>
+    <message>
+      <source>自动对比色</source>
+      <translation>Automatic contrast</translation>
+    </message>
+    <message>
+      <source>徽标水平内边距</source>
+      <translation>Badge horizontal padding</translation>
+    </message>
+    <message>
+      <source>共享范围、刻度、Track 和轴心；每个数据项分别配置名称、数值、颜色以及标题和详情位置。关闭重叠后，进度弧会改为同心排列。</source>
+      <translation>Range, ticks, track and hub are shared. Each item has its own label, value, color, title position and detail position. Disable overlap to arrange progress arcs concentrically.</translation>
+    </message>
+    <message>
+      <source>径向仪表盘(RadialGauge)</source>
+      <translation>Radial Gauge (RadialGauge)</translation>
+    </message>
+    <message>
         <source>当前播放环境无法提供实时电平，可使用模拟输入。</source>
         <translation>Live audio levels are unavailable in this playback environment. Try simulated input.</translation>
     </message>

@@ -23,6 +23,7 @@ public:
         RangeSlider,
         BorderBeam,
         AudioLevelMeter,
+        RadialGauge,
         Feedback,
         Icons
     };

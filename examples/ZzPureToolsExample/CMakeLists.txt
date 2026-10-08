@@ -32,6 +32,13 @@ set(zz_pure_tools_example_sources
     ZzExampleBorderBeamPage.cpp
     ZzExampleCustomWidgetHelpers.h
     ZzExampleAudioLevelMeterPage.cpp
+    ZzExampleRadialGaugePage.cpp
+    ZzExampleRadialGaugeHelpers.h
+    ZzExampleRadialGaugeHelpers.cpp
+    ZzExampleRadialGaugePresets.cpp
+    ZzExampleRadialGaugeEditor.cpp
+    ZzExampleRadialRingEditor.cpp
+    ZzExampleMultiRadialGaugeEditor.cpp
     ZzExampleAudioMeterSource.cpp
     ZzExampleAudioMeterSource.h
     ZzExampleSmokeController.cpp

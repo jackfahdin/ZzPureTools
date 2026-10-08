@@ -28,20 +28,22 @@ if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
         fluent-controls ZzFluentControlsGallery ZZ_FLUENT_GALLERY_AUTO_CLOSE_MS)
     zz_add_linux_example_smoke(
         puretools ZzPureToolsDemo ZZ_PURETOOLS_DEMO_AUTO_CLOSE_MS)
-    zz_add_linux_example_smoke(
-        puretools-integration
-        ZzPureToolsExample
-        ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS)
+    add_test(NAME example.puretools-integration
+        COMMAND "$<TARGET_FILE:ZzPureToolsExample>" --smoke-test)
+    set_tests_properties(example.puretools-integration PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        LABELS "example;smoke"
+        TIMEOUT 10)
 
     add_test(
         NAME example.puretools-integration-english
-        COMMAND "$<TARGET_FILE:ZzPureToolsExample>"
+        COMMAND "$<TARGET_FILE:ZzPureToolsExample>" --smoke-test
     )
     set_tests_properties(
         example.puretools-integration-english
         PROPERTIES
             ENVIRONMENT
-                "QT_QPA_PLATFORM=offscreen;ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS=100;ZZ_PURETOOLS_EXAMPLE_EXPECT_ENGLISH=1;LANG=C.UTF-8;LC_ALL=C.UTF-8;LANGUAGE=en"
+                "QT_QPA_PLATFORM=offscreen;ZZ_PURETOOLS_EXAMPLE_EXPECT_ENGLISH=1;LANG=C.UTF-8;LC_ALL=C.UTF-8;LANGUAGE=en"
             LABELS "example;smoke;translation"
             TIMEOUT 10
     )

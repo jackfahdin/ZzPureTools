@@ -77,6 +77,9 @@
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzAudioLevelMeter.h>
+#include <ZzFluentUI/ZzRadialGauge.h>
+#include <ZzFluentUI/ZzMultiRadialGauge.h>
+#include <ZzFluentUI/ZzMultiProgressRing.h>
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
@@ -7592,10 +7595,120 @@ private Q_SLOTS:
                 .arg(actualPath, diffPath)));
     }
 
-    void rendersAudioLevelMeterThemes_data()
+    void rendersRadialGaugeThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 三类仪表的指针、区间、渐变、全圆及禁用状态。 */
+    void rendersRadialGaugeThemes()
     {
-        rendersRangeSliderThemes_data();
+        using namespace ZzFluentUI;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzThemeMode>(mode));
+
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(780, 548);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+        for (int index = 0; index < 4; ++index) {
+            auto *gauge = new ZzRadialGauge(&surface);
+            gauge->setFixedSize(244, 256);
+            gauge->setValueAnimationDuration(0);
+            gauge->setRange(0, 100);
+            gauge->setValue(70);
+            gauge->setNeedleStyle(ZzRadialGauge::TriangleNeedle);
+            gauge->setNeedleWidth(11);
+            gauge->setNeedleLength(0.62);
+            gauge->setTitle(QStringLiteral("SCORE"));
+            gauge->setValueFontPixelSize(23);
+            gauge->setScaleMode(static_cast<ZzRadialGauge::ScaleMode>(index % 3));
+            if (index == 0) {
+                gauge->setMinimumAngle(-140);
+                gauge->setMaximumAngle(140);
+                gauge->setNeedleColor(QColor("#EC1460"));
+                gauge->setValuePosition(ZzRadialGauge::CenterValue);
+            } else if (index == 1) {
+                gauge->setProgressGradientEnabled(true);
+                gauge->setProgressGradientStartColor(QColor("#38D8FF"));
+                gauge->setProgressGradientEndColor(QColor("#8067FF"));
+                gauge->setSweepAreaVisible(true);
+                gauge->setNeedleColor(QColor("#8067FF"));
+                gauge->setHubVisible(true);
+                gauge->setHubRadius(9);
+            } else if (index == 2) {
+                gauge->addRange(0, 60, QColor("#21BCE2"));
+                gauge->addRange(60, 80, QColor("#FFB900"));
+                gauge->addRange(80, 100, QColor("#FF6475"));
+                gauge->setUnit(QStringLiteral("km/h"));
+                gauge->setTitle(QString());
+                gauge->setLabelsVisible(true);
+            } else {
+                gauge->setMinimumAngle(0);
+                gauge->setMaximumAngle(0);
+                gauge->setNeedleStyle(ZzRadialGauge::LineNeedle);
+                gauge->setValuePosition(ZzRadialGauge::CenterValue);
+                gauge->setEnabled(false);
+            }
+            grid->addWidget(gauge, index / 3, index % 3);
+        }
+        auto *multi = new ZzMultiRadialGauge(&surface);
+        multi->setFixedSize(244, 256);
+        multi->setValueAnimationDuration(0);
+        multi->setProgressOverlap(false);
+        auto *good = multi->addItem(QStringLiteral("Good"), 20, QColor("#5470C6"));
+        auto *better = multi->addItem(QStringLiteral("Better"), 40, QColor("#B8DE29"));
+        auto *perfect = multi->addItem(QStringLiteral("Perfect"), 60, QColor("#555672"));
+        good->setTitleOffset(QPointF(-0.4, 0.8));
+        good->setDetailOffset(QPointF(-0.4, 0.95));
+        better->setTitleOffset(QPointF(0, 0.8));
+        better->setDetailOffset(QPointF(0, 0.95));
+        perfect->setTitleOffset(QPointF(0.4, 0.8));
+        perfect->setDetailOffset(QPointF(0.4, 0.95));
+        grid->addWidget(multi, 1, 1);
+        auto *ring = new ZzMultiProgressRing(&surface);
+        ring->setFixedSize(244, 256);
+        ring->setValueAnimationDuration(0);
+        ring->setRingWidth(8);
+        ring->setRingSpacing(6);
+        ring->setRingPadding(13);
+        ring->setTrackVisible(false);
+        ring->addItem(QStringLiteral("Perfect"), 20, QColor("#5470C6"));
+        ring->addItem(QStringLiteral("Good"), 40, QColor("#B8DE29"));
+        ring->addItem(QStringLiteral("Commonly"), 60, QColor("#5C5F7A"));
+        grid->addWidget(ring, 1, 2);
+
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory
+            = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("radial-gauges-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports
+                = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
     }
+
+    void rendersAudioLevelMeterThemes_data() { rendersRangeSliderThemes_data(); }
 
     /** @brief 固定输入覆盖单/双/多声道、三种配色、刻度位置和禁用状态。 */
     void rendersAudioLevelMeterThemes()

@@ -37,6 +37,9 @@ public:
     /** @brief 展示单/双声道电平、播放输入和分组属性。 */
     void buildAudioLevelMeter(QVBoxLayout *layout, QWidget *parent);
 
+    /** @brief 构建径向仪表盘、多指针仪表与得分环示例。 */
+    void buildRadialGauge(QVBoxLayout *layout, QWidget *parent);
+
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);
 
