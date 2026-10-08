@@ -76,6 +76,7 @@
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
+#include <ZzFluentUI/ZzAudioLevelMeter.h>
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
 #include <ZzFluentUI/ZzButtonAppearance.h>
 #include <ZzFluentUI/ZzCalendar.h>
@@ -7589,6 +7590,91 @@ private Q_SLOTS:
                 .arg(differenceRatio, 0, 'f', 6)
                 .arg(maximumDifferenceRatio, 0, 'f', 6)
                 .arg(actualPath, diffPath)));
+    }
+
+    void rendersAudioLevelMeterThemes_data()
+    {
+        rendersRangeSliderThemes_data();
+    }
+
+    /** @brief 固定输入覆盖单/双/多声道、三种配色、刻度位置和禁用状态。 */
+    void rendersAudioLevelMeterThemes()
+    {
+        using namespace ZzFluentUI;
+        using Meter = ZzAudioLevelMeter;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(780, 600);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+        for (int index = 0; index < 6; ++index) {
+            auto *meter = new Meter(&surface);
+            meter->setFixedSize(244, 282);
+            meter->setAnimationEnabled(false);
+            meter->setColorMode(static_cast<Meter::ColorMode>(index % 3));
+            if (index == 0) {
+                meter->setLevel(-18);
+            } else if (index == 1) {
+                meter->setScalePosition(Meter::CenterScale);
+                meter->setScaleTickMarksVisible(true);
+                meter->setStereoLevels(-1, -9);
+            } else if (index == 2) {
+                meter->setScaleMode(Meter::FixedTickCount);
+                meter->setScaleTickCount(5);
+                meter->setLevels({-3, -15, -27, -42});
+            } else if (index == 3) {
+                meter->setColorMode(Meter::ThresholdColors);
+                meter->setScalePosition(Meter::LeftScale);
+                meter->setScaleMode(Meter::CustomScale);
+                meter->setCustomScaleValues({0, -3, -12, -30, -60});
+                meter->setScaleUnitVisible(true);
+                meter->setScaleTickMarksVisible(true);
+                meter->setChannelLabels({QStringLiteral("Mono")});
+                meter->setLevel(0);
+            } else if (index == 4) {
+                meter->setColorMode(Meter::GradientColors);
+                meter->setScalePosition(Meter::NoScale);
+                meter->setChannelLabelsVisible(false);
+                meter->setPeakHoldEnabled(false);
+                meter->setStereoLevels(-6, -24);
+            } else {
+                meter->setColorMode(Meter::SingleColor);
+                meter->setActiveColor(QColor("#0078d4"));
+                meter->setLevels({0, -6, -12, -18, -24, -30, -42, -60});
+                meter->setEnabled(false);
+            }
+            grid->addWidget(meter, index / 3, index % 3);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("audio-level-meters-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
     }
 
     void rendersBorderBeamThemes_data()

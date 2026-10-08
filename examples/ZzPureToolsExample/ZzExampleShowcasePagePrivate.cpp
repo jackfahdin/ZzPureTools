@@ -149,6 +149,16 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::AudioLevelMeter:
+        q_ptr->setObjectName(QStringLiteral("zzExampleAudioLevelMeterPage"));
+        {
+            auto font = titleLabel->font();
+            font.setPointSize(16);
+            font.setBold(true);
+            titleLabel->setFont(font);
+        }
+        buildAudioLevelMeter(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::BorderBeam:
         q_ptr->setObjectName(QStringLiteral("zzExampleBorderBeamPage"));
         {

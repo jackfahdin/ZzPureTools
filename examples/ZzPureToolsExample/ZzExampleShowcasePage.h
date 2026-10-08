@@ -22,6 +22,7 @@ public:
         TabBars,
         RangeSlider,
         BorderBeam,
+        AudioLevelMeter,
         Feedback,
         Icons
     };

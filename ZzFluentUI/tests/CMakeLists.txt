@@ -1009,3 +1009,12 @@ if(ZZ_BUILD_BENCHMARKS)
                 "ZZ_PERFORMANCE_REFERENCE=${zz_performance_reference_environment}")
     endif()
 endif()
+add_executable(ZzAudioLevelMeterTest ZzAudioLevelMeterTest.cpp)
+target_link_libraries(ZzAudioLevelMeterTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzAudioLevelMeterTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzAudioLevelMeterTest)
+zz_enable_sanitizers(ZzAudioLevelMeterTest)
+add_test(NAME fluent.audio-level-meter COMMAND ZzAudioLevelMeterTest)
+set_tests_properties(fluent.audio-level-meter PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

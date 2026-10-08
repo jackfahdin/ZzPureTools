@@ -27,6 +27,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCheckBox>
+#include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLCDNumber>
@@ -37,16 +38,19 @@
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QTableView>
 #include <QtWidgets/QTabBar>
+#include <QtWidgets/QTabWidget>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QToolButton>
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzRollerPicker.h>
 #include <ZzFluentUI/ZzRangeSlider.h>
+#include <ZzFluentUI/ZzAudioLevelMeter.h>
 #include <ZzFluentUI/ZzBorderBeam.h>
 #include <ZzFluentUI/ZzBorderBeamButton.h>
 #include <ZzFluentUI/ZzSpinBox.h>
@@ -80,6 +84,65 @@ constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
 constexpr int zzScreenshotTextPadding = 3;
 constexpr int zzScreenshotChannelTolerance = 3;
+
+/** @brief 验证真实音频页编辑器连接，并恢复初始展示。 */
+[[nodiscard]] bool zzAudioLevelMeterPageReady(const QWidget &window, ZzFluentUI::ZzThemeController *theme)
+{
+    using Meter = ZzFluentUI::ZzAudioLevelMeter;
+    auto *meter = window.findChild<Meter *>(QStringLiteral("zzAudioPreview"));
+    auto *channels = window.findChild<QSpinBox *>(QStringLiteral("zzAudioChannels"));
+    auto *segments = window.findChild<QSpinBox *>(QStringLiteral("zzAudioSegments"));
+    auto *position = window.findChild<QComboBox *>(QStringLiteral("zzAudioScalePosition"));
+    auto *mode = window.findChild<QComboBox *>(QStringLiteral("zzAudioScaleMode"));
+    auto *ticks = window.findChild<QSpinBox *>(QStringLiteral("zzAudioTicks"));
+    auto *colors = window.findChild<QComboBox *>(QStringLiteral("zzAudioColorMode"));
+    auto *simulation = window.findChild<QPushButton *>(QStringLiteral("zzAudioSimulation"));
+    auto *source = window.findChild<QObject *>(QStringLiteral("zzAudioMeterSource"));
+    auto *color = window.findChild<QObject *>(QStringLiteral("zzAudioColor_activeColor"));
+    auto *warning = window.findChild<QDoubleSpinBox *>(QStringLiteral("zzAudioWarning"));
+    auto *clip = window.findChild<QDoubleSpinBox *>(QStringLiteral("zzAudioClip"));
+    auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("zzAudioPropertyTabs"));
+    if (!meter || !channels || !segments || !position || !mode || !ticks || !colors
+        || !simulation || !source || !color || !warning || !clip || !tabs || tabs->count() != 4
+        || (tabs->cornerWidget() && !tabs->cornerWidget()->isHidden())) return false;
+    warning->setValue(-3);
+    warning->setValue(-2);
+    clip->setValue(0);
+    clip->setValue(1);
+    const bool clamped = warning->value() == meter->warningDecibels()
+        && clip->value() == meter->clipDecibels();
+    warning->setValue(-12);
+    clip->setValue(-3);
+    const QColor initialColor = meter->activeColor();
+    channels->setValue(4);
+    segments->setValue(48);
+    position->setCurrentIndex(int(Meter::LeftScale));
+    mode->setCurrentIndex(int(Meter::FixedTickCount));
+    ticks->setValue(9);
+    colors->setCurrentIndex(int(Meter::GradientColors));
+    color->setProperty("selectedColor", QColor("#6633cc"));
+    const auto initialMode = theme->mode();
+    theme->setMode(ZzFluentUI::ZzThemeMode::Dark);
+    const bool darkOverride = meter->activeColor() == QColor("#6633cc");
+    theme->setMode(ZzFluentUI::ZzThemeMode::Light);
+    const bool lightOverride = meter->activeColor() == QColor("#6633cc");
+    theme->setMode(initialMode);
+    simulation->setChecked(false);
+    const bool valid = meter->channelCount() == 4 && meter->segmentCount() == 48
+        && meter->scalePosition() == Meter::LeftScale && meter->scaleTickCount() == 9
+        && meter->scaleMode() == Meter::FixedTickCount && ticks->isEnabled()
+        && meter->colorMode() == Meter::GradientColors && meter->activeColor() == QColor("#6633cc")
+        && !source->property("simulationEnabled").toBool();
+    channels->setValue(2);
+    segments->setValue(30);
+    position->setCurrentIndex(int(Meter::CenterScale));
+    mode->setCurrentIndex(int(Meter::IntervalScale));
+    ticks->setValue(7);
+    colors->setCurrentIndex(int(Meter::SingleColor));
+    color->setProperty("selectedColor", initialColor);
+    simulation->setChecked(true);
+    return valid && clamped && darkOverride && lightOverride && source->property("simulationEnabled").toBool();
+}
 
 /** @brief 通过真实编辑控件检查光束预览、主题覆盖及重置行为。 */
 [[nodiscard]] bool zzBorderBeamPageReady(const QWidget &window)
@@ -738,6 +801,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke border beam integration failed");
                 return;
             }
+            if (routeId == QStringLiteral("audio-level-meter") && !zzAudioLevelMeterPageReady(window, theme)) {
+                fail("route smoke audio level meter integration failed");
+                return;
+            }
             const QString previewDirectory = qEnvironmentVariable(
                 "ZZ_EXAMPLE_ROUTE_SCREENSHOT_DIR");
             if (!previewDirectory.isEmpty()) {
@@ -748,6 +815,16 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         routeId + QStringLiteral(".png")))) {
                     fail("could not export route preview", routeId);
                     return;
+                }
+                if (routeId == QStringLiteral("audio-level-meter")) {
+                    auto *page = window.findChild<QWidget *>(QStringLiteral("zzExampleAudioLevelMeterPage"));
+                    auto *scroll = page ? page->findChild<QScrollArea *>() : nullptr;
+                    if (!scroll || !scroll->widget()
+                        || !scroll->widget()->grab().save(QDir(previewDirectory).filePath(
+                            QStringLiteral("audio-level-meter-content.png")))) {
+                        fail("could not export audio meter content preview");
+                        return;
+                    }
                 }
             }
         }

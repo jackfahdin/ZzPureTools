@@ -30,6 +30,10 @@ set(zz_pure_tools_example_sources
     ZzExampleTabBarsPage.cpp
     ZzExampleRangeSliderPage.cpp
     ZzExampleBorderBeamPage.cpp
+    ZzExampleCustomWidgetHelpers.h
+    ZzExampleAudioLevelMeterPage.cpp
+    ZzExampleAudioMeterSource.cpp
+    ZzExampleAudioMeterSource.h
     ZzExampleSmokeController.cpp
     ZzExampleSmokeControllerPrivate.cpp
     ZzExampleSystemPage.cpp
@@ -76,6 +80,15 @@ elseif(APPLE)
 endif()
 
 add_executable(ZzPureToolsExample ${zz_pure_tools_example_sources})
+option(ZZ_EXAMPLE_AUDIO_PLAYBACK "Enable local music playback in the audio level meter example" ON)
+if(ZZ_EXAMPLE_AUDIO_PLAYBACK)
+    find_package(Qt6 6.8 QUIET COMPONENTS Multimedia)
+    if(TARGET Qt6::Multimedia)
+        target_sources(ZzPureToolsExample PRIVATE ZzExampleAudioLevels.cpp)
+        target_link_libraries(ZzPureToolsExample PRIVATE Qt6::Multimedia)
+        target_compile_definitions(ZzPureToolsExample PRIVATE ZZ_EXAMPLE_HAS_MULTIMEDIA=1)
+    endif()
+endif()
 set_target_properties(ZzPureToolsExample PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE

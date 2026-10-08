@@ -44,6 +44,9 @@ zz_configure_library_target(ZzFluentFoundation
 )
 
 set(zz_fluent_ui_sources
+    widgets/src/ZzAudioLevelMeter.cpp
+    widgets/src/private/ZzAudioLevelMeterPrivate.cpp
+    widgets/src/private/ZzAudioLevelMeterPaint.cpp
     widgets/src/ZzSidePanelAppearance.cpp
     widgets/src/private/ZzSidePanelAppearancePrivate.cpp
     widgets/src/ZzControlAppearance.cpp
@@ -169,6 +172,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
+    widgets/include/ZzFluentUI/ZzAudioLevelMeter.h
     widgets/include/ZzFluentUI/ZzSliderValueTip.h
     widgets/include/ZzFluentUI/ZzRangeSlider.h
     widgets/include/ZzFluentUI/ZzBorderBeam.h

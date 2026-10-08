@@ -4,6 +4,214 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>当前播放环境无法提供实时电平，可使用模拟输入。</source>
+        <translation>Live audio levels are unavailable in this playback environment. Try simulated input.</translation>
+    </message>
+    <message>
+        <source>音频电平表(AudioLevelMeter)</source>
+        <translation>Audio Level Meter</translation>
+    </message>
+    <message>
+        <source>只读的实时音频电平表。接收每个声道的 dBFS 或线性幅度，支持单声道、立体声、峰值保持、衰减和超时归零。</source>
+        <translation>A read-only real-time audio level meter. Accepts dBFS or linear amplitudes per channel, with mono, stereo, peak hold, decay and input timeout.</translation>
+    </message>
+    <message>
+        <source>音乐播放与实时电平</source>
+        <translation>Music playback and live levels</translation>
+    </message>
+    <message>
+        <source>请选择本地音乐文件</source>
+        <translation>Choose a local music file</translation>
+    </message>
+    <message>
+        <source>打开音乐</source>
+        <translation>Open music</translation>
+    </message>
+    <message>
+        <source>播放</source>
+        <translation>Play</translation>
+    </message>
+    <message>
+        <source>暂停</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>播放进度</source>
+        <translation>Playback position</translation>
+    </message>
+    <message>
+        <source>音量</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>模拟输入</source>
+        <translation>Simulated input</translation>
+    </message>
+    <message>
+        <source>音频文件 (*.mp3 *.flac *.wav *.ogg *.aac *.m4a *.wma *.opus);;所有文件 (*.*)</source>
+        <translation>Audio files (*.mp3 *.flac *.wav *.ogg *.aac *.m4a *.wma *.opus);;All files (*.*)</translation>
+    </message>
+    <message>
+        <source>此版本不支持音乐播放，可使用模拟输入体验电平表。</source>
+        <translation>Music playback is unavailable in this build. Try the meter with simulated input.</translation>
+    </message>
+    <message>
+        <source>播放失败：%1</source>
+        <translation>Playback failed: %1</translation>
+    </message>
+    <message>
+        <source>单声道与立体声</source>
+        <translation>Mono and stereo</translation>
+    </message>
+    <message>
+        <source>音频电平预览</source>
+        <translation>Audio level preview</translation>
+    </message>
+    <message>
+        <source>基础</source>
+        <translation>Basic</translation>
+    </message>
+    <message>
+        <source>刻度</source>
+        <translation>Scale</translation>
+    </message>
+    <message>
+        <source>动画</source>
+        <translation>Animation</translation>
+    </message>
+    <message>
+        <source>颜色</source>
+        <translation>Colors</translation>
+    </message>
+    <message>
+        <source>声道数</source>
+        <translation>Channels</translation>
+    </message>
+    <message>
+        <source>分段数量</source>
+        <translation>Segments</translation>
+    </message>
+    <message>
+        <source>最小电平</source>
+        <translation>Minimum level</translation>
+    </message>
+    <message>
+        <source>警告电平</source>
+        <translation>Warning level</translation>
+    </message>
+    <message>
+        <source>过载电平</source>
+        <translation>Clip level</translation>
+    </message>
+    <message>
+        <source>显示声道标签</source>
+        <translation>Show channel labels</translation>
+    </message>
+    <message>
+        <source>隐藏</source>
+        <translation>Hidden</translation>
+    </message>
+    <message>
+        <source>左侧</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <source>右侧</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <source>中间（立体声）</source>
+        <translation>Center (stereo)</translation>
+    </message>
+    <message>
+        <source>dB 刻度</source>
+        <translation>dB scale</translation>
+    </message>
+    <message>
+        <source>按间隔</source>
+        <translation>By interval</translation>
+    </message>
+    <message>
+        <source>固定数量</source>
+        <translation>Fixed tick count</translation>
+    </message>
+    <message>
+        <source>自定义数值</source>
+        <translation>Custom values</translation>
+    </message>
+    <message>
+        <source>刻度生成</source>
+        <translation>Scale mode</translation>
+    </message>
+    <message>
+        <source>刻度数量</source>
+        <translation>Tick count</translation>
+    </message>
+    <message>
+        <source>小数位数</source>
+        <translation>Decimal places</translation>
+    </message>
+    <message>
+        <source>刻度单位</source>
+        <translation>Scale unit</translation>
+    </message>
+    <message>
+        <source>在刻度后显示单位</source>
+        <translation>Show unit after ticks</translation>
+    </message>
+    <message>
+        <source>显示短刻度线</source>
+        <translation>Show tick marks</translation>
+    </message>
+    <message>
+        <source>衰减速度</source>
+        <translation>Decay rate</translation>
+    </message>
+    <message>
+        <source>峰值保持</source>
+        <translation>Peak hold</translation>
+    </message>
+    <message>
+        <source>显示峰值保持</source>
+        <translation>Show peak hold</translation>
+    </message>
+    <message>
+        <source>重置峰值</source>
+        <translation>Reset peaks</translation>
+    </message>
+    <message>
+        <source>统一颜色</source>
+        <translation>Single color</translation>
+    </message>
+    <message>
+        <source>警告/过载分区</source>
+        <translation>Warning / clip zones</translation>
+    </message>
+    <message>
+        <source>连续渐变</source>
+        <translation>Continuous gradient</translation>
+    </message>
+    <message>
+        <source>颜色模式</source>
+        <translation>Color mode</translation>
+    </message>
+    <message>
+        <source>激活颜色</source>
+        <translation>Active color</translation>
+    </message>
+    <message>
+        <source>未激活颜色</source>
+        <translation>Inactive color</translation>
+    </message>
+    <message>
+        <source>警告颜色</source>
+        <translation>Warning color</translation>
+    </message>
+    <message>
+        <source>过载颜色</source>
+        <translation>Clip color</translation>
+    </message>
+    <message>
         <source>边框光束(BorderBeam)</source>
         <translation>Border Beam</translation>
     </message>

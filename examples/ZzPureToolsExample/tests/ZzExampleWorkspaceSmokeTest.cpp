@@ -574,7 +574,9 @@ private Q_SLOTS:
 
         auto *navigationModel = window->navigationModel();
         QVERIFY(navigationModel != nullptr);
-        QCOMPARE(navigationModel->rowCount(), 34);
+        QCOMPARE(navigationModel->rowCount(), 35);
+        QVERIFY(navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("audio-level-meter"))));
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("border-beam"))));
         QVERIFY(navigationModel->indexForRoute(

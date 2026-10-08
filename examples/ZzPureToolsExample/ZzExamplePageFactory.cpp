@@ -71,6 +71,9 @@ zzDataPageKind(const ZzPureTools::ZzRouteId &routeId)
 [[nodiscard]] std::optional<ZzExampleShowcasePage::ZzPageKind>
 zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
 {
+    if (routeId.value() == QStringLiteral("audio-level-meter")) {
+        return ZzExampleShowcasePage::ZzPageKind::AudioLevelMeter;
+    }
     if (routeId.value() == QStringLiteral("border-beam")) {
         return ZzExampleShowcasePage::ZzPageKind::BorderBeam;
     }
