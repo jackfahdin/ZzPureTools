@@ -149,6 +149,16 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::Timeline:
+        q_ptr->setObjectName(QStringLiteral("zzExampleTimelinePage"));
+        {
+            auto font = titleLabel->font();
+            font.setPointSize(16);
+            font.setBold(true);
+            titleLabel->setFont(font);
+        }
+        buildTimeline(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::ProgressRing:
         q_ptr->setObjectName(QStringLiteral("zzExampleProgressRingPage"));
         {

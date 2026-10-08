@@ -214,6 +214,22 @@ private Q_SLOTS:
         QVERIFY(found);
     }
 
+    /** @brief 时间轴是紧随进度环的自定义页面，导航必须能到达。 */
+    void timelineRouteFollowsProgressRing()
+    {
+        std::string_view previous;
+        bool found = false;
+        for (const auto &route : ZzExample::ZzExampleRouteCatalog::routes()) {
+            if (route.routeId == "timeline") {
+                QVERIFY(!route.controlKind.has_value());
+                QVERIFY(previous == "progress-ring");
+                found = true;
+            }
+            previous = route.routeId;
+        }
+        QVERIFY(found);
+    }
+
     void cleanupTestCase()
     {
         auto *application = qobject_cast<ZzPureTools::ZzPureApplication *>(qApp);
@@ -592,7 +608,7 @@ private Q_SLOTS:
         QVERIFY(navigationModel != nullptr);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("liquid-gauge"))));
-        QCOMPARE(navigationModel->rowCount(), 37);
+        QCOMPARE(navigationModel->rowCount(), 38);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("radial-gauge"))));
         QVERIFY(navigationModel->indexForRoute(

@@ -116,6 +116,7 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzPasswordRevealMode.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include <ZzFluentUI/ZzTimeline.h>
 #include <ZzFluentUI/ZzPushButton.h>
 #include <ZzFluentUI/ZzRatingControl.h>
 #include <ZzFluentUI/ZzRatingPrecision.h>
@@ -7601,6 +7602,75 @@ private Q_SLOTS:
     void rendersLiquidGaugeThemes_data() { rendersRangeSliderThemes_data(); }
 
     void rendersProgressRingContentThemes_data() { rendersRangeSliderThemes_data(); }
+
+    void rendersTimelineThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 时间轴四种纵向布局、横向布局、状态节点及原始字体图标。 */
+    void rendersTimelineThemes()
+    {
+        using Timeline = ZzFluentUI::ZzTimeline;
+        using Event = ZzFluentUI::ZzTimelineEvent;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(1040, 1000);
+        auto *grid = new QGridLayout(&surface);
+        grid->setContentsMargins(12, 12, 12, 12);
+        grid->setSpacing(12);
+        const QStringList titles{QStringLiteral("Normal"), QStringLiteral("Completed"),
+            QStringLiteral("Current"), QStringLiteral("Pending"), QStringLiteral("Warning"), QStringLiteral("Error")};
+        for (int panel = 0; panel < 6; ++panel) {
+            auto *timeline = new Timeline(&surface);
+            timeline->setLayoutMode(static_cast<Timeline::LayoutMode>(panel % 4));
+            timeline->setAnimationEnabled(false);
+            timeline->setTimestampWidth(75);
+            timeline->setItemSpacing(6);
+            if (panel >= 4) {
+                timeline->setOrientation(Qt::Horizontal);
+                timeline->setLayoutMode(Timeline::Alternating);
+                timeline->setHorizontalItemWidth(165);
+            }
+            if (panel == 3) timeline->setReverse(true);
+            if (panel == 5) timeline->setEnabled(false);
+            const int count = panel < 4 ? 6 : 3;
+            for (int index = 0; index < count; ++index) {
+                auto *event = timeline->addEvent({}, titles.at(index), QStringLiteral("Event details"),
+                    static_cast<Event::Status>(index));
+                event->setTimeText(QStringLiteral("10:%1").arg(index * 10, 2, 10, QLatin1Char('0')));
+                if (panel == 2 && index == 0) event->setIcon(ZzFluentUI::ZzSegoeIcon::Settings);
+                if (panel == 2 && index == 3) event->setPlacement(Event::RightSide);
+            }
+            grid->addWidget(timeline, panel / 2, panel % 2);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("timeline-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
 
     /** @brief 标题、独立字体/颜色、半像素环宽以及替代中央文字的控件。 */
     void rendersProgressRingContentThemes()

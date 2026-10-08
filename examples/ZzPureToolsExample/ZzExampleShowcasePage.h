@@ -26,6 +26,7 @@ public:
         RadialGauge,
         LiquidGauge,
         ProgressRing,
+        Timeline,
         Feedback,
         Icons
     };

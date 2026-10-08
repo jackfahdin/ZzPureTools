@@ -3031,6 +3031,378 @@
         <source>窗口关闭已取消</source>
         <translation>Window close canceled</translation>
     </message>
+    <message>
+        <source>用于展示事件与状态变化；支持水平/垂直、正序/倒序、单侧/交错布局和当前事件动画。</source>
+        <translation>Show events and status changes with horizontal or vertical orientation, reverse order, alternating layouts, and current-event animation.</translation>
+    </message>
+    <message>
+        <source>订单已提交</source>
+        <translation>Order submitted</translation>
+    </message>
+    <message>
+        <source>订单信息已进入处理队列。</source>
+        <translation>The order has entered the processing queue.</translation>
+    </message>
+    <message>
+        <source>付款成功</source>
+        <translation>Payment received</translation>
+    </message>
+    <message>
+        <source>支付信息已经确认。</source>
+        <translation>Payment details have been confirmed.</translation>
+    </message>
+    <message>
+        <source>正在打包</source>
+        <translation>Packing</translation>
+    </message>
+    <message>
+        <source>仓库正在准备商品。</source>
+        <translation>The warehouse is preparing the items.</translation>
+    </message>
+    <message>
+        <source>等待发货</source>
+        <translation>Awaiting shipment</translation>
+    </message>
+    <message>
+        <source>物流单号生成后将自动更新。</source>
+        <translation>Tracking details will update automatically.</translation>
+    </message>
+    <message>
+        <source>订单流程</source>
+        <translation>Order workflow</translation>
+    </message>
+    <message>
+        <source>内容在右侧，完成、当前和等待状态使用不同节点。</source>
+        <translation>Content on the right, with distinct completed, current, and pending nodes.</translation>
+    </message>
+    <message>
+        <source>版本 2.4.0 已发布</source>
+        <translation>Version 2.4.0 released</translation>
+    </message>
+    <message>
+        <source>新增时间轴与多数据仪表盘。</source>
+        <translation>Added timelines and multi-value gauges.</translation>
+    </message>
+    <message>
+        <source>3 天前</source>
+        <translation>3 days ago</translation>
+    </message>
+    <message>
+        <source>完成回归测试</source>
+        <translation>Regression tests complete</translation>
+    </message>
+    <message>
+        <source>控件交互与主题切换检查通过。</source>
+        <translation>Interaction and theme checks passed.</translation>
+    </message>
+    <message>
+        <source>昨天</source>
+        <translation>Yesterday</translation>
+    </message>
+    <message>
+        <source>准备发布说明</source>
+        <translation>Preparing release notes</translation>
+    </message>
+    <message>
+        <source>正在整理新增 API 和示例。</source>
+        <translation>Documenting new APIs and examples.</translation>
+    </message>
+    <message>
+        <source>刚刚</source>
+        <translation>Just now</translation>
+    </message>
+    <message>
+        <source>更新记录</source>
+        <translation>Release history</translation>
+    </message>
+    <message>
+        <source>倒序显示，事件可以使用相对时间文本。</source>
+        <translation>Reverse order with relative time labels.</translation>
+    </message>
+    <message>
+        <source>服务已启动</source>
+        <translation>Service started</translation>
+    </message>
+    <message>
+        <source>监听端口 8080。</source>
+        <translation>Listening on port 8080.</translation>
+    </message>
+    <message>
+        <source>内存占用偏高</source>
+        <translation>High memory usage</translation>
+    </message>
+    <message>
+        <source>当前使用率为 78%。</source>
+        <translation>Current usage is 78%.</translation>
+    </message>
+    <message>
+        <source>连接中断</source>
+        <translation>Connection lost</translation>
+    </message>
+    <message>
+        <source>远程节点暂时不可用。</source>
+        <translation>The remote node is unavailable.</translation>
+    </message>
+    <message>
+        <source>正在重新连接</source>
+        <translation>Reconnecting</translation>
+    </message>
+    <message>
+        <source>将在几秒后再次尝试。</source>
+        <translation>Trying again in a few seconds.</translation>
+    </message>
+    <message>
+        <source>系统事件</source>
+        <translation>System events</translation>
+    </message>
+    <message>
+        <source>交错布局适合同时展示状态、时间和较短的事件内容。</source>
+        <translation>Alternating layout for status, timestamps, and short descriptions.</translation>
+    </message>
+    <message>
+        <source>创建</source>
+        <translation>Create</translation>
+    </message>
+    <message>
+        <source>提交任务</source>
+        <translation>Submit task</translation>
+    </message>
+    <message>
+        <source>09:00</source>
+        <translation>09:00</translation>
+    </message>
+    <message>
+        <source>审核</source>
+        <translation>Review</translation>
+    </message>
+    <message>
+        <source>确认内容</source>
+        <translation>Confirm content</translation>
+    </message>
+    <message>
+        <source>09:20</source>
+        <translation>09:20</translation>
+    </message>
+    <message>
+        <source>处理</source>
+        <translation>Process</translation>
+    </message>
+    <message>
+        <source>正在执行</source>
+        <translation>In progress</translation>
+    </message>
+    <message>
+        <source>09:35</source>
+        <translation>09:35</translation>
+    </message>
+    <message>
+        <source>交付</source>
+        <translation>Deliver</translation>
+    </message>
+    <message>
+        <source>等待完成</source>
+        <translation>Awaiting completion</translation>
+    </message>
+    <message>
+        <source>10:00</source>
+        <translation>10:00</translation>
+    </message>
+    <message>
+        <source>水平时间轴</source>
+        <translation>Horizontal timeline</translation>
+    </message>
+    <message>
+        <source>主线横向延伸，支持上方、下方和上下交错。</source>
+        <translation>A horizontal axis with content above, below, or alternating.</translation>
+    </message>
+    <message>
+        <source>布局</source>
+        <translation>Layout</translation>
+    </message>
+    <message>
+        <source>样式</source>
+        <translation>Style</translation>
+    </message>
+    <message>
+        <source>事件</source>
+        <translation>Events</translation>
+    </message>
+    <message>
+        <source>垂直</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>水平</source>
+        <translation>Horizontal</translation>
+    </message>
+    <message>
+        <source>右侧 / 下方</source>
+        <translation>Right / Below</translation>
+    </message>
+    <message>
+        <source>左侧 / 上方</source>
+        <translation>Left / Above</translation>
+    </message>
+    <message>
+        <source>左右 / 上下交错</source>
+        <translation>Alternating sides</translation>
+    </message>
+    <message>
+        <source>反向交错</source>
+        <translation>Reverse alternating</translation>
+    </message>
+    <message>
+        <source>反转显示顺序</source>
+        <translation>Reverse display order</translation>
+    </message>
+    <message>
+        <source>显示时间</source>
+        <translation>Show timestamps</translation>
+    </message>
+    <message>
+        <source>显示描述</source>
+        <translation>Show descriptions</translation>
+    </message>
+    <message>
+        <source>当前节点动画</source>
+        <translation>Animate current nodes</translation>
+    </message>
+    <message>
+        <source>方向</source>
+        <translation>Orientation</translation>
+    </message>
+    <message>
+        <source>布局模式</source>
+        <translation>Layout mode</translation>
+    </message>
+    <message>
+        <source>时间格式</source>
+        <translation>Timestamp format</translation>
+    </message>
+    <message>
+        <source>时间列宽</source>
+        <translation>Timestamp width</translation>
+    </message>
+    <message>
+        <source>事件间距</source>
+        <translation>Event spacing</translation>
+    </message>
+    <message>
+        <source>水平项宽度</source>
+        <translation>Horizontal item width</translation>
+    </message>
+    <message>
+        <source>左右边距</source>
+        <translation>Content padding</translation>
+    </message>
+    <message>
+        <source>节点大小</source>
+        <translation>Node size</translation>
+    </message>
+    <message>
+        <source>连接线宽度</source>
+        <translation>Line width</translation>
+    </message>
+    <message>
+        <source>标题字号（0 自动）</source>
+        <translation>Title size (0 = auto)</translation>
+    </message>
+    <message>
+        <source>描述字号（0 自动）</source>
+        <translation>Description size (0 = auto)</translation>
+    </message>
+    <message>
+        <source>时间字号（0 自动）</source>
+        <translation>Timestamp size (0 = auto)</translation>
+    </message>
+    <message>
+        <source>动画时长</source>
+        <translation>Animation duration</translation>
+    </message>
+    <message>
+        <source>连接线颜色</source>
+        <translation>Line color</translation>
+    </message>
+    <message>
+        <source>创建任务</source>
+        <translation>Create task</translation>
+    </message>
+    <message>
+        <source>任务已添加到计划中。</source>
+        <translation>The task was added to the plan.</translation>
+    </message>
+    <message>
+        <source>下载资源</source>
+        <translation>Download resources</translation>
+    </message>
+    <message>
+        <source>所需资源已经准备完成。</source>
+        <translation>All required resources are ready.</translation>
+    </message>
+    <message>
+        <source>处理数据</source>
+        <translation>Process data</translation>
+    </message>
+    <message>
+        <source>当前正在生成结果。</source>
+        <translation>Generating results.</translation>
+    </message>
+    <message>
+        <source>等待确认</source>
+        <translation>Awaiting confirmation</translation>
+    </message>
+    <message>
+        <source>处理完成后需要人工确认。</source>
+        <translation>Manual confirmation is required after processing.</translation>
+    </message>
+    <message>
+        <source>可选 Fluent 字体图标字符</source>
+        <translation>Optional Fluent icon font character</translation>
+    </message>
+    <message>
+        <source>当前</source>
+        <translation>Current</translation>
+    </message>
+    <message>
+        <source>添加事件</source>
+        <translation>Add event</translation>
+    </message>
+    <message>
+        <source>删除当前事件</source>
+        <translation>Remove current event</translation>
+    </message>
+    <message>
+        <source>当前事件</source>
+        <translation>Current event</translation>
+    </message>
+    <message>
+        <source>时间文字</source>
+        <translation>Time label</translation>
+    </message>
+    <message>
+        <source>描述</source>
+        <translation>Description</translation>
+    </message>
+    <message>
+        <source>交错内容位置</source>
+        <translation>Alternating placement</translation>
+    </message>
+    <message>
+        <source>节点颜色</source>
+        <translation>Node color</translation>
+    </message>
+    <message>
+        <source>新事件</source>
+        <translation>New event</translation>
+    </message>
+    <message>
+        <source>可以在右侧修改事件内容。</source>
+        <translation>Edit the event details on the right.</translation>
+    </message>
+    <message>
+        <source>时间轴(Timeline)</source>
+        <translation>Timeline</translation>
+    </message>
 </context>
 <context>
     <name>ZzPureToolsExampleTitleBar</name>

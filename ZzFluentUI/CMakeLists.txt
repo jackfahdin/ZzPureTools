@@ -44,6 +44,11 @@ zz_configure_library_target(ZzFluentFoundation
 )
 
 set(zz_fluent_ui_sources
+    widgets/src/ZzTimeline.cpp
+    widgets/src/ZzTimelineEvent.cpp
+    widgets/src/private/ZzTimelinePrivate.cpp
+    widgets/src/private/ZzTimelineModel.cpp
+    widgets/src/private/ZzTimelineDelegate.cpp
     widgets/src/ZzLiquidGauge.cpp
     widgets/src/ZzRadialGauge.cpp
     widgets/src/private/ZzRadialGaugePaint.cpp
@@ -184,6 +189,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzStyleCache.cpp
 )
 set(zz_fluent_ui_moc_headers
+    widgets/include/ZzFluentUI/ZzTimeline.h
     widgets/include/ZzFluentUI/ZzLiquidGauge.h
     widgets/include/ZzFluentUI/ZzRadialGauge.h
     widgets/include/ZzFluentUI/ZzMultiRadialGauge.h

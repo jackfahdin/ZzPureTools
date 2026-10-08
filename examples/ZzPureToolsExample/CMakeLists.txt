@@ -35,6 +35,9 @@ set(zz_pure_tools_example_sources
     ZzExampleRadialGaugePage.cpp
     ZzExampleLiquidGaugePage.cpp
     ZzExampleProgressRingPage.cpp
+    ZzExampleTimelinePage.cpp
+    ZzExampleTimelineEventEditor.cpp
+    ZzExampleTimelineSmoke.cpp
     ZzExampleRadialGaugeHelpers.h
     ZzExampleRadialGaugeHelpers.cpp
     ZzExampleRadialGaugePresets.cpp

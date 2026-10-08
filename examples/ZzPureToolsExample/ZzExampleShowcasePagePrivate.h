@@ -41,6 +41,7 @@ public:
     void buildRadialGauge(QVBoxLayout *layout, QWidget *parent);
     void buildLiquidGauge(QVBoxLayout *layout, QWidget *parent);
     void buildProgressRing(QVBoxLayout *layout, QWidget *parent);
+    void buildTimeline(QVBoxLayout *layout, QWidget *parent);
 
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);

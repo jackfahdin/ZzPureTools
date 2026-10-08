@@ -11,7 +11,7 @@ namespace {
 using ZzLifetime = ZzPureTools::ZzPageLifetimePolicy;
 using ZzPlacement = ZzFluentUI::ZzNavigationPlacement;
 
-constexpr std::array<ZzExampleRouteDescriptor, 37> zzRoutes{{
+constexpr std::array<ZzExampleRouteDescriptor, 38> zzRoutes{{
     {"home", QT_TRANSLATE_NOOP("ZzPureToolsExample", "首页"),
      QT_TRANSLATE_NOOP("ZzPureToolsExample", "工作区"),
      ZzLifetime::Persistent,
@@ -84,6 +84,8 @@ constexpr std::array<ZzExampleRouteDescriptor, 37> zzRoutes{{
     {"liquid-gauge", QT_TRANSLATE_NOOP("ZzPureToolsExample", "水波进度球(LiquidGauge)"),
      "", ZzLifetime::Recreatable, ZzPlacement::Primary},
     {"progress-ring", QT_TRANSLATE_NOOP("ZzPureToolsExample", "环形进度条(ProgressRing)"),
+     "", ZzLifetime::Recreatable, ZzPlacement::Primary},
+    {"timeline", QT_TRANSLATE_NOOP("ZzPureToolsExample", "时间轴(Timeline)"),
      "", ZzLifetime::Recreatable, ZzPlacement::Primary},
     {"cards", QT_TRANSLATE_NOOP("ZzPureToolsExample", "卡片与媒体"),
      QT_TRANSLATE_NOOP("ZzPureToolsExample", "控件"),

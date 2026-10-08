@@ -62,6 +62,7 @@
 #include <ZzFluentUI/ZzDoubleSpinBox.h>
 #include <ZzFluentUI/ZzMultiSelectComboBox.h>
 #include <ZzFluentUI/ZzProgressRing.h>
+#include "ZzExampleTimelineSmoke.h"
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
@@ -1045,6 +1046,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke progress ring integration failed");
                 return;
             }
+            if (routeId == QStringLiteral("timeline") && !zzTimelinePageReady(window, theme)) {
+                fail("route smoke timeline integration failed");
+                return;
+            }
             if (!previewDirectory.isEmpty()) {
                 // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
@@ -1055,10 +1060,13 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                     return;
                 }
                 if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")
-                    || routeId == QStringLiteral("liquid-gauge") || routeId == QStringLiteral("progress-ring")) {
+                    || routeId == QStringLiteral("liquid-gauge") || routeId == QStringLiteral("progress-ring")
+                    || routeId == QStringLiteral("timeline")) {
+                    const bool timeline = routeId == QStringLiteral("timeline");
                     const bool liquid = routeId == QStringLiteral("liquid-gauge");
                     const bool progressRing = routeId == QStringLiteral("progress-ring");
-                    auto *page = window.findChild<QWidget *>(progressRing ? QStringLiteral("zzExampleProgressRingPage")
+                    auto *page = window.findChild<QWidget *>(timeline ? QStringLiteral("zzExampleTimelinePage")
+                        : progressRing ? QStringLiteral("zzExampleProgressRingPage")
                         : liquid ? QStringLiteral("zzExampleLiquidGaugePage")
                         : routeId == QStringLiteral("radial-gauge") ? QStringLiteral("zzExampleRadialGaugePage")
                         : QStringLiteral("zzExampleAudioLevelMeterPage"));
@@ -1069,16 +1077,20 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         fail("could not export custom widget content preview");
                         return;
                     }
-                    if (routeId == QStringLiteral("radial-gauge") || liquid) {
-                        auto *tabs = page->findChild<QTabWidget *>(liquid ? QStringLiteral("zzLiquidPropertyTabs")
+                    if (routeId == QStringLiteral("radial-gauge") || liquid || timeline) {
+                        auto *tabs = page->findChild<QTabWidget *>(timeline ? QStringLiteral("zzTimeline_editorTabs")
+                            : liquid ? QStringLiteral("zzLiquidPropertyTabs")
                             : QStringLiteral("zzRadialPropertyTabs"));
                         const bool reducedMotion = theme->reducedMotion();
                         theme->setReducedMotion(true);
                         const auto originalMode = theme->mode();
-                        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark}) {
+                        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark,
+                                 ZzFluentUI::ZzThemeMode::HighContrast}) {
+                            if (mode == ZzFluentUI::ZzThemeMode::HighContrast && !timeline) continue;
                             theme->setMode(mode);
                             QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
-                            const QString name = mode == ZzFluentUI::ZzThemeMode::Dark
+                            const QString name = mode == ZzFluentUI::ZzThemeMode::HighContrast
+                                ? QStringLiteral("high-contrast") : mode == ZzFluentUI::ZzThemeMode::Dark
                                 ? QStringLiteral("dark") : QStringLiteral("light");
                             for (int index = 0; index < tabs->count(); ++index) {
                                 tabs->setCurrentIndex(index);
