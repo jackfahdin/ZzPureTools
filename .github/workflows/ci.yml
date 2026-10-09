@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Verify presets, packaging, and workflow contracts
         shell: bash
@@ -58,7 +58,7 @@ jobs:
       ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/linux/artifacts
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Linux build and deployment tools
         shell: bash
@@ -99,12 +99,12 @@ jobs:
           fc-match ':lang=zh-cn' | grep -F 'NotoSansCJK-Regular.ttc'
 
       - name: Set up Python for Qt installer
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
 
       - name: Install Linux Qt kit
-        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        uses: jurplel/install-qt-action/action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4
         with:
           version: ${{ env.QT_VERSION }}
           host: linux
@@ -210,7 +210,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' &&
           github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: continuous-linux-x86_64
           path: ${{ github.workspace }}/build/ci-release/linux/artifacts/*
@@ -219,7 +219,7 @@ jobs:
 
       - name: Upload Linux failure logs
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: linux-x86_64-failure-logs
           path: |
@@ -241,15 +241,15 @@ jobs:
       ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/msvc/artifacts
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Python for Qt installer
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
 
       - name: Install MSVC Qt kit
-        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        uses: jurplel/install-qt-action/action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4
         with:
           dir: ${{ runner.temp }}/qt-msvc
           version: ${{ env.QT_VERSION }}
@@ -329,7 +329,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' &&
           github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: continuous-windows-msvc-x86_64
           path: ${{ github.workspace }}/build/ci-release/msvc/artifacts/*
@@ -338,7 +338,7 @@ jobs:
 
       - name: Upload MSVC failure logs
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: windows-msvc-x86_64-failure-logs
           path: |
@@ -357,15 +357,15 @@ jobs:
       ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/mingw/artifacts
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Python for Qt installer
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
 
       - name: Install Qt MinGW kit and matching tools
-        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        uses: jurplel/install-qt-action/action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4
         with:
           dir: ${{ runner.temp }}/qt-mingw
           version: ${{ env.QT_VERSION }}
@@ -450,7 +450,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' &&
           github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: continuous-windows-mingw-x86_64
           path: ${{ github.workspace }}/build/ci-release/mingw/artifacts/*
@@ -459,7 +459,7 @@ jobs:
 
       - name: Upload MinGW failure logs
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: windows-mingw-x86_64-failure-logs
           path: |
@@ -490,15 +490,15 @@ jobs:
       ZZ_ARTIFACT_DIR: ${{ github.workspace }}/build/ci-release/macos-${{ matrix.arch }}/artifacts
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Python for Qt installer
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
 
       - name: Install native macOS Qt kit
-        uses: jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4
+        uses: jurplel/install-qt-action/action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4
         with:
           version: ${{ env.QT_VERSION }}
           host: mac
@@ -565,7 +565,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' &&
           github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ github.workspace }}/build/ci-release/macos-${{ matrix.arch }}/artifacts/*
@@ -574,7 +574,7 @@ jobs:
 
       - name: Upload macOS failure logs
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: macos-${{ matrix.arch }}-failure-logs
           path: |
@@ -604,34 +604,34 @@ jobs:
       ZZ_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download Linux artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: continuous-linux-x86_64
           path: ${{ github.workspace }}/build/continuous-artifacts/linux-x86_64
 
       - name: Download MSVC artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: continuous-windows-msvc-x86_64
           path: ${{ github.workspace }}/build/continuous-artifacts/windows-msvc-x86_64
 
       - name: Download MinGW artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: continuous-windows-mingw-x86_64
           path: ${{ github.workspace }}/build/continuous-artifacts/windows-mingw-x86_64
 
       - name: Download macOS arm64 artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: continuous-macos-arm64
           path: ${{ github.workspace }}/build/continuous-artifacts/macos-arm64
 
       - name: Download macOS x86_64 artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: continuous-macos-x86_64
           path: ${{ github.workspace }}/build/continuous-artifacts/macos-x86_64

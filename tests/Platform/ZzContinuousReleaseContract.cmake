@@ -29,7 +29,7 @@ file(READ "${workflow_file}" workflow_content)
 foreach(required_workflow_token IN ITEMS
         "publish-continuous-build:"
         "contents: write"
-        "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093"
+        "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333"
         "scripts/release/publish-continuous-build.sh"
         "--artifact-root"
         "github.repository"

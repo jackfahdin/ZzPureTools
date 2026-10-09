@@ -15,15 +15,15 @@ endif()
 file(READ "${workflow_path}" workflow)
 
 set(checkout_action
-    "actions/checkout@11d5960a326750d5838078e36cf38b85af677262")
+    "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1")
 set(setup_python_action
-    "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1")
+    "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97")
 set(install_qt_action
-    "jurplel/install-qt-action/action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730")
+    "jurplel/install-qt-action/action@a9c63c7c123f3069cff414e7e482d95dfa9d8125")
 set(upload_action
-    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02")
+    "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9")
 set(download_action
-    "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093")
+    "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333")
 set(msvc_action
     "ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756")
 
