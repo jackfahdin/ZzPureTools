@@ -18,6 +18,7 @@
 #include <QtCore/QThread>
 #include <QtGui/QPixmap>
 #include <QtTest/QSignalSpy>
+#include <ZzTestEventLoop.h>
 #include <QtTest/QTest>
 #include <QtWidgets/QWidget>
 
@@ -3717,7 +3718,7 @@ private Q_SLOTS:
         QVERIFY(coordinator->unregisterWindow(secondWindow.data()));
         secondShell.reset();
         QVERIFY(secondWindow->close());
-        QTRY_COMPARE(application.windowCount(), qsizetype(1));
+        ZZ_COMPARE_EVENTUALLY(application.windowCount(), qsizetype(1));
         QVERIFY(!secondWindow);
 
         int factoryCalls = 0;
@@ -4108,7 +4109,7 @@ private Q_SLOTS:
         QCOMPARE(factoryCalls, 1);
         QCOMPARE(resolverCalls, 1);
         QCOMPARE(application.windowCount(), windowCount);
-        QTRY_VERIFY(foreignDestroyed.load());
+        ZZ_VERIFY_EVENTUALLY(foreignDestroyed.load());
         QVERIFY(foreignPage.isNull());
         QCOMPARE(foreignDestroyedThread.load(), &foreignThread);
         QCOMPARE(QApplication::allWidgets().size(), widgetCount);

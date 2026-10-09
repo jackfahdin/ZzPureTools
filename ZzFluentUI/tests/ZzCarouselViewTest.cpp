@@ -13,6 +13,7 @@
 #include <QtGui/QStandardItemModel>
 #include <QtGui/QWheelEvent>
 #include <QtTest/QSignalSpy>
+#include <ZzTestEventLoop.h>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QFrame>
@@ -486,21 +487,21 @@ private Q_SLOTS:
     QVERIFY(!next->isVisible());
     QVERIFY(next->focusPolicy() == Qt::NoFocus);
     view.setFocus(Qt::TabFocusReason);
-    QTRY_VERIFY(next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(next->isVisible());
     view.clearFocus();
     QTest::mouseMove(view.viewport(), QPoint(210, 120));
-    QTRY_VERIFY(next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(next->isVisible());
     QTest::mouseMove(&view, QPoint(-10, -10));
     QEvent leave(QEvent::Leave);
     QCoreApplication::sendEvent(view.viewport(), &leave);
-    QTRY_VERIFY(!next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(!next->isVisible());
     view.setNavigationButtonTrigger(ZzFluentUI::ZzCarouselView::AlwaysVisible);
     view.hide();
     view.show();
     QCoreApplication::processEvents();
     QVERIFY(next->isVisible());
     QVERIFY(next->graphicsEffect() != nullptr);
-    QTRY_COMPARE(static_cast<QGraphicsOpacityEffect *>(next->graphicsEffect())->opacity(), 1.0);
+    ZZ_COMPARE_EVENTUALLY(static_cast<QGraphicsOpacityEffect *>(next->graphicsEffect())->opacity(), 1.0);
     view.setShowNavigationButtons(false);
     view.setFocus(Qt::TabFocusReason);
     QCoreApplication::processEvents();
@@ -525,7 +526,7 @@ private Q_SLOTS:
     QVERIFY(next != nullptr);
 
     QTest::mouseMove(view.viewport(), QPoint(210, 120));
-    QTRY_VERIFY(next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(next->isVisible());
     QVERIFY(next->isEnabled());
     QTest::mouseMove(next, next->rect().center());
     QVERIFY(next->isVisible());
@@ -538,7 +539,7 @@ private Q_SLOTS:
     next->clearFocus();
     view.clearFocus();
     QTest::mouseMove(&host, QPoint(5, 5));
-    QTRY_VERIFY(!next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(!next->isVisible());
     QCOMPARE(next->focusPolicy(), Qt::NoFocus);
   }
 
@@ -560,11 +561,11 @@ private Q_SLOTS:
     QVERIFY(next != nullptr);
 
     QTest::mouseMove(view.viewport(), view.viewport()->rect().center());
-    QTRY_VERIFY(next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(next->isVisible());
     QTest::mouseMove(&view, QPoint(0, 120));
     QVERIFY(next->isVisible());
     QTest::mouseMove(&host, QPoint(5, 140));
-    QTRY_VERIFY(!next->isVisible());
+    ZZ_VERIFY_EVENTUALLY(!next->isVisible());
   }
 
   void stopsAnimationsForReducedMotionAndSynchronousDeletion() {

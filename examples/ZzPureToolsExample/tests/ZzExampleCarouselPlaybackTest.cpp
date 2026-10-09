@@ -1,3 +1,4 @@
+#include <ZzTestEventLoop.h>
 #include "../ZzExampleCarouselPlayback.h"
 
 #include <QApplication>
@@ -47,7 +48,7 @@ private Q_SLOTS:
         playback.setInterval(100);
         playback.setEnabled(true);
         QVERIFY(view.showNavigationButtons());
-        QTRY_VERIFY_WITH_TIMEOUT(view.currentRow() != 0, 500);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(view.currentRow() != 0, 500);
     }
 
     void advancesVisibleViewAndStopsAtBoundary()
@@ -62,7 +63,7 @@ private Q_SLOTS:
         playback.setPauseOnHover(false);
         playback.setInterval(100);
         playback.setEnabled(true);
-        QTRY_COMPARE_WITH_TIMEOUT(view.currentRow(), 2, 700);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(view.currentRow(), 2, 700);
         QTest::qWait(180);
         QCOMPARE(view.currentRow(), 2);
     }
@@ -87,13 +88,13 @@ private Q_SLOTS:
         QCOMPARE(view.currentRow(), 0);
         QEvent leave(QEvent::Leave);
         QApplication::sendEvent(&view, &leave);
-        QTRY_VERIFY_WITH_TIMEOUT(view.currentRow() != 0, 500);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(view.currentRow() != 0, 500);
         view.setEnabled(false);
         const int paused = view.currentRow();
         QTest::qWait(160);
         QCOMPARE(view.currentRow(), paused);
         view.setEnabled(true);
-        QTRY_VERIFY_WITH_TIMEOUT(view.currentRow() != paused, 500);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(view.currentRow() != paused, 500);
         view.hide();
         const int hidden = view.currentRow();
         QTest::qWait(160);
@@ -116,7 +117,7 @@ private Q_SLOTS:
         view.setCurrentRow(1);
         QTest::qWait(160);
         QCOMPARE(view.currentRow(), 1);
-        QTRY_COMPARE_WITH_TIMEOUT(view.currentRow(), 2, 300);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(view.currentRow(), 2, 300);
     }
 
     void ignoredHoverDoesNotRestartPlayback()
@@ -154,7 +155,7 @@ private Q_SLOTS:
                 delete view.data();
         });
         playback->setEnabled(true);
-        QTRY_VERIFY_WITH_TIMEOUT(view.isNull(), 500);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(view.isNull(), 500);
     }
 
     void focusAndReducedMotionPausePlayback()
@@ -177,7 +178,7 @@ private Q_SLOTS:
         QTest::qWait(160);
         QCOMPARE(view.currentRow(), 0);
         view.clearFocus();
-        QTRY_COMPARE_WITH_TIMEOUT(view.currentRow(), 1, 500);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(view.currentRow(), 1, 500);
         style.animate = false;
         QEvent styleChange(QEvent::StyleChange);
         QApplication::sendEvent(&view, &styleChange);
@@ -185,7 +186,7 @@ private Q_SLOTS:
         QCOMPARE(view.currentRow(), 1);
         style.animate = true;
         QApplication::sendEvent(&view, &styleChange);
-        QTRY_COMPARE_WITH_TIMEOUT(view.currentRow(), 2, 500);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(view.currentRow(), 2, 500);
     }
 };
 QTEST_MAIN(ZzExampleCarouselPlaybackTest)

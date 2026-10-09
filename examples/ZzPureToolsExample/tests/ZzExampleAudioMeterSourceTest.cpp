@@ -1,3 +1,4 @@
+#include <ZzTestEventLoop.h>
 #include "../ZzExampleAudioMeterSource.h"
 #include <QDataStream>
 #include <QDir>
@@ -35,13 +36,13 @@ private slots:
         page.show();
         QTest::qWait(90);
         const auto initial = meter->levels();
-        QTRY_VERIFY(meter->levels() != initial);
+        ZZ_VERIFY_EVENTUALLY(meter->levels() != initial);
         page.hide();
         const auto hidden = meter->levels();
         QTest::qWait(150);
         QCOMPARE(meter->levels(), hidden);
         page.show();
-        QTRY_VERIFY(meter->levels() != hidden);
+        ZZ_VERIFY_EVENTUALLY(meter->levels() != hidden);
         page.setEnabled(false);
         const auto disabled = meter->levels();
         QTest::qWait(150);
@@ -123,7 +124,7 @@ private slots:
         auto *player = source->findChild<QMediaPlayer *>();
         QVERIFY(player);
         QVERIFY(player->isAvailable());
-        QTRY_VERIFY_WITH_TIMEOUT(stereo->levels().at(0) > -7 && stereo->levels().at(0) < -5, 5000);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(stereo->levels().at(0) > -7 && stereo->levels().at(0) < -5, 5000);
         QVERIFY(qAbs(stereo->levels().at(1) + 18.0618) < 0.1);
         QCOMPARE(mono->levels().at(0), stereo->levels().at(0));
         QCOMPARE(preview->channelCount(), 4);
@@ -134,7 +135,7 @@ private slots:
         page.show();
         QCOMPARE(player->playbackState(), QMediaPlayer::PausedState);
         page.findChild<QPushButton *>(QStringLiteral("zzAudioPlay"))->click();
-        QTRY_COMPARE(player->playbackState(), QMediaPlayer::PlayingState);
+        ZZ_COMPARE_EVENTUALLY(player->playbackState(), QMediaPlayer::PlayingState);
         source->setSimulationEnabled(true);
         QCOMPARE(player->playbackState(), QMediaPlayer::PausedState);
     }

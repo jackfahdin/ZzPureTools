@@ -1,3 +1,4 @@
+#include <ZzTestEventLoop.h>
 #include <QAccessible>
 #include <QLabel>
 #include <QSignalSpy>
@@ -22,8 +23,8 @@ private Q_SLOTS:
         beam.setInitialProgress(0.3);
         QVERIFY(!beam.isRunning());
         beam.show();
-        QTRY_VERIFY(beam.isRunning());
-        QTRY_VERIFY(beam.progress() > 0.32);
+        ZZ_VERIFY_EVENTUALLY(beam.isRunning());
+        ZZ_VERIFY_EVENTUALLY(beam.progress() > 0.32);
         beam.setAnimationEnabled(false);
         const qreal paused = beam.progress();
         QTest::qWait(40);
@@ -32,7 +33,7 @@ private Q_SLOTS:
         beam.setAnimationDuration(2000);
         QCOMPARE(beam.progress(), paused);
         beam.setAnimationEnabled(true);
-        QTRY_VERIFY(beam.progress() < paused);
+        ZZ_VERIFY_EVENTUALLY(beam.progress() < paused);
         beam.hide();
         QVERIFY(!beam.isRunning());
         const qreal hidden = beam.progress();
@@ -86,12 +87,12 @@ private Q_SLOTS:
         ZzBorderBeam beam;
         beam.setStyle(&style);
         beam.show();
-        QTRY_VERIFY(beam.isRunning());
+        ZZ_VERIFY_EVENTUALLY(beam.isRunning());
         theme.setReducedMotion(true);
-        QTRY_VERIFY(!beam.isRunning());
+        ZZ_VERIFY_EVENTUALLY(!beam.isRunning());
         QVERIFY(beam.isAnimationEnabled());
         theme.setReducedMotion(false);
-        QTRY_VERIFY(beam.isRunning());
+        ZZ_VERIFY_EVENTUALLY(beam.isRunning());
     }
 
     void containerAndButtonKeepQtSemantics()

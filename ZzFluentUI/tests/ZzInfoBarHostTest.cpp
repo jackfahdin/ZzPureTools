@@ -2,6 +2,7 @@
 #include <QtCore/QThread>
 #include <QtGui/QEnterEvent>
 #include <QtTest/QSignalSpy>
+#include <ZzTestEventLoop.h>
 #include <QtTest/QTest>
 #include <QtWidgets/QWidget>
 #include <limits>
@@ -29,10 +30,10 @@ private Q_SLOTS:
         auto* bar = host.showInfoBar(ZzInfoBar::Success, QStringLiteral("Saved"),
             QStringLiteral("All changes saved"), ZzInfoBarHost::TopRight, 0);
         QVERIFY(bar != nullptr);
-        QTRY_COMPARE(shown.size(), 1);
+        ZZ_COMPARE_EVENTUALLY(shown.size(), 1);
         QVERIFY(bar->isOpen());
         host.dismissAll();
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 1500);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 1500);
     }
 
     void noTargetDoesNotCreateBar()
@@ -58,7 +59,7 @@ private Q_SLOTS:
         auto* bar = host.showInfoBar(ZzInfoBar::Informational, QStringLiteral("Info"),
             QStringLiteral("Message"), static_cast<ZzInfoBarHost::ZzInfoBarPosition>(position), 0);
         QVERIFY(bar != nullptr);
-        QTRY_VERIFY(bar->isVisible());
+        ZZ_VERIFY_EVENTUALLY(bar->isVisible());
         const QRect geometry = bar->parentWidget()->geometry();
         if (position == ZzInfoBarHost::TopLeft || position == ZzInfoBarHost::BottomLeft)
             QCOMPARE(geometry.left(), host.margin());
@@ -85,17 +86,17 @@ private Q_SLOTS:
             QStringLiteral("Second"), ZzInfoBarHost::TopRight, 0);
         auto* third = host.showInfoBar(ZzInfoBar::Success, QStringLiteral("3"),
             QStringLiteral("Third"), ZzInfoBarHost::TopRight, 0);
-        QTRY_COMPARE(shown.size(), 1);
+        ZZ_COMPARE_EVENTUALLY(shown.size(), 1);
         QVERIFY(first->parentWidget()->isVisible());
         QVERIFY(second->parentWidget()->isHidden());
         QVERIFY(third->parentWidget()->isHidden());
         target.resize(500, 300);
-        QTRY_COMPARE(shown.size(), 3);
+        ZZ_COMPARE_EVENTUALLY(shown.size(), 3);
         QVERIFY(second->parentWidget()->isVisible());
         target.resize(500, 120);
-        QTRY_VERIFY(second->parentWidget()->isHidden());
+        ZZ_VERIFY_EVENTUALLY(second->parentWidget()->isHidden());
         target.resize(500, 300);
-        QTRY_VERIFY(second->parentWidget()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(second->parentWidget()->isVisible());
         host.dismissAll();
     }
 
@@ -109,7 +110,7 @@ private Q_SLOTS:
         auto* bar = host.showInfoBar(
             ZzInfoBar::Warning, {}, QStringLiteral("Pause"), ZzInfoBarHost::Top, 120);
         QVERIFY(bar != nullptr);
-        QTRY_VERIFY(bar->isVisible());
+        ZZ_VERIFY_EVENTUALLY(bar->isVisible());
         QEnterEvent enter({ 2, 2 }, { 2, 2 }, { 2, 2 });
         QCoreApplication::sendEvent(bar, &enter);
         QTest::qWait(170);
@@ -120,7 +121,7 @@ private Q_SLOTS:
         QTest::qWait(170);
         QCOMPARE(closed.size(), 0);
         target.show();
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 1200);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 1200);
     }
 
     void transferAndDefaultTarget()
@@ -190,7 +191,7 @@ private Q_SLOTS:
         QObject::connect(
             host, &ZzInfoBarHost::infoBarClosed, &target, [host] { delete host.data(); });
         host->dismissAll();
-        QTRY_VERIFY_WITH_TIMEOUT(host.isNull(), 1200);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(host.isNull(), 1200);
     }
 
     void targetDeletionStopsOutstandingEntries()
@@ -394,7 +395,7 @@ private Q_SLOTS:
             });
         host.showInfoBar(
             ZzInfoBar::Success, {}, QStringLiteral("First"), ZzInfoBarHost::TopRight, 0);
-        QTRY_COMPARE(shown.size(), 2);
+        ZZ_COMPARE_EVENTUALLY(shown.size(), 2);
     }
 
     void invalidEnumsDoNotCreateOrAdopt()
@@ -467,7 +468,7 @@ private Q_SLOTS:
         bar->dismiss();
         QCOMPARE(closed.size(), 0);
         theme.setReducedMotion(true);
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 100);
     }
 
     void livePopupEnterFinishesWhenMotionIsReduced()
@@ -484,7 +485,7 @@ private Q_SLOTS:
         bar->parentWidget()->setStyle(&style);
         QVERIFY(bar->x() > 6);
         theme.setReducedMotion(true);
-        QTRY_COMPARE_WITH_TIMEOUT(bar->x(), 6, 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(bar->x(), 6, 100);
     }
 
     void livePopupPositionFinishesWhenMotionIsReduced()
@@ -504,10 +505,10 @@ private Q_SLOTS:
         secondSurface->setStyle(&style);
         QSignalSpy closed(&host, &ZzInfoBarHost::infoBarClosed);
         first->dismiss();
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 1000);
-        QTRY_VERIFY_WITH_TIMEOUT(secondSurface->y() > host.margin(), 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 1000);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(secondSurface->y() > host.margin(), 100);
         theme.setReducedMotion(true);
-        QTRY_COMPARE_WITH_TIMEOUT(secondSurface->y(), host.margin(), 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(secondSurface->y(), host.margin(), 100);
     }
 
     void livePopupLeaveFinishesWhenTargetIsHiddenOrDisabled_data()
@@ -534,7 +535,7 @@ private Q_SLOTS:
             target.hide();
         else
             target.setEnabled(false);
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 100);
     }
 };
 

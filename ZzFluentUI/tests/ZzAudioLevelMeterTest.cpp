@@ -1,3 +1,4 @@
+#include <ZzTestEventLoop.h>
 #include <ZzFluentUI/ZzAudioLevelMeter.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzThemeController.h>
@@ -92,13 +93,13 @@ private Q_SLOTS:
         QTest::qWait(90);
         QVERIFY(meter.displayedLevel(0) < -10);
         QCOMPARE(meter.peakLevel(0), -2.0);
-        QTRY_VERIFY_WITH_TIMEOUT(meter.peakLevel(0) < -3, 600);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(meter.peakLevel(0) < -3, 600);
         meter.resetPeaks();
         QCOMPARE(meter.peakLevel(0), meter.displayedLevel(0));
         meter.setInputTimeout(45);
         meter.setLevel(-5);
-        QTRY_COMPARE_WITH_TIMEOUT(meter.level(0), -60.0, 300);
-        QTRY_COMPARE_WITH_TIMEOUT(meter.displayedLevel(0), -60.0, 600);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(meter.level(0), -60.0, 300);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(meter.displayedLevel(0), -60.0, 600);
         meter.clear();
         QVERIFY(!meter.isRunning());
         QCOMPARE(meter.peakLevel(0), -60.0);
@@ -189,7 +190,7 @@ private Q_SLOTS:
         });
         worker.join();
         QCOMPARE(changes.count(), 0);
-        QTRY_COMPARE(meter.channelCount(), 1);
+        ZZ_COMPARE_EVENTUALLY(meter.channelCount(), 1);
         QVERIFY(qAbs(meter.level(0) + 6.020599913) < 0.000001);
     }
 

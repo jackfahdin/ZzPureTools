@@ -1,5 +1,6 @@
 #include <QtCore/QPointer>
 #include <QtTest/QSignalSpy>
+#include <ZzTestEventLoop.h>
 #include <QtTest/QTest>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
@@ -132,7 +133,7 @@ private Q_SLOTS:
         bar->setOpen(true);
         QTest::qWait(25);
         bar->dismiss();
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 500);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 500);
         QCOMPARE(opened.size(), 0);
         QVERIFY(bar->isHidden());
         bar->setOpen(true);
@@ -218,7 +219,7 @@ private Q_SLOTS:
         bar->setOpen(true);
         QSignalSpy opened(bar, &ZzInfoBar::opened);
         QSignalSpy closed(bar, &ZzInfoBar::closed);
-        QTRY_COMPARE_WITH_TIMEOUT(opened.size(), 1, 1000);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(opened.size(), 1, 1000);
         bar->dismiss();
         QCOMPARE(closed.size(), 0);
         if (change == 0)
@@ -227,7 +228,7 @@ private Q_SLOTS:
             parent.hide();
         else
             parent.setEnabled(false);
-        QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 1, 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 100);
     }
 };
 

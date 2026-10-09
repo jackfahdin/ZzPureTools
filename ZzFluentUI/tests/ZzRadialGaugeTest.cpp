@@ -1,4 +1,5 @@
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtCore/QPointer>
 #include <QtCore/QVariantAnimation>
 #include <QtTest/QSignalSpy>
@@ -340,7 +341,7 @@ void ZzRadialGaugeTest::consecutiveAnimationsDoNotPublishConfigurationValues()
     gauge.setValueAnimationDuration(60);
     gauge.show();
     gauge.setValue(90);
-    QTRY_VERIFY(!gauge.isValueAnimating());
+    ZZ_VERIFY_EVENTUALLY(!gauge.isValueAnimating());
     QCOMPARE(gauge.value(), 90);
 
     QSignalSpy changes(&gauge, &ZzRadialGauge::valueChanged);
@@ -348,7 +349,7 @@ void ZzRadialGaugeTest::consecutiveAnimationsDoNotPublishConfigurationValues()
     QVERIFY2(changes.isEmpty(), "配置下一次动画不应提前发布目标或回跳起点");
     QCOMPARE(gauge.value(), 90);
     QVERIFY(gauge.isValueAnimating());
-    QTRY_VERIFY(!gauge.isValueAnimating());
+    ZZ_VERIFY_EVENTUALLY(!gauge.isValueAnimating());
     QCOMPARE(gauge.value(), 20);
     QVERIFY(!changes.isEmpty());
     int previous = 90;
@@ -420,7 +421,7 @@ void ZzRadialGaugeTest::animationTargetNotificationCanDeleteGauge()
     gauge->setValueAnimationDuration(60);
     gauge->show();
     gauge->setValue(90);
-    QTRY_VERIFY(!gauge->isValueAnimating());
+    ZZ_VERIFY_EVENTUALLY(!gauge->isValueAnimating());
     bool configuring = true;
     bool prematureNotification = false;
     connect(gauge.get(), &ZzRadialGauge::valueChanged, this, [&](int value) {
@@ -435,7 +436,7 @@ void ZzRadialGaugeTest::animationTargetNotificationCanDeleteGauge()
     gauge->setValue(20);
     configuring = false;
     QVERIFY2(!prematureNotification, "动画配置阶段不得触发可销毁控件的业务通知");
-    QTRY_VERIFY(!gauge);
+    ZZ_VERIFY_EVENTUALLY(!gauge);
 }
 
 void ZzRadialGaugeTest::boundedAnglesNotifyOnlyEffectiveChanges()

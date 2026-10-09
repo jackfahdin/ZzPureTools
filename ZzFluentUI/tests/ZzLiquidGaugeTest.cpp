@@ -1,3 +1,4 @@
+#include <ZzTestEventLoop.h>
 #include <QImage>
 #include <QMetaProperty>
 #include <QPainter>
@@ -157,16 +158,16 @@ private Q_SLOTS:
         QVERIFY(gauge.setProperty("animationEnabled", true));
         QVERIFY(!gauge.property("running").toBool());
         gauge.show();
-        QTRY_VERIFY(gauge.property("running").toBool());
+        ZZ_VERIFY_EVENTUALLY(gauge.property("running").toBool());
         const QImage before = render(gauge);
-        QTRY_VERIFY(render(gauge) != before);
+        ZZ_VERIFY_EVENTUALLY(render(gauge) != before);
         gauge.hide();
         QVERIFY(!gauge.property("running").toBool());
         const QImage hidden = render(gauge);
         QTest::qWait(80);
         QCOMPARE(render(gauge), hidden);
         gauge.show();
-        QTRY_VERIFY(gauge.property("running").toBool());
+        ZZ_VERIFY_EVENTUALLY(gauge.property("running").toBool());
         gauge.setEnabled(false);
         QVERIFY(!gauge.property("running").toBool());
         gauge.setEnabled(true);
@@ -180,9 +181,9 @@ private Q_SLOTS:
         gauge.setProperty("animationEnabled", true);
         QVERIFY(gauge.property("running").toBool());
         controller.setReducedMotion(true);
-        QTRY_VERIFY(!gauge.property("running").toBool());
+        ZZ_VERIFY_EVENTUALLY(!gauge.property("running").toBool());
         controller.setReducedMotion(false);
-        QTRY_VERIFY(gauge.property("running").toBool());
+        ZZ_VERIFY_EVENTUALLY(gauge.property("running").toBool());
     }
 
     // Shape clipping must stay bounded and negative inner geometry must never reach the painter.

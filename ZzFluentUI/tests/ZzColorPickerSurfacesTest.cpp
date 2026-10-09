@@ -1,4 +1,5 @@
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtTest/QSignalSpy>
 #include <QtCore/QPointer>
 #include <QtGui/QScreen>
@@ -53,13 +54,13 @@ private Q_SLOTS:
         QCOMPARE(changed.size(), 1);
         for (int i = 0; i < 3; ++i) {
             QTest::mouseClick(&button, Qt::LeftButton);
-            QTRY_VERIFY(picker->isVisible());
+            ZZ_VERIFY_EVENTUALLY(picker->isVisible());
             QCOMPARE(QApplication::activePopupWidget(), picker->window());
             picker->setCurrentColor(Qt::green);
             QCOMPARE(button.selectedColor(), QColor(Qt::green));
             QTest::keyClick(picker, Qt::Key_Escape);
-            QTRY_VERIFY(!picker->isVisible());
-            QTRY_VERIFY(button.hasFocus());
+            ZZ_VERIFY_EVENTUALLY(!picker->isVisible());
+            ZZ_VERIFY_EVENTUALLY(button.hasFocus());
             QCOMPARE(button.colorPicker(), picker);
         }
         QCOMPARE(changed.size(), 2);
@@ -74,14 +75,14 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QVERIFY(button.colorPicker());
         QTest::mouseClick(&button, Qt::LeftButton);
-        QTRY_VERIFY(button.colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(button.colorPicker()->isVisible());
         QTest::mouseClick(&button, Qt::LeftButton);
-        QTRY_VERIFY(!button.colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(!button.colorPicker()->isVisible());
         QTest::mouseClick(&button, Qt::LeftButton);
-        QTRY_VERIFY(button.colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(button.colorPicker()->isVisible());
         QTest::mouseClick(&window, Qt::LeftButton, Qt::NoModifier, QPoint(590, 590));
-        QTRY_VERIFY(!button.colorPicker()->isVisible());
-        QTRY_VERIFY(button.hasFocus());
+        ZZ_VERIFY_EVENTUALLY(!button.colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(button.hasFocus());
     }
     void popupFitsScreenAndRtl()
     {
@@ -95,7 +96,7 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QVERIFY(button.colorPicker());
         QTest::mouseClick(&button, Qt::LeftButton);
-        QTRY_VERIFY(button.colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(button.colorPicker()->isVisible());
         auto *popup = button.colorPicker()->window();
         QCOMPARE(button.colorPicker()->layoutDirection(), Qt::RightToLeft);
         QVERIFY(available.contains(popup->frameGeometry()));
@@ -105,10 +106,10 @@ private Q_SLOTS:
         // Reaching both opposite content corners proves constrained geometry
         // scrolls rather than silently clipping controls outside the viewport.
         scroll->ensureVisible(picker->width() - 1, picker->height() - 1, 0, 0);
-        QTRY_VERIFY(scroll->viewport()->rect().contains(
+        ZZ_VERIFY_EVENTUALLY(scroll->viewport()->rect().contains(
                 picker->mapTo(scroll->viewport(), picker->rect().bottomRight())));
         scroll->ensureVisible(0, 0, 0, 0);
-        QTRY_VERIFY(scroll->viewport()->rect().contains(
+        ZZ_VERIFY_EVENTUALLY(scroll->viewport()->rect().contains(
                 picker->mapTo(scroll->viewport(), QPoint())));
         const bool horizontalOverflow = picker->width() > scroll->viewport()->width();
         const bool verticalOverflow = picker->height() > scroll->viewport()->height();
@@ -127,10 +128,10 @@ private Q_SLOTS:
             auto *editor = picker->findChild<QLineEdit *>(QStringLiteral("zzHexColorEditor"));
             QVERIFY(editor);
             scroll->ensureWidgetVisible(editor);
-            QTRY_VERIFY(scroll->viewport()->rect().contains(
+            ZZ_VERIFY_EVENTUALLY(scroll->viewport()->rect().contains(
                     editor->mapTo(scroll->viewport(), editor->rect().center())));
             QTest::mouseClick(editor, Qt::LeftButton);
-            QTRY_VERIFY(editor->hasFocus());
+            ZZ_VERIFY_EVENTUALLY(editor->hasFocus());
             QTest::keyClick(editor, Qt::Key_A, Qt::ControlModifier);
             QTest::keyClicks(editor, QStringLiteral("#80402010"));
             picker->commitPendingEdits();
@@ -187,7 +188,7 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitForWindowExposed(&dialog));
         auto *editor = editHex(dialog.colorPicker(), QStringLiteral("#80402010"));
         QVERIFY(editor);
-        QTRY_VERIFY(editor->hasFocus());
+        ZZ_VERIFY_EVENTUALLY(editor->hasFocus());
         QStringList order;
         connect(&dialog, &ZzColorPickerDialog::currentColorChanged, &dialog,
                 [&](const QColor &color) { QCOMPARE(color, QColor("#80402010")); order << "preview"; });
@@ -245,13 +246,13 @@ private Q_SLOTS:
         window->show();
         QVERIFY(QTest::qWaitForWindowExposed(window));
         QTest::mouseClick(button, Qt::LeftButton);
-        QTRY_VERIFY(button->colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(button->colorPicker()->isVisible());
         QVERIFY(editHex(button->colorPicker(), QStringLiteral("#80402010")));
         QPointer<QWidget> guard(window);
         connect(button, &ZzColorPickerButton::selectedColorChanged, window,
                 [window](const QColor &color) { QCOMPARE(color, QColor("#80402010")); delete window; });
         QTest::keyClick(button->colorPicker()->focusWidget(), Qt::Key_Escape);
-        QTRY_VERIFY(!guard);
+        ZZ_VERIFY_EVENTUALLY(!guard);
     }
     void dialogKeyboardAndMouseFinish()
     {
@@ -262,7 +263,7 @@ private Q_SLOTS:
         auto *editor = editHex(dialog.colorPicker(), QStringLiteral("#ff123456"));
         QVERIFY(editor);
         QTest::keyClick(editor, Qt::Key_Return);
-        QTRY_VERIFY(!dialog.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!dialog.isVisible());
         QCOMPARE(selected.size(), 1);
         QCOMPARE(dialog.currentColor(), QColor("#123456"));
         dialog.show();
@@ -274,7 +275,7 @@ private Q_SLOTS:
         }
         QVERIFY(cancel);
         QTest::mouseClick(cancel, Qt::LeftButton);
-        QTRY_VERIFY(!dialog.isVisible());
+        ZZ_VERIFY_EVENTUALLY(!dialog.isVisible());
         QCoreApplication::processEvents();
         QCOMPARE(dialog.currentColor(), QColor("#123456"));
         QCOMPARE(selected.size(), 1);
@@ -318,7 +319,7 @@ private Q_SLOTS:
         parent->show();
         QVERIFY(QTest::qWaitForWindowExposed(parent));
         QTest::mouseClick(button, Qt::LeftButton);
-        QTRY_VERIFY(button->colorPicker()->isVisible());
+        ZZ_VERIFY_EVENTUALLY(button->colorPicker()->isVisible());
         QPointer<ZzColorPicker> buttonPicker(button->colorPicker());
         QPointer<ZzColorPicker> dialogPicker(dialog->colorPicker());
         delete parent;

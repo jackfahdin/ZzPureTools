@@ -41,3 +41,16 @@
             static_cast<int>(timeout));                                     \
         QCOMPARE(actual, expected);                                         \
     } while (false)
+
+/**
+ * @brief 在指定毫秒数内等待布尔表达式成立并执行最终断言。
+ * @param expression 可在 Qt 事件循环推进后变为真的表达式。
+ * @param timeout 超时时间，单位为毫秒。
+ */
+#define ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(expression, timeout)              \
+    do {                                                                    \
+        (void)QTest::qWaitFor(                                              \
+            [&] { return static_cast<bool>(expression); },                  \
+            static_cast<int>(timeout));                                     \
+        QVERIFY(expression);                                                \
+    } while (false)

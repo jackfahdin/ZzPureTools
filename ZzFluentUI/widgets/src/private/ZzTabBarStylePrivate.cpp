@@ -413,9 +413,10 @@ void ZzTabBarStylePrivate::drawLabel(const QStyleOptionTab &tab, QPainter *paint
     auto palette = tab.palette;
     palette.setColor(QPalette::WindowText, text);
     const bool enabled = tab.state.testFlag(QStyle::State_Enabled);
-    int flags = Qt::AlignVCenter | ((navigation || appearance_ == Appearance::Capsule) ? Qt::AlignLeading : Qt::AlignHCenter)
-        | Qt::TextShowMnemonic;
-    if (!style_->styleHint(QStyle::SH_UnderlineShortcut, &tab, bar_)) flags |= Qt::TextHideMnemonic;
+    int flags = static_cast<int>(Qt::AlignVCenter)
+        | static_cast<int>((navigation || appearance_ == Appearance::Capsule) ? Qt::AlignLeading : Qt::AlignHCenter)
+        | static_cast<int>(Qt::TextShowMnemonic);
+    if (!style_->styleHint(QStyle::SH_UnderlineShortcut, &tab, bar_)) flags |= static_cast<int>(Qt::TextHideMnemonic);
     style_->drawItemText(painter, textRect, flags, palette, enabled,
         tab.fontMetrics.elidedText(tab.text, bar_->elideMode(), textWidth, Qt::TextShowMnemonic), QPalette::WindowText);
     painter->restore();

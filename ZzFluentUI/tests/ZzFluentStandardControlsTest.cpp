@@ -12,6 +12,7 @@
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtTest/QSignalSpy>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QCheckBox>
@@ -588,7 +589,7 @@ private Q_SLOTS:
         const auto styleAnimations = style.findChildren<QVariantAnimation *>();
         QVERIFY(styleAnimations.size() <= 1);
         if (!styleAnimations.isEmpty()) {
-            QTRY_COMPARE(
+            ZZ_COMPARE_EVENTUALLY(
                 styleAnimations.constFirst()->state(),
                 QAbstractAnimation::Stopped);
         }
@@ -1459,19 +1460,19 @@ private Q_SLOTS:
         QCOMPARE(animation->duration(), 1800);
         QCOMPARE(animation->loopCount(), -1);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
-        QTRY_VERIFY_WITH_TIMEOUT(render(first) != firstFrame, 600);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(render(first) != firstFrame, 600);
 
         first->setRange(0, 100);
         QCoreApplication::processEvents();
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         second->hide();
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
 
         first->setRange(0, 0);
         render(first);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         first->setEnabled(false);
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
 
         QSignalSpy stoppedUpdates(
             animation,
@@ -1488,13 +1489,13 @@ private Q_SLOTS:
         render(first);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         first->setStyle(style.baseStyle());
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
 
         second->show();
         render(second);
         QCOMPARE(animation->state(), QAbstractAnimation::Running);
         delete second;
-        QTRY_COMPARE(animation->state(), QAbstractAnimation::Stopped);
+        ZZ_COMPARE_EVENTUALLY(animation->state(), QAbstractAnimation::Stopped);
     }
 
     /** @brief 验证减少动效与无控件上下文只绘制居中的固定短段。 */

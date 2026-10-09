@@ -1,6 +1,7 @@
 #include <QtGui/QAccessible>
 #include <QtCore/QPointer>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QVBoxLayout>
@@ -21,7 +22,7 @@ private Q_SLOTS:
         window.show();
         window.activateWindow();
         edit->setFocus();
-        QTRY_COMPARE(QApplication::focusWidget(), edit);
+        ZZ_COMPARE_EVENTUALLY(QApplication::focusWidget(), edit);
         QPointer<ZzFluentUI::ZzRangeSlider> guard = slider;
         auto *root = QAccessible::queryAccessibleInterface(slider);
         QCOMPARE(root->childCount(), 2);

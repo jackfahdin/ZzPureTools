@@ -399,7 +399,7 @@ private Q_SLOTS:
         QCOMPARE(bar.currentSourceIndex(), oldIndex);
         QCOMPARE(activated.count(), 0);
         QCOMPARE(pixels(newView, projectedNew), 0);
-        QTRY_COMPARE(activated.count(), 1);
+        ZZ_COMPARE_EVENTUALLY(activated.count(), 1);
         QCOMPARE(bar.currentSourceIndex(), newIndex);
         QVERIFY(bar.findChildren<QVariantAnimation *>().isEmpty());
         QCOMPARE(pixels(oldView, projectedOld), 0);
