@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <limits>
 #include <QtGui/QAccessible>
+#include <QtGui/QFontMetrics>
 #include <QtGui/QImage>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
@@ -251,7 +252,24 @@ private Q_SLOTS:
     view.setModel(&model);
     view.setImmersive(true);
     view.setShowNavigationButtons(false);
-    view.resize(820, 260);
+
+    // 说明文字是否上移取决于标题/说明的真实宽度与指示点位置的重叠判定，
+    // 按当前平台字体度量推导宽/窄两种尺寸，避免硬编码宽度随字体漂移。
+    QFont titleFont = view.font();
+    titleFont.setWeight(QFont::Bold);
+    titleFont.setPixelSize(16);
+    QFont descriptionFont = view.font();
+    descriptionFont.setPixelSize(12);
+    const int captionWidth = std::max(
+        QFontMetrics(titleFont).horizontalAdvance(model.item(0)->text()),
+        QFontMetrics(descriptionFont)
+            .horizontalAdvance(
+                model.item(0)
+                    ->data(ZzFluentUI::ZzCarouselView::DescriptionRole)
+                    .toString()));
+    const int wideWidth = 2 * captionWidth + 240;
+    const int narrowWidth = 2 * captionWidth + 100;
+    view.resize(wideWidth, 260);
     view.show();
     QCoreApplication::processEvents();
 
@@ -269,7 +287,7 @@ private Q_SLOTS:
       return top;
     };
     const int wideTop = firstWhiteY();
-    view.resize(476, 260);
+    view.resize(narrowWidth, 260);
     QCoreApplication::processEvents();
     const int narrowTop = firstWhiteY();
     QVERIFY(narrowTop <= wideTop - 18);
