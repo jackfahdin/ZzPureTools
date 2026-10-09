@@ -8016,7 +8016,7 @@ private Q_SLOTS:
             gauge->setShape(static_cast<Gauge::ZzLiquidShape>(index % 4));
             gauge->setRange(0, 100);
             gauge->setValue(index < 4 ? 50 : index == 4 ? 0 : index == 5 ? 100 : 68);
-            if (index < 4) gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(index))));
+            if (index < 4) gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(static_cast<size_t>(index)))));
             if (index == 6) {
                 gauge->setOutlineWidth(4);
                 gauge->setOutlineDistance(6);
