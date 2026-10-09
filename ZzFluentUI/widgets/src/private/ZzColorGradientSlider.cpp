@@ -76,7 +76,7 @@ void ZzColorGradientSlider::paintEvent(QPaintEvent *)
     painter.setClipPath(clip);
     for (int y = 0; y < height(); y += 4) {
         for (int x = 0; x < width(); x += 4) {
-            painter.fillRect(x, y, 4, 4, snapshot->color((x / 4 + y / 4) % 2
+            painter.fillRect(x, y, 4, 4, snapshot->color(((x / 4 + y / 4) % 2)
                 ? ZzColorToken::SurfaceSecondary : ZzColorToken::Surface));
         }
     }
