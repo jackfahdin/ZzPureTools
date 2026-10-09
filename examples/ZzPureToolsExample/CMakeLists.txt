@@ -40,6 +40,9 @@ set(zz_pure_tools_example_sources
     ZzExampleTimelineSmoke.cpp
     ZzExampleInfoBarPage.cpp
     ZzExampleInfoBarSmoke.cpp
+    ZzExampleCarouselPage.cpp
+    ZzExampleCarouselPlayback.cpp
+    ZzExampleCarouselSmoke.cpp
     ZzExampleRadialGaugeHelpers.h
     ZzExampleRadialGaugeHelpers.cpp
     ZzExampleRadialGaugePresets.cpp
@@ -164,6 +167,27 @@ if(NOT "${ZZ_EXAMPLE_LOCAL_ASSET_DIR}" STREQUAL "")
 endif()
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS LinguistTools)
+set(ZZ_EXAMPLE_CAROUSEL_ASSET_DIR "" CACHE PATH
+    "Optional untracked directory containing cliff/grapes/rainier/sunset/valley JPG previews")
+if(NOT "${ZZ_EXAMPLE_CAROUSEL_ASSET_DIR}" STREQUAL "")
+    if(NOT IS_DIRECTORY "${ZZ_EXAMPLE_CAROUSEL_ASSET_DIR}")
+        message(FATAL_ERROR "ZZ_EXAMPLE_CAROUSEL_ASSET_DIR must identify a directory")
+    endif()
+    file(REAL_PATH "${ZZ_EXAMPLE_CAROUSEL_ASSET_DIR}" zz_carousel_asset_dir)
+    set(zz_carousel_assets)
+    foreach(image_name IN ITEMS cliff grapes rainier sunset valley)
+        set(image_path "${zz_carousel_asset_dir}/${image_name}.jpg")
+        if(EXISTS "${image_path}" AND NOT IS_DIRECTORY "${image_path}")
+            list(APPEND zz_carousel_assets "${image_path}")
+        endif()
+    endforeach()
+    if(zz_carousel_assets)
+        qt_add_resources(ZzPureToolsExample "zz_example_carousel_assets"
+            PREFIX "/ZzPureToolsExample/carousel"
+            BASE "${zz_carousel_asset_dir}"
+            FILES ${zz_carousel_assets})
+    endif()
+endif()
 qt_add_lrelease(ZzPureToolsExample
     TS_FILES translations/ZzPureToolsExample_en.ts
     OPTIONS -nounfinished

@@ -11,11 +11,13 @@
 #include <QtGui/QAccessible>
 #include <QtGui/QIcon>
 #include <QtGui/QImage>
+#include <QtGui/QLinearGradient>
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
 #include <QtGui/QPixmap>
 #include <QtWidgets/QAbstractItemDelegate>
 #include <QtWidgets/QAccessibleWidget>
+#include <QtWidgets/QGraphicsOpacityEffect>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QStyledItemDelegate>
@@ -23,6 +25,7 @@
 
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzSegoeIconFont.h>
 
 namespace ZzFluentUI {
 
@@ -33,7 +36,50 @@ constexpr int zzCarouselIndicatorExtent = 24;
 constexpr int zzCarouselButtonExtent = 32;
 constexpr int zzCarouselButtonMargin = 12;
 constexpr int zzCarouselMaximumIndicators = 7;
-constexpr qreal zzCarouselCornerRadius = 6.0;
+constexpr int zzCarouselImmersiveIndicatorSlot = 16;
+
+/** @brief 在沉浸模式绘制参考项目的圆形 Fluent 字体按钮。 */
+class ZzCarouselNavButton final : public QToolButton {
+public:
+  explicit ZzCarouselNavButton(QWidget *parent) : QToolButton(parent) {}
+  void setImmersive(bool value) {
+    if (immersive_ == value) return;
+    immersive_ = value;
+    update();
+  }
+
+protected:
+  void paintEvent(QPaintEvent *event) override {
+    if (!immersive_) {
+      QToolButton::paintEvent(event);
+      return;
+    }
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const bool pressed = isDown();
+    QRectF circle = QRectF(rect()).adjusted(1, 1, -1, -1);
+    if (pressed) circle.adjust(1, 1, -1, -1);
+    QColor fill = palette().color(QPalette::Button);
+    fill.setAlpha(pressed ? 245 : underMouse() ? 230 : 190);
+    painter.setPen(QPen(palette().color(QPalette::Mid), 1));
+    painter.setBrush(fill);
+    painter.drawEllipse(circle);
+    const bool left = arrowType() == Qt::LeftArrow;
+    painter.setFont(ZzSegoeIconFont::font(16));
+    painter.setPen(palette().color(isEnabled() ? QPalette::ButtonText : QPalette::Mid));
+    painter.drawText(circle, Qt::AlignCenter,
+                     QString(QChar(static_cast<char16_t>(left ? ZzSegoeIcon::ChevronLeft
+                                                             : ZzSegoeIcon::ChevronRight))));
+    if (hasFocus()) {
+      painter.setPen(QPen(palette().color(QPalette::Highlight), 2));
+      painter.setBrush(Qt::NoBrush);
+      painter.drawEllipse(circle.adjusted(2, 2, -2, -2));
+    }
+  }
+
+private:
+  bool immersive_ = false;
+};
 
 #if QT_CONFIG(accessibility)
 
@@ -341,8 +387,8 @@ zzCarouselColorGroup(const QStyleOptionViewItem &option) {
 class ZzCarouselItemDelegate final : public QStyledItemDelegate {
 public:
   /** @brief 创建由 view QObject 所有的默认 delegate。 */
-  explicit ZzCarouselItemDelegate(QObject *parent)
-      : QStyledItemDelegate(parent) {}
+  explicit ZzCarouselItemDelegate(ZzCarouselView *view)
+      : QStyledItemDelegate(view), view_(view) {}
 
   /** @brief 绘制图片、标题、说明、边框和焦点，不保存 item 状态。 */
   void paint(QPainter *painter, const QStyleOptionViewItem &option,
@@ -352,7 +398,9 @@ public:
       return;
     }
 
-    const QRectF cardRect = QRectF(option.rect).adjusted(0.5, 0.5, -0.5, -0.5);
+    const bool immersive = view_->immersive();
+    const QRectF cardRect = immersive ? QRectF(option.rect)
+                                      : QRectF(option.rect).adjusted(0.5, 0.5, -0.5, -0.5);
     const QPalette::ColorGroup group = zzCarouselColorGroup(option);
     const bool enabled = option.state.testFlag(QStyle::State_Enabled);
     const bool focused = option.state.testFlag(QStyle::State_HasFocus);
@@ -363,10 +411,11 @@ public:
                                 QPainter::TextAntialiasing |
                                 QPainter::SmoothPixmapTransform,
                             true);
-    QPainterPath clip;
-    clip.addRoundedRect(cardRect, zzCarouselCornerRadius,
-                        zzCarouselCornerRadius);
-    painter->setClipPath(clip);
+    if (!immersive && view_->borderRadius() > 0) {
+      QPainterPath clip;
+      clip.addRoundedRect(cardRect, view_->borderRadius(), view_->borderRadius());
+      painter->setClipPath(clip);
+    }
     painter->fillRect(option.rect,
                       option.palette.color(group, QPalette::AlternateBase));
 
@@ -376,16 +425,33 @@ public:
     if (decoration.metaType().id() == QMetaType::QPixmap) {
       const QPixmap pixmap = decoration.value<QPixmap>();
       if (!pixmap.isNull()) {
-        painter->drawPixmap(
-            cardRect, pixmap,
-            zzCarouselSourceRect(pixmap.size(), cardRect.size()));
+        QRectF target = cardRect;
+        QRectF source = QRectF(pixmap.rect());
+        if (view_->imageAspectRatioMode() == Qt::KeepAspectRatioByExpanding) {
+          source = zzCarouselSourceRect(pixmap.size(), cardRect.size());
+        } else if (view_->imageAspectRatioMode() == Qt::KeepAspectRatio) {
+          const QSizeF fitted = QSizeF(pixmap.size()).scaled(cardRect.size(), Qt::KeepAspectRatio);
+          target = QRectF(cardRect.center().x() - fitted.width() / 2,
+                          cardRect.center().y() - fitted.height() / 2,
+                          fitted.width(), fitted.height());
+        }
+        painter->drawPixmap(target, pixmap, source);
         paintedDecoration = true;
       }
     } else if (decoration.metaType().id() == QMetaType::QImage) {
       const QImage image = decoration.value<QImage>();
       if (!image.isNull()) {
-        painter->drawImage(cardRect, image,
-                           zzCarouselSourceRect(image.size(), cardRect.size()));
+        QRectF target = cardRect;
+        QRectF source = QRectF(image.rect());
+        if (view_->imageAspectRatioMode() == Qt::KeepAspectRatioByExpanding) {
+          source = zzCarouselSourceRect(image.size(), cardRect.size());
+        } else if (view_->imageAspectRatioMode() == Qt::KeepAspectRatio) {
+          const QSizeF fitted = QSizeF(image.size()).scaled(cardRect.size(), Qt::KeepAspectRatio);
+          target = QRectF(cardRect.center().x() - fitted.width() / 2,
+                          cardRect.center().y() - fitted.height() / 2,
+                          fitted.width(), fitted.height());
+        }
+        painter->drawImage(target, image, source);
         paintedDecoration = true;
       }
     } else if (decoration.metaType().id() == QMetaType::QIcon) {
@@ -414,43 +480,107 @@ public:
     const QString description =
         index.data(ZzCarouselView::DescriptionRole).toString();
     if (!title.isEmpty() || !description.isEmpty()) {
-      const int bandHeight = description.isEmpty() ? 52 : 76;
+      QFont titleFont = option.font;
+      titleFont.setWeight(immersive ? QFont::Bold : QFont::DemiBold);
+      if (immersive) titleFont.setPixelSize(16);
+      const QFontMetrics titleMetrics(titleFont);
+      int captionShift = 0;
+      if (immersive && view_->showIndicators() && view_->model() != nullptr) {
+        const int count = view_->model()->rowCount(view_->rootIndex());
+        if (count > 1) {
+          const int visibleCount = std::min(count, zzCarouselMaximumIndicators);
+          const qreal firstIndicatorX =
+              static_cast<qreal>(view_->viewport()->width()) / 2.0 -
+              static_cast<qreal>(visibleCount - 1) *
+                  zzCarouselImmersiveIndicatorSlot / 2.0;
+          const int textWidth = std::max(10, option.rect.width() - 40);
+          const int titleWidth = titleMetrics.horizontalAdvance(
+              titleMetrics.elidedText(title, option.textElideMode, textWidth));
+          QFont descriptionFont = option.font;
+          descriptionFont.setPixelSize(12);
+          const QFontMetrics descriptionMetrics(descriptionFont);
+          const int descriptionWidth = descriptionMetrics.horizontalAdvance(
+              descriptionMetrics.elidedText(description, option.textElideMode,
+                                            textWidth));
+          const int textLeft = view_->viewport()->rect().left() + 20;
+          const qreal lastIndicatorX = firstIndicatorX +
+              (visibleCount - 1) * zzCarouselImmersiveIndicatorSlot;
+          if (textLeft < lastIndicatorX + 4.0 &&
+              textLeft + std::max(titleWidth, descriptionWidth) + 12 >
+                  firstIndicatorX - 4.0) {
+            captionShift = 24;
+          }
+        }
+      }
+      const int bandHeight =
+          (description.isEmpty() ? (immersive ? 56 : 52) : 76) + captionShift;
       const QRect bandRect(
           option.rect.left(),
           std::max(option.rect.top(), option.rect.bottom() - bandHeight + 1),
           option.rect.width(), std::min(bandHeight, option.rect.height()));
-      QColor bandColor = option.palette.color(group, QPalette::Window);
-      bandColor.setAlpha(232);
-      painter->fillRect(bandRect, bandColor);
+      if (immersive) {
+        QLinearGradient gradient(bandRect.topLeft(), bandRect.bottomLeft());
+        gradient.setColorAt(0.0, QColor(0, 0, 0, 0));
+        gradient.setColorAt(0.4, QColor(0, 0, 0, 110));
+        gradient.setColorAt(1.0, QColor(0, 0, 0, 175));
+        painter->fillRect(bandRect, gradient);
+      } else {
+        QColor bandColor = option.palette.color(group, QPalette::Window);
+        bandColor.setAlpha(232);
+        painter->fillRect(bandRect, bandColor);
+      }
 
-      const QRect textRect = bandRect.adjusted(16, 8, -16, -8);
-      QFont titleFont = option.font;
-      titleFont.setWeight(QFont::DemiBold);
       painter->setFont(titleFont);
-      painter->setPen(option.palette.color(group, QPalette::WindowText));
-      const QFontMetrics titleMetrics(titleFont);
-      const int titleHeight = titleMetrics.height();
-      painter->drawText(
-          QRect(textRect.left(), textRect.top(), textRect.width(), titleHeight),
-          Qt::AlignLeading | Qt::AlignVCenter,
-          titleMetrics.elidedText(title, option.textElideMode,
-                                  textRect.width()));
-
-      if (!description.isEmpty()) {
-        painter->setFont(option.font);
-        painter->setPen(option.palette.color(group, QPalette::PlaceholderText));
-        const QFontMetrics descriptionMetrics(option.font);
+      painter->setPen(immersive ? QColor(Qt::white)
+                                : option.palette.color(group, QPalette::WindowText));
+      if (immersive) {
+        const int textLeft = option.rect.left() + 20;
+        const int textWidth = std::max(10, option.rect.width() - 40);
+        const bool hasDescription = !description.isEmpty();
         painter->drawText(
-            QRect(textRect.left(), textRect.top() + titleHeight + 2,
-                  textRect.width(),
-                  std::max(0, textRect.height() - titleHeight - 2)),
-            Qt::AlignLeading | Qt::AlignTop | Qt::TextWordWrap,
-            descriptionMetrics.elidedText(description, option.textElideMode,
-                                          textRect.width()));
+            QRect(textLeft, option.rect.bottom() -
+                                (hasDescription ? 56 : 40) - captionShift,
+                  textWidth, hasDescription ? 24 : 28),
+            Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
+            titleMetrics.elidedText(title, option.textElideMode, textWidth));
+        if (hasDescription) {
+          QFont descriptionFont = option.font;
+          descriptionFont.setPixelSize(12);
+          painter->setFont(descriptionFont);
+          painter->setPen(QColor(240, 240, 240, 220));
+          const QFontMetrics descriptionMetrics(descriptionFont);
+          painter->drawText(
+              QRect(textLeft, option.rect.bottom() - 32 - captionShift,
+                    textWidth, 20),
+              Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
+              descriptionMetrics.elidedText(description, option.textElideMode,
+                                            textWidth));
+        }
+      } else {
+        const QRect textRect = bandRect.adjusted(16, 8, -16, -8);
+        const int titleHeight = titleMetrics.height();
+        painter->drawText(
+            QRect(textRect.left(), textRect.top(), textRect.width(), titleHeight),
+            Qt::AlignLeading | Qt::AlignVCenter,
+            titleMetrics.elidedText(title, option.textElideMode,
+                                    textRect.width()));
+        if (!description.isEmpty()) {
+          painter->setFont(option.font);
+          painter->setPen(option.palette.color(group, QPalette::PlaceholderText));
+          const QFontMetrics descriptionMetrics(option.font);
+          painter->drawText(
+              QRect(textRect.left(), textRect.top() + titleHeight + 2,
+                    textRect.width(),
+                    std::max(0, textRect.height() - titleHeight - 2)),
+              Qt::AlignLeading | Qt::AlignTop | Qt::TextWordWrap,
+              descriptionMetrics.elidedText(description, option.textElideMode,
+                                            textRect.width()));
+        }
       }
     }
     painter->restore();
 
+    if (immersive && !focused) return;
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     const QColor borderColor =
@@ -460,16 +590,22 @@ public:
     painter->setBrush(Qt::NoBrush);
     painter->drawRoundedRect(focused ? cardRect.adjusted(0.5, 0.5, -0.5, -0.5)
                                      : cardRect,
-                             zzCarouselCornerRadius, zzCarouselCornerRadius);
+                             view_->borderRadius(), view_->borderRadius());
     painter->restore();
   }
+
+private:
+  ZzCarouselView *const view_;
 };
 
 } // namespace
 
 ZzCarouselViewPrivate::ZzCarouselViewPrivate(ZzCarouselView *q)
-    : q_ptr(q), previousButton(new QToolButton(q)),
-      nextButton(new QToolButton(q)), animation(new QVariantAnimation(q)) {
+    : q_ptr(q), previousButton(new ZzCarouselNavButton(q)),
+      nextButton(new ZzCarouselNavButton(q)), animation(new QVariantAnimation(q)),
+      navigationAnimation(new QVariantAnimation(q)),
+      previousEffect(new QGraphicsOpacityEffect(previousButton)),
+      nextEffect(new QGraphicsOpacityEffect(nextButton)) {
   Q_ASSERT(q_ptr != nullptr);
   q_ptr->setItemDelegate(new ZzCarouselItemDelegate(q_ptr));
 
@@ -480,6 +616,10 @@ ZzCarouselViewPrivate::ZzCarouselViewPrivate(ZzCarouselView *q)
     button->setIconSize(QSize(16, 16));
     button->resize(zzCarouselButtonExtent, zzCarouselButtonExtent);
   }
+  previousButton->setGraphicsEffect(previousEffect);
+  nextButton->setGraphicsEffect(nextEffect);
+  previousEffect->setOpacity(1.0);
+  nextEffect->setOpacity(1.0);
   QObject::connect(previousButton, &QToolButton::clicked, q_ptr,
                    &ZzCarouselView::showPrevious);
   QObject::connect(nextButton, &QToolButton::clicked, q_ptr,
@@ -504,6 +644,23 @@ ZzCarouselViewPrivate::ZzCarouselViewPrivate(ZzCarouselView *q)
     previousIndex = QPersistentModelIndex();
     q_ptr->viewport()->update();
   });
+  navigationAnimation->setDuration(160);
+  navigationAnimation->setStartValue(0.0);
+  navigationAnimation->setEndValue(1.0);
+  QObject::connect(navigationAnimation, &QVariantAnimation::valueChanged, q_ptr,
+                   [this](const QVariant &value) {
+                     if (!q_ptr->isVisible() ||
+                         q_ptr->style()->styleHint(QStyle::SH_Widget_Animate,
+                                                   nullptr, q_ptr) == 0) {
+                       updateNavigationReveal();
+                       return;
+                     }
+                     const qreal opacity = std::clamp(value.toReal(), 0.0, 1.0);
+                     previousEffect->setOpacity(opacity);
+                     nextEffect->setOpacity(opacity);
+                   });
+  QObject::connect(navigationAnimation, &QVariantAnimation::finished, q_ptr,
+                   [this]() { updateButtons(); });
 
   updateButtonText();
   updateButtonIcons();
@@ -517,6 +674,7 @@ ZzCarouselViewPrivate::ZzCarouselViewPrivate(ZzCarouselView *q)
 
 ZzCarouselViewPrivate::~ZzCarouselViewPrivate() {
   animation->stop();
+  navigationAnimation->stop();
   disconnectModel();
 #if QT_CONFIG(accessibility)
   if (accessibleInterfaceId != 0) {
@@ -526,9 +684,10 @@ ZzCarouselViewPrivate::~ZzCarouselViewPrivate() {
 }
 
 QRect ZzCarouselViewPrivate::contentRect() const {
+  if (immersive) return q_ptr->viewport()->rect();
   return q_ptr->viewport()->rect().adjusted(
       zzCarouselOuterMargin, zzCarouselOuterMargin, -zzCarouselOuterMargin,
-      -(zzCarouselOuterMargin + zzCarouselIndicatorExtent));
+      -(zzCarouselOuterMargin + (showIndicators ? zzCarouselIndicatorExtent : 0)));
 }
 
 int ZzCarouselViewPrivate::rowCount() const {
@@ -564,10 +723,7 @@ void ZzCarouselViewPrivate::connectModel(QAbstractItemModel *model) {
                        [this]() { finishTransition(); }));
   modelConnections.append(
       QObject::connect(model, &QAbstractItemModel::modelReset, q_ptr, [this]() {
-        initializeCurrent();
-        synchronizeCurrentRow();
-        updateButtons();
-        q_ptr->viewport()->update();
+        refreshAfterModelMutation(true);
       }));
   modelConnections.append(QObject::connect(
       model, &QAbstractItemModel::rowsAboutToBeRemoved, q_ptr,
@@ -575,35 +731,24 @@ void ZzCarouselViewPrivate::connectModel(QAbstractItemModel *model) {
   modelConnections.append(
       QObject::connect(model, &QAbstractItemModel::rowsInserted, q_ptr,
                        [this](const QModelIndex &, int, int) {
-                         initializeCurrent();
-                         synchronizeCurrentRow();
-                         updateButtons();
-                         q_ptr->viewport()->update();
+                         refreshAfterModelMutation(true);
                        }));
   modelConnections.append(
       QObject::connect(model, &QAbstractItemModel::rowsRemoved, q_ptr,
                        [this](const QModelIndex &, int, int) {
-                         initializeCurrent();
-                         synchronizeCurrentRow();
-                         updateButtons();
-                         q_ptr->viewport()->update();
+                         refreshAfterModelMutation(true);
                        }));
   modelConnections.append(QObject::connect(
       model, &QAbstractItemModel::rowsMoved, q_ptr,
       [this](const QModelIndex &, int, int, const QModelIndex &, int) {
-        synchronizeCurrentRow();
-        updateButtons();
-        q_ptr->viewport()->update();
+        refreshAfterModelMutation(false);
       }));
   modelConnections.append(
       QObject::connect(model, &QAbstractItemModel::layoutAboutToBeChanged,
                        q_ptr, [this]() { finishTransition(); }));
   modelConnections.append(QObject::connect(
       model, &QAbstractItemModel::layoutChanged, q_ptr, [this]() {
-        initializeCurrent();
-        synchronizeCurrentRow();
-        updateButtons();
-        q_ptr->viewport()->update();
+        refreshAfterModelMutation(true);
       }));
   modelConnections.append(QObject::connect(
       model, &QAbstractItemModel::dataChanged, q_ptr,
@@ -637,15 +782,57 @@ void ZzCarouselViewPrivate::initializeCurrent() {
 }
 
 void ZzCarouselViewPrivate::synchronizeCurrentRow() {
+  QPointer<ZzCarouselView> guard(q_ptr);
+  flushPendingRowChanges();
+  if (!guard) return;
+  reportCurrentRow(currentRow());
+}
+
+void ZzCarouselViewPrivate::enqueueRowChange(int row, bool defer) {
+  pendingRowChanges.push_back({modelRevision, row});
+  if (!defer || pendingRowFlushScheduled) return;
+  pendingRowFlushScheduled = true;
+  QMetaObject::invokeMethod(
+      q_ptr,
+      [this]() {
+        pendingRowFlushScheduled = false;
+        flushPendingRowChanges();
+      },
+      Qt::QueuedConnection);
+}
+
+void ZzCarouselViewPrivate::flushPendingRowChanges() {
+  QPointer<ZzCarouselView> guard(q_ptr);
+  while (!pendingRowChanges.empty()) {
+    const PendingRowChange change = pendingRowChanges.front();
+    pendingRowChanges.pop_front();
+    if (change.revision != modelRevision) continue;
+    reportCurrentRow(change.row);
+    if (!guard) return;
+  }
+}
+
+void ZzCarouselViewPrivate::reportCurrentRow(int row) {
   if (changingModelContext) {
     return;
   }
-  const int row = currentRow();
   if (lastReportedRow == row) {
     return;
   }
   lastReportedRow = row;
   Q_EMIT q_ptr->currentRowChanged(row);
+}
+
+void ZzCarouselViewPrivate::refreshAfterModelMutation(bool initialize) {
+  ++modelRevision;
+  QPointer<ZzCarouselView> guard(q_ptr);
+  if (initialize) {
+    initializeCurrent();
+    if (!guard) return;
+  }
+  updateButtons();
+  q_ptr->viewport()->update();
+  synchronizeCurrentRow();
 }
 
 bool ZzCarouselViewPrivate::navigateTo(int row, int direction,
@@ -660,13 +847,18 @@ bool ZzCarouselViewPrivate::navigateTo(int row, int direction,
   finishTransition();
   const int oldRow = currentRow();
   pendingDirection = direction != 0 ? direction : (row >= oldRow ? 1 : -1);
+  QPointer<ZzCarouselView> guard(q_ptr);
+  ++navigationDepth;
   q_ptr->selectionModel()->setCurrentIndex(target,
                                            QItemSelectionModel::ClearAndSelect);
-  if (q_ptr->currentIndex() != target) {
+  if (!guard) return true;
+  --navigationDepth;
+  const bool reachedTarget = q_ptr->currentIndex() == target;
+  if (!reachedTarget) {
     pendingDirection = 0;
-    return false;
   }
-  return true;
+  if (navigationDepth == 0) synchronizeCurrentRow();
+  return reachedTarget;
 }
 
 bool ZzCarouselViewPrivate::navigateBy(int delta) {
@@ -745,7 +937,14 @@ void ZzCarouselViewPrivate::paint(QPainter *painter) const {
   }
 
   painter->save();
-  painter->setClipRect(content);
+  if (immersive && borderRadius > 0) {
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    QPainterPath clip;
+    clip.addRoundedRect(QRectF(content), borderRadius, borderRadius);
+    painter->setClipPath(clip);
+  } else {
+    painter->setClipRect(content);
+  }
   if (previousIndex.isValid() && transitionProgress < 1.0) {
     int visualDirection = transitionDirection;
     if (q_ptr->layoutDirection() == Qt::RightToLeft) {
@@ -768,10 +967,22 @@ void ZzCarouselViewPrivate::paint(QPainter *painter) const {
 void ZzCarouselViewPrivate::updateButtons() {
   const int count = rowCount();
   const int row = currentRow();
-  const bool visible = count > 1 && row >= 0;
+  const bool eligible = showNavigationButtons && count > 1 && row >= 0;
+  const bool revealed = navigationButtonTrigger == ZzCarouselView::AlwaysVisible ||
+                        (q_ptr->isEnabled() &&
+                         (hoveringView || q_ptr->hasFocus() ||
+                          previousButton->hasFocus() || nextButton->hasFocus()));
+  const bool interactive = eligible && revealed && q_ptr->isEnabled();
+  const bool fading = navigationAnimation->state() == QAbstractAnimation::Running &&
+                      previousEffect->opacity() > 0;
+  const bool visible = eligible && (revealed || fading);
   previousButton->setVisible(visible);
   nextButton->setVisible(visible);
-  if (!visible) {
+  for (QToolButton *button : {previousButton, nextButton}) {
+    button->setAttribute(Qt::WA_TransparentForMouseEvents, !interactive);
+    button->setFocusPolicy(interactive ? Qt::StrongFocus : Qt::NoFocus);
+  }
+  if (!eligible) {
     return;
   }
 
@@ -780,32 +991,35 @@ void ZzCarouselViewPrivate::updateButtons() {
   const bool canWrap = wrapAroundEnabled && count > 1;
   const QModelIndex previous = indexForRow(previousRow);
   const QModelIndex next = indexForRow(nextRow);
-  previousButton->setEnabled(q_ptr->isEnabled() && (row > 0 || canWrap) &&
+  previousButton->setEnabled(q_ptr->isEnabled() && interactive && (row > 0 || canWrap) &&
                              previous.flags().testFlag(Qt::ItemIsEnabled));
-  nextButton->setEnabled(q_ptr->isEnabled() && (row + 1 < count || canWrap) &&
+  nextButton->setEnabled(q_ptr->isEnabled() && interactive && (row + 1 < count || canWrap) &&
                          next.flags().testFlag(Qt::ItemIsEnabled));
   previousButton->raise();
   nextButton->raise();
 }
 
 void ZzCarouselViewPrivate::updateButtonGeometry() {
+  const int extent = immersive ? 36 : zzCarouselButtonExtent;
   const QRect viewportGeometry = q_ptr->viewport()->geometry();
   const int y = viewportGeometry.top() +
-                (viewportGeometry.height() - zzCarouselButtonExtent) / 2;
+                (viewportGeometry.height() - extent) / 2;
   const int left = viewportGeometry.left() + zzCarouselButtonMargin;
   const int right = viewportGeometry.right() - zzCarouselButtonMargin -
-                    zzCarouselButtonExtent + 1;
+                    extent + 1;
   const bool rtl = q_ptr->layoutDirection() == Qt::RightToLeft;
-  previousButton->setGeometry(rtl ? right : left, y, zzCarouselButtonExtent,
-                              zzCarouselButtonExtent);
-  nextButton->setGeometry(rtl ? left : right, y, zzCarouselButtonExtent,
-                          zzCarouselButtonExtent);
+  previousButton->setGeometry(rtl ? right : left, y, extent, extent);
+  nextButton->setGeometry(rtl ? left : right, y, extent, extent);
   previousButton->raise();
   nextButton->raise();
 }
 
 void ZzCarouselViewPrivate::updateButtonIcons() {
   const bool rtl = q_ptr->layoutDirection() == Qt::RightToLeft;
+  previousButton->setArrowType(rtl ? Qt::RightArrow : Qt::LeftArrow);
+  nextButton->setArrowType(rtl ? Qt::LeftArrow : Qt::RightArrow);
+  static_cast<ZzCarouselNavButton *>(previousButton)->setImmersive(immersive);
+  static_cast<ZzCarouselNavButton *>(nextButton)->setImmersive(immersive);
   previousButton->setIcon(q_ptr->style()->standardIcon(
       rtl ? QStyle::SP_ArrowRight : QStyle::SP_ArrowLeft, nullptr, q_ptr));
   nextButton->setIcon(q_ptr->style()->standardIcon(
@@ -819,6 +1033,61 @@ void ZzCarouselViewPrivate::updateButtonText() {
   previousButton->setAccessibleName(previousText);
   nextButton->setToolTip(nextText);
   nextButton->setAccessibleName(nextText);
+}
+
+void ZzCarouselViewPrivate::updateNavigationReveal() {
+  const bool reveal = navigationButtonTrigger == ZzCarouselView::AlwaysVisible ||
+                      (q_ptr->isEnabled() &&
+                       (hoveringView || q_ptr->hasFocus() ||
+                        previousButton->hasFocus() || nextButton->hasFocus()));
+  const qreal target = reveal ? 1.0 : 0.0;
+  navigationAnimation->stop();
+  const bool animate = q_ptr->isVisible() && q_ptr->isEnabled() &&
+                       q_ptr->style()->styleHint(QStyle::SH_Widget_Animate,
+                                                 nullptr, q_ptr) != 0;
+  if (!animate || previousEffect->opacity() == target) {
+    previousEffect->setOpacity(target);
+    nextEffect->setOpacity(target);
+    updateButtons();
+    return;
+  }
+  navigationAnimation->setStartValue(previousEffect->opacity());
+  navigationAnimation->setEndValue(target);
+  navigationAnimation->start();
+  updateButtons();
+}
+
+void ZzCarouselViewPrivate::finishNavigationReveal() noexcept {
+  navigationAnimation->stop();
+  const qreal terminalOpacity = navigationButtonTrigger == ZzCarouselView::AlwaysVisible
+                                    ? 1.0 : 0.0;
+  previousEffect->setOpacity(terminalOpacity);
+  nextEffect->setOpacity(terminalOpacity);
+  hoveringView = false;
+  updateButtons();
+}
+
+int ZzCarouselViewPrivate::indicatorRowAt(const QPoint &point) const {
+  const int count = rowCount();
+  const int row = currentRow();
+  if (!showIndicators || count <= 1 || row < 0) return -1;
+  const int visibleCount = std::min(count, zzCarouselMaximumIndicators);
+  const int spacing = immersive ? zzCarouselImmersiveIndicatorSlot : 14;
+  const int y = immersive ? q_ptr->viewport()->height() - 20
+                          : q_ptr->viewport()->height() - zzCarouselIndicatorExtent / 2;
+  if (std::abs(point.y() - y) > 8) return -1;
+  const qreal startX = static_cast<qreal>(q_ptr->viewport()->width()) / 2.0 -
+                       static_cast<qreal>(visibleCount - 1) * spacing / 2.0;
+  for (int visual = 0; visual < visibleCount; ++visual) {
+    const qreal x = startX + static_cast<qreal>(visual * spacing);
+    if (std::abs(static_cast<qreal>(point.x()) - x) <= spacing / 2.0) {
+      const int first = std::clamp(row - visibleCount / 2, 0, count - visibleCount);
+      const int logical = q_ptr->layoutDirection() == Qt::RightToLeft
+                              ? visibleCount - visual - 1 : visual;
+      return first + logical;
+    }
+  }
+  return -1;
 }
 
 QStyleOptionViewItem
@@ -870,19 +1139,20 @@ void ZzCarouselViewPrivate::paintIndex(QPainter *painter,
 void ZzCarouselViewPrivate::paintIndicators(QPainter *painter) const {
   const int count = rowCount();
   const int row = currentRow();
-  if (painter == nullptr || count <= 1 || row < 0) {
+  if (painter == nullptr || !showIndicators || count <= 1 || row < 0) {
     return;
   }
 
   const int visibleCount = std::min(count, zzCarouselMaximumIndicators);
   const int halfWindow = visibleCount / 2;
   const int firstRow = std::clamp(row - halfWindow, 0, count - visibleCount);
-  constexpr qreal spacing = 14.0;
+  const qreal spacing = immersive ? 16.0 : 14.0;
   const qreal totalWidth = static_cast<qreal>(visibleCount - 1) * spacing;
   const qreal startX =
       static_cast<qreal>(q_ptr->viewport()->width()) / 2.0 - totalWidth / 2.0;
-  const qreal y = static_cast<qreal>(q_ptr->viewport()->height()) -
-                  static_cast<qreal>(zzCarouselIndicatorExtent) / 2.0;
+  const qreal y = immersive ? static_cast<qreal>(q_ptr->viewport()->height() - 20)
+                            : static_cast<qreal>(q_ptr->viewport()->height()) -
+                                  static_cast<qreal>(zzCarouselIndicatorExtent) / 2.0;
   const QPalette::ColorGroup group =
       q_ptr->isEnabled() ? QPalette::Active : QPalette::Disabled;
 
@@ -890,15 +1160,18 @@ void ZzCarouselViewPrivate::paintIndicators(QPainter *painter) const {
   painter->setRenderHint(QPainter::Antialiasing, true);
   painter->setPen(Qt::NoPen);
   for (int index = 0; index < visibleCount; ++index) {
-    const bool current = firstRow + index == row;
+    const int logical = q_ptr->layoutDirection() == Qt::RightToLeft
+                            ? visibleCount - index - 1 : index;
+    const int indicatorRow = firstRow + logical;
+    const bool current = indicatorRow == row;
+    const bool hovered = indicatorRow == hoveredIndicatorRow;
     QColor color = current
                        ? q_ptr->palette().color(group, QPalette::Highlight)
                        : q_ptr->palette().color(group, QPalette::ButtonText);
-    if (!current) {
-      color.setAlpha(112);
-    }
+    if (!current) color.setAlpha(immersive ? (hovered ? 220 : 120) : 112);
     painter->setBrush(color);
-    const qreal radius = current ? 3.5 : 2.5;
+    const qreal radius = immersive ? (current ? 4.0 : hovered ? 3.5 : 3.0)
+                                    : (current ? 3.5 : 2.5);
     painter->drawEllipse(
         QPointF(startX + static_cast<qreal>(index) * spacing, y), radius,
         radius);

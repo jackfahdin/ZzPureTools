@@ -4,6 +4,162 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>轮播图(Carousel)</source>
+        <translation>Carousel</translation>
+    </message>
+    <message>
+        <source>海岸峭壁</source>
+        <translation>Coastal cliffs</translation>
+    </message>
+    <message>
+        <source>新鲜葡萄</source>
+        <translation>Fresh grapes</translation>
+    </message>
+    <message>
+        <source>雷尼尔雪山</source>
+        <translation>Mount Rainier</translation>
+    </message>
+    <message>
+        <source>金色晚霞</source>
+        <translation>Golden sunset</translation>
+    </message>
+    <message>
+        <source>群山峡谷</source>
+        <translation>Mountain valley</translation>
+    </message>
+    <message>
+        <source>沿着海岸，寻找下一段旅程。</source>
+        <translation>Follow the coast to your next adventure.</translation>
+    </message>
+    <message>
+        <source>阳光下的果实与自然色彩。</source>
+        <translation>Sunlit fruit and the colors of nature.</translation>
+    </message>
+    <message>
+        <source>远山、白雪与辽阔的天空。</source>
+        <translation>Distant peaks, snow and open skies.</translation>
+    </message>
+    <message>
+        <source>在一天结束时，留住温暖的光。</source>
+        <translation>Catch the warm light at the end of the day.</translation>
+    </message>
+    <message>
+        <source>走进山谷，感受宁静与开阔。</source>
+        <translation>Step into the valley and enjoy the peace.</translation>
+    </message>
+    <message>
+        <source>灵感卡片 %1</source>
+        <translation>Inspiration card %1</translation>
+    </message>
+    <message>
+        <source>图片、标题和说明可以自由组合。</source>
+        <translation>Combine images, titles and descriptions.</translation>
+    </message>
+    <message>
+        <source>图文轮播、悬停导航与可点击分页。支持键盘方向键和滚轮切换。</source>
+        <translation>An image carousel with hover navigation and clickable page indicators. Use the arrow keys or mouse wheel to browse.</translation>
+    </message>
+    <message>
+        <source>图文轮播</source>
+        <translation>Image carousel</translation>
+    </message>
+    <message>
+        <source>风景轮播</source>
+        <translation>Landscape carousel</translation>
+    </message>
+    <message>
+        <source>当前第 %1 / %2 张</source>
+        <translation>Image %1 of %2</translation>
+    </message>
+    <message>
+        <source>上一张</source>
+        <translation>Previous image</translation>
+    </message>
+    <message>
+        <source>下一张</source>
+        <translation>Next image</translation>
+    </message>
+    <message>
+        <source>播放与交互</source>
+        <translation>Playback and interaction</translation>
+    </message>
+    <message>
+        <source>显示与布局</source>
+        <translation>Appearance and layout</translation>
+    </message>
+    <message>
+        <source>自动播放</source>
+        <translation>Auto play</translation>
+    </message>
+    <message>
+        <source>首尾循环</source>
+        <translation>Loop</translation>
+    </message>
+    <message>
+        <source>悬停时暂停播放</source>
+        <translation>Pause on hover</translation>
+    </message>
+    <message>
+        <source>轮播间隔</source>
+        <translation>Playback interval</translation>
+    </message>
+    <message>
+        <source>切换时长</source>
+        <translation>Transition duration</translation>
+    </message>
+    <message>
+        <source>禁用轮播</source>
+        <translation>Disable carousel</translation>
+    </message>
+    <message>
+        <source>沉浸式图片</source>
+        <translation>Immersive images</translation>
+    </message>
+    <message>
+        <source>显示分页点</source>
+        <translation>Show page indicators</translation>
+    </message>
+    <message>
+        <source>显示切换按钮</source>
+        <translation>Show navigation buttons</translation>
+    </message>
+    <message>
+        <source>悬停或聚焦时显示</source>
+        <translation>Show on hover or focus</translation>
+    </message>
+    <message>
+        <source>始终显示</source>
+        <translation>Always visible</translation>
+    </message>
+    <message>
+        <source>按钮显隐</source>
+        <translation>Navigation visibility</translation>
+    </message>
+    <message>
+        <source>等比填满（裁剪）</source>
+        <translation>Fill proportionally (crop)</translation>
+    </message>
+    <message>
+        <source>完整显示（留边）</source>
+        <translation>Fit image (letterbox)</translation>
+    </message>
+    <message>
+        <source>拉伸填满</source>
+        <translation>Stretch to fill</translation>
+    </message>
+    <message>
+        <source>图片适配</source>
+        <translation>Image scaling</translation>
+    </message>
+    <message>
+        <source>从右向左布局</source>
+        <translation>Right-to-left layout</translation>
+    </message>
+    <message>
+        <source>文字卡片轮播</source>
+        <translation>Text card carousel</translation>
+    </message>
+    <message>
         <source>重置属性</source>
         <translation>Reset properties</translation>
     </message>

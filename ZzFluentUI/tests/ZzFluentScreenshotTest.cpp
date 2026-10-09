@@ -7381,7 +7381,7 @@ private Q_SLOTS:
             6);
         QCOMPARE(
             surface.window.findChildren<QAbstractAnimation *>().size(),
-            6);
+            12);
         QCOMPARE(surface.carousel(0)->currentRow(), 0);
         QCOMPARE(surface.carousel(0)->model()->rowCount(), 9);
         QVERIFY(surface.carousel(1)
@@ -7608,6 +7608,79 @@ private Q_SLOTS:
     void rendersTimelineThemes_data() { rendersRangeSliderThemes_data(); }
 
     void rendersInfoBarThemes_data() { rendersRangeSliderThemes_data(); }
+
+    void rendersCarouselImmersiveThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 沉浸轮播覆盖图片适配、导航、圆角、分页、RTL和禁用状态。 */
+    void rendersCarouselImmersiveThemes()
+    {
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(1000, 800);
+        auto* grid = new QGridLayout(&surface);
+        grid->setContentsMargins(16, 16, 16, 16);
+        grid->setSpacing(16);
+        for (int panel = 0; panel < 6; ++panel) {
+            auto* view = new ZzFluentUI::ZzCarouselView(&surface);
+            auto* model = new QStandardItemModel(9, 1, view);
+            QPixmap image(600, 400);
+            image.fill(QColor(28, 104, 146));
+            QPainter painter(&image);
+            painter.fillRect(QRect(120, 80, 360, 240), QColor(227, 180, 97));
+            painter.fillRect(QRect(240, 0, 120, 400), QColor(88, 151, 122));
+            painter.end();
+            for (int row = 0; row < 9; ++row) {
+                model->setData(model->index(row, 0), QStringLiteral("Landscape %1").arg(row + 1));
+                model->setData(model->index(row, 0), QStringLiteral("Explore the next destination."),
+                    ZzFluentUI::ZzCarouselView::DescriptionRole);
+                model->setData(model->index(row, 0), image, Qt::DecorationRole);
+            }
+            view->setModel(model);
+            view->setImmersive(true);
+            view->setAnimationDuration(0);
+            view->setWrapAroundEnabled(true);
+            view->setFocusPolicy(Qt::NoFocus);
+            view->setBorderRadius(panel == 3 ? 24 : 6);
+            if (panel == 1) view->setImageAspectRatioMode(Qt::KeepAspectRatio);
+            if (panel == 2) view->setImageAspectRatioMode(Qt::IgnoreAspectRatio);
+            if (panel == 3) view->setShowIndicators(false);
+            if (panel == 4) view->setEnabled(false);
+            if (panel == 5) {
+                view->setLayoutDirection(Qt::RightToLeft);
+                view->setCurrentRow(7);
+            }
+            grid->addWidget(view, panel / 2, panel % 2);
+        }
+        surface.show();
+        QCoreApplication::processEvents();
+        const QImage actual = surface.grab().toImage();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("carousel-immersive-") + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
 
     /** @brief 四级信息栏的宽窄布局、操作按钮、RTL、禁用及弹出阴影。 */
     void rendersInfoBarThemes()

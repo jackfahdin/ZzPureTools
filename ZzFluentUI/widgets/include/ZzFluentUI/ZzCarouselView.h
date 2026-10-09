@@ -8,9 +8,12 @@
 
 class QEvent;
 class QHideEvent;
+class QFocusEvent;
 class QKeyEvent;
+class QMouseEvent;
 class QPaintEvent;
 class QResizeEvent;
+class QShowEvent;
 class QWheelEvent;
 
 namespace ZzFluentUI {
@@ -32,6 +35,12 @@ class ZZ_FLUENT_UI_EXPORT ZzCarouselView final : public QAbstractItemView {
                  setAnimationDuration NOTIFY animationDurationChanged)
   Q_PROPERTY(int currentRow READ currentRow WRITE setCurrentRow NOTIFY
                  currentRowChanged)
+  Q_PROPERTY(bool immersive READ immersive WRITE setImmersive NOTIFY immersiveChanged)
+  Q_PROPERTY(qreal borderRadius READ borderRadius WRITE setBorderRadius NOTIFY borderRadiusChanged)
+  Q_PROPERTY(bool showNavigationButtons READ showNavigationButtons WRITE setShowNavigationButtons NOTIFY showNavigationButtonsChanged)
+  Q_PROPERTY(bool showIndicators READ showIndicators WRITE setShowIndicators NOTIFY showIndicatorsChanged)
+  Q_PROPERTY(ZzNavigationButtonTrigger navigationButtonTrigger READ navigationButtonTrigger WRITE setNavigationButtonTrigger NOTIFY navigationButtonTriggerChanged)
+  Q_PROPERTY(Qt::AspectRatioMode imageAspectRatioMode READ imageAspectRatioMode WRITE setImageAspectRatioMode NOTIFY imageAspectRatioModeChanged)
   Q_DISABLE_COPY_MOVE(ZzCarouselView)
 
 public:
@@ -41,6 +50,10 @@ public:
     DescriptionRole = Qt::UserRole + 1
   };
   Q_ENUM(ZzItemDataRole)
+
+  /** @brief 导航按钮的可见性触发方式。 */
+  enum ZzNavigationButtonTrigger { AlwaysVisible, OnHover };
+  Q_ENUM(ZzNavigationButtonTrigger)
 
   /**
    * @brief 创建不拥有外部 model 的空轮播视图。
@@ -86,6 +99,31 @@ public:
    * @param row 合法行号；越界输入不改变状态。
    */
   void setCurrentRow(int row);
+
+  /** @brief 返回是否以整幅视口呈现沉浸式轮播。 */
+  [[nodiscard]] bool immersive() const noexcept;
+  /** @brief 切换沉浸式呈现。 */
+  void setImmersive(bool immersive);
+  /** @brief 返回内容外框圆角半径。 */
+  [[nodiscard]] qreal borderRadius() const noexcept;
+  /** @brief 设置非负且有限的外框圆角半径。 */
+  void setBorderRadius(qreal radius);
+  /** @brief 返回是否显示导航按钮。 */
+  [[nodiscard]] bool showNavigationButtons() const noexcept;
+  /** @brief 设置导航按钮显隐。 */
+  void setShowNavigationButtons(bool show);
+  /** @brief 返回是否显示分页指示点。 */
+  [[nodiscard]] bool showIndicators() const noexcept;
+  /** @brief 设置分页指示点显隐。 */
+  void setShowIndicators(bool show);
+  /** @brief 返回导航按钮触发方式。 */
+  [[nodiscard]] ZzNavigationButtonTrigger navigationButtonTrigger() const noexcept;
+  /** @brief 设置有效的导航按钮触发方式。 */
+  void setNavigationButtonTrigger(ZzNavigationButtonTrigger trigger);
+  /** @brief 返回默认图片适配方式。 */
+  [[nodiscard]] Qt::AspectRatioMode imageAspectRatioMode() const noexcept;
+  /** @brief 设置有效的默认图片适配方式。 */
+  void setImageAspectRatioMode(Qt::AspectRatioMode mode);
 
   /**
    * @brief 安装外部模型并在非空时选择第 0 行。
@@ -144,8 +182,22 @@ Q_SIGNALS:
   /**
    * @brief 派生 current row 实际变化后发出。
    * @param row 新行号；无有效当前项时为 -1。
+   * @note 外部直接修改 selectionModel 时，通知延至事件队列；若期间发生本控件
+   * 导航，会先按顺序补发外部行变化，再同步通知内部导航的结果。
    */
   void currentRowChanged(int row);
+  /** @brief 沉浸模式实际变化。 */
+  void immersiveChanged(bool immersive);
+  /** @brief 圆角半径实际变化。 */
+  void borderRadiusChanged(qreal radius);
+  /** @brief 导航按钮显隐实际变化。 */
+  void showNavigationButtonsChanged(bool show);
+  /** @brief 指示点显隐实际变化。 */
+  void showIndicatorsChanged(bool show);
+  /** @brief 按钮触发方式实际变化。 */
+  void navigationButtonTriggerChanged(ZzNavigationButtonTrigger trigger);
+  /** @brief 图片适配方式实际变化。 */
+  void imageAspectRatioModeChanged(Qt::AspectRatioMode mode);
 
 protected:
   /** @brief 按键导航只返回直接相邻或首尾目标，不扫描完整 model。 */
@@ -191,6 +243,19 @@ protected:
 
   /** @brief 隐藏时停止动画并同步到当前项终态。 */
   void hideEvent(QHideEvent *event) override;
+  void showEvent(QShowEvent *event) override;
+
+  /** @brief 让隐藏的导航按钮响应视图焦点与悬停。 */
+  bool viewportEvent(QEvent *event) override;
+  void leaveEvent(QEvent *event) override;
+  void focusInEvent(QFocusEvent *event) override;
+  void focusOutEvent(QFocusEvent *event) override;
+  bool eventFilter(QObject *watched, QEvent *event) override;
+
+  /** @brief 在模型项点击之前处理可见分页点。 */
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseReleaseEvent(QMouseEvent *event) override;
+  void mouseMoveEvent(QMouseEvent *event) override;
 
 private:
   friend class ZzCarouselViewPrivate;

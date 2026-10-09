@@ -2655,7 +2655,7 @@ private Q_SLOTS:
             view.findChildren<QAbstractAnimation *>().size();
         const qsizetype initialTimers =
             view.findChildren<QTimer *>().size();
-        QCOMPARE(initialAnimations, 1);
+        QCOMPARE(initialAnimations, 2);
         QCOMPARE(initialTimers, 0);
 
         QImage target(view.size(), QImage::Format_ARGB32_Premultiplied);
@@ -2764,7 +2764,7 @@ private Q_SLOTS:
             host.findChildren<QAbstractAnimation *>().size();
         const qsizetype initialTimers =
             host.findChildren<QTimer *>().size();
-        QCOMPARE(initialAnimations, carouselCount);
+        QCOMPARE(initialAnimations, carouselCount * 2);
         QCOMPARE(initialTimers, 0);
 
         QImage target(host.size(), QImage::Format_ARGB32_Premultiplied);

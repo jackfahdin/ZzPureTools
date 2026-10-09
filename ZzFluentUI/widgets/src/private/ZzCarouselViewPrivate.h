@@ -1,16 +1,21 @@
 #pragma once
 
+#include <deque>
+
 #include <QtCore/QList>
 #include <QtCore/QMetaObject>
 #include <QtCore/QPersistentModelIndex>
 #include <QtCore/QRect>
 #include <QtGui/QAccessible>
+#include <QtWidgets/QFrame>
+#include <ZzFluentUI/ZzCarouselView.h>
 
 class QAbstractItemModel;
 class QPainter;
 class QStyleOptionViewItem;
 class QToolButton;
 class QVariantAnimation;
+class QGraphicsOpacityEffect;
 
 namespace ZzFluentUI {
 
@@ -52,6 +57,18 @@ public:
   /** @brief 只在派生 row 实际变化时发公开信号。 */
   void synchronizeCurrentRow();
 
+  /** @brief 报告已捕获的 row 变化，不读取之后的最终选中行。 */
+  void reportCurrentRow(int row);
+
+  /** @brief 保存每次真实行变化；外部修改安排延后派发。 */
+  void enqueueRowChange(int row, bool defer);
+
+  /** @brief 在内部同步通知前，按发生顺序派发仍属当前模型上下文的变化。 */
+  void flushPendingRowChanges();
+
+  /** @brief 在模型信号中先刷新呈现，最后安全地发出 row 通知。 */
+  void refreshAfterModelMutation(bool initialize);
+
   /** @brief 选择指定行，可选择是否要求 item enabled。 */
   [[nodiscard]] bool navigateTo(int row, int direction, bool requireEnabled);
 
@@ -90,19 +107,47 @@ public:
   /** @brief 以固定上限绘制当前位置指示点。 */
   void paintIndicators(QPainter *painter) const;
 
+  /** @brief 返回分页槽位对应的模型行，未命中则为 -1。 */
+  [[nodiscard]] int indicatorRowAt(const QPoint &point) const;
+
+  /** @brief 根据悬停或内部焦点驱动固定按钮透明度。 */
+  void updateNavigationReveal();
+  void finishNavigationReveal() noexcept;
+
   ZzCarouselView *const q_ptr;
   QToolButton *const previousButton;
   QToolButton *const nextButton;
   QVariantAnimation *const animation;
+  QVariantAnimation *const navigationAnimation;
+  QGraphicsOpacityEffect *const previousEffect;
+  QGraphicsOpacityEffect *const nextEffect;
   QPersistentModelIndex previousIndex;
   QList<QMetaObject::Connection> modelConnections;
   qreal transitionProgress = 1.0;
   int transitionDirection = 1;
   int pendingDirection = 0;
   int lastReportedRow = -1;
+  quint64 modelRevision = 0;
+  struct PendingRowChange {
+    quint64 revision;
+    int row;
+  };
+  std::deque<PendingRowChange> pendingRowChanges;
+  bool pendingRowFlushScheduled = false;
   int animationDurationMilliseconds = 220;
   bool wrapAroundEnabled = false;
+  bool immersive = false;
+  QFrame::Shape cardFrameShape = QFrame::StyledPanel;
+  qreal borderRadius = 6.0;
+  bool showNavigationButtons = true;
+  bool showIndicators = true;
+  ZzCarouselView::ZzNavigationButtonTrigger navigationButtonTrigger = ZzCarouselView::AlwaysVisible;
+  Qt::AspectRatioMode imageAspectRatioMode = Qt::KeepAspectRatioByExpanding;
   bool changingModelContext = false;
+  int navigationDepth = 0;
+  bool hoveringView = false;
+  int hoveredIndicatorRow = -1;
+  int pressedIndicatorRow = -1;
 #if QT_CONFIG(accessibility)
   /** @brief 轮播视图专用无障碍接口在 Qt 全局缓存中的标识。 */
   QAccessible::Id accessibleInterfaceId = 0;

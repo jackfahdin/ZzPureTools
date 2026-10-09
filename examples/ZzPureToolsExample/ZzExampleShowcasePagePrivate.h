@@ -44,6 +44,8 @@ public:
     void buildTimeline(QVBoxLayout *layout, QWidget *parent);
     /** @brief 展示四级信息栏、自适应内容与窗口级通知。 */
     void buildInfoBar(QVBoxLayout *layout, QWidget *parent);
+    /** @brief 展示沉浸式图文轮播、播放控制和实时属性。 */
+    void buildCarousel(QVBoxLayout *layout, QWidget *parent);
 
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);

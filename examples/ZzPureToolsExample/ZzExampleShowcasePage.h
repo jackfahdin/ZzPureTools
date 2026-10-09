@@ -28,6 +28,7 @@ public:
         ProgressRing,
         Timeline,
         InfoBar,
+        Carousel,
         Feedback,
         Icons
     };

@@ -1,5 +1,17 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzExampleCarouselPlaybackTest
+    ZzExampleCarouselPlaybackTest.cpp
+    ../ZzExampleCarouselPlayback.cpp
+    ../ZzExampleCarouselPlayback.h)
+target_link_libraries(ZzExampleCarouselPlaybackTest PRIVATE Qt6::Test Zz::FluentUI)
+set_target_properties(ZzExampleCarouselPlaybackTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzExampleCarouselPlaybackTest)
+zz_enable_sanitizers(ZzExampleCarouselPlaybackTest)
+add_test(NAME example.carousel-playback COMMAND ZzExampleCarouselPlaybackTest)
+set_tests_properties(example.carousel-playback PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" LABELS "example;integration" TIMEOUT 20)
+
 # 同时构建模拟输入退化路径，确保安装 Multimedia 不会掩盖无模块版本的问题。
 foreach(variant IN ITEMS simulation playback)
     if(variant STREQUAL "playback" AND NOT (ZZ_EXAMPLE_AUDIO_PLAYBACK AND TARGET Qt6::Multimedia))

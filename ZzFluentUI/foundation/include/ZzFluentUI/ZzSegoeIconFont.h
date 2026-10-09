@@ -27,7 +27,9 @@ enum class ZzSegoeIcon : char16_t
     MusicInfo = 0xe90b,
     Cloud = 0xe753,
     Unknown = 0xe9ce,
-    Close = 0xe894
+    Close = 0xe894,
+    ChevronLeft = 0xe76b,
+    ChevronRight = 0xe76c
 };
 
 /** @brief 注册内嵌 Segoe Fluent Icons，并按目标尺寸和 DPR 绘制字体图标。

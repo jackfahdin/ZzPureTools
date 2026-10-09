@@ -1,14 +1,22 @@
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QPointer>
 #include <QtCore/QTimer>
+#include <QtCore/QVariantAnimation>
+#include <cstdlib>
+#include <limits>
 #include <QtGui/QAccessible>
 #include <QtGui/QImage>
+#include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
 #include <QtGui/QStandardItemModel>
 #include <QtGui/QWheelEvent>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QFrame>
+#include <QtWidgets/QGraphicsOpacityEffect>
+#include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QToolButton>
@@ -78,6 +86,17 @@ public:
   mutable QStyle::State lastState;
 };
 
+/** @brief 模拟关闭小部件动画的系统样式。 */
+class ZzCarouselNoAnimationStyle final : public QProxyStyle {
+public:
+  explicit ZzCarouselNoAnimationStyle(QObject *owner) { setParent(owner); }
+  int styleHint(StyleHint hint, const QStyleOption *option,
+                const QWidget *widget, QStyleHintReturn *returnData) const override {
+    if (hint == QStyle::SH_Widget_Animate) return 0;
+    return QProxyStyle::styleHint(hint, option, widget, returnData);
+  }
+};
+
 /** @brief 构造并向 viewport 投递一个 wheel event。 */
 bool zzSendCarouselWheel(ZzFluentUI::ZzCarouselView *view,
                          const QPoint &pixelDelta, const QPoint &angleDelta) {
@@ -99,6 +118,521 @@ class ZzCarouselViewTest final : public QObject {
   Q_OBJECT
 
 private Q_SLOTS:
+  void immersiveRemovesOnlyItsOwnFrame() {
+    ZzFluentUI::ZzCarouselView view;
+    const QFrame::Shape cardFrame = view.frameShape();
+    QVERIFY(cardFrame != QFrame::NoFrame);
+    view.setImmersive(true);
+    QCOMPARE(view.frameShape(), QFrame::NoFrame);
+    view.setImmersive(false);
+    QCOMPARE(view.frameShape(), cardFrame);
+  }
+
+  void immersiveCaptionSitsAtReferenceBottom() {
+    QImage image(420, 260, QImage::Format_RGB32);
+    image.fill(Qt::black);
+    QStandardItemModel model;
+    auto *item = new QStandardItem(QStringLiteral("Mount Rainier"));
+    item->setData(QStringLiteral("Snow, mountains and open skies."),
+                  ZzFluentUI::ZzCarouselView::DescriptionRole);
+    item->setData(image, Qt::DecorationRole);
+    model.appendRow(item);
+    ZzFluentUI::ZzCarouselView view;
+    view.setModel(&model);
+    view.setImmersive(true);
+    view.setShowNavigationButtons(false);
+    view.setShowIndicators(false);
+    view.resize(420, 260);
+    view.show();
+    QCoreApplication::processEvents();
+    const QImage rendered = view.viewport()->grab().toImage();
+    int firstWhiteY = rendered.height();
+    for (int y = rendered.height() - 76; y < rendered.height() - 8; ++y) {
+      for (int x = 20; x < 185; ++x) {
+        const QColor pixel = rendered.pixelColor(x, y);
+        if (pixel.red() > 245 && pixel.green() > 245 && pixel.blue() > 245) {
+          firstWhiteY = std::min(firstWhiteY, y);
+        }
+      }
+    }
+    QVERIFY(firstWhiteY >= rendered.height() - 55);
+    QVERIFY(firstWhiteY < rendered.height() - 30);
+  }
+
+  void cardButtonsStartFullyOpaque() {
+    ZzFluentUI::ZzCarouselView view;
+    QToolButton *next = zzCarouselButton(&view, QStringLiteral("下一项"));
+    QVERIFY(next != nullptr);
+    auto *effect = qobject_cast<QGraphicsOpacityEffect *>(next->graphicsEffect());
+    QVERIFY(effect != nullptr);
+    QCOMPARE(effect->opacity(), 1.0);
+  }
+
+  void externalSelectionReportsEachIntermediateRow() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    ZzFluentUI::ZzCarouselView view;
+    view.setModel(&model);
+    QSignalSpy rowSpy(&view, &ZzFluentUI::ZzCarouselView::currentRowChanged);
+    view.selectionModel()->setCurrentIndex(model.index(1, 0),
+                                           QItemSelectionModel::ClearAndSelect);
+    view.selectionModel()->setCurrentIndex(model.index(0, 0),
+                                           QItemSelectionModel::ClearAndSelect);
+    QCoreApplication::processEvents();
+    QCOMPARE(rowSpy.count(), 2);
+    QCOMPARE(rowSpy.at(0).at(0).toInt(), 1);
+    QCOMPARE(rowSpy.at(1).at(0).toInt(), 0);
+  }
+
+  void externalSelectionThenInternalNavigationKeepsSignalOrder() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    ZzFluentUI::ZzCarouselView view;
+    view.setAnimationDuration(0);
+    view.setModel(&model);
+    QSignalSpy rowSpy(&view, &ZzFluentUI::ZzCarouselView::currentRowChanged);
+    view.selectionModel()->setCurrentIndex(model.index(1, 0),
+                                           QItemSelectionModel::ClearAndSelect);
+    view.setCurrentRow(2);
+    QCoreApplication::processEvents();
+    QCOMPARE(view.currentRow(), 2);
+    QCOMPARE(rowSpy.count(), 2);
+    QCOMPARE(rowSpy.at(0).at(0).toInt(), 1);
+    QCOMPARE(rowSpy.at(1).at(0).toInt(), 2);
+    view.setCurrentRow(1);
+    QCOMPARE(rowSpy.count(), 3);
+    QCOMPARE(rowSpy.at(2).at(0).toInt(), 1);
+
+    auto *deletingView = new ZzFluentUI::ZzCarouselView;
+    QPointer<ZzFluentUI::ZzCarouselView> guard(deletingView);
+    deletingView->setModel(&model);
+    QObject::connect(deletingView, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                     deletingView, [deletingView](int row) {
+                       if (row == 1) delete deletingView;
+                     });
+    deletingView->selectionModel()->setCurrentIndex(
+        model.index(1, 0), QItemSelectionModel::ClearAndSelect);
+    deletingView->setCurrentRow(2);
+    QVERIFY(guard.isNull());
+  }
+
+  void reentrantNavigationPreservesEachObservedRow() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    ZzFluentUI::ZzCarouselView view;
+    view.setAnimationDuration(0);
+    view.setModel(&model);
+    QList<int> observedRows;
+    QObject::connect(&view, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                     &view, [&view, &observedRows](int row) {
+                       observedRows.append(row);
+                       if (row == 1 && observedRows.size() == 1) {
+                         view.setCurrentRow(1);
+                       }
+                     });
+    view.selectionModel()->setCurrentIndex(model.index(1, 0),
+                                           QItemSelectionModel::ClearAndSelect);
+    view.setCurrentRow(2);
+    QCoreApplication::processEvents();
+    QCOMPARE(observedRows, QList<int>({1, 2, 1}));
+    QCOMPARE(view.currentRow(), 1);
+  }
+
+  void narrowImmersiveCaptionClearsVisibleIndicators() {
+    QImage image(820, 260, QImage::Format_RGB32);
+    image.fill(Qt::black);
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 8);
+    model.item(0)->setText(QStringLiteral("Landscape 1"));
+    model.item(0)->setData(QStringLiteral("Explore the next destination."),
+                           ZzFluentUI::ZzCarouselView::DescriptionRole);
+    model.item(0)->setData(image, Qt::DecorationRole);
+    ZzFluentUI::ZzCarouselView view;
+    view.setModel(&model);
+    view.setImmersive(true);
+    view.setShowNavigationButtons(false);
+    view.resize(820, 260);
+    view.show();
+    QCoreApplication::processEvents();
+
+    const auto firstWhiteY = [&view]() {
+      const QImage rendered = view.viewport()->grab().toImage();
+      int top = rendered.height();
+      for (int y = rendered.height() - 110; y < rendered.height() - 8; ++y) {
+        for (int x = 20; x < 180; ++x) {
+          const QColor pixel = rendered.pixelColor(x, y);
+          if (pixel.red() > 245 && pixel.green() > 245 && pixel.blue() > 245) {
+            top = std::min(top, y);
+          }
+        }
+      }
+      return top;
+    };
+    const int wideTop = firstWhiteY();
+    view.resize(476, 260);
+    QCoreApplication::processEvents();
+    const int narrowTop = firstWhiteY();
+    QVERIFY(narrowTop <= wideTop - 18);
+    view.setShowIndicators(false);
+    QCoreApplication::processEvents();
+    QCOMPARE(firstWhiteY(), wideTop);
+  }
+
+  void immersiveCaptionKeepsVerticalPositionDuringSlide() {
+    QImage image(476, 260, QImage::Format_RGB32);
+    image.fill(Qt::black);
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 8);
+    model.item(1)->setText(QStringLiteral("Landscape 1"));
+    model.item(1)->setData(QStringLiteral("Explore the next destination."),
+                           ZzFluentUI::ZzCarouselView::DescriptionRole);
+    model.item(1)->setData(image, Qt::DecorationRole);
+    ZzFluentUI::ZzCarouselView view;
+    view.setModel(&model);
+    view.setImmersive(true);
+    view.setShowNavigationButtons(false);
+    view.setAnimationDuration(1000);
+    view.resize(476, 260);
+    view.show();
+    QCoreApplication::processEvents();
+
+    view.setCurrentRow(1);
+    QVariantAnimation *slide = nullptr;
+    for (QVariantAnimation *animation : view.findChildren<QVariantAnimation *>()) {
+      if (animation->duration() == 1000) slide = animation;
+    }
+    QVERIFY(slide != nullptr);
+    QCOMPARE(slide->state(), QAbstractAnimation::Running);
+
+    const auto firstWhiteY = [&view](int left, int right) {
+      const QImage rendered = view.viewport()->grab().toImage();
+      for (int y = rendered.height() - 110; y < rendered.height() - 40; ++y) {
+        for (int x = left; x < right; ++x) {
+          const QColor pixel = rendered.pixelColor(x, y);
+          if (pixel.red() > 245 && pixel.green() > 245 && pixel.blue() > 245) {
+            return y;
+          }
+        }
+      }
+      return rendered.height();
+    };
+    slide->setCurrentTime(100);
+    const int movingTop = firstWhiteY(360, view.viewport()->width());
+    slide->setCurrentTime(1000);
+    const int settledTop = firstWhiteY(20, 180);
+    QVERIFY(movingTop < view.viewport()->height());
+    QVERIFY(settledTop < view.viewport()->height());
+    QVERIFY(std::abs(movingTop - settledTop) <= 2);
+  }
+
+  void modelMutationSignalCanDeleteView() {
+    {
+      QStandardItemModel model;
+      zzPopulateCarouselModel(&model, 1);
+      auto *view = new ZzFluentUI::ZzCarouselView;
+      QPointer<ZzFluentUI::ZzCarouselView> guard(view);
+      view->setModel(&model);
+      QObject::connect(view, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                       view, [view](int row) { if (row == -1) delete view; });
+      model.clear();
+      QVERIFY(guard.isNull());
+    }
+    {
+      QStandardItemModel model;
+      auto *view = new ZzFluentUI::ZzCarouselView;
+      QPointer<ZzFluentUI::ZzCarouselView> guard(view);
+      view->setModel(&model);
+      QObject::connect(view, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                       view, [view](int row) { if (row == 0) delete view; });
+      model.appendRow(new QStandardItem(QStringLiteral("Inserted")));
+      QVERIFY(guard.isNull());
+    }
+    {
+      QStandardItemModel model;
+      zzPopulateCarouselModel(&model, 2);
+      auto *view = new ZzFluentUI::ZzCarouselView;
+      QPointer<ZzFluentUI::ZzCarouselView> guard(view);
+      view->setModel(&model);
+      view->setCurrentRow(1);
+      QObject::connect(view, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                       view, [view](int row) { if (row == 0) delete view; });
+      model.removeRow(1);
+      QVERIFY(guard.isNull());
+    }
+    {
+      QStandardItemModel model;
+      model.appendRow(new QStandardItem(QStringLiteral("A")));
+      model.appendRow(new QStandardItem(QStringLiteral("B")));
+      auto *view = new ZzFluentUI::ZzCarouselView;
+      QPointer<ZzFluentUI::ZzCarouselView> guard(view);
+      view->setModel(&model);
+      QObject::connect(view, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                       view, [view](int row) { if (row == 1) delete view; });
+      model.sort(0, Qt::DescendingOrder);
+      QVERIFY(guard.isNull());
+    }
+  }
+  void configuresImmersivePresentationWithSingleChangeSignals() {
+    ZzFluentUI::ZzCarouselView view;
+    QSignalSpy immersiveSpy(&view, &ZzFluentUI::ZzCarouselView::immersiveChanged);
+    QSignalSpy radiusSpy(&view, &ZzFluentUI::ZzCarouselView::borderRadiusChanged);
+    QSignalSpy buttonsSpy(&view, &ZzFluentUI::ZzCarouselView::showNavigationButtonsChanged);
+    QSignalSpy indicatorsSpy(&view, &ZzFluentUI::ZzCarouselView::showIndicatorsChanged);
+    QSignalSpy triggerSpy(&view, &ZzFluentUI::ZzCarouselView::navigationButtonTriggerChanged);
+    QSignalSpy aspectSpy(&view, &ZzFluentUI::ZzCarouselView::imageAspectRatioModeChanged);
+    QCOMPARE(view.immersive(), false);
+    QCOMPARE(view.borderRadius(), 6.0);
+    QCOMPARE(view.showNavigationButtons(), true);
+    QCOMPARE(view.showIndicators(), true);
+    QCOMPARE(view.navigationButtonTrigger(), ZzFluentUI::ZzCarouselView::AlwaysVisible);
+    QCOMPARE(view.imageAspectRatioMode(), Qt::KeepAspectRatioByExpanding);
+
+    view.setImmersive(true);
+    view.setImmersive(true);
+    view.setBorderRadius(-5);
+    view.setBorderRadius(std::numeric_limits<qreal>::quiet_NaN());
+    view.setShowNavigationButtons(false);
+    view.setShowNavigationButtons(false);
+    view.setShowIndicators(false);
+    view.setShowIndicators(false);
+    view.setNavigationButtonTrigger(ZzFluentUI::ZzCarouselView::OnHover);
+    const int invalidEnum = view.width();
+    view.setNavigationButtonTrigger(static_cast<ZzFluentUI::ZzCarouselView::ZzNavigationButtonTrigger>(invalidEnum));
+    view.setImageAspectRatioMode(Qt::KeepAspectRatio);
+    view.setImageAspectRatioMode(static_cast<Qt::AspectRatioMode>(invalidEnum));
+    QCOMPARE(view.borderRadius(), 0.0);
+    QCOMPARE(view.navigationButtonTrigger(), ZzFluentUI::ZzCarouselView::OnHover);
+    QCOMPARE(view.imageAspectRatioMode(), Qt::KeepAspectRatio);
+    QCOMPARE(immersiveSpy.count(), 1);
+    QCOMPARE(radiusSpy.count(), 1);
+    QCOMPARE(buttonsSpy.count(), 1);
+    QCOMPARE(indicatorsSpy.count(), 1);
+    QCOMPARE(triggerSpy.count(), 1);
+    QCOMPARE(aspectSpy.count(), 1);
+  }
+
+  void releasesIndicatorSpaceAndNavigatesVisibleWindow() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 20);
+    ZzFluentUI::ZzCarouselView view;
+    view.setAnimationDuration(0);
+    view.setModel(&model);
+    view.resize(420, 240);
+    view.show();
+    QCoreApplication::processEvents();
+    const int oldBottom = view.visualRect(view.currentIndex()).bottom();
+    view.setShowIndicators(false);
+    QVERIFY(view.visualRect(view.currentIndex()).bottom() > oldBottom);
+    view.setImmersive(true);
+    QCOMPARE(view.visualRect(view.currentIndex()), view.viewport()->rect());
+    view.setShowIndicators(true);
+    view.setCurrentRow(10);
+    QSignalSpy activatedSpy(&view, &QAbstractItemView::activated);
+    const int centerX = view.viewport()->width() / 2;
+    const int dotY = view.viewport()->height() - 20;
+    QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier,
+                      QPoint(centerX + 16, dotY));
+    QCOMPARE(view.currentRow(), 11);
+    QCOMPARE(activatedSpy.count(), 0);
+    view.setLayoutDirection(Qt::RightToLeft);
+    QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier,
+                      QPoint(centerX + 16, dotY));
+    QCOMPARE(view.currentRow(), 10);
+    model.item(9)->setEnabled(false);
+    QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier,
+                      QPoint(centerX + 16, dotY));
+    QCOMPARE(view.currentRow(), 10);
+    QTest::mousePress(view.viewport(), Qt::LeftButton, Qt::NoModifier,
+                      QPoint(centerX, dotY));
+    QTest::mouseRelease(view.viewport(), Qt::LeftButton, Qt::NoModifier,
+                        QPoint(centerX + 32, dotY));
+    QCOMPARE(view.currentRow(), 10);
+  }
+
+  void revealsHoverNavigationOnlyWhileEligible() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    ZzFluentUI::ZzCarouselView view;
+    view.setModel(&model);
+    view.setImmersive(true);
+    view.setNavigationButtonTrigger(ZzFluentUI::ZzCarouselView::OnHover);
+    view.resize(420, 240);
+    view.show();
+    QCoreApplication::processEvents();
+    view.clearFocus();
+    QTest::mouseMove(&view, QPoint(-10, -10));
+    QEvent initialLeave(QEvent::Leave);
+    QCoreApplication::sendEvent(view.viewport(), &initialLeave);
+    QToolButton *next = zzCarouselButton(&view, QStringLiteral("下一项"));
+    QVERIFY(next != nullptr);
+    QVERIFY(!next->isVisible());
+    QVERIFY(next->focusPolicy() == Qt::NoFocus);
+    view.setFocus(Qt::TabFocusReason);
+    QTRY_VERIFY(next->isVisible());
+    view.clearFocus();
+    QTest::mouseMove(view.viewport(), QPoint(210, 120));
+    QTRY_VERIFY(next->isVisible());
+    QTest::mouseMove(&view, QPoint(-10, -10));
+    QEvent leave(QEvent::Leave);
+    QCoreApplication::sendEvent(view.viewport(), &leave);
+    QTRY_VERIFY(!next->isVisible());
+    view.setNavigationButtonTrigger(ZzFluentUI::ZzCarouselView::AlwaysVisible);
+    view.hide();
+    view.show();
+    QCoreApplication::processEvents();
+    QVERIFY(next->isVisible());
+    QVERIFY(next->graphicsEffect() != nullptr);
+    QTRY_COMPARE(static_cast<QGraphicsOpacityEffect *>(next->graphicsEffect())->opacity(), 1.0);
+    view.setShowNavigationButtons(false);
+    view.setFocus(Qt::TabFocusReason);
+    QCoreApplication::processEvents();
+    QVERIFY(!next->isVisible());
+  }
+
+  void hoverNavigationRemainsClickableAcrossViewportButtonBoundary() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    QWidget host;
+    host.resize(500, 300);
+    ZzFluentUI::ZzCarouselView view(&host);
+    view.setStyle(new ZzCarouselNoAnimationStyle(&view));
+    view.setModel(&model);
+    view.setImmersive(true);
+    view.setNavigationButtonTrigger(ZzFluentUI::ZzCarouselView::OnHover);
+    view.setGeometry(20, 20, 420, 240);
+    host.show();
+    QCoreApplication::processEvents();
+    view.clearFocus();
+    QToolButton *next = zzCarouselButton(&view, QStringLiteral("下一项"));
+    QVERIFY(next != nullptr);
+
+    QTest::mouseMove(view.viewport(), QPoint(210, 120));
+    QTRY_VERIFY(next->isVisible());
+    QVERIFY(next->isEnabled());
+    QTest::mouseMove(next, next->rect().center());
+    QVERIFY(next->isVisible());
+    QVERIFY(next->isEnabled());
+    QVERIFY(!next->testAttribute(Qt::WA_TransparentForMouseEvents));
+    QTest::mouseClick(next, Qt::LeftButton, Qt::NoModifier,
+                      next->rect().center());
+    QCOMPARE(view.currentRow(), 1);
+
+    next->clearFocus();
+    view.clearFocus();
+    QTest::mouseMove(&host, QPoint(5, 5));
+    QTRY_VERIFY(!next->isVisible());
+    QCOMPARE(next->focusPolicy(), Qt::NoFocus);
+  }
+
+  void cardHoverNavigationHidesAfterLeavingFrame() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    QWidget host;
+    host.resize(500, 300);
+    ZzFluentUI::ZzCarouselView view(&host);
+    view.setStyle(new ZzCarouselNoAnimationStyle(&view));
+    view.setModel(&model);
+    view.setNavigationButtonTrigger(ZzFluentUI::ZzCarouselView::OnHover);
+    view.setGeometry(20, 20, 420, 240);
+    host.show();
+    QCoreApplication::processEvents();
+    view.clearFocus();
+    QVERIFY(view.viewport()->geometry().left() > 0);
+    QToolButton *next = zzCarouselButton(&view, QStringLiteral("下一项"));
+    QVERIFY(next != nullptr);
+
+    QTest::mouseMove(view.viewport(), view.viewport()->rect().center());
+    QTRY_VERIFY(next->isVisible());
+    QTest::mouseMove(&view, QPoint(0, 120));
+    QVERIFY(next->isVisible());
+    QTest::mouseMove(&host, QPoint(5, 140));
+    QTRY_VERIFY(!next->isVisible());
+  }
+
+  void stopsAnimationsForReducedMotionAndSynchronousDeletion() {
+    QStandardItemModel model;
+    zzPopulateCarouselModel(&model, 3);
+    auto *view = new ZzFluentUI::ZzCarouselView;
+    QPointer<ZzFluentUI::ZzCarouselView> guard(view);
+    view->setStyle(new ZzCarouselNoAnimationStyle(view));
+    view->setModel(&model);
+    view->resize(420, 240);
+    view->show();
+    QCoreApplication::processEvents();
+    view->showNext();
+    QCOMPARE(view->currentRow(), 1);
+    for (QAbstractAnimation *animation : view->findChildren<QAbstractAnimation *>()) {
+      QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+    }
+    QObject::connect(view, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                     view, [view](int row) {
+                       if (row == 2) delete view;
+                     });
+    view->showNext();
+    QVERIFY(guard.isNull());
+
+    auto *scrollView = new ZzFluentUI::ZzCarouselView;
+    QPointer<ZzFluentUI::ZzCarouselView> scrollGuard(scrollView);
+    scrollView->setModel(&model);
+    QObject::connect(scrollView, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                     scrollView, [scrollView](int row) {
+                       if (row == 2) delete scrollView;
+                     });
+    scrollView->scrollTo(model.index(2, 0));
+    QVERIFY(scrollGuard.isNull());
+
+    auto *keyboardView = new ZzFluentUI::ZzCarouselView;
+    QPointer<ZzFluentUI::ZzCarouselView> keyboardGuard(keyboardView);
+    keyboardView->setModel(&model);
+    QObject::connect(keyboardView, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                     keyboardView, [keyboardView](int row) {
+                       if (row == 1) delete keyboardView;
+                     });
+    QKeyEvent right(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+    QApplication::sendEvent(keyboardView, &right);
+    QVERIFY(keyboardGuard.isNull());
+
+    auto *externalView = new ZzFluentUI::ZzCarouselView;
+    QPointer<ZzFluentUI::ZzCarouselView> externalGuard(externalView);
+    externalView->setModel(&model);
+    QObject::connect(externalView, &ZzFluentUI::ZzCarouselView::currentRowChanged,
+                     externalView, [externalView](int row) {
+                       if (row == 1) delete externalView;
+                     });
+    externalView->selectionModel()->setCurrentIndex(
+        model.index(1, 0), QItemSelectionModel::ClearAndSelect);
+    QCoreApplication::processEvents();
+    QVERIFY(externalGuard.isNull());
+  }
+
+  void fitsImagesAndClipsImmersiveCorners() {
+    QImage image(200, 100, QImage::Format_RGB32);
+    image.fill(Qt::red);
+    QPainter sourcePainter(&image);
+    sourcePainter.fillRect(QRect(50, 0, 100, 100), Qt::green);
+    sourcePainter.end();
+    QStandardItemModel model;
+    auto *item = new QStandardItem;
+    item->setData(image, Qt::DecorationRole);
+    model.appendRow(item);
+    ZzFluentUI::ZzCarouselView view;
+    view.setModel(&model);
+    view.setImmersive(true);
+    view.setBorderRadius(24);
+    view.resize(300, 300);
+    view.show();
+    QCoreApplication::processEvents();
+    const QImage cover = view.viewport()->grab().toImage();
+    QCOMPARE(cover.pixelColor(150, 10), QColor(Qt::green));
+    QVERIFY(cover.pixelColor(0, 0) != QColor(Qt::green));
+    view.setImageAspectRatioMode(Qt::KeepAspectRatio);
+    const QImage contain = view.viewport()->grab().toImage();
+    QVERIFY(contain.pixelColor(150, 10) != QColor(Qt::green));
+    QCOMPARE(contain.pixelColor(150, 150), QColor(Qt::green));
+    view.setImageAspectRatioMode(Qt::IgnoreAspectRatio);
+    const QImage stretch = view.viewport()->grab().toImage();
+    QCOMPARE(stretch.pixelColor(150, 10), QColor(Qt::green));
+  }
   void exposesStablePropertiesAndModelOwnership() {
     QStandardItemModel model;
     zzPopulateCarouselModel(&model, 3);
@@ -489,7 +1023,7 @@ private Q_SLOTS:
     const qsizetype initialAnimations =
         view.findChildren<QAbstractAnimation *>().size();
     const qsizetype initialTimers = view.findChildren<QTimer *>().size();
-    QCOMPARE(initialAnimations, 1);
+    QCOMPARE(initialAnimations, 2);
     QCOMPARE(initialTimers, 0);
 
     for (int iteration = 0; iteration < 1000; ++iteration) {

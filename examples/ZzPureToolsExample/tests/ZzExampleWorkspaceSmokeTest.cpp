@@ -215,6 +215,19 @@ private Q_SLOTS:
     }
 
     /** @brief 信息栏紧随时间轴，导航必须能到达。 */
+    void carouselRouteFollowsInfoBar()
+    {
+        const auto routes = ZzExample::ZzExampleRouteCatalog::routes();
+        bool found = false;
+        for (std::size_t index = 1; index < routes.size(); ++index) {
+            if (routes[index].routeId == std::string_view("carousel")) {
+                QCOMPARE(routes[index - 1].routeId, std::string_view("info-bar"));
+                found = true;
+            }
+        }
+        QVERIFY(found);
+    }
+
     void infoBarRouteFollowsTimeline()
     {
         std::string_view previous;
@@ -624,7 +637,7 @@ private Q_SLOTS:
         QVERIFY(navigationModel != nullptr);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("liquid-gauge"))));
-        QCOMPARE(navigationModel->rowCount(), 39);
+        QCOMPARE(navigationModel->rowCount(), 40);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("radial-gauge"))));
         QVERIFY(navigationModel->indexForRoute(
