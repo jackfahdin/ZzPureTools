@@ -130,7 +130,7 @@ void ZzTimelineDelegate::paint(
     painter->setFont(tf);
     painter->setPen(option.palette.color(group, QPalette::Text));
     painter->drawText(QRectF(content.left(), top, content.width(), titleMetrics.height()),
-        (onRight ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignVCenter,
+        static_cast<int>(onRight ? Qt::AlignLeft : Qt::AlignRight) | static_cast<int>(Qt::AlignVCenter),
         titleMetrics.elidedText(event->title(), Qt::ElideRight, qRound(content.width())));
     if (m_timeline->isDescriptionVisible() && !event->description().isEmpty()) {
         QColor color = option.palette.color(group, QPalette::Text);
@@ -139,7 +139,8 @@ void ZzTimelineDelegate::paint(
         painter->setPen(color);
         painter->drawText(QRectF(content.left(), top + titleMetrics.height() + TextGap, content.width(),
                               qMax(0.0, row.bottom() - top - titleMetrics.height() - TextGap)),
-            (onRight ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignTop | Qt::TextWordWrap,
+            static_cast<int>(onRight ? Qt::AlignLeft : Qt::AlignRight) | static_cast<int>(Qt::AlignTop)
+                | static_cast<int>(Qt::TextWordWrap),
             event->description());
     }
     const QString stamp = m_timeline->formattedTimestamp(event);
@@ -148,7 +149,7 @@ void ZzTimelineDelegate::paint(
         color.setAlpha(group == QPalette::Disabled ? 90 : 150);
         painter->setFont(timeFont);
         painter->setPen(color);
-        painter->drawText(time, (onRight ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter,
+        painter->drawText(time, static_cast<int>(onRight ? Qt::AlignRight : Qt::AlignLeft) | static_cast<int>(Qt::AlignVCenter),
             QFontMetricsF(timeFont).elidedText(stamp, Qt::ElideRight, qRound(time.width())));
     }
     painter->restore();
