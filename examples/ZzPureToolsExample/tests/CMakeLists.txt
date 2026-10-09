@@ -52,6 +52,11 @@ endif()
 
 add_executable(ZzExampleWorkspaceSmokeTest
     ZzExampleWorkspaceSmokeTest.cpp
+    ../ZzExampleColorPickerPage.cpp
+    ../ZzExampleColorPickerPage.h
+    ../ZzExampleColorPickerSmoke.cpp
+    ../ZzExampleColorPickerSmoke.h
+    ../ZzExampleCustomWidgetHelpers.h
     ../ZzExampleControlPage.cpp
     ../ZzExampleControlPage.h
     ../ZzExampleControlPagePrivate.cpp

@@ -46,6 +46,8 @@ public:
     void buildInfoBar(QVBoxLayout *layout, QWidget *parent);
     /** @brief 展示沉浸式图文轮播、播放控制和实时属性。 */
     void buildCarousel(QVBoxLayout *layout, QWidget *parent);
+    /** @brief 展示内嵌颜色编辑、按钮弹层和确认对话框。 */
+    void buildColorPicker(QVBoxLayout *layout, QWidget *parent);
 
     /** @brief 创建菜单、消息、对话框与搜索建议。 */
     void buildFeedback(QVBoxLayout *layout, QWidget *parent);

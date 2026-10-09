@@ -29,6 +29,7 @@ public:
         Timeline,
         InfoBar,
         Carousel,
+        ColorPicker,
         Feedback,
         Icons
     };

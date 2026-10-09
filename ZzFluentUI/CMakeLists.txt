@@ -79,7 +79,16 @@ set(zz_fluent_ui_sources
     widgets/src/ZzKeyBinder.cpp
     widgets/src/private/ZzKeyBinderPrivate.cpp
     widgets/src/ZzColorPicker.cpp
+    widgets/src/ZzColorPickerButton.cpp
+    widgets/src/ZzColorPickerDialog.cpp
+    widgets/src/private/ZzColorPickerButtonPrivate.cpp
+    widgets/src/private/ZzColorPickerDialogPrivate.cpp
     widgets/src/private/ZzColorPickerPrivate.cpp
+    widgets/src/private/ZzColorPickerFluent.cpp
+    widgets/src/private/ZzColorSpectrum.cpp
+    widgets/src/private/ZzColorGradientSlider.cpp
+    widgets/src/private/ZzColorShadeStrip.cpp
+    widgets/src/private/ZzColorRepresentationCombo.cpp
     widgets/src/ZzIconButton.cpp
     widgets/src/private/ZzIconButtonPrivate.cpp
     widgets/src/ZzToggleSwitch.cpp
@@ -210,6 +219,8 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzRatingControl.h
     widgets/include/ZzFluentUI/ZzKeyBinder.h
     widgets/include/ZzFluentUI/ZzColorPicker.h
+    widgets/include/ZzFluentUI/ZzColorPickerButton.h
+    widgets/include/ZzFluentUI/ZzColorPickerDialog.h
     widgets/include/ZzFluentUI/ZzIconButton.h
     widgets/include/ZzFluentUI/ZzToggleSwitch.h
     widgets/include/ZzFluentUI/ZzProgressRing.h

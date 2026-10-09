@@ -149,6 +149,10 @@ void ZzExampleShowcasePagePrivate::initialize(
     layout->addWidget(titleLabel);
 
     switch (kind) {
+    case ZzExampleShowcasePage::ZzPageKind::ColorPicker:
+        q_ptr->setObjectName(QStringLiteral("zzExampleColorPickerPage"));
+        buildColorPicker(layout, content);
+        break;
     case ZzExampleShowcasePage::ZzPageKind::Carousel:
         q_ptr->setObjectName(QStringLiteral("zzExampleCarouselPage"));
         buildCarousel(layout, content);

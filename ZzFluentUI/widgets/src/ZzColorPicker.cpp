@@ -3,6 +3,7 @@
 #include <utility>
 
 #include <QtCore/QEvent>
+#include <QtCore/QPointer>
 
 #include "private/ZzColorPickerPrivate.h"
 
@@ -16,6 +17,141 @@ ZzColorPicker::ZzColorPicker(QWidget *parent)
 
 ZzColorPicker::~ZzColorPicker() = default;
 
+ZzColorPicker::Appearance ZzColorPicker::appearance() const noexcept
+{
+    return d_ptr->appearance;
+}
+
+void ZzColorPicker::setAppearance(Appearance value)
+{
+    if (d_ptr->appearance == value || (value != Compact && value != Fluent)) {
+        return;
+    }
+    d_ptr->appearance = value;
+    d_ptr->syncAppearance();
+    Q_EMIT appearanceChanged(value);
+}
+
+ZzColorPicker::ColorRepresentation ZzColorPicker::colorRepresentation() const noexcept
+{
+    return d_ptr->representation;
+}
+
+void ZzColorPicker::setColorRepresentation(ColorRepresentation value)
+{
+    if (d_ptr->representation == value || (value != Rgba && value != Hsva)) {
+        return;
+    }
+    d_ptr->representation = value;
+    d_ptr->syncDerivedState();
+    Q_EMIT colorRepresentationChanged(value);
+}
+
+ZzColorPicker::ColorSpectrumShape ZzColorPicker::colorSpectrumShape() const noexcept
+{
+    return d_ptr->shape;
+}
+
+void ZzColorPicker::setColorSpectrumShape(ColorSpectrumShape value)
+{
+    if (d_ptr->shape == value || (value != Box && value != Ring)) {
+        return;
+    }
+    d_ptr->shape = value;
+    d_ptr->syncDerivedState();
+    Q_EMIT colorSpectrumShapeChanged(value);
+}
+
+bool ZzColorPicker::isColorSpectrumVisible() const noexcept
+{
+    return d_ptr->spectrumVisible;
+}
+
+void ZzColorPicker::setColorSpectrumVisible(bool value)
+{
+    if (d_ptr->spectrumVisible == value) {
+        return;
+    }
+    d_ptr->spectrumVisible = value;
+    d_ptr->syncVisibility();
+    Q_EMIT colorSpectrumVisibleChanged(value);
+}
+
+bool ZzColorPicker::isColorPaletteVisible() const noexcept
+{
+    return d_ptr->paletteVisible;
+}
+
+void ZzColorPicker::setColorPaletteVisible(bool value)
+{
+    if (d_ptr->paletteVisible == value) {
+        return;
+    }
+    d_ptr->paletteVisible = value;
+    d_ptr->syncVisibility();
+    Q_EMIT colorPaletteVisibleChanged(value);
+}
+
+bool ZzColorPicker::isColorPreviewVisible() const noexcept
+{
+    return d_ptr->previewVisible;
+}
+
+void ZzColorPicker::setColorPreviewVisible(bool value)
+{
+    if (d_ptr->previewVisible == value) {
+        return;
+    }
+    d_ptr->previewVisible = value;
+    d_ptr->syncVisibility();
+    Q_EMIT colorPreviewVisibleChanged(value);
+}
+
+bool ZzColorPicker::isAlphaSliderVisible() const noexcept
+{
+    return d_ptr->alphaSliderVisible;
+}
+
+void ZzColorPicker::setAlphaSliderVisible(bool value)
+{
+    if (d_ptr->alphaSliderVisible == value) {
+        return;
+    }
+    d_ptr->alphaSliderVisible = value;
+    d_ptr->syncVisibility();
+    Q_EMIT alphaSliderVisibleChanged(value);
+}
+
+bool ZzColorPicker::isColorSliderVisible() const noexcept
+{
+    return d_ptr->sliderVisible;
+}
+
+void ZzColorPicker::setColorSliderVisible(bool value)
+{
+    if (d_ptr->sliderVisible == value) {
+        return;
+    }
+    d_ptr->sliderVisible = value;
+    d_ptr->syncVisibility();
+    Q_EMIT colorSliderVisibleChanged(value);
+}
+
+bool ZzColorPicker::isColorChannelTextInputVisible() const noexcept
+{
+    return d_ptr->channelTextInputVisible;
+}
+
+void ZzColorPicker::setColorChannelTextInputVisible(bool value)
+{
+    if (d_ptr->channelTextInputVisible == value) {
+        return;
+    }
+    d_ptr->channelTextInputVisible = value;
+    d_ptr->syncVisibility();
+    Q_EMIT colorChannelTextInputVisibleChanged(value);
+}
+
 QColor ZzColorPicker::currentColor() const noexcept
 {
     return d_ptr->currentColor;
@@ -24,7 +160,16 @@ QColor ZzColorPicker::currentColor() const noexcept
 void ZzColorPicker::setCurrentColor(QColor color)
 {
     if (d_ptr->applyCurrentColor(color)) {
-        Q_EMIT currentColorChanged(d_ptr->currentColor);
+        d_ptr->notifyCurrentColorChanged();
+    }
+}
+
+void ZzColorPicker::commitPendingEdits()
+{
+    const QPointer<ZzColorPicker> guard(this);
+    d_ptr->commitHexEditor();
+    if (guard) {
+        d_ptr->flushColorNotifications();
     }
 }
 

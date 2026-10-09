@@ -87,6 +87,8 @@
 #include <ZzFluentUI/ZzCalendarPicker.h>
 #include <ZzFluentUI/ZzCarouselView.h>
 #include <ZzFluentUI/ZzColorPicker.h>
+#include <ZzFluentUI/ZzColorPickerButton.h>
+#include <ZzFluentUI/ZzColorPickerDialog.h>
 #include <ZzFluentUI/ZzCommandPalette.h>
 #include <ZzFluentUI/ZzDockPanel.h>
 #include <ZzFluentUI/ZzContentDialog.h>
@@ -7610,6 +7612,109 @@ private Q_SLOTS:
     void rendersInfoBarThemes_data() { rendersRangeSliderThemes_data(); }
 
     void rendersCarouselImmersiveThemes_data() { rendersRangeSliderThemes_data(); }
+
+    /** @brief 独立覆盖完整 Fluent 颜色选择器及两个包装表面，不更新兼容 Compact 基线。 */
+    void rendersColorPickerThemes_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<QString>("name");
+        QTest::addColumn<QString>("state");
+        for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark,
+                 ZzFluentUI::ZzThemeMode::HighContrast}) {
+            const QString name = mode == ZzFluentUI::ZzThemeMode::Light ? QStringLiteral("light")
+                : mode == ZzFluentUI::ZzThemeMode::Dark ? QStringLiteral("dark") : QStringLiteral("high-contrast");
+            for (const auto *state : {"box", "ring", "palette", "channels", "button", "dialog"}) {
+                const QByteArray row = (name + u'-' + QString::fromLatin1(state)).toLatin1();
+                QTest::newRow(row.constData()) << int(mode) << name << QString::fromLatin1(state);
+            }
+        }
+    }
+
+    void rendersColorPickerThemes()
+    {
+        using namespace ZzFluentUI;
+        QFETCH(int, mode);
+        QFETCH(QString, name);
+        QFETCH(QString, state);
+        controller_->setMode(static_cast<ZzThemeMode>(mode));
+        QWidget surface;
+        surface.setAutoFillBackground(true);
+        surface.setFixedSize(400, state == QStringLiteral("button") ? 500 : 430);
+        auto *layout = new QVBoxLayout(&surface);
+        layout->setContentsMargins(20, 16, 20, 16);
+        layout->setSpacing(12);
+        ZzColorPicker *picker = nullptr;
+        ZzColorPickerButton *button = nullptr;
+        std::unique_ptr<ZzColorPickerDialog> dialog;
+        if (state == QStringLiteral("button")) {
+            button = new ZzColorPickerButton(&surface);
+            button->setSelectedColor(QColor("#FFB900"));
+            layout->addWidget(button, 0, Qt::AlignLeft);
+            layout->addStretch();
+            picker = button->colorPicker();
+        } else if (state == QStringLiteral("dialog")) {
+            dialog = std::make_unique<ZzColorPickerDialog>(&surface);
+            dialog->setTitle(QStringLiteral("Edit color"));
+            dialog->setCurrentColor(QColor("#0078D4"));
+            picker = dialog->colorPicker();
+        } else {
+            picker = new ZzColorPicker(&surface);
+            picker->setAppearance(ZzColorPicker::Fluent);
+            picker->setAlphaEnabled(true);
+            picker->setCurrentColor(QColor("#944E9B"));
+            picker->setColorSpectrumShape(state == QStringLiteral("ring") ? ZzColorPicker::Ring : ZzColorPicker::Box);
+            layout->addWidget(picker);
+        }
+        const auto values = QStringLiteral(
+            "FFB900 D13438 E3008C 8E8CD8 0099BC 00CC6A 567C73 69797E "
+            "FF8C00 FF4343 BF0077 6B69D6 2D7D9A 10893E 486860 4A5459 "
+            "F7630C E74856 C239B3 8764B8 00B7C3 7A7574 498205 647C64 "
+            "CA5010 E81123 9A0089 744DA9 038387 5D5A58 107C10 525E54 "
+            "DA3B01 EA005E 0078D4 B146C2 00B294 68768A 767676 847545 "
+            "EF6950 C30052 0063B1 881798 018574 515C6B 4C4A48 7E735F").split(u' ');
+        QList<QColor> colors;
+        for (const auto &value : values) colors.append(QColor(u'#' + value));
+        picker->setPaletteColors(colors);
+        auto *tabs = picker->findChild<QTabBar *>(QStringLiteral("zzColorPickerTabs"));
+        QVERIFY(tabs != nullptr);
+        tabs->setCurrentIndex(state == QStringLiteral("palette") ? 1 : state == QStringLiteral("channels") ? 2 : 0);
+        surface.show();
+        QCoreApplication::processEvents();
+        if (button) button->click();
+        if (dialog) dialog->show();
+        QCoreApplication::processEvents();
+        QImage actual = dialog ? dialog->grab().toImage() : surface.grab().toImage();
+        if (button) {
+            QPainter painter(&actual);
+            painter.drawPixmap(QPoint(20, 64), picker->window()->grab());
+            painter.end();
+            picker->window()->hide();
+        }
+        if (dialog) dialog->hide();
+        surface.hide();
+        const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
+        const QString stem = QStringLiteral("color-picker-") + state + u'-' + name;
+        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
+            QVERIFY(QDir().mkpath(directory));
+            QVERIFY(actual.save(path));
+            return;
+        }
+        const QImage expected(path);
+        QVERIFY2(!expected.isNull(), qPrintable(path));
+        QCOMPARE(actual.size(), expected.size());
+        QImage mask(actual.size(), QImage::Format_Grayscale8);
+        mask.fill(0);
+        const auto comparison = zzCompareImages(expected, actual, mask);
+        const qreal ratio = qreal(comparison.differentPixels) / qreal(comparison.comparedPixels);
+        if (ratio > zzMaximumDifferenceRatio()) {
+            const QString reports = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_REPORT_DIR)).filePath(baselineSubdirectory_);
+            QVERIFY(QDir().mkpath(reports));
+            QVERIFY(actual.save(QDir(reports).filePath(stem + QStringLiteral("-actual.png"))));
+            QVERIFY(comparison.difference.save(QDir(reports).filePath(stem + QStringLiteral("-diff.png"))));
+        }
+        QVERIFY2(ratio <= zzMaximumDifferenceRatio(), qPrintable(QString::number(ratio)));
+    }
 
     /** @brief 沉浸轮播覆盖图片适配、导航、圆角、分页、RTL和禁用状态。 */
     void rendersCarouselImmersiveThemes()

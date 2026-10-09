@@ -77,6 +77,9 @@ zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
     if (routeId.value() == QStringLiteral("carousel")) {
         return ZzExampleShowcasePage::ZzPageKind::Carousel;
     }
+    if (routeId.value() == QStringLiteral("color-picker")) {
+        return ZzExampleShowcasePage::ZzPageKind::ColorPicker;
+    }
     if (routeId.value() == QStringLiteral("progress-ring")) {
         return ZzExampleShowcasePage::ZzPageKind::ProgressRing;
     }

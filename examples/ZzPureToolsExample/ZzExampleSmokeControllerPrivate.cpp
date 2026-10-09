@@ -65,6 +65,7 @@
 #include "ZzExampleTimelineSmoke.h"
 #include "ZzExampleInfoBarSmoke.h"
 #include "ZzExampleCarouselSmoke.h"
+#include "ZzExampleColorPickerSmoke.h"
 #include <ZzFluentUI/ZzScrollBar.h>
 #include <ZzFluentUI/ZzMessageBar.h>
 #include <ZzFluentUI/ZzInfoBadge.h>
@@ -1060,6 +1061,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke carousel integration failed");
                 return;
             }
+            if (routeId == QStringLiteral("color-picker") && !zzColorPickerPageReady(window)) {
+                fail("route smoke color picker integration failed");
+                return;
+            }
             if (!previewDirectory.isEmpty()) {
                 // 只刷新布局；嵌套事件循环会触发烟测自动关闭定时器并销毁窗口。
                 QCoreApplication::sendPostedEvents(nullptr, QEvent::LayoutRequest);
@@ -1072,13 +1077,15 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 if (routeId == QStringLiteral("audio-level-meter") || routeId == QStringLiteral("radial-gauge")
                     || routeId == QStringLiteral("liquid-gauge") || routeId == QStringLiteral("progress-ring")
                     || routeId == QStringLiteral("timeline") || routeId == QStringLiteral("info-bar")
-                    || routeId == QStringLiteral("carousel")) {
+                    || routeId == QStringLiteral("carousel") || routeId == QStringLiteral("color-picker")) {
+                    const bool colorPicker = routeId == QStringLiteral("color-picker");
                     const bool carousel = routeId == QStringLiteral("carousel");
                     const bool infoBar = routeId == QStringLiteral("info-bar");
                     const bool timeline = routeId == QStringLiteral("timeline");
                     const bool liquid = routeId == QStringLiteral("liquid-gauge");
                     const bool progressRing = routeId == QStringLiteral("progress-ring");
-                    auto *page = window.findChild<QWidget *>(carousel ? QStringLiteral("zzExampleCarouselPage")
+                    auto *page = window.findChild<QWidget *>(colorPicker ? QStringLiteral("zzExampleColorPickerPage")
+                        : carousel ? QStringLiteral("zzExampleCarouselPage")
                         : infoBar ? QStringLiteral("zzExampleInfoBarPage")
                         : timeline ? QStringLiteral("zzExampleTimelinePage")
                         : progressRing ? QStringLiteral("zzExampleProgressRingPage")
@@ -1092,8 +1099,9 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         fail("could not export custom widget content preview");
                         return;
                     }
-                    if (routeId == QStringLiteral("radial-gauge") || liquid || timeline || infoBar || carousel) {
-                        auto *tabs = page->findChild<QTabWidget *>(carousel ? QStringLiteral("carouselEditorTabs")
+                    if (routeId == QStringLiteral("radial-gauge") || liquid || timeline || infoBar || carousel || colorPicker) {
+                        auto *tabs = page->findChild<QTabWidget *>(colorPicker ? QStringLiteral("colorPickerEditorTabs")
+                            : carousel ? QStringLiteral("carouselEditorTabs")
                             : infoBar ? QStringLiteral("infoBarEditorTabs")
                             : timeline ? QStringLiteral("zzTimeline_editorTabs")
                             : liquid ? QStringLiteral("zzLiquidPropertyTabs")
@@ -1103,7 +1111,7 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                         const auto originalMode = theme->mode();
                         for (const auto mode : {ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark,
                                  ZzFluentUI::ZzThemeMode::HighContrast}) {
-                            if (mode == ZzFluentUI::ZzThemeMode::HighContrast && !timeline && !infoBar && !carousel) continue;
+                            if (mode == ZzFluentUI::ZzThemeMode::HighContrast && !timeline && !infoBar && !carousel && !colorPicker) continue;
                             theme->setMode(mode);
                             QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationPaletteChange);
                             const QString name = mode == ZzFluentUI::ZzThemeMode::HighContrast

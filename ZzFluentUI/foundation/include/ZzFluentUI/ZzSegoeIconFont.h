@@ -28,6 +28,10 @@ enum class ZzSegoeIcon : char16_t
     Cloud = 0xe753,
     Unknown = 0xe9ce,
     Close = 0xe894,
+    InkingTool = 0xe76d,
+    Color = 0xe790,
+    Equalizer = 0xe9e9,
+    ChevronDown = 0xe70d,
     ChevronLeft = 0xe76b,
     ChevronRight = 0xe76c
 };

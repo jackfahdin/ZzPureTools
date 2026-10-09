@@ -4,6 +4,122 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>颜色选择器(ColorPicker)</source>
+        <translation>Color Picker</translation>
+    </message>
+    <message>
+        <source>颜色与色谱</source>
+        <translation>Color and spectrum</translation>
+    </message>
+    <message>
+        <source>当前颜色（HEX）</source>
+        <translation>Current color (HEX)</translation>
+    </message>
+    <message>
+        <source>方形（Box）</source>
+        <translation>Box</translation>
+    </message>
+    <message>
+        <source>圆形（Ring）</source>
+        <translation>Ring</translation>
+    </message>
+    <message>
+        <source>色谱形状</source>
+        <translation>Spectrum shape</translation>
+    </message>
+    <message>
+        <source>颜色表示</source>
+        <translation>Color representation</translation>
+    </message>
+    <message>
+        <source>参考色板（48 色）</source>
+        <translation>Reference palette (48 colors)</translation>
+    </message>
+    <message>
+        <source>自定义色板（6 色）</source>
+        <translation>Custom palette (6 colors)</translation>
+    </message>
+    <message>
+        <source>默认色板（24 色）</source>
+        <translation>Default palette (24 colors)</translation>
+    </message>
+    <message>
+        <source>色板内容</source>
+        <translation>Palette colors</translation>
+    </message>
+    <message>
+        <source>显示项</source>
+        <translation>Visibility</translation>
+    </message>
+    <message>
+        <source>启用透明度</source>
+        <translation>Enable alpha</translation>
+    </message>
+    <message>
+        <source>显示色谱</source>
+        <translation>Show spectrum</translation>
+    </message>
+    <message>
+        <source>显示色板</source>
+        <translation>Show palette</translation>
+    </message>
+    <message>
+        <source>显示颜色预览</source>
+        <translation>Show color preview</translation>
+    </message>
+    <message>
+        <source>显示透明度滑条</source>
+        <translation>Show alpha slider</translation>
+    </message>
+    <message>
+        <source>显示通道滑条</source>
+        <translation>Show channel sliders</translation>
+    </message>
+    <message>
+        <source>显示通道输入框</source>
+        <translation>Show channel inputs</translation>
+    </message>
+    <message>
+        <source>禁用内嵌选择器</source>
+        <translation>Disable inline picker</translation>
+    </message>
+    <message>
+        <source>右侧属性实时作用于内嵌选择器。按钮即时更新，对话框仅在确定后提交。</source>
+        <translation>Properties update the inline picker. The button applies immediately; the dialog commits on confirmation.</translation>
+    </message>
+    <message>
+        <source>通过色谱、色板或通道输入选择颜色，支持透明度与键盘操作。</source>
+        <translation>Choose a color with the spectrum, palette or channel inputs, with alpha and keyboard support.</translation>
+    </message>
+    <message>
+        <source>内嵌颜色选择器</source>
+        <translation>Inline color picker</translation>
+    </message>
+    <message>
+        <source>按钮弹层</source>
+        <translation>Button flyout</translation>
+    </message>
+    <message>
+        <source>点击展开，再次点击或按 Escape 收起。颜色即时生效。</source>
+        <translation>Click to open; click again or press Escape to close. Colors apply immediately.</translation>
+    </message>
+    <message>
+        <source>颜色对话框</source>
+        <translation>Color dialog</translation>
+    </message>
+    <message>
+        <source>打开颜色对话框</source>
+        <translation>Open color dialog</translation>
+    </message>
+    <message>
+        <source>确定提交新颜色；取消、Escape 或关闭恢复打开前的颜色。</source>
+        <translation>Confirm to commit. Cancel, Escape or close to restore the original color.</translation>
+    </message>
+    <message>
+        <source>API 示例</source>
+        <translation>API example</translation>
+    </message>
+    <message>
         <source>轮播图(Carousel)</source>
         <translation>Carousel</translation>
     </message>
@@ -3812,6 +3928,107 @@
     <message>
         <source>关闭通知</source>
         <translation>Dismiss notification</translation>
+    </message>
+</context>
+<context>
+    <name>ZzFluentUI::ZzColorPicker</name>
+    <message>
+        <source>红色</source>
+        <translation>Red</translation>
+    </message>
+    <message>
+        <source>绿色</source>
+        <translation>Green</translation>
+    </message>
+    <message>
+        <source>蓝色</source>
+        <translation>Blue</translation>
+    </message>
+    <message>
+        <source>透明度</source>
+        <translation>Alpha</translation>
+    </message>
+    <message>
+        <source>十六进制颜色</source>
+        <translation>Hex color</translation>
+    </message>
+    <message>
+        <source>颜色色板</source>
+        <translation>Color palette</translation>
+    </message>
+    <message>
+        <source>当前颜色预览</source>
+        <translation>Current color preview</translation>
+    </message>
+    <message>
+        <source>色相</source>
+        <translation>Hue</translation>
+    </message>
+    <message>
+        <source>饱和度</source>
+        <translation>Saturation</translation>
+    </message>
+    <message>
+        <source>明度</source>
+        <translation>Value</translation>
+    </message>
+    <message>
+        <source>色相和饱和度色谱</source>
+        <translation>Hue and saturation spectrum</translation>
+    </message>
+    <message>
+        <source>方向键调整色相和饱和度，Shift 加快调整</source>
+        <translation>Use arrow keys to adjust hue and saturation; hold Shift for larger steps</translation>
+    </message>
+    <message>
+        <source>颜色明暗色阶</source>
+        <translation>Color shade strip</translation>
+    </message>
+    <message>
+        <source>颜色表示</source>
+        <translation>Color representation</translation>
+    </message>
+    <message>
+        <source>色谱</source>
+        <translation>Spectrum</translation>
+    </message>
+    <message>
+        <source>色板</source>
+        <translation>Palette</translation>
+    </message>
+    <message>
+        <source>滑条</source>
+        <translation>Sliders</translation>
+    </message>
+    <message>
+        <source>颜色编辑方式</source>
+        <translation>Color editing mode</translation>
+    </message>
+</context>
+<context>
+    <name>ZzFluentUI::ZzColorPickerButton</name>
+    <message>
+        <source>选择颜色</source>
+        <translation>Choose color</translation>
+    </message>
+    <message>
+        <source>颜色选择器</source>
+        <translation>Color picker</translation>
+    </message>
+</context>
+<context>
+    <name>ZzFluentUI::ZzColorPickerDialog</name>
+    <message>
+        <source>确定</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>编辑颜色</source>
+        <translation>Edit color</translation>
     </message>
 </context>
 </TS>

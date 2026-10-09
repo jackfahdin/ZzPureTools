@@ -43,6 +43,10 @@ set(zz_pure_tools_example_sources
     ZzExampleCarouselPage.cpp
     ZzExampleCarouselPlayback.cpp
     ZzExampleCarouselSmoke.cpp
+    ZzExampleColorPickerPage.cpp
+    ZzExampleColorPickerPage.h
+    ZzExampleColorPickerSmoke.cpp
+    ZzExampleColorPickerSmoke.h
     ZzExampleRadialGaugeHelpers.h
     ZzExampleRadialGaugeHelpers.cpp
     ZzExampleRadialGaugePresets.cpp

@@ -412,6 +412,15 @@ set_tests_properties(fluent.key-binder PROPERTIES
 )
 
 add_executable(ZzColorPickerTest ZzColorPickerTest.cpp)
+add_executable(ZzColorPickerSurfacesTest ZzColorPickerSurfacesTest.cpp)
+target_link_libraries(ZzColorPickerSurfacesTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzColorPickerSurfacesTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzColorPickerSurfacesTest)
+zz_enable_sanitizers(ZzColorPickerSurfacesTest)
+add_test(NAME fluent.color-picker-surfaces COMMAND ZzColorPickerSurfacesTest)
+set_tests_properties(fluent.color-picker-surfaces PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 target_link_libraries(ZzColorPickerTest PRIVATE
     Qt6::Test
     Qt6::Widgets

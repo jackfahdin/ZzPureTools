@@ -23,6 +23,15 @@ class ZzColorPickerPrivate;
 class ZZ_FLUENT_UI_EXPORT ZzColorPicker final : public QWidget
 {
     Q_OBJECT
+    Q_PROPERTY(Appearance appearance READ appearance WRITE setAppearance NOTIFY appearanceChanged)
+    Q_PROPERTY(ColorRepresentation colorRepresentation READ colorRepresentation WRITE setColorRepresentation NOTIFY colorRepresentationChanged)
+    Q_PROPERTY(ColorSpectrumShape colorSpectrumShape READ colorSpectrumShape WRITE setColorSpectrumShape NOTIFY colorSpectrumShapeChanged)
+    Q_PROPERTY(bool colorSpectrumVisible READ isColorSpectrumVisible WRITE setColorSpectrumVisible NOTIFY colorSpectrumVisibleChanged)
+    Q_PROPERTY(bool colorPaletteVisible READ isColorPaletteVisible WRITE setColorPaletteVisible NOTIFY colorPaletteVisibleChanged)
+    Q_PROPERTY(bool colorPreviewVisible READ isColorPreviewVisible WRITE setColorPreviewVisible NOTIFY colorPreviewVisibleChanged)
+    Q_PROPERTY(bool alphaSliderVisible READ isAlphaSliderVisible WRITE setAlphaSliderVisible NOTIFY alphaSliderVisibleChanged)
+    Q_PROPERTY(bool colorSliderVisible READ isColorSliderVisible WRITE setColorSliderVisible NOTIFY colorSliderVisibleChanged)
+    Q_PROPERTY(bool colorChannelTextInputVisible READ isColorChannelTextInputVisible WRITE setColorChannelTextInputVisible NOTIFY colorChannelTextInputVisibleChanged)
     Q_DISABLE_COPY_MOVE(ZzColorPicker)
     Q_PROPERTY(
         QColor currentColor
@@ -40,6 +49,51 @@ class ZZ_FLUENT_UI_EXPORT ZzColorPicker final : public QWidget
         NOTIFY paletteColorsChanged)
 
 public:
+    /** @brief 选择兼容紧凑装配或完整 Fluent 三页装配。 */
+    enum Appearance { Compact, Fluent };
+    Q_ENUM(Appearance)
+    /** @brief 选择通道编辑器的 RGB 或 HSV 表示。 */
+    enum ColorRepresentation { Rgba, Hsva };
+    Q_ENUM(ColorRepresentation)
+    /** @brief 选择 Hue×Saturation 方形或圆形色谱。 */
+    enum ColorSpectrumShape { Box, Ring };
+    Q_ENUM(ColorSpectrumShape)
+    /** @brief 返回 appearance 展示状态。 */
+    [[nodiscard]] Appearance appearance() const noexcept;
+    /** @brief 更新 appearance，重复值不发信号。 */
+    void setAppearance(Appearance value);
+    /** @brief 返回 colorRepresentation 展示状态。 */
+    [[nodiscard]] ColorRepresentation colorRepresentation() const noexcept;
+    /** @brief 更新 colorRepresentation，重复值不发信号。 */
+    void setColorRepresentation(ColorRepresentation value);
+    /** @brief 返回 colorSpectrumShape 展示状态。 */
+    [[nodiscard]] ColorSpectrumShape colorSpectrumShape() const noexcept;
+    /** @brief 更新 colorSpectrumShape，重复值不发信号。 */
+    void setColorSpectrumShape(ColorSpectrumShape value);
+    /** @brief 返回 colorSpectrumVisible 展示状态。 */
+    [[nodiscard]] bool isColorSpectrumVisible() const noexcept;
+    /** @brief 更新 colorSpectrumVisible，重复值不发信号。 */
+    void setColorSpectrumVisible(bool value);
+    /** @brief 返回 colorPaletteVisible 展示状态。 */
+    [[nodiscard]] bool isColorPaletteVisible() const noexcept;
+    /** @brief 更新 colorPaletteVisible，重复值不发信号。 */
+    void setColorPaletteVisible(bool value);
+    /** @brief 返回 colorPreviewVisible 展示状态。 */
+    [[nodiscard]] bool isColorPreviewVisible() const noexcept;
+    /** @brief 更新 colorPreviewVisible，重复值不发信号。 */
+    void setColorPreviewVisible(bool value);
+    /** @brief 返回 alphaSliderVisible 展示状态。 */
+    [[nodiscard]] bool isAlphaSliderVisible() const noexcept;
+    /** @brief 更新 alphaSliderVisible，重复值不发信号。 */
+    void setAlphaSliderVisible(bool value);
+    /** @brief 返回 colorSliderVisible 展示状态。 */
+    [[nodiscard]] bool isColorSliderVisible() const noexcept;
+    /** @brief 更新 colorSliderVisible，重复值不发信号。 */
+    void setColorSliderVisible(bool value);
+    /** @brief 返回 colorChannelTextInputVisible 展示状态。 */
+    [[nodiscard]] bool isColorChannelTextInputVisible() const noexcept;
+    /** @brief 更新 colorChannelTextInputVisible，重复值不发信号。 */
+    void setColorChannelTextInputVisible(bool value);
     /**
      * @brief 创建带固定默认色板和 RGB 编辑器的颜色选择器。
      * @param parent 可为空的 QWidget 所有者。
@@ -60,6 +114,15 @@ public:
      * @param color 新颜色。
      */
     void setCurrentColor(QColor color);
+
+    /**
+     * @brief 提交待编辑 HEX，并同步发送已排队的颜色通知。
+     *
+     * 用于对话框在清除编辑器焦点返回后读取最终颜色；不运行事件循环。
+     * Qt 失焦调用栈内的通知继续延迟到安全时机。信号回调可同步删除本控件，
+     * 调用者需要 QPointer 保护后续访问。
+     */
+    void commitPendingEdits();
 
     /**
      * @brief 返回是否显示 alpha 数值和 ARGB 十六进制编辑。
@@ -95,8 +158,28 @@ public:
     void resetPaletteColors();
 
 Q_SIGNALS:
+    /** @brief appearance 实际变化后发出。 */
+    void appearanceChanged(Appearance value);
+    /** @brief colorRepresentation 实际变化后发出。 */
+    void colorRepresentationChanged(ColorRepresentation value);
+    /** @brief colorSpectrumShape 实际变化后发出。 */
+    void colorSpectrumShapeChanged(ColorSpectrumShape value);
+    /** @brief colorSpectrumVisible 实际变化后发出。 */
+    void colorSpectrumVisibleChanged(bool value);
+    /** @brief colorPaletteVisible 实际变化后发出。 */
+    void colorPaletteVisibleChanged(bool value);
+    /** @brief colorPreviewVisible 实际变化后发出。 */
+    void colorPreviewVisibleChanged(bool value);
+    /** @brief alphaSliderVisible 实际变化后发出。 */
+    void alphaSliderVisibleChanged(bool value);
+    /** @brief colorSliderVisible 实际变化后发出。 */
+    void colorSliderVisibleChanged(bool value);
+    /** @brief colorChannelTextInputVisible 实际变化后发出。 */
+    void colorChannelTextInputVisibleChanged(bool value);
     /**
      * @brief 当前颜色实际变化后发出一次。
+     * 原生 HEX 失焦期间按顺序排队，Qt 调用栈退出后发出；
+     * commitPendingEdits 可在安全时机同步冲刷。
      * @param color 新的规范化 RGBA 颜色。
      */
     void currentColorChanged(const QColor &color);

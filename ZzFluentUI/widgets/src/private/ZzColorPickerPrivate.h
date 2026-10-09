@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtGui/QColor>
+#include <ZzFluentUI/ZzColorPicker.h>
 
 #include "ZzWidgetTheme.h"
 
@@ -8,6 +9,11 @@ class QLabel;
 class QLineEdit;
 class QListView;
 class QRegularExpressionValidator;
+class QVBoxLayout;
+class QGridLayout;
+class QTabBar;
+class QStackedWidget;
+class QComboBox;
 
 namespace ZzFluentUI {
 
@@ -16,6 +22,9 @@ class ZzColorPicker;
 class ZzColorPreviewWidget;
 class ZzColorSwatchDelegate;
 class ZzSpinBox;
+class ZzColorSpectrum;
+class ZzColorGradientSlider;
+class ZzColorShadeStrip;
 
 /** @brief 管理颜色选择器固定装配和单向派生状态同步。 */
 class ZzColorPickerPrivate final
@@ -48,11 +57,18 @@ public:
     /** @brief 同步全部编辑器、预览和色板选择。 */
     void syncDerivedState();
 
-    /** @brief 从 RGB(A) 数值编辑器提交一次当前颜色。 */
-    void commitChannelEditors();
+    /** @brief 只提交实际编辑的 RGB/HSV/alpha 分量，保留其余分量精度。 */
+    void commitChannelEditor(ZzSpinBox *editor);
 
     /** @brief 从十六进制编辑器提交或恢复当前颜色。 */
     void commitHexEditor();
+
+    /** @brief 在 HEX 失焦调用栈前开始一批有序颜色通知。 */
+    void deferColorNotifications();
+    /** @brief 立即发送颜色快照，或在失焦期间依次排队。 */
+    void notifyCurrentColorChanged();
+    /** @brief 在 Qt 失焦调用栈外安全发送已排队快照，不运行事件循环。 */
+    void flushColorNotifications();
 
     /** @brief 刷新 alpha 编辑器、validator 和派生文本。 */
     void syncAlphaPresentation();
@@ -66,12 +82,23 @@ public:
     /** @brief 仅按当前主题刷新色板逻辑尺寸。 */
     void syncPaletteMetrics();
 
+    /** @brief 创建一次 Fluent 页面和私有绘制部件。 */
+    void buildFluentPresentation();
+    /** @brief 在固定装配之间移动唯一编辑器和色板。 */
+    void syncAppearance();
+    /** @brief 刷新可见页并回退到首个可见页面。 */
+    void syncVisibility();
+    /** @brief 刷新渐变、HSV 派生状态和本地化通道。 */
+    void syncFluentState();
+    /** @brief 提交 HSV 编辑并保留退化颜色的 hue/saturation。 */
+    void commitHsv(qreal hue, qreal saturation, qreal value);
+
     ZzColorPicker *const q_ptr;
     ZzWidgetTheme theme;
     ZzColorPaletteModel *const paletteModel;
     QListView *const paletteView;
     ZzColorSwatchDelegate *const swatchDelegate;
-    ZzColorPreviewWidget *const preview;
+    QWidget *const preview;
     QLabel *const redLabel;
     QLabel *const greenLabel;
     QLabel *const blueLabel;
@@ -86,6 +113,38 @@ public:
     QColor currentColor{QColor::fromRgb(0, 120, 212)};
     bool alphaEnabled = false;
     bool syncing = false;
+    bool notificationsDeferred = false;
+    bool hexFocusOutActive = false;
+    QList<QColor> pendingColorNotifications;
+    ZzColorPicker::Appearance appearance = ZzColorPicker::Compact;
+    ZzColorPicker::ColorRepresentation representation = ZzColorPicker::Rgba;
+    ZzColorPicker::ColorSpectrumShape shape = ZzColorPicker::Box;
+    bool spectrumVisible = true;
+    bool paletteVisible = true;
+    bool previewVisible = true;
+    bool alphaSliderVisible = true;
+    bool sliderVisible = true;
+    bool channelTextInputVisible = true;
+    qreal hue = currentColor.hsvHueF();
+    qreal saturation = currentColor.hsvSaturationF();
+    qreal value = currentColor.valueF();
+    QWidget *compactHost = nullptr;
+    QWidget *fluentHost = nullptr;
+    QWidget *editorHost = nullptr;
+    QVBoxLayout *compactLayout = nullptr;
+    QGridLayout *editorLayout = nullptr;
+    QVBoxLayout *fluentLayout = nullptr;
+    QTabBar *tabs = nullptr;
+    QStackedWidget *pages = nullptr;
+    QWidget *spectrumPage = nullptr;
+    QWidget *palettePage = nullptr;
+    QWidget *slidersPage = nullptr;
+    QComboBox *representationCombo = nullptr;
+    ZzColorSpectrum *spectrum = nullptr;
+    ZzColorGradientSlider *valueSlider = nullptr;
+    ZzColorGradientSlider *alphaSlider = nullptr;
+    ZzColorGradientSlider *channelSliders[4]{};
+    ZzColorShadeStrip *shadeStrip = nullptr;
 };
 
 } // namespace ZzFluentUI

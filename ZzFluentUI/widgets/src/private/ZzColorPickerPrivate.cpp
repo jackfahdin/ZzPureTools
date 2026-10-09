@@ -1,4 +1,8 @@
 #include "ZzColorPickerPrivate.h"
+#include "ZzColorSpectrum.h"
+#include "ZzColorGradientSlider.h"
+#include "ZzColorPickerMath.h"
+#include "ZzColorPickerMetrics.h"
 
 #include <algorithm>
 #include <utility>
@@ -8,8 +12,11 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
 #include <QtCore/QSignalBlocker>
+#include <QtCore/QPointer>
 #include <QtGui/QPainter>
+#include <QtGui/QPainterPath>
 #include <QtGui/QRegularExpressionValidator>
+#include <QtGui/QResizeEvent>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QLabel>
@@ -74,6 +81,51 @@ QList<QColor> zzNormalizedPalette(QList<QColor> colors)
 }
 
 } // namespace
+
+/** @brief 在原生 HEX 失焦处理前启用安全、有序的颜色通知。 */
+class ZzColorHexEditor final : public QLineEdit
+{
+public:
+    /** @brief 绑定选择器状态并保留原生输入与无障碍能力。 */
+    explicit ZzColorHexEditor(ZzColorPickerPrivate *owner, QWidget *parent)
+        : QLineEdit(parent), owner_(owner)
+    {
+    }
+protected:
+    /** @brief 失焦内立即更新颜色，但避免用户回调删除 Qt 正在访问的对象。 */
+    void focusOutEvent(QFocusEvent *event) override
+    {
+        const QPointer<QLineEdit> guard(this);
+        owner_->hexFocusOutActive = true;
+        owner_->deferColorNotifications();
+        QLineEdit::focusOutEvent(event);
+        if (guard) {
+            owner_->hexFocusOutActive = false;
+        }
+    }
+private:
+    ZzColorPickerPrivate *const owner_;
+};
+
+/** @brief 在 viewport 宽度变化后调整八列色板的单元尺寸。 */
+class ZzColorPaletteView final : public QListView
+{
+public:
+    /** @brief 绑定唯一选择器装配，并保留 QListView 的原生交互。 */
+    explicit ZzColorPaletteView(ZzColorPickerPrivate *owner, QWidget *parent)
+        : QListView(parent), owner_(owner)
+    {
+    }
+protected:
+    /** @brief 重算适配当前 viewport 的固定八列网格。 */
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QListView::resizeEvent(event);
+        owner_->syncPaletteMetrics();
+    }
+private:
+    ZzColorPickerPrivate *const owner_;
+};
 
 /** @brief 保存唯一色板集合并暴露颜色和无障碍展示角色。 */
 class ZzColorPaletteModel final : public QAbstractListModel
@@ -185,7 +237,8 @@ public:
             return;
         }
         const auto snapshot = owner_->theme.snapshot();
-        const int extent = qMax(
+        const int extent = owner_->appearance == ZzColorPicker::Fluent
+            ? qMax(1, owner_->paletteView->gridSize().width() - 3) : qMax(
             1,
             qCeil(snapshot->metric(ZzMetricToken::ColorSwatchExtent)));
         const int side = std::min(
@@ -207,6 +260,10 @@ public:
         painter->setBrush(
             index.data(ZzColorPaletteModel::ZzColorRole).value<QColor>());
         painter->drawRoundedRect(swatch, radius, radius);
+        if (owner_->appearance == ZzColorPicker::Fluent && !selected && !focused) {
+            painter->restore();
+            return;
+        }
         const QColor stroke = selected || focused
             ? snapshot->color(ZzColorToken::FocusStroke)
             : snapshot->color(ZzColorToken::ControlStroke);
@@ -231,7 +288,8 @@ public:
         const QModelIndex &) const override
     {
         const auto snapshot = owner_->theme.snapshot();
-        const int side = qMax(
+        const int side = owner_->appearance == ZzColorPicker::Fluent
+            ? owner_->paletteView->gridSize().width() : qMax(
             1,
             qCeil(snapshot->metric(ZzMetricToken::ColorSwatchExtent)
                   + snapshot->metric(ZzMetricToken::ColorSwatchGap)));
@@ -271,6 +329,13 @@ protected:
         const auto snapshot = owner_->theme.snapshot();
         QPainter painter(this);
         const QRect content = rect().adjusted(1, 1, -1, -1);
+        const bool fluent = owner_->appearance == ZzColorPicker::Fluent;
+        if (fluent) {
+            painter.setRenderHint(QPainter::Antialiasing);
+            QPainterPath clip;
+            clip.addRoundedRect(content, 4, 4);
+            painter.setClipPath(clip);
+        }
         constexpr int tileExtent = 8;
         for (int y = content.top(); y <= content.bottom(); y += tileExtent) {
             for (int x = content.left(); x <= content.right(); x += tileExtent) {
@@ -292,7 +357,12 @@ protected:
             snapshot->metric(ZzMetricToken::StrokeThin));
         painter.setPen(pen);
         painter.setBrush(Qt::NoBrush);
-        painter.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
+        if (fluent) {
+            painter.drawRoundedRect(QRectF(content).adjusted(0.5, 0.5, -0.5, -0.5),
+                                    ZzColorPickerCornerRadius, ZzColorPickerCornerRadius);
+        } else {
+            painter.drawRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5));
+        }
     }
 
 private:
@@ -303,7 +373,7 @@ ZzColorPickerPrivate::ZzColorPickerPrivate(ZzColorPicker *q)
     : q_ptr(q)
     , theme(q)
     , paletteModel(new ZzColorPaletteModel(q))
-    , paletteView(new QListView(q))
+    , paletteView(new ZzColorPaletteView(this, q))
     , swatchDelegate(new ZzColorSwatchDelegate(this, paletteView))
     , preview(new ZzColorPreviewWidget(this, q))
     , redLabel(new QLabel(q))
@@ -315,7 +385,7 @@ ZzColorPickerPrivate::ZzColorPickerPrivate(ZzColorPicker *q)
     , greenSpinBox(new ZzSpinBox(q))
     , blueSpinBox(new ZzSpinBox(q))
     , alphaSpinBox(new ZzSpinBox(q))
-    , hexEditor(new QLineEdit(q))
+    , hexEditor(new ZzColorHexEditor(this, q))
     , hexValidator(new QRegularExpressionValidator(q))
 {
     Q_ASSERT(q_ptr != nullptr);
@@ -349,8 +419,8 @@ ZzColorPickerPrivate::ZzColorPickerPrivate(ZzColorPicker *q)
             spinBox,
             &QSpinBox::valueChanged,
             q_ptr,
-            [this] {
-                commitChannelEditors();
+            [this, spinBox] {
+                commitChannelEditor(spinBox);
             });
     }
     hexEditor->setValidator(hexValidator);
@@ -392,9 +462,15 @@ ZzColorPickerPrivate::ZzColorPickerPrivate(ZzColorPicker *q)
     auto *layout = new QVBoxLayout(q_ptr);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(ZzSectionSpacing);
-    layout->addWidget(preview);
-    layout->addWidget(paletteView);
-    auto *editorLayout = new QGridLayout;
+    compactHost = new QWidget(q_ptr);
+    compactLayout = new QVBoxLayout(compactHost);
+    compactLayout->setContentsMargins(0, 0, 0, 0);
+    compactLayout->setSpacing(ZzSectionSpacing);
+    layout->addWidget(compactHost);
+    compactLayout->addWidget(preview);
+    compactLayout->addWidget(paletteView);
+    editorHost = new QWidget(compactHost);
+    editorLayout = new QGridLayout(editorHost);
     editorLayout->setContentsMargins(0, 0, 0, 0);
     editorLayout->setHorizontalSpacing(8);
     editorLayout->setVerticalSpacing(4);
@@ -407,9 +483,12 @@ ZzColorPickerPrivate::ZzColorPickerPrivate(ZzColorPicker *q)
     editorLayout->addWidget(blueSpinBox, 1, 2);
     editorLayout->addWidget(alphaSpinBox, 1, 3);
     editorLayout->setColumnStretch(4, 1);
-    layout->addLayout(editorLayout);
-    layout->addWidget(hexLabel);
-    layout->addWidget(hexEditor);
+    compactLayout->addWidget(editorHost);
+    editorLayout->addWidget(hexLabel, 2, 0, 1, 5);
+    editorLayout->addWidget(hexEditor, 3, 0, 1, 5);
+
+    buildFluentPresentation();
+    syncAppearance();
 
     static_cast<void>(paletteModel->setColors(defaultPaletteColors()));
     refreshAccessibleText();
@@ -425,7 +504,17 @@ bool ZzColorPickerPrivate::applyCurrentColor(QColor color)
     if (!color.isValid() || color.rgba() == currentColor.rgba()) {
         return false;
     }
+    const bool rgbChanged = color.rgb() != currentColor.rgb();
     currentColor = color;
+    if (rgbChanged) {
+        if (color.hsvHueF() >= 0 && color.hsvSaturationF() > 0) {
+            hue = color.hsvHueF();
+        }
+        if (color.value() > 0) {
+            saturation = color.hsvSaturationF();
+        }
+        value = color.valueF();
+    }
     syncDerivedState();
     return true;
 }
@@ -435,6 +524,7 @@ bool ZzColorPickerPrivate::applyPaletteColors(QList<QColor> colors)
     const bool changed = paletteModel->setColors(
         zzNormalizedPalette(std::move(colors)));
     if (changed) {
+        syncPaletteMetrics();
         syncDerivedState();
     }
     return changed;
@@ -489,6 +579,10 @@ void ZzColorPickerPrivate::syncDerivedState()
     const QSignalBlocker blueBlocker(blueSpinBox);
     const QSignalBlocker alphaBlocker(alphaSpinBox);
     const QSignalBlocker hexBlocker(hexEditor);
+    const bool hsv = appearance == ZzColorPicker::Fluent && representation == ZzColorPicker::Hsva;
+    redSpinBox->setRange(0, hsv ? 360 : 255);
+    greenSpinBox->setRange(0, hsv ? 100 : 255);
+    blueSpinBox->setRange(0, hsv ? 100 : 255);
     redSpinBox->setValue(currentColor.red());
     greenSpinBox->setValue(currentColor.green());
     blueSpinBox->setValue(currentColor.blue());
@@ -505,20 +599,36 @@ void ZzColorPickerPrivate::syncDerivedState()
     }
     preview->update();
     paletteView->viewport()->update();
+    syncFluentState();
     syncing = wasSyncing;
 }
 
-void ZzColorPickerPrivate::commitChannelEditors()
+void ZzColorPickerPrivate::commitChannelEditor(ZzSpinBox *editor)
 {
     if (syncing) {
         return;
     }
+    if (editor == alphaSpinBox) {
+        if (alphaEnabled) {
+            QColor color = currentColor;
+            color.setAlpha(editor->value());
+            q_ptr->setCurrentColor(color);
+        }
+        return;
+    }
+    if (appearance == ZzColorPicker::Fluent && representation == ZzColorPicker::Hsva) {
+        commitHsv(editor == redSpinBox ? editor->value() / 360.0 : hue,
+                  editor == greenSpinBox ? editor->value() / 100.0 : saturation,
+                  editor == blueSpinBox ? editor->value() / 100.0 : value);
+        return;
+    }
     QColor color = currentColor;
-    color.setRed(redSpinBox->value());
-    color.setGreen(greenSpinBox->value());
-    color.setBlue(blueSpinBox->value());
-    if (alphaEnabled) {
-        color.setAlpha(alphaSpinBox->value());
+    if (editor == redSpinBox) {
+        color.setRed(editor->value());
+    } else if (editor == greenSpinBox) {
+        color.setGreen(editor->value());
+    } else if (editor == blueSpinBox) {
+        color.setBlue(editor->value());
     }
     q_ptr->setCurrentColor(color);
 }
@@ -539,8 +649,46 @@ void ZzColorPickerPrivate::commitHexEditor()
     if (!alphaEnabled) {
         color.setAlpha(currentColor.alpha());
     }
+    const QPointer<ZzColorPicker> guard(q_ptr);
     q_ptr->setCurrentColor(color);
-    syncDerivedState();
+    if (guard) {
+        syncDerivedState();
+    }
+}
+
+void ZzColorPickerPrivate::deferColorNotifications()
+{
+    if (notificationsDeferred) {
+        return;
+    }
+    notificationsDeferred = true;
+    QMetaObject::invokeMethod(q_ptr, [this] { flushColorNotifications(); }, Qt::QueuedConnection);
+}
+
+void ZzColorPickerPrivate::notifyCurrentColorChanged()
+{
+    const QColor snapshot = currentColor;
+    if (notificationsDeferred) {
+        pendingColorNotifications.append(snapshot);
+        return;
+    }
+    Q_EMIT q_ptr->currentColorChanged(snapshot);
+}
+
+void ZzColorPickerPrivate::flushColorNotifications()
+{
+    if (hexFocusOutActive) {
+        return;
+    }
+    notificationsDeferred = false;
+    const auto notifications = std::exchange(pendingColorNotifications, QList<QColor>{});
+    const QPointer<ZzColorPicker> guard(q_ptr);
+    for (const QColor &snapshot : notifications) {
+        Q_EMIT q_ptr->currentColorChanged(snapshot);
+        if (!guard) {
+            return;
+        }
+    }
 }
 
 void ZzColorPickerPrivate::syncAlphaPresentation()
@@ -552,6 +700,7 @@ void ZzColorPickerPrivate::syncAlphaPresentation()
             ? QStringLiteral("^#[0-9A-Fa-f]{8}$")
             : QStringLiteral("^#[0-9A-Fa-f]{6}$")));
     syncDerivedState();
+    syncVisibility();
 }
 
 void ZzColorPickerPrivate::refreshAccessibleText()
@@ -568,6 +717,7 @@ void ZzColorPickerPrivate::refreshAccessibleText()
     blueSpinBox->setAccessibleName(blueLabel->text());
     alphaSpinBox->setAccessibleName(alphaLabel->text());
     hexEditor->setAccessibleName(hexLabel->text());
+    syncFluentState();
 }
 
 void ZzColorPickerPrivate::refreshTheme()
@@ -576,18 +726,27 @@ void ZzColorPickerPrivate::refreshTheme()
     syncPaletteMetrics();
     preview->update();
     paletteView->viewport()->update();
+    if (spectrum) {
+        spectrum->update();
+        syncFluentState();
+    }
 }
 
 void ZzColorPickerPrivate::syncPaletteMetrics()
 {
     const auto snapshot = theme.snapshot();
-    const int gridExtent = qMax(
+    const bool fluent = appearance == ZzColorPicker::Fluent;
+    // QListView keeps a small flow inset even with a frameless viewport.
+    const int gridExtent = fluent ? qMax(1, (paletteView->viewport()->width() - 2) / 8) : qMax(
         1,
         qCeil(snapshot->metric(ZzMetricToken::ColorSwatchExtent)
               + snapshot->metric(ZzMetricToken::ColorSwatchGap)));
     paletteView->setGridSize({gridExtent, gridExtent});
+    paletteView->setFrameShape(fluent ? QFrame::NoFrame : QFrame::StyledPanel);
+    paletteView->setVerticalScrollBarPolicy(fluent && paletteColorCount() <= 48
+        ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAsNeeded);
     paletteView->setFixedHeight(
-        ZzVisiblePaletteRows * gridExtent
+        (appearance == ZzColorPicker::Fluent ? 6 : ZzVisiblePaletteRows) * gridExtent
         + 2 * paletteView->frameWidth());
     paletteView->doItemsLayout();
 }

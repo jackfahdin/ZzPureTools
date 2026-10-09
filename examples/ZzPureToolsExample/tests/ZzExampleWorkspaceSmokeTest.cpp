@@ -23,6 +23,8 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include "ZzExampleControlPage.h"
+#include "ZzExampleColorPickerPage.h"
+#include "ZzExampleColorPickerSmoke.h"
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QTabBar>
@@ -174,6 +176,47 @@ class ZzExampleWorkspaceSmokeTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void colorPickerPageExercisesRealControls()
+    {
+        ZzExample::ZzExampleColorPickerPage page;
+        page.resize(960, 1000);
+        page.show();
+        QCoreApplication::processEvents();
+        auto *input = page.findChild<QLineEdit *>(QStringLiteral("colorPickerColorInput"));
+        auto *picker = page.findChild<ZzFluentUI::ZzColorPicker *>(QStringLiteral("colorPickerInline"));
+        QVERIFY(input != nullptr);
+        QVERIFY(picker != nullptr);
+        input->setFocus();
+        input->selectAll();
+        QTest::keyClicks(input, "#80112233");
+        QTest::keyClick(input, Qt::Key_Return);
+        QCOMPARE(picker->currentColor(), QColor("#80112233"));
+        QVERIFY(ZzExample::zzColorPickerPageReady(page));
+        auto *tabs = picker->findChild<QTabBar *>(QStringLiteral("zzColorPickerTabs"));
+        QVERIFY(tabs != nullptr);
+        QCOMPARE(tabs->count(), 3);
+        for (int index = 0; index < 3; ++index) {
+            QVERIFY(tabs->isTabVisible(index));
+            QVERIFY(!tabs->tabRect(index).isEmpty());
+        }
+    }
+
+    void colorPickerRouteFollowsCarousel()
+    {
+        const auto routes = ZzExample::ZzExampleRouteCatalog::routes();
+        QCOMPARE(routes.size(), std::size_t(41));
+        bool found = false;
+        for (std::size_t index = 1; index < routes.size(); ++index) {
+            if (routes[index].routeId == std::string_view("color-picker")) {
+                QCOMPARE(routes[index - 1].routeId, std::string_view("carousel"));
+                QVERIFY(!routes[index].controlKind.has_value());
+                QCOMPARE(zzFromUtf8(routes[index].title), QStringLiteral("颜色选择器(ColorPicker)"));
+                found = true;
+            }
+        }
+        QVERIFY(found);
+    }
+
     /** @brief 基础输入页使用库的点击式密码框，不再放置缺少查看入口的裸密码输入。 */
     void basicInputPageUsesTogglePasswordBox()
     {
@@ -637,7 +680,7 @@ private Q_SLOTS:
         QVERIFY(navigationModel != nullptr);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("liquid-gauge"))));
-        QCOMPARE(navigationModel->rowCount(), 40);
+        QCOMPARE(navigationModel->rowCount(), 41);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("radial-gauge"))));
         QVERIFY(navigationModel->indexForRoute(
