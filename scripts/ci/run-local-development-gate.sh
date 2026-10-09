@@ -79,6 +79,12 @@ if [[ $docs_only == true ]]; then
 fi
 
 require_command ctest
+case "$preset" in
+linux-gcc-debug|macos-clang-release-arm64|macos-clang-release-x86_64) ;;
+*)
+  fail "不支持的 preset：$preset"
+  ;;
+esac
 host_system=$(uname -s)
 host_arch=$(uname -m)
 case "$host_system" in
