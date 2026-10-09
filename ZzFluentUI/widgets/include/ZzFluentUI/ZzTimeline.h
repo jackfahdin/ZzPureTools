@@ -23,10 +23,10 @@ class ZzTimelineDelegate;
 class ZZ_FLUENT_UI_EXPORT ZzTimelineEvent final : public QObject {
     Q_OBJECT
 public:
-    enum Status { Normal, Completed, Current, Pending, Warning, Error };
-    Q_ENUM(Status)
-    enum Placement { Automatic, LeftSide, RightSide };
-    Q_ENUM(Placement)
+    enum ZzTimelineStatus { Normal, Completed, Current, Pending, Warning, Error };
+    Q_ENUM(ZzTimelineStatus)
+    enum ZzTimelinePlacement { Automatic, LeftSide, RightSide };
+    Q_ENUM(ZzTimelinePlacement)
 
     /** @brief 事件发生时间；无效时间不绘制时间文本。 */
     Q_PROPERTY(QDateTime timestamp READ timestamp WRITE setTimestamp NOTIFY timestampChanged)
@@ -37,17 +37,17 @@ public:
     /** @brief 事件描述。 */
     Q_PROPERTY(QString description READ description WRITE setDescription NOTIFY descriptionChanged)
     /** @brief 节点状态，决定默认颜色和图形。 */
-    Q_PROPERTY(Status status READ status WRITE setStatus NOTIFY statusChanged)
+    Q_PROPERTY(ZzTimelineStatus status READ status WRITE setStatus NOTIFY statusChanged)
     /** @brief 自定义节点颜色；无效颜色使用状态颜色。 */
     Q_PROPERTY(QColor color READ color WRITE setColor NOTIFY colorChanged)
     /** @brief 原始 Segoe Fluent Icons 字体字符。 */
     Q_PROPERTY(QString icon READ icon WRITE setIcon NOTIFY iconChanged)
     /** @brief 交错布局中该事件的内容侧。 */
-    Q_PROPERTY(Placement placement READ placement WRITE setPlacement NOTIFY placementChanged)
+    Q_PROPERTY(ZzTimelinePlacement placement READ placement WRITE setPlacement NOTIFY placementChanged)
 
     explicit ZzTimelineEvent(QObject* parent = nullptr);
     ZzTimelineEvent(const QDateTime& timestamp, const QString& title, const QString& description = {},
-        Status status = Normal, QObject* parent = nullptr);
+        ZzTimelineStatus status = Normal, QObject* parent = nullptr);
     ~ZzTimelineEvent() override;
 
     [[nodiscard]] QDateTime timestamp() const;
@@ -62,9 +62,9 @@ public:
     [[nodiscard]] QString description() const;
     void setDescription(QString value);
     Q_SIGNAL void descriptionChanged(QString value);
-    [[nodiscard]] Status status() const;
-    void setStatus(Status value);
-    Q_SIGNAL void statusChanged(Status value);
+    [[nodiscard]] ZzTimelineStatus status() const;
+    void setStatus(ZzTimelineStatus value);
+    Q_SIGNAL void statusChanged(ZzTimelineStatus value);
     [[nodiscard]] QColor color() const;
     void setColor(QColor value);
     Q_SIGNAL void colorChanged(QColor value);
@@ -72,9 +72,9 @@ public:
     void setIcon(QString value);
     void setIcon(ZzSegoeIcon icon);
     Q_SIGNAL void iconChanged(QString value);
-    [[nodiscard]] Placement placement() const;
-    void setPlacement(Placement value);
-    Q_SIGNAL void placementChanged(Placement value);
+    [[nodiscard]] ZzTimelinePlacement placement() const;
+    void setPlacement(ZzTimelinePlacement value);
+    Q_SIGNAL void placementChanged(ZzTimelinePlacement value);
     /** @brief 任一事件属性实际变化后发出。 */
     Q_SIGNAL void itemChanged();
 
@@ -86,13 +86,13 @@ private:
 class ZZ_FLUENT_UI_EXPORT ZzTimeline final : public QListView {
     Q_OBJECT
 public:
-    enum LayoutMode { ContentOnRight, ContentOnLeft, Alternating, AlternatingReverse };
-    Q_ENUM(LayoutMode)
+    enum ZzTimelineLayoutMode { ContentOnRight, ContentOnLeft, Alternating, AlternatingReverse };
+    Q_ENUM(ZzTimelineLayoutMode)
 
     /** @brief 时间轴方向。 */
     Q_PROPERTY(Qt::Orientation orientation READ orientation WRITE setOrientation NOTIFY orientationChanged)
     /** @brief 内容相对时间轴的位置。 */
-    Q_PROPERTY(LayoutMode layoutMode READ layoutMode WRITE setLayoutMode NOTIFY layoutModeChanged)
+    Q_PROPERTY(ZzTimelineLayoutMode layoutMode READ layoutMode WRITE setLayoutMode NOTIFY layoutModeChanged)
     /** @brief 仅反转显示顺序，不改变 events() 的插入顺序。 */
     Q_PROPERTY(bool reverse READ isReverse WRITE setReverse NOTIFY reverseChanged)
     /** @brief 是否显示时间。 */
@@ -143,7 +143,7 @@ public:
     void Setter(Type value);                                                                                 \
     Q_SIGNAL void Name##Changed(Type value);
     ZZ_TIMELINE_PROPERTY(Qt::Orientation, orientation, orientation, setOrientation)
-    ZZ_TIMELINE_PROPERTY(LayoutMode, layoutMode, layoutMode, setLayoutMode)
+    ZZ_TIMELINE_PROPERTY(ZzTimelineLayoutMode, layoutMode, layoutMode, setLayoutMode)
     ZZ_TIMELINE_PROPERTY(bool, reverse, isReverse, setReverse)
     ZZ_TIMELINE_PROPERTY(bool, timestampVisible, isTimestampVisible, setTimestampVisible)
     ZZ_TIMELINE_PROPERTY(bool, descriptionVisible, isDescriptionVisible, setDescriptionVisible)
@@ -168,7 +168,7 @@ public:
     [[nodiscard]] ZzTimelineEvent* eventAt(int visualIndex) const;
     /** @brief 创建并接管事件；回调已删除或转移事件时返回空。 */
     ZzTimelineEvent* addEvent(const QDateTime& timestamp, const QString& title,
-        const QString& description = {}, ZzTimelineEvent::Status status = ZzTimelineEvent::Normal);
+        const QString& description = {}, ZzTimelineEvent::ZzTimelineStatus status = ZzTimelineEvent::Normal);
     /** @brief 接管已有事件；跨时间轴转移会解除旧所属关系。 */
     void addEvent(ZzTimelineEvent* event);
     /** @brief 移出事件并解除父对象；回调重新接管时返回空。 */

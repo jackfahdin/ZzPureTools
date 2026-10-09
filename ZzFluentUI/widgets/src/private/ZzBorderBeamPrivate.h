@@ -19,8 +19,8 @@ public:
     void restart();
     void drawSurface(QPainter &painter, bool pressed = false, bool hovered = false) const;
     void drawBeam(QPainter &painter);
-    [[nodiscard]] ZzBorderBeam::ThemeConfig activeTheme() const;
-    [[nodiscard]] ZzBorderBeam::ThemeConfig resolvedTheme() const;
+    [[nodiscard]] ZzBorderBeam::ZzBeamThemeConfig activeTheme() const;
+    [[nodiscard]] ZzBorderBeam::ZzBeamThemeConfig resolvedTheme() const;
 
     QWidget *const widget;
     QTimer timer;
@@ -32,12 +32,12 @@ public:
     int animationDuration = 6000;
     qreal initialProgress = 0.0;
     qreal progress = 0.0;
-    ZzBorderBeam::Direction direction = ZzBorderBeam::Clockwise;
+    ZzBorderBeam::ZzBeamDirection direction = ZzBorderBeam::Clockwise;
     int beamCount = 1;
     bool animationEnabled = true;
-    ZzBorderBeam::ThemeMode themeMode = ZzBorderBeam::AutoTheme;
-    ZzBorderBeam::ThemeConfig lightTheme = ZzBorderBeam::defaultLightTheme();
-    ZzBorderBeam::ThemeConfig darkTheme = ZzBorderBeam::defaultDarkTheme();
+    ZzBorderBeam::ZzBeamThemeMode themeMode = ZzBorderBeam::AutoTheme;
+    ZzBorderBeam::ZzBeamThemeConfig lightTheme = ZzBorderBeam::defaultLightTheme();
+    ZzBorderBeam::ZzBeamThemeConfig darkTheme = ZzBorderBeam::defaultDarkTheme();
     bool pathDirty = true;
     QSize pathSize;
     QPainterPath path;

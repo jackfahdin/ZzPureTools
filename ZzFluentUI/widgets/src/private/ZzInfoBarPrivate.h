@@ -30,7 +30,7 @@ public:
     QPointer<QWidget> actionWidget;
     QMetaObject::Connection actionDestroyed;
     QVariantAnimation* heightAnimation = nullptr;
-    ZzInfoBar::Severity severity = ZzInfoBar::Informational;
+    ZzInfoBar::ZzInfoSeverity severity = ZzInfoBar::Informational;
     QString title;
     QString message;
     QString actionButtonText;

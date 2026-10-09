@@ -13,7 +13,7 @@ class ZzLiquidGaugePrivate final
 public:
     explicit ZzLiquidGaugePrivate(ZzLiquidGauge *widget);
     ZzLiquidGauge *const q;
-    ZzLiquidGauge::Shape shape = ZzLiquidGauge::CircleShape;
+    ZzLiquidGauge::ZzLiquidShape shape = ZzLiquidGauge::CircleShape;
     qreal waveAmplitude = 6.0;
     int waveCount = 3;
     int waveAnimationDuration = 2400;

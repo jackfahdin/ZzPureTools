@@ -89,7 +89,7 @@ void ZzInfoBarPopupSurface::moveTo(const QPoint& target, bool animate, int durat
     positionAnimation_->start();
 }
 
-void ZzInfoBarPopupSurface::startEnter(ZzInfoBarHost::Position position)
+void ZzInfoBarPopupSurface::startEnter(ZzInfoBarHost::ZzInfoBarPosition position)
 {
     animation_->stop();
     leaving_ = false;

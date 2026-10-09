@@ -128,11 +128,11 @@ public:
   int pendingDirection = 0;
   int lastReportedRow = -1;
   quint64 modelRevision = 0;
-  struct PendingRowChange {
+  struct ZzPendingRowChange {
     quint64 revision;
     int row;
   };
-  std::deque<PendingRowChange> pendingRowChanges;
+  std::deque<ZzPendingRowChange> pendingRowChanges;
   bool pendingRowFlushScheduled = false;
   int animationDurationMilliseconds = 220;
   bool wrapAroundEnabled = false;

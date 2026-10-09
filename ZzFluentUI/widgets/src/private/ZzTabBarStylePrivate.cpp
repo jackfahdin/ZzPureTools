@@ -41,6 +41,50 @@ QColor zzColor(const QColor &overrideColor, const QColor &fallback)
 {
     return overrideColor.isValid() ? overrideColor : fallback;
 }
+
+/** @brief 胶囊与导航外观下标签填充的圆角半径，单位逻辑像素。 */
+constexpr qreal zzTabPillCornerRadius = 2.0;
+
+/** @brief 标签选中层在深色主题下的中性填充色。 */
+QColor zzTabNeutralSelectedDark()
+{
+    return QColor::fromRgb(82, 82, 84);;
+}
+/** @brief 标签选中层在浅色主题下的中性填充色。 */
+QColor zzTabNeutralSelectedLight()
+{
+    return QColor::fromRgb(206, 206, 206);;
+}
+/** @brief 标签外描边在深色主题下的半透明白色。 */
+QColor zzTabStrokeDark()
+{
+    return QColor::fromRgb(255, 255, 255, 18);;
+}
+/** @brief 标签外描边在浅色主题下的半透明黑色。 */
+QColor zzTabStrokeLight()
+{
+    return QColor::fromRgb(0, 0, 0, 15);;
+}
+/** @brief WinUI3 分段选中块的半透明白色。 */
+QColor zzTabSegmentedSelectedFill(bool dark)
+{
+    return QColor::fromRgb(255, 255, 255, dark ? 15 : 179);;
+}
+/** @brief 标签悬停填充在深色主题下的半透明白色。 */
+QColor zzTabHoverFillDark()
+{
+    return QColor::fromRgb(255, 255, 255, 31);;
+}
+/** @brief 标签悬停填充在浅色主题下的半透明黑色。 */
+QColor zzTabHoverFillLight()
+{
+    return QColor::fromRgb(0, 0, 0, 18);;
+}
+/** @brief 分段轨道背景的半透明黑色，深浅主题使用不同浓度。 */
+QColor zzTabTrackFill(bool dark)
+{
+    return QColor::fromRgb(0, 0, 0, dark ? 26 : 6);;
+}
 } // namespace
 
 ZzTabBarAppearance ZzTabBarStylePrivate::appearance(const QWidget *widget)
@@ -411,12 +455,12 @@ void ZzTabBarStylePrivate::draw(const QStyleOptionTab &tab, QPainter *painter)
     }
     const QColor accent = ZzControlAppearancePrivate::accent(tab.palette);
     // 标签选中层与页面 Base 区分；否则浅色分段轨道和选中块会融为一体。
-    const QColor neutralSelected = dark ? QColor(82, 82, 84) : QColor(206, 206, 206);
+    const QColor neutralSelected = dark ? zzTabNeutralSelectedDark() : zzTabNeutralSelectedLight();
     const QColor stroke = hc ? tab.palette.color(QPalette::WindowText)
-        : (dark ? QColor(255, 255, 255, 18) : QColor(0, 0, 0, 15));
+        : (dark ? zzTabStrokeDark() : zzTabStrokeLight());
     const QColor selectedFill = zzColor(colors.selected, hc ? tab.palette.color(QPalette::Highlight)
-        : (appearance_ == Appearance::SegmentedWinUI3 ? QColor(255, 255, 255, dark ? 15 : 179) : neutralSelected));
-    const QColor hoverFill = zzColor(colors.hover, dark ? QColor(255, 255, 255, 31) : QColor(0, 0, 0, 18));
+        : (appearance_ == Appearance::SegmentedWinUI3 ? zzTabSegmentedSelectedFill(dark) : neutralSelected));
+    const QColor hoverFill = zzColor(colors.hover, dark ? zzTabHoverFillDark() : zzTabHoverFillLight());
     const QColor pressFill = zzColor(colors.pressed, snapshot->color(ZzColorToken::ControlFillPressed));
     QColor foreground = zzColor(colors.text, selected || hovered ? tab.palette.color(QPalette::WindowText)
         : snapshot->color(ZzColorToken::TextSecondary));
@@ -450,7 +494,7 @@ void ZzTabBarStylePrivate::draw(const QStyleOptionTab &tab, QPainter *painter)
         for (const auto &r : layout_) if (!r.isEmpty()) track = track.united(r);
         if (moving) track = tab.rect;
         painter->setPen(stroke);
-        painter->setBrush(zzColor(colors.background, hc ? tab.palette.color(QPalette::Window) : QColor(0, 0, 0, dark ? 26 : 6)));
+        painter->setBrush(zzColor(colors.background, hc ? tab.palette.color(QPalette::Window) : zzTabTrackFill(dark)));
         const qreal trackRadius = round ? qMin(track.width(), track.height()) / 2 : 4;
         painter->drawRoundedRect(track.adjusted(0.5, 0.5, -0.5, -0.5), trackRadius, trackRadius);
     }
@@ -484,7 +528,7 @@ void ZzTabBarStylePrivate::draw(const QStyleOptionTab &tab, QPainter *painter)
     } else if (appearance_ == Appearance::Pill || (appearance_ == Appearance::Navigation && !vertical(tab.shape))) {
         painter->setPen(stroke);
         painter->setBrush(selected ? selectedFill : hovered ? hoverFill : tab.palette.color(QPalette::Window));
-        painter->drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 2, 2);
+        painter->drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), zzTabPillCornerRadius, zzTabPillCornerRadius);
     } else if (!zzPivot(appearance_)) {
         if (pressed || hovered) rounded(rect, pressed ? pressFill : hoverFill, radius);
         if (appearance_ == Appearance::SegmentedSlide) rounded(selectionRectToDraw.adjusted(0.5, 0.5, -0.5, -0.5), selectedFill, radius);

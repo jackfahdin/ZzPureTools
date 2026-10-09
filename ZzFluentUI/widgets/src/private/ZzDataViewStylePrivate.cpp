@@ -37,10 +37,13 @@ QRect zzRowRect(const QHeaderView *header, const QWidget *viewport, const QRect 
 QColor zzSubtleFill(const ZzThemeSnapshot &theme, bool selected)
 {
     const bool dark = theme.mode() == ZzThemeMode::Dark;
-    QColor color = dark ? QColor(Qt::white) : QColor(Qt::black);
+    QColor color = dark ? QColorConstants::White : QColorConstants::Black;
     color.setAlphaF(dark ? (selected ? 0.0419F : 0.0605F) : (selected ? 0.055F : 0.04F));
     return color;
 }
+
+/** @brief 行选中与悬停背板的圆角半径，单位逻辑像素。 */
+constexpr qreal zzRowSurfaceRadius = 4.0;
 
 /** @brief 内容前景与背板共享同一整行悬停状态。 */
 bool zzHovered(const QStyleOptionViewItem &option)
@@ -109,7 +112,7 @@ void zzDrawSurface(const ZzFluentStyle &style, const QStyleOptionViewItem &optio
             painter->setRenderHint(QPainter::Antialiasing, true);
             painter->setBrush(highContrast ? option.palette.color(group, QPalette::Highlight)
                                           : zzSubtleFill(*theme, selected));
-            painter->drawRoundedRect(QRectF(surface).adjusted(2, 2, -2, -2), 4, 4);
+            painter->drawRoundedRect(QRectF(surface).adjusted(2, 2, -2, -2), zzRowSurfaceRadius, zzRowSurfaceRadius);
         }
     }
     if (indicator && !highContrast) {
@@ -246,7 +249,7 @@ void ZzDataViewStylePrivate::drawHeader(const ZzFluentStyle &style,
     painter->fillRect(option.rect, option.palette.brush(QPalette::Button));
     const auto mode = style.themeSnapshot()->mode();
     const QColor separator = mode == ZzThemeMode::HighContrast ? option.palette.color(QPalette::ButtonText)
-        : mode == ZzThemeMode::Dark ? QColor(255, 255, 255, 18) : QColor(0, 0, 0, 15);
+        : mode == ZzThemeMode::Dark ? QColor::fromRgb(255, 255, 255, 18) : QColor::fromRgb(0, 0, 0, 15);
     painter->setPen(QPen(separator, 1));
     if (option.orientation == Qt::Horizontal) {
         painter->drawLine(option.rect.bottomLeft(), option.rect.bottomRight());

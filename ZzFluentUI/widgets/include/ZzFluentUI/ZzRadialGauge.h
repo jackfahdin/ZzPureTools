@@ -69,14 +69,14 @@ class ZZ_FLUENT_UI_EXPORT ZzRadialGauge final : public QDial {
     Q_OBJECT
 
   public:
-    enum ScaleMode { TrackScale, ProgressScale, RangeScale };
-    Q_ENUM(ScaleMode)
+    enum ZzGaugeScaleMode { TrackScale, ProgressScale, RangeScale };
+    Q_ENUM(ZzGaugeScaleMode)
 
-    enum NeedleStyle { NoNeedle, LineNeedle, TriangleNeedle };
-    Q_ENUM(NeedleStyle)
+    enum ZzNeedleStyle { NoNeedle, LineNeedle, TriangleNeedle };
+    Q_ENUM(ZzNeedleStyle)
 
-    enum ValuePosition { CenterValue, BottomValue };
-    Q_ENUM(ValuePosition)
+    enum ZzGaugeValuePosition { CenterValue, BottomValue };
+    Q_ENUM(ZzGaugeValuePosition)
 
     /** @brief 是否允许通过鼠标、键盘和滚轮修改数值。 */
     Q_PROPERTY(bool interactive READ isInteractive WRITE setInteractive NOTIFY interactiveChanged)
@@ -98,13 +98,13 @@ class ZZ_FLUENT_UI_EXPORT ZzRadialGauge final : public QDial {
     Q_SIGNAL void valueAnimationDurationChanged(int value);
 
     /** @brief 刻度环的绘制模式：纯 Track、数值进度或彩色区间。 */
-    Q_PROPERTY(ScaleMode scaleMode READ scaleMode WRITE setScaleMode NOTIFY scaleModeChanged)
+    Q_PROPERTY(ZzGaugeScaleMode scaleMode READ scaleMode WRITE setScaleMode NOTIFY scaleModeChanged)
     /** @brief 返回当前属性值。 */
-    [[nodiscard]] ScaleMode scaleMode() const;
+    [[nodiscard]] ZzGaugeScaleMode scaleMode() const;
     /** @brief 设置属性，实际值变化时发出对应通知。 */
-    void setScaleMode(ScaleMode value);
+    void setScaleMode(ZzGaugeScaleMode value);
     /** @brief 有效属性值实际变化时发出。 */
-    Q_SIGNAL void scaleModeChanged(ScaleMode value);
+    Q_SIGNAL void scaleModeChanged(ZzGaugeScaleMode value);
 
     /** @brief 刻度环的起始角度，正上方为 0°，顺时针为正。 */
     Q_PROPERTY(qreal minimumAngle READ minimumAngle WRITE setMinimumAngle NOTIFY minimumAngleChanged)
@@ -240,13 +240,13 @@ class ZZ_FLUENT_UI_EXPORT ZzRadialGauge final : public QDial {
     Q_SIGNAL void needleWidthChanged(qreal value);
 
     /** @brief 指针的绘制样式：隐藏、线形或三角形。 */
-    Q_PROPERTY(NeedleStyle needleStyle READ needleStyle WRITE setNeedleStyle NOTIFY needleStyleChanged)
+    Q_PROPERTY(ZzNeedleStyle needleStyle READ needleStyle WRITE setNeedleStyle NOTIFY needleStyleChanged)
     /** @brief 返回当前属性值。 */
-    [[nodiscard]] NeedleStyle needleStyle() const;
+    [[nodiscard]] ZzNeedleStyle needleStyle() const;
     /** @brief 设置属性，实际值变化时发出对应通知。 */
-    void setNeedleStyle(NeedleStyle value);
+    void setNeedleStyle(ZzNeedleStyle value);
     /** @brief 有效属性值实际变化时发出。 */
-    Q_SIGNAL void needleStyleChanged(NeedleStyle value);
+    Q_SIGNAL void needleStyleChanged(ZzNeedleStyle value);
 
     /** @brief 指针长度相对于刻度环半径的比例，取值范围为 [0.05, 1.0]。 */
     Q_PROPERTY(qreal needleLength READ needleLength WRITE setNeedleLength NOTIFY needleLengthChanged)
@@ -360,13 +360,13 @@ class ZZ_FLUENT_UI_EXPORT ZzRadialGauge final : public QDial {
 
     /** @brief 当前数值显示在仪表盘中心或底部。 */
     Q_PROPERTY(
-        ValuePosition valuePosition READ valuePosition WRITE setValuePosition NOTIFY valuePositionChanged)
+        ZzGaugeValuePosition valuePosition READ valuePosition WRITE setValuePosition NOTIFY valuePositionChanged)
     /** @brief 返回当前属性值。 */
-    [[nodiscard]] ValuePosition valuePosition() const;
+    [[nodiscard]] ZzGaugeValuePosition valuePosition() const;
     /** @brief 设置属性，实际值变化时发出对应通知。 */
-    void setValuePosition(ValuePosition value);
+    void setValuePosition(ZzGaugeValuePosition value);
     /** @brief 有效属性值实际变化时发出。 */
-    Q_SIGNAL void valuePositionChanged(ValuePosition value);
+    Q_SIGNAL void valuePositionChanged(ZzGaugeValuePosition value);
 
     /** @brief 显示在当前数值上方的标题。 */
     Q_PROPERTY(QString title READ title WRITE setTitle NOTIFY titleChanged)

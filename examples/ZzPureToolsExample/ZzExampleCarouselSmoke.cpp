@@ -7,7 +7,7 @@
 #include <ZzFluentUI/ZzCarouselView.h>
 
 namespace ZzExample {
-bool zzCarouselPageReady(const QWidget& window)
+bool ZzExampleCarouselSmoke::isPageReady(const QWidget& window)
 {
     auto* page = window.findChild<QWidget*>(QStringLiteral("zzExampleCarouselPage"));
     if (!page)

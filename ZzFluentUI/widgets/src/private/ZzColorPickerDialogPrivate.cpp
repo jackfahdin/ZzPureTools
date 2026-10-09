@@ -7,6 +7,21 @@
 #include <ZzFluentUI/ZzPushButton.h>
 
 namespace ZzFluentUI {
+namespace {
+
+/** @brief 对话框正文与页脚共用的外边距，单位逻辑像素。 */
+constexpr int zzDialogContentMargin = 16;
+/** @brief 内嵌颜色编辑器补齐到正文对齐所需的外边距，单位逻辑像素。 */
+constexpr int zzPickerOuterPadding = 4;
+/** @brief 页脚按钮间距，单位逻辑像素。 */
+constexpr int zzDialogButtonSpacing = 8;
+/** @brief 页脚按钮的最小宽度，单位逻辑像素。 */
+constexpr int zzDialogButtonMinimumWidth = 120;
+/** @brief 页脚按钮的固定高度，单位逻辑像素。 */
+constexpr int zzDialogButtonHeight = 40;
+
+} // namespace
+
 ZzColorPickerDialogPrivate::ZzColorPickerDialogPrivate(ZzColorPickerDialog *q)
     : q_ptr(q), theme(q), picker(new ZzColorPicker(q)), titleLabel(new QLabel(q)),
       footer(new QWidget(q)), acceptButton(new ZzPushButton(footer)), cancelButton(new ZzPushButton(footer))
@@ -25,7 +40,7 @@ ZzColorPickerDialogPrivate::ZzColorPickerDialogPrivate(ZzColorPickerDialog *q)
     font.setWeight(QFont::DemiBold);
     titleLabel->setFont(font);
     auto *heading = new QVBoxLayout;
-    heading->setContentsMargins(16, 16, 16, 0);
+    heading->setContentsMargins(zzDialogContentMargin, zzDialogContentMargin, zzDialogContentMargin, 0);
     heading->addWidget(titleLabel);
     body->addLayout(heading);
     picker->setAppearance(ZzColorPicker::Fluent);
@@ -34,18 +49,18 @@ ZzColorPickerDialogPrivate::ZzColorPickerDialogPrivate(ZzColorPickerDialog *q)
     // The Fluent picker includes its own 12 px content padding. Compose that
     // public widget with 4 px outside padding to align with the 16 px heading.
     auto *pickerBody = new QVBoxLayout;
-    pickerBody->setContentsMargins(4, 4, 4, 4);
+    pickerBody->setContentsMargins(zzPickerOuterPadding, zzPickerOuterPadding, zzPickerOuterPadding, zzPickerOuterPadding);
     pickerBody->addWidget(picker);
     body->addLayout(pickerBody, 1);
     root->addLayout(body, 1);
     auto *buttons = new QHBoxLayout(footer);
-    buttons->setContentsMargins(16, 16, 16, 16);
-    buttons->setSpacing(8);
+    buttons->setContentsMargins(zzDialogContentMargin, zzDialogContentMargin, zzDialogContentMargin, zzDialogContentMargin);
+    buttons->setSpacing(zzDialogButtonSpacing);
     acceptButton->setAppearance(ZzButtonAppearance::Accent);
     acceptButton->setDefault(true);
     for (auto *button : {acceptButton, cancelButton}) {
-        button->setMinimumWidth(120);
-        button->setFixedHeight(40);
+        button->setMinimumWidth(zzDialogButtonMinimumWidth);
+        button->setFixedHeight(zzDialogButtonHeight);
         button->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         buttons->addWidget(button, 1);
     }

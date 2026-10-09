@@ -2,7 +2,18 @@
 #include "ZzExampleShowcasePagePrivate.h"
 
 namespace ZzExample {
-void ZzExampleShowcasePagePrivate::buildRadialGauge(QVBoxLayout *mainLayout, QWidget *content)
+namespace {
+
+/** @brief 装配径向报表示例页内容，不持有控件所有权。 */
+class ZzExampleRadialGaugePage final
+{
+public:
+    static void build(QVBoxLayout *mainLayout, QWidget *content);
+};
+
+} // namespace
+
+void ZzExampleRadialGaugePage::build(QVBoxLayout *mainLayout, QWidget *content)
 {
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(16);
@@ -269,4 +280,10 @@ void ZzExampleShowcasePagePrivate::buildRadialGauge(QVBoxLayout *mainLayout, QWi
     mainLayout->addWidget(propertiesCard);
     mainLayout->addStretch();
 }
+
+void ZzExampleShowcasePagePrivate::buildRadialGauge(QVBoxLayout *mainLayout, QWidget *content)
+{
+    ZzExampleRadialGaugePage::build(mainLayout, content);
+}
+
 } // namespace ZzExample

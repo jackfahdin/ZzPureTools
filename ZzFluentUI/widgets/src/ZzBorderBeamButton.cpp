@@ -283,7 +283,7 @@ void ZzBorderBeamButton::paintEvent(QPaintEvent *)
         for (auto group : { QPalette::Active, QPalette::Inactive, QPalette::Disabled }) {
             if (testAttribute(Qt::WA_SetPalette) && palette().isBrushSet(group, QPalette::ButtonText))
                 continue;
-            QColor textColor(luminance > 0.179 ? Qt::black : Qt::white);
+            QColor textColor = luminance > 0.179 ? QColorConstants::Black : QColorConstants::White;
             if (group == QPalette::Disabled)
                 textColor.setAlphaF(0.46f);
             option.palette.setColor(group, QPalette::ButtonText, textColor);

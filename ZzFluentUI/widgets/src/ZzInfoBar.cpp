@@ -32,7 +32,7 @@ namespace {
         return palette.color(QPalette::Window).lightness() < 128;
     }
 
-    QColor statusColor(ZzInfoBar::Severity severity, const QPalette& palette)
+    QColor statusColor(ZzInfoBar::ZzInfoSeverity severity, const QPalette& palette)
     {
         const bool dark = darkPalette(palette);
         switch (severity) {
@@ -48,7 +48,7 @@ namespace {
         return palette.color(QPalette::Highlight);
     }
 
-    QColor backgroundColor(ZzInfoBar::Severity severity, const QPalette& palette)
+    QColor backgroundColor(ZzInfoBar::ZzInfoSeverity severity, const QPalette& palette)
     {
         if (darkPalette(palette)) {
             switch (severity) {
@@ -221,8 +221,8 @@ ZzInfoBar::ZzInfoBar(QWidget* parent)
     hide();
 }
 ZzInfoBar::~ZzInfoBar() { disconnect(d_ptr->actionDestroyed); }
-ZzInfoBar::Severity ZzInfoBar::severity() const { return d_ptr->severity; }
-void ZzInfoBar::setSeverity(Severity severity)
+ZzInfoBar::ZzInfoSeverity ZzInfoBar::severity() const { return d_ptr->severity; }
+void ZzInfoBar::setSeverity(ZzInfoSeverity severity)
 {
     if (severity != Informational && severity != Success && severity != Warning
         && severity != Error)

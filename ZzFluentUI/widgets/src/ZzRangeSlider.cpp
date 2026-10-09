@@ -20,7 +20,7 @@
 
 namespace ZzFluentUI {
 namespace {
-using Handle = ZzRangeSlider::Handle;
+using ZzSliderHandle = ZzRangeSlider::ZzSliderHandle;
 int movedValue(int original, std::int64_t delta, int minimum, int maximum)
 {
     return static_cast<int>(std::clamp(
@@ -32,6 +32,44 @@ bool highContrast(const QWidget *widget)
 {
     auto *style = qobject_cast<const ZzFluentStyle *>(widget->style());
     return style && style->themeSnapshot()->mode() == ZzThemeMode::HighContrast;
+}
+
+/** @brief 滑槽与活动轨道的圆角半径，单位逻辑像素。 */
+constexpr qreal zzGrooveCornerRadius = 2.0;
+/** @brief 浅色主题下滑槽使用的半透明黑色。 */
+QColor zzGrooveFillLight()
+{
+    return QColor::fromRgb(0, 0, 0, 0x72);;
+}
+/** @brief 深色主题下滑槽使用的半透明白色。 */
+QColor zzGrooveFillDark()
+{
+    return QColor::fromRgb(255, 255, 255, 0x8b);;
+}
+/** @brief 浅色主题下手柄的外圈描边色。 */
+QColor zzHandleStrokeLight()
+{
+    return QColor::fromRgb(0, 0, 0, 0x29);;
+}
+/** @brief 深色主题下手柄的外圈描边色。 */
+QColor zzHandleStrokeDark()
+{
+    return QColor::fromRgb(255, 255, 255, 0x18);;
+}
+/** @brief 浅色主题下禁用态手柄的内圈填充色。 */
+QColor zzHandleInnerDisabledLight()
+{
+    return QColor::fromRgb(0, 0, 0, 55);;
+}
+/** @brief 深色主题下禁用态手柄的内圈填充色。 */
+QColor zzHandleInnerDisabledDark()
+{
+    return QColor::fromRgb(255, 255, 255, 40);;
+}
+/** @brief 手柄阴影单层的半透明黑色，layer 越大越淡。 */
+QColor zzHandleShadowLayer(int layer, bool dark)
+{
+    return QColor::fromRgb(0, 0, 0, qRound((40.0 / layer) * (dark ? 1.0 : 0.7)));
 }
 }
 ZzRangeSlider::ZzRangeSlider(QWidget *parent)
@@ -47,7 +85,7 @@ ZzRangeSlider::ZzRangeSlider(Qt::Orientation orientation, QWidget *parent)
         ? QSizePolicy::Expanding : QSizePolicy::Fixed,
         orientation == Qt::Horizontal
         ? QSizePolicy::Fixed : QSizePolicy::Expanding);
-    zzInstallRangeSliderAccessibility();
+    ZzRangeSliderAccessible::install();
 }
 ZzRangeSlider::~ZzRangeSlider() = default;
 int ZzRangeSlider::minimum() const noexcept { return d_ptr->minimum; }
@@ -105,11 +143,11 @@ void ZzRangeSlider::setOrientation(Qt::Orientation value)
     updateGeometry();
     update();
 }
-ZzRangeSlider::SnapMode ZzRangeSlider::snapMode() const noexcept { return d_ptr->snapMode; }
-void ZzRangeSlider::setSnapMode(SnapMode value)
+ZzRangeSlider::ZzSnapMode ZzRangeSlider::snapMode() const noexcept { return d_ptr->snapMode; }
+void ZzRangeSlider::setSnapMode(ZzSnapMode value)
 {
-    if (value != SnapMode::NoSnap && value != SnapMode::SnapAlways
-        && value != SnapMode::SnapOnRelease) return;
+    if (value != ZzSnapMode::NoSnap && value != ZzSnapMode::SnapAlways
+        && value != ZzSnapMode::SnapOnRelease) return;
     d_ptr->snapMode = value;
 }
 bool ZzRangeSlider::hasTickPosition() const noexcept { return d_ptr->ticks; }
@@ -125,7 +163,7 @@ void ZzRangeSlider::setValueTipEnabled(bool value)
 bool ZzRangeSlider::handleFocusRingEnabled() const noexcept { return d_ptr->focusRing; }
 void ZzRangeSlider::setHandleFocusRingEnabled(bool value)
 { d_ptr->focusRing = value; update(); }
-ZzRangeSlider::Handle ZzRangeSlider::activeHandle() const noexcept { return d_ptr->active; }
+ZzRangeSlider::ZzSliderHandle ZzRangeSlider::activeHandle() const noexcept { return d_ptr->active; }
 QSize ZzRangeSlider::sizeHint() const
 { return d_ptr->orientation == Qt::Horizontal ? QSize(160, 32) : QSize(32, 160); }
 QSize ZzRangeSlider::minimumSizeHint() const
@@ -139,7 +177,7 @@ void ZzRangeSlider::paintEvent(QPaintEvent *)
     const QColor accent = contrast ? palette().color(QPalette::Highlight)
         : palette().color(QPalette::Accent);
     const QColor baseGrooveColor = contrast ? palette().color(QPalette::WindowText)
-        : dark ? QColor(255, 255, 255, 0x8b) : QColor(0, 0, 0, 0x72);
+        : dark ? zzGrooveFillDark() : zzGrooveFillLight();
     QColor grooveColor = baseGrooveColor;
     if (!isEnabled() && !contrast) grooveColor.setAlphaF(grooveColor.alphaF() * 0.6f);
     const QRectF groove = d_ptr->orientation == Qt::Horizontal
@@ -147,7 +185,7 @@ void ZzRangeSlider::paintEvent(QPaintEvent *)
         : QRectF(width() / 2.0 - 2, 2, 4, qMax(0, height() - 4));
     painter.setPen(Qt::NoPen);
     painter.setBrush(grooveColor);
-    painter.drawRoundedRect(groove, 2, 2);
+    painter.drawRoundedRect(groove, zzGrooveCornerRadius, zzGrooveCornerRadius);
 
     const QPointF low = d_ptr->center(d_ptr->lowerPosition);
     const QPointF high = d_ptr->center(d_ptr->upperPosition);
@@ -158,7 +196,7 @@ void ZzRangeSlider::paintEvent(QPaintEvent *)
             4, qAbs(low.y() - high.y()));
     if (activeTrack.width() > 0 && activeTrack.height() > 0) {
         painter.setBrush(isEnabled() ? accent : baseGrooveColor);
-        painter.drawRoundedRect(activeTrack, 2, 2);
+        painter.drawRoundedRect(activeTrack, zzGrooveCornerRadius, zzGrooveCornerRadius);
     }
 
     if (d_ptr->ticks && d_ptr->maximum > d_ptr->minimum) {
@@ -188,16 +226,15 @@ void ZzRangeSlider::paintEvent(QPaintEvent *)
         }
     }
 
-    const auto drawHandle = [&](Handle handle, const QPointF &center) {
+    const auto drawHandle = [&](ZzSliderHandle handle, const QPointF &center) {
         const QColor outerFill = contrast ? palette().color(QPalette::Base)
-            : dark ? QColor("#454545") : Qt::white;
+            : dark ? QColor::fromString(QLatin1String("#454545")) : QColorConstants::White;
         const QColor outerStroke = contrast ? palette().color(QPalette::ButtonText)
-            : dark ? QColor(255, 255, 255, 0x18) : QColor(0, 0, 0, 0x29);
+            : dark ? zzHandleStrokeDark() : zzHandleStrokeLight();
         if (!contrast) {
             for (int layer = 5; layer >= 1; --layer) {
                 painter.setPen(Qt::NoPen);
-                painter.setBrush(QColor(0, 0, 0,
-                    qRound((40.0 / layer) * (dark ? 1.0 : 0.7))));
+                painter.setBrush(zzHandleShadowLayer(layer, dark));
                 painter.drawEllipse(center, 9 + layer * 0.8, 9 + layer * 0.8);
             }
         }
@@ -206,7 +243,7 @@ void ZzRangeSlider::paintEvent(QPaintEvent *)
         painter.drawEllipse(center, 9, 9);
         QColor inner = isEnabled() ? accent
             : contrast ? palette().color(QPalette::ButtonText)
-            : dark ? QColor(255, 255, 255, 40) : QColor(0, 0, 0, 55);
+            : dark ? zzHandleInnerDisabledDark() : zzHandleInnerDisabledLight();
         if (isEnabled() && d_ptr->pressed == handle)
             inner.setAlphaF(inner.alphaF() * 0.8f);
         else if (isEnabled() && d_ptr->hovered == handle)
@@ -224,12 +261,12 @@ void ZzRangeSlider::paintEvent(QPaintEvent *)
             painter.drawEllipse(center, 11, 11);
         }
     };
-    if (d_ptr->active == Handle::LowerHandle) {
-        drawHandle(Handle::UpperHandle, high);
-        drawHandle(Handle::LowerHandle, low);
+    if (d_ptr->active == ZzSliderHandle::LowerHandle) {
+        drawHandle(ZzSliderHandle::UpperHandle, high);
+        drawHandle(ZzSliderHandle::LowerHandle, low);
     } else {
-        drawHandle(Handle::LowerHandle, low);
-        drawHandle(Handle::UpperHandle, high);
+        drawHandle(ZzSliderHandle::LowerHandle, low);
+        drawHandle(ZzSliderHandle::UpperHandle, high);
     }
 }
 
@@ -241,16 +278,16 @@ void ZzRangeSlider::mousePressEvent(QMouseEvent *event)
     }
     const QPointF point = event->position();
     QPointer<ZzRangeSlider> guard(this);
-    const Handle direct = d_ptr->handleAt(point);
-    const Handle handle = direct == Handle::NoHandle
+    const ZzSliderHandle direct = d_ptr->handleAt(point);
+    const ZzSliderHandle handle = direct == ZzSliderHandle::NoHandle
         ? d_ptr->nearestHandle(point) : direct;
     d_ptr->active = handle;
     d_ptr->pressed = handle;
-    d_ptr->coincidentPress = direct != Handle::NoHandle
+    d_ptr->coincidentPress = direct != ZzSliderHandle::NoHandle
         && d_ptr->lowerPosition == d_ptr->upperPosition;
-    d_ptr->pressOffset = direct == Handle::NoHandle ? 0.0
+    d_ptr->pressOffset = direct == ZzSliderHandle::NoHandle ? 0.0
         : (d_ptr->orientation == Qt::Horizontal ? point.x() : point.y())
-            - d_ptr->axisPosition(handle == Handle::LowerHandle
+            - d_ptr->axisPosition(handle == ZzSliderHandle::LowerHandle
                 ? d_ptr->lowerPosition : d_ptr->upperPosition);
     setFocus(Qt::MouseFocusReason);
     if (!guard) return;
@@ -259,7 +296,7 @@ void ZzRangeSlider::mousePressEvent(QMouseEvent *event)
     d_ptr->animateHandle(handle);
     Q_EMIT sliderPressed(handle);
     if (!guard || d_ptr->pressed != handle) { event->accept(); return; }
-    if (direct == Handle::NoHandle) {
+    if (direct == ZzSliderHandle::NoHandle) {
         d_ptr->preview(handle, d_ptr->valueAt(
             d_ptr->orientation == Qt::Horizontal ? point.x() : point.y()));
         if (!guard) { event->accept(); return; }
@@ -271,10 +308,10 @@ void ZzRangeSlider::mousePressEvent(QMouseEvent *event)
 void ZzRangeSlider::mouseMoveEvent(QMouseEvent *event)
 {
     QPointer<ZzRangeSlider> guard(this);
-    if (d_ptr->pressed == Handle::NoHandle) {
-        const Handle hovered = d_ptr->handleAt(event->position());
+    if (d_ptr->pressed == ZzSliderHandle::NoHandle) {
+        const ZzSliderHandle hovered = d_ptr->handleAt(event->position());
         if (hovered != d_ptr->hovered) {
-            const Handle previous = d_ptr->hovered;
+            const ZzSliderHandle previous = d_ptr->hovered;
             d_ptr->hovered = hovered;
             d_ptr->animateHandle(previous);
             d_ptr->animateHandle(hovered);
@@ -288,16 +325,16 @@ void ZzRangeSlider::mouseMoveEvent(QMouseEvent *event)
         const int requested = d_ptr->valueAt(axis);
         const int shared = d_ptr->lowerPosition;
         if (requested != shared) {
-            const Handle next = requested > shared
-                ? Handle::UpperHandle : Handle::LowerHandle;
+            const ZzSliderHandle next = requested > shared
+                ? ZzSliderHandle::UpperHandle : ZzSliderHandle::LowerHandle;
             d_ptr->coincidentPress = false;
             if (next != d_ptr->pressed) {
-                const Handle previous = d_ptr->pressed;
+                const ZzSliderHandle previous = d_ptr->pressed;
                 const auto previousOrientation = d_ptr->orientation;
                 const auto previousDirection = layoutDirection();
                 const auto cancellation = d_ptr->dragCancellation;
                 // 先结束旧端点，再启动新端点；释放回调取消时不能产生幽灵按下。
-                d_ptr->pressed = Handle::NoHandle;
+                d_ptr->pressed = ZzSliderHandle::NoHandle;
                 Q_EMIT sliderReleased(previous);
                 if (!guard) return;
                 if (d_ptr->dragCancellation != cancellation || !isVisible() || !isEnabled()
@@ -326,11 +363,11 @@ void ZzRangeSlider::mouseMoveEvent(QMouseEvent *event)
 
 void ZzRangeSlider::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() != Qt::LeftButton || d_ptr->pressed == Handle::NoHandle) {
+    if (event->button() != Qt::LeftButton || d_ptr->pressed == ZzSliderHandle::NoHandle) {
         QWidget::mouseReleaseEvent(event);
         return;
     }
-    const Handle released = d_ptr->pressed;
+    const ZzSliderHandle released = d_ptr->pressed;
     QPointer<ZzRangeSlider> guard(this);
     const qreal axis = (d_ptr->orientation == Qt::Horizontal
         ? event->position().x() : event->position().y()) - d_ptr->pressOffset;
@@ -338,14 +375,14 @@ void ZzRangeSlider::mouseReleaseEvent(QMouseEvent *event)
     if (!guard) { event->accept(); return; }
     d_ptr->coincidentPress = false;
     if (d_ptr->pressed != released) { event->accept(); return; }
-    if (d_ptr->snapMode == SnapMode::SnapOnRelease) {
-        const int snapped = d_ptr->snapped(released == Handle::LowerHandle
+    if (d_ptr->snapMode == ZzSnapMode::SnapOnRelease) {
+        const int snapped = d_ptr->snapped(released == ZzSliderHandle::LowerHandle
             ? d_ptr->lowerPosition : d_ptr->upperPosition);
         d_ptr->preview(released, snapped);
         if (!guard) { event->accept(); return; }
         if (d_ptr->pressed != released) { event->accept(); return; }
     }
-    d_ptr->pressed = Handle::NoHandle;
+    d_ptr->pressed = ZzSliderHandle::NoHandle;
     d_ptr->commit(d_ptr->lowerPosition, d_ptr->upperPosition, true);
     if (!guard) { event->accept(); return; }
     d_ptr->lowerPosition = d_ptr->lower;
@@ -365,7 +402,7 @@ void ZzRangeSlider::wheelEvent(QWheelEvent *event)
     const std::int64_t delta = event->angleDelta().y() > 0
         ? d_ptr->singleStep : -static_cast<std::int64_t>(d_ptr->singleStep);
     QPointer<ZzRangeSlider> guard(this);
-    if (d_ptr->active == Handle::UpperHandle)
+    if (d_ptr->active == ZzSliderHandle::UpperHandle)
         setUpperValue(movedValue(d_ptr->upper, delta, d_ptr->lower, d_ptr->maximum));
     else
         setLowerValue(movedValue(d_ptr->lower, delta, d_ptr->minimum, d_ptr->upper));
@@ -379,49 +416,49 @@ void ZzRangeSlider::keyPressEvent(QKeyEvent *event)
     const bool horizontal = d_ptr->orientation == Qt::Horizontal;
     std::int64_t delta = 0;
     QPointer<ZzRangeSlider> guard(this);
-    Handle select = Handle::NoHandle;
+    ZzSliderHandle select = ZzSliderHandle::NoHandle;
     switch (event->key()) {
     case Qt::Key_Left:
         if (horizontal) delta = layoutDirection() == Qt::RightToLeft
             ? d_ptr->singleStep : -static_cast<std::int64_t>(d_ptr->singleStep);
-        else select = Handle::LowerHandle;
+        else select = ZzSliderHandle::LowerHandle;
         break;
     case Qt::Key_Right:
         if (horizontal) delta = layoutDirection() == Qt::RightToLeft
             ? -static_cast<std::int64_t>(d_ptr->singleStep) : d_ptr->singleStep;
-        else select = Handle::UpperHandle;
+        else select = ZzSliderHandle::UpperHandle;
         break;
     case Qt::Key_Up:
-        if (horizontal) select = Handle::UpperHandle;
+        if (horizontal) select = ZzSliderHandle::UpperHandle;
         else delta = d_ptr->singleStep;
         break;
     case Qt::Key_Down:
-        if (horizontal) select = Handle::LowerHandle;
+        if (horizontal) select = ZzSliderHandle::LowerHandle;
         else delta = -static_cast<std::int64_t>(d_ptr->singleStep);
         break;
     case Qt::Key_PageUp: delta = d_ptr->pageStep; break;
     case Qt::Key_PageDown: delta = -static_cast<std::int64_t>(d_ptr->pageStep); break;
     case Qt::Key_Home:
-        if (d_ptr->active == Handle::UpperHandle) setUpperValue(d_ptr->lower);
+        if (d_ptr->active == ZzSliderHandle::UpperHandle) setUpperValue(d_ptr->lower);
         else setLowerValue(d_ptr->minimum);
         if (!guard) { event->accept(); return; }
         Q_EMIT sliderMoved(d_ptr->lowerPosition, d_ptr->upperPosition);
         event->accept(); return;
     case Qt::Key_End:
-        if (d_ptr->active == Handle::UpperHandle) setUpperValue(d_ptr->maximum);
+        if (d_ptr->active == ZzSliderHandle::UpperHandle) setUpperValue(d_ptr->maximum);
         else setLowerValue(d_ptr->upper);
         if (!guard) { event->accept(); return; }
         Q_EMIT sliderMoved(d_ptr->lowerPosition, d_ptr->upperPosition);
         event->accept(); return;
     default: QWidget::keyPressEvent(event); return;
     }
-    if (select != Handle::NoHandle) {
+    if (select != ZzSliderHandle::NoHandle) {
         d_ptr->active = select;
         d_ptr->accessibleFocusChanged();
         if (!guard) return;
         update();
     } else if (delta != 0) {
-        if (d_ptr->active == Handle::UpperHandle)
+        if (d_ptr->active == ZzSliderHandle::UpperHandle)
             setUpperValue(movedValue(d_ptr->upper, delta, d_ptr->lower, d_ptr->maximum));
         else
             setLowerValue(movedValue(d_ptr->lower, delta, d_ptr->minimum, d_ptr->upper));
@@ -448,7 +485,7 @@ void ZzRangeSlider::focusOutEvent(QFocusEvent *event)
 void ZzRangeSlider::hideEvent(QHideEvent *event)
 {
     QPointer<ZzRangeSlider> guard(this);
-    d_ptr->hovered = Handle::NoHandle;
+    d_ptr->hovered = ZzSliderHandle::NoHandle;
     d_ptr->cancelDrag();
     if (!guard) return;
     QWidget::hideEvent(event);
@@ -458,7 +495,7 @@ void ZzRangeSlider::changeEvent(QEvent *event)
     QPointer<ZzRangeSlider> guard(this);
     QWidget::changeEvent(event);
     if (event->type() == QEvent::EnabledChange && !isEnabled()) {
-        d_ptr->hovered = Handle::NoHandle;
+        d_ptr->hovered = ZzSliderHandle::NoHandle;
         d_ptr->cancelDrag();
         if (!guard) return;
     }
@@ -471,9 +508,9 @@ void ZzRangeSlider::changeEvent(QEvent *event)
         || event->type() == QEvent::LayoutDirectionChange
         || event->type() == QEvent::ThemeChange) {
         // 动效偏好经 StyleChange 通知，立即停下已有动画并落到目标状态。
-        d_ptr->animateHandle(Handle::LowerHandle);
-        d_ptr->animateHandle(Handle::UpperHandle);
-        if (d_ptr->pressed != Handle::NoHandle) d_ptr->showTip();
+        d_ptr->animateHandle(ZzSliderHandle::LowerHandle);
+        d_ptr->animateHandle(ZzSliderHandle::UpperHandle);
+        if (d_ptr->pressed != ZzSliderHandle::NoHandle) d_ptr->showTip();
         update();
     }
 }
@@ -481,16 +518,16 @@ bool ZzRangeSlider::event(QEvent *event)
 {
     if (event->type() == QEvent::HoverMove) {
         const auto *hover = static_cast<QHoverEvent *>(event);
-        const Handle next = d_ptr->handleAt(hover->position());
+        const ZzSliderHandle next = d_ptr->handleAt(hover->position());
         if (next != d_ptr->hovered) {
-            const Handle previous = d_ptr->hovered;
+            const ZzSliderHandle previous = d_ptr->hovered;
             d_ptr->hovered = next;
             d_ptr->animateHandle(previous);
             d_ptr->animateHandle(next);
         }
     } else if (event->type() == QEvent::HoverLeave) {
-        const Handle previous = d_ptr->hovered;
-        d_ptr->hovered = Handle::NoHandle;
+        const ZzSliderHandle previous = d_ptr->hovered;
+        d_ptr->hovered = ZzSliderHandle::NoHandle;
         d_ptr->animateHandle(previous);
     }
     return QWidget::event(event);

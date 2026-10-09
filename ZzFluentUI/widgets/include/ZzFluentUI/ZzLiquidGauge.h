@@ -19,14 +19,14 @@ class ZZ_FLUENT_UI_EXPORT ZzLiquidGauge final : public QProgressBar
 {
     Q_OBJECT
 public:
-    enum Shape { CircleShape, RectShape, PinShape, TriangleShape };
-    Q_ENUM(Shape)
+    enum ZzLiquidShape { CircleShape, RectShape, PinShape, TriangleShape };
+    Q_ENUM(ZzLiquidShape)
 
     /** @brief 外轮廓，默认 CircleShape；非法枚举值被忽略。 */
-    Q_PROPERTY(Shape shape READ shape WRITE setShape NOTIFY shapeChanged)
-    [[nodiscard]] Shape shape() const;
-    void setShape(Shape value);
-    Q_SIGNAL void shapeChanged(Shape value);
+    Q_PROPERTY(ZzLiquidShape shape READ shape WRITE setShape NOTIFY shapeChanged)
+    [[nodiscard]] ZzLiquidShape shape() const;
+    void setShape(ZzLiquidShape value);
+    Q_SIGNAL void shapeChanged(ZzLiquidShape value);
 
     /** @brief 波峰高度 [0,100]，默认 6；非有限输入被忽略。 */
     Q_PROPERTY(qreal waveAmplitude READ waveAmplitude WRITE setWaveAmplitude NOTIFY waveAmplitudeChanged)

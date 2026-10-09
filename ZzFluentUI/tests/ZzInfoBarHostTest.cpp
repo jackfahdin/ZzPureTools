@@ -56,7 +56,7 @@ private Q_SLOTS:
         target.show();
         ZzInfoBarHost host(&target);
         auto* bar = host.showInfoBar(ZzInfoBar::Informational, QStringLiteral("Info"),
-            QStringLiteral("Message"), static_cast<ZzInfoBarHost::Position>(position), 0);
+            QStringLiteral("Message"), static_cast<ZzInfoBarHost::ZzInfoBarPosition>(position), 0);
         QVERIFY(bar != nullptr);
         QTRY_VERIFY(bar->isVisible());
         const QRect geometry = bar->parentWidget()->geometry();
@@ -169,7 +169,7 @@ private Q_SLOTS:
         ZzInfoBarHost host(&target);
         QPointer<ZzInfoBar> bar;
         QObject::connect(&host, &ZzInfoBarHost::infoBarShown, &target,
-            [&bar](ZzInfoBar* shown, ZzInfoBarHost::Position) {
+            [&bar](ZzInfoBar* shown, ZzInfoBarHost::ZzInfoBarPosition) {
                 bar = shown;
                 delete shown;
             });
@@ -385,7 +385,7 @@ private Q_SLOTS:
         QSignalSpy shown(&host, &ZzInfoBarHost::infoBarShown);
         bool added = false;
         QObject::connect(
-            &host, &ZzInfoBarHost::infoBarShown, &target, [&](ZzInfoBar*, ZzInfoBarHost::Position) {
+            &host, &ZzInfoBarHost::infoBarShown, &target, [&](ZzInfoBar*, ZzInfoBarHost::ZzInfoBarPosition) {
                 if (!added) {
                     added = true;
                     host.showInfoBar(ZzInfoBar::Success, {}, QStringLiteral("Second"),
@@ -405,8 +405,8 @@ private Q_SLOTS:
         ZzInfoBarHost host(&target);
         QSignalSpy shown(&host, &ZzInfoBarHost::infoBarShown);
         volatile int invalidValue = 99;
-        const auto invalidSeverity = static_cast<ZzInfoBar::Severity>(invalidValue);
-        const auto invalidPosition = static_cast<ZzInfoBarHost::Position>(invalidValue);
+        const auto invalidSeverity = static_cast<ZzInfoBar::ZzInfoSeverity>(invalidValue);
+        const auto invalidPosition = static_cast<ZzInfoBarHost::ZzInfoBarPosition>(invalidValue);
         QCOMPARE(host.showInfoBar(invalidSeverity, {}, QStringLiteral("Invalid")), nullptr);
         QCOMPARE(
             host.showInfoBar(ZzInfoBar::Success, {}, QStringLiteral("Invalid"), invalidPosition),

@@ -26,28 +26,28 @@ class ZZ_FLUENT_UI_EXPORT ZzBorderBeam final : public QFrame
             animationDurationChanged)
     Q_PROPERTY(
         qreal initialProgress READ initialProgress WRITE setInitialProgress NOTIFY initialProgressChanged)
-    Q_PROPERTY(Direction direction READ direction WRITE setDirection NOTIFY directionChanged)
+    Q_PROPERTY(ZzBeamDirection direction READ direction WRITE setDirection NOTIFY directionChanged)
     Q_PROPERTY(int beamCount READ beamCount WRITE setBeamCount NOTIFY beamCountChanged)
     Q_PROPERTY(bool animationEnabled READ isAnimationEnabled WRITE setAnimationEnabled NOTIFY
             animationEnabledChanged)
-    Q_PROPERTY(ThemeMode themeMode READ themeMode WRITE setThemeMode NOTIFY themeModeChanged)
+    Q_PROPERTY(ZzBeamThemeMode themeMode READ themeMode WRITE setThemeMode NOTIFY themeModeChanged)
     Q_PROPERTY(bool running READ isRunning NOTIFY runningChanged)
     Q_PROPERTY(qreal progress READ progress)
 
 public:
-    enum Direction : int { Clockwise, CounterClockwise };
-    Q_ENUM(Direction)
-    enum ThemeMode : int { AutoTheme, LightTheme, DarkTheme };
-    Q_ENUM(ThemeMode)
+    enum ZzBeamDirection : int { Clockwise, CounterClockwise };
+    Q_ENUM(ZzBeamDirection)
+    enum ZzBeamThemeMode : int { AutoTheme, LightTheme, DarkTheme };
+    Q_ENUM(ZzBeamThemeMode)
 
     /** @brief 无效颜色分别回退到 Window、Mid、Accent 及强调色的浅色变体。 */
-    struct ThemeConfig
+    struct ZzBeamThemeConfig
     {
         QColor backgroundColor;
         QColor borderColor;
         QColor startColor;
         QColor endColor;
-        bool operator==(const ThemeConfig &) const = default;
+        bool operator==(const ZzBeamThemeConfig &) const = default;
     };
 
     explicit ZzBorderBeam(QWidget *parent = nullptr);
@@ -81,8 +81,8 @@ public:
     [[nodiscard]] qreal initialProgress() const;
     void setInitialProgress(qreal value);
     /** @brief 运动方向；修改时保持头部位置。 */
-    [[nodiscard]] Direction direction() const;
-    void setDirection(Direction value);
+    [[nodiscard]] ZzBeamDirection direction() const;
+    void setDirection(ZzBeamDirection value);
     /** @brief 均匀分布的光束数量，范围 1–8。 */
     [[nodiscard]] int beamCount() const;
     void setBeamCount(int value);
@@ -90,8 +90,8 @@ public:
     [[nodiscard]] bool isAnimationEnabled() const;
     void setAnimationEnabled(bool value);
     /** @brief 跟随应用或固定浅色、深色主题。 */
-    [[nodiscard]] ThemeMode themeMode() const;
-    void setThemeMode(ThemeMode value);
+    [[nodiscard]] ZzBeamThemeMode themeMode() const;
+    void setThemeMode(ZzBeamThemeMode value);
 
     /** @brief 当前归一化头部位置 [0, 1)，暂停时保持不变。 */
     [[nodiscard]] qreal progress() const;
@@ -102,13 +102,13 @@ public:
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;
 
-    [[nodiscard]] static ThemeConfig defaultLightTheme();
-    [[nodiscard]] static ThemeConfig defaultDarkTheme();
-    [[nodiscard]] ThemeConfig lightTheme() const;
-    [[nodiscard]] ThemeConfig darkTheme() const;
-    [[nodiscard]] ThemeConfig activeTheme() const;
-    void setLightTheme(const ThemeConfig &config);
-    void setDarkTheme(const ThemeConfig &config);
+    [[nodiscard]] static ZzBeamThemeConfig defaultLightTheme();
+    [[nodiscard]] static ZzBeamThemeConfig defaultDarkTheme();
+    [[nodiscard]] ZzBeamThemeConfig lightTheme() const;
+    [[nodiscard]] ZzBeamThemeConfig darkTheme() const;
+    [[nodiscard]] ZzBeamThemeConfig activeTheme() const;
+    void setLightTheme(const ZzBeamThemeConfig &config);
+    void setDarkTheme(const ZzBeamThemeConfig &config);
 
 Q_SIGNALS:
     void beamLengthChanged(qreal value);
@@ -120,10 +120,10 @@ Q_SIGNALS:
     void endColorChanged(QColor value);
     void animationDurationChanged(int value);
     void initialProgressChanged(qreal value);
-    void directionChanged(Direction value);
+    void directionChanged(ZzBeamDirection value);
     void beamCountChanged(int value);
     void animationEnabledChanged(bool value);
-    void themeModeChanged(ThemeMode value);
+    void themeModeChanged(ZzBeamThemeMode value);
     void runningChanged(bool running);
     void lightThemeChanged();
     void darkThemeChanged();
@@ -141,4 +141,4 @@ private:
 
 } // namespace ZzFluentUI
 
-Q_DECLARE_METATYPE(ZzFluentUI::ZzBorderBeam::ThemeConfig)
+Q_DECLARE_METATYPE(ZzFluentUI::ZzBorderBeam::ZzBeamThemeConfig)

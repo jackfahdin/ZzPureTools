@@ -1,7 +1,18 @@
 #include "ZzExampleRadialGaugeHelpers.h"
 
 namespace ZzExample {
-void buildMultiRadialGaugeEditor(QWidget *multiGaugePropertyPage, QVBoxLayout *multiGaugePropertyLayout)
+namespace {
+
+/** @brief 装配多径向仪表属性编辑器的实现。 */
+class ZzExampleMultiRadialGaugeEditor final
+{
+public:
+    static void buildMultiRadialGaugeEditor(QWidget *multiGaugePropertyPage, QVBoxLayout *multiGaugePropertyLayout);
+};
+
+} // namespace
+
+void ZzExampleMultiRadialGaugeEditor::buildMultiRadialGaugeEditor(QWidget *multiGaugePropertyPage, QVBoxLayout *multiGaugePropertyLayout)
 {
     auto *multiGaugePreviewLayout = new QHBoxLayout;
     multiGaugePreviewLayout->setSpacing(32);
@@ -431,7 +442,7 @@ void buildMultiRadialGaugeEditor(QWidget *multiGaugePropertyPage, QVBoxLayout *m
 
     QObject::connect(
         multiGaugeNeedleStyleCombo, qOverload<int>(&QComboBox::currentIndexChanged), multiGauge, [=](int) {
-            multiGauge->setNeedleStyle(static_cast<ZzMultiRadialGauge::NeedleStyle>(
+            multiGauge->setNeedleStyle(static_cast<ZzMultiRadialGauge::ZzNeedleStyle>(
                 multiGaugeNeedleStyleCombo->currentData().toInt()));
         });
     connectScaledSlider(multiGaugeNeedleWidthSlider, multiGauge, 2.0, &ZzMultiRadialGauge::setNeedleWidth);
@@ -488,4 +499,10 @@ void buildMultiRadialGaugeEditor(QWidget *multiGaugePropertyPage, QVBoxLayout *m
     multiGaugePropertyLayout->addWidget(multiGaugeHint);
     multiGaugePropertyLayout->addStretch();
 }
+
+void buildMultiRadialGaugeEditor(QWidget *multiGaugePropertyPage, QVBoxLayout *multiGaugePropertyLayout)
+{
+    ZzExampleMultiRadialGaugeEditor::buildMultiRadialGaugeEditor(multiGaugePropertyPage, multiGaugePropertyLayout);
+}
+
 } // namespace ZzExample

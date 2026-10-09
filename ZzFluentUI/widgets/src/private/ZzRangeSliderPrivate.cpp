@@ -13,7 +13,7 @@
 
 namespace ZzFluentUI {
 namespace {
-using Handle = ZzRangeSlider::Handle;
+using ZzSliderHandle = ZzRangeSlider::ZzSliderHandle;
 constexpr qreal kHalf = 10.0;
 constexpr qreal kNormal = 9.0 * 0.55;
 class ZzRangeSliderTipLabel final : public QLabel
@@ -92,20 +92,20 @@ QPointF ZzRangeSliderPrivate::center(int value) const
         : QPointF(q->width() / 2.0, axis);
 }
 
-Handle ZzRangeSliderPrivate::nearestHandle(const QPointF &point) const
+ZzSliderHandle ZzRangeSliderPrivate::nearestHandle(const QPointF &point) const
 {
     const qreal axis = orientation == Qt::Horizontal ? point.x() : point.y();
     const qreal lowDistance = std::abs(axis - axisPosition(lowerPosition));
     const qreal highDistance = std::abs(axis - axisPosition(upperPosition));
     if (!qFuzzyCompare(lowDistance + 1.0, highDistance + 1.0))
-        return lowDistance < highDistance ? Handle::LowerHandle : Handle::UpperHandle;
+        return lowDistance < highDistance ? ZzSliderHandle::LowerHandle : ZzSliderHandle::UpperHandle;
     const int requested = valueAt(axis);
-    if (requested < lowerPosition) return Handle::LowerHandle;
-    if (requested > upperPosition) return Handle::UpperHandle;
-    return active == Handle::NoHandle ? Handle::LowerHandle : active;
+    if (requested < lowerPosition) return ZzSliderHandle::LowerHandle;
+    if (requested > upperPosition) return ZzSliderHandle::UpperHandle;
+    return active == ZzSliderHandle::NoHandle ? ZzSliderHandle::LowerHandle : active;
 }
 
-Handle ZzRangeSliderPrivate::handleAt(const QPointF &point) const
+ZzSliderHandle ZzRangeSliderPrivate::handleAt(const QPointF &point) const
 {
     const QPointF a = point - center(lowerPosition);
     const QPointF b = point - center(upperPosition);
@@ -115,10 +115,10 @@ Handle ZzRangeSliderPrivate::handleAt(const QPointF &point) const
     const bool second = db <= kHalf * kHalf;
     if (first && second)
         return qFuzzyCompare(da + 1.0, db + 1.0)
-            ? nearestHandle(point) : da < db ? Handle::LowerHandle : Handle::UpperHandle;
-    if (first) return Handle::LowerHandle;
-    if (second) return Handle::UpperHandle;
-    return Handle::NoHandle;
+            ? nearestHandle(point) : da < db ? ZzSliderHandle::LowerHandle : ZzSliderHandle::UpperHandle;
+    if (first) return ZzSliderHandle::LowerHandle;
+    if (second) return ZzSliderHandle::UpperHandle;
+    return ZzSliderHandle::NoHandle;
 }
 
 void ZzRangeSliderPrivate::commit(int requestedLower, int requestedUpper, bool user)
@@ -131,7 +131,7 @@ void ZzRangeSliderPrivate::commit(int requestedLower, int requestedUpper, bool u
     if (!changedLower && !changedUpper) return;
     lower = nextLower;
     upper = nextUpper;
-    if (!user || pressed == Handle::NoHandle) {
+    if (!user || pressed == ZzSliderHandle::NoHandle) {
         lowerPosition = lower;
         upperPosition = upper;
     }
@@ -152,7 +152,7 @@ void ZzRangeSliderPrivate::notifyValues()
             notifiedLower = value;
             Q_EMIT q->lowerValueChanged(value);
             if (!guard) return;
-            accessibleValueChanged(Handle::LowerHandle, value);
+            accessibleValueChanged(ZzSliderHandle::LowerHandle, value);
             if (!guard) return;
             continue;
         }
@@ -161,7 +161,7 @@ void ZzRangeSliderPrivate::notifyValues()
             notifiedUpper = value;
             Q_EMIT q->upperValueChanged(value);
             if (!guard) return;
-            accessibleValueChanged(Handle::UpperHandle, value);
+            accessibleValueChanged(ZzSliderHandle::UpperHandle, value);
             if (!guard) return;
             continue;
         }
@@ -177,19 +177,19 @@ void ZzRangeSliderPrivate::notifyValues()
     notifying = false;
 }
 
-void ZzRangeSliderPrivate::preview(Handle handle, int value)
+void ZzRangeSliderPrivate::preview(ZzSliderHandle handle, int value)
 {
-    if (handle == Handle::NoHandle) return;
-    if (snapMode == ZzRangeSlider::SnapMode::SnapAlways) value = snapped(value);
-    value = handle == Handle::LowerHandle
+    if (handle == ZzSliderHandle::NoHandle) return;
+    if (snapMode == ZzRangeSlider::ZzSnapMode::SnapAlways) value = snapped(value);
+    value = handle == ZzSliderHandle::LowerHandle
         ? bound(value, minimum, upperPosition)
         : bound(value, lowerPosition, maximum);
-    int &position = handle == Handle::LowerHandle ? lowerPosition : upperPosition;
+    int &position = handle == ZzSliderHandle::LowerHandle ? lowerPosition : upperPosition;
     if (position == value) return;
     position = value;
     QPointer<ZzRangeSlider> guard(q);
     if (tracking) {
-        if (handle == Handle::LowerHandle) commit(value, upper, true);
+        if (handle == ZzSliderHandle::LowerHandle) commit(value, upper, true);
         else commit(lower, value, true);
     }
     if (!guard) return;
@@ -204,9 +204,9 @@ void ZzRangeSliderPrivate::cancelDrag()
 {
     ++dragCancellation;
     QPointer<ZzRangeSlider> guard(q);
-    if (pressed != Handle::NoHandle) {
-        const Handle released = pressed;
-        pressed = Handle::NoHandle;
+    if (pressed != ZzSliderHandle::NoHandle) {
+        const ZzSliderHandle released = pressed;
+        pressed = ZzSliderHandle::NoHandle;
         coincidentPress = false;
         lowerPosition = lower;
         upperPosition = upper;
@@ -214,19 +214,19 @@ void ZzRangeSliderPrivate::cancelDrag()
         if (!guard) return;
     }
     hideTip();
-    animateHandle(Handle::LowerHandle);
-    animateHandle(Handle::UpperHandle);
+    animateHandle(ZzSliderHandle::LowerHandle);
+    animateHandle(ZzSliderHandle::UpperHandle);
     q->update();
 }
 
 void ZzRangeSliderPrivate::showTip()
 {
-    if (!valueTip || pressed == Handle::NoHandle
+    if (!valueTip || pressed == ZzSliderHandle::NoHandle
         || !q->isVisible() || !q->isEnabled()) return;
     if (!tip) {
         tip = new ZzRangeSliderTipLabel(q);
     }
-    const int value = pressed == Handle::LowerHandle ? lowerPosition : upperPosition;
+    const int value = pressed == ZzSliderHandle::LowerHandle ? lowerPosition : upperPosition;
     tip->setText(QString::number(value));
     tip->setPalette(q->palette());
     tip->setFont(q->font());
@@ -259,10 +259,10 @@ void ZzRangeSliderPrivate::hideTip()
     if (tip) tip->hide();
 }
 
-void ZzRangeSliderPrivate::animateHandle(Handle handle)
+void ZzRangeSliderPrivate::animateHandle(ZzSliderHandle handle)
 {
-    if (handle == Handle::NoHandle) return;
-    QVariantAnimation *&animation = handle == Handle::LowerHandle
+    if (handle == ZzSliderHandle::NoHandle) return;
+    QVariantAnimation *&animation = handle == ZzSliderHandle::LowerHandle
         ? lowerAnimation : upperAnimation;
     if (!animation) {
         animation = new QVariantAnimation(q);
@@ -285,16 +285,16 @@ void ZzRangeSliderPrivate::animateHandle(Handle handle)
     q->update();
 }
 
-qreal ZzRangeSliderPrivate::innerRadius(Handle handle) const
+qreal ZzRangeSliderPrivate::innerRadius(ZzSliderHandle handle) const
 {
-    const QVariantAnimation *animation = handle == Handle::LowerHandle
+    const QVariantAnimation *animation = handle == ZzSliderHandle::LowerHandle
         ? lowerAnimation : upperAnimation;
     return animation && animation->currentValue().isValid()
         ? animation->currentValue().toReal() : kNormal;
 }
 
-void ZzRangeSliderPrivate::accessibleValueChanged(Handle handle, int value)
-{ zzRangeSliderAccessibleValueChanged(q, handle, value); }
+void ZzRangeSliderPrivate::accessibleValueChanged(ZzSliderHandle handle, int value)
+{ ZzRangeSliderAccessible::notifyValueChanged(q, handle, value); }
 void ZzRangeSliderPrivate::accessibleFocusChanged()
-{ zzRangeSliderAccessibleFocusChanged(q); }
+{ ZzRangeSliderAccessible::notifyFocusChanged(q); }
 } // namespace ZzFluentUI

@@ -63,9 +63,16 @@ void addRingColor(QFormLayout *form, Ring *ring, const char *property, const QSt
     });
     form->addRow(label, row);
 }
+/** @brief 装配进度环示例页内容，不持有控件所有权。 */
+class ZzExampleProgressRingPage final
+{
+public:
+    static void build(QVBoxLayout *mainLayout, QWidget *content);
+};
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildProgressRing(QVBoxLayout *mainLayout, QWidget *content)
+void ZzExampleProgressRingPage::build(QVBoxLayout *mainLayout, QWidget *content)
 {
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(16);
@@ -265,4 +272,10 @@ void ZzExampleShowcasePagePrivate::buildProgressRing(QVBoxLayout *mainLayout, QW
     mainLayout->addWidget(card);
     mainLayout->addStretch();
 }
+
+void ZzExampleShowcasePagePrivate::buildProgressRing(QVBoxLayout *mainLayout, QWidget *content)
+{
+    ZzExampleProgressRingPage::build(mainLayout, content);
+}
+
 } // namespace ZzExample

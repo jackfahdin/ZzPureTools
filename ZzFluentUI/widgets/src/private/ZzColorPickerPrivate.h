@@ -116,9 +116,9 @@ public:
     bool notificationsDeferred = false;
     bool hexFocusOutActive = false;
     QList<QColor> pendingColorNotifications;
-    ZzColorPicker::Appearance appearance = ZzColorPicker::Compact;
-    ZzColorPicker::ColorRepresentation representation = ZzColorPicker::Rgba;
-    ZzColorPicker::ColorSpectrumShape shape = ZzColorPicker::Box;
+    ZzColorPicker::ZzColorPickerAppearance appearance = ZzColorPicker::Compact;
+    ZzColorPicker::ZzColorRepresentation representation = ZzColorPicker::Rgba;
+    ZzColorPicker::ZzColorSpectrumShape shape = ZzColorPicker::Box;
     bool spectrumVisible = true;
     bool paletteVisible = true;
     bool previewVisible = true;

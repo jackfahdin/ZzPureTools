@@ -14,12 +14,15 @@ namespace {
     constexpr qreal AxisGap = 12.0;
     constexpr qreal MinimumEventHeight = 44.0;
 
+    /** @brief 悬停与选中高亮背景的圆角半径，单位逻辑像素。 */
+    constexpr qreal HighlightCornerRadius = 6.0;
+
     QColor railColor(const QPalette& palette, QPalette::ColorGroup group)
     {
         const QColor background = palette.color(group, QPalette::Base);
         const QColor text = palette.color(group, QPalette::Text);
         const qreal ratio = group == QPalette::Disabled ? 0.12 : 0.22;
-        return QColor(qRound(background.red() * (1 - ratio) + text.red() * ratio),
+        return QColor::fromRgb(qRound(background.red() * (1 - ratio) + text.red() * ratio),
             qRound(background.green() * (1 - ratio) + text.green() * ratio),
             qRound(background.blue() * (1 - ratio) + text.blue() * ratio));
     }
@@ -37,7 +40,7 @@ namespace {
         background.setAlpha((option.state & QStyle::State_Selected) ? 34 : 18);
         painter->setPen(Qt::NoPen);
         painter->setBrush(background);
-        painter->drawRoundedRect(QRectF(option.rect).adjusted(2, 1, -2, -2), 6, 6);
+        painter->drawRoundedRect(QRectF(option.rect).adjusted(2, 1, -2, -2), HighlightCornerRadius, HighlightCornerRadius);
     }
 } // namespace
 
@@ -326,7 +329,7 @@ void ZzTimelineDelegate::drawNode(QPainter* painter, const ZzTimelineEvent* even
     painter->setBrush(brush);
     const qreal adjustedRadius = qMax(0.0, radius - pen.widthF() * 0.5);
     painter->drawEllipse(center, adjustedRadius, adjustedRadius);
-    const QColor symbol = outlined ? color : QColor(Qt::white);
+    const QColor symbol = outlined ? color : QColorConstants::White;
     if (!event->icon().isEmpty()) {
         painter->setFont(ZzSegoeIconFont::font(qMax(8, qRound(m_timeline->nodeSize() * 0.78))));
         painter->setPen(symbol);

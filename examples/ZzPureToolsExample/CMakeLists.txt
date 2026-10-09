@@ -30,7 +30,8 @@ set(zz_pure_tools_example_sources
     ZzExampleTabBarsPage.cpp
     ZzExampleRangeSliderPage.cpp
     ZzExampleBorderBeamPage.cpp
-    ZzExampleCustomWidgetHelpers.h
+    ZzExampleColorButton.h
+    ZzExampleCustomCard.h
     ZzExampleAudioLevelMeterPage.cpp
     ZzExampleRadialGaugePage.cpp
     ZzExampleLiquidGaugePage.cpp

@@ -2,6 +2,23 @@
 
 namespace ZzExample {
 namespace {
+
+/** @brief 仪表与示例页共享的控件工厂和配色辅助实现。 */
+class ZzExampleRadialGaugeHelpers final
+{
+public:
+    static QLabel * makeSectionTitle(const QString &text, QWidget *parent);
+    static void bindGaugeColorButton(ZzExampleColorButton *button, QWidget *widget, const char *property,
+    QPalette::ColorRole fallback, int lighter);
+    static QColor gaugeAccentColor(const QWidget *widget);
+    static void setGaugeAccentColor(QWidget *widget, const QColor &color);
+    static void setGaugeTrackColor(QWidget *widget, const QColor &color);
+    static void hideGaugeTrack(ZzRadialGauge *gauge);
+    static QSlider * makeValueSlider(QWidget *parent, int minimum, int maximum, int value, int singleStep, int pageStep,
+    int scale, int precision);
+    static ZzFluentUI::ZzTabWidget * makePropertyTabs(QWidget *parent);
+};
+
 /** @brief 将滑块整数刻度显示为仪表的实际属性值。 */
 class ZzGaugePropertySlider final : public QSlider
 {
@@ -29,7 +46,7 @@ protected:
     }
 };
 }
-QLabel *makeSectionTitle(const QString &text, QWidget *parent)
+QLabel *ZzExampleRadialGaugeHelpers::makeSectionTitle(const QString &text, QWidget *parent)
 {
     auto *label = new QLabel(text, parent);
     QFont font = label->font();
@@ -41,7 +58,7 @@ QLabel *makeSectionTitle(const QString &text, QWidget *parent)
 
 QPalette::ColorRole accentRole() { return QPalette::Accent; }
 
-void bindGaugeColorButton(ZzExampleColorButton *button, QWidget *widget, const char *property,
+void ZzExampleRadialGaugeHelpers::bindGaugeColorButton(ZzExampleColorButton *button, QWidget *widget, const char *property,
     QPalette::ColorRole fallback, int lighter)
 {
     button->themeColor = [widget, property, fallback, lighter] {
@@ -51,12 +68,12 @@ void bindGaugeColorButton(ZzExampleColorButton *button, QWidget *widget, const c
     button->setSelectedColor(button->themeColor());
 }
 
-QColor gaugeAccentColor(const QWidget *widget)
+QColor ZzExampleRadialGaugeHelpers::gaugeAccentColor(const QWidget *widget)
 {
     return widget->palette().color(QPalette::Active, accentRole());
 }
 
-void setGaugeAccentColor(QWidget *widget, const QColor &color)
+void ZzExampleRadialGaugeHelpers::setGaugeAccentColor(QWidget *widget, const QColor &color)
 {
     QPalette palette = widget->palette();
     palette.setColor(QPalette::Active, accentRole(), color);
@@ -64,7 +81,7 @@ void setGaugeAccentColor(QWidget *widget, const QColor &color)
     widget->setPalette(palette);
 }
 
-void setGaugeTrackColor(QWidget *widget, const QColor &color)
+void ZzExampleRadialGaugeHelpers::setGaugeTrackColor(QWidget *widget, const QColor &color)
 {
     QPalette palette = widget->palette();
     palette.setColor(QPalette::Active, QPalette::Mid, color);
@@ -72,9 +89,9 @@ void setGaugeTrackColor(QWidget *widget, const QColor &color)
     widget->setPalette(palette);
 }
 
-void hideGaugeTrack(ZzRadialGauge *gauge) { setGaugeTrackColor(gauge, QColor(0, 0, 0, 0)); }
+void ZzExampleRadialGaugeHelpers::hideGaugeTrack(ZzRadialGauge *gauge) { setGaugeTrackColor(gauge, QColor(0, 0, 0, 0)); }
 
-QSlider *makeValueSlider(QWidget *parent, int minimum, int maximum, int value, int singleStep, int pageStep,
+QSlider *ZzExampleRadialGaugeHelpers::makeValueSlider(QWidget *parent, int minimum, int maximum, int value, int singleStep, int pageStep,
     int scale, int precision)
 {
     auto *slider = new ZzGaugePropertySlider(parent);
@@ -91,7 +108,7 @@ QSlider *makeValueSlider(QWidget *parent, int minimum, int maximum, int value, i
     return slider;
 }
 
-ZzFluentUI::ZzTabWidget *makePropertyTabs(QWidget *parent)
+ZzFluentUI::ZzTabWidget *ZzExampleRadialGaugeHelpers::makePropertyTabs(QWidget *parent)
 {
     auto *tabs = new ZzFluentUI::ZzTabWidget(parent);
     tabs->fluentTabBar()->setAppearance(ZzFluentUI::ZzTabBarAppearance::PivotSlide);
@@ -105,4 +122,47 @@ ZzFluentUI::ZzTabWidget *makePropertyTabs(QWidget *parent)
     tabs->setMovable(false);
     return tabs;
 }
+
+QLabel * makeSectionTitle(const QString &text, QWidget *parent)
+{
+    return ZzExampleRadialGaugeHelpers::makeSectionTitle(text, parent);
+}
+
+void bindGaugeColorButton(ZzExampleColorButton *button, QWidget *widget, const char *property,
+    QPalette::ColorRole fallback, int lighter)
+{
+    ZzExampleRadialGaugeHelpers::bindGaugeColorButton(button, widget, property, fallback, lighter);
+}
+
+QColor gaugeAccentColor(const QWidget *widget)
+{
+    return ZzExampleRadialGaugeHelpers::gaugeAccentColor(widget);
+}
+
+void setGaugeAccentColor(QWidget *widget, const QColor &color)
+{
+    ZzExampleRadialGaugeHelpers::setGaugeAccentColor(widget, color);
+}
+
+void setGaugeTrackColor(QWidget *widget, const QColor &color)
+{
+    ZzExampleRadialGaugeHelpers::setGaugeTrackColor(widget, color);
+}
+
+void hideGaugeTrack(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugeHelpers::hideGaugeTrack(gauge);
+}
+
+QSlider * makeValueSlider(QWidget *parent, int minimum, int maximum, int value, int singleStep, int pageStep,
+    int scale, int precision)
+{
+    return ZzExampleRadialGaugeHelpers::makeValueSlider(parent, minimum, maximum, value, singleStep, pageStep, scale, precision);
+}
+
+ZzFluentUI::ZzTabWidget * makePropertyTabs(QWidget *parent)
+{
+    return ZzExampleRadialGaugeHelpers::makePropertyTabs(parent);
+}
+
 } // namespace ZzExample

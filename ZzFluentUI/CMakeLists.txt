@@ -46,22 +46,14 @@ zz_configure_library_target(ZzFluentFoundation
 set(zz_fluent_ui_sources
     widgets/src/ZzTimeline.cpp
     widgets/src/ZzTimelineEvent.cpp
-    widgets/src/private/ZzTimelinePrivate.cpp
     widgets/src/private/ZzTimelineModel.cpp
     widgets/src/private/ZzTimelineDelegate.cpp
     widgets/src/ZzLiquidGauge.cpp
     widgets/src/ZzRadialGauge.cpp
-    widgets/src/private/ZzRadialGaugePaint.cpp
-    widgets/src/private/ZzRadialGaugeProperties.cpp
     widgets/src/ZzMultiRadialGauge.cpp
-    widgets/src/private/ZzMultiRadialGaugePaint.cpp
-    widgets/src/private/ZzMultiRadialGaugeProperties.cpp
     widgets/src/ZzMultiProgressRing.cpp
-    widgets/src/private/ZzMultiProgressRingPaint.cpp
-    widgets/src/private/ZzMultiProgressRingProperties.cpp
     widgets/src/ZzAudioLevelMeter.cpp
     widgets/src/private/ZzAudioLevelMeterPrivate.cpp
-    widgets/src/private/ZzAudioLevelMeterPaint.cpp
     widgets/src/ZzSidePanelAppearance.cpp
     widgets/src/private/ZzSidePanelAppearancePrivate.cpp
     widgets/src/ZzControlAppearance.cpp
@@ -94,9 +86,7 @@ set(zz_fluent_ui_sources
     widgets/src/ZzToggleSwitch.cpp
     widgets/src/private/ZzToggleSwitchPrivate.cpp
     widgets/src/ZzProgressRing.cpp
-    widgets/src/ZzProgressRingContent.cpp
     widgets/src/private/ZzProgressRingPrivate.cpp
-    widgets/src/private/ZzProgressRingText.cpp
     widgets/src/ZzScrollBar.cpp
     widgets/src/private/ZzScrollBarPrivate.cpp
     widgets/src/ZzAnnotatedScrollBar.cpp

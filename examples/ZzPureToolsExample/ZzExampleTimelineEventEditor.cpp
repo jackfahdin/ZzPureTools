@@ -5,7 +5,20 @@
 
 namespace ZzExample {
 
-QColor timelineRailColor(const ZzTimeline* timeline)
+namespace {
+
+/** @brief 时间轴事件编辑器的实现。 */
+class ZzExampleTimelineEventEditor final
+{
+public:
+    static QColor timelineRailColor(const ZzTimeline* timeline);
+    static void resetTimelineEvents(ZzTimeline* timeline);
+    static void buildTimelineEventEditor(QFormLayout* form, ZzTimeline* timeline);
+};
+
+} // namespace
+
+QColor ZzExampleTimelineEventEditor::timelineRailColor(const ZzTimeline* timeline)
 {
     if (timeline->lineColor().isValid())
         return timeline->lineColor();
@@ -17,7 +30,7 @@ QColor timelineRailColor(const ZzTimeline* timeline)
         qRound(background.blue() * 0.78 + text.blue() * 0.22));
 }
 
-void resetTimelineEvents(ZzTimeline* timeline)
+void ZzExampleTimelineEventEditor::resetTimelineEvents(ZzTimeline* timeline)
 {
     timeline->clearEvents();
     timeline->addEvent(timelineSampleTime().addSecs(-2400), zzGaugeText("创建任务"),
@@ -31,6 +44,7 @@ void resetTimelineEvents(ZzTimeline* timeline)
 }
 
 namespace {
+
     QColor eventColor(const ZzTimeline* timeline, const ZzTimelineEvent* event)
     {
         if (event && event->color().isValid())
@@ -61,7 +75,7 @@ namespace {
     }
 } // namespace
 
-void buildTimelineEventEditor(QFormLayout* form, ZzTimeline* timeline)
+void ZzExampleTimelineEventEditor::buildTimelineEventEditor(QFormLayout* form, ZzTimeline* timeline)
 {
     auto* page = form->parentWidget();
     auto* selector = new QComboBox(page);
@@ -173,12 +187,12 @@ void buildTimelineEventEditor(QFormLayout* form, ZzTimeline* timeline)
     });
     QObject::connect(status, &QComboBox::currentIndexChanged, timeline, [=](int) {
         if (*selected)
-            (*selected)->setStatus(static_cast<ZzTimelineEvent::Status>(status->currentData().toInt()));
+            (*selected)->setStatus(static_cast<ZzTimelineEvent::ZzTimelineStatus>(status->currentData().toInt()));
     });
     QObject::connect(placement, &QComboBox::currentIndexChanged, timeline, [=](int) {
         if (*selected)
             (*selected)->setPlacement(
-                static_cast<ZzTimelineEvent::Placement>(placement->currentData().toInt()));
+                static_cast<ZzTimelineEvent::ZzTimelinePlacement>(placement->currentData().toInt()));
     });
     QObject::connect(color, &ZzExampleColorButton::selectedColorChanged, timeline, [=](const QColor& value) {
         if (*selected && !automatic->isChecked())
@@ -201,4 +215,20 @@ void buildTimelineEventEditor(QFormLayout* form, ZzTimeline* timeline)
         [=](ZzTimelineEvent* event) { selector->setCurrentIndex(static_cast<int>(timeline->events().indexOf(event))); });
     sync();
 }
+
+QColor timelineRailColor(const ZzTimeline* timeline)
+{
+    return ZzExampleTimelineEventEditor::timelineRailColor(timeline);
+}
+
+void resetTimelineEvents(ZzTimeline* timeline)
+{
+    ZzExampleTimelineEventEditor::resetTimelineEvents(timeline);
+}
+
+void buildTimelineEventEditor(QFormLayout* form, ZzTimeline* timeline)
+{
+    ZzExampleTimelineEventEditor::buildTimelineEventEditor(form, timeline);
+}
+
 } // namespace ZzExample

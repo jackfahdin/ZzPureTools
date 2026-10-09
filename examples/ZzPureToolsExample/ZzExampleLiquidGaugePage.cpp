@@ -62,9 +62,16 @@ void addColorRow(QFormLayout *form, Gauge *gauge, const char *property,
     }
     form->addRow(label, row);
 }
+/** @brief 装配水波进度球示例页内容，不持有控件所有权。 */
+class ZzExampleLiquidGaugePage final
+{
+public:
+    static void build(QVBoxLayout *mainLayout, QWidget *content);
+};
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildLiquidGauge(QVBoxLayout *mainLayout, QWidget *content)
+void ZzExampleLiquidGaugePage::build(QVBoxLayout *mainLayout, QWidget *content)
 {
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(16);
@@ -92,7 +99,7 @@ void ZzExampleShowcasePagePrivate::buildLiquidGauge(QVBoxLayout *mainLayout, QWi
         gauge->setObjectName(QStringLiteral("zzLiquidSample%1").arg(index));
         gauge->setRange(0, 100);
         gauge->setValue(60);
-        gauge->setShape(static_cast<Gauge::Shape>(index));
+        gauge->setShape(static_cast<Gauge::ZzLiquidShape>(index));
         gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(index))));
         gauge->setFixedSize(150, 150);
         samples.append(gauge);
@@ -161,7 +168,7 @@ void ZzExampleShowcasePagePrivate::buildLiquidGauge(QVBoxLayout *mainLayout, QWi
     basic->addRow(disabled);
     QObject::connect(value, &QSlider::valueChanged, gauge, &QProgressBar::setValue);
     QObject::connect(shape, &QComboBox::currentIndexChanged, gauge,
-        [=](int index) { gauge->setShape(static_cast<Gauge::Shape>(shape->itemData(index).toInt())); });
+        [=](int index) { gauge->setShape(static_cast<Gauge::ZzLiquidShape>(shape->itemData(index).toInt())); });
     QObject::connect(format, &QLineEdit::textChanged, gauge, &QProgressBar::setFormat);
     QObject::connect(fontSize, &QSlider::valueChanged, gauge, &Gauge::setContentFontPixelSize);
     QObject::connect(animation, &QCheckBox::toggled, gauge, &Gauge::setAnimationEnabled);
@@ -230,4 +237,10 @@ void ZzExampleShowcasePagePrivate::buildLiquidGauge(QVBoxLayout *mainLayout, QWi
     mainLayout->addWidget(card);
     mainLayout->addStretch();
 }
+
+void ZzExampleShowcasePagePrivate::buildLiquidGauge(QVBoxLayout *mainLayout, QWidget *content)
+{
+    ZzExampleLiquidGaugePage::build(mainLayout, content);
+}
+
 } // namespace ZzExample

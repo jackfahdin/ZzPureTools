@@ -80,7 +80,7 @@ namespace {
         contentForm->addRow(zzGaugeText("操作文字"), action);
         contentForm->addRow(custom);
         QObject::connect(severity, &QComboBox::currentIndexChanged, preview, [preview](int index) {
-            preview->setSeverity(static_cast<ZzInfoBar::Severity>(index));
+            preview->setSeverity(static_cast<ZzInfoBar::ZzInfoSeverity>(index));
         });
         QObject::connect(title, &QLineEdit::textChanged, preview, &ZzInfoBar::setTitle);
         QObject::connect(message, &QPlainTextEdit::textChanged, preview,
@@ -156,7 +156,7 @@ namespace {
         popupForm->addRow(show);
         QObject::connect(show, &QPushButton::clicked, host, [=] {
             host->showInfoBar(preview->severity(), preview->title(), preview->message(),
-                static_cast<ZzInfoBarHost::Position>(position->currentIndex()), timeout->value());
+                static_cast<ZzInfoBarHost::ZzInfoBarPosition>(position->currentIndex()), timeout->value());
         });
 
         auto* reset = new QPushButton(zzGaugeText("重置属性"), card);
@@ -198,9 +198,16 @@ namespace {
         layout->addWidget(code);
         mainLayout->addWidget(card);
     }
+    /** @brief 装配信息栏示例页内容，不持有控件所有权。 */
+    class ZzExampleInfoBarPage final
+    {
+    public:
+        static void build(ZzExampleShowcasePagePrivate *owner, QVBoxLayout* mainLayout, QWidget* content);
+    };
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget* content)
+void ZzExampleInfoBarPage::build(ZzExampleShowcasePagePrivate *owner, QVBoxLayout* mainLayout, QWidget* content)
 {
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(16);
@@ -208,7 +215,7 @@ void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget
         zzGaugeText("在页面内展示重要信息，或在窗口边缘弹出可自动关闭的通知。"), content);
     description->setWordWrap(true);
     mainLayout->addWidget(description);
-    auto* host = new ZzInfoBarHost(q_ptr->window(), q_ptr);
+    auto* host = new ZzInfoBarHost(owner->q_ptr->window(), owner->q_ptr);
     host->setObjectName(QStringLiteral("infoBarHost"));
 
     auto* card = makeCard(content);
@@ -223,7 +230,7 @@ void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget
     for (int index = 0; index < 4; ++index) {
         auto* bar = new ZzInfoBar(card);
         bar->setObjectName(QStringLiteral("infoBarInline%1").arg(index));
-        bar->setSeverity(static_cast<ZzInfoBar::Severity>(index));
+        bar->setSeverity(static_cast<ZzInfoBar::ZzInfoSeverity>(index));
         bar->setTitle(zzGaugeText(titles[index]));
         bar->setMessage(zzGaugeText(messages[index]));
         if (index == 0) {
@@ -263,9 +270,9 @@ void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget
         QObject::connect(button, &QPushButton::clicked, host, [host, index] {
             const int sequence = host->property("sequence").toInt() + 1;
             host->setProperty("sequence", sequence);
-            host->showInfoBar(static_cast<ZzInfoBar::Severity>((sequence - 1) % 4),
+            host->showInfoBar(static_cast<ZzInfoBar::ZzInfoSeverity>((sequence - 1) % 4),
                 zzGaugeText("通知 %1").arg(sequence), zzGaugeText("鼠标悬停可暂停自动关闭。"),
-                static_cast<ZzInfoBarHost::Position>(index));
+                static_cast<ZzInfoBarHost::ZzInfoBarPosition>(index));
         });
     }
     popupLayout->addLayout(grid);
@@ -273,7 +280,7 @@ void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget
     popupLayout->addWidget(burst);
     QObject::connect(burst, &QPushButton::clicked, host, [host] {
         for (int index = 0; index < 10; ++index)
-            host->showInfoBar(static_cast<ZzInfoBar::Severity>(index % 4),
+            host->showInfoBar(static_cast<ZzInfoBar::ZzInfoSeverity>(index % 4),
                 zzGaugeText("通知 %1").arg(index + 1),
                 zzGaugeText("空间不足时等待，关闭后依次补位。"));
     });
@@ -284,4 +291,10 @@ void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget
     mainLayout->addWidget(popupCard);
     buildInfoEditor(mainLayout, content, host);
 }
+
+void ZzExampleShowcasePagePrivate::buildInfoBar(QVBoxLayout* mainLayout, QWidget* content)
+{
+    ZzExampleInfoBarPage::build(this, mainLayout, content);
+}
+
 } // namespace ZzExample

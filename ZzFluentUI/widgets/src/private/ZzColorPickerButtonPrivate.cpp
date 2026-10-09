@@ -18,11 +18,20 @@
 
 namespace ZzFluentUI {
 namespace {
+
+/** @brief 弹层面板的圆角半径，单位逻辑像素。 */
+constexpr qreal zzPopupCornerRadius = 8.0;
+/** @brief 色块按钮的固定宽度，单位逻辑像素。 */
+constexpr int zzSwatchButtonWidth = 68;
+/** @brief 色块按钮的固定高度，单位逻辑像素。 */
+constexpr int zzSwatchButtonHeight = 32;
+/** @brief 弹层内容与边框的单像素内边距，单位逻辑像素。 */
+constexpr int zzPopupContentPadding = 1;
 /** @brief 绘制带主题边框的 Fluent 弹层，不拥有独立颜色状态。 */
-class ColorPickerPopup final : public QWidget
+class ZzColorPickerPopup final : public QWidget
 {
 public:
-    explicit ColorPickerPopup(QWidget *parent)
+    explicit ZzColorPickerPopup(QWidget *parent)
         : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint), theme(this)
     {
         setAttribute(Qt::WA_TranslucentBackground);
@@ -36,7 +45,7 @@ protected:
         const auto snapshot = theme.snapshot();
         painter.setBrush(snapshot->color(ZzColorToken::Surface));
         painter.setPen(snapshot->color(ZzColorToken::ControlStroke));
-        painter.drawRoundedRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5), 8, 8);
+        painter.drawRoundedRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5), zzPopupCornerRadius, zzPopupCornerRadius);
     }
     void changeEvent(QEvent *event) override
     {
@@ -52,17 +61,17 @@ private:
 } // namespace
 
 ZzColorPickerButtonPrivate::ZzColorPickerButtonPrivate(ZzColorPickerButton *q)
-    : QObject(q), q_ptr(q), popup(new ColorPickerPopup(q)),
+    : QObject(q), q_ptr(q), popup(new ZzColorPickerPopup(q)),
       scrollArea(new ZzScrollArea(popup)),
       picker(new ZzColorPicker(popup))
 {
-    q->setFixedSize(68, 32);
+    q->setFixedSize(zzSwatchButtonWidth, zzSwatchButtonHeight);
     q->setFocusPolicy(Qt::StrongFocus);
     q->setToolButtonStyle(Qt::ToolButtonTextOnly);
     picker->setAppearance(ZzColorPicker::Fluent);
     picker->setAlphaEnabled(true);
     auto *layout = new QVBoxLayout(popup);
-    layout->setContentsMargins(1, 1, 1, 1);
+    layout->setContentsMargins(zzPopupContentPadding, zzPopupContentPadding, zzPopupContentPadding, zzPopupContentPadding);
     // The popup must be smaller than the picker's minimum on small screens.
     // Keep that minimum on the scroll content, not on the top-level window.
     layout->setSizeConstraint(QLayout::SetNoConstraint);

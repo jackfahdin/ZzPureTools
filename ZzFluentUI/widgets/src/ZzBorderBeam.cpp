@@ -10,6 +10,27 @@
 
 namespace ZzFluentUI {
 
+namespace {
+
+/** @brief 浅色主题的默认背景色。 */
+constexpr char zzBeamBackgroundLight[] = "#F9F9F9";
+/** @brief 浅色主题的默认静态边框色。 */
+constexpr char zzBeamBorderLight[] = "#E5E5E5";
+/** @brief 浅色主题的默认光束拖尾色。 */
+constexpr char zzBeamTailLight[] = "#005FB8";
+/** @brief 浅色主题的默认光束头部色。 */
+constexpr char zzBeamHeadLight[] = "#60CDFF";
+/** @brief 深色主题的默认背景色。 */
+constexpr char zzBeamBackgroundDark[] = "#272727";
+/** @brief 深色主题的默认静态边框色。 */
+constexpr char zzBeamBorderDark[] = "#454545";
+/** @brief 深色主题的默认光束拖尾色。 */
+constexpr char zzBeamTailDark[] = "#60CDFF";
+/** @brief 深色主题的默认光束头部色。 */
+constexpr char zzBeamHeadDark[] = "#A5E5FF";
+
+} // namespace
+
 ZzBorderBeam::ZzBorderBeam(QWidget *parent)
     : QFrame(parent)
     , d_ptr(std::make_unique<ZzBorderBeamPrivate>(this))
@@ -140,9 +161,9 @@ void ZzBorderBeam::setInitialProgress(qreal value)
     Q_EMIT initialProgressChanged(value);
 }
 
-ZzBorderBeam::Direction ZzBorderBeam::direction() const { return d_ptr->direction; }
+ZzBorderBeam::ZzBeamDirection ZzBorderBeam::direction() const { return d_ptr->direction; }
 
-void ZzBorderBeam::setDirection(Direction value)
+void ZzBorderBeam::setDirection(ZzBeamDirection value)
 {
     if (value != Clockwise && value != CounterClockwise)
         return;
@@ -181,9 +202,9 @@ void ZzBorderBeam::setAnimationEnabled(bool value)
     Q_EMIT animationEnabledChanged(value);
 }
 
-ZzBorderBeam::ThemeMode ZzBorderBeam::themeMode() const { return d_ptr->themeMode; }
+ZzBorderBeam::ZzBeamThemeMode ZzBorderBeam::themeMode() const { return d_ptr->themeMode; }
 
-void ZzBorderBeam::setThemeMode(ThemeMode value)
+void ZzBorderBeam::setThemeMode(ZzBeamThemeMode value)
 {
     if (value != AutoTheme && value != LightTheme && value != DarkTheme)
         return;
@@ -200,18 +221,24 @@ void ZzBorderBeam::restartAnimation() { d_ptr->restart(); }
 QSize ZzBorderBeam::sizeHint() const { return QFrame::sizeHint().expandedTo(QSize(320, 180)); }
 QSize ZzBorderBeam::minimumSizeHint() const { return QFrame::minimumSizeHint().expandedTo(QSize(40, 40)); }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeam::defaultLightTheme()
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeam::defaultLightTheme()
 {
-    return { QColor("#F9F9F9"), QColor("#E5E5E5"), QColor("#005FB8"), QColor("#60CDFF") };
+    return { QColor::fromString(QLatin1String(zzBeamBackgroundLight)),
+             QColor::fromString(QLatin1String(zzBeamBorderLight)),
+             QColor::fromString(QLatin1String(zzBeamTailLight)),
+             QColor::fromString(QLatin1String(zzBeamHeadLight)) };
 }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeam::defaultDarkTheme()
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeam::defaultDarkTheme()
 {
-    return { QColor("#272727"), QColor("#454545"), QColor("#60CDFF"), QColor("#A5E5FF") };
+    return { QColor::fromString(QLatin1String(zzBeamBackgroundDark)),
+             QColor::fromString(QLatin1String(zzBeamBorderDark)),
+             QColor::fromString(QLatin1String(zzBeamTailDark)),
+             QColor::fromString(QLatin1String(zzBeamHeadDark)) };
 }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeam::lightTheme() const { return d_ptr->lightTheme; }
-void ZzBorderBeam::setLightTheme(const ThemeConfig &config)
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeam::lightTheme() const { return d_ptr->lightTheme; }
+void ZzBorderBeam::setLightTheme(const ZzBeamThemeConfig &config)
 {
     if (d_ptr->lightTheme == config)
         return;
@@ -220,8 +247,8 @@ void ZzBorderBeam::setLightTheme(const ThemeConfig &config)
     Q_EMIT lightThemeChanged();
 }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeam::darkTheme() const { return d_ptr->darkTheme; }
-void ZzBorderBeam::setDarkTheme(const ThemeConfig &config)
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeam::darkTheme() const { return d_ptr->darkTheme; }
+void ZzBorderBeam::setDarkTheme(const ZzBeamThemeConfig &config)
 {
     if (d_ptr->darkTheme == config)
         return;
@@ -230,7 +257,7 @@ void ZzBorderBeam::setDarkTheme(const ThemeConfig &config)
     Q_EMIT darkThemeChanged();
 }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeam::activeTheme() const { return d_ptr->activeTheme(); }
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeam::activeTheme() const { return d_ptr->activeTheme(); }
 
 void ZzBorderBeam::updateAnimationState()
 {

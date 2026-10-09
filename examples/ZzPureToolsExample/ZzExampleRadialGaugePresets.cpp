@@ -3,6 +3,26 @@
 
 namespace ZzExample {
 namespace {
+
+/** @brief 预置仪表盘样式集合的实现。 */
+class ZzExampleRadialGaugePresets final
+{
+public:
+    static void configureClassicGauge(ZzRadialGauge *gauge);
+    static void configureProgressGauge(ZzRadialGauge *gauge);
+    static void configureSpeedometerGauge(ZzRadialGauge *gauge);
+    static void configureEChartsBaseGauge(ZzRadialGauge *gauge);
+    static void configureEChartsBasicGauge(ZzRadialGauge *gauge);
+    static void configureEChartsSimpleGauge(ZzRadialGauge *gauge);
+    static void configureEChartsSpeedGauge(ZzRadialGauge *gauge);
+    static void configureEChartsProgressGauge(ZzRadialGauge *gauge);
+    static void configureEChartsStageGauge(ZzRadialGauge *gauge);
+    static void configureEChartsGradeGauge(ZzRadialGauge *gauge);
+    static void configureEChartsTemperatureGauge(ZzRadialGauge *gauge);
+    static void configureEChartsMultiTitleGauge(ZzMultiRadialGauge *gauge);
+    static void configureEChartsBarometerGauge(ZzRadialGauge *gauge);
+};
+
 /** @brief 预设中由主题派生的配色随主题更新，固定的示例色保持不变。 */
 class ZzGaugePresetTheme final : public QObject
 {
@@ -36,7 +56,7 @@ private:
 };
 }
 
-void configureClassicGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureClassicGauge(ZzRadialGauge *gauge)
 {
     gauge->setRange(0, 100);
     gauge->setValue(50);
@@ -71,7 +91,7 @@ void configureClassicGauge(ZzRadialGauge *gauge)
     });
 }
 
-void configureProgressGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureProgressGauge(ZzRadialGauge *gauge)
 {
     const QColor purple(QStringLiteral("#8067FF"));
     gauge->setRange(0, 100);
@@ -113,7 +133,7 @@ void configureProgressGauge(ZzRadialGauge *gauge)
     });
 }
 
-void configureSpeedometerGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureSpeedometerGauge(ZzRadialGauge *gauge)
 {
     const QColor cyan(QStringLiteral("#21BCE2"));
     const QColor amber(QStringLiteral("#FFB900"));
@@ -155,7 +175,7 @@ void configureSpeedometerGauge(ZzRadialGauge *gauge)
     gauge->setInteractive(true);
 }
 
-void configureEChartsBaseGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsBaseGauge(ZzRadialGauge *gauge)
 {
     gauge->setRange(0, 100);
     gauge->setValue(50);
@@ -183,7 +203,7 @@ void configureEChartsBaseGauge(ZzRadialGauge *gauge)
     gauge->setInteractive(true);
 }
 
-void configureEChartsBasicGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsBasicGauge(ZzRadialGauge *gauge)
 {
     const QColor blue(QStringLiteral("#5470C6"));
     configureEChartsBaseGauge(gauge);
@@ -193,7 +213,7 @@ void configureEChartsBasicGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsSimpleGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsSimpleGauge(ZzRadialGauge *gauge)
 {
     const QColor blue(QStringLiteral("#5470C6"));
     configureEChartsBaseGauge(gauge);
@@ -208,7 +228,7 @@ void configureEChartsSimpleGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsSpeedGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsSpeedGauge(ZzRadialGauge *gauge)
 {
     const QColor blue(QStringLiteral("#5470C6"));
     configureEChartsBaseGauge(gauge);
@@ -226,7 +246,7 @@ void configureEChartsSpeedGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsProgressGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsProgressGauge(ZzRadialGauge *gauge)
 {
     const QColor cyan(QStringLiteral("#45D1F5"));
     configureEChartsBaseGauge(gauge);
@@ -249,7 +269,7 @@ void configureEChartsProgressGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsStageGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsStageGauge(ZzRadialGauge *gauge)
 {
     const QColor cyan(QStringLiteral("#42D0D0"));
     configureEChartsBaseGauge(gauge);
@@ -270,7 +290,7 @@ void configureEChartsStageGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsGradeGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsGradeGauge(ZzRadialGauge *gauge)
 {
     const QColor cyan(QStringLiteral("#45D2E7"));
     configureEChartsBaseGauge(gauge);
@@ -297,7 +317,7 @@ void configureEChartsGradeGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsTemperatureGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsTemperatureGauge(ZzRadialGauge *gauge)
 {
     const QColor coral(QStringLiteral("#FF9678"));
     configureEChartsBaseGauge(gauge);
@@ -317,7 +337,7 @@ void configureEChartsTemperatureGauge(ZzRadialGauge *gauge)
     hideGaugeTrack(gauge);
 }
 
-void configureEChartsMultiTitleGauge(ZzMultiRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsMultiTitleGauge(ZzMultiRadialGauge *gauge)
 {
     gauge->setRange(0.0, 100.0);
     gauge->setMinimumAngle(-140.0);
@@ -350,7 +370,7 @@ void configureEChartsMultiTitleGauge(ZzMultiRadialGauge *gauge)
     gauge->setValueAnimationDuration(240);
 }
 
-void configureEChartsBarometerGauge(ZzRadialGauge *gauge)
+void ZzExampleRadialGaugePresets::configureEChartsBarometerGauge(ZzRadialGauge *gauge)
 {
     const QColor red(QStringLiteral("#E63746"));
     configureEChartsBaseGauge(gauge);
@@ -370,6 +390,72 @@ void configureEChartsBarometerGauge(ZzRadialGauge *gauge)
     gauge->setValuePosition(ZzRadialGauge::CenterValue);
     gauge->setValueFontPixelSize(16);
     setGaugeTrackColor(gauge, red);
+}
+
+
+void configureClassicGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureClassicGauge(gauge);
+}
+
+void configureProgressGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureProgressGauge(gauge);
+}
+
+void configureSpeedometerGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureSpeedometerGauge(gauge);
+}
+
+void configureEChartsBaseGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsBaseGauge(gauge);
+}
+
+void configureEChartsBasicGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsBasicGauge(gauge);
+}
+
+void configureEChartsSimpleGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsSimpleGauge(gauge);
+}
+
+void configureEChartsSpeedGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsSpeedGauge(gauge);
+}
+
+void configureEChartsProgressGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsProgressGauge(gauge);
+}
+
+void configureEChartsStageGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsStageGauge(gauge);
+}
+
+void configureEChartsGradeGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsGradeGauge(gauge);
+}
+
+void configureEChartsTemperatureGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsTemperatureGauge(gauge);
+}
+
+void configureEChartsMultiTitleGauge(ZzMultiRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsMultiTitleGauge(gauge);
+}
+
+void configureEChartsBarometerGauge(ZzRadialGauge *gauge)
+{
+    ZzExampleRadialGaugePresets::configureEChartsBarometerGauge(gauge);
 }
 
 } // namespace ZzExample

@@ -10,7 +10,7 @@
 #include <ZzFluentUI/ZzColorPickerDialog.h>
 
 namespace ZzExample {
-bool zzColorPickerPageReady(const QWidget &window)
+bool ZzExampleColorPickerSmoke::isPageReady(const QWidget &window)
 {
     using namespace ZzFluentUI;
     auto *page = window.findChild<QWidget *>(QStringLiteral("colorPickerContent"));

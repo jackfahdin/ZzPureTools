@@ -1,7 +1,18 @@
 #include "ZzExampleRadialGaugeHelpers.h"
 
 namespace ZzExample {
-void buildRadialGaugeEditor(
+namespace {
+
+/** @brief 装配径向仪表属性编辑器的实现。 */
+class ZzExampleRadialGaugeEditor final
+{
+public:
+    static void buildRadialGaugeEditor(QWidget *propertiesCard, QWidget *gaugePropertyPage, QVBoxLayout *gaugePropertyLayout);
+};
+
+} // namespace
+
+void ZzExampleRadialGaugeEditor::buildRadialGaugeEditor(
     QWidget *propertiesCard, QWidget *gaugePropertyPage, QVBoxLayout *gaugePropertyLayout)
 {
     auto *previewLayout = new QHBoxLayout;
@@ -337,7 +348,7 @@ void buildRadialGaugeEditor(
         labelColorButton->setEnabled(enabled);
     };
     const auto updateNeedleEditorState = [=] {
-        const auto style = static_cast<ZzRadialGauge::NeedleStyle>(needleStyleCombo->currentData().toInt());
+        const auto style = static_cast<ZzRadialGauge::ZzNeedleStyle>(needleStyleCombo->currentData().toInt());
         const bool needleEnabled = style != ZzRadialGauge::NoNeedle;
         needleWidthSlider->setEnabled(needleEnabled);
         needleLengthSlider->setEnabled(needleEnabled);
@@ -355,7 +366,7 @@ void buildRadialGaugeEditor(
     };
 
     QObject::connect(scaleModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), gauge, [=](int index) {
-        gauge->setScaleMode(static_cast<ZzRadialGauge::ScaleMode>(scaleModeCombo->itemData(index).toInt()));
+        gauge->setScaleMode(static_cast<ZzRadialGauge::ZzGaugeScaleMode>(scaleModeCombo->itemData(index).toInt()));
         updateRangeEditorState();
         updateGradientEditorState();
     });
@@ -382,7 +393,7 @@ void buildRadialGaugeEditor(
     QObject::connect(
         valuePositionCombo, qOverload<int>(&QComboBox::currentIndexChanged), gauge, [=](int index) {
             gauge->setValuePosition(
-                static_cast<ZzRadialGauge::ValuePosition>(valuePositionCombo->itemData(index).toInt()));
+                static_cast<ZzRadialGauge::ZzGaugeValuePosition>(valuePositionCombo->itemData(index).toInt()));
         });
     QObject::connect(titleEdit, &QLineEdit::textChanged, gauge, &ZzRadialGauge::setTitle);
     QObject::connect(unitEdit, &QLineEdit::textChanged, gauge, &ZzRadialGauge::setUnit);
@@ -428,7 +439,7 @@ void buildRadialGaugeEditor(
     QObject::connect(
         needleStyleCombo, qOverload<int>(&QComboBox::currentIndexChanged), gauge, [=](int index) {
             gauge->setNeedleStyle(
-                static_cast<ZzRadialGauge::NeedleStyle>(needleStyleCombo->itemData(index).toInt()));
+                static_cast<ZzRadialGauge::ZzNeedleStyle>(needleStyleCombo->itemData(index).toInt()));
             updateNeedleEditorState();
         });
     QObject::connect(hubVisibleCheck, &QCheckBox::toggled, gauge, &ZzRadialGauge::setHubVisible);
@@ -571,4 +582,10 @@ void buildRadialGaugeEditor(
                                       "gauge->addRange(80, 100, QColor(\"#FF6475\"));"));
     gaugePropertyLayout->addWidget(code);
 }
+
+void buildRadialGaugeEditor(QWidget *propertiesCard, QWidget *gaugePropertyPage, QVBoxLayout *gaugePropertyLayout)
+{
+    ZzExampleRadialGaugeEditor::buildRadialGaugeEditor(propertiesCard, gaugePropertyPage, gaugePropertyLayout);
+}
+
 } // namespace ZzExample

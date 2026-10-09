@@ -12,6 +12,25 @@
 #include <QtMath>
 #include <ZzFluentUI/ZzTimeline.h>
 namespace ZzFluentUI {
+namespace {
+
+/** @brief 已完成事件的默认节点颜色。 */
+constexpr char zzTimelineCompletedColor[] = "#107C10";
+/** @brief 告警事件的默认节点颜色。 */
+constexpr char zzTimelineWarningColor[] = "#F2A900";
+/** @brief 错误事件的默认节点颜色。 */
+constexpr char zzTimelineErrorColor[] = "#D13438";
+
+/** @brief 按 78:22 的比例把背景色调和到文字色，用于等待事件的默认节点颜色。 */
+QColor zzTimelinePendingColor(const QColor &base, const QColor &text)
+{
+    return QColor::fromRgb(qRound(base.red() * 0.78 + text.red() * 0.22),
+        qRound(base.green() * 0.78 + text.green() * 0.22),
+        qRound(base.blue() * 0.78 + text.blue() * 0.22));
+}
+
+} // namespace
+
 ZzTimeline::ZzTimeline(QWidget* parent)
     : QListView(parent)
     , d_ptr(std::make_unique<ZzTimelinePrivate>())
@@ -90,8 +109,8 @@ void ZzTimeline::setOrientation(Qt::Orientation value)
     refreshItemLayout();
     emit orientationChanged(value);
 }
-ZzTimeline::LayoutMode ZzTimeline::layoutMode() const { return d_ptr->layoutMode; }
-void ZzTimeline::setLayoutMode(LayoutMode value)
+ZzTimeline::ZzTimelineLayoutMode ZzTimeline::layoutMode() const { return d_ptr->layoutMode; }
+void ZzTimeline::setLayoutMode(ZzTimelineLayoutMode value)
 {
     if (value < ContentOnRight || value > AlternatingReverse || d_ptr->layoutMode == value)
         return;
@@ -171,7 +190,7 @@ void ZzTimeline::setAnimationDuration(int value)
 QList<ZzTimelineEvent*> ZzTimeline::events() const { return d_ptr->model->events(); }
 ZzTimelineEvent* ZzTimeline::eventAt(int visualIndex) const { return d_ptr->model->eventAt(visualIndex); }
 ZzTimelineEvent* ZzTimeline::addEvent(const QDateTime& timestamp, const QString& title,
-    const QString& description, ZzTimelineEvent::Status status)
+    const QString& description, ZzTimelineEvent::ZzTimelineStatus status)
 {
     auto* event = new ZzTimelineEvent(timestamp, title, description, status, this);
     QPointer<ZzTimeline> self(this);
@@ -335,18 +354,16 @@ QColor ZzTimeline::resolvedEventColor(const ZzTimelineEvent* event, QPalette::Co
         return palette().color(group, QPalette::Accent);
     switch (event->status()) {
     case ZzTimelineEvent::Completed:
-        return QColor(QStringLiteral("#107C10"));
+        return QColor::fromString(QLatin1String(zzTimelineCompletedColor));
     case ZzTimelineEvent::Pending: {
         const QColor base = palette().color(group, QPalette::Base);
         const QColor text = palette().color(group, QPalette::Text);
-        return QColor(qRound(base.red() * 0.78 + text.red() * 0.22),
-            qRound(base.green() * 0.78 + text.green() * 0.22),
-            qRound(base.blue() * 0.78 + text.blue() * 0.22));
+        return zzTimelinePendingColor(base, text);
     }
     case ZzTimelineEvent::Warning:
-        return QColor(QStringLiteral("#F2A900"));
+        return QColor::fromString(QLatin1String(zzTimelineWarningColor));
     case ZzTimelineEvent::Error:
-        return QColor(QStringLiteral("#D13438"));
+        return QColor::fromString(QLatin1String(zzTimelineErrorColor));
     default:
         return palette().color(group, QPalette::Accent);
     }

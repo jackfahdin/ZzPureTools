@@ -21,9 +21,16 @@ namespace {
         layout->addWidget(timeline);
         return sample;
     }
+    /** @brief 装配时间轴示例页内容，不持有控件所有权。 */
+    class ZzExampleTimelinePage final
+    {
+    public:
+        static void build(QVBoxLayout* mainLayout, QWidget* content);
+    };
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildTimeline(QVBoxLayout* mainLayout, QWidget* content)
+void ZzExampleTimelinePage::build(QVBoxLayout* mainLayout, QWidget* content)
 {
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(16);
@@ -222,7 +229,7 @@ void ZzExampleShowcasePagePrivate::buildTimeline(QVBoxLayout* mainLayout, QWidge
     QObject::connect(
         layoutModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), previewTimeline, [=](int) {
             previewTimeline->setLayoutMode(
-                static_cast<ZzTimeline::LayoutMode>(layoutModeCombo->currentData().toInt()));
+                static_cast<ZzTimeline::ZzTimelineLayoutMode>(layoutModeCombo->currentData().toInt()));
         });
     QObject::connect(reverseCheck, &QCheckBox::toggled, previewTimeline, &ZzTimeline::setReverse);
     QObject::connect(
@@ -345,4 +352,10 @@ void ZzExampleShowcasePagePrivate::buildTimeline(QVBoxLayout* mainLayout, QWidge
     mainLayout->addWidget(propertiesCard);
     mainLayout->addStretch();
 }
+
+void ZzExampleShowcasePagePrivate::buildTimeline(QVBoxLayout* mainLayout, QWidget* content)
+{
+    ZzExampleTimelinePage::build(mainLayout, content);
+}
+
 } // namespace ZzExample

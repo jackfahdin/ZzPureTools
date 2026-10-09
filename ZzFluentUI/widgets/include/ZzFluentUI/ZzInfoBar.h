@@ -23,10 +23,10 @@ class ZZ_FLUENT_UI_EXPORT ZzInfoBar final : public QWidget {
 
 public:
     /** @brief 状态通知级别。 */
-    enum Severity { Informational, Success, Warning, Error };
-    Q_ENUM(Severity)
+    enum ZzInfoSeverity { Informational, Success, Warning, Error };
+    Q_ENUM(ZzInfoSeverity)
 
-    Q_PROPERTY(Severity severity READ severity WRITE setSeverity NOTIFY severityChanged)
+    Q_PROPERTY(ZzInfoSeverity severity READ severity WRITE setSeverity NOTIFY severityChanged)
     Q_PROPERTY(QString title READ title WRITE setTitle NOTIFY titleChanged)
     Q_PROPERTY(QString message READ message WRITE setMessage NOTIFY messageChanged)
     Q_PROPERTY(QString actionButtonText READ actionButtonText WRITE setActionButtonText NOTIFY
@@ -43,8 +43,8 @@ public:
     explicit ZzInfoBar(QWidget* parent = nullptr);
     ~ZzInfoBar() override;
 
-    [[nodiscard]] Severity severity() const;
-    void setSeverity(Severity severity);
+    [[nodiscard]] ZzInfoSeverity severity() const;
+    void setSeverity(ZzInfoSeverity severity);
     [[nodiscard]] QString title() const;
     void setTitle(const QString& title);
     [[nodiscard]] QString message() const;
@@ -82,7 +82,7 @@ public Q_SLOTS:
     void dismiss();
 
 Q_SIGNALS:
-    void severityChanged(ZzInfoBar::Severity severity);
+    void severityChanged(ZzInfoBar::ZzInfoSeverity severity);
     void titleChanged(const QString& title);
     void messageChanged(const QString& message);
     void actionButtonTextChanged(const QString& text);

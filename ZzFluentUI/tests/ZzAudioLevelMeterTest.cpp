@@ -70,7 +70,7 @@ private Q_SLOTS:
         QCOMPARE(meter.scaleTickCount(), 2);
         meter.setScaleInterval(0);
         QCOMPARE(meter.scaleInterval(), 1.0);
-        meter.setScalePosition(static_cast<ZzAudioLevelMeter::ScalePosition>(99));
+        meter.setScalePosition(static_cast<ZzAudioLevelMeter::ZzMeterScalePosition>(99));
         QCOMPARE(meter.scalePosition(), ZzAudioLevelMeter::RightScale);
         meter.setCustomScaleValues({0, -10, -10, -100, std::numeric_limits<qreal>::infinity()});
         QCOMPARE(meter.customScaleValues(), QVector<qreal>({0, -10, -100}));

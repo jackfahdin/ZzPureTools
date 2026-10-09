@@ -94,8 +94,8 @@ class ZZ_FLUENT_UI_EXPORT ZzMultiRadialGauge final : public QWidget {
     Q_OBJECT
 
   public:
-    enum NeedleStyle { NoNeedle, LineNeedle, TriangleNeedle };
-    Q_ENUM(NeedleStyle)
+    enum ZzNeedleStyle { NoNeedle, LineNeedle, TriangleNeedle };
+    Q_ENUM(ZzNeedleStyle)
 
     /** @brief 所有数据项共用的最小值。 */
     Q_PROPERTY(qreal minimum READ minimum WRITE setMinimum NOTIFY minimumChanged)
@@ -339,13 +339,13 @@ class ZZ_FLUENT_UI_EXPORT ZzMultiRadialGauge final : public QWidget {
     Q_SIGNAL void labelColorChanged(QColor value);
 
     /** @brief 指针样式，所有数据项共用。 */
-    Q_PROPERTY(NeedleStyle needleStyle READ needleStyle WRITE setNeedleStyle NOTIFY needleStyleChanged)
+    Q_PROPERTY(ZzNeedleStyle needleStyle READ needleStyle WRITE setNeedleStyle NOTIFY needleStyleChanged)
     /** @brief 返回当前属性值。 */
-    [[nodiscard]] NeedleStyle needleStyle() const;
+    [[nodiscard]] ZzNeedleStyle needleStyle() const;
     /** @brief 设置属性，实际值变化时发出对应通知。 */
-    void setNeedleStyle(NeedleStyle value);
+    void setNeedleStyle(ZzNeedleStyle value);
     /** @brief 有效属性值实际变化时发出。 */
-    Q_SIGNAL void needleStyleChanged(NeedleStyle value);
+    Q_SIGNAL void needleStyleChanged(ZzNeedleStyle value);
 
     /** @brief 指针宽度。 */
     Q_PROPERTY(qreal needleWidth READ needleWidth WRITE setNeedleWidth NOTIFY needleWidthChanged)

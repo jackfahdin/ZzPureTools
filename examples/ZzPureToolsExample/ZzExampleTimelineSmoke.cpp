@@ -6,7 +6,7 @@
 #include <ZzFluentUI/ZzThemeController.h>
 
 namespace ZzExample {
-bool zzTimelinePageReady(const QWidget& window, ZzFluentUI::ZzThemeController* theme)
+bool ZzExampleTimelineSmoke::isPageReady(const QWidget& window, ZzFluentUI::ZzThemeController* theme)
 {
     auto* page = window.findChild<QWidget*>(QStringLiteral("zzExampleTimelinePage"));
     if (!page)

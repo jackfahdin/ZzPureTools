@@ -9,6 +9,7 @@
 #include <QStyleFactory>
 #include <QVariantAnimation>
 #include <QtTest>
+#include <ZzTestEventLoop.h>
 
 using namespace ZzFluentUI;
 
@@ -102,13 +103,13 @@ void ZzTimelineTest::externalDeletionAndParentChangeDetach()
     delete event;
     QCOMPARE(timeline.events().size(), 0);
     QCOMPARE(timeline.eventAt(0), nullptr);
-    QTRY_COMPARE(timeline.model()->rowCount(), 0);
+    ZZ_COMPARE_EVENTUALLY(timeline.model()->rowCount(), 0);
     QObject other;
     event = timeline.addEvent({}, QStringLiteral("Reparent"));
     event->setParent(&other);
     QCOMPARE(timeline.events().size(), 0);
     QCOMPARE(timeline.eventAt(0), nullptr);
-    QTRY_COMPARE(timeline.model()->rowCount(), 0);
+    ZZ_COMPARE_EVENTUALLY(timeline.model()->rowCount(), 0);
 }
 
 void ZzTimelineTest::callbackReparentDoesNotDeleteEvent()
@@ -169,7 +170,7 @@ void ZzTimelineTest::mouseClickReportsActualEvent()
     auto* second = timeline.addEvent({}, QStringLiteral("Second"));
     timeline.setReverse(true);
     timeline.show();
-    QTRY_VERIFY(timeline.visualRect(timeline.model()->index(0, 0)).isValid());
+    ZZ_VERIFY_EVENTUALLY(timeline.visualRect(timeline.model()->index(0, 0)).isValid());
     QSignalSpy clickSpy(&timeline, &ZzTimeline::eventClicked);
     QTest::mouseClick(
         timeline.viewport(), Qt::LeftButton, {}, timeline.visualRect(timeline.model()->index(0, 0)).center());
@@ -185,10 +186,10 @@ void ZzTimelineTest::orientationChangesItemGeometry()
     timeline.addEvent({}, QStringLiteral("First"));
     timeline.addEvent({}, QStringLiteral("Second"));
     timeline.show();
-    QTRY_VERIFY(timeline.visualRect(timeline.model()->index(0, 0)).isValid());
+    ZZ_VERIFY_EVENTUALLY(timeline.visualRect(timeline.model()->index(0, 0)).isValid());
     const QRect vertical = timeline.visualRect(timeline.model()->index(0, 0));
     timeline.setOrientation(Qt::Horizontal);
-    QTRY_VERIFY(timeline.visualRect(timeline.model()->index(0, 0)).width() < vertical.width());
+    ZZ_VERIFY_EVENTUALLY(timeline.visualRect(timeline.model()->index(0, 0)).width() < vertical.width());
     QCOMPARE(timeline.flow(), QListView::LeftToRight);
     QCOMPARE(timeline.visualRect(timeline.model()->index(0, 0)).width(), 240);
 }
@@ -201,7 +202,7 @@ void ZzTimelineTest::nodeAndRailProducePixels()
     timeline.addEvent({}, QStringLiteral("First"));
     timeline.addEvent({}, QStringLiteral("Second"));
     timeline.show();
-    QTRY_VERIFY(timeline.visualRect(timeline.model()->index(0, 0)).isValid());
+    ZZ_VERIFY_EVENTUALLY(timeline.visualRect(timeline.model()->index(0, 0)).isValid());
     const QImage image = timeline.viewport()->grab().toImage().convertToFormat(QImage::Format_RGB32);
     int redPixels = 0;
     for (int y = 0; y < image.height(); ++y)
@@ -253,7 +254,7 @@ void ZzTimelineTest::propertyCallbackMayDeleteEvent()
     QCOMPARE(itemSpy.size(), 0);
     QVERIFY(timeline.events().isEmpty());
     QCOMPARE(timeline.eventAt(0), nullptr);
-    QTRY_COMPARE(timeline.model()->rowCount(), 0);
+    ZZ_COMPARE_EVENTUALLY(timeline.model()->rowCount(), 0);
 }
 
 void ZzTimelineTest::externalDeleteNotificationMayDeleteTimeline()
@@ -351,7 +352,7 @@ void ZzTimelineTest::statusNodesUseReferenceColors()
     timeline.addEvent({}, QStringLiteral("Warning"), {}, ZzTimelineEvent::Warning);
     timeline.addEvent({}, QStringLiteral("Error"), {}, ZzTimelineEvent::Error);
     timeline.show();
-    QTRY_VERIFY(timeline.visualRect(timeline.model()->index(2, 0)).isValid());
+    ZZ_VERIFY_EVENTUALLY(timeline.visualRect(timeline.model()->index(2, 0)).isValid());
     const QImage image = timeline.viewport()->grab().toImage().convertToFormat(QImage::Format_RGB32);
     const QList<QColor> expected = { QColor(QStringLiteral("#107C10")), QColor(QStringLiteral("#F2A900")),
         QColor(QStringLiteral("#D13438")) };
@@ -415,7 +416,7 @@ void ZzTimelineTest::externalReparentDefersModelNotification()
     QVERIFY(!notifiedInside);
     QVERIFY(timeline.events().isEmpty());
     QCOMPARE(timeline.eventAt(0), nullptr);
-    QTRY_COMPARE(timeline.model()->rowCount(), 0);
+    ZZ_COMPARE_EVENTUALLY(timeline.model()->rowCount(), 0);
     QVERIFY(!alive);
 }
 
@@ -434,7 +435,7 @@ void ZzTimelineTest::externalDeleteDefersModelNotification()
     delete event;
     insideEventDelete = false;
     QVERIFY(!notifiedInside);
-    QTRY_VERIFY(!alive);
+    ZZ_VERIFY_EVENTUALLY(!alive);
 }
 
 void ZzTimelineTest::insertionCallbackTransfersInFlightEvent()
@@ -532,7 +533,7 @@ void ZzTimelineTest::themeReducedMotionStopsRunningPulse()
 
 void ZzTimelineTest::constructorRejectsInvalidStatus()
 {
-    ZzTimelineEvent event({}, QStringLiteral("Invalid"), {}, static_cast<ZzTimelineEvent::Status>(7));
+    ZzTimelineEvent event({}, QStringLiteral("Invalid"), {}, static_cast<ZzTimelineEvent::ZzTimelineStatus>(7));
     QCOMPARE(event.status(), ZzTimelineEvent::Normal);
 }
 
@@ -545,7 +546,7 @@ void ZzTimelineTest::detachedEventStopsOldTimelineNotifications()
     event->setParent(&other);
     event->setTitle(QStringLiteral("After"));
     QCOMPARE(changes.size(), 0);
-    QTRY_COMPARE(timeline.model()->rowCount(), 0);
+    ZZ_COMPARE_EVENTUALLY(timeline.model()->rowCount(), 0);
     QCOMPARE(changes.size(), 1);
     event->setTitle(QStringLiteral("Later"));
     QCOMPARE(changes.size(), 1);

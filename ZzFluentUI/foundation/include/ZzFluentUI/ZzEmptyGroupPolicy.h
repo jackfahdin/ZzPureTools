@@ -4,12 +4,10 @@
 
 #include <QtCore/QMetaType>
 
-#include <ZzFluentUI/ZzFluentFoundationExport.h>
-
 namespace ZzFluentUI {
 
 /** @brief 定义工作区空组的处理策略。 */
-enum class ZZ_FLUENT_FOUNDATION_EXPORT ZzEmptyGroupPolicy : std::uint8_t
+enum class ZzEmptyGroupPolicy : std::uint8_t
 {
     /** @brief 保留空组。 */
     Keep,

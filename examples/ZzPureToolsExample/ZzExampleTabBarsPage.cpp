@@ -246,9 +246,16 @@ private:
     QLabel *incoming_ = nullptr;
     QParallelAnimationGroup *animation_ = nullptr;
 };
+/** @brief 装配标签栏示例页内容，不持有控件所有权。 */
+class ZzExampleTabBarsPage final
+{
+public:
+    static void build(QVBoxLayout *layout, QWidget *parent);
+};
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildTabBars(QVBoxLayout *layout, QWidget *parent)
+void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
 {
     layout->setSpacing(15);
     auto *rtl = new QCheckBox(QStringLiteral("RTL"), parent);
@@ -411,4 +418,10 @@ void ZzExampleShowcasePagePrivate::buildTabBars(QVBoxLayout *layout, QWidget *pa
     row->addWidget(pages, 1);
     navigationCard->addLayout(row);
 }
+
+void ZzExampleShowcasePagePrivate::buildTabBars(QVBoxLayout *layout, QWidget *parent)
+{
+    ZzExampleTabBarsPage::build(layout, parent);
+}
+
 } // namespace ZzExample

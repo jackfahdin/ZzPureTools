@@ -31,6 +31,28 @@ namespace ZzFluentUI {
 
 namespace {
 
+/** @brief 沉浸式标题栏底部的渐变起始色（完全透明黑）。 */
+QColor zzImmersiveBandStart()
+{
+    return QColor::fromRgb(0, 0, 0, 0);;
+}
+/** @brief 沉浸式标题栏底部的渐变中间色。 */
+QColor zzImmersiveBandMiddle()
+{
+    return QColor::fromRgb(0, 0, 0, 110);;
+}
+/** @brief 沉浸式标题栏底部的渐变结束色。 */
+QColor zzImmersiveBandEnd()
+{
+    return QColor::fromRgb(0, 0, 0, 175);;
+}
+/** @brief 沉浸式标题栏的说明文字颜色。 */
+QColor zzImmersiveDescriptionText()
+{
+    return QColor::fromRgb(240, 240, 240, 220);;
+}
+
+
 constexpr int zzCarouselOuterMargin = 8;
 constexpr int zzCarouselIndicatorExtent = 24;
 constexpr int zzCarouselButtonExtent = 32;
@@ -520,9 +542,9 @@ public:
           option.rect.width(), std::min(bandHeight, option.rect.height()));
       if (immersive) {
         QLinearGradient gradient(bandRect.topLeft(), bandRect.bottomLeft());
-        gradient.setColorAt(0.0, QColor(0, 0, 0, 0));
-        gradient.setColorAt(0.4, QColor(0, 0, 0, 110));
-        gradient.setColorAt(1.0, QColor(0, 0, 0, 175));
+        gradient.setColorAt(0.0, zzImmersiveBandStart());
+        gradient.setColorAt(0.4, zzImmersiveBandMiddle());
+        gradient.setColorAt(1.0, zzImmersiveBandEnd());
         painter->fillRect(bandRect, gradient);
       } else {
         QColor bandColor = option.palette.color(group, QPalette::Window);
@@ -531,7 +553,7 @@ public:
       }
 
       painter->setFont(titleFont);
-      painter->setPen(immersive ? QColor(Qt::white)
+      painter->setPen(immersive ? QColorConstants::White
                                 : option.palette.color(group, QPalette::WindowText));
       if (immersive) {
         const int textLeft = option.rect.left() + 20;
@@ -547,7 +569,7 @@ public:
           QFont descriptionFont = option.font;
           descriptionFont.setPixelSize(12);
           painter->setFont(descriptionFont);
-          painter->setPen(QColor(240, 240, 240, 220));
+          painter->setPen(zzImmersiveDescriptionText());
           const QFontMetrics descriptionMetrics(descriptionFont);
           painter->drawText(
               QRect(textLeft, option.rect.bottom() - 32 - captionShift,
@@ -804,7 +826,7 @@ void ZzCarouselViewPrivate::enqueueRowChange(int row, bool defer) {
 void ZzCarouselViewPrivate::flushPendingRowChanges() {
   QPointer<ZzCarouselView> guard(q_ptr);
   while (!pendingRowChanges.empty()) {
-    const PendingRowChange change = pendingRowChanges.front();
+    const ZzPendingRowChange change = pendingRowChanges.front();
     pendingRowChanges.pop_front();
     if (change.revision != modelRevision) continue;
     reportCurrentRow(change.row);

@@ -76,7 +76,7 @@ void ZzTimelineModel::appendEvent(ZzTimelineEvent* event)
         return;
     if (m_mutating) {
         m_pendingAdds.insert(event);
-        m_pending.append({ Operation::Append, event, event, false });
+        m_pending.append({ ZzTimelineOperation::Append, event, event, false });
         return;
     }
     if (!m_owner || event->parent() != m_owner)
@@ -118,7 +118,7 @@ bool ZzTimelineModel::takeEvent(ZzTimelineEvent* event)
     }
     if (m_mutating) {
         m_invalid.insert(event);
-        m_pending.append({ Operation::Take, event, {}, false });
+        m_pending.append({ ZzTimelineOperation::Take, event, {}, false });
         return true;
     }
     const int row = int(m_reverse ? m_events.size() - 1 - source : source);
@@ -144,7 +144,7 @@ bool ZzTimelineModel::cancelPendingAppend(ZzTimelineEvent* event)
     if (!m_pendingAdds.remove(event))
         return false;
     for (qsizetype index = m_pending.size(); index > 0; --index)
-        if (m_pending.at(index - 1).type == Operation::Append && m_pending.at(index - 1).event == event)
+        if (m_pending.at(index - 1).type == ZzTimelineOperation::Append && m_pending.at(index - 1).event == event)
             m_pending.removeAt(index - 1);
     return true;
 }
@@ -153,7 +153,7 @@ QList<ZzTimelineEvent*> ZzTimelineModel::takeAllEvents()
     if (m_events.isEmpty())
         return {};
     if (m_mutating) {
-        m_pending.append({ Operation::Reset, nullptr, {}, false });
+        m_pending.append({ ZzTimelineOperation::Reset, nullptr, {}, false });
         return m_events;
     }
     m_mutating = true;
@@ -192,9 +192,9 @@ void ZzTimelineModel::setReverse(bool reverse)
 {
     if (m_mutating) {
         for (qsizetype index = m_pending.size(); index > 0; --index)
-            if (m_pending.at(index - 1).type == Operation::Reverse)
+            if (m_pending.at(index - 1).type == ZzTimelineOperation::Reverse)
                 m_pending.removeAt(index - 1);
-        m_pending.append({ Operation::Reverse, nullptr, {}, reverse });
+        m_pending.append({ ZzTimelineOperation::Reverse, nullptr, {}, reverse });
         return;
     }
     if (m_reverse == reverse)
@@ -215,20 +215,20 @@ void ZzTimelineModel::drainPending()
 {
     while (!m_mutating && !m_pending.isEmpty()) {
         QPointer<QObject> alive(this);
-        const PendingOperation operation = m_pending.takeFirst();
+        const ZzPendingTimelineOperation operation = m_pending.takeFirst();
         switch (operation.type) {
-        case Operation::Append:
+        case ZzTimelineOperation::Append:
             if (m_pendingAdds.remove(operation.event) && operation.liveEvent && m_owner
                 && operation.liveEvent->parent() == m_owner)
                 appendEvent(operation.liveEvent);
             break;
-        case Operation::Take:
+        case ZzTimelineOperation::Take:
             takeEvent(operation.event);
             break;
-        case Operation::Reset:
+        case ZzTimelineOperation::Reset:
             takeAllEvents();
             break;
-        case Operation::Reverse:
+        case ZzTimelineOperation::Reverse:
             setReverse(operation.reverse);
             break;
         }

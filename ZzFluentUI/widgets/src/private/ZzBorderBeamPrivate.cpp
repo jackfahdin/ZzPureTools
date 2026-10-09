@@ -66,7 +66,7 @@ void ZzBorderBeamPrivate::restart()
     widget->update();
 }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeamPrivate::activeTheme() const
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeamPrivate::activeTheme() const
 {
     const bool dark = themeMode == ZzBorderBeam::DarkTheme
         || (themeMode == ZzBorderBeam::AutoTheme
@@ -74,7 +74,7 @@ ZzBorderBeam::ThemeConfig ZzBorderBeamPrivate::activeTheme() const
     return dark ? darkTheme : lightTheme;
 }
 
-ZzBorderBeam::ThemeConfig ZzBorderBeamPrivate::resolvedTheme() const
+ZzBorderBeam::ZzBeamThemeConfig ZzBorderBeamPrivate::resolvedTheme() const
 {
     const auto palette = widget->palette();
     const auto group = widget->isEnabled() ? QPalette::Active : QPalette::Disabled;

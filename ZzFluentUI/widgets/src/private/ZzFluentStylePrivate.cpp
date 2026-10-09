@@ -2063,20 +2063,20 @@ void ZzFluentStylePrivate::drawProgressBar(
         painter->setPen(text);
         painter->setRenderHint(QPainter::TextAntialiasing, true);
         if (option->state.testFlag(QStyle::State_Horizontal)) {
-            painter->drawText(layout.labelRect, alignment, option->text);
+            painter->drawText(layout.labelRect, static_cast<int>(alignment.toInt()), option->text);
         } else if (option->bottomToTop) {
             painter->translate(labelRect.left(), labelRect.bottom());
             painter->rotate(-90.0);
             painter->drawText(
                 QRectF(0.0, 0.0, labelRect.height(), labelRect.width()),
-                alignment,
+                static_cast<int>(alignment.toInt()),
                 option->text);
         } else {
             painter->translate(labelRect.right(), labelRect.top());
             painter->rotate(90.0);
             painter->drawText(
                 QRectF(0.0, 0.0, labelRect.height(), labelRect.width()),
-                alignment,
+                static_cast<int>(alignment.toInt()),
                 option->text);
         }
         painter->restore();

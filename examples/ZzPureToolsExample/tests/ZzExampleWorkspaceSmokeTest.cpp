@@ -191,7 +191,7 @@ private Q_SLOTS:
         QTest::keyClicks(input, "#80112233");
         QTest::keyClick(input, Qt::Key_Return);
         QCOMPARE(picker->currentColor(), QColor("#80112233"));
-        QVERIFY(ZzExample::zzColorPickerPageReady(page));
+        QVERIFY(ZzExample::ZzExampleColorPickerSmoke::isPageReady(page));
         auto *tabs = picker->findChild<QTabBar *>(QStringLiteral("zzColorPickerTabs"));
         QVERIFY(tabs != nullptr);
         QCOMPARE(tabs->count(), 3);

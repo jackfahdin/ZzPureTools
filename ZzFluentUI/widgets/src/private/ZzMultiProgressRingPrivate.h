@@ -12,7 +12,7 @@ class ZzMultiProgressRingItemPrivate final {
     bool adoptionInProgress = false;
     QString label = QString();
     qreal value = 0.0;
-    QColor color = QColor();
+    QColor color;
 };
 
 /** @brief ZzMultiProgressRing 的私有属性与呈现状态。 */
@@ -27,10 +27,10 @@ class ZzMultiProgressRingPrivate final {
     qreal ringPadding = 12.0;
     Qt::PenCapStyle capStyle = Qt::RoundCap;
     bool trackVisible = false;
-    QColor trackColor = QColor();
+    QColor trackColor;
     bool detailsVisible = true;
     bool valueBadgeVisible = true;
-    QColor labelColor = QColor();
+    QColor labelColor;
     QString valueSuffix = QStringLiteral("%");
     int valueDecimals = 0;
     int labelFontPixelSize = 0;

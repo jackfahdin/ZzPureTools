@@ -11,14 +11,14 @@
 namespace ZzFluentUI {
 #if QT_CONFIG(accessibility)
 namespace {
-using Handle = ZzRangeSlider::Handle;
+using ZzSliderHandle = ZzRangeSlider::ZzSliderHandle;
 
 /** @brief 虚拟端点由 Qt 无障碍缓存拥有，不创建额外 QWidget。 */
 class ZzAccessibleRangeEndpoint final : public QAccessibleInterface,
     public QAccessibleValueInterface, public QAccessibleActionInterface
 {
 public:
-    ZzAccessibleRangeEndpoint(ZzRangeSlider *slider, Handle handle)
+    ZzAccessibleRangeEndpoint(ZzRangeSlider *slider, ZzSliderHandle handle)
         : slider_(slider), handle_(handle) {}
     bool isValid() const override { return !slider_.isNull(); }
     QObject *object() const override { return nullptr; }
@@ -47,7 +47,7 @@ public:
         if (type == QAccessible::Value) return slider_->locale().toString(currentValue().toInt());
         if (type == QAccessible::Name) {
             const auto suffix = QCoreApplication::translate("ZzRangeSlider",
-                handle_ == Handle::LowerHandle ? "下限" : "上限");
+                handle_ == ZzSliderHandle::LowerHandle ? "下限" : "上限");
             return slider_->accessibleName().isEmpty() ? suffix
                 : slider_->accessibleName() + QStringLiteral(" ") + suffix;
         }
@@ -61,7 +61,7 @@ public:
         if (!slider_ || !slider_->isVisible()) return {};
         const bool horizontal = slider_->orientation() == Qt::Horizontal;
         const qint64 span = qint64(slider_->maximum()) - slider_->minimum();
-        const int value = handle_ == Handle::LowerHandle
+        const int value = handle_ == ZzSliderHandle::LowerHandle
             ? slider_->lowerPosition() : slider_->upperPosition();
         qreal fraction = span ? qreal(qint64(value) - slider_->minimum()) / qreal(span) : 0;
         if (span && (!horizontal || slider_->layoutDirection() == Qt::RightToLeft))
@@ -79,11 +79,11 @@ public:
         return nullptr;
     }
     QVariant currentValue() const override
-    { return slider_ ? QVariant(handle_ == Handle::LowerHandle ? slider_->lowerValue() : slider_->upperValue()) : QVariant(); }
+    { return slider_ ? QVariant(handle_ == ZzSliderHandle::LowerHandle ? slider_->lowerValue() : slider_->upperValue()) : QVariant(); }
     QVariant minimumValue() const override
-    { return slider_ ? QVariant(handle_ == Handle::LowerHandle ? slider_->minimum() : slider_->lowerValue()) : QVariant(); }
+    { return slider_ ? QVariant(handle_ == ZzSliderHandle::LowerHandle ? slider_->minimum() : slider_->lowerValue()) : QVariant(); }
     QVariant maximumValue() const override
-    { return slider_ ? QVariant(handle_ == Handle::LowerHandle ? slider_->upperValue() : slider_->maximum()) : QVariant(); }
+    { return slider_ ? QVariant(handle_ == ZzSliderHandle::LowerHandle ? slider_->upperValue() : slider_->maximum()) : QVariant(); }
     QVariant minimumStepSize() const override
     { return slider_ ? QVariant(slider_->singleStep()) : QVariant(); }
     void setCurrentValue(const QVariant &value) override
@@ -94,7 +94,7 @@ public:
         if (!valid) return;
         const int bounded = int(std::clamp<qlonglong>(requested,
             minimumValue().toInt(), maximumValue().toInt()));
-        if (handle_ == Handle::LowerHandle) slider_->setLowerValue(bounded);
+        if (handle_ == ZzSliderHandle::LowerHandle) slider_->setLowerValue(bounded);
         else slider_->setUpperValue(bounded);
     }
     QStringList actionNames() const override
@@ -106,7 +106,7 @@ public:
         if (action == setFocusAction()) {
             // 焦点回调可能同步销毁控件及本虚拟接口，之后只使用局部保护。
             QPointer<ZzRangeSlider> slider = slider_;
-            const bool lower = handle_ == Handle::LowerHandle;
+            const bool lower = handle_ == ZzSliderHandle::LowerHandle;
             slider->setFocus(Qt::OtherFocusReason);
             if (!slider) return;
             const int key = slider->orientation() == Qt::Horizontal
@@ -122,7 +122,7 @@ public:
     }
 private:
     QPointer<ZzRangeSlider> slider_;
-    Handle handle_;
+    ZzSliderHandle handle_;
 };
 
 /** @brief 父接口管理两个虚拟子接口的缓存寿命，避免控件销毁后留下端点。 */
@@ -132,8 +132,8 @@ public:
     explicit ZzAccessibleRangeSlider(ZzRangeSlider *slider)
         : QAccessibleWidget(slider, QAccessible::Grouping), slider_(slider)
     {
-        ids_[0] = QAccessible::registerAccessibleInterface(new ZzAccessibleRangeEndpoint(slider, Handle::LowerHandle));
-        ids_[1] = QAccessible::registerAccessibleInterface(new ZzAccessibleRangeEndpoint(slider, Handle::UpperHandle));
+        ids_[0] = QAccessible::registerAccessibleInterface(new ZzAccessibleRangeEndpoint(slider, ZzSliderHandle::LowerHandle));
+        ids_[1] = QAccessible::registerAccessibleInterface(new ZzAccessibleRangeEndpoint(slider, ZzSliderHandle::UpperHandle));
     }
     ~ZzAccessibleRangeSlider() override
     { for (auto id : ids_) QAccessible::deleteAccessibleInterface(id); }
@@ -143,10 +143,10 @@ public:
     int indexOfChild(const QAccessibleInterface *item) const override
     { return item == child(0) ? 0 : item == child(1) ? 1 : -1; }
     QAccessibleInterface *focusChild() const override
-    { return slider_ && slider_->hasFocus() ? child(slider_->activeHandle() == Handle::UpperHandle ? 1 : 0) : nullptr; }
+    { return slider_ && slider_->hasFocus() ? child(slider_->activeHandle() == ZzSliderHandle::UpperHandle ? 1 : 0) : nullptr; }
     QAccessibleInterface *childAt(int x, int y) const override
     {
-        const int first = slider_ && slider_->activeHandle() == Handle::UpperHandle ? 1 : 0;
+        const int first = slider_ && slider_->activeHandle() == ZzSliderHandle::UpperHandle ? 1 : 0;
         for (int index : {first, 1 - first})
             if (auto *item = child(index); item && item->rect().contains(x, y)) return item;
         return nullptr;
@@ -164,7 +164,7 @@ QAccessibleInterface *zzRangeFactory(const QString &, QObject *object)
 } // namespace
 #endif
 
-void zzInstallRangeSliderAccessibility()
+void ZzRangeSliderAccessible::install()
 {
 #if QT_CONFIG(accessibility)
     static const bool installed = [] { QAccessible::installFactory(zzRangeFactory); return true; }();
@@ -172,12 +172,12 @@ void zzInstallRangeSliderAccessibility()
 #endif
 }
 
-void zzRangeSliderAccessibleValueChanged(ZzRangeSlider *slider, ZzRangeSlider::Handle handle, int value)
+void ZzRangeSliderAccessible::notifyValueChanged(ZzRangeSlider *slider, ZzRangeSlider::ZzSliderHandle handle, int value)
 {
 #if QT_CONFIG(accessibility)
     if (!QAccessible::isActive()) return;
     auto *root = QAccessible::queryAccessibleInterface(slider);
-    if (auto *endpoint = root ? root->child(handle == Handle::LowerHandle ? 0 : 1) : nullptr) {
+    if (auto *endpoint = root ? root->child(handle == ZzSliderHandle::LowerHandle ? 0 : 1) : nullptr) {
         QAccessibleValueChangeEvent event(endpoint, value);
         QAccessible::updateAccessibility(&event);
     }
@@ -186,7 +186,7 @@ void zzRangeSliderAccessibleValueChanged(ZzRangeSlider *slider, ZzRangeSlider::H
 #endif
 }
 
-void zzRangeSliderAccessibleFocusChanged(ZzRangeSlider *slider)
+void ZzRangeSliderAccessible::notifyFocusChanged(ZzRangeSlider *slider)
 {
 #if QT_CONFIG(accessibility)
     if (!QAccessible::isActive() || !slider->hasFocus()) return;

@@ -13,6 +13,17 @@
 
 namespace ZzFluentUI {
 
+namespace {
+
+/** @brief 透明棋盘格的浅格颜色。 */
+constexpr char zzCheckerLightColor[] = "#ffffff";
+/** @brief 透明棋盘格的深格颜色。 */
+constexpr char zzCheckerDarkColor[] = "#b8b8b8";
+/** @brief 色块与描边路径的圆角半径，单位逻辑像素。 */
+constexpr qreal zzSwatchCornerRadius = 3.0;
+
+} // namespace
+
 ZzColorPickerButton::ZzColorPickerButton(QWidget *parent)
     : QToolButton(parent)
     , d_ptr(std::make_unique<ZzColorPickerButtonPrivate>(this))
@@ -55,13 +66,14 @@ void ZzColorPickerButton::paintEvent(QPaintEvent *)
     swatch = QStyle::visualRect(layoutDirection(), rect(), swatch);
     painter.save();
     QPainterPath swatchPath;
-    swatchPath.addRoundedRect(swatch, 3, 3);
+    swatchPath.addRoundedRect(swatch, zzSwatchCornerRadius, zzSwatchCornerRadius);
     painter.setClipPath(swatchPath);
     constexpr int cell = 5;
     for (int y = swatch.top(); y <= swatch.bottom(); y += cell) {
         for (int x = swatch.left(); x <= swatch.right(); x += cell) {
             const int parity = ((x - swatch.left()) / cell + (y - swatch.top()) / cell) % 2;
-            painter.fillRect(QRect(x, y, cell, cell), QColor(parity ? "#b8b8b8" : "#ffffff"));
+            painter.fillRect(QRect(x, y, cell, cell),
+                QColor::fromString(QLatin1String(parity ? zzCheckerDarkColor : zzCheckerLightColor)));
         }
     }
     painter.restore();
@@ -69,7 +81,7 @@ void ZzColorPickerButton::paintEvent(QPaintEvent *)
     const QColor color = selectedColor();
     if (!isEnabled()) painter.setOpacity(.45);
     painter.setBrush(color);
-    painter.drawRoundedRect(swatch, 3, 3);
+    painter.drawRoundedRect(swatch, zzSwatchCornerRadius, zzSwatchCornerRadius);
     painter.setOpacity(1);
     painter.setFont(ZzSegoeIconFont::font(11));
     painter.setPen(palette().color(isEnabled() ? QPalette::Active : QPalette::Disabled, QPalette::ButtonText));

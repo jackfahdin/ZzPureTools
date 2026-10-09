@@ -1,5 +1,6 @@
 #include "ZzExampleShowcasePagePrivate.h"
-#include "ZzExampleCustomWidgetHelpers.h"
+#include "ZzExampleColorButton.h"
+#include "ZzExampleCustomCard.h"
 
 #include <QCoreApplication>
 #include <QPainter>
@@ -114,9 +115,16 @@ ZzBorderBeam *makeBeamSample(QWidget *parent, const QString &title, const QStrin
     return beam;
 }
 
+/** @brief 装配边框光束示例页内容，不持有控件所有权。 */
+class ZzExampleBorderBeamPage final
+{
+public:
+    static void build(QVBoxLayout *mainLayout, QWidget *content);
+};
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildBorderBeam(QVBoxLayout *mainLayout, QWidget *content)
+void ZzExampleBorderBeamPage::build(QVBoxLayout *mainLayout, QWidget *content)
 {
     mainLayout->setContentsMargins(16, 16, 16, 16);
     mainLayout->setSpacing(16);
@@ -310,12 +318,12 @@ void ZzExampleShowcasePagePrivate::buildBorderBeam(QVBoxLayout *mainLayout, QWid
     QObject::connect(directionCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), preview,
         [preview, directionCombo](int index) {
             preview->setDirection(
-                static_cast<ZzBorderBeam::Direction>(directionCombo->itemData(index).toInt()));
+                static_cast<ZzBorderBeam::ZzBeamDirection>(directionCombo->itemData(index).toInt()));
         });
     QObject::connect(
         themeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), preview, [=](int index) {
-            preview->setThemeMode(static_cast<ZzBorderBeam::ThemeMode>(themeCombo->itemData(index).toInt()));
-            const ZzBorderBeam::ThemeConfig theme = preview->activeTheme();
+            preview->setThemeMode(static_cast<ZzBorderBeam::ZzBeamThemeMode>(themeCombo->itemData(index).toInt()));
+            const ZzBorderBeam::ZzBeamThemeConfig theme = preview->activeTheme();
             if (!preview->startColor().isValid()) {
                 const QSignalBlocker blocker(startColorButton);
                 startColorButton->setSelectedColor(theme.startColor);
@@ -356,7 +364,7 @@ void ZzExampleShowcasePagePrivate::buildBorderBeam(QVBoxLayout *mainLayout, QWid
         preview->setEndColor(QColor());
         preview->setBackgroundColor(QColor());
         preview->setBorderColor(QColor());
-        const ZzBorderBeam::ThemeConfig theme = preview->activeTheme();
+        const ZzBorderBeam::ZzBeamThemeConfig theme = preview->activeTheme();
         const QSignalBlocker startBlocker(startColorButton);
         const QSignalBlocker endBlocker(endColorButton);
         const QSignalBlocker backgroundBlocker(backgroundColorButton);
@@ -368,6 +376,12 @@ void ZzExampleShowcasePagePrivate::buildBorderBeam(QVBoxLayout *mainLayout, QWid
         animationCheck->setChecked(true);
         preview->restartAnimation();
     });
+}
+
+
+void ZzExampleShowcasePagePrivate::buildBorderBeam(QVBoxLayout *mainLayout, QWidget *content)
+{
+    ZzExampleBorderBeamPage::build(mainLayout, content);
 }
 
 } // namespace ZzExample

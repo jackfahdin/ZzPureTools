@@ -11,9 +11,9 @@ class ZzAudioLevelMeterPrivate final
 {
 public:
     explicit ZzAudioLevelMeterPrivate(ZzAudioLevelMeter *widget);
-    using ScalePosition = ZzAudioLevelMeter::ScalePosition;
-    using ScaleMode = ZzAudioLevelMeter::ScaleMode;
-    using ColorMode = ZzAudioLevelMeter::ColorMode;
+    using ZzMeterScalePosition = ZzAudioLevelMeter::ZzMeterScalePosition;
+    using ZzMeterScaleMode = ZzAudioLevelMeter::ZzMeterScaleMode;
+    using ZzMeterColorMode = ZzAudioLevelMeter::ZzMeterColorMode;
     int channelCount = 2;
     qreal minimumDecibels = -60.0;
     qreal maximumDecibels = 0.0;
@@ -23,8 +23,8 @@ public:
     qreal segmentSpacing = 3.0;
     qreal segmentRadius = 2.0;
     qreal channelSpacing = 8.0;
-    ScalePosition scalePosition = ZzAudioLevelMeter::RightScale;
-    ScaleMode scaleMode = ZzAudioLevelMeter::IntervalScale;
+    ZzMeterScalePosition scalePosition = ZzAudioLevelMeter::RightScale;
+    ZzMeterScaleMode scaleMode = ZzAudioLevelMeter::IntervalScale;
     qreal scaleInterval = 10.0;
     int scaleTickCount = 7;
     QString scaleUnit = QStringLiteral("dB");
@@ -39,14 +39,14 @@ public:
     qreal peakDecayRate = 18.0;
     int inputTimeout = 120;
     bool animationEnabled = true;
-    ColorMode colorMode = ZzAudioLevelMeter::SingleColor;
-    QColor backgroundColor = QColor();
-    QColor activeColor = QColor();
-    QColor inactiveColor = QColor();
-    QColor warningColor = QColor();
-    QColor clipColor = QColor();
-    QColor peakColor = QColor();
-    QColor scaleColor = QColor();
+    ZzMeterColorMode colorMode = ZzAudioLevelMeter::SingleColor;
+    QColor backgroundColor;
+    QColor activeColor;
+    QColor inactiveColor;
+    QColor warningColor;
+    QColor clipColor;
+    QColor peakColor;
+    QColor scaleColor;
 
     ZzAudioLevelMeter *const q;
     QTimer timer;
@@ -58,13 +58,13 @@ public:
     QVector<qreal> customScaleValues;
     quint64 revision = 0;
 
-    struct Before {
+    struct ZzMeterSnapshot {
         int channels;
         QVector<qreal> levels, peaks;
         bool running;
     };
-    [[nodiscard]] Before before() const;
-    void publish(const Before &old, std::vector<std::function<void()>> notifications = {},
+    [[nodiscard]] ZzMeterSnapshot before() const;
+    void publish(const ZzMeterSnapshot &old, std::vector<std::function<void()>> notifications = {},
                  bool forcePeaks = false);
     void resizeStorage();
     [[nodiscard]] bool motionEnabled() const;

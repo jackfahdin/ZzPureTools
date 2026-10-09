@@ -36,9 +36,9 @@ class ZZ_FLUENT_UI_EXPORT ZzBorderBeamButton final : public QPushButton
     Q_PROPERTY(qreal progress READ progress)
 
 public:
-    using Direction = ZzBorderBeam::Direction;
-    using ThemeMode = ZzBorderBeam::ThemeMode;
-    using ThemeConfig = ZzBorderBeam::ThemeConfig;
+    using Direction = ZzBorderBeam::ZzBeamDirection;
+    using ThemeMode = ZzBorderBeam::ZzBeamThemeMode;
+    using ThemeConfig = ZzBorderBeam::ZzBeamThemeConfig;
     static constexpr Direction Clockwise = ZzBorderBeam::Clockwise;
     static constexpr Direction CounterClockwise = ZzBorderBeam::CounterClockwise;
     static constexpr ThemeMode AutoTheme = ZzBorderBeam::AutoTheme;

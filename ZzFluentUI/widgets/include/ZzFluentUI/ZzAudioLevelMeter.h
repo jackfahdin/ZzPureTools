@@ -23,14 +23,14 @@ class ZZ_FLUENT_UI_EXPORT ZzAudioLevelMeter final : public QWidget
     Q_DISABLE_COPY_MOVE(ZzAudioLevelMeter)
 public:
     /** @brief 刻度位置；CenterScale 在非双声道时等同 RightScale。 */
-    enum ScalePosition : int { NoScale, LeftScale, RightScale, CenterScale };
-    Q_ENUM(ScalePosition)
+    enum ZzMeterScalePosition : int { NoScale, LeftScale, RightScale, CenterScale };
+    Q_ENUM(ZzMeterScalePosition)
     /** @brief 刻度生成方式。 */
-    enum ScaleMode : int { IntervalScale, FixedTickCount, CustomScale };
-    Q_ENUM(ScaleMode)
+    enum ZzMeterScaleMode : int { IntervalScale, FixedTickCount, CustomScale };
+    Q_ENUM(ZzMeterScaleMode)
     /** @brief 激活分段配色。 */
-    enum ColorMode : int { SingleColor, ThresholdColors, GradientColors };
-    Q_ENUM(ColorMode)
+    enum ZzMeterColorMode : int { SingleColor, ThresholdColors, GradientColors };
+    Q_ENUM(ZzMeterColorMode)
 
     Q_PROPERTY(int channelCount READ channelCount WRITE setChannelCount NOTIFY channelCountChanged)
     Q_PROPERTY(qreal minimumDecibels READ minimumDecibels WRITE setMinimumDecibels NOTIFY minimumDecibelsChanged)
@@ -41,8 +41,8 @@ public:
     Q_PROPERTY(qreal segmentSpacing READ segmentSpacing WRITE setSegmentSpacing NOTIFY segmentSpacingChanged)
     Q_PROPERTY(qreal segmentRadius READ segmentRadius WRITE setSegmentRadius NOTIFY segmentRadiusChanged)
     Q_PROPERTY(qreal channelSpacing READ channelSpacing WRITE setChannelSpacing NOTIFY channelSpacingChanged)
-    Q_PROPERTY(ScalePosition scalePosition READ scalePosition WRITE setScalePosition NOTIFY scalePositionChanged)
-    Q_PROPERTY(ScaleMode scaleMode READ scaleMode WRITE setScaleMode NOTIFY scaleModeChanged)
+    Q_PROPERTY(ZzMeterScalePosition scalePosition READ scalePosition WRITE setScalePosition NOTIFY scalePositionChanged)
+    Q_PROPERTY(ZzMeterScaleMode scaleMode READ scaleMode WRITE setScaleMode NOTIFY scaleModeChanged)
     Q_PROPERTY(qreal scaleInterval READ scaleInterval WRITE setScaleInterval NOTIFY scaleIntervalChanged)
     Q_PROPERTY(int scaleTickCount READ scaleTickCount WRITE setScaleTickCount NOTIFY scaleTickCountChanged)
     Q_PROPERTY(QString scaleUnit READ scaleUnit WRITE setScaleUnit NOTIFY scaleUnitChanged)
@@ -57,7 +57,7 @@ public:
     Q_PROPERTY(qreal peakDecayRate READ peakDecayRate WRITE setPeakDecayRate NOTIFY peakDecayRateChanged)
     Q_PROPERTY(int inputTimeout READ inputTimeout WRITE setInputTimeout NOTIFY inputTimeoutChanged)
     Q_PROPERTY(bool animationEnabled READ isAnimationEnabled WRITE setAnimationEnabled NOTIFY animationEnabledChanged)
-    Q_PROPERTY(ColorMode colorMode READ colorMode WRITE setColorMode NOTIFY colorModeChanged)
+    Q_PROPERTY(ZzMeterColorMode colorMode READ colorMode WRITE setColorMode NOTIFY colorModeChanged)
     Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged)
     Q_PROPERTY(QColor activeColor READ activeColor WRITE setActiveColor NOTIFY activeColorChanged)
     Q_PROPERTY(QColor inactiveColor READ inactiveColor WRITE setInactiveColor NOTIFY inactiveColorChanged)
@@ -111,13 +111,13 @@ public:
     /** @brief 设置声道间距，限制为 0～40 逻辑像素。 */
     void setChannelSpacing(qreal value);
     /** @brief 刻度位置，中心刻度仅用于双声道。 默认值：RightScale。 */
-    [[nodiscard]] ScalePosition scalePosition() const;
+    [[nodiscard]] ZzMeterScalePosition scalePosition() const;
     /** @brief 设置刻度位置，中心刻度仅用于双声道。 */
-    void setScalePosition(ScalePosition value);
+    void setScalePosition(ZzMeterScalePosition value);
     /** @brief 刻度生成方式。 默认值：IntervalScale。 */
-    [[nodiscard]] ScaleMode scaleMode() const;
+    [[nodiscard]] ZzMeterScaleMode scaleMode() const;
     /** @brief 设置刻度生成方式。 */
-    void setScaleMode(ScaleMode value);
+    void setScaleMode(ZzMeterScaleMode value);
     /** @brief 刻度间隔，限制为 1～60 dB。 默认值：10.0。 */
     [[nodiscard]] qreal scaleInterval() const;
     /** @brief 设置刻度间隔，限制为 1～60 dB。 */
@@ -175,9 +175,9 @@ public:
     /** @brief 设置是否启用衰减动画；关闭后电平与峰值直接跟随输入。 */
     void setAnimationEnabled(bool value);
     /** @brief 激活分段的配色方式。 默认值：SingleColor。 */
-    [[nodiscard]] ColorMode colorMode() const;
+    [[nodiscard]] ZzMeterColorMode colorMode() const;
     /** @brief 设置激活分段的配色方式。 */
-    void setColorMode(ColorMode value);
+    void setColorMode(ZzMeterColorMode value);
     /** @brief 背景颜色；无效颜色使用主题默认值。 默认值：QColor()。 */
     [[nodiscard]] QColor backgroundColor() const;
     /** @brief 设置背景颜色；无效颜色使用主题默认值。 */
@@ -272,9 +272,9 @@ Q_SIGNALS:
     /** @brief channelSpacing 的有效值发生变化。 */
     void channelSpacingChanged(qreal value);
     /** @brief scalePosition 的有效值发生变化。 */
-    void scalePositionChanged(ScalePosition value);
+    void scalePositionChanged(ZzMeterScalePosition value);
     /** @brief scaleMode 的有效值发生变化。 */
-    void scaleModeChanged(ScaleMode value);
+    void scaleModeChanged(ZzMeterScaleMode value);
     /** @brief scaleInterval 的有效值发生变化。 */
     void scaleIntervalChanged(qreal value);
     /** @brief scaleTickCount 的有效值发生变化。 */
@@ -304,7 +304,7 @@ Q_SIGNALS:
     /** @brief animationEnabled 的有效值发生变化。 */
     void animationEnabledChanged(bool value);
     /** @brief colorMode 的有效值发生变化。 */
-    void colorModeChanged(ColorMode value);
+    void colorModeChanged(ZzMeterColorMode value);
     /** @brief backgroundColor 的有效值发生变化。 */
     void backgroundColorChanged(QColor value);
     /** @brief activeColor 的有效值发生变化。 */
@@ -338,6 +338,6 @@ protected:
 
 private:
     friend class ZzAudioLevelMeterPrivate;
-    std::unique_ptr<ZzAudioLevelMeterPrivate> d_;
+    std::unique_ptr<ZzAudioLevelMeterPrivate> d_ptr;
 };
 } // namespace ZzFluentUI

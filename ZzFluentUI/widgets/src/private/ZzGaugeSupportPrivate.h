@@ -24,7 +24,7 @@ inline QColor zzGaugeContrastingText(const QColor &background)
     };
     const qreal luminance = 0.2126 * linear(background.redF()) + 0.7152 * linear(background.greenF()) +
                             0.0722 * linear(background.blueF());
-    return luminance > 0.179 ? QColor(Qt::black) : QColor(Qt::white);
+    return luminance > 0.179 ? QColorConstants::Black : QColorConstants::White;
 }
 
 /** @brief 有限动画遵守可见、启用状态以及样式的减少动态效果偏好。 */

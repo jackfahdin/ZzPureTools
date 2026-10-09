@@ -71,7 +71,7 @@ private Q_SLOTS:
         beam.setInitialProgress(2);
         QCOMPARE(beam.initialProgress(), 1.0);
         QVERIFY(beam.progress() >= 0 && beam.progress() < 1);
-        beam.setDirection(static_cast<ZzBorderBeam::Direction>(99));
+        beam.setDirection(static_cast<ZzBorderBeam::ZzBeamDirection>(99));
         QCOMPARE(beam.direction(), ZzBorderBeam::Clockwise);
         beam.setAnimationEnabled(false);
         beam.resize(1, 1);

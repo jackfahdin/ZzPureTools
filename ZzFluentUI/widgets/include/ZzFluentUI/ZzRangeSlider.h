@@ -23,7 +23,7 @@ class ZZ_FLUENT_UI_EXPORT ZzRangeSlider final : public QWidget
     Q_PROPERTY(int singleStep READ singleStep WRITE setSingleStep)
     Q_PROPERTY(int pageStep READ pageStep WRITE setPageStep)
     Q_PROPERTY(Qt::Orientation orientation READ orientation WRITE setOrientation)
-    Q_PROPERTY(SnapMode snapMode READ snapMode WRITE setSnapMode)
+    Q_PROPERTY(ZzSnapMode snapMode READ snapMode WRITE setSnapMode)
     Q_PROPERTY(bool tickPosition READ hasTickPosition WRITE setTickPosition)
     Q_PROPERTY(int tickInterval READ tickInterval WRITE setTickInterval)
     Q_PROPERTY(bool tracking READ hasTracking WRITE setTracking)
@@ -31,10 +31,10 @@ class ZZ_FLUENT_UI_EXPORT ZzRangeSlider final : public QWidget
     Q_PROPERTY(bool handleFocusRingEnabled READ handleFocusRingEnabled WRITE setHandleFocusRingEnabled)
 
 public:
-    enum class SnapMode { NoSnap, SnapAlways, SnapOnRelease };
-    Q_ENUM(SnapMode)
-    enum class Handle { NoHandle, LowerHandle, UpperHandle };
-    Q_ENUM(Handle)
+    enum class ZzSnapMode { NoSnap, SnapAlways, SnapOnRelease };
+    Q_ENUM(ZzSnapMode)
+    enum class ZzSliderHandle { NoHandle, LowerHandle, UpperHandle };
+    Q_ENUM(ZzSliderHandle)
 
     explicit ZzRangeSlider(QWidget *parent = nullptr);
     explicit ZzRangeSlider(Qt::Orientation orientation, QWidget *parent = nullptr);
@@ -60,8 +60,8 @@ public:
     void setPageStep(int step);
     [[nodiscard]] Qt::Orientation orientation() const noexcept;
     void setOrientation(Qt::Orientation orientation);
-    [[nodiscard]] SnapMode snapMode() const noexcept;
-    void setSnapMode(SnapMode mode);
+    [[nodiscard]] ZzSnapMode snapMode() const noexcept;
+    void setSnapMode(ZzSnapMode mode);
     [[nodiscard]] bool hasTickPosition() const noexcept;
     void setTickPosition(bool enabled);
     [[nodiscard]] int tickInterval() const noexcept;
@@ -72,7 +72,7 @@ public:
     void setValueTipEnabled(bool enabled);
     [[nodiscard]] bool handleFocusRingEnabled() const noexcept;
     void setHandleFocusRingEnabled(bool enabled);
-    [[nodiscard]] Handle activeHandle() const noexcept;
+    [[nodiscard]] ZzSliderHandle activeHandle() const noexcept;
 
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;
@@ -82,8 +82,8 @@ Q_SIGNALS:
     void upperValueChanged(int value);
     void valuesChanged(int lower, int upper);
     void rangeChanged(int minimum, int maximum);
-    void sliderPressed(ZzRangeSlider::Handle handle);
-    void sliderReleased(ZzRangeSlider::Handle handle);
+    void sliderPressed(ZzRangeSlider::ZzSliderHandle handle);
+    void sliderReleased(ZzRangeSlider::ZzSliderHandle handle);
     void sliderMoved(int lower, int upper);
 
 protected:

@@ -18,7 +18,7 @@ public:
     explicit ZzInfoBarPopupSurface(QWidget* parent);
     void setInfoBar(ZzInfoBar* bar);
     void moveTo(const QPoint& target, bool animate, int duration);
-    void startEnter(ZzInfoBarHost::Position position);
+    void startEnter(ZzInfoBarHost::ZzInfoBarPosition position);
     void startLeave(std::function<void()> finished);
     void cancelLeave();
     void deactivateForQueue();

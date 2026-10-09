@@ -17,12 +17,12 @@ ZzColorPicker::ZzColorPicker(QWidget *parent)
 
 ZzColorPicker::~ZzColorPicker() = default;
 
-ZzColorPicker::Appearance ZzColorPicker::appearance() const noexcept
+ZzColorPicker::ZzColorPickerAppearance ZzColorPicker::appearance() const noexcept
 {
     return d_ptr->appearance;
 }
 
-void ZzColorPicker::setAppearance(Appearance value)
+void ZzColorPicker::setAppearance(ZzColorPickerAppearance value)
 {
     if (d_ptr->appearance == value || (value != Compact && value != Fluent)) {
         return;
@@ -32,12 +32,12 @@ void ZzColorPicker::setAppearance(Appearance value)
     Q_EMIT appearanceChanged(value);
 }
 
-ZzColorPicker::ColorRepresentation ZzColorPicker::colorRepresentation() const noexcept
+ZzColorPicker::ZzColorRepresentation ZzColorPicker::colorRepresentation() const noexcept
 {
     return d_ptr->representation;
 }
 
-void ZzColorPicker::setColorRepresentation(ColorRepresentation value)
+void ZzColorPicker::setColorRepresentation(ZzColorRepresentation value)
 {
     if (d_ptr->representation == value || (value != Rgba && value != Hsva)) {
         return;
@@ -47,12 +47,12 @@ void ZzColorPicker::setColorRepresentation(ColorRepresentation value)
     Q_EMIT colorRepresentationChanged(value);
 }
 
-ZzColorPicker::ColorSpectrumShape ZzColorPicker::colorSpectrumShape() const noexcept
+ZzColorPicker::ZzColorSpectrumShape ZzColorPicker::colorSpectrumShape() const noexcept
 {
     return d_ptr->shape;
 }
 
-void ZzColorPicker::setColorSpectrumShape(ColorSpectrumShape value)
+void ZzColorPicker::setColorSpectrumShape(ZzColorSpectrumShape value)
 {
     if (d_ptr->shape == value || (value != Box && value != Ring)) {
         return;

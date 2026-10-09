@@ -6,7 +6,7 @@
 
 namespace ZzFluentUI {
 namespace {
-    bool topPosition(ZzInfoBarHost::Position position)
+    bool topPosition(ZzInfoBarHost::ZzInfoBarPosition position)
     {
         return position == ZzInfoBarHost::TopLeft || position == ZzInfoBarHost::Top
             || position == ZzInfoBarHost::TopRight;
@@ -112,7 +112,7 @@ int ZzInfoBarHostPrivate::surfaceHeight(const Entry* entry, int width) const
 }
 
 QVector<ZzInfoBarHostPrivate::Entry*> ZzInfoBarHostPrivate::activeEntries(
-    ZzInfoBarHost::Position position) const
+    ZzInfoBarHost::ZzInfoBarPosition position) const
 {
     QVector<Entry*> result;
     for (Entry* entry : entries) {
@@ -123,7 +123,7 @@ QVector<ZzInfoBarHostPrivate::Entry*> ZzInfoBarHostPrivate::activeEntries(
     return result;
 }
 
-int ZzInfoBarHostPrivate::horizontalPosition(ZzInfoBarHost::Position position, int width) const
+int ZzInfoBarHostPrivate::horizontalPosition(ZzInfoBarHost::ZzInfoBarPosition position, int width) const
 {
     if (position == ZzInfoBarHost::Top || position == ZzInfoBarHost::Bottom)
         return (target->width() - width) / 2;
@@ -132,7 +132,7 @@ int ZzInfoBarHostPrivate::horizontalPosition(ZzInfoBarHost::Position position, i
     return margin;
 }
 
-void ZzInfoBarHostPrivate::fitActiveEntries(ZzInfoBarHost::Position position)
+void ZzInfoBarHostPrivate::fitActiveEntries(ZzInfoBarHost::ZzInfoBarPosition position)
 {
     if (!target)
         return;
@@ -159,7 +159,7 @@ void ZzInfoBarHostPrivate::fitActiveEntries(ZzInfoBarHost::Position position)
     }
 }
 
-void ZzInfoBarHostPrivate::repositionPosition(ZzInfoBarHost::Position position, bool animate)
+void ZzInfoBarHostPrivate::repositionPosition(ZzInfoBarHost::ZzInfoBarPosition position, bool animate)
 {
     if (!target)
         return;
@@ -186,7 +186,7 @@ void ZzInfoBarHostPrivate::repositionPosition(ZzInfoBarHost::Position position, 
     }
 }
 
-bool ZzInfoBarHostPrivate::activatePending(ZzInfoBarHost::Position position, bool animateExisting)
+bool ZzInfoBarHostPrivate::activatePending(ZzInfoBarHost::ZzInfoBarPosition position, bool animateExisting)
 {
     if (!target || !target->isVisible())
         return false;
@@ -275,7 +275,7 @@ void ZzInfoBarHostPrivate::repositionAll(bool animate)
     for (int index = 0; index < 6; ++index) {
         if (!hostGuard)
             return;
-        const auto position = static_cast<ZzInfoBarHost::Position>(index);
+        const auto position = static_cast<ZzInfoBarHost::ZzInfoBarPosition>(index);
         fitActiveEntries(position);
         if (!hostGuard)
             return;

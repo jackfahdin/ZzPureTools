@@ -1,7 +1,18 @@
 #include "ZzExampleRadialGaugeHelpers.h"
 
 namespace ZzExample {
-void buildRadialRingEditor(QWidget *ringPropertyPage, QVBoxLayout *ringPropertyLayout)
+namespace {
+
+/** @brief 装配多环进度环属性编辑器的实现。 */
+class ZzExampleRadialRingEditor final
+{
+public:
+    static void buildRadialRingEditor(QWidget *ringPropertyPage, QVBoxLayout *ringPropertyLayout);
+};
+
+} // namespace
+
+void ZzExampleRadialRingEditor::buildRadialRingEditor(QWidget *ringPropertyPage, QVBoxLayout *ringPropertyLayout)
 {
     auto *ringPreviewLayout = new QHBoxLayout;
     ringPreviewLayout->setSpacing(32);
@@ -233,4 +244,10 @@ void buildRadialRingEditor(QWidget *ringPropertyPage, QVBoxLayout *ringPropertyL
     ringPropertyLayout->addWidget(ringHint);
     ringPropertyLayout->addStretch();
 }
+
+void buildRadialRingEditor(QWidget *ringPropertyPage, QVBoxLayout *ringPropertyLayout)
+{
+    ZzExampleRadialRingEditor::buildRadialRingEditor(ringPropertyPage, ringPropertyLayout);
+}
+
 } // namespace ZzExample

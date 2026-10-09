@@ -21,7 +21,7 @@ void zzReadPeaks(const QAudioBuffer &buffer, QVector<qreal> &peaks, Normalize no
 }
 } // namespace
 
-QVector<qreal> zzAudioBufferLevels(const QAudioBuffer &buffer)
+QVector<qreal> ZzExampleAudioLevels::peaks(const QAudioBuffer &buffer)
 {
     if (!buffer.isValid() || buffer.frameCount() <= 0 || buffer.format().channelCount() <= 0)
         return {};

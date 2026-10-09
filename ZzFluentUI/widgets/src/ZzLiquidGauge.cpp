@@ -1,6 +1,6 @@
 #include <ZzFluentUI/ZzLiquidGauge.h>
 
-#include "private/ZzGaugeSupport_p.h"
+#include "private/ZzGaugeSupportPrivate.h"
 #include "private/ZzLiquidGaugePrivate.h"
 
 #include <QEvent>
@@ -50,11 +50,11 @@ ZzLiquidGauge::ZzLiquidGauge(QWidget *parent)
 
 ZzLiquidGauge::~ZzLiquidGauge() = default;
 
-ZzLiquidGauge::Shape ZzLiquidGauge::shape() const { return d_ptr->shape; }
+ZzLiquidGauge::ZzLiquidShape ZzLiquidGauge::shape() const { return d_ptr->shape; }
 bool ZzLiquidGauge::isAnimationEnabled() const { return d_ptr->animationEnabled; }
 bool ZzLiquidGauge::isRunning() const { return d_ptr->timer.isActive(); }
 
-void ZzLiquidGauge::setShape(Shape value)
+void ZzLiquidGauge::setShape(ZzLiquidShape value)
 {
     if (value < CircleShape || value > TriangleShape || d_ptr->shape == value) return;
     d_ptr->shape = value;

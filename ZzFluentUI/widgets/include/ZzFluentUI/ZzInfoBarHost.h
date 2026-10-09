@@ -16,8 +16,8 @@ class ZZ_FLUENT_UI_EXPORT ZzInfoBarHost final : public QObject {
 
 public:
     /** @brief 六个独立的浮动通知锚点。 */
-    enum Position { TopLeft, Top, TopRight, BottomLeft, Bottom, BottomRight };
-    Q_ENUM(Position)
+    enum ZzInfoBarPosition { TopLeft, Top, TopRight, BottomLeft, Bottom, BottomRight };
+    Q_ENUM(ZzInfoBarPosition)
 
     Q_PROPERTY(int margin READ margin WRITE setMargin NOTIFY marginChanged)
     Q_PROPERTY(int spacing READ spacing WRITE setSpacing NOTIFY spacingChanged)
@@ -45,24 +45,24 @@ public:
     void setDefaultTimeout(int milliseconds);
 
     /** @brief 创建并托管通知；负超时使用默认值，零超时持续展示。 */
-    ZzInfoBar* showInfoBar(ZzInfoBar::Severity severity, const QString& title,
-        const QString& message, Position position = TopRight, int timeout = -1);
+    ZzInfoBar* showInfoBar(ZzInfoBar::ZzInfoSeverity severity, const QString& title,
+        const QString& message, ZzInfoBarPosition position = TopRight, int timeout = -1);
     /** @brief 接管信息栏；关闭后自动销毁。 */
-    void addInfoBar(ZzInfoBar* infoBar, Position position = TopRight, int timeout = -1);
+    void addInfoBar(ZzInfoBar* infoBar, ZzInfoBarPosition position = TopRight, int timeout = -1);
 
 public Q_SLOTS:
     /** @brief 关闭所有活动项及等待项。 */
     void dismissAll();
     /** @brief 关闭指定锚点的活动项及等待项。 */
-    void dismissAll(ZzInfoBarHost::Position position);
+    void dismissAll(ZzInfoBarHost::ZzInfoBarPosition position);
 
 Q_SIGNALS:
     void marginChanged(int margin);
     void spacingChanged(int spacing);
     void maximumWidthChanged(int width);
     void defaultTimeoutChanged(int milliseconds);
-    void infoBarShown(ZzInfoBar* infoBar, ZzInfoBarHost::Position position);
-    void infoBarClosed(ZzInfoBar* infoBar, ZzInfoBarHost::Position position);
+    void infoBarShown(ZzInfoBar* infoBar, ZzInfoBarHost::ZzInfoBarPosition position);
+    void infoBarClosed(ZzInfoBar* infoBar, ZzInfoBarHost::ZzInfoBarPosition position);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

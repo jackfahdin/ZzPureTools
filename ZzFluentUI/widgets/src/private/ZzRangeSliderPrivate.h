@@ -28,15 +28,15 @@ public:
     int singleStep = 1;
     int pageStep = 10;
     Qt::Orientation orientation = Qt::Horizontal;
-    ZzRangeSlider::SnapMode snapMode = ZzRangeSlider::SnapMode::NoSnap;
-    ZzRangeSlider::Handle active = ZzRangeSlider::Handle::LowerHandle;
+    ZzRangeSlider::ZzSnapMode snapMode = ZzRangeSlider::ZzSnapMode::NoSnap;
+    ZzRangeSlider::ZzSliderHandle active = ZzRangeSlider::ZzSliderHandle::LowerHandle;
     bool ticks = true;
     int tickInterval = 10;
     bool tracking = true;
     bool valueTip = false;
     bool focusRing = false;
-    ZzRangeSlider::Handle hovered = ZzRangeSlider::Handle::NoHandle;
-    ZzRangeSlider::Handle pressed = ZzRangeSlider::Handle::NoHandle;
+    ZzRangeSlider::ZzSliderHandle hovered = ZzRangeSlider::ZzSliderHandle::NoHandle;
+    ZzRangeSlider::ZzSliderHandle pressed = ZzRangeSlider::ZzSliderHandle::NoHandle;
     qreal pressOffset = 0.0;
     bool coincidentPress = false;
     /** @brief 即使端点切换暂时无 pressed，也记录回调取消。 */
@@ -49,17 +49,17 @@ public:
     [[nodiscard]] int valueAt(qreal position) const;
     [[nodiscard]] int snapped(int value) const;
     [[nodiscard]] QPointF center(int value) const;
-    [[nodiscard]] ZzRangeSlider::Handle handleAt(const QPointF &point) const;
-    [[nodiscard]] ZzRangeSlider::Handle nearestHandle(const QPointF &point) const;
+    [[nodiscard]] ZzRangeSlider::ZzSliderHandle handleAt(const QPointF &point) const;
+    [[nodiscard]] ZzRangeSlider::ZzSliderHandle nearestHandle(const QPointF &point) const;
     void commit(int lowerValue, int upperValue, bool user);
     void notifyValues();
-    void preview(ZzRangeSlider::Handle handle, int value);
+    void preview(ZzRangeSlider::ZzSliderHandle handle, int value);
     void cancelDrag();
     void showTip();
     void hideTip();
-    void animateHandle(ZzRangeSlider::Handle handle);
-    [[nodiscard]] qreal innerRadius(ZzRangeSlider::Handle handle) const;
-    void accessibleValueChanged(ZzRangeSlider::Handle handle, int value);
+    void animateHandle(ZzRangeSlider::ZzSliderHandle handle);
+    [[nodiscard]] qreal innerRadius(ZzRangeSlider::ZzSliderHandle handle) const;
+    void accessibleValueChanged(ZzRangeSlider::ZzSliderHandle handle, int value);
     void accessibleFocusChanged();
 };
 

@@ -7812,7 +7812,7 @@ private Q_SLOTS:
             for (int column = 0; column < 2; ++column) {
                 auto *bar = new InfoBar(&surface);
                 bar->setAnimationEnabled(false);
-                bar->setSeverity(static_cast<InfoBar::Severity>(row));
+                bar->setSeverity(static_cast<InfoBar::ZzInfoSeverity>(row));
                 bar->setTitle(titles.at(row));
                 bar->setMessage(messages.at(row));
                 if (row == 0) bar->setActionButtonText(QStringLiteral("View update"));
@@ -7874,7 +7874,7 @@ private Q_SLOTS:
             QStringLiteral("Current"), QStringLiteral("Pending"), QStringLiteral("Warning"), QStringLiteral("Error")};
         for (int panel = 0; panel < 6; ++panel) {
             auto *timeline = new Timeline(&surface);
-            timeline->setLayoutMode(static_cast<Timeline::LayoutMode>(panel % 4));
+            timeline->setLayoutMode(static_cast<Timeline::ZzTimelineLayoutMode>(panel % 4));
             timeline->setAnimationEnabled(false);
             timeline->setTimestampWidth(75);
             timeline->setItemSpacing(6);
@@ -7888,7 +7888,7 @@ private Q_SLOTS:
             const int count = panel < 4 ? 6 : 3;
             for (int index = 0; index < count; ++index) {
                 auto *event = timeline->addEvent({}, titles.at(index), QStringLiteral("Event details"),
-                    static_cast<Event::Status>(index));
+                    static_cast<Event::ZzTimelineStatus>(index));
                 event->setTimeText(QStringLiteral("10:%1").arg(index * 10, 2, 10, QLatin1Char('0')));
                 if (panel == 2 && index == 0) event->setIcon(ZzFluentUI::ZzSegoeIcon::Settings);
                 if (panel == 2 && index == 3) event->setPlacement(Event::RightSide);
@@ -8013,7 +8013,7 @@ private Q_SLOTS:
             auto *gauge = new Gauge(&surface);
             gauge->setFixedSize(160, 160);
             gauge->setAnimationEnabled(false);
-            gauge->setShape(static_cast<Gauge::Shape>(index % 4));
+            gauge->setShape(static_cast<Gauge::ZzLiquidShape>(index % 4));
             gauge->setRange(0, 100);
             gauge->setValue(index < 4 ? 50 : index == 4 ? 0 : index == 5 ? 100 : 68);
             if (index < 4) gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(index))));
@@ -8081,7 +8081,7 @@ private Q_SLOTS:
             gauge->setNeedleLength(0.62);
             gauge->setTitle(QStringLiteral("SCORE"));
             gauge->setValueFontPixelSize(23);
-            gauge->setScaleMode(static_cast<ZzRadialGauge::ScaleMode>(index % 3));
+            gauge->setScaleMode(static_cast<ZzRadialGauge::ZzGaugeScaleMode>(index % 3));
             if (index == 0) {
                 gauge->setMinimumAngle(-140);
                 gauge->setMaximumAngle(140);
@@ -8187,7 +8187,7 @@ private Q_SLOTS:
             auto *meter = new Meter(&surface);
             meter->setFixedSize(244, 282);
             meter->setAnimationEnabled(false);
-            meter->setColorMode(static_cast<Meter::ColorMode>(index % 3));
+            meter->setColorMode(static_cast<Meter::ZzMeterColorMode>(index % 3));
             if (index == 0) {
                 meter->setLevel(-18);
             } else if (index == 1) {

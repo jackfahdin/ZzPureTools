@@ -17,7 +17,7 @@ public:
     struct ZzInfoBarHostEntry {
         QPointer<ZzInfoBar> bar;
         QPointer<ZzInfoBarPopupSurface> surface;
-        ZzInfoBarHost::Position position = ZzInfoBarHost::TopRight;
+        ZzInfoBarHost::ZzInfoBarPosition position = ZzInfoBarHost::TopRight;
         QPointer<QTimer> timer;
         QElapsedTimer elapsed;
         int timeout = 0;
@@ -36,11 +36,11 @@ public:
     void removeEntry(Entry* entry, bool preserveBar = false);
     int surfaceWidth() const;
     int surfaceHeight(const Entry* entry, int width) const;
-    QVector<Entry*> activeEntries(ZzInfoBarHost::Position position) const;
-    int horizontalPosition(ZzInfoBarHost::Position position, int width) const;
-    void fitActiveEntries(ZzInfoBarHost::Position position);
-    void repositionPosition(ZzInfoBarHost::Position position, bool animate);
-    bool activatePending(ZzInfoBarHost::Position position, bool animateExisting);
+    QVector<Entry*> activeEntries(ZzInfoBarHost::ZzInfoBarPosition position) const;
+    int horizontalPosition(ZzInfoBarHost::ZzInfoBarPosition position, int width) const;
+    void fitActiveEntries(ZzInfoBarHost::ZzInfoBarPosition position);
+    void repositionPosition(ZzInfoBarHost::ZzInfoBarPosition position, bool animate);
+    bool activatePending(ZzInfoBarHost::ZzInfoBarPosition position, bool animateExisting);
     void scheduleReposition(bool animate = false);
     void repositionAll(bool animate = false);
 

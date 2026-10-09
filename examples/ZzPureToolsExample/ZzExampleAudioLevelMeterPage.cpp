@@ -1,5 +1,6 @@
 #include "ZzExampleAudioMeterSource.h"
-#include "ZzExampleCustomWidgetHelpers.h"
+#include "ZzExampleColorButton.h"
+#include "ZzExampleCustomCard.h"
 #include "ZzExampleShowcasePagePrivate.h"
 
 #include <QCheckBox>
@@ -113,9 +114,16 @@ QFormLayout *zzAudioForm(ZzFluentUI::ZzTabWidget *tabs, const char *title)
     tabs->addTab(page, zzAudioText(title));
     return form;
 }
+/** @brief 装配音频电平表示例页内容，不持有控件所有权。 */
+class ZzExampleAudioLevelMeterPage final
+{
+public:
+    static void build(ZzExampleShowcasePagePrivate *host, QVBoxLayout *layout, QWidget *parent);
+};
+
 }
 
-void ZzExampleShowcasePagePrivate::buildAudioLevelMeter(QVBoxLayout *layout, QWidget *parent)
+void ZzExampleAudioLevelMeterPage::build(ZzExampleShowcasePagePrivate *host, QVBoxLayout *layout, QWidget *parent)
 {
     layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(16);
@@ -236,14 +244,14 @@ void ZzExampleShowcasePagePrivate::buildAudioLevelMeter(QVBoxLayout *layout, QWi
     position->setCurrentIndex(int(Meter::CenterScale));
     scale->addRow(zzAudioText("dB 刻度"), position);
     QObject::connect(position, &QComboBox::currentIndexChanged, preview,
-        [preview](int value) { preview->setScalePosition(static_cast<Meter::ScalePosition>(value)); });
+        [preview](int value) { preview->setScalePosition(static_cast<Meter::ZzMeterScalePosition>(value)); });
     auto *mode = new QComboBox(scale->parentWidget());
     mode->setObjectName(QStringLiteral("zzAudioScaleMode"));
     for (const char *text : { "按间隔", "固定数量", "自定义数值" })
         mode->addItem(zzAudioText(text));
     scale->addRow(zzAudioText("刻度生成"), mode);
     QObject::connect(mode, &QComboBox::currentIndexChanged, preview,
-        [preview](int value) { preview->setScaleMode(static_cast<Meter::ScaleMode>(value)); });
+        [preview](int value) { preview->setScaleMode(static_cast<Meter::ZzMeterScaleMode>(value)); });
     auto *ticks = addInt(scale, "刻度数量", "zzAudioTicks", 2, 64, 7, &Meter::setScaleTickCount);
     ticks->setEnabled(false);
     QObject::connect(mode, &QComboBox::currentIndexChanged, ticks,
@@ -270,7 +278,7 @@ void ZzExampleShowcasePagePrivate::buildAudioLevelMeter(QVBoxLayout *layout, QWi
         colorMode->addItem(zzAudioText(text));
     colors->addRow(zzAudioText("颜色模式"), colorMode);
     QObject::connect(colorMode, &QComboBox::currentIndexChanged, preview,
-        [preview](int value) { preview->setColorMode(static_cast<Meter::ColorMode>(value)); });
+        [preview](int value) { preview->setColorMode(static_cast<Meter::ZzMeterColorMode>(value)); });
     const std::pair<const char *, const char *> colorProperties[] = { { "激活颜色", "activeColor" },
         { "未激活颜色", "inactiveColor" }, { "背景颜色", "backgroundColor" }, { "警告颜色", "warningColor" },
         { "过载颜色", "clipColor" } };
@@ -281,7 +289,13 @@ void ZzExampleShowcasePagePrivate::buildAudioLevelMeter(QVBoxLayout *layout, QWi
         theme->bind(button, property);
         colors->addRow(zzAudioText(label), button);
     }
-    auto *source = new ZzExampleAudioMeterSource(q_ptr, mono, stereo, preview);
+    auto *source = new ZzExampleAudioMeterSource(host->q_ptr, mono, stereo, preview);
     layout->insertWidget(transportIndex, source->createTransport(parent));
 }
+
+void ZzExampleShowcasePagePrivate::buildAudioLevelMeter(QVBoxLayout *layout, QWidget *parent)
+{
+    ZzExampleAudioLevelMeterPage::build(this, layout, parent);
+}
+
 } // namespace ZzExample

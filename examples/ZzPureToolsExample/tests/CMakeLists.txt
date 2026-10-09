@@ -22,7 +22,8 @@ foreach(variant IN ITEMS simulation playback)
         ZzExampleAudioMeterSourceTest.cpp
         ../ZzExampleAudioMeterSource.cpp
         ../ZzExampleAudioMeterSource.h
-        ../ZzExampleCustomWidgetHelpers.h)
+        ../ZzExampleColorButton.h
+        ../ZzExampleCustomCard.h)
     target_link_libraries(${audio_source_target} PRIVATE Qt6::Test Zz::FluentUI)
     if(variant STREQUAL "playback")
         target_sources(${audio_source_target} PRIVATE ../ZzExampleAudioLevels.cpp)
@@ -56,7 +57,8 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleColorPickerPage.h
     ../ZzExampleColorPickerSmoke.cpp
     ../ZzExampleColorPickerSmoke.h
-    ../ZzExampleCustomWidgetHelpers.h
+    ../ZzExampleColorButton.h
+    ../ZzExampleCustomCard.h
     ../ZzExampleControlPage.cpp
     ../ZzExampleControlPage.h
     ../ZzExampleControlPagePrivate.cpp

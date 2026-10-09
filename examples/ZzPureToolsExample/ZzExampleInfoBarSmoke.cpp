@@ -10,7 +10,7 @@
 #include <ZzFluentUI/ZzThemeController.h>
 
 namespace ZzExample {
-bool zzInfoBarPageReady(const QWidget& window, ZzFluentUI::ZzThemeController* theme)
+bool ZzExampleInfoBarSmoke::isPageReady(const QWidget& window, ZzFluentUI::ZzThemeController* theme)
 {
     using ZzFluentUI::ZzInfoBar;
     using ZzFluentUI::ZzInfoBarHost;
@@ -75,10 +75,10 @@ bool zzInfoBarPageReady(const QWidget& window, ZzFluentUI::ZzThemeController* th
     const bool reducedMotion = theme->reducedMotion();
     theme->setReducedMotion(true);
     const auto connection = QObject::connect(host, &ZzInfoBarHost::infoBarShown, page,
-        [&shown](ZzInfoBar*, ZzInfoBarHost::Position) { ++shown; });
+        [&shown](ZzInfoBar*, ZzInfoBarHost::ZzInfoBarPosition) { ++shown; });
     popup->click();
     const auto closedConnection = QObject::connect(host, &ZzInfoBarHost::infoBarClosed, page,
-        [&closed](ZzInfoBar*, ZzInfoBarHost::Position) { ++closed; });
+        [&closed](ZzInfoBar*, ZzInfoBarHost::ZzInfoBarPosition) { ++closed; });
     dismiss->click();
     QObject::disconnect(connection);
     QObject::disconnect(closedConnection);

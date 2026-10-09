@@ -12,15 +12,15 @@ public:
     QString timeText;
     QString title;
     QString description;
-    ZzTimelineEvent::Status status = ZzTimelineEvent::Normal;
+    ZzTimelineEvent::ZzTimelineStatus status = ZzTimelineEvent::Normal;
     QColor color;
     QString icon;
-    ZzTimelineEvent::Placement placement = ZzTimelineEvent::Automatic;
+    ZzTimelineEvent::ZzTimelinePlacement placement = ZzTimelineEvent::Automatic;
 };
 class ZzTimelinePrivate {
 public:
     Qt::Orientation orientation = Qt::Vertical;
-    ZzTimeline::LayoutMode layoutMode = ZzTimeline::ContentOnRight;
+    ZzTimeline::ZzTimelineLayoutMode layoutMode = ZzTimeline::ContentOnRight;
     bool reverse = false;
     bool timestampVisible = true;
     bool descriptionVisible = true;

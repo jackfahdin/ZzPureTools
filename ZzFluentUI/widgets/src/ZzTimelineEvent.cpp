@@ -8,7 +8,7 @@ ZzTimelineEvent::ZzTimelineEvent(QObject* parent)
 {
 }
 ZzTimelineEvent::ZzTimelineEvent(const QDateTime& timestamp, const QString& title, const QString& description,
-    Status status, QObject* parent)
+    ZzTimelineStatus status, QObject* parent)
     : ZzTimelineEvent(parent)
 {
     d_ptr->timestamp = timestamp;
@@ -36,8 +36,8 @@ ZZ_EVENT_PROPERTY(QString, description, setDescription)
 ZZ_EVENT_PROPERTY(QColor, color, setColor)
 ZZ_EVENT_PROPERTY(QString, icon, setIcon)
 #undef ZZ_EVENT_PROPERTY
-ZzTimelineEvent::Status ZzTimelineEvent::status() const { return d_ptr->status; }
-void ZzTimelineEvent::setStatus(Status value)
+ZzTimelineEvent::ZzTimelineStatus ZzTimelineEvent::status() const { return d_ptr->status; }
+void ZzTimelineEvent::setStatus(ZzTimelineStatus value)
 {
     if (value < Normal || value > Error || d_ptr->status == value)
         return;
@@ -47,8 +47,8 @@ void ZzTimelineEvent::setStatus(Status value)
     if (alive)
         emit itemChanged();
 }
-ZzTimelineEvent::Placement ZzTimelineEvent::placement() const { return d_ptr->placement; }
-void ZzTimelineEvent::setPlacement(Placement value)
+ZzTimelineEvent::ZzTimelinePlacement ZzTimelineEvent::placement() const { return d_ptr->placement; }
+void ZzTimelineEvent::setPlacement(ZzTimelinePlacement value)
 {
     if (value < Automatic || value > RightSide || d_ptr->placement == value)
         return;

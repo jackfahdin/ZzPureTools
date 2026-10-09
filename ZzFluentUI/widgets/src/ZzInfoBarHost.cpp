@@ -14,14 +14,14 @@ namespace {
     QPointer<ZzInfoBarHost> defaultInfoBarHost;
     QHash<ZzInfoBar*, QPointer<ZzInfoBarHost>> owners;
 
-    bool validPosition(ZzInfoBarHost::Position position)
+    bool validPosition(ZzInfoBarHost::ZzInfoBarPosition position)
     {
         return position == ZzInfoBarHost::TopLeft || position == ZzInfoBarHost::Top
             || position == ZzInfoBarHost::TopRight || position == ZzInfoBarHost::BottomLeft
             || position == ZzInfoBarHost::Bottom || position == ZzInfoBarHost::BottomRight;
     }
 
-    bool validSeverity(ZzInfoBar::Severity severity)
+    bool validSeverity(ZzInfoBar::ZzInfoSeverity severity)
     {
         return severity == ZzInfoBar::Informational || severity == ZzInfoBar::Success
             || severity == ZzInfoBar::Warning || severity == ZzInfoBar::Error;
@@ -34,7 +34,7 @@ ZzInfoBarHost::ZzInfoBarHost(QWidget* target, QObject* parent)
 {
     if (target)
         target->installEventFilter(this);
-    connect(this, &ZzInfoBarHost::infoBarClosed, this, [this](ZzInfoBar* bar, Position) {
+    connect(this, &ZzInfoBarHost::infoBarClosed, this, [this](ZzInfoBar* bar, ZzInfoBarPosition) {
         if (bar && owners.value(bar) == this)
             owners.remove(bar);
     });
@@ -121,8 +121,8 @@ void ZzInfoBarHost::setDefaultTimeout(int milliseconds)
     emit defaultTimeoutChanged(milliseconds);
 }
 
-ZzInfoBar* ZzInfoBarHost::showInfoBar(ZzInfoBar::Severity severity, const QString& title,
-    const QString& message, Position position, int timeout)
+ZzInfoBar* ZzInfoBarHost::showInfoBar(ZzInfoBar::ZzInfoSeverity severity, const QString& title,
+    const QString& message, ZzInfoBarPosition position, int timeout)
 {
     if (!d_ptr->target || !validSeverity(severity) || !validPosition(position))
         return nullptr;
@@ -135,7 +135,7 @@ ZzInfoBar* ZzInfoBarHost::showInfoBar(ZzInfoBar::Severity severity, const QStrin
     return guard.data();
 }
 
-void ZzInfoBarHost::addInfoBar(ZzInfoBar* bar, Position position, int timeout)
+void ZzInfoBarHost::addInfoBar(ZzInfoBar* bar, ZzInfoBarPosition position, int timeout)
 {
     if (!bar || !d_ptr->target || !validPosition(position) || bar == d_ptr->target
         || bar->isAncestorOf(d_ptr->target) || d_ptr->findEntry(bar))
@@ -186,7 +186,7 @@ void ZzInfoBarHost::addInfoBar(ZzInfoBar* bar, Position position, int timeout)
         }
         entry->closing = true;
         d_ptr->pauseTimer(entry);
-        const Position closingPosition = entry->position;
+        const ZzInfoBarPosition closingPosition = entry->position;
         const QPointer<ZzInfoBar> guard = entry->bar;
         if (entry->surface && entry->surface->isVisible()) {
             entry->surface->startLeave([guard] {
@@ -228,7 +228,7 @@ void ZzInfoBarHost::dismissAll()
             entry->bar->finishPopupClose();
     }
 }
-void ZzInfoBarHost::dismissAll(Position position)
+void ZzInfoBarHost::dismissAll(ZzInfoBarPosition position)
 {
     const auto entries = d_ptr->entries;
     QPointer<ZzInfoBarHost> guard(this);

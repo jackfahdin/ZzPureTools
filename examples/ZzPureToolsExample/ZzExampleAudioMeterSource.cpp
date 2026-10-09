@@ -1,5 +1,6 @@
 #include "ZzExampleAudioMeterSource.h"
-#include "ZzExampleCustomWidgetHelpers.h"
+#include "ZzExampleColorButton.h"
+#include "ZzExampleCustomCard.h"
 
 #include <QCoreApplication>
 #include <QFileDialog>
@@ -262,7 +263,7 @@ void ZzExampleAudioMeterSource::ensurePlayer()
         }
         if (!simulation_ && page_ && page_->isVisible()
             && player_->playbackState() == QMediaPlayer::PlayingState)
-            submit(zzAudioBufferLevels(buffer));
+            submit(ZzExampleAudioLevels::peaks(buffer));
     });
     connect(player_, &QMediaPlayer::durationChanged, this, [this](qint64 duration) {
         position_->setRange(0, int(std::clamp<qint64>(duration, 0, std::numeric_limits<int>::max())));

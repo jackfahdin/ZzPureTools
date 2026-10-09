@@ -28,9 +28,9 @@ public:
     [[nodiscard]] bool isMutating() const;
 
 private:
-    enum class Operation { Append, Take, Reset, Reverse };
-    struct PendingOperation {
-        Operation type;
+    enum class ZzTimelineOperation { Append, Take, Reset, Reverse };
+    struct ZzPendingTimelineOperation {
+        ZzTimelineOperation type;
         ZzTimelineEvent* event = nullptr;
         QPointer<ZzTimelineEvent> liveEvent;
         bool reverse = false;
@@ -45,7 +45,7 @@ private:
     QSet<ZzTimelineEvent*> m_invalid;
     QSet<ZzTimelineEvent*> m_pendingAdds;
     ZzTimelineEvent* m_inserting = nullptr;
-    QList<PendingOperation> m_pending;
+    QList<ZzPendingTimelineOperation> m_pending;
     bool m_mutating = false;
 };
 } // namespace ZzFluentUI

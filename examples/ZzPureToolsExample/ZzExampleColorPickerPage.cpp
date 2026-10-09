@@ -1,5 +1,6 @@
 #include "ZzExampleColorPickerPage.h"
-#include "ZzExampleCustomWidgetHelpers.h"
+#include "ZzExampleColorButton.h"
+#include "ZzExampleCustomCard.h"
 #include "ZzExampleShowcasePagePrivate.h"
 
 #include <QtCore/QCoreApplication>

@@ -441,7 +441,7 @@ constexpr int zzScreenshotChannelTolerance = 3;
     slider->setValues(30, 70);
     const bool valid = !slider->hasTickPosition() && !interval->isEnabled()
         && !slider->hasTracking() && slider->orientation() == Qt::Vertical
-        && slider->snapMode() == ZzFluentUI::ZzRangeSlider::SnapMode::SnapOnRelease
+        && slider->snapMode() == ZzFluentUI::ZzRangeSlider::ZzSnapMode::SnapOnRelease
         && label->text().contains(QStringLiteral("30"))
         && label->text().contains(QStringLiteral("70"));
     ticks->click();
@@ -1049,19 +1049,19 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke progress ring integration failed");
                 return;
             }
-            if (routeId == QStringLiteral("timeline") && !zzTimelinePageReady(window, theme)) {
+            if (routeId == QStringLiteral("timeline") && !ZzExampleTimelineSmoke::isPageReady(window, theme)) {
                 fail("route smoke timeline integration failed");
                 return;
             }
-            if (routeId == QStringLiteral("info-bar") && !zzInfoBarPageReady(window, theme)) {
+            if (routeId == QStringLiteral("info-bar") && !ZzExampleInfoBarSmoke::isPageReady(window, theme)) {
                 fail("route smoke info bar integration failed");
                 return;
             }
-            if (routeId == QStringLiteral("carousel") && !zzCarouselPageReady(window)) {
+            if (routeId == QStringLiteral("carousel") && !ZzExampleCarouselSmoke::isPageReady(window)) {
                 fail("route smoke carousel integration failed");
                 return;
             }
-            if (routeId == QStringLiteral("color-picker") && !zzColorPickerPageReady(window)) {
+            if (routeId == QStringLiteral("color-picker") && !ZzExampleColorPickerSmoke::isPageReady(window)) {
                 fail("route smoke color picker integration failed");
                 return;
             }

@@ -189,7 +189,7 @@ private Q_SLOTS:
         ZzInfoBar bar;
         QSignalSpy changed(&bar, &ZzInfoBar::severityChanged);
         volatile int invalidValue = 99;
-        bar.setSeverity(static_cast<ZzInfoBar::Severity>(invalidValue));
+        bar.setSeverity(static_cast<ZzInfoBar::ZzInfoSeverity>(invalidValue));
         QCOMPARE(bar.severity(), ZzInfoBar::Informational);
         QCOMPARE(changed.size(), 0);
     }

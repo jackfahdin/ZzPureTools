@@ -10,7 +10,7 @@ class ZzRadialGaugeRangePrivate final {
   public:
     int fromValue = 0;
     int toValue = 0;
-    QColor color = QColor();
+    QColor color;
 };
 
 /** @brief ZzRadialGauge 的私有属性与呈现状态。 */
@@ -20,7 +20,7 @@ class ZzRadialGaugePrivate final {
     int animationValue = 0;
     bool interactive = true;
     int valueAnimationDuration = 500;
-    ZzRadialGauge::ScaleMode scaleMode = ZzRadialGauge::ProgressScale;
+    ZzRadialGauge::ZzGaugeScaleMode scaleMode = ZzRadialGauge::ProgressScale;
     qreal minimumAngle = -135.0;
     qreal maximumAngle = 135.0;
     int majorTickCount = 11;
@@ -32,10 +32,10 @@ class ZzRadialGaugePrivate final {
     bool progressGradientEnabled = false;
     bool sweepAreaVisible = false;
     qreal sweepAreaOpacity = 0.16;
-    QColor progressGradientStartColor = QColor();
-    QColor progressGradientEndColor = QColor();
+    QColor progressGradientStartColor;
+    QColor progressGradientEndColor;
     qreal needleWidth = 10.0;
-    ZzRadialGauge::NeedleStyle needleStyle = ZzRadialGauge::LineNeedle;
+    ZzRadialGauge::ZzNeedleStyle needleStyle = ZzRadialGauge::LineNeedle;
     qreal needleLength = 0.62;
     qreal tickLength = 7.0;
     qreal tickWidth = 1.5;
@@ -48,14 +48,14 @@ class ZzRadialGaugePrivate final {
     bool hubVisible = false;
     qreal hubRadius = 11.0;
     bool valueVisible = true;
-    ZzRadialGauge::ValuePosition valuePosition = ZzRadialGauge::BottomValue;
+    ZzRadialGauge::ZzGaugeValuePosition valuePosition = ZzRadialGauge::BottomValue;
     QString title = QString();
     QString unit = QString();
     int valueFontPixelSize = 0;
-    QColor needleColor = QColor();
-    QColor tickColor = QColor();
-    QColor labelColor = QColor();
-    QColor valueColor = QColor();
+    QColor needleColor;
+    QColor tickColor;
+    QColor labelColor;
+    QColor valueColor;
     QList<ZzRadialGaugeRange *> ranges;
     QVariantAnimation *valueAnimation = nullptr;
     Qt::FocusPolicy interactiveFocusPolicy = Qt::StrongFocus;

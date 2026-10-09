@@ -93,9 +93,16 @@ namespace {
         form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
         return form;
     }
+    /** @brief 装配轮播示例页内容，不持有控件所有权。 */
+    class ZzExampleCarouselPage final
+    {
+    public:
+        static void build(ZzExampleShowcasePagePrivate *host, QVBoxLayout* mainLayout, QWidget* content);
+    };
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildCarousel(QVBoxLayout* mainLayout, QWidget* content)
+void ZzExampleCarouselPage::build(ZzExampleShowcasePagePrivate *host, QVBoxLayout* mainLayout, QWidget* content)
 {
     auto* hint = new QLabel(
         zzGaugeText("图文轮播、悬停导航与可点击分页。支持键盘方向键和滚轮切换。"), content);
@@ -110,7 +117,7 @@ void ZzExampleShowcasePagePrivate::buildCarousel(QVBoxLayout* mainLayout, QWidge
     view->setObjectName(QStringLiteral("carouselPreview"));
     view->setAccessibleName(zzGaugeText("风景轮播"));
     view->setFixedHeight(280);
-    view->setModel(new ZzCarouselPreviewModel(view, true, q_ptr));
+    view->setModel(new ZzCarouselPreviewModel(view, true, host->q_ptr));
     layout->addWidget(view);
     auto* playback = new ZzExampleCarouselPlayback(view, card);
     playback->setObjectName(QStringLiteral("carouselPlayback"));
@@ -246,7 +253,7 @@ void ZzExampleShowcasePagePrivate::buildCarousel(QVBoxLayout* mainLayout, QWidge
     auto* textView = new ZzCarouselView(textCard);
     textView->setObjectName(QStringLiteral("carouselCards"));
     textView->setFixedHeight(190);
-    textView->setModel(new ZzCarouselPreviewModel(textView, false, q_ptr));
+    textView->setModel(new ZzCarouselPreviewModel(textView, false, host->q_ptr));
     textView->setWrapAroundEnabled(true);
     textLayout->addWidget(textView);
     mainLayout->addWidget(textCard);
@@ -264,4 +271,10 @@ void ZzExampleShowcasePagePrivate::buildCarousel(QVBoxLayout* mainLayout, QWidge
     code->setFixedHeight(180);
     mainLayout->addWidget(code);
 }
+
+void ZzExampleShowcasePagePrivate::buildCarousel(QVBoxLayout* mainLayout, QWidget* content)
+{
+    ZzExampleCarouselPage::build(this, mainLayout, content);
+}
+
 } // namespace ZzExample

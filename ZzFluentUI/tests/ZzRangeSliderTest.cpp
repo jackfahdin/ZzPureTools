@@ -61,7 +61,7 @@ private Q_SLOTS:
         slider.setRange(-50, 50);
         slider.setValues(-30, 30);
         slider.setSingleStep(10);
-        slider.setSnapMode(Slider::SnapMode::SnapAlways);
+        slider.setSnapMode(Slider::ZzSnapMode::SnapAlways);
         slider.show();
         QSignalSpy changed(&slider, &Slider::valuesChanged);
         // 手柄内偏右 4 px 抓取，不应在按下时跳动。
@@ -271,7 +271,7 @@ private Q_SLOTS:
         slider.resize(200, 32);
         slider.setValues(20, 80);
         slider.setSingleStep(10);
-        slider.setSnapMode(Slider::SnapMode::SnapOnRelease);
+        slider.setSnapMode(Slider::ZzSnapMode::SnapOnRelease);
         slider.setTracking(false);
         slider.show();
         QTest::mousePress(&slider, Qt::LeftButton, {}, QPoint(46, 16));
@@ -289,7 +289,7 @@ private Q_SLOTS:
         slider.resize(200, 32);
         slider.setValues(20, 80);
         slider.setSingleStep(10);
-        slider.setSnapMode(Slider::SnapMode::SnapOnRelease);
+        slider.setSnapMode(Slider::ZzSnapMode::SnapOnRelease);
         slider.setTracking(false);
         slider.show();
         QSignalSpy released(&slider, &Slider::sliderReleased);
@@ -355,7 +355,7 @@ private Q_SLOTS:
         QTest::keyClick(&slider, Qt::Key_Left);
         QCOMPARE(slider.lowerValue(), 11);
         QTest::keyClick(&slider, Qt::Key_Up);
-        QCOMPARE(slider.activeHandle(), ZzFluentUI::ZzRangeSlider::Handle::UpperHandle);
+        QCOMPARE(slider.activeHandle(), ZzFluentUI::ZzRangeSlider::ZzSliderHandle::UpperHandle);
         slider.setOrientation(Qt::Vertical);
         slider.resize(32, 200);
         QTest::mouseClick(&slider, Qt::LeftButton, {}, QPoint(16, 28));

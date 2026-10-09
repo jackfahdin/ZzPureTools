@@ -1,5 +1,6 @@
 #pragma once
-#include "ZzExampleCustomWidgetHelpers.h"
+#include "ZzExampleColorButton.h"
+#include "ZzExampleCustomCard.h"
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -49,7 +50,7 @@ QSlider *makeValueSlider(QWidget *parent, int minimum, int maximum, int value, i
     int pageStep = 10, int scale = 1, int precision = 0);
 ZzFluentUI::ZzTabWidget *makePropertyTabs(QWidget *parent);
 
-template <class Widget, class Value>
+template <typename Widget, typename Value>
 void connectScaledSlider(QSlider *slider, Widget *widget, qreal scale, void (Widget::*setter)(Value))
 {
     QObject::connect(slider, &QSlider::valueChanged, widget, [=](int value) {

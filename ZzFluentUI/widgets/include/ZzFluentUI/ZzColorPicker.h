@@ -23,9 +23,9 @@ class ZzColorPickerPrivate;
 class ZZ_FLUENT_UI_EXPORT ZzColorPicker final : public QWidget
 {
     Q_OBJECT
-    Q_PROPERTY(Appearance appearance READ appearance WRITE setAppearance NOTIFY appearanceChanged)
-    Q_PROPERTY(ColorRepresentation colorRepresentation READ colorRepresentation WRITE setColorRepresentation NOTIFY colorRepresentationChanged)
-    Q_PROPERTY(ColorSpectrumShape colorSpectrumShape READ colorSpectrumShape WRITE setColorSpectrumShape NOTIFY colorSpectrumShapeChanged)
+    Q_PROPERTY(ZzColorPickerAppearance appearance READ appearance WRITE setAppearance NOTIFY appearanceChanged)
+    Q_PROPERTY(ZzColorRepresentation colorRepresentation READ colorRepresentation WRITE setColorRepresentation NOTIFY colorRepresentationChanged)
+    Q_PROPERTY(ZzColorSpectrumShape colorSpectrumShape READ colorSpectrumShape WRITE setColorSpectrumShape NOTIFY colorSpectrumShapeChanged)
     Q_PROPERTY(bool colorSpectrumVisible READ isColorSpectrumVisible WRITE setColorSpectrumVisible NOTIFY colorSpectrumVisibleChanged)
     Q_PROPERTY(bool colorPaletteVisible READ isColorPaletteVisible WRITE setColorPaletteVisible NOTIFY colorPaletteVisibleChanged)
     Q_PROPERTY(bool colorPreviewVisible READ isColorPreviewVisible WRITE setColorPreviewVisible NOTIFY colorPreviewVisibleChanged)
@@ -50,26 +50,26 @@ class ZZ_FLUENT_UI_EXPORT ZzColorPicker final : public QWidget
 
 public:
     /** @brief 选择兼容紧凑装配或完整 Fluent 三页装配。 */
-    enum Appearance { Compact, Fluent };
-    Q_ENUM(Appearance)
+    enum ZzColorPickerAppearance { Compact, Fluent };
+    Q_ENUM(ZzColorPickerAppearance)
     /** @brief 选择通道编辑器的 RGB 或 HSV 表示。 */
-    enum ColorRepresentation { Rgba, Hsva };
-    Q_ENUM(ColorRepresentation)
+    enum ZzColorRepresentation { Rgba, Hsva };
+    Q_ENUM(ZzColorRepresentation)
     /** @brief 选择 Hue×Saturation 方形或圆形色谱。 */
-    enum ColorSpectrumShape { Box, Ring };
-    Q_ENUM(ColorSpectrumShape)
+    enum ZzColorSpectrumShape { Box, Ring };
+    Q_ENUM(ZzColorSpectrumShape)
     /** @brief 返回 appearance 展示状态。 */
-    [[nodiscard]] Appearance appearance() const noexcept;
+    [[nodiscard]] ZzColorPickerAppearance appearance() const noexcept;
     /** @brief 更新 appearance，重复值不发信号。 */
-    void setAppearance(Appearance value);
+    void setAppearance(ZzColorPickerAppearance value);
     /** @brief 返回 colorRepresentation 展示状态。 */
-    [[nodiscard]] ColorRepresentation colorRepresentation() const noexcept;
+    [[nodiscard]] ZzColorRepresentation colorRepresentation() const noexcept;
     /** @brief 更新 colorRepresentation，重复值不发信号。 */
-    void setColorRepresentation(ColorRepresentation value);
+    void setColorRepresentation(ZzColorRepresentation value);
     /** @brief 返回 colorSpectrumShape 展示状态。 */
-    [[nodiscard]] ColorSpectrumShape colorSpectrumShape() const noexcept;
+    [[nodiscard]] ZzColorSpectrumShape colorSpectrumShape() const noexcept;
     /** @brief 更新 colorSpectrumShape，重复值不发信号。 */
-    void setColorSpectrumShape(ColorSpectrumShape value);
+    void setColorSpectrumShape(ZzColorSpectrumShape value);
     /** @brief 返回 colorSpectrumVisible 展示状态。 */
     [[nodiscard]] bool isColorSpectrumVisible() const noexcept;
     /** @brief 更新 colorSpectrumVisible，重复值不发信号。 */
@@ -159,11 +159,11 @@ public:
 
 Q_SIGNALS:
     /** @brief appearance 实际变化后发出。 */
-    void appearanceChanged(Appearance value);
+    void appearanceChanged(ZzColorPickerAppearance value);
     /** @brief colorRepresentation 实际变化后发出。 */
-    void colorRepresentationChanged(ColorRepresentation value);
+    void colorRepresentationChanged(ZzColorRepresentation value);
     /** @brief colorSpectrumShape 实际变化后发出。 */
-    void colorSpectrumShapeChanged(ColorSpectrumShape value);
+    void colorSpectrumShapeChanged(ZzColorSpectrumShape value);
     /** @brief colorSpectrumVisible 实际变化后发出。 */
     void colorSpectrumVisibleChanged(bool value);
     /** @brief colorPaletteVisible 实际变化后发出。 */

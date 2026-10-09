@@ -65,9 +65,16 @@ QVBoxLayout *zzRangeCard(QVBoxLayout *outer, QWidget *parent, const char *title)
     return layout;
 }
 
+/** @brief 装配范围滑块示例页内容，不持有控件所有权。 */
+class ZzExampleRangeSliderPage final
+{
+public:
+    static void build(QVBoxLayout *layout, QWidget *parent);
+};
+
 } // namespace
 
-void ZzExampleShowcasePagePrivate::buildRangeSlider(QVBoxLayout *layout, QWidget *parent)
+void ZzExampleRangeSliderPage::build(QVBoxLayout *layout, QWidget *parent)
 {
     using ZzFluentUI::ZzRangeSlider;
     layout->setContentsMargins(16, 16, 16, 16);
@@ -135,12 +142,12 @@ void ZzExampleShowcasePagePrivate::buildRangeSlider(QVBoxLayout *layout, QWidget
 
     auto *snap = new QComboBox(parent);
     snap->setObjectName(QStringLiteral("zzRangeSnapMode"));
-    snap->addItem(zzRangeText("不吸附"), int(ZzRangeSlider::SnapMode::NoSnap));
-    snap->addItem(zzRangeText("始终吸附"), int(ZzRangeSlider::SnapMode::SnapAlways));
-    snap->addItem(zzRangeText("松开时吸附"), int(ZzRangeSlider::SnapMode::SnapOnRelease));
+    snap->addItem(zzRangeText("不吸附"), int(ZzRangeSlider::ZzSnapMode::NoSnap));
+    snap->addItem(zzRangeText("始终吸附"), int(ZzRangeSlider::ZzSnapMode::SnapAlways));
+    snap->addItem(zzRangeText("松开时吸附"), int(ZzRangeSlider::ZzSnapMode::SnapOnRelease));
     form->addRow(zzRangeText("吸附模式"), snap);
     QObject::connect(snap, &QComboBox::currentIndexChanged, slider, [slider, snap] {
-        slider->setSnapMode(static_cast<ZzRangeSlider::SnapMode>(snap->currentData().toInt()));
+        slider->setSnapMode(static_cast<ZzRangeSlider::ZzSnapMode>(snap->currentData().toInt()));
     });
     auto *step = new QSpinBox(parent);
     step->setObjectName(QStringLiteral("zzRangeSingleStep"));
@@ -167,6 +174,12 @@ void ZzExampleShowcasePagePrivate::buildRangeSlider(QVBoxLayout *layout, QWidget
     disabled->setObjectName(QStringLiteral("zzRangeDisabled"));
     form->addRow(disabled);
     QObject::connect(disabled, &QCheckBox::toggled, slider, &QWidget::setDisabled);
+}
+
+
+void ZzExampleShowcasePagePrivate::buildRangeSlider(QVBoxLayout *layout, QWidget *parent)
+{
+    ZzExampleRangeSliderPage::build(layout, parent);
 }
 
 } // namespace ZzExample
