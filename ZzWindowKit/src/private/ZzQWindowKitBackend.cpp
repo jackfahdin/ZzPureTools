@@ -602,7 +602,11 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::setAlwaysOnTop(
         windowHandle->setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
         host_->overrideWindowFlags(requestedFlags);
 #if defined(Q_OS_WIN)
-        if (!zzSetWindowsAlwaysOnTop(host_, alwaysOnTop)) {
+        // 仅在真实 Windows 桌面平台上强制原生结果；offscreen/minimal
+        // 没有真实 HWND，保持 Qt 层标志即可。
+        if (QGuiApplication::platformName().compare(
+                QStringLiteral("windows"), Qt::CaseInsensitive) == 0
+            && !zzSetWindowsAlwaysOnTop(host_, alwaysOnTop)) {
             return zzBackendFailure<void>(
                 ZzCore::ZzErrorCode::Backend,
                 QStringLiteral(
