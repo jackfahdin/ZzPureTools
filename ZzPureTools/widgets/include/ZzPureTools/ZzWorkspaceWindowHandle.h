@@ -3,10 +3,10 @@
 #include <QtCore/QMetaType>
 #include <QtCore/QPointer>
 
-namespace ZzPureTools {
+#include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzWorkspaceShell.h>
 
-class ZzApplicationWindow;
-class ZzWorkspaceShell;
+namespace ZzPureTools {
 
 /** @brief 非拥有地观察同一工作区中的应用窗口和 Shell。 */
 struct ZzWorkspaceWindowHandle final
