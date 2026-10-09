@@ -651,10 +651,14 @@ int main(int argc, char *argv[]) {
       verticalScrollBar->pageStep() != 40 ||
       verticalScrollBar->value() != 120 || integerInput.minimum() != -20 ||
       integerInput.maximum() != 80 || integerInput.value() != 24 ||
-      integerInput.buttonSymbols() != QAbstractSpinBox::PlusMinus ||
+      integerInput.buttonLayout() !=
+          ZzFluentUI::ZzSpinBoxButtonLayout::HorizontalRight ||
+      integerInput.buttonSymbols() != QAbstractSpinBox::UpDownArrows ||
       floatingInput.minimum() != -10.0 || floatingInput.maximum() != 10.0 ||
       floatingInput.decimals() != 2 || floatingInput.value() != 1.25 ||
-      floatingInput.buttonSymbols() != QAbstractSpinBox::PlusMinus ||
+      floatingInput.buttonLayout() !=
+          ZzFluentUI::ZzSpinBoxButtonLayout::HorizontalRight ||
+      floatingInput.buttonSymbols() != QAbstractSpinBox::UpDownArrows ||
       suggestBox.style() != &fluentStyle || suggestBox.suggestionCount() != 2 ||
       localSuggestionKey.isEmpty() || remoteSuggestionKey.isEmpty() ||
       remoteSuggestionKey == localSuggestionKey ||
