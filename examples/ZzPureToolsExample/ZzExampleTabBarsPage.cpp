@@ -100,7 +100,7 @@ void addFiveTabs(ZzFluentUI::ZzTabBar *bar,
     int iconPixels = 0)
 {
     for (int i = 0; i < int(kNames.size()); ++i) {
-        const QString name = trTab(kNames[i]);
+        const QString name = trTab(kNames[static_cast<size_t>(i)]);
         const QString shown = iconOnly ? QString() : name;
         if (icons) bar->addTab(ZzSegoeIconFont::galleryIcon((*icons)[i], iconPixels), shown);
         else bar->addTab(shown);
@@ -335,9 +335,9 @@ void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
     constexpr std::array<const char *, 4> galleryNames {
         "Camera", "Video", "Music", "Cloud"};
     for (int i = 0; i < int(galleryGlyphs.size()); ++i) {
-        iconGallery->addTab(ZzSegoeIconFont::galleryIcon(galleryGlyphs[i]), QString());
-        iconGallery->setTabToolTip(i, trTab(galleryNames[i]));
-        iconGallery->setAccessibleTabName(i, trTab(galleryNames[i]));
+        iconGallery->addTab(ZzSegoeIconFont::galleryIcon(galleryGlyphs[static_cast<size_t>(i)]), QString());
+        iconGallery->setTabToolTip(i, trTab(galleryNames[static_cast<size_t>(i)]));
+        iconGallery->setAccessibleTabName(i, trTab(galleryNames[static_cast<size_t>(i)]));
     }
     iconGallery->setCurrentIndex(1);
     segmented->addWidget(iconGallery);
@@ -370,7 +370,7 @@ void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
         auto *body = coloredPage(trTab(fullNames[i]), QColor(pageColors[i]), documents);
         body->setObjectName(QStringLiteral("zzExampleCapsuleBody%1").arg(i));
         documents->addTab(body, ZzSegoeIconFont::galleryIcon(kNamesIcons[i]),
-            trTab(kNames[i]));
+            trTab(kNames[static_cast<size_t>(i)]));
     }
     QObject::connect(documents, &ZzFluentUI::ZzTabWidget::tabsCloseRequested,
         documents, [documents](const QList<QWidget *> &pages) {

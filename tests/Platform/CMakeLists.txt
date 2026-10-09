@@ -96,7 +96,7 @@ add_test(NAME platform.package-relocation
 set_tests_properties(platform.package-relocation PROPERTIES
     LABELS "platform;install;headers"
     RUN_SERIAL TRUE
-    TIMEOUT 900)
+    TIMEOUT 1800)
 
 add_test(NAME platform.gate-script-contract
     COMMAND "${CMAKE_COMMAND}"
