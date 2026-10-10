@@ -338,7 +338,12 @@ void ZzTimelineTest::keyboardActivationReportsActualEvent()
     timeline.show();
     timeline.setFocus();
     QSignalSpy activatedSpy(&timeline, &ZzTimeline::eventActivated);
+#ifdef Q_OS_MACOS
+    // macOS 上 QAbstractItemView 的键盘激活约定是 ⌘O，Return 只尝试进入编辑
+    QTest::keyClick(&timeline, Qt::Key_O, Qt::ControlModifier);
+#else
     QTest::keyClick(&timeline, Qt::Key_Return);
+#endif
     QCOMPARE(activatedSpy.size(), 1);
     QCOMPARE(qvariant_cast<ZzTimelineEvent*>(activatedSpy.at(0).at(0)), second);
 }
