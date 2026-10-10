@@ -4892,7 +4892,7 @@ private Q_SLOTS:
             QCOMPARE(model->index(row, 0).data().toString(), titles.at(row));
             QCOMPARE(model->index(row, 0).data(
                 static_cast<int>(ZzFluentUI::ZzActivityItemRole::Area))
-                .value<ZzFluentUI::ZzActivityArea>(), areas.at(static_cast<size_t>(row)));
+                .value<ZzFluentUI::ZzActivityArea>(), areas.at(row));
         }
 
         QVERIFY(leftPane->panelStack()->setPanelSizes({444}));
