@@ -1,4 +1,5 @@
 #include <chrono>
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -8,6 +9,7 @@
 
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDataStream>
+#include <QtCore/QDebug>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QEvent>
@@ -3765,6 +3767,19 @@ private Q_SLOTS:
         QVERIFY(coordinator->configuration(primaryWindow));
         const auto savedAgain = coordinator->saveTopology();
         QVERIFY(savedAgain);
+        if (savedAgain.value() != saved.value()) {
+            const QByteArray &before = saved.value();
+            const QByteArray &after = savedAgain.value();
+            qsizetype diff = 0;
+            const qsizetype common = std::min(before.size(), after.size());
+            while (diff < common && before.at(diff) == after.at(diff)) {
+                ++diff;
+            }
+            qInfo() << "topology payloads differ: sizes" << before.size() << after.size()
+                    << "first difference at byte" << diff
+                    << "before" << before.mid(diff, 32).toHex()
+                    << "after" << after.mid(diff, 32).toHex();
+        }
         QCOMPARE(savedAgain.value(), saved.value());
         application.beginShutdown();
     }
