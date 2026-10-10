@@ -30,15 +30,15 @@ namespace {
         {
             for (int row = 0; row < rowCount(); ++row) {
                 setData(index(row, 0),
-                    photos ? zzGaugeText(imageTitles.at(row))
+                    photos ? zzGaugeText(imageTitles.at(static_cast<size_t>(row)))
                            : zzGaugeText("灵感卡片 %1").arg(row + 1));
                 setData(index(row, 0),
-                    photos ? zzGaugeText(imageDescriptions.at(row))
+                    photos ? zzGaugeText(imageDescriptions.at(static_cast<size_t>(row)))
                            : zzGaugeText("图片、标题和说明可以自由组合。"),
                     ZzCarouselView::DescriptionRole);
                 if (photos)
-                    images_.at(row).load(QStringLiteral(":/ZzPureToolsExample/carousel/%1.jpg")
-                            .arg(QString::fromLatin1(imageNames.at(row))));
+                    images_.at(static_cast<size_t>(row)).load(QStringLiteral(":/ZzPureToolsExample/carousel/%1.jpg")
+                            .arg(QString::fromLatin1(imageNames.at(static_cast<size_t>(row)))));
             }
             refresh();
             view->installEventFilter(this);
@@ -56,7 +56,7 @@ namespace {
         void refresh()
         {
             for (int row = 0; row < rowCount(); ++row) {
-                QPixmap picture = images_.at(row);
+                QPixmap picture = images_.at(static_cast<size_t>(row));
                 if (picture.isNull()) {
                     picture = QPixmap(960, 540);
                     QPainter painter(&picture);

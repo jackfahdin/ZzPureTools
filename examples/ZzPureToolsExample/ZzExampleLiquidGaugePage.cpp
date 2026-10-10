@@ -100,10 +100,10 @@ void ZzExampleLiquidGaugePage::build(QVBoxLayout *mainLayout, QWidget *content)
         gauge->setRange(0, 100);
         gauge->setValue(60);
         gauge->setShape(static_cast<Gauge::ZzLiquidShape>(index));
-        gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(index))));
+        gauge->setWaveColor(QColor(QString::fromLatin1(colors.at(static_cast<size_t>(index)))));
         gauge->setFixedSize(150, 150);
         samples.append(gauge);
-        auto *label = new QLabel(zzGaugeText(names.at(index)), sample);
+        auto *label = new QLabel(zzGaugeText(names.at(static_cast<size_t>(index))), sample);
         label->setAlignment(Qt::AlignCenter);
         layout->addWidget(gauge, 0, Qt::AlignHCenter);
         layout->addWidget(label);
@@ -149,7 +149,7 @@ void ZzExampleLiquidGaugePage::build(QVBoxLayout *mainLayout, QWidget *content)
     value->setObjectName(QStringLiteral("zzLiquidValue"));
     auto *shape = new QComboBox(basicPage);
     shape->setObjectName(QStringLiteral("zzLiquidShape"));
-    for (int index = 0; index < 4; ++index) shape->addItem(zzGaugeText(names.at(index)), index);
+    for (int index = 0; index < 4; ++index) shape->addItem(zzGaugeText(names.at(static_cast<size_t>(index))), index);
     auto *format = new QLineEdit(gauge->format(), basicPage);
     format->setObjectName(QStringLiteral("zzLiquidFormat"));
     auto *fontSize = makeValueSlider(basicPage, 0, 72, 0);
