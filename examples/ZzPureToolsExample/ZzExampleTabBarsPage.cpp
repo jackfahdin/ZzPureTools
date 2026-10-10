@@ -102,7 +102,7 @@ void addFiveTabs(ZzFluentUI::ZzTabBar *bar,
     for (int i = 0; i < int(kNames.size()); ++i) {
         const QString name = trTab(kNames[static_cast<size_t>(i)]);
         const QString shown = iconOnly ? QString() : name;
-        if (icons) bar->addTab(ZzSegoeIconFont::galleryIcon((*icons)[i], iconPixels), shown);
+        if (icons) bar->addTab(ZzSegoeIconFont::galleryIcon((*icons)[static_cast<size_t>(i)], iconPixels), shown);
         else bar->addTab(shown);
         bar->setTabToolTip(i, name);
         bar->setAccessibleTabName(i, name);
@@ -367,9 +367,9 @@ void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
     constexpr std::array<const char *, 5> pageColors {
         "#FFE4E1", "#E0FFFF", "#F0FFF0", "#FFFACD", "#E6E6FA"};
     for (int i = 0; i < int(kNames.size()); ++i) {
-        auto *body = coloredPage(trTab(fullNames[i]), QColor(pageColors[i]), documents);
+        auto *body = coloredPage(trTab(fullNames[static_cast<size_t>(i)]), QColor(pageColors[static_cast<size_t>(i)]), documents);
         body->setObjectName(QStringLiteral("zzExampleCapsuleBody%1").arg(i));
-        documents->addTab(body, ZzSegoeIconFont::galleryIcon(kNamesIcons[i]),
+        documents->addTab(body, ZzSegoeIconFont::galleryIcon(kNamesIcons[static_cast<size_t>(i)]),
             trTab(kNames[static_cast<size_t>(i)]));
     }
     QObject::connect(documents, &ZzFluentUI::ZzTabWidget::tabsCloseRequested,
@@ -405,9 +405,9 @@ void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
     constexpr std::array<const char *, 5> navColors {
         "#F4F8FF", "#F0FBF6", "#FFF8EE", "#F8F3FF", "#F5F5F5"};
     for (int i = 0; i < int(navNames.size()); ++i) {
-        navigation->addTab(ZzSegoeIconFont::galleryIcon(navGlyphs[i]),
-            trTab(navNames[i]));
-        auto *body = coloredPage(trTab(navFullNames[i]), QColor(navColors[i]), pages);
+        navigation->addTab(ZzSegoeIconFont::galleryIcon(navGlyphs[static_cast<size_t>(i)]),
+            trTab(navNames[static_cast<size_t>(i)]));
+        auto *body = coloredPage(trTab(navFullNames[static_cast<size_t>(i)]), QColor(navColors[static_cast<size_t>(i)]), pages);
         body->setObjectName(QStringLiteral("zzExampleNavigationBody%1").arg(i));
         body->setMinimumHeight(220);
         pages->addWidget(body);

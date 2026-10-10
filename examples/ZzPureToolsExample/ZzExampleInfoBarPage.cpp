@@ -231,8 +231,8 @@ void ZzExampleInfoBarPage::build(ZzExampleShowcasePagePrivate *owner, QVBoxLayou
         auto* bar = new ZzInfoBar(card);
         bar->setObjectName(QStringLiteral("infoBarInline%1").arg(index));
         bar->setSeverity(static_cast<ZzInfoBar::ZzInfoSeverity>(index));
-        bar->setTitle(zzGaugeText(titles[index]));
-        bar->setMessage(zzGaugeText(messages[index]));
+        bar->setTitle(zzGaugeText(titles[static_cast<size_t>(index)]));
+        bar->setMessage(zzGaugeText(messages[static_cast<size_t>(index)]));
         if (index == 0) {
             bar->setActionButtonText(zzGaugeText("查看更新"));
             QObject::connect(bar, &ZzInfoBar::actionTriggered, bar, [bar] {
@@ -265,7 +265,7 @@ void ZzExampleInfoBarPage::build(ZzExampleShowcasePagePrivate *owner, QVBoxLayou
     popupLayout->addWidget(hint);
     auto* grid = new QGridLayout;
     for (int index = 0; index < 6; ++index) {
-        auto* button = new QPushButton(zzGaugeText(positions[index]), popupCard);
+        auto* button = new QPushButton(zzGaugeText(positions[static_cast<size_t>(index)]), popupCard);
         grid->addWidget(button, index / 3, index % 3);
         QObject::connect(button, &QPushButton::clicked, host, [host, index] {
             const int sequence = host->property("sequence").toInt() + 1;
