@@ -90,9 +90,10 @@ private Q_SLOTS:
         meter.setLevel(-2);
         meter.setLevel(-40);
         QCOMPARE(meter.displayedLevel(0), -2.0);
-        QTest::qWait(90);
-        QVERIFY(meter.displayedLevel(0) < -10);
         QCOMPARE(meter.peakLevel(0), -2.0);
+        // 衰减只在 16ms 定时器触发时入账；慢速 CI runner 上首帧绘制的字体
+        // 初始化可能耗尽固定等待窗口，用轮询等待替代 QTest::qWait。
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(meter.displayedLevel(0) < -10, 600);
         ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(meter.peakLevel(0) < -3, 600);
         meter.resetPeaks();
         QCOMPARE(meter.peakLevel(0), meter.displayedLevel(0));
