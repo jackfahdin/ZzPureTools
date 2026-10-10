@@ -121,6 +121,10 @@ protected:
     void resizeEvent(QResizeEvent *event) override
     {
         QListView::resizeEvent(event);
+        // 网格尺寸只依赖 viewport 宽度；高度变化不重算，避免与 setFixedHeight 往复
+        if (event->size().width() == event->oldSize().width()) {
+            return;
+        }
         owner_->syncPaletteMetrics();
     }
 private:
@@ -734,6 +738,11 @@ void ZzColorPickerPrivate::refreshTheme()
 
 void ZzColorPickerPrivate::syncPaletteMetrics()
 {
+    // setFixedHeight/doItemsLayout 会再触发 resizeEvent，入口守卫防止同步重入
+    if (syncingPaletteMetrics) {
+        return;
+    }
+    syncingPaletteMetrics = true;
     const auto snapshot = theme.snapshot();
     const bool fluent = appearance == ZzColorPicker::Fluent;
     // QListView keeps a small flow inset even with a frameless viewport.
@@ -749,6 +758,7 @@ void ZzColorPickerPrivate::syncPaletteMetrics()
         (appearance == ZzColorPicker::Fluent ? 6 : ZzVisiblePaletteRows) * gridExtent
         + 2 * paletteView->frameWidth());
     paletteView->doItemsLayout();
+    syncingPaletteMetrics = false;
 }
 
 } // namespace ZzFluentUI

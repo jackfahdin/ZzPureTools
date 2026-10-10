@@ -113,6 +113,7 @@ public:
     QColor currentColor{QColor::fromRgb(0, 120, 212)};
     bool alphaEnabled = false;
     bool syncing = false;
+    bool syncingPaletteMetrics = false;
     bool notificationsDeferred = false;
     bool hexFocusOutActive = false;
     QList<QColor> pendingColorNotifications;

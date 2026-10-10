@@ -430,9 +430,16 @@ set_target_properties(ZzColorPickerTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzColorPickerTest)
 zz_enable_sanitizers(ZzColorPickerTest)
 add_test(NAME fluent.color-picker COMMAND ZzColorPickerTest)
+# macOS 上 QMacStyle 的原生滚动条绘制在 offscreen 环境下存在崩溃风险，
+# 色板溢出首次触发滚动条绘制，改用 Fusion 规避平台样式差异。
+set(zz_color_picker_test_environment "QT_QPA_PLATFORM=offscreen")
+if(APPLE)
+    set(zz_color_picker_test_environment
+        "QT_QPA_PLATFORM=offscreen;QT_STYLE_OVERRIDE=Fusion")
+endif()
 set_tests_properties(fluent.color-picker PROPERTIES
     LABELS "fluent;unit;component;accessibility"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${zz_color_picker_test_environment}"
 )
 
 add_executable(ZzMultiSelectComboBoxTest ZzMultiSelectComboBoxTest.cpp)
