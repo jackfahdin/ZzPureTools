@@ -191,7 +191,9 @@ private Q_SLOTS:
                 window.setCentralWidget(shell->workspaceWidget());
                 return ZzCore::ZzResult<void>::success();
             }));
-        QVERIFY(builder.build(application));
+        const auto buildResult = builder.build(application);
+        QVERIFY2(buildResult,
+            buildResult ? "" : qPrintable(buildResult.error().technicalMessage()));
 
         ZzPureTools::ZzApplicationWindow *window = nullptr;
         for (QWidget *widget : application.topLevelWidgets()) {

@@ -76,10 +76,16 @@ target_link_libraries(ZzWorkspacePublicApiTest PRIVATE
 set_target_properties(ZzWorkspacePublicApiTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzWorkspacePublicApiTest)
 zz_enable_sanitizers(ZzWorkspacePublicApiTest)
+# 用例 observesWorkspaceWindowHandleLifetime 会真实装配窗口，ZzWindowKit 的
+# QWindowKit 后端在 macOS 上拒绝非 cocoa 平台，必须与其余窗口测试一致。
+set(zz_puretools_window_environment "QT_QPA_PLATFORM=offscreen")
+if(APPLE)
+    set(zz_puretools_window_environment "QT_QPA_PLATFORM=cocoa")
+endif()
 add_test(NAME puretools.workspace-public-api COMMAND ZzWorkspacePublicApiTest)
 set_tests_properties(puretools.workspace-public-api PROPERTIES
     LABELS "component;puretools;workspace;public-api"
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT "${zz_puretools_window_environment}"
 )
 
 add_executable(ZzWorkspaceLayoutStatePrivateTest
@@ -209,10 +215,6 @@ target_link_libraries(ZzApplicationBuilderTest PRIVATE
 set_target_properties(ZzApplicationBuilderTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzApplicationBuilderTest)
 zz_enable_sanitizers(ZzApplicationBuilderTest)
-set(zz_puretools_window_environment "QT_QPA_PLATFORM=offscreen")
-if(APPLE)
-    set(zz_puretools_window_environment "QT_QPA_PLATFORM=cocoa")
-endif()
 set(zz_puretools_window_library_path_variable LD_LIBRARY_PATH)
 if(APPLE)
     set(zz_puretools_window_library_path_variable DYLD_LIBRARY_PATH)
