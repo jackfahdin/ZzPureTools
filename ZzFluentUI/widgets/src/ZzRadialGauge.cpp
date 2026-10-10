@@ -88,7 +88,11 @@ ZzRadialGauge::ZzRadialGauge(QWidget *parent) : QDial(parent), d_ptr(std::make_u
 
 ZzRadialGauge::~ZzRadialGauge()
 {
+    // 动画可能在自身 valueChanged 发射栈上被同步销毁（业务方在
+    // valueChanged 里删除仪表盘），先从父子树摘下并延迟销毁
     d_ptr->valueAnimation->stop();
+    d_ptr->valueAnimation->setParent(nullptr);
+    d_ptr->valueAnimation->deleteLater();
     for (ZzRadialGaugeRange *range : std::as_const(d_ptr->ranges)) {
         disconnect(range, nullptr, this, nullptr);
     }
