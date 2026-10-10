@@ -505,10 +505,15 @@ private Q_SLOTS:
         secondSurface->setStyle(&style);
         QSignalSpy closed(&host, &ZzInfoBarHost::infoBarClosed);
         first->dismiss();
-        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 1000);
-        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(secondSurface->y() > host.margin(), 100);
+        // dismiss 会为剩余条目同步启动位置动画（400ms），此刻 second 尚未到位；
+        // 必须同步断言，慢速 runner 上等到 closed 发出时动画可能已基本结束。
+        QVERIFY2(secondSurface->y() > host.margin(),
+            qPrintable(QStringLiteral("y=%1 margin=%2")
+                .arg(secondSurface->y())
+                .arg(host.margin())));
         theme.setReducedMotion(true);
-        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(secondSurface->y(), host.margin(), 100);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(secondSurface->y(), host.margin(), 1000);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(closed.size(), 1, 1000);
     }
 
     void livePopupLeaveFinishesWhenTargetIsHiddenOrDisabled_data()

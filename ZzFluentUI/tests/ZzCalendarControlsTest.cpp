@@ -947,14 +947,18 @@ private Q_SLOTS:
         QVERIFY(radius > 4);
         int circumferenceHits = 0;
         int interiorHits = 0;
+        int interiorArea = 0;
         for (int y = 0; y < cell.height(); ++y) {
             for (int x = 0; x < cell.width(); ++x) {
-                if (!isHighlight(x, y)) {
-                    continue;
-                }
                 const qreal distance = std::hypot(
                     static_cast<qreal>(x - center.x()),
                     static_cast<qreal>(y - center.y()));
+                if (distance <= static_cast<qreal>(radius) / 2.0) {
+                    ++interiorArea;
+                }
+                if (!isHighlight(x, y)) {
+                    continue;
+                }
                 if (distance >= radius - 4 && distance <= radius + 2) {
                     ++circumferenceHits;
                 } else if (distance <= static_cast<qreal>(radius) / 2.0) {
@@ -967,7 +971,13 @@ private Q_SLOTS:
             + isHighlight(center.x() + radius, center.y() - radius)
             + isHighlight(center.x() - radius, center.y() - radius);
         QVERIFY(circumferenceHits >= 12);
-        QVERIFY(circumferenceHits > interiorHits * 2);
+        // 周末时“今天”的日期数字本身以 accent 色绘制，内部命中包含文字像素；
+        // 实心填充会覆盖几乎全部内部区域，描边圆环加文字只占小部分。
+        QVERIFY(interiorArea > 0);
+        QVERIFY2(interiorHits * 2 <= interiorArea,
+            qPrintable(QStringLiteral("interiorHits=%1 interiorArea=%2")
+                .arg(interiorHits)
+                .arg(interiorArea)));
         QCOMPARE(cornerHits, 0);
     }
 
