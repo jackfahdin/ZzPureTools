@@ -115,6 +115,8 @@ zz_add_benchmark(ZzNavigationPaneBenchmark
     ZzNavigationPaneBenchmark.cpp benchmark.navigation-pane)
 zz_add_benchmark(ZzWorkspaceComponentsBenchmark
     ZzWorkspaceComponentsBenchmark.cpp benchmark.workspace-components)
+zz_add_benchmark(ZzGaugeAnimationBenchmark
+    ZzGaugeAnimationBenchmark.cpp benchmark.radial-gauge-animation)
 target_link_libraries(ZzWorkspaceComponentsBenchmark PRIVATE
     Zz::PureTools
     Zz::FluentUI)
@@ -163,6 +165,7 @@ target_link_libraries(ZzLargeModelBenchmark PRIVATE Zz::FluentUI)
 target_link_libraries(ZzWindowLifecycleBenchmark PRIVATE
     Zz::PureTools Zz::WindowKit)
 target_link_libraries(ZzNavigationPaneBenchmark PRIVATE Zz::FluentUI)
+target_link_libraries(ZzGaugeAnimationBenchmark PRIVATE Zz::FluentUI)
 add_dependencies(ZzStartupBenchmark ZzStartupProbe)
 set(zz_startup_probe_generated_dir
     "${CMAKE_CURRENT_BINARY_DIR}/generated/$<CONFIG>")
@@ -257,6 +260,20 @@ if(ZZ_PERFORMANCE_REFERENCE)
     zz_add_reference_gate(workspace-cross-transfer-object-growth
         benchmark.workspace-components workspace-components
         workspace-cross-transfer-object-growth MAX_VALUE 0)
+    zz_add_reference_gate(radial-gauge-animation benchmark.radial-gauge-animation
+        radial-gauge-animation frame-time MAX_P95 16.7)
+    zz_add_reference_gate(fluent-standard-surfaces-state
+        benchmark.fluent-standard-surfaces fluent-standard-surfaces
+        state-update-time MAX_P95 12)
+    zz_add_reference_gate(fluent-standard-surfaces-render
+        benchmark.fluent-standard-surfaces fluent-standard-surfaces
+        render-time MAX_P95 50)
+    zz_add_reference_gate(backdrop-enable benchmark.backdrop
+        backdrop enable-time MAX_P95 50)
+    zz_add_reference_gate(backdrop-frame benchmark.backdrop
+        backdrop frame-time MAX_P95 16.7)
+    zz_add_reference_gate(backdrop-rebuild benchmark.backdrop
+        backdrop rebuild-time MAX_P95 50)
     if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         zz_add_reference_gate(idle-cpu benchmark.idle-cpu
             idle average-cpu-percent MAX_VALUE 0.5 STRICT_MAX)

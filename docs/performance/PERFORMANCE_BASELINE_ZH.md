@@ -53,7 +53,7 @@ runner 必须失败关闭。
 sha256sum docs/performance/profiles/local-release-xvfb.json
 ```
 
-任何档案字段变化都会改变 digest，并强制重新采集十二份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
+任何档案字段变化都会改变 digest，并强制重新采集十六份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
 
 ## 当前活动基线
 
@@ -184,6 +184,10 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | 10 万行模型 | 10 帧 | 100 帧 |
 | 窗口生命周期 | 0 | 100 个窗口 |
 | 导航面板 | 10 帧 | 120 帧、1000 次映射激活、20 次 reset |
+| 工作区组件 | 10 轮 | 80 轮工作区操作与渲染、500 次跨工作区转移 |
+| 标准控件面板 | 10 轮 | 100 轮状态更新与整窗渲染 |
+| 软件材质层 | 10 轮 | 100 轮启用、固定尺寸渲染与重建 |
+| 仪表动画 | 10 次数值动画 | 100 次数值动画的全部相邻 Paint 间隔 |
 | 空闲 | 5 秒 | 30 秒单区间 |
 | 综合示例启动 | 5 个子进程 | 30 个子进程；父测量器连续拉起真实示例 |
 | 综合示例页面切换 | 10 轮 | 100 轮真实路由切换与绘制完成 |
@@ -199,6 +203,10 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | `build/linux-gcc-reference/reports/benchmark.large-model.json` | `docs/performance/reference/linux/large-model.json` |
 | `build/linux-gcc-reference/reports/benchmark.window-lifecycle.json` | `docs/performance/reference/linux/window-lifecycle.json` |
 | `build/linux-gcc-reference/reports/benchmark.navigation-pane.json` | `docs/performance/reference/linux/navigation-pane.json` |
+| `build/linux-gcc-reference/reports/benchmark.workspace-components.json` | `docs/performance/reference/linux/workspace-components.json` |
+| `build/linux-gcc-reference/reports/benchmark.fluent-standard-surfaces.json` | `docs/performance/reference/linux/fluent-standard-surfaces.json` |
+| `build/linux-gcc-reference/reports/benchmark.backdrop.json` | `docs/performance/reference/linux/backdrop.json` |
+| `build/linux-gcc-reference/reports/benchmark.radial-gauge-animation.json` | `docs/performance/reference/linux/radial-gauge-animation.json` |
 | `build/linux-gcc-reference/reports/benchmark.idle.json` | `docs/performance/reference/linux/idle.json` |
 | `build/linux-gcc-reference/reports/benchmark.example-startup.json` | `docs/performance/reference/linux/example-startup.json` |
 | `build/linux-gcc-reference/reports/benchmark.example-navigation.json` | `docs/performance/reference/linux/example-navigation.json` |
@@ -206,7 +214,7 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | `build/linux-gcc-reference/reports/benchmark.example-large-model.json` | `docs/performance/reference/linux/example-large-model.json` |
 | `build/linux-gcc-reference/reports/benchmark.example-idle.json` | `docs/performance/reference/linux/example-idle.json` |
 
-十二份 JSON 只能逐字复制 reporter 输出，不得手改数值。复制前必须满足组件与综合示例启动 P95/max 不超过 300 ms，组件与综合示例主题切换 P95 不超过 50 ms，综合示例页面切换 P95 不超过 50 ms，动画、组件与综合示例大模型 P95 不超过 16.7 ms，导航整帧 P95 不超过 12 ms，绘制复杂度不超过 1.5 倍，导航 reset P95 不超过 80 ms，两项空闲 CPU 均严格低于 0.5%、RSS 增长均不超过 10%，并完成窗口生命周期计数和对应 ASan/UBSan 门禁。
+十六份 JSON 只能逐字复制 reporter 输出，不得手改数值。后接入的四个场景（工作区组件、标准控件面板、软件材质层、仪表动画）用 `scripts/ci/capture-linux-performance-reference.sh` 在参考机上完成捕获，脚本先跑完整 benchmark 轮次（含全部绝对门禁），再把报告逐字复制到活动基线目录。复制前必须满足组件与综合示例启动 P95/max 不超过 300 ms，组件与综合示例主题切换 P95 不超过 50 ms，综合示例页面切换 P95 不超过 50 ms，动画、仪表动画、组件与综合示例大模型 P95 不超过 16.7 ms，导航整帧 P95 不超过 12 ms，绘制复杂度不超过 1.5 倍，导航 reset P95 不超过 80 ms，工作区渲染 P95 不超过 12 ms、跨工作区转移 P95 不超过 4 ms 且对象零增长，标准控件面板状态更新 P95 不超过 12 ms、整窗渲染 P95 不超过 50 ms，材质层启用与重建 P95 不超过 50 ms，两项空闲 CPU 均严格低于 0.5%、RSS 增长均不超过 10%，并完成窗口生命周期计数和对应 ASan/UBSan 门禁。
 
 ## 跨轮噪声与相对回归门限
 

@@ -36,6 +36,10 @@ performance_scenarios=(
   large-model
   window-lifecycle
   navigation-pane
+  workspace-components
+  fluent-standard-surfaces
+  backdrop
+  radial-gauge-animation
   idle
   example-startup
   example-navigation
