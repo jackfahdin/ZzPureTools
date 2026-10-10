@@ -130,13 +130,15 @@ private Q_SLOTS:
         view.show();
         ZzExampleCarouselPlayback playback(&view, &view);
         playback.setPauseOnHover(false);
-        playback.setInterval(300);
+        playback.setInterval(600);
         playback.setEnabled(true);
-        QTest::qWait(200);
+        QTest::qWait(300);
         QEnterEvent enter({}, {}, {});
         QApplication::sendEvent(&view, &enter);
-        QTest::qWait(160);
-        QCOMPARE(view.currentRow(), 1);
+        // 悬停被忽略时计时器不重启：前进必须沿原始计划（启用后 600ms）
+        // 发生，早于悬停重启计划（悬停后 600ms）的截止点；慢速 runner
+        // 上定时器投递可能延迟，用轮询等待替代固定窗口后的精确比较。
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(view.currentRow(), 1, 550);
     }
 
     void timeoutCallbackMayDeleteViewAndController()
