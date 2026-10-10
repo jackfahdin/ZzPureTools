@@ -80,10 +80,18 @@ namespace {
         QStringLiteral("ZzWorkspaceWindowCoordinatorTest"),
         QStringLiteral("Home"),
         {}};
-    return builder.addPage(zzPage())
+    const bool configured = builder.addPage(zzPage())
         && builder.addNavigationNode(node)
-        && builder.setInitialRoute(ZzPureTools::ZzRouteId(QStringLiteral("home")))
-        && builder.build(application);
+        && builder.setInitialRoute(ZzPureTools::ZzRouteId(QStringLiteral("home")));
+    if (!configured) {
+        return false;
+    }
+    const auto built = builder.build(application);
+    if (!built) {
+        qInfo() << "zzBuildApplication failed:"
+                << built.error().technicalMessage();
+    }
+    return built ? true : false;
 }
 
 [[nodiscard]] ZzPureTools::ZzApplicationWindow *zzOnlyWindow(
@@ -3708,7 +3716,9 @@ private Q_SLOTS:
             primaryPage, QStringLiteral("restore/primary")));
         QVERIFY(secondWorkspace->setPageLayoutKey(
             secondPage, QStringLiteral("restore/second")));
-        primaryWindow->setGeometry(QRect(20, 20, 640, 480));
+        // macOS 的 availableGeometry 顶部有菜单栏内边距，y 坐标必须避开收敛钳制区间，
+        // 否则恢复时几何被钳制，往返字节不一致。
+        primaryWindow->setGeometry(QRect(20, 40, 640, 480));
         secondWindow->setGeometry(QRect(80, 80, 600, 440));
         const auto saved = coordinator->saveTopology();
         QVERIFY(saved);
