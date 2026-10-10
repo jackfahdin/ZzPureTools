@@ -21,6 +21,7 @@
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QAbstractSlider>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QScrollBar>
 
 #include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -290,12 +291,30 @@ private Q_SLOTS:
         picker.show();
         QCoreApplication::processEvents();
         auto *view = paletteView(&picker);
+        const auto scrollState = [view](const QModelIndex &index) {
+            const QRect area = view->viewport()->rect();
+            const QRect item = view->visualRect(index);
+            const QScrollBar *bar = view->verticalScrollBar();
+            return QStringLiteral(
+                "viewport=(%1,%2 %3x%4) item=(%5,%6 %7x%8) scroll=%9/%10 "
+                "grid=%11x%12 view=%13x%14")
+                .arg(area.x()).arg(area.y())
+                .arg(area.width()).arg(area.height())
+                .arg(item.x()).arg(item.y())
+                .arg(item.width()).arg(item.height())
+                .arg(bar->value()).arg(bar->maximum())
+                .arg(view->gridSize().width()).arg(view->gridSize().height())
+                .arg(view->width()).arg(view->height());
+        };
         for (int width : {360, 300, 360, picker.minimumSizeHint().width()}) {
             picker.setFixedWidth(width);
             QCoreApplication::processEvents();
             QCOMPARE(view->visualRect(view->model()->index(7, 0)).top(),
                      view->visualRect(view->model()->index(0, 0)).top());
-            QVERIFY(view->viewport()->rect().contains(view->visualRect(view->model()->index(47, 0))));
+            const QModelIndex last = view->model()->index(47, 0);
+            QVERIFY2(view->viewport()->rect().contains(view->visualRect(last)),
+                     qPrintable(QStringLiteral("width=%1 %2")
+                         .arg(width).arg(scrollState(last))));
         }
         for (int count : {49, 256}) {
             colors.clear();
@@ -305,9 +324,22 @@ private Q_SLOTS:
             picker.setPaletteColors(colors);
             QCoreApplication::processEvents();
             const QModelIndex last = view->model()->index(count - 1, 0);
+            const QRect rectBeforeScroll = view->visualRect(last);
+            const int maxBeforeScroll = view->verticalScrollBar()->maximum();
             view->scrollTo(last);
+            const int scrollRightAfter = view->verticalScrollBar()->value();
             QCoreApplication::processEvents();
-            QVERIFY(view->viewport()->rect().contains(view->visualRect(last)));
+            QVERIFY2(view->viewport()->rect().contains(view->visualRect(last)),
+                     qPrintable(QStringLiteral(
+                         "count=%1 %2 beforeScroll=(%3,%4 %5x%6) "
+                         "maxBeforeScroll=%7 scrollRightAfter=%8 sbVisible=%9 "
+                         "style=%10")
+                         .arg(count).arg(scrollState(last))
+                         .arg(rectBeforeScroll.x()).arg(rectBeforeScroll.y())
+                         .arg(rectBeforeScroll.width()).arg(rectBeforeScroll.height())
+                         .arg(maxBeforeScroll).arg(scrollRightAfter)
+                         .arg(view->verticalScrollBar()->isVisible())
+                         .arg(QApplication::style()->objectName())));
         }
     }
 

@@ -22,6 +22,7 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStyleOptionViewItem>
 #include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QVBoxLayout>
@@ -745,8 +746,19 @@ void ZzColorPickerPrivate::syncPaletteMetrics()
     syncingPaletteMetrics = true;
     const auto snapshot = theme.snapshot();
     const bool fluent = appearance == ZzColorPicker::Fluent;
+    // 溢出色板（>48 色）会显示滚动条；网格必须按滚动条占位后的稳定宽度计算，
+    // 否则滚动条出现/隐藏会改变 viewport 宽度，与网格尺寸形成循环依赖，
+    // 在不同平台事件时序下产生不同的中间布局（macOS CI 出现过 9 列瞬态）。
+    int availableWidth = paletteView->viewport()->width();
+    if (fluent && paletteColorCount() > 48) {
+        const QScrollBar *scrollBar = paletteView->verticalScrollBar();
+        if (scrollBar->isVisible()) {
+            availableWidth += scrollBar->width();
+        }
+        availableWidth -= scrollBar->sizeHint().width();
+    }
     // QListView keeps a small flow inset even with a frameless viewport.
-    const int gridExtent = fluent ? qMax(1, (paletteView->viewport()->width() - 2) / 8) : qMax(
+    const int gridExtent = fluent ? qMax(1, (availableWidth - 2) / 8) : qMax(
         1,
         qCeil(snapshot->metric(ZzMetricToken::ColorSwatchExtent)
               + snapshot->metric(ZzMetricToken::ColorSwatchGap)));
