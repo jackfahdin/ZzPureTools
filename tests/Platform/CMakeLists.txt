@@ -115,9 +115,16 @@ set_tests_properties(platform.local-development-gate-contract PROPERTIES
 add_test(NAME platform.performance-threshold-contract
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-        "-DZZ_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/performance-threshold-contract"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPerformanceThresholdContract.cmake")
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPerformanceReferenceContract.cmake")
 set_tests_properties(platform.performance-threshold-contract PROPERTIES
+    LABELS "platform;contract;benchmark")
+
+add_test(NAME platform.performance-comparison-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        "-DZZ_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/performance-comparison-contract"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPerformanceThresholdContract.cmake")
+set_tests_properties(platform.performance-comparison-contract PROPERTIES
     LABELS "platform;contract;benchmark")
 
 if(UNIX)

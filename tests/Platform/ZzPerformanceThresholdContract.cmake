@@ -25,110 +25,6 @@ function(zz_contract_decimal_to_micro output value)
     set(${output} "${micro}" PARENT_SCOPE)
 endfunction()
 
-function(zz_contract_metric_kind output unit)
-    if(unit STREQUAL "ms" OR unit STREQUAL "us")
-        set(kind statistical-duration)
-    elseif(unit STREQUAL "count" OR unit STREQUAL "ratio"
-           OR unit STREQUAL "px" OR unit STREQUAL "objects")
-        set(kind deterministic)
-    elseif(unit STREQUAL "bytes" OR unit STREQUAL "percent")
-        set(kind sampled-resource)
-    else()
-        message(FATAL_ERROR "Unsupported performance metric unit: ${unit}")
-    endif()
-    set(${output} "${kind}" PARENT_SCOPE)
-endfunction()
-
-function(zz_validate_formal_thresholds)
-    set(threshold_file
-        "${ZZ_SOURCE_DIR}/docs/performance/reference/linux/regression-thresholds.json")
-    file(READ "${threshold_file}" thresholds_json)
-    string(JSON threshold_schema GET "${thresholds_json}" schemaVersion)
-    if(NOT threshold_schema EQUAL 2)
-        message(FATAL_ERROR "Formal thresholds must use schemaVersion 2")
-    endif()
-
-    file(GLOB reporters LIST_DIRECTORIES FALSE
-        "${ZZ_SOURCE_DIR}/docs/performance/reference/linux/*.json")
-    list(REMOVE_ITEM reporters "${threshold_file}")
-    set(expected_scenarios)
-    foreach(reporter IN LISTS reporters)
-        file(READ "${reporter}" reporter_json)
-        string(JSON scenario GET "${reporter_json}" scenario)
-        list(APPEND expected_scenarios "${scenario}")
-    endforeach()
-    list(SORT expected_scenarios)
-
-    string(JSON scenario_count LENGTH "${thresholds_json}" scenarios)
-    set(actual_scenarios)
-    math(EXPR last_scenario "${scenario_count} - 1")
-    foreach(scenario_index RANGE 0 ${last_scenario})
-        string(JSON scenario MEMBER "${thresholds_json}" scenarios ${scenario_index})
-        list(APPEND actual_scenarios "${scenario}")
-    endforeach()
-    list(SORT actual_scenarios)
-    if(NOT "${actual_scenarios}" STREQUAL "${expected_scenarios}")
-        message(FATAL_ERROR "Formal threshold scenarios differ from reporters")
-    endif()
-
-    foreach(reporter IN LISTS reporters)
-        file(READ "${reporter}" reporter_json)
-        string(JSON scenario GET "${reporter_json}" scenario)
-        string(JSON reporter_metric_count LENGTH "${reporter_json}" metrics)
-        string(JSON threshold_metric_count LENGTH "${thresholds_json}"
-            scenarios "${scenario}" metrics)
-        set(reporter_metrics)
-        set(threshold_metrics)
-        math(EXPR last_reporter_metric "${reporter_metric_count} - 1")
-        math(EXPR last_threshold_metric "${threshold_metric_count} - 1")
-        foreach(metric_index RANGE 0 ${last_reporter_metric})
-            string(JSON metric MEMBER "${reporter_json}" metrics ${metric_index})
-            list(APPEND reporter_metrics "${metric}")
-        endforeach()
-        foreach(metric_index RANGE 0 ${last_threshold_metric})
-            string(JSON metric MEMBER "${thresholds_json}"
-                scenarios "${scenario}" metrics ${metric_index})
-            list(APPEND threshold_metrics "${metric}")
-        endforeach()
-        list(SORT reporter_metrics)
-        list(SORT threshold_metrics)
-        if(NOT "${reporter_metrics}" STREQUAL "${threshold_metrics}")
-            message(FATAL_ERROR
-                "Formal threshold metrics differ from reporter for ${scenario}")
-        endif()
-
-        foreach(metric IN LISTS reporter_metrics)
-            string(JSON unit GET "${reporter_json}" metrics "${metric}" unit)
-            zz_contract_metric_kind(expected_kind "${unit}")
-            string(JSON actual_kind GET "${thresholds_json}"
-                scenarios "${scenario}" metrics "${metric}" metricKind)
-            if(NOT "${actual_kind}" STREQUAL "${expected_kind}")
-                message(FATAL_ERROR
-                    "Formal threshold kind mismatch for ${scenario}/${metric}")
-            endif()
-            foreach(field p95 max)
-                string(JSON mode GET "${thresholds_json}" scenarios "${scenario}"
-                    metrics "${metric}" "${field}" mode)
-                string(JSON percent GET "${thresholds_json}" scenarios "${scenario}"
-                    metrics "${metric}" "${field}" percent)
-                if(expected_kind STREQUAL "statistical-duration")
-                    if(field STREQUAL "max" AND NOT mode STREQUAL "observe")
-                        message(FATAL_ERROR
-                            "Duration max must observe for ${scenario}/${metric}")
-                    endif()
-                    if(field STREQUAL "p95" AND mode STREQUAL "gate"
-                       AND percent GREATER 10)
-                        message(FATAL_ERROR
-                            "Duration P95 gate exceeds 10 percent for ${scenario}/${metric}")
-                    endif()
-                elseif(NOT mode STREQUAL "gate" OR percent GREATER 20)
-                    message(FATAL_ERROR
-                        "${expected_kind} must gate within 20 percent for ${scenario}/${metric}")
-                endif()
-            endforeach()
-        endforeach()
-    endforeach()
-endfunction()
 
 function(zz_validate_workspace_evidence output directory)
     file(GLOB round_reports LIST_DIRECTORIES FALSE
@@ -304,7 +200,6 @@ function(zz_validate_workspace_evidence output directory)
 endfunction()
 
 file(READ "${baseline}" baseline_json)
-zz_validate_formal_thresholds()
 string(JSON p95_regressed_json SET "${baseline_json}" metrics latency p95 111)
 string(JSON max_regressed_json SET "${baseline_json}" metrics latency max 111)
 file(WRITE "${ZZ_TEST_ROOT}/p95-regressed.json" "${p95_regressed_json}")
@@ -594,10 +489,14 @@ execute_process(
         "-DZZ_OUTPUT_JSON=${ZZ_TEST_ROOT}/invalid.json"
         "-DZZ_OUTPUT_MARKDOWN=${ZZ_TEST_ROOT}/invalid.md"
         -P "${analyze_script}"
-    RESULT_VARIABLE insufficient_result)
+    RESULT_VARIABLE insufficient_result
+    OUTPUT_VARIABLE insufficient_output
+    ERROR_VARIABLE insufficient_error)
 if(insufficient_result EQUAL 0)
     message(FATAL_ERROR "Noise analyzer accepted fewer than three rounds")
 endif()
+zz_require_log("${insufficient_output}${insufficient_error}"
+    "ZZ_RUN_DIRECTORIES must contain at least three directories")
 
 set(workspace_evidence_directory
     "${ZZ_SOURCE_DIR}/docs/performance/evidence/workspace-components/2026-08-26")
@@ -681,4 +580,46 @@ if(NOT "${workspace_evidence_error}" STREQUAL "")
         "Workspace reference evidence is invalid: ${workspace_evidence_error}")
 endif()
 
-message(STATUS "Performance threshold contract passed")
+set(reference_fixture "${ZZ_TEST_ROOT}/reference-fixture")
+set(reference_directory "${reference_fixture}/docs/performance/reference/linux")
+file(MAKE_DIRECTORY "${reference_directory}")
+file(WRITE "${reference_directory}/contract.json" "${baseline_json}")
+file(WRITE "${reference_directory}/regression-thresholds.json" "${duration_thresholds}")
+
+function(zz_check_reference_fixture should_pass expected_diagnostic)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" "-DZZ_SOURCE_DIR=${reference_fixture}"
+            -P "${ZZ_SOURCE_DIR}/tests/Platform/ZzPerformanceReferenceContract.cmake"
+        RESULT_VARIABLE reference_result
+        OUTPUT_VARIABLE reference_output
+        ERROR_VARIABLE reference_error)
+    if(should_pass)
+        if(NOT reference_result EQUAL 0)
+            message(FATAL_ERROR "Complete reference fixture was rejected: ${reference_error}")
+        endif()
+    else()
+        if(reference_result EQUAL 0)
+            message(FATAL_ERROR "Incomplete or invalid reference fixture was accepted")
+        endif()
+        zz_require_log("${reference_output}${reference_error}" "${expected_diagnostic}")
+    endif()
+endfunction()
+
+zz_check_reference_fixture(TRUE "")
+string(JSON missing_report_thresholds SET "${duration_thresholds}" scenarios
+    missing-animation [=[{"metrics":{}}]=])
+file(WRITE "${reference_directory}/regression-thresholds.json" "${missing_report_thresholds}")
+zz_check_reference_fixture(FALSE "missing-animation")
+
+file(WRITE "${reference_directory}/regression-thresholds.json" "${duration_thresholds}")
+string(JSON orphan_report SET "${baseline_json}" scenario [=["orphan-report"]=])
+file(WRITE "${reference_directory}/orphan.json" "${orphan_report}")
+zz_check_reference_fixture(FALSE "orphan-report")
+file(REMOVE "${reference_directory}/orphan.json")
+
+string(JSON wrong_kind_thresholds SET "${duration_thresholds}" scenarios contract
+    metrics latency metricKind [=["deterministic"]=])
+file(WRITE "${reference_directory}/regression-thresholds.json" "${wrong_kind_thresholds}")
+zz_check_reference_fixture(FALSE "kind mismatch")
+
+message(STATUS "Performance comparison, noise and reference-validator contracts passed")
