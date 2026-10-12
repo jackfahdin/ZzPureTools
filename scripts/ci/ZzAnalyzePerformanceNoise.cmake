@@ -187,6 +187,15 @@ foreach(report_name IN LISTS reference_names)
                     set(mode gate)
                     set(threshold 10)
                 endif()
+            elseif(metric_kind STREQUAL "sampled-resource"
+                   AND minimum_micro EQUAL 0 AND maximum_micro GREATER 0
+                   AND DEFINED ZZ_ABSOLUTE_GATES_VERIFIED
+                   AND "${ZZ_ABSOLUTE_GATES_VERIFIED}" STREQUAL "TRUE")
+                # Match the comparator's zero-resource quantization rule. This
+                # does not authorize observe mode or relax a future comparison:
+                # that run must independently prove its absolute gates passed.
+                set(mode gate)
+                set(threshold 10)
             elseif(noise_percent GREATER 20)
                 message(FATAL_ERROR
                     "${metric_kind} metric exceeds the acceptable 20 percent stability band for ${scenario}/${metric}.${field}: ${noise_percent}%")

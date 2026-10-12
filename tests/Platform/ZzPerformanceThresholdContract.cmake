@@ -498,6 +498,86 @@ if(NOT high_noise_percent EQUAL 100 OR NOT high_noise_percent_raw EQUAL 101)
         "High-noise duration must clamp percent to 100 and retain noisePercent 101")
 endif()
 
+# A resource may quantize from zero to one tick. Like the comparator, the
+# analyzer must require absolute-gate proof and keep the resource in gate mode.
+foreach(round RANGE 1 3)
+    file(READ "${ZZ_TEST_ROOT}/round-${round}/benchmark.contract.json" zero_resource_json)
+    string(JSON zero_resource_json SET "${zero_resource_json}" metrics bytes
+        [=[{"unit":"percent","p95":0,"max":0}]=])
+    if(round EQUAL 3)
+        string(JSON zero_resource_json SET "${zero_resource_json}" metrics bytes p95 0.03)
+        string(JSON zero_resource_json SET "${zero_resource_json}" metrics bytes max 0.03)
+    endif()
+    file(WRITE "${ZZ_TEST_ROOT}/round-${round}/benchmark.contract.json" "${zero_resource_json}")
+endforeach()
+foreach(proof FALSE TRUE)
+    execute_process(COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_RUN_DIRECTORIES=${run_directories}"
+        "-DZZ_OUTPUT_JSON=${ZZ_TEST_ROOT}/zero-resource-${proof}.json"
+        "-DZZ_OUTPUT_MARKDOWN=${ZZ_TEST_ROOT}/zero-resource-${proof}.md"
+        "-DZZ_ABSOLUTE_GATES_VERIFIED=${proof}"
+        -P "${analyze_script}"
+        RESULT_VARIABLE zero_resource_result ERROR_VARIABLE zero_resource_error)
+    if(proof STREQUAL "TRUE")
+        if(NOT zero_resource_result EQUAL 0)
+            message(FATAL_ERROR "Verified quantized resource was rejected: ${zero_resource_error}")
+        endif()
+        file(READ "${ZZ_TEST_ROOT}/zero-resource-${proof}.json" zero_policy)
+        foreach(field p95 max)
+            string(JSON zero_mode GET "${zero_policy}" scenarios contract metrics bytes "${field}" mode)
+            string(JSON zero_percent GET "${zero_policy}" scenarios contract metrics bytes "${field}" percent)
+            string(JSON zero_noise GET "${zero_policy}" scenarios contract metrics bytes "${field}" noisePercent)
+            if(NOT zero_mode STREQUAL "gate" OR NOT zero_percent EQUAL 10 OR NOT zero_noise EQUAL 101)
+                message(FATAL_ERROR "Quantized resource lost its strict gate or noise evidence")
+            endif()
+        endforeach()
+    elseif(zero_resource_result EQUAL 0)
+        message(FATAL_ERROR "Quantized resource accepted without absolute-gate proof")
+    endif()
+endforeach()
+
+# Absolute-gate proof never excuses deterministic zero-to-nonzero growth.
+foreach(round RANGE 1 3)
+    file(READ "${ZZ_TEST_ROOT}/round-${round}/benchmark.contract.json" zero_object_json)
+    string(JSON zero_object_json SET "${zero_object_json}" metrics bytes unit [=["objects"]=])
+    if(round EQUAL 3)
+        string(JSON zero_object_json SET "${zero_object_json}" metrics bytes p95 1)
+        string(JSON zero_object_json SET "${zero_object_json}" metrics bytes max 1)
+    endif()
+    file(WRITE "${ZZ_TEST_ROOT}/round-${round}/benchmark.contract.json" "${zero_object_json}")
+endforeach()
+execute_process(COMMAND "${CMAKE_COMMAND}"
+    "-DZZ_RUN_DIRECTORIES=${run_directories}"
+    "-DZZ_OUTPUT_JSON=${ZZ_TEST_ROOT}/zero-objects.json"
+    "-DZZ_OUTPUT_MARKDOWN=${ZZ_TEST_ROOT}/zero-objects.md"
+    -DZZ_ABSOLUTE_GATES_VERIFIED=TRUE -P "${analyze_script}"
+    RESULT_VARIABLE zero_object_result ERROR_VARIABLE zero_object_error)
+if(zero_object_result EQUAL 0)
+    message(FATAL_ERROR "Absolute-gate proof excused deterministic object growth")
+endif()
+zz_require_log("${zero_object_error}" "deterministic metric exceeds")
+
+foreach(round RANGE 1 3)
+    file(READ "${ZZ_TEST_ROOT}/round-${round}/benchmark.contract.json" resource_growth_json)
+    string(JSON resource_growth_json SET "${resource_growth_json}" metrics bytes
+        [=[{"unit":"bytes","p95":100,"max":100}]=])
+    if(round EQUAL 3)
+        string(JSON resource_growth_json SET "${resource_growth_json}" metrics bytes p95 121)
+        string(JSON resource_growth_json SET "${resource_growth_json}" metrics bytes max 121)
+    endif()
+    file(WRITE "${ZZ_TEST_ROOT}/round-${round}/benchmark.contract.json" "${resource_growth_json}")
+endforeach()
+execute_process(COMMAND "${CMAKE_COMMAND}"
+    "-DZZ_RUN_DIRECTORIES=${run_directories}"
+    "-DZZ_OUTPUT_JSON=${ZZ_TEST_ROOT}/resource-growth.json"
+    "-DZZ_OUTPUT_MARKDOWN=${ZZ_TEST_ROOT}/resource-growth.md"
+    -DZZ_ABSOLUTE_GATES_VERIFIED=TRUE -P "${analyze_script}"
+    RESULT_VARIABLE resource_growth_result ERROR_VARIABLE resource_growth_error)
+if(resource_growth_result EQUAL 0)
+    message(FATAL_ERROR "Absolute-gate proof excused nonzero resource growth")
+endif()
+zz_require_log("${resource_growth_error}" "sampled-resource metric exceeds")
+
 execute_process(
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_RUN_DIRECTORIES=${ZZ_TEST_ROOT}/round-1;${ZZ_TEST_ROOT}/round-2"
