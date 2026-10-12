@@ -12,28 +12,40 @@
 
 ## 参考环境
 
-- 生成日期：2026-09-28。
+- 当前版本目录：`linux/qt-6.11/`，12 张 PNG。
+- 生成日期：2026-10-12。
 - Qt：6.11.1。
-- CMake preset：`linux-gcc-debug`（GCC 15）。
+- CMake preset：`linux-gcc-benchmarks`（GCC 15.2，Release + LTO）。
 - 平台插件：`offscreen`。
 - 字体：DejaVu Sans 10pt。
 - locale 与布局：`C.UTF-8`、LTR。
 - 逻辑窗口：1280x800。
 - DPR：1.0、1.25、1.5、2.0，`PassThrough` rounding policy。
 
-更新时必须在已审 Linux 参考发布机执行：
+优先读取 `linux/qt-<major>.<minor>/dpr-<scale>/` 的对应文件，缺失时回退到
+`linux/dpr-<scale>/`。共用目录保留此前 CI 使用的参考图，本次没有修改。
+更新只写当前 Qt minor 的目录，不覆盖其他版本；性能报告的历史基线与这些视觉图片无关。
+
+本次同步了此前已合入的数据视图 32 px 行高和首页路由数量变化（29 → 41），
+并隔离 Qt 6.8 / 6.11 的渲染差异。审查四档 DPR 的三主题，关闭更新模式后
+四项 Example 截图测试全部通过。详细来源和已知视觉问题见
+[复核记录](../../../../docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)。
+
+更新时必须在已配置、构建且经过审查的 Linux 截图环境执行：
 
 ```bash
 GCC_13=/usr/bin/gcc-15 \
 GXX_13=/usr/bin/g++-15 \
 QT_ROOT=/home/zz/Qt/6.11.1/gcc_64 \
 ZZ_UPDATE_EXAMPLE_SCREENSHOTS=1 \
-ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
+ctest --preset linux-gcc-benchmarks --parallel 4 --output-on-failure \
   -R '^example\.puretools-screenshot-(100|125|150|200)$'
 ```
 
 更新后必须关闭 `ZZ_UPDATE_EXAMPLE_SCREENSHOTS` 重新运行测试、人工检查 100% 三主题
-和 200% Light，并重新计算本文件的 SHA-256。普通 CI 只比较，不得更新参考图。
+和 200% Light，并更新 `SHA256SUMS`。普通 CI 只比较，不得更新参考图。
+
+## 历史采集记录
 
 本轮基线覆盖 IDE 式六入口合同：左侧会话、文件、组件与设置，右侧属性、任务；
 组件入口承载应用导航，设置使用逐窗口 `WindowModal` 窗口。这些布局变化不是 SVG
@@ -60,17 +72,9 @@ ctest --preset linux-gcc-debug --parallel 4 --output-on-failure \
 
 ## 文件摘要
 
-| 文件 | SHA-256 |
-|---|---|
-| `linux/dpr-100/dark.png` | `2b3704f747ef4ed6c07b25aad102639410b1ca307f23fe11f4fcf39c07f59e4b` |
-| `linux/dpr-100/high-contrast.png` | `d887d3dbfea00fdded86d9ebbaafb00a883d39092ba1c6162e846453543f1d09` |
-| `linux/dpr-100/light.png` | `9ef92daf1a20ec8e95dcbe771029f9121fcf03ec5b6643fe98505acec3bbac9e` |
-| `linux/dpr-125/dark.png` | `fbb102f4d281e7a5a375da496f39f313882a7c20f9292e9424fc7adfa7295af5` |
-| `linux/dpr-125/high-contrast.png` | `92811894a2c795fd0cc8819bd31dc9acdb42941c914f4a6f014600fb392ad914` |
-| `linux/dpr-125/light.png` | `ca5fe1cfc1219c130d09f71b3f32c300a6794a7bba7da515e64e8e30ede1bf18` |
-| `linux/dpr-150/dark.png` | `bde1989b3f14d3f78d67c92745359fa46a886054bf2b2cf51c5abd0fd42d49bc` |
-| `linux/dpr-150/high-contrast.png` | `e9996f794ce83ff0ab798da452a8a09f530c15312855939be85c1733b48fdf35` |
-| `linux/dpr-150/light.png` | `c6f06c5cebb9d07d0f1cf02e9aaf8303417a12d17d4a09ff1fc8e6aa11620dca` |
-| `linux/dpr-200/dark.png` | `ffa14d254cd8fb994c68e5f021f72de2f2c1087de0505d631c4507a5b9f308a0` |
-| `linux/dpr-200/high-contrast.png` | `ab2545bb5dfb2ad9311657ce414dab072e26f796e5283dc0513279b472427567` |
-| `linux/dpr-200/light.png` | `d6290be40ea393024b4831bbeced89d0a0ec1f1dcac7c0600b6f14b659de32cc` |
+[SHA256SUMS](SHA256SUMS) 同时记录共用目录与 Qt 6.11 目录中的 24 张参考图。
+在当前目录验证：
+
+```bash
+sha256sum --check SHA256SUMS
+```
