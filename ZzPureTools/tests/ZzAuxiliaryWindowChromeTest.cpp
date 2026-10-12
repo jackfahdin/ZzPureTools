@@ -1,5 +1,7 @@
 #include <QtCore/QPointer>
+#include <QtGui/QPlatformSurfaceEvent>
 #include <QtGui/QPixmap>
+#include <QtGui/QWindow>
 #include <QtTest/QTest>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QMainWindow>
@@ -11,6 +13,38 @@
 #include <ZzPureTools/ZzAuxiliaryWindowChrome.h>
 #include <ZzWindowKit/ZzWindowAgent.h>
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
+
+namespace {
+
+class ZzNativeSurfaceTeardownObserver final : public QObject
+{
+public:
+    explicit ZzNativeSurfaceTeardownObserver(
+        const ZzPureTools::ZzAuxiliaryWindowChrome *chrome)
+        : chrome_(chrome)
+    {
+    }
+
+    bool sawSurfaceDestruction = false;
+    bool agentReleasedBeforeSurface = false;
+
+protected:
+    bool eventFilter(QObject *, QEvent *event) override
+    {
+        if (event->type() == QEvent::PlatformSurface
+            && static_cast<QPlatformSurfaceEvent *>(event)->surfaceEventType()
+                == QPlatformSurfaceEvent::SurfaceAboutToBeDestroyed) {
+            sawSurfaceDestruction = true;
+            agentReleasedBeforeSurface = chrome_->windowAgent() == nullptr;
+        }
+        return false;
+    }
+
+private:
+    const ZzPureTools::ZzAuxiliaryWindowChrome *chrome_;
+};
+
+} // namespace
 
 /** @brief 验证辅助窗口装配的标题、按钮、主题和生命周期契约。 */
 class ZzAuxiliaryWindowChromeTest final : public QObject
@@ -89,6 +123,33 @@ private Q_SLOTS:
         QVERIFY(chrome->titleBar() == nullptr);
         theme.setMode(ZzFluentUI::ZzThemeMode::Light);
         chrome.reset();
+    }
+
+    void releasesAgentBeforeHiddenNativeSurface()
+    {
+        ZzFluentUI::ZzThemeController theme;
+        auto host = std::make_unique<QMainWindow>();
+        auto result = ZzPureTools::ZzAuxiliaryWindowChrome::create(host.get(), &theme);
+        QVERIFY(result);
+        auto chrome = std::move(result).value();
+        // Cocoa creates a native host while constructing the title bar's menu.
+        // Materialize the same lifetime boundary on other Qt platforms too.
+        (void)host->winId();
+        auto *nativeWindow = host->windowHandle();
+        QVERIFY(nativeWindow != nullptr);
+        nativeWindow->create();
+        QVERIFY(nativeWindow->handle() != nullptr);
+        QVERIFY(!host->isVisible());
+        ZzNativeSurfaceTeardownObserver observer(chrome.get());
+        nativeWindow->installEventFilter(&observer);
+
+        host.reset();
+
+        QVERIFY(observer.sawSurfaceDestruction);
+        QVERIFY(observer.agentReleasedBeforeSurface);
+        QVERIFY(chrome->windowAgent() == nullptr);
+        QVERIFY(chrome->titleBar() == nullptr);
+        theme.setMode(ZzFluentUI::ZzThemeMode::Dark);
     }
 };
 

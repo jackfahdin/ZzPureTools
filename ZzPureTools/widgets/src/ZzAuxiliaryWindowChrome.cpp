@@ -75,6 +75,12 @@ ZzAuxiliaryWindowChrome::create(
         if (!configured) {
             return Result::failure(configured.error());
         }
+        QObject::connect(window, &QObject::destroyed,
+            chrome.get(), [state = chrome->d_ptr.get()] {
+                // A hidden QWidget emits destroyed before native-surface teardown.
+                // Release its hooks while their platform view is still alive.
+                state->agent.reset();
+            });
         QObject::connect(window, &QWidget::windowTitleChanged,
             bar, &ZzFluentUI::ZzFluentTitleBar::setTitle);
         QObject::connect(window, &QWidget::windowIconChanged,

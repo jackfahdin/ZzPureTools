@@ -50,7 +50,7 @@ public:
     /** @brief 返回标题栏观察指针；宿主销毁后为空。 */
     [[nodiscard]] ZzFluentUI::ZzFluentTitleBar *titleBar() const noexcept;
 
-    /** @brief 返回装配对象独占的 WindowKit 代理观察指针。 */
+    /** @brief 返回装配对象独占的 WindowKit 代理观察指针；宿主销毁后为空。 */
     [[nodiscard]] ZzWindowKit::ZzWindowAgent *windowAgent() const noexcept;
 
 private:
