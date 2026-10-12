@@ -1,0 +1,106 @@
+--- a/benchmarks/ZzGaugeAnimationBenchmark.cpp
++++ b/benchmarks/ZzGaugeAnimationBenchmark.cpp
+@@ -21,6 +21,60 @@
+ #include "ZzBenchmarkMetadata.h"
+ #include "ZzPerformanceReporter.h"
+ 
++
++#include <QtCore/QFile>
++#include <QtCore/QJsonArray>
++#include <QtCore/QJsonDocument>
++#include <QtCore/QJsonObject>
++
++// Diagnostic-only wrapper: all production Paint events still run normally.
++class DiagnosticApplication final : public QApplication
++{
++public:
++    using QApplication::QApplication;
++    QObject *gauge = nullptr;
++    bool measuring = false;
++    QElapsedTimer tickClock;
++    qint64 previousTick = -1;
++    QJsonArray paintDurations;
++    QJsonArray animationIntervals;
++
++    bool notify(QObject *receiver, QEvent *event) override
++    {
++        if (!measuring || receiver != gauge || event->type() != QEvent::Paint) {
++            return QApplication::notify(receiver, event);
++        }
++        QElapsedTimer clock;
++        clock.start();
++        const bool result = QApplication::notify(receiver, event);
++        paintDurations.append(static_cast<double>(clock.nsecsElapsed()) / 1e6);
++        return result;
++    }
++
++    void tick()
++    {
++        if (!measuring) return;
++        const qint64 now = tickClock.nsecsElapsed();
++        if (previousTick >= 0) {
++            animationIntervals.append(static_cast<double>(now - previousTick) / 1e6);
++        }
++        previousTick = now;
++    }
++
++    bool saveDiagnostics(const QString &path)
++    {
++        QFile file(path);
++        if (!file.open(QIODevice::WriteOnly)) return false;
++        const QByteArray json = QJsonDocument(QJsonObject{
++            {QStringLiteral("purpose"), QStringLiteral("diagnostic only; not a reference baseline")},
++            {QStringLiteral("unit"), QStringLiteral("ms")},
++            {QStringLiteral("paintEventDispatchDurations"), paintDurations},
++            {QStringLiteral("animationValueChangedIntervals"), animationIntervals}
++        }).toJson();
++        return file.write(json) == json.size();
++    }
++};
++
+ namespace {
+ 
+ constexpr int zzWarmupIterations = 10;
+@@ -138,7 +192,7 @@
+ 
+ int main(int argc, char *argv[])
+ {
+-    QApplication application(argc, argv);
++    DiagnosticApplication application(argc, argv);
+     const QString reportPath = zzReportPath(application.arguments());
+     if (reportPath.isEmpty()) {
+         return zzFail(QStringLiteral("missing --report output path"));
+@@ -170,6 +224,12 @@
+                           .arg(animations.size()));
+     }
+     QVariantAnimation *const animation = animations.constFirst();
++    application.gauge = gauge;
++    application.tickClock.start();
++    QObject::connect(animation, &QVariantAnimation::valueChanged, &application,
++        [&application, animation] {
++            if (animation->state() == QAbstractAnimation::Running) application.tick();
++        });
+ 
+     ZzBenchmarks::ZzPerformanceReporter reporter;
+     reporter.setScenario(QStringLiteral("radial-gauge-animation"));
+@@ -192,7 +252,9 @@
+     const qsizetype initialObjectCount =
+         gauge->findChildren<QObject *>().size();
+     constexpr double nanosecondsPerMillisecond = 1'000'000.0;
++    application.measuring = true;
+     for (int iteration = 0; iteration < zzMeasuredIterations; ++iteration) {
++        application.previousTick = -1;
+         if (!zzRunGauge(
+                 gauge, animation, (iteration % 2) == 0 ? 100 : 0,
+                 &timeline, &failure)) {
+@@ -217,6 +279,10 @@
+                           .arg(finalObjectCount));
+     }
+ 
++    application.measuring = false;
++    if (!application.saveDiagnostics(reportPath + QStringLiteral(".diagnostic.json"))) {
++        return EXIT_FAILURE;
++    }
+     const auto writeResult = reporter.write(reportPath);
+     return writeResult ? EXIT_SUCCESS
+                        : zzFail(writeResult.error().technicalMessage());

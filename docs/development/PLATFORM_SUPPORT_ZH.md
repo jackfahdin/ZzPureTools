@@ -18,11 +18,16 @@ Windows 的原生 Mica/Acrylic、macOS 的原生 Blur 仍由现有私有 QWindow
 
 软件层不增加原生能力位，不使用 Qt Private、平台 native API、`QGraphicsEffect` 或每帧动画。高对比度、无障碍或性能受限场景由调用方明确请求 `ZzWindowBackdrop::None`，项目不通过平台私有设置猜测用户意图。
 
-软件材质性能基准目标为 `benchmark.backdrop`，报告包含 `enable-time`、`frame-time`、`rebuild-time` 和 `object-count`，并记录 Qt、编译器、显示平台、DPR、GPU 身份、提交和 preset。当前已完成基准本体与 schema 验证，尚未建立独立版本化基线，也没有把该场景接入正式回归门禁；offscreen/Xvfb 报告不能替代真实桌面交互验收。
+软件材质性能基准目标为 `benchmark.backdrop`，报告包含 `enable-time`、`frame-time`、`rebuild-time` 和 `object-count`，并记录 Qt、编译器、显示平台、DPR、GPU 身份、提交和 preset。该场景已接入绝对预算及相对回归门限配置，但尚缺独立版本化参考报告，因此完整性契约仍阻断发布。offscreen/Xvfb 报告不能替代真实桌面交互验收。
 
 ## Linux 发布参考环境登记
 
 当前只有一台可用机器，因此项目选用 `local-release-xvfb` 作为活动 Linux 发布参考环境。它是 Ubuntu 26.04.1、Qt 6.11.1、GCC 15.2.0 的本机档案，已经保存 Xvfb 性能基线和四个 GCC 发布组合的自动测试记录。主机没有物理显示器，所以这些记录不能提升下方 KDE/GNOME 真机会话行。
+
+2026-10-12 复核时，主机 Mesa 已从 26.0.3 更新到 26.0.8，kernel 也发生变化。
+按负责人决定保留历史参考，不将新环境报告混入旧基线；相对性能门禁待复核。
+活动档案登记不表示当前主机仍满足该档案指纹，详见
+[性能复核记录](../performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)。
 
 原规划的 `ubuntu2204-github-ci` 继续作为 Ubuntu 22.04 immutable 性能参考档案保留，
 等待受审核镜像或替代主机后独立验证。continuous build 使用 Ubuntu 22.04 GitHub 托管
@@ -48,8 +53,8 @@ runner 生成 AppImage，但托管镜像、CPU 和负载会变化，因此该构
 `standard-breadth-high-contrast` 基线；它们与其他截图场景共用同一套
 `ZzFluentScreenshotTest`、文字遮罩和像素比较规则。
 
-Linux 是这些合同的实际构建与自动测试平台。Windows MSVC、Windows MinGW 和
-macOS 当前只进行静态检查；offscreen/Xvfb 能证明绘制和公共 Qt API 契约，不能替代
+Linux 有本机合同与截图记录；Windows MSVC、Windows MinGW 和 macOS 的托管构建与
+CTest 证据见下方 GitHub CI 状态。offscreen/Xvfb 能证明绘制和公共 Qt API 契约，不能替代
 真实窗口系统中的鼠标命中、焦点、原生菜单行为或 DPI 交互验收。
 
 ## 工作区组件平台边界
@@ -67,9 +72,9 @@ clang-tidy 和工作区性能检查均已完成；结果补充了可审计的 GC
 image 验证。延迟 Side 面板三轮 startup/idle 原始报告见
 `docs/performance/evidence/deferred-side-panel/2026-08-26/`。
 
-Windows MSVC、Windows MinGW 和 macOS 对工作区组件均为“未执行”：没有在对应
-SDK、ABI 或原生窗口系统上配置、构建或运行消费者。现有 preset、公共头和
-ArchitectureAudit 只提供源码/静态合同，不能替代这些原生记录。
+上述 8 月本机记录没有 Windows/macOS 的原生构建证据；之后的托管 CI 记录见下节。
+下方目标 OS/ABI/链接方式组合没有补齐对应验收证据，仍保留“未执行”。
+托管 runner 成功不能直接填入不同系统版本或静态链接组合的验收行。
 
 ## GitHub 托管 CI 状态
 
@@ -89,12 +94,41 @@ x86_64、Windows Server 2022 MSVC/Qt MinGW x86_64，以及 macOS 15 arm64/x86_64
 - `macos-x86_64`：Intel DMG，执行 Mach-O 审计、DMG 挂载与 smoke。
 
 每个平台包都有相邻 `SHA-256` 和独立 build info，发布 job 先验证五组文件属于同一
-commit。首次完整工作流结果尚未登记，因此下方目标平台行保持原状态。CI smoke 不等于真机验收；
+commit。已登记历史完整成功矩阵
+[`a9396b1`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780)。
+2026-10-12 查询的
+[`f0cf1c0`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38211345718)
+运行已结束：配置契约成功，五个平台 job 失败，发布跳过。此处只登记 job 结论，
+不据此推断每个平台的具体失败原因，也不把历史成功推广到新提交。
+CI smoke 不等于真机验收；
 Windows Server 2022 不替代 Windows 10/11，Ubuntu Xvfb 不替代
 KDE/GNOME X11/Wayland，macOS 托管 runner 也不提供已签署的真实显示器交互证据。
 远端通过后只能按实际匹配的 OS、架构、ABI 和证据提升“静态验证通过”，不能直接
 提升为“真机验收通过”。详细权限、事务和日志处理见
 `docs/development/GITHUB_ACTIONS_ZH.md`。
+
+## 窗口接入自动回归与人工验收
+
+`ZzApplicationStarter` 由安装消费者复制到独立目录，通过 `find_package` 构建，
+覆盖自定义标题、内嵌字体图标、主题保存/恢复、双窗口、辅助窗口关闭/重开及退出清理。
+`ZzAuxiliaryWindowChrome` 统一自绘关闭按钮；macOS 按 `NativeSystemButtons` 保留
+原生系统控件，不承诺隐藏原生最小化和缩放按钮。
+
+Linux offscreen 的自动结果只能证明上述 Qt 层契约。下一次 Windows 真机验收应同时
+运行 Starter 与 Example，按以下步骤补充记录；macOS/Linux 继续使用对应平台清单。
+
+| 操作 | 预期与需记录的证据 |
+|---|---|
+| 两个窗口在 100%/150%/200% 显示器间移动，最大化后还原 | 图标、文字、按钮命中区随 DPI 更新；记录两窗口与设置/关于窗口截图 |
+| 悬停最大化按钮并使用 Windows 11 Snap，再拖动还原 | Snap 可触发；标题栏按钮不会误触发窗口拖动 |
+| 输入中文并在主窗/辅助窗间切换焦点 | IME 候选位置与焦点正确，关闭辅助窗后主窗可继续输入 |
+| Tab/Shift+Tab 遍历，Enter/Space 激活按钮 | 焦点可见、顺序正确，关闭只影响目标窗口 |
+| 切换浅色/深色/高对比度，重启 Starter | 两主窗及辅助窗配色同步，保存主题可恢复，标题不回退成框架默认值 |
+
+此表是操作步骤，不是通过记录；签署仍使用
+[Windows 清单](../release/MANUAL_WINDOWS_CHECKLIST_ZH.md)、
+[macOS 清单](../release/MANUAL_MACOS_CHECKLIST_ZH.md) 和
+[Linux 清单](../release/MANUAL_LINUX_CHECKLIST_ZH.md)。
 
 ## Windows 矩阵
 
