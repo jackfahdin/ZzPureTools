@@ -1,4 +1,5 @@
 #include "ZzExampleSmokeControllerPrivate.h"
+#include "../../tests/shared/ZzScreenshotBaseline.h"
 
 #include <algorithm>
 #include <array>
@@ -1630,8 +1631,8 @@ void ZzExampleSmokeControllerPrivate::scheduleScreenshotSmoke(
 
             const QString fileName = QString::fromLatin1(fileStem)
                 + QStringLiteral(".png");
-            const QString baselinePath = QDir(baselineDirectory).filePath(
-                fileName);
+            const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+                QDir(baselineDirectory).filePath(fileName), updateBaselines);
             if (updateBaselines) {
                 if (!QDir().mkpath(baselineDirectory)
                     || !actual.save(baselinePath, "PNG")) {

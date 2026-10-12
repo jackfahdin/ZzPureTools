@@ -18,6 +18,7 @@
 #include <QtCore/QLocale>
 #include <QtCore/QPointer>
 #include <QtCore/QStringList>
+#include <QtCore/QTemporaryDir>
 #include <QtGui/QAction>
 #include <QtGui/QActionGroup>
 #include <QtGui/QFontDatabase>
@@ -141,6 +142,8 @@
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 #include <ZzFluentUI/ZzToggleSwitch.h>
+
+#include "../../tests/shared/ZzScreenshotBaseline.h"
 
 namespace {
 
@@ -6929,6 +6932,39 @@ private Q_SLOTS:
     }
     // NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 
+    /** @brief 不同 Qt minor 的参考图片与更新路径不得相互覆盖。 */
+    void isolatesScreenshotBaselinesByQtMinor()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        const QDir root(temporary.path());
+        QVERIFY(root.mkpath(QStringLiteral("dpr-125")));
+        const QString common = root.filePath(QStringLiteral("dpr-125/light.png"));
+        QImage sharedImage(2, 2, QImage::Format_ARGB32);
+        sharedImage.fill(Qt::red);
+        QVERIFY(sharedImage.save(common));
+        QCOMPARE(ZzTestSupport::resolveScreenshotBaseline(common, false), common);
+
+        const QString version = QStringLiteral("qt-%1.%2")
+            .arg(QT_VERSION_MAJOR).arg(QT_VERSION_MINOR);
+        const QString expected = root.filePath(
+            version + QStringLiteral("/dpr-125/light.png"));
+        QCOMPARE(ZzTestSupport::resolveScreenshotBaseline(common, true), expected);
+        QVERIFY(QFileInfo::exists(QFileInfo(expected).absolutePath()));
+        // A directory alone must not suppress the common image fallback.
+        QCOMPARE(ZzTestSupport::resolveScreenshotBaseline(common, false), common);
+
+        QImage versionImage(2, 2, QImage::Format_ARGB32);
+        versionImage.fill(Qt::blue);
+        QVERIFY(versionImage.save(expected));
+        QCOMPARE(ZzTestSupport::resolveScreenshotBaseline(common, false), expected);
+        QCOMPARE(ZzTestSupport::resolveScreenshotBaseline(expected, true), expected);
+        QCOMPARE(QImage(common), sharedImage);
+
+        const QString uncovered = root.filePath(QStringLiteral("dpr-200/light.png"));
+        QCOMPARE(ZzTestSupport::resolveScreenshotBaseline(uncovered, false), uncovered);
+    }
+
     /** @brief 提供标准控件广度截图的三种主题数据。 */
     void rendersStandardBreadthThemes_data()
     {
@@ -6983,8 +7019,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -7123,7 +7159,8 @@ private Q_SLOTS:
         popup->hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                       .filePath(baselineSubdirectory_);
-        const QString path = QDir(directory).filePath(fileStem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path, "PNG"));
@@ -7200,9 +7237,8 @@ private Q_SLOTS:
 
         const QString overviewBaselineDirectory = QDir(
             zzOverviewBaselineRoot()).filePath(baselineSubdirectory_);
-        const QString overviewBaselinePath = QDir(
-            overviewBaselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString overviewBaselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(overviewBaselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(overviewBaselineDirectory),
@@ -7297,8 +7333,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -7418,8 +7454,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -7544,8 +7580,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -7694,7 +7730,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("color-picker-") + state + u'-' + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -7765,7 +7802,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("carousel-immersive-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -7834,7 +7872,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("info-bar-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -7901,7 +7940,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("timeline-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -7973,7 +8013,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("progress-ring-content-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8034,7 +8075,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("liquid-gauges-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8144,7 +8186,8 @@ private Q_SLOTS:
         const QString directory
             = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("radial-gauges-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8227,7 +8270,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("audio-level-meters-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8299,7 +8343,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("border-beams-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8368,7 +8413,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("range-sliders-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8455,7 +8501,8 @@ private Q_SLOTS:
         surface.hide();
         const QString directory = QDir(QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR)).filePath(baselineSubdirectory_);
         const QString stem = QStringLiteral("tab-appearances-") + name;
-        const QString path = QDir(directory).filePath(stem + QStringLiteral(".png"));
+        const QString path = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(directory).filePath(stem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(directory));
             QVERIFY(actual.save(path));
@@ -8516,8 +8563,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -8614,8 +8661,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -8716,8 +8763,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -8965,8 +9012,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9051,8 +9098,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9145,8 +9192,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9243,8 +9290,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9344,8 +9391,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9448,8 +9495,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9565,8 +9612,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9663,8 +9710,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9753,8 +9800,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9846,8 +9893,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -9939,8 +9986,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -10095,8 +10142,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -10213,8 +10260,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -10368,8 +10415,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(
                 QDir().mkpath(baselineDirectory),
@@ -10456,8 +10503,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(QDir().mkpath(baselineDirectory),
                 qPrintable(QStringLiteral("无法创建 baseline 目录：%1")
@@ -10527,8 +10574,8 @@ private Q_SLOTS:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_FLUENT_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY2(QDir().mkpath(baselineDirectory),
                 qPrintable(QStringLiteral("无法创建 baseline 目录：%1")

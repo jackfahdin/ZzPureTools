@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "../../tests/shared/ZzScreenshotBaseline.h"
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QLocale>
@@ -1266,8 +1268,8 @@ private:
         const QString baselineDirectory = QDir(
             QStringLiteral(ZZ_PURETOOLS_WORKSPACE_SCREENSHOT_BASELINE_DIR))
                                               .filePath(baselineSubdirectory_);
-        const QString baselinePath = QDir(baselineDirectory).filePath(
-            fileStem + QStringLiteral(".png"));
+        const QString baselinePath = ZzTestSupport::resolveScreenshotBaseline(
+            QDir(baselineDirectory).filePath(fileStem + QStringLiteral(".png")));
         if (qEnvironmentVariableIntValue("ZZ_UPDATE_SCREENSHOTS") == 1) {
             QVERIFY(QDir().mkpath(baselineDirectory));
             QVERIFY(actual.save(baselinePath, "PNG"));
