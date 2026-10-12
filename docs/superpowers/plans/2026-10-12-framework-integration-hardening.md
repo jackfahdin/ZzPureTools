@@ -119,3 +119,12 @@ QCOMPARE(window->windowTitle(), QStringLiteral("My Application"));
 - 后续独立提交：搬迁消费回归与构建数量契约；接入文档、计划执行记录与最后修改的 README。
 
 所有提交保存在 `codex/framework-integration-hardening`，未合并 master、未推送。
+
+### 性能门禁续查
+
+用户要求继续处理后，补充 GLib/UNIX、纯 Qt、跳过 Paint 和批量刻度绘制对照。
+批量绘制没有稳定收益，试改已撤回，控件库已重新构建。
+有效修复为 `9084745`：把正式参考完整性与比较器自测分开，解决缺基线提前退出、
+后续测试未执行的问题；保持原完整性测试名称和失败条件，新增缺失场景明细及真实校验器正反例。
+独立审查确认未削弱门禁。比较器、采集与门禁脚本契约通过；最终动画定向复验仍有
+仪表超限和四份参考缺失两项失败，见[隔离诊断证据](../../performance/evidence/animation-isolation/2026-10-12/README.md)。

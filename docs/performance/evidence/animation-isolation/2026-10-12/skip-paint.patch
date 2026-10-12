@@ -1,0 +1,6 @@
+--- a/benchmarks/ZzGaugeAnimationBenchmark.cpp
++++ b/benchmarks/ZzGaugeAnimationBenchmark.cpp
+@@ -62,1 +62,2 @@
+-        return false;
++        return event != nullptr && event->type() == QEvent::Paint
++            && qEnvironmentVariableIsSet("ZZ_DIAGNOSTIC_SKIP_PAINT");

@@ -1,0 +1,30 @@
+diff --git a/ZzFluentUI/widgets/src/ZzRadialGauge.cpp b/ZzFluentUI/widgets/src/ZzRadialGauge.cpp
+index 23fb7d3..d8bb953 100644
+--- a/ZzFluentUI/widgets/src/ZzRadialGauge.cpp
++++ b/ZzFluentUI/widgets/src/ZzRadialGauge.cpp
+@@ -10,0 +11,1 @@
++#include <QVarLengthArray>
+@@ -559,1 +560,2 @@
+-        const auto drawTick = [&](qreal tickFraction, qreal tickLength, qreal tickWidth) {
++        QVarLengthArray<QLineF, 64> tickLines;
++        const auto appendTick = [&](qreal tickFraction, qreal tickLength) {
+@@ -562,3 +564,2 @@
+-            painter.setPen(QPen(tickPaintColor, tickWidth, Qt::SolidLine, Qt::FlatCap));
+-            painter.drawLine(pointAtAngle(center, tickInnerRadius, angle),
+-                             pointAtAngle(center, tickOuterRadius, angle));
++            tickLines.append(QLineF(pointAtAngle(center, tickInnerRadius, angle),
++                                   pointAtAngle(center, tickOuterRadius, angle)));
+@@ -572,1 +573,1 @@
+-                    drawTick(visualFraction(logicalFraction), d_ptr->tickLength, d_ptr->tickWidth);
++                    appendTick(visualFraction(logicalFraction), d_ptr->tickLength);
+@@ -574,0 +576,2 @@
++            painter.setPen(QPen(tickPaintColor, d_ptr->tickWidth, Qt::SolidLine, Qt::FlatCap));
++            painter.drawLines(tickLines.constData(), static_cast<int>(tickLines.size()));
+@@ -576,0 +580,1 @@
++            tickLines.clear();
+@@ -578,1 +582,1 @@
+-                drawTick(tickFraction, d_ptr->majorTickLength, d_ptr->majorTickWidth);
++                appendTick(tickFraction, d_ptr->majorTickLength);
+@@ -579,0 +584,2 @@
++            painter.setPen(QPen(tickPaintColor, d_ptr->majorTickWidth, Qt::SolidLine, Qt::FlatCap));
++            painter.drawLines(tickLines.constData(), static_cast<int>(tickLines.size()));

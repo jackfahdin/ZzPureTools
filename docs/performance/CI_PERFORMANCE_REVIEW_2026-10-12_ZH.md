@@ -101,6 +101,20 @@ CPU governor 保持本机 `powersave`，未修改主机电源策略。
 `platform.performance-threshold-contract` 复验仍因 16 个场景只有 12 份历史报告而失败。
 性能收尾的工程诊断已记录；正式验收仍需要匹配环境的完整参考和三轮门禁。
 
+### 后续定位与门禁自测修复
+
+继续定位时发现：原 `platform.performance-threshold-contract` 先检查正式参考完整性，
+缺四份报告会提前退出，后面的比较器、环境不匹配拒绝、噪声分析和工作区证据自测未执行。
+`9084745` 将两类职责拆开：旧测试名继续检查真实参考并保持失败；新增
+`platform.performance-comparison-contract` 独立运行真实比较器与校验器的正反例。
+采集脚本仍只排除旧的完整性检查，新自测会正常执行。缺失诊断现在列出具体场景。
+
+动画方面，GLib/UNIX 对照未消除仪表超限；纯 Qt、跳过 Paint 和刻度批量绘制实验见
+[隔离诊断证据](evidence/animation-isolation/2026-10-12/)。批量绘制没有稳定收益，
+已撤回并重建原始控件库。最终原程序复验：开关 P95 16.585656 ms，本轮通过；
+仪表 16.725868 ms，仍超 16.7 ms。开关本轮通过不覆盖此前失败。
+本次修复让门禁自身的测试真正执行，没有修改历史参考、预算或 `frame-time` 语义。
+
 ## 托管 CI 证据
 
 - [a9396b1 的完整成功矩阵](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780)
