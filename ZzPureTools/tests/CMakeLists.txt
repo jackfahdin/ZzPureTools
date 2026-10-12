@@ -394,6 +394,8 @@ set_target_properties(ZzMultiWindowIsolationTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzMultiWindowIsolationTest)
 zz_enable_sanitizers(ZzMultiWindowIsolationTest)
 set(multi_window_scenarios
+    customWindowTitleSurvivesSetupAndLanguageChange
+    runtimeWindowTitleSynchronizesWithoutAffectingOtherWindows
     everyWindowOwnsDifferentWindowAgent
     everyWindowOwnsDifferentNavigationState
     titleBarIntentInvokesOnlyOwningWindow
@@ -445,6 +447,7 @@ set_target_properties(ZzTranslationLifecycleTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzTranslationLifecycleTest)
 zz_enable_sanitizers(ZzTranslationLifecycleTest)
 set(translation_scenarios
+    reentrantCustomTitleSurvivesNextLanguageChange
     languageChangeRefreshesStaticAndDynamicText
     failedTranslatorLoadLeavesApplicationUnbuilt
     runtimeFailureRollsBackInstalledTranslators

@@ -2,6 +2,7 @@
 #include <utility>
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QEvent>
 #include <QtCore/QMetaObject>
 #include <QtCore/QPointer>
 #include <QtTest/QTest>
@@ -162,6 +163,46 @@ class ZzMultiWindowIsolationTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void customWindowTitleSurvivesSetupAndLanguageChange()
+    {
+        auto &application = zzApplication();
+        ZzPureTools::ZzApplicationBuilder builder;
+        QVERIFY(zzConfigure(builder));
+        QVERIFY(builder.setWindowSetupCallback(
+            [](ZzPureTools::ZzApplicationWindow &window) {
+                window.setWindowTitle(QStringLiteral("My Application"));
+                return ZzCore::ZzResult<void>::success();
+            }));
+        QVERIFY(builder.build(application));
+        const auto result = application.createWindow();
+        QVERIFY(result);
+        auto *window = result.value();
+        QCOMPARE(window->windowTitle(), QStringLiteral("My Application"));
+        QCOMPARE(window->titleBar()->title(), QStringLiteral("My Application"));
+        QEvent languageChange(QEvent::LanguageChange);
+        QCoreApplication::sendEvent(window, &languageChange);
+        QCOMPARE(window->windowTitle(), QStringLiteral("My Application"));
+        QCOMPARE(window->titleBar()->title(), QStringLiteral("My Application"));
+    }
+
+    void runtimeWindowTitleSynchronizesWithoutAffectingOtherWindows()
+    {
+        auto &application = zzApplication();
+        ZzWindowPair windows;
+        QVERIFY(zzCreateWindowPair(application, windows));
+        windows.first->setWindowTitle(QStringLiteral("Document A"));
+        QCOMPARE(windows.first->titleBar()->title(), QStringLiteral("Document A"));
+        QCOMPARE(windows.second->titleBar()->title(), QStringLiteral("ZzPureTools"));
+        QEvent languageChange(QEvent::LanguageChange);
+        QCoreApplication::sendEvent(windows.first, &languageChange);
+        QCOMPARE(windows.first->windowTitle(), QStringLiteral("Document A"));
+        windows.first->setWindowTitle(QString());
+        QCoreApplication::sendEvent(windows.first, &languageChange);
+        QVERIFY(windows.first->windowTitle().isEmpty());
+        QVERIFY(windows.first->titleBar()->title().isEmpty());
+        QCOMPARE(windows.second->windowTitle(), QStringLiteral("ZzPureTools"));
+    }
+
     void everyWindowOwnsDifferentWindowAgent()
     {
         auto &application = zzApplication();

@@ -70,6 +70,8 @@ public:
     QPointer<ZzPageHost> host;
     QPointer<ZzFluentUI::ZzThemeController> theme;
     bool initialized = false;
+    bool customWindowTitle = false;
+    QString defaultWindowTitle;
     bool acceptedClosePending = false;
     std::function<bool()> closeAcceptanceCallback;
 };

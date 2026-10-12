@@ -290,6 +290,31 @@ class ZzTranslationLifecycleTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void reentrantCustomTitleSurvivesNextLanguageChange()
+    {
+        auto &application = zzApplication();
+        ZzPureTools::ZzApplicationBuilder builder;
+        QVERIFY(zzConfigure(builder));
+        QVERIFY(builder.build(application));
+        auto *window = zzOnlyWindow(application);
+        QVERIFY(window != nullptr);
+        QObject::connect(window, &QWidget::windowTitleChanged, window,
+            [window](const QString &title) {
+                if (title == QStringLiteral("ZzPureTools translated")) {
+                    window->setWindowTitle(QStringLiteral("Document"));
+                }
+            });
+        QTranslator translator;
+        QVERIFY(translator.load(QStringLiteral(ZZ_TRANSLATION_TEST_QM)));
+        QVERIFY(application.installTranslator(&translator));
+        QTRY_COMPARE(window->windowTitle(), QStringLiteral("Document"));
+        QVERIFY(application.removeTranslator(&translator));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::LanguageChange);
+        QCOMPARE(window->windowTitle(), QStringLiteral("Document"));
+        QCOMPARE(window->titleBar()->title(), QStringLiteral("Document"));
+        application.beginShutdown();
+    }
+
     void languageChangeRefreshesStaticAndDynamicText()
     {
         auto &application = zzApplication();

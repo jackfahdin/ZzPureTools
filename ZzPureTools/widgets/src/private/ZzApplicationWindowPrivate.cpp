@@ -96,6 +96,17 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
 
     theme = themeController;
     titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
+    QObject::connect(
+        q_ptr,
+        &QWidget::windowTitleChanged,
+        q_ptr,
+        [this](const QString &title) {
+            if (title != defaultWindowTitle) {
+                customWindowTitle = true;
+            }
+            titleBar->setTitle(title);
+        });
+    refreshTranslations();
     titleBar->setThemeMode(themeController->mode());
     QObject::connect(
         titleBar,
@@ -268,11 +279,10 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
 
 void ZzApplicationWindowPrivate::refreshTranslations()
 {
-    const QString title = QCoreApplication::translate(
-        "ZzApplicationWindow", "ZzPureTools");
-    q_ptr->setWindowTitle(title);
-    if (titleBar != nullptr) {
-        titleBar->setTitle(title);
+    if (!customWindowTitle) {
+        defaultWindowTitle = QCoreApplication::translate(
+            "ZzApplicationWindow", "ZzPureTools");
+        q_ptr->setWindowTitle(defaultWindowTitle);
     }
     if (model) {
         model->refreshTranslations();
