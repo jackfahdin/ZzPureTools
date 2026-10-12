@@ -385,6 +385,10 @@ foreach(round RANGE 1 3)
         [=[{"unit":"count","p95":100,"max":100}]=])
     string(JSON round_json SET "${round_json}" metrics bytes
         [=[{"unit":"bytes","p95":100,"max":100}]=])
+    foreach(unit px objects)
+        string(JSON round_json SET "${round_json}" metrics "${unit}"
+            "{\"unit\":\"${unit}\",\"p95\":0,\"max\":0}")
+    endforeach()
     file(WRITE "${round_directory}/benchmark.contract.json" "${round_json}")
 endforeach()
 set(run_directories
@@ -401,6 +405,17 @@ if(NOT analyze_result EQUAL 0)
     message(FATAL_ERROR "Noise analyzer failed: ${analyze_error}")
 endif()
 file(READ "${ZZ_TEST_ROOT}/candidate.json" candidate_json)
+foreach(unit px objects)
+    string(JSON unit_kind GET "${candidate_json}"
+        scenarios contract metrics "${unit}" metricKind)
+    foreach(field p95 max)
+        string(JSON unit_mode GET "${candidate_json}"
+            scenarios contract metrics "${unit}" "${field}" mode)
+        if(NOT unit_kind STREQUAL "deterministic" OR NOT unit_mode STREQUAL "gate")
+            message(FATAL_ERROR "Noise analyzer must gate deterministic ${unit}/${field}")
+        endif()
+    endforeach()
+endforeach()
 string(JSON candidate_schema GET "${candidate_json}" schemaVersion)
 string(JSON latency_kind GET "${candidate_json}"
     scenarios contract metrics latency metricKind)
