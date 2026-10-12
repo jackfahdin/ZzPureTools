@@ -254,6 +254,10 @@ if(ZZ_PERFORMANCE_REFERENCE)
         navigation-pane reset-time MAX_P95 80)
     zz_add_reference_gate(workspace-components benchmark.workspace-components
         workspace-components workspace-render-time MAX_P95 12)
+    # Four state changes among 200 tabs should consume at most 1 ms of a
+    # 16.7 ms frame. Microsecond-scale relative timing remains observational.
+    zz_add_reference_gate(workspace-tab-state-time benchmark.workspace-components
+        workspace-components tab-state-time MAX_P95 1)
     zz_add_reference_gate(workspace-cross-transfer-time
         benchmark.workspace-components workspace-components
         workspace-cross-transfer-time MAX_P95 4)
