@@ -8,7 +8,6 @@
 #include <QtCore/QSignalBlocker>
 #include <QtGui/QAction>
 #include <QtGui/QActionEvent>
-#include <QtGui/QActionGroup>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -27,7 +26,6 @@
 #include <ZzFluentUI/ZzIconDescriptor.h>
 #include <ZzFluentUI/ZzBundledSvgIcon.h>
 #include <ZzFluentUI/ZzThemeMode.h>
-#include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
 
@@ -120,22 +118,6 @@ QIcon zzTitleBarIcon(const QWidget *widget, ZzBundledSvgIcon icon,
     return QIcon(pixmap);
 }
 
-/** @brief 返回当前主题模式的可本地化显示名称。 */
-QString zzThemeModeText(ZzThemeMode mode)
-{
-    switch (mode) {
-    case ZzThemeMode::System:
-        return ZzFluentTitleBar::tr("跟随系统");
-    case ZzThemeMode::Light:
-        return ZzFluentTitleBar::tr("浅色");
-    case ZzThemeMode::Dark:
-        return ZzFluentTitleBar::tr("深色");
-    case ZzThemeMode::HighContrast:
-        return ZzFluentTitleBar::tr("高对比度");
-    }
-    return {};
-}
-
 } // namespace
 
 ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
@@ -146,8 +128,6 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     , compactMenuButton(new QToolButton(q))
     , compactMenu(new QMenu(compactMenuButton))
     , themeButton(new QToolButton(q))
-    , themeMenu(new QMenu(themeButton))
-    , themeActionGroup(new QActionGroup(themeMenu))
     , alwaysOnTopButton(new QToolButton(q))
     , minimizeButton(new QToolButton(q))
     , maximizeButton(new QToolButton(q))
@@ -155,7 +135,6 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     , separator(new QFrame(q))
     , menuDisplayMode(ZzTitleBarMenuDisplayMode::Adaptive)
     , themeMode(ZzThemeMode::System)
-    , themeInteractionMode(ZzTitleBarThemeInteractionMode::Menu)
 {
     Q_ASSERT(q_ptr != nullptr);
     q_ptr->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -178,27 +157,6 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     themeButton->setObjectName(QStringLiteral("zzTitleBarThemeButton"));
     themeButton->setCheckable(true);
     themeButton->setProperty(zzSuppressCheckedSurfaceProperty, true);
-    themeMenu->setObjectName(QStringLiteral("zzTitleBarThemeMenu"));
-    themeButton->setMenu(themeMenu);
-    themeButton->setPopupMode(QToolButton::InstantPopup);
-    themeActionGroup->setExclusive(true);
-    const auto addThemeAction = [this](
-                                    const QString &text,
-                                    ZzThemeMode mode) -> QAction * {
-        auto *action = themeMenu->addAction(text);
-        action->setCheckable(true);
-        action->setData(static_cast<int>(mode));
-        themeActionGroup->addAction(action);
-        return action;
-    };
-    systemThemeAction = addThemeAction(
-        ZzFluentTitleBar::tr("跟随系统"), ZzThemeMode::System);
-    lightThemeAction = addThemeAction(
-        ZzFluentTitleBar::tr("浅色"), ZzThemeMode::Light);
-    darkThemeAction = addThemeAction(
-        ZzFluentTitleBar::tr("深色"), ZzThemeMode::Dark);
-    highContrastThemeAction = addThemeAction(
-        ZzFluentTitleBar::tr("高对比度"), ZzThemeMode::HighContrast);
 
     alwaysOnTopButton->setObjectName(
         QStringLiteral("zzTitleBarAlwaysOnTopButton"));
@@ -225,27 +183,11 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
     }
 
     QObject::connect(
-        themeActionGroup,
-        &QActionGroup::triggered,
-        q_ptr,
-        [this](QAction *action) {
-            if (action == nullptr) {
-                return;
-            }
-            const auto requested = static_cast<ZzThemeMode>(
-                action->data().toInt());
-            Q_EMIT q_ptr->themeModeRequested(requested);
-            refreshThemeActions();
-        });
-    QObject::connect(
         themeButton,
         &QToolButton::clicked,
         q_ptr,
         [this] {
-            if (themeInteractionMode
-                == ZzTitleBarThemeInteractionMode::Toggle) {
-                Q_EMIT q_ptr->themeToggleRequested();
-            }
+            Q_EMIT q_ptr->themeToggleRequested();
             const QSignalBlocker blocker(themeButton);
             themeButton->setChecked(themeMode != ZzThemeMode::System);
         });
@@ -289,32 +231,23 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
         q_ptr->devicePixelRatioF()));
 
     const QString menuText = ZzFluentTitleBar::tr("应用菜单");
-    const bool toggleThemeIcon = themeInteractionMode
-        == ZzTitleBarThemeInteractionMode::Toggle;
     auto effectiveMode = themeMode;
-    if (toggleThemeIcon && themeMode == ZzThemeMode::System) {
+    if (themeMode == ZzThemeMode::System) {
         const auto *style = qobject_cast<ZzFluentStyle *>(q_ptr->style());
         effectiveMode = style != nullptr && style->themeSnapshot() != nullptr
             ? style->themeSnapshot()->mode()
             : (q_ptr->palette().color(QPalette::Window).lightness() < 128
                    ? ZzThemeMode::Dark : ZzThemeMode::Light);
     }
-    const QString themeText = toggleThemeIcon
-        ? (effectiveMode == ZzThemeMode::Dark
-               ? ZzFluentTitleBar::tr("切换到浅色")
-               : ZzFluentTitleBar::tr("切换到深色"))
-        : ZzFluentTitleBar::tr("主题：%1").arg(zzThemeModeText(themeMode));
+    const QString themeText = effectiveMode == ZzThemeMode::Dark
+        ? ZzFluentTitleBar::tr("切换到浅色")
+        : ZzFluentTitleBar::tr("切换到深色");
     const QString alwaysOnTopText = ZzFluentTitleBar::tr("置顶");
     const QString minimizeText = ZzFluentTitleBar::tr("最小化");
     const QString maximizeText = maximized
         ? ZzFluentTitleBar::tr("还原")
         : ZzFluentTitleBar::tr("最大化");
     const QString closeText = ZzFluentTitleBar::tr("关闭");
-
-    systemThemeAction->setText(ZzFluentTitleBar::tr("跟随系统"));
-    lightThemeAction->setText(ZzFluentTitleBar::tr("浅色"));
-    darkThemeAction->setText(ZzFluentTitleBar::tr("深色"));
-    highContrastThemeAction->setText(ZzFluentTitleBar::tr("高对比度"));
 
     compactMenuButton->setToolTip(menuText);
     compactMenuButton->setAccessibleName(menuText);
@@ -329,22 +262,11 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     closeButton->setToolTip(closeText);
     closeButton->setAccessibleName(closeText);
 
-    // Toggle 模式必须卸下菜单，才能同时去掉箭头和长按弹出行为。
-    themeButton->setMenu(toggleThemeIcon ? nullptr : themeMenu);
-    themeButton->setPopupMode(
-        themeInteractionMode == ZzTitleBarThemeInteractionMode::Menu
-            ? QToolButton::InstantPopup
-            : QToolButton::DelayedPopup);
-
     compactMenuButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::MoreLine));
-    // 图标展示当前主题；Toggle 模式的提示文字描述点击后的动作。
-    const ZzBundledSvgIcon themeIcon = toggleThemeIcon
-        ? (effectiveMode == ZzThemeMode::Dark
-               ? ZzBundledSvgIcon::Moon : ZzBundledSvgIcon::Sun)
-        : themeMode == ZzThemeMode::Light ? ZzBundledSvgIcon::Sun
-        : themeMode == ZzThemeMode::Dark ? ZzBundledSvgIcon::Moon
-        : ZzBundledSvgIcon::ComputerSystem;
+    // 图标展示当前主题，提示文字描述点击后的动作。
+    const ZzBundledSvgIcon themeIcon = effectiveMode == ZzThemeMode::Dark
+        ? ZzBundledSvgIcon::Moon : ZzBundledSvgIcon::Sun;
     themeButton->setIcon(zzTitleBarIcon(q_ptr, themeIcon));
     alwaysOnTopButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::Pin,
@@ -360,14 +282,6 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
             : ZzBundledSvgIcon::Maximize));
     closeButton->setIcon(zzTitleBarIcon(
         q_ptr, ZzBundledSvgIcon::Close));
-    systemThemeAction->setIcon(zzTitleBarIcon(
-        q_ptr, ZzBundledSvgIcon::ComputerSystem));
-    lightThemeAction->setIcon(zzTitleBarIcon(
-        q_ptr, ZzBundledSvgIcon::Sun));
-    darkThemeAction->setIcon(zzTitleBarIcon(
-        q_ptr, ZzBundledSvgIcon::Moon));
-    highContrastThemeAction->setIcon(zzTitleBarIcon(
-        q_ptr, ZzBundledSvgIcon::ComputerSystem));
 
     if (auto *const fluentStyle = qobject_cast<ZzFluentStyle *>(
             q_ptr->style()); fluentStyle != nullptr) {
@@ -397,7 +311,6 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     separator->setVisible(true);
     themeButton->setChecked(themeMode != ZzThemeMode::System);
     alwaysOnTopButton->setChecked(alwaysOnTop);
-    refreshThemeActions();
     updateLayout();
 }
 
@@ -672,18 +585,6 @@ void ZzFluentTitleBarPrivate::handleMenuActionEvent(QActionEvent *event)
         q_ptr,
         [this] { updateLayout(); },
         Qt::QueuedConnection);
-}
-
-void ZzFluentTitleBarPrivate::refreshThemeActions()
-{
-    const QSignalBlocker blocker(themeActionGroup);
-    themeActionGroup->setExclusive(false);
-    systemThemeAction->setChecked(themeMode == ZzThemeMode::System);
-    lightThemeAction->setChecked(themeMode == ZzThemeMode::Light);
-    darkThemeAction->setChecked(themeMode == ZzThemeMode::Dark);
-    highContrastThemeAction->setChecked(
-        themeMode == ZzThemeMode::HighContrast);
-    themeActionGroup->setExclusive(true);
 }
 
 } // namespace ZzFluentUI

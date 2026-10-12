@@ -399,6 +399,8 @@ set(multi_window_scenarios
     titleBarIntentInvokesOnlyOwningWindow
     chromeConfigurationUsesTitleBarChildren
     nativeSystemButtonCapabilityControlsCustomButtons
+    titleBarTogglesSharedThemeWithoutWorkspace
+    titleBarPinsOnlyOwningWindowWithoutWorkspace
     navigationIntentUsesTheOwningModelRoute
     navigationSelectionTracksRoutesAndModelResets
     footerNavigationAffectsOnlyOwningWindow

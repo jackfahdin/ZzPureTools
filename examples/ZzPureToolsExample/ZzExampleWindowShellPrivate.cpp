@@ -233,29 +233,19 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
             });
     }
     helpMenu->addAction(aboutAction);
-    titleBar->setThemeMode(theme->mode());
-    titleBar->setThemeInteractionMode(
-        ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
     QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested,
-        q_ptr,
-        [this] { cycleTheme(); });
-    QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
+        window,
+        &ZzPureTools::ZzApplicationWindow::themeToggled,
         q_ptr,
         [this](ZzFluentUI::ZzThemeMode mode) {
-            static_cast<void>(applyThemeMode(mode));
-        });
-    QObject::connect(
-        theme,
-        &ZzFluentUI::ZzThemeController::snapshotChanged,
-        q_ptr,
-        [titleBar, theme] {
-            if (titleBar != nullptr && theme != nullptr) {
-                titleBar->setThemeMode(theme->mode());
-            }
+            const bool persisted = persistThemeMode(mode);
+            statusBar->showMessage(
+                persisted
+                    ? QCoreApplication::translate(
+                          "ZzPureToolsExample", "主题已切换")
+                    : QCoreApplication::translate(
+                          "ZzPureToolsExample", "主题已切换，但设置保存失败"),
+                2500);
         });
     searchEdit = workspace->commandPalette()->searchEdit();
     searchEdit->setObjectName(QStringLiteral("zzExamplePageSearch"));
@@ -467,7 +457,7 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     QObject::connect(searchEdit, &QLineEdit::returnPressed,
         q_ptr, [this] { navigateFromSearch(); });
     QObject::connect(themeAction, &QAction::triggered,
-        q_ptr, [this] { cycleTheme(); });
+        window, &ZzPureTools::ZzApplicationWindow::toggleTheme);
     QObject::connect(settingsAction, &QAction::triggered,
         q_ptr, [this] {
             if (settingsWindow.isNull()) {
@@ -597,28 +587,9 @@ void ZzExampleWindowShellPrivate::navigateFromSearch()
         "ZzPureToolsExample", "未找到匹配页面"), 2500);
 }
 
-void ZzExampleWindowShellPrivate::cycleTheme()
-{
-    auto *theme = application->themeController();
-    const auto nextMode = theme->resolvedMode() == ZzFluentUI::ZzThemeMode::Dark
-        ? ZzFluentUI::ZzThemeMode::Light : ZzFluentUI::ZzThemeMode::Dark;
-    const bool persisted = applyThemeMode(nextMode);
-    statusBar->showMessage(
-        persisted
-            ? QCoreApplication::translate(
-                  "ZzPureToolsExample", "主题已切换")
-            : QCoreApplication::translate(
-                  "ZzPureToolsExample", "主题已切换，但设置保存失败"),
-        2500);
-}
-
-bool ZzExampleWindowShellPrivate::applyThemeMode(
+bool ZzExampleWindowShellPrivate::persistThemeMode(
     ZzFluentUI::ZzThemeMode mode)
 {
-    if (application == nullptr || application->themeController() == nullptr) {
-        return false;
-    }
-    application->themeController()->setMode(mode);
     if (context == nullptr) {
         return false;
     }

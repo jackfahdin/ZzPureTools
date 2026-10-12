@@ -7,6 +7,7 @@
 #include <QtGui/QCloseEvent>
 
 #include <ZzFluentUI/ZzNavigationPane.h>
+#include <ZzFluentUI/ZzThemeController.h>
 #include <ZzPureTools/ZzPageHost.h>
 
 #include "private/ZzApplicationWindowPrivate.h"
@@ -105,6 +106,19 @@ ZzWindowKit::ZzWindowAgent *ZzApplicationWindow::windowAgent()
     Q_ASSERT(QThread::currentThread() == thread());
     return QThread::currentThread() == thread()
         ? d_ptr->agent.get() : nullptr;
+}
+
+void ZzApplicationWindow::toggleTheme()
+{
+    Q_ASSERT(QThread::currentThread() == thread());
+    if (QThread::currentThread() != thread() || d_ptr->theme == nullptr) {
+        return;
+    }
+    const auto nextMode = d_ptr->theme->resolvedMode()
+            == ZzFluentUI::ZzThemeMode::Dark
+        ? ZzFluentUI::ZzThemeMode::Light : ZzFluentUI::ZzThemeMode::Dark;
+    d_ptr->theme->setMode(nextMode);
+    Q_EMIT themeToggled(d_ptr->theme->mode());
 }
 
 void ZzApplicationWindow::changeEvent(QEvent *event)

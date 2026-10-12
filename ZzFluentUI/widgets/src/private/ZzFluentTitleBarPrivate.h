@@ -6,9 +6,7 @@
 #include <QtCore/QString>
 #include <QtGui/QIcon>
 
-class QAction;
 class QActionEvent;
-class QActionGroup;
 class QFrame;
 class QLabel;
 class QMenu;
@@ -20,7 +18,6 @@ namespace ZzFluentUI {
 
 class ZzFluentTitleBar;
 enum class ZzThemeMode : std::uint8_t;
-enum class ZzTitleBarThemeInteractionMode : std::uint8_t;
 enum class ZzTitleBarMenuDisplayMode : std::uint8_t;
 
 /** @brief 管理标题栏纯视觉子控件、翻译和状态，不执行窗口命令。 */
@@ -60,9 +57,6 @@ public:
      */
     void handleMenuActionEvent(QActionEvent *event);
 
-    /** @brief 将确认主题状态回写到菜单动作。 */
-    void refreshThemeActions();
-
     ZzFluentTitleBar *const q_ptr;
     QLabel *iconLabel = nullptr;
     QLabel *titleLabel = nullptr;
@@ -70,12 +64,6 @@ public:
     QToolButton *compactMenuButton = nullptr;
     QMenu *compactMenu = nullptr;
     QToolButton *themeButton = nullptr;
-    QMenu *themeMenu = nullptr;
-    QActionGroup *themeActionGroup = nullptr;
-    QAction *systemThemeAction = nullptr;
-    QAction *lightThemeAction = nullptr;
-    QAction *darkThemeAction = nullptr;
-    QAction *highContrastThemeAction = nullptr;
     QToolButton *alwaysOnTopButton = nullptr;
     QToolButton *minimizeButton = nullptr;
     QToolButton *maximizeButton = nullptr;
@@ -85,7 +73,6 @@ public:
     QIcon windowIcon;
     ZzTitleBarMenuDisplayMode menuDisplayMode;
     ZzThemeMode themeMode;
-    ZzTitleBarThemeInteractionMode themeInteractionMode;
     bool maximized = false;
     bool minimizeButtonVisible = true;
     bool maximizeButtonVisible = true;

@@ -60,14 +60,11 @@ public:
     /** @brief 按搜索文本激活首个匹配路由。 */
     void navigateFromSearch();
 
-    /** @brief 根据当前实际主题切换浅色或深色。 */
-    void cycleTheme();
-
     /**
-     * @brief 应用并持久化来自标题栏的主题模式请求。
+     * @brief 持久化框架窗口已完成的主题切换。
      * @return 设置写入成功时返回 true，否则返回 false。
      */
-    [[nodiscard]] bool applyThemeMode(ZzFluentUI::ZzThemeMode mode);
+    [[nodiscard]] bool persistThemeMode(ZzFluentUI::ZzThemeMode mode);
 
     /** @brief 执行命令模型选中的窗口级展示意图。 */
     void dispatchWorkspaceCommand(ZzExampleCommandId command);

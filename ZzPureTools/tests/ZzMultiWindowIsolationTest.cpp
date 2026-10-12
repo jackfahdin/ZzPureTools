@@ -5,10 +5,13 @@
 #include <QtCore/QMetaObject>
 #include <QtCore/QPointer>
 #include <QtTest/QTest>
+#include <QtTest/QSignalSpy>
 #include <QtWidgets/QAbstractButton>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
+#include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzNavigationPane.h>
 #include <ZzFluentUI/ZzNavigationPlacement.h>
 #include <ZzFluentUI/ZzNavigationView.h>
@@ -270,6 +273,81 @@ private Q_SLOTS:
                 QVERIFY(window->isAncestorOf(widget));
             }
         }
+        application.beginShutdown();
+    }
+
+    void titleBarTogglesSharedThemeWithoutWorkspace()
+    {
+        auto &application = zzApplication();
+        ZzWindowPair windows;
+        QVERIFY(zzCreateWindowPair(application, windows));
+        auto *theme = application.themeController();
+        QSignalSpy firstSpy(
+            windows.first, &ZzPureTools::ZzApplicationWindow::themeToggled);
+        QSignalSpy secondSpy(
+            windows.second, &ZzPureTools::ZzApplicationWindow::themeToggled);
+        auto *button = windows.first->titleBar()->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarThemeButton"));
+        QVERIFY(button != nullptr);
+        QVERIFY(button->menu() == nullptr);
+        theme->setMode(ZzFluentUI::ZzThemeMode::Light);
+        QCOMPARE(firstSpy.count(), 0);
+        QCOMPARE(secondSpy.count(), 0);
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(theme->mode(), ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(
+            windows.first->titleBar()->themeMode(), ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(
+            windows.second->titleBar()->themeMode(), ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(firstSpy.count(), 1);
+        QCOMPARE(secondSpy.count(), 0);
+        QCOMPARE(firstSpy.first().first().value<ZzFluentUI::ZzThemeMode>(),
+            ZzFluentUI::ZzThemeMode::Dark);
+        // 菜单可以复用同一个入口，通知仅在发起窗口上发送。
+        windows.second->toggleTheme();
+        QCOMPARE(theme->mode(), ZzFluentUI::ZzThemeMode::Light);
+        QCOMPARE(
+            windows.first->titleBar()->themeMode(), ZzFluentUI::ZzThemeMode::Light);
+        QCOMPARE(firstSpy.count(), 1);
+        QCOMPARE(secondSpy.count(), 1);
+        QCOMPARE(secondSpy.first().first().value<ZzFluentUI::ZzThemeMode>(),
+            ZzFluentUI::ZzThemeMode::Light);
+
+        theme->setMode(ZzFluentUI::ZzThemeMode::System);
+        const auto expectedMode = theme->resolvedMode() == ZzFluentUI::ZzThemeMode::Dark
+            ? ZzFluentUI::ZzThemeMode::Light : ZzFluentUI::ZzThemeMode::Dark;
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(theme->mode(), expectedMode);
+        QCOMPARE(windows.second->titleBar()->themeMode(), expectedMode);
+        QCOMPARE(firstSpy.count(), 2);
+        QCOMPARE(secondSpy.count(), 1);
+
+        theme->setMode(ZzFluentUI::ZzThemeMode::HighContrast);
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(theme->mode(), ZzFluentUI::ZzThemeMode::Dark);
+        QCOMPARE(firstSpy.count(), 3);
+        QCOMPARE(secondSpy.count(), 1);
+        application.beginShutdown();
+    }
+
+    void titleBarPinsOnlyOwningWindowWithoutWorkspace()
+    {
+        auto &application = zzApplication();
+        ZzWindowPair windows;
+        QVERIFY(zzCreateWindowPair(application, windows));
+        auto *button = windows.first->titleBar()->findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarAlwaysOnTopButton"));
+        QVERIFY(button != nullptr);
+        QTest::mouseClick(button, Qt::LeftButton);
+        QVERIFY(windows.first->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+        QVERIFY(windows.first->titleBar()->isAlwaysOnTop());
+        QVERIFY(!windows.second->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+        QVERIFY(!windows.second->titleBar()->isAlwaysOnTop());
+        QVERIFY(button->isChecked());
+        QTest::mouseClick(button, Qt::LeftButton);
+        QVERIFY(!windows.first->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
+        QVERIFY(!windows.first->titleBar()->isAlwaysOnTop());
+        QVERIFY(!button->isChecked());
         application.beginShutdown();
     }
 

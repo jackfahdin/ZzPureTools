@@ -99,9 +99,9 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     titleBar->setThemeMode(themeController->mode());
     QObject::connect(
         titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
-        themeController,
-        &ZzFluentUI::ZzThemeController::setMode);
+        &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested,
+        q_ptr,
+        &ZzApplicationWindow::toggleTheme);
     QObject::connect(
         themeController,
         &ZzFluentUI::ZzThemeController::snapshotChanged,
@@ -236,6 +236,24 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
         &ZzFluentUI::ZzFluentTitleBar::closeRequested,
         q_ptr,
         &QWidget::close);
+
+    QObject::connect(
+        titleBar,
+        &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested,
+        q_ptr,
+        [this](bool requested) {
+            const auto result = agent->setAlwaysOnTop(requested);
+            if (!result) {
+                qWarning().noquote()
+                    << "application window always-on-top failed:"
+                    << result.error().technicalMessage()
+                    << result.error().context();
+            }
+            titleBar->setAlwaysOnTop(q_ptr->windowFlags().testFlag(
+                Qt::WindowStaysOnTopHint));
+        });
+    titleBar->setAlwaysOnTop(q_ptr->windowFlags().testFlag(
+        Qt::WindowStaysOnTopHint));
 
     refreshTranslations();
     syncWindowState();

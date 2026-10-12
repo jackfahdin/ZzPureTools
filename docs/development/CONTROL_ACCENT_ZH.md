@@ -89,8 +89,18 @@ Qt 的默认按钮或勾选状态。
 - 设置窗口通过主题快照同步其他窗口的改动，并阻断同步过程中的用户意图信号，
   避免重复保存。自动化截图／冒烟场景使用确定的默认外观，不加载个人外观偏好。
 
-这项限制属于 Example 的应用选择。库的 `ZzFluentTitleBar` 仍保留可选菜单模式，
-`ZzThemeController` 仍提供高对比主题，供其他应用按需要使用。
+标题栏的单击切换是框架默认行为。`ZzApplicationWindow` 负责执行切换与置顶，
+Example 直接使用；`ZzFluentTitleBar` 仅展示状态并发出意图，不再提供主题菜单模式。
+`ZzThemeController` 仍提供跟随系统及高对比主题，可由应用的设置页选择。
+
+菜单或快捷键需要切换主题时，调用 `ZzApplicationWindow::toggleTheme()`。
+业务层可监听该窗口的 `themeToggled(ZzThemeMode)` 保存偏好；此信号仅在该窗口
+执行切换后发出，其他窗口的同步不会重复触发保存。仅使用 `ZzFluentTitleBar`
+时，宿主需要自行处理 `themeToggleRequested()` 并通过 `setThemeMode()` 回写状态。
+
+系统按钮通过 `ZzWindowAgent` 注册到 QWindowKit 的 `setSystemButton()`，
+由 QWindowKit 负责标题栏命中与平台窗口集成。按钮控件及内嵌 SVG 外观由
+FluentUI 提供，最小化、最大化／还原、关闭命令由框架窗口执行。
 
 ### 控件局部外观示例
 

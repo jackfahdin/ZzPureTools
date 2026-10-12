@@ -7,6 +7,7 @@
 #include <QtWidgets/QMainWindow>
 
 #include <ZzCore/ZzResult.h>
+#include <ZzFluentUI/ZzThemeMode.h>
 
 #include <ZzPureTools/ZzNavigationNode.h>
 #include <ZzPureTools/ZzPageRegistration.h>
@@ -74,6 +75,17 @@ public:
     /** @brief 返回当前窗口独占 WindowKit 代理的非拥有观察指针。 */
     [[nodiscard]] ZzWindowKit::ZzWindowAgent *windowAgent()
         const noexcept;
+
+    /** @brief 在 GUI 线程按当前实际配色切换应用浅深主题，供标题栏和菜单复用。 */
+    void toggleTheme();
+
+Q_SIGNALS:
+    /**
+     * @brief 本窗口执行浅深切换后发出，业务层可据此持久化主题设置。
+     *
+     * 其他窗口的切换和外部主题同步不会触发本窗口的此信号。
+     */
+    void themeToggled(ZzFluentUI::ZzThemeMode mode);
 
 protected:
     /** @brief 刷新语言和窗口最大化状态，其他事件交给 QMainWindow。 */

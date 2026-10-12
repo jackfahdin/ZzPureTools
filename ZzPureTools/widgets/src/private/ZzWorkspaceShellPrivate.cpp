@@ -772,7 +772,12 @@ ZzWorkspaceShellPrivate::ZzWorkspaceShellPrivate(
             splitWorkspace, &ZzFluentUI::ZzSplitWorkspace::activeGroupChanged,
             q_ptr, [this] { refreshActiveTabConnections(); });
     }
-    if (titleBar != nullptr) {
+    // 框架窗口已绑定自身标题栏；其他宿主或独立标题栏由工作区补齐接线。
+    const auto *const applicationWindow =
+        qobject_cast<ZzApplicationWindow *>(host.data());
+    if (titleBar != nullptr
+        && (applicationWindow == nullptr
+            || applicationWindow->titleBar() != titleBar)) {
         QObject::connect(
             titleBar, &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested,
             q_ptr, [this](bool requested) {

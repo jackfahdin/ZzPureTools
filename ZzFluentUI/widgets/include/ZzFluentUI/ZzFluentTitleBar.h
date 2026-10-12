@@ -9,11 +9,9 @@
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzThemeMode.h>
-#include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 class QEvent;
-class QMenu;
 class QMenuBar;
 class QObject;
 class QResizeEvent;
@@ -47,11 +45,6 @@ class ZZ_FLUENT_UI_EXPORT ZzFluentTitleBar final : public QWidget
         READ themeMode
         WRITE setThemeMode
         NOTIFY themeModeChanged)
-    Q_PROPERTY(
-        ZzFluentUI::ZzTitleBarThemeInteractionMode themeInteractionMode
-        READ themeInteractionMode
-        WRITE setThemeInteractionMode
-        NOTIFY themeInteractionModeChanged)
     Q_PROPERTY(
         bool alwaysOnTop
         READ isAlwaysOnTop
@@ -166,22 +159,6 @@ public:
      */
     void setThemeMode(ZzThemeMode mode);
 
-    /** @brief 返回主题按钮的当前交互方式。 */
-    [[nodiscard]] ZzTitleBarThemeInteractionMode
-    themeInteractionMode() const noexcept;
-
-    /**
-     * @brief 设置主题按钮的交互方式。
-     * @param mode 菜单模式或浅深切换模式。
-     */
-    void setThemeInteractionMode(ZzTitleBarThemeInteractionMode mode);
-
-    /**
-     * @brief 返回由标题栏长期拥有的主题菜单。
-     * @return 非拥有观察指针；调用方可隐藏或扩展菜单项。
-     */
-    [[nodiscard]] QMenu *themeMenu() const noexcept;
-
     /** @brief 返回宿主最后确认的置顶状态。 */
     [[nodiscard]] bool isAlwaysOnTop() const noexcept;
 
@@ -231,14 +208,8 @@ Q_SIGNALS:
     /** @brief 应用确认的主题状态实际变化后发出。 */
     void themeModeChanged(ZzThemeMode mode);
 
-    /** @brief 用户请求主题模式；标题栏不会直接修改应用主题。 */
-    void themeModeRequested(ZzThemeMode mode);
-
-    /** @brief 主题按钮设置为 Toggle 模式时请求浅深主题切换。 */
+    /** @brief 单击主题按钮请求浅深切换；宿主执行切换并同步确认状态。 */
     void themeToggleRequested();
-
-    /** @brief 主题按钮交互方式实际变化后发出。 */
-    void themeInteractionModeChanged(ZzTitleBarThemeInteractionMode mode);
 
     /** @brief 宿主确认的置顶状态实际变化后发出。 */
     void alwaysOnTopChanged(bool alwaysOnTop);

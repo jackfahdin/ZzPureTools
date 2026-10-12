@@ -26,7 +26,6 @@
 #include <ZzFluentUI/ZzThemeController.h>
 #include <ZzFluentUI/ZzThemeMode.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
-#include <ZzFluentUI/ZzTitleBarThemeInteractionMode.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 /** @brief 为标题栏 LanguageChange 测试提供确定翻译。 */
@@ -62,78 +61,19 @@ class ZzFluentTitleBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
-    void exposesConfigurableThemeInteractionMode()
-    {
-        ZzFluentUI::ZzFluentTitleBar titleBar;
-        QCOMPARE(
-            titleBar.themeInteractionMode(),
-            ZzFluentUI::ZzTitleBarThemeInteractionMode::Menu);
-        QSignalSpy spy(
-            &titleBar,
-            &ZzFluentUI::ZzFluentTitleBar::themeInteractionModeChanged);
-        titleBar.setThemeInteractionMode(
-            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
-        QCOMPARE(spy.count(), 1);
-        QCOMPARE(
-            spy.first()
-                .first()
-                .value<ZzFluentUI::ZzTitleBarThemeInteractionMode>(),
-            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
-    }
-
-    void emitsThemeIntentForSelectedInteractionMode()
+    void defaultThemeButtonRequestsToggleWithoutMenu()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
         auto *button = titleBar.findChild<QToolButton *>(
             QStringLiteral("zzTitleBarThemeButton"));
         QVERIFY(button != nullptr);
-        if (button == nullptr) {
-            return;
-        }
-        QSignalSpy modeSpy(
-            &titleBar,
-            &ZzFluentUI::ZzFluentTitleBar::themeModeRequested);
-        QSignalSpy toggleSpy(
-            &titleBar,
-            &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested);
-        titleBar.setThemeInteractionMode(
-            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
-        QTest::mouseClick(button, Qt::LeftButton);
-        QCOMPARE(modeSpy.count(), 0);
-        QCOMPARE(toggleSpy.count(), 1);
         QVERIFY(button->menu() == nullptr);
-        titleBar.setThemeInteractionMode(
-            ZzFluentUI::ZzTitleBarThemeInteractionMode::Menu);
-        QCOMPARE(button->menu(), titleBar.themeMenu());
-    }
-
-    void emitsThemeModeIntentFromMenuAction()
-    {
-        ZzFluentUI::ZzFluentTitleBar titleBar;
-        QSignalSpy modeSpy(
-            &titleBar,
-            &ZzFluentUI::ZzFluentTitleBar::themeModeRequested);
-        QVERIFY(titleBar.themeMenu() != nullptr);
-        if (titleBar.themeMenu() == nullptr) {
-            return;
-        }
-        QAction *highContrastAction = nullptr;
-        for (QAction *action : titleBar.themeMenu()->actions()) {
-            if (action->data().toInt()
-                == static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast)) {
-                highContrastAction = action;
-                break;
-            }
-        }
-        QVERIFY(highContrastAction != nullptr);
-        if (highContrastAction == nullptr) {
-            return;
-        }
-        highContrastAction->trigger();
-        QCOMPARE(modeSpy.count(), 1);
-        QCOMPARE(
-            modeSpy.first().first().toInt(),
-            static_cast<int>(ZzFluentUI::ZzThemeMode::HighContrast));
+        QSignalSpy spy(
+            &titleBar, &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested);
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(spy.count(), 1);
+        QCOMPARE(titleBar.themeMode(), ZzFluentUI::ZzThemeMode::System);
+        QVERIFY(!button->isChecked());
     }
 
     void preservesCompactMenuOrderForMiddleInsertions()
@@ -208,38 +148,6 @@ private Q_SLOTS:
         QVERIFY(first->isChecked());
         QCOMPARE(first->data().toString(), QStringLiteral("first-data"));
         QVERIFY(!second->isEnabled());
-    }
-
-    void presentsConfirmedHighContrastWithThemeAction()
-    {
-        ZzFluentUI::ZzFluentTitleBar titleBar;
-        auto *themeButton = titleBar.findChild<QToolButton *>(
-            QStringLiteral("zzTitleBarThemeButton"));
-        QVERIFY(themeButton != nullptr);
-        if (themeButton == nullptr) {
-            return;
-        }
-        QVERIFY(themeButton->menu() != nullptr);
-        if (themeButton->menu() == nullptr) {
-            return;
-        }
-        QCOMPARE(themeButton->menu()->actions().size(), 4);
-
-        titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::HighContrast);
-
-        QCOMPARE(
-            titleBar.themeMode(), ZzFluentUI::ZzThemeMode::HighContrast);
-        QVERIFY(themeButton->isChecked());
-        QVERIFY(themeButton->toolTip().contains(QStringLiteral("高对比度")));
-        QVERIFY(themeButton->accessibleName().contains(
-            QStringLiteral("高对比度")));
-        QCOMPARE(themeButton->menu()->actions().size(), 4);
-        for (QAction *action : themeButton->menu()->actions()) {
-            QVERIFY(!action->icon().isNull());
-            const auto mode = static_cast<ZzFluentUI::ZzThemeMode>(
-                action->data().toInt());
-            QCOMPARE(action->isChecked(), mode == ZzFluentUI::ZzThemeMode::HighContrast);
-        }
     }
 
     void adaptsMenuWithoutCopyingActionsOrAllocatingMenus()
@@ -527,7 +435,7 @@ private Q_SLOTS:
         titleBar.setAlwaysOnTop(true);
         QSignalSpy themeSpy(
             &titleBar,
-            &ZzFluentUI::ZzFluentTitleBar::themeModeRequested);
+            &ZzFluentUI::ZzFluentTitleBar::themeToggleRequested);
         QSignalSpy alwaysOnTopSpy(
             &titleBar,
             &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested);
@@ -540,10 +448,7 @@ private Q_SLOTS:
         if (themeButton == nullptr || alwaysOnTopButton == nullptr) {
             return;
         }
-        QVERIFY(themeButton->menu() != nullptr);
-        if (themeButton->menu() == nullptr) {
-            return;
-        }
+        QVERIFY(themeButton->menu() == nullptr);
         QVERIFY(themeButton->isCheckable());
         QVERIFY(themeButton->isChecked());
         QVERIFY(!themeButton->toolTip().isEmpty());
@@ -553,29 +458,15 @@ private Q_SLOTS:
         QVERIFY(alwaysOnTopButton->isCheckable());
         QVERIFY(alwaysOnTopButton->isChecked());
 
-        QAction *lightAction = nullptr;
-        for (QAction *action : themeButton->menu()->actions()) {
-            if (action->data().toInt()
-                == static_cast<int>(ZzFluentUI::ZzThemeMode::Light)) {
-                lightAction = action;
-                break;
-            }
-        }
-        QVERIFY(lightAction != nullptr);
-        if (lightAction == nullptr) {
-            return;
-        }
-        lightAction->trigger();
+        QTest::mouseClick(themeButton, Qt::LeftButton);
         QTest::mouseClick(alwaysOnTopButton, Qt::LeftButton);
 
         QCOMPARE(themeSpy.count(), 1);
-        QCOMPARE(
-            themeSpy.first().first().toInt(),
-            static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
         QCOMPARE(alwaysOnTopSpy.count(), 1);
         QCOMPARE(alwaysOnTopSpy.first().first().toBool(), false);
         QCOMPARE(
             titleBar.themeMode(), ZzFluentUI::ZzThemeMode::HighContrast);
+        QVERIFY(themeButton->isChecked());
         QVERIFY(titleBar.isAlwaysOnTop());
         QVERIFY(alwaysOnTopButton->isChecked());
     }
@@ -916,8 +807,6 @@ private Q_SLOTS:
             iconImage(themeButton),
             expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
 
-        titleBar.setThemeInteractionMode(
-            ZzFluentUI::ZzTitleBarThemeInteractionMode::Toggle);
         titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::Light);
         QCOMPARE(
             iconImage(themeButton),
@@ -928,33 +817,6 @@ private Q_SLOTS:
             iconImage(themeButton),
             expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
         QCOMPARE(themeButton->toolTip(), QStringLiteral("切换到浅色"));
-
-        QAction *lightAction = nullptr;
-        QAction *darkAction = nullptr;
-        for (QAction *const action : titleBar.themeMenu()->actions()) {
-            if (action->data().toInt()
-                == static_cast<int>(ZzFluentUI::ZzThemeMode::Light)) {
-                lightAction = action;
-            } else if (action->data().toInt()
-                       == static_cast<int>(ZzFluentUI::ZzThemeMode::Dark)) {
-                darkAction = action;
-            }
-        }
-        QVERIFY(lightAction != nullptr);
-        QVERIFY(darkAction != nullptr);
-        if (lightAction == nullptr || darkAction == nullptr) {
-            return;
-        }
-        QCOMPARE(
-            lightAction->icon()
-                .pixmap(QSize(16, 16), titleBar.devicePixelRatioF())
-                .toImage(),
-            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Sun));
-        QCOMPARE(
-            darkAction->icon()
-                .pixmap(QSize(16, 16), titleBar.devicePixelRatioF())
-                .toImage(),
-            expectedImage(ZzFluentUI::ZzBundledSvgIcon::Moon));
 
         // 请求模式保持 System 时，图标仍应随实际配色改变。
         titleBar.setThemeMode(ZzFluentUI::ZzThemeMode::System);

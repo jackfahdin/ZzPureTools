@@ -175,11 +175,6 @@ ZzCore::ZzResult<void> ZzExampleSettingsWindowPrivate::initialize(
                 Qt::WindowStaysOnTopHint));
         });
     QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::themeModeRequested,
-        theme,
-        &ZzFluentUI::ZzThemeController::setMode);
-    QObject::connect(
         theme,
         &ZzFluentUI::ZzThemeController::snapshotChanged,
         q_ptr,

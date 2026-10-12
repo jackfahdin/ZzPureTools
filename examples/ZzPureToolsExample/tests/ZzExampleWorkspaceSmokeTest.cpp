@@ -1266,6 +1266,20 @@ private Q_SLOTS:
             settingsThemeBox->currentData().toInt(),
             static_cast<int>(ZzFluentUI::ZzThemeMode::Dark));
 
+        // 视图菜单复用框架入口，并保持设置窗口与持久化值同步。
+        auto *const themeAction = window->findChild<QAction *>(
+            QStringLiteral("zzExampleThemeAction"));
+        QVERIFY(themeAction != nullptr);
+        themeAction->trigger();
+        QCOMPARE(application->themeController()->mode(), ZzFluentUI::ZzThemeMode::Light);
+        QCOMPARE(settingsThemeBox->currentData().toInt(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+        const auto persistedAfterMenu = context_->settingsStore().read(
+            QStringView(QStringLiteral("appearance/themeMode")), -1);
+        QVERIFY(persistedAfterMenu);
+        QCOMPARE(persistedAfterMenu.value().toInt(),
+            static_cast<int>(ZzFluentUI::ZzThemeMode::Light));
+
         closeSettings(settingsWindow);
         closeApplicationWindow(window);
     }
