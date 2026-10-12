@@ -71,8 +71,32 @@ log_command() {
   printf '\n' >> "$command_log"
 }
 
+run_logged() {
+  local label=$1
+  local output_file=$2
+  shift 2
+  local pipeline_status
+  if "$@" 2>&1 | tee "$output_file"; then
+    pipeline_status=(0 0)
+  else
+    pipeline_status=("${PIPESTATUS[@]}")
+  fi
+  printf '%s.exit=%s\n%s.log.exit=%s\n' \
+    "$label" "${pipeline_status[0]}" "$label" "${pipeline_status[1]}" >> "$command_log"
+  # Prefer the gate's exit code if both the gate and log writer failed.
+  if (( pipeline_status[0] != 0 )); then
+    return "${pipeline_status[0]}"
+  fi
+  return "${pipeline_status[1]}"
+}
+
+evidence_root="$source_dir/build/linux-gcc-benchmarks/release-rounds"
+cmake -E make_directory "$evidence_root"
+run_dir=$(mktemp -d "$evidence_root/run-XXXXXXXX")
+echo "Performance evidence: $run_dir"
+
 for round in 1 2 3; do
-  round_dir="$source_dir/build/linux-gcc-benchmarks/release-rounds/round-${round}"
+  round_dir="$run_dir/round-${round}"
   cmake -E make_directory "$round_dir"
   command_log="$round_dir/commands.log"
   : > "$command_log"
@@ -87,16 +111,40 @@ for round in 1 2 3; do
     -L benchmark --output-on-failure -j1
   )
   log_command "$command_log" "${ctest_command[@]}"
-  "${ctest_command[@]}"
+  ctest_result=0
+  if run_logged ctest "$round_dir/ctest.log" "${ctest_command[@]}"; then
+    :
+  else
+    ctest_result=$?
+  fi
 
+  # Archive every fresh producer output before propagating a failed gate.
+  # The current reports were removed above; absent reports are never backfilled.
+  missing_reports=0
   for scenario in "${performance_scenarios[@]}"; do
     current="$reports_dir/benchmark.${scenario}.json"
     round_report="$round_dir/benchmark.${scenario}.json"
-    test -f "$current"
+    if [[ ! -f "$current" ]]; then
+      printf 'report.missing=%s\n' "$current" >> "$command_log"
+      missing_reports=1
+      continue
+    fi
     printf 'report.current=%s\nreport.saved=%s\n' \
       "$current" "$round_report" >> "$command_log"
     cmake -E copy "$current" "$round_report"
+  done
 
+  if (( ctest_result != 0 )); then
+    echo "CTest or log capture failed ($ctest_result); evidence saved in $round_dir" >&2
+    exit "$ctest_result"
+  fi
+  if (( missing_reports != 0 )); then
+    echo "Missing current performance reports; see $command_log" >&2
+    exit 1
+  fi
+
+  for scenario in "${performance_scenarios[@]}"; do
+    round_report="$round_dir/benchmark.${scenario}.json"
     compare_command=(
       cmake
       "-DZZ_BASELINE=$source_dir/docs/performance/reference/linux/${scenario}.json"
@@ -106,7 +154,7 @@ for round in 1 2 3; do
       -P "$source_dir/cmake/ZzComparePerformanceReport.cmake"
     )
     log_command "$command_log" "${compare_command[@]}"
-    "${compare_command[@]}"
+    run_logged "compare.$scenario" "$round_dir/compare.$scenario.log" "${compare_command[@]}"
   done
 done
 

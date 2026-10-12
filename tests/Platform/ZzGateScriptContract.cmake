@@ -27,7 +27,7 @@ set(required_tokens
     "scripts/ci/run-linux-performance-gates.sh|-L benchmark"
     "scripts/ci/run-linux-performance-gates.sh|ZZ_PERFORMANCE_REFERENCE:BOOL=ON"
     "scripts/ci/run-linux-performance-gates.sh|grep -Fx 'ZZ_PERFORMANCE_REFERENCE:BOOL=ON'"
-    "scripts/ci/run-linux-performance-gates.sh|release-rounds/round-\${round}"
+    "scripts/ci/run-linux-performance-gates.sh|round_dir=\"$run_dir/round-\${round}\""
     "scripts/ci/run-linux-performance-gates.sh|ZzComparePerformanceReport.cmake"
     "scripts/ci/run-linux-performance-gates.sh|regression-thresholds.json"
     "scripts/ci/run-linux-performance-gates.sh|-DZZ_ABSOLUTE_GATES_VERIFIED=TRUE"
