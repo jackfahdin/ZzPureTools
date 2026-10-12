@@ -168,7 +168,7 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 | ✅ 历史完整 CI 矩阵 | [`a9396b1`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780) 全部成功，已发布五个平台示例 |
 | ✅ 本机接入回归 | GCC 15.2 / Qt 6.11 Release + LTO 构建通过；263 项非性能回归首轮 261 项通过，两项契约登记遗漏已修复并定向复验通过 |
 | ✅ 独立安装包接入 | 全新安装消费通过；搬迁安装目录并移除原前缀后，复制出的 Starter 编译与 smoke 通过 |
-| ✅ 性能门禁自测 | 比较器、噪声分析与参考校验器自测通过；失败轮次也保存报告、日志和退出码，再次运行不覆盖 |
+| ✅ 性能门禁自测 | 比较器、噪声分析与参考校验器自测通过；失败轮次独立留档，正式入口拒绝未纳入指纹的诊断参数 |
 | ⚠️ 后续远端 CI | [`f0cf1c0`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38211345718) 配置契约成功，五个平台 job 失败，发布跳过 |
 | ⚠️ 性能绝对门限 | 最新串行复验：仪表 P95 16.760 ms 仍超 16.7 ms，开关 16.615 ms 本轮通过但此前有失败；另有四份参考报告缺失 |
 | ⏳ 相对性能比较 | 保留历史 Mesa 26.0.3 基线；本机已为 26.0.8，环境不匹配，待复核 |
@@ -182,8 +182,10 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 接入回归与提交拆分见[本轮执行记录](docs/superpowers/plans/2026-10-12-framework-integration-hardening.md#执行记录)，
 性能原始报告与剩余条件见
 [CI 与性能门禁复核记录](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)，
-最新对照实验见[仪表逐帧追踪](docs/performance/evidence/frame-timeline/2026-10-12/README.md)，
-其中包含 X11 同步等待的实测、原始数据和复现工具。
+[仪表逐帧追踪](docs/performance/evidence/frame-timeline/2026-10-12/README.md)
+记录 X11 同步等待；最新 [Qt 定时精度对照](docs/performance/evidence/qt-timer-precision/2026-10-12/README.md)
+在 UNIX 诊断环境将仪表 P95 从约 16.73 ms 降至约 16.23 ms。
+默认 GLib 路径仍有毫秒取整，SDK 未修改，以上正式门禁状态保持不变。
 
 ## 📚 开发资料
 

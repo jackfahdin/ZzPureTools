@@ -1,0 +1,35 @@
+diff --git a/src/corelib/kernel/qtimerinfo_unix.cpp b/src/corelib/kernel/qtimerinfo_unix.cpp
+--- a/src/corelib/kernel/qtimerinfo_unix.cpp
++++ b/src/corelib/kernel/qtimerinfo_unix.cpp
+@@ -248,7 +248,9 @@ std::optional<QTimerInfoList::Duration> QTimerInfoList::timerWait()
+ 
+     Duration timeToWait = (*it)->timeout - now;
+     if (timeToWait > 0ns)
+-        return roundToMillisecond(timeToWait);
++        // Preserve precision for backends that support nanosecond waits.
++        // Millisecond-only consumers round at their conversion boundary.
++        return timeToWait;
+     return 0ms;
+ }
+ 
+diff --git a/src/corelib/kernel/qeventdispatcher_wasm.cpp b/src/corelib/kernel/qeventdispatcher_wasm.cpp
+--- a/src/corelib/kernel/qeventdispatcher_wasm.cpp
++++ b/src/corelib/kernel/qeventdispatcher_wasm.cpp
+@@ -425,7 +425,7 @@ void QEventDispatcherWasm::processEventsWait()
+         auto nanoWait = m_timerInfo->timerWait();
+         std::optional<std::chrono::milliseconds> milliWait;
+         if (nanoWait.has_value())
+-            milliWait = std::chrono::duration_cast<std::chrono::milliseconds>(*nanoWait);
++            milliWait = std::chrono::ceil<std::chrono::milliseconds>(*nanoWait);
+         secondaryThreadWait(milliWait);
+     }
+ }
+@@ -523,7 +523,7 @@ void QEventDispatcherWasm::updateNativeTimer()
+         return;
+     }
+ 
+-    auto milliWait = std::chrono::duration_cast<std::chrono::milliseconds>(*nanoWait);
++    auto milliWait = std::chrono::ceil<std::chrono::milliseconds>(*nanoWait);
+     const auto newTargetTime = m_timerInfo->currentTime + milliWait;
+ 
+     // Keep existing timer if the timeout has not changed.

@@ -1,0 +1,34 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "d583f1d319c3a5102f53e237e8276493374a3ea2",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:00f36e63d6f253dbb5856af53b3a71a59eba4aa8a7c45ef1645c924692a9b989",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "frame-time": {
+            "count": 1000,
+            "max": 19.29736,
+            "p50": 16.006149,
+            "p95": 16.220062,
+            "unit": "ms"
+        }
+    },
+    "scenario": "radial-gauge-animation",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}
