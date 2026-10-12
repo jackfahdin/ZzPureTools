@@ -189,6 +189,8 @@ endforeach()
 
 set(readme_path "${source_root}/README.md")
 file(READ "${readme_path}" readme_content)
+# CI 运行结果随提交变化，不将某次矩阵的成败文案设为永久必需项。
+# 此处保留接入要求；发布说明、证据和平台验收约束由后续检查验证。
 foreach(required_token IN ITEMS
     "Qt 6.8+"
     "C++20"
@@ -200,7 +202,6 @@ foreach(required_token IN ITEMS
     "Zz::PureTools"
     "cmake --preset linux-gcc-debug"
     "ctest --preset linux-gcc-debug"
-    "尚无同一提交完整成功的矩阵"
     "MIT License"
     "Jackfahdin")
     string(FIND "${readme_content}" "${required_token}" token_position)

@@ -26,7 +26,7 @@
 
 ## 📦 下载示例
 
-[continuous-build 预发布页](https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build)
+[continuous-build 预发布页（Pre-release）](https://github.com/jackfahdin/ZzPureTools/releases/tag/continuous-build)
 提供五个平台的桌面示例。只有同一提交的完整构建、CTest、部署检查与启动 smoke
 全部通过，下载页才会整体更新；下载包可能落后于 `master`。
 
@@ -38,7 +38,7 @@
 | 🍎 macOS · Apple Silicon | [DMG](https://github.com/jackfahdin/ZzPureTools/releases/download/continuous-build/ZzPureToolsExample-continuous-macos-arm64.dmg) |
 | 🍎 macOS · Intel | [DMG](https://github.com/jackfahdin/ZzPureTools/releases/download/continuous-build/ZzPureToolsExample-continuous-macos-x86_64.dmg) |
 
-这些产物是未签名的开发预览。每个包均附 `.sha256` 与 `.build-info.json`，
+这些产物是未签名的开发预览。每个包均附 SHA-256 校验文件（`.sha256`）与 `.build-info.json`，
 用于核对完整性和源码提交。MSVC 与 MinGW 的 Qt、工具链和库文件须分别使用。
 
 ## 🧩 组件与模块
@@ -144,7 +144,8 @@ ctest --preset windows-msvc2022-release -C Release --output-on-failure
 
 CTest 覆盖单元测试、公共头独立编译、架构边界、安装消费、包重定位、
 二进制依赖、截图和发布契约。托管 CI 包含 Linux、Windows MSVC、Windows MinGW、
-macOS arm64 与 macOS x86_64；启动 smoke 与真实桌面交互验收分别记录。
+macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
+启动检查与真实桌面交互验收分别记录。
 
 **2026-10-12 复核快照：**
 
