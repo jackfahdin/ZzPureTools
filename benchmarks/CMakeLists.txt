@@ -258,6 +258,9 @@ if(ZZ_PERFORMANCE_REFERENCE)
     # 16.7 ms frame. Microsecond-scale relative timing remains observational.
     zz_add_reference_gate(workspace-tab-state-time benchmark.workspace-components
         workspace-components tab-state-time MAX_P95 1)
+    # Synchronous activation among 32 side panels excludes subsequent painting.
+    zz_add_reference_gate(workspace-activity-activation-time benchmark.workspace-components
+        workspace-components activity-activation-time MAX_P95 1)
     zz_add_reference_gate(workspace-cross-transfer-time
         benchmark.workspace-components workspace-components
         workspace-cross-transfer-time MAX_P95 4)
