@@ -9,14 +9,10 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 
-#include <ZzFluentUI/ZzFluentTitleBar.h>
-
 #include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzAuxiliaryWindowChrome.h>
 #include <ZzPureTools/ZzPureApplication.h>
 
-#include <ZzWindowKit/ZzWindowAgent.h>
-#include <ZzWindowKit/ZzWindowCapability.h>
-#include <ZzWindowKit/ZzWindowChromeConfiguration.h>
 
 #include "ZzExampleAboutWindow.h"
 #include "ZzExampleApplicationContext.h"
@@ -54,7 +50,7 @@ ZzExampleAboutWindowPrivate::~ZzExampleAboutWindowPrivate()
 {
     presenter.reset();
     viewModel.reset();
-    agent.reset();
+    chrome.reset();
 }
 
 ZzCore::ZzResult<void> ZzExampleAboutWindowPrivate::initialize(
@@ -91,9 +87,6 @@ ZzCore::ZzResult<void> ZzExampleAboutWindowPrivate::initialize(
 
     parentWindow = applicationWindow;
     q_ptr->setWindowIcon(applicationWindow->windowIcon());
-    titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
-    titleBar->setWindowIcon(applicationWindow->windowIcon());
-    q_ptr->setMenuWidget(titleBar);
     viewModel = std::make_unique<ZzExampleSystemViewModel>();
     page = new ZzExampleSystemPage(
         ZzExampleSystemPageKind::About,
@@ -112,35 +105,12 @@ ZzCore::ZzResult<void> ZzExampleAboutWindowPrivate::initialize(
     q_ptr->setMinimumSize(680, 480);
     q_ptr->resize(820, 560);
 
-    agent = std::make_unique<ZzWindowKit::ZzWindowAgent>();
-    auto attached = agent->attach(q_ptr);
-    if (!attached) {
-        return attached;
+    auto chromeResult = ZzPureTools::ZzAuxiliaryWindowChrome::create(
+        q_ptr, application->themeController());
+    if (!chromeResult) {
+        return ZzCore::ZzResult<void>::failure(chromeResult.error());
     }
-    const bool nativeSystemButtons = agent->capabilities().testFlag(
-        ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
-    titleBar->setWindowButtonsVisible(
-        false,
-        false,
-        !nativeSystemButtons);
-    titleBar->setCommandButtonsVisible(false);
-    ZzWindowKit::ZzWindowChromeConfiguration chrome;
-    chrome.titleBar = titleBar;
-    chrome.windowIcon = titleBar->windowIconWidget();
-    chrome.interactiveWidgets = titleBar->hitTestVisibleWidgets();
-    if (!nativeSystemButtons) {
-        chrome.closeButton = titleBar->closeButton();
-    }
-    auto configured = agent->configureChrome(chrome);
-    if (!configured) {
-        return configured;
-    }
-
-    QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::closeRequested,
-        q_ptr,
-        &QWidget::close);
+    chrome = std::move(chromeResult).value();
 
     refreshTranslations();
     initialized = true;
@@ -152,9 +122,6 @@ void ZzExampleAboutWindowPrivate::refreshTranslations()
     const QString title = QCoreApplication::translate(
         "ZzPureToolsExample", "关于 ZzPureTools");
     q_ptr->setWindowTitle(title);
-    if (titleBar != nullptr) {
-        titleBar->setTitle(title);
-    }
 }
 
 } // namespace ZzExample

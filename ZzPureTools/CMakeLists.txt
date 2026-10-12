@@ -58,6 +58,7 @@ set(zz_pure_tools_sources
     widgets/src/ZzApplicationBuilder.cpp
     widgets/src/private/ZzApplicationBuilderPrivate.cpp
     widgets/src/ZzApplicationWindow.cpp
+    widgets/src/ZzAuxiliaryWindowChrome.cpp
     widgets/src/private/ZzApplicationWindowPrivate.cpp
     widgets/src/ZzWorkspaceWindowCoordinator.cpp
     widgets/src/private/ZzWorkspaceWindowCoordinatorPrivate.cpp

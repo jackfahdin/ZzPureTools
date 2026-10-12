@@ -9,15 +9,10 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 
-#include <ZzFluentUI/ZzFluentTitleBar.h>
-#include <ZzFluentUI/ZzThemeController.h>
-
 #include <ZzPureTools/ZzApplicationWindow.h>
+#include <ZzPureTools/ZzAuxiliaryWindowChrome.h>
 #include <ZzPureTools/ZzPureApplication.h>
 
-#include <ZzWindowKit/ZzWindowAgent.h>
-#include <ZzWindowKit/ZzWindowCapability.h>
-#include <ZzWindowKit/ZzWindowChromeConfiguration.h>
 
 #include "ZzExampleApplicationContext.h"
 #include "ZzExampleSettingsWindow.h"
@@ -55,7 +50,7 @@ ZzExampleSettingsWindowPrivate::~ZzExampleSettingsWindowPrivate()
 {
     presenter.reset();
     viewModel.reset();
-    agent.reset();
+    chrome.reset();
 }
 
 ZzCore::ZzResult<void> ZzExampleSettingsWindowPrivate::initialize(
@@ -91,9 +86,6 @@ ZzCore::ZzResult<void> ZzExampleSettingsWindowPrivate::initialize(
     }
 
     parentWindow = applicationWindow;
-    theme = application->themeController();
-    titleBar = new ZzFluentUI::ZzFluentTitleBar(q_ptr);
-    q_ptr->setMenuWidget(titleBar);
     viewModel = std::make_unique<ZzExampleSystemViewModel>();
     page = new ZzExampleSystemPage(
         ZzExampleSystemPageKind::Settings,
@@ -112,77 +104,14 @@ ZzCore::ZzResult<void> ZzExampleSettingsWindowPrivate::initialize(
     q_ptr->setMinimumSize(640, 520);
     q_ptr->resize(760, 620);
 
-    agent = std::make_unique<ZzWindowKit::ZzWindowAgent>();
-    auto attached = agent->attach(q_ptr);
-    if (!attached) {
-        return attached;
+    auto chromeResult = ZzPureTools::ZzAuxiliaryWindowChrome::create(
+        q_ptr, application->themeController());
+    if (!chromeResult) {
+        return ZzCore::ZzResult<void>::failure(chromeResult.error());
     }
-    const bool nativeSystemButtons = agent->capabilities().testFlag(
-        ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
-    titleBar->setWindowButtonsVisible(
-        false,
-        false,
-        !nativeSystemButtons);
-    titleBar->setCommandButtonsVisible(false);
-    ZzWindowKit::ZzWindowChromeConfiguration chrome;
-    chrome.titleBar = titleBar;
-    chrome.windowIcon = titleBar->windowIconWidget();
-    chrome.interactiveWidgets = titleBar->hitTestVisibleWidgets();
-    if (!nativeSystemButtons) {
-        chrome.minimizeButton = titleBar->minimizeButton();
-        chrome.maximizeButton = titleBar->maximizeButton();
-        chrome.closeButton = titleBar->closeButton();
-    }
-    auto configured = agent->configureChrome(chrome);
-    if (!configured) {
-        return configured;
-    }
-
-    QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::minimizeRequested,
-        q_ptr,
-        &QWidget::showMinimized);
-    QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::maximizeRestoreRequested,
-        q_ptr,
-        [this] {
-            if (q_ptr->isMaximized()) {
-                q_ptr->showNormal();
-            } else {
-                q_ptr->showMaximized();
-            }
-        });
-    QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::closeRequested,
-        q_ptr,
-        &QWidget::close);
-    QObject::connect(
-        titleBar,
-        &ZzFluentUI::ZzFluentTitleBar::alwaysOnTopRequested,
-        q_ptr,
-        [this](bool requested) {
-            if (agent == nullptr) {
-                return;
-            }
-            const auto result = agent->setAlwaysOnTop(requested);
-            if (!result) {
-                return;
-            }
-            titleBar->setAlwaysOnTop(q_ptr->windowFlags().testFlag(
-                Qt::WindowStaysOnTopHint));
-        });
-    QObject::connect(
-        theme,
-        &ZzFluentUI::ZzThemeController::snapshotChanged,
-        q_ptr,
-        [this] { syncTheme(); });
+    chrome = std::move(chromeResult).value();
 
     refreshTranslations();
-    syncWindowState();
-    syncTheme();
     initialized = true;
     return ZzCore::ZzResult<void>::success();
 }
@@ -192,23 +121,6 @@ void ZzExampleSettingsWindowPrivate::refreshTranslations()
     const QString title = QCoreApplication::translate(
         "ZzPureToolsExample", "设置");
     q_ptr->setWindowTitle(title);
-    if (titleBar != nullptr) {
-        titleBar->setTitle(title);
-    }
-}
-
-void ZzExampleSettingsWindowPrivate::syncWindowState()
-{
-    if (titleBar != nullptr) {
-        titleBar->setMaximized(q_ptr->isMaximized());
-    }
-}
-
-void ZzExampleSettingsWindowPrivate::syncTheme()
-{
-    if (titleBar != nullptr && theme != nullptr) {
-        titleBar->setThemeMode(theme->mode());
-    }
 }
 
 } // namespace ZzExample

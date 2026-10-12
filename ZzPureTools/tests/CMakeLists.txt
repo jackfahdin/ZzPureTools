@@ -83,6 +83,16 @@ if(APPLE)
     set(zz_puretools_window_environment "QT_QPA_PLATFORM=cocoa")
 endif()
 add_test(NAME puretools.workspace-public-api COMMAND ZzWorkspacePublicApiTest)
+add_executable(ZzAuxiliaryWindowChromeTest ZzAuxiliaryWindowChromeTest.cpp)
+target_link_libraries(ZzAuxiliaryWindowChromeTest PRIVATE
+    Qt6::Test Zz::PureTools Zz::FluentUI Zz::WindowKit)
+set_target_properties(ZzAuxiliaryWindowChromeTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzAuxiliaryWindowChromeTest)
+zz_enable_sanitizers(ZzAuxiliaryWindowChromeTest)
+add_test(NAME puretools.auxiliary-window-chrome COMMAND ZzAuxiliaryWindowChromeTest)
+set_tests_properties(puretools.auxiliary-window-chrome PROPERTIES
+    LABELS "component;puretools"
+    ENVIRONMENT "${zz_puretools_window_environment}")
 set_tests_properties(puretools.workspace-public-api PROPERTIES
     LABELS "component;puretools;workspace;public-api"
     ENVIRONMENT "${zz_puretools_window_environment}"
@@ -233,6 +243,7 @@ function(zz_configure_puretools_window_test_runtime test_name)
 endfunction()
 zz_configure_puretools_window_test_runtime(
     puretools.workspace-public-api)
+zz_configure_puretools_window_test_runtime(puretools.auxiliary-window-chrome)
 set(builder_scenarios
     buildFreezesModulesAndPages
     buildRejectsDuplicateRoutesBeforeStartingModules

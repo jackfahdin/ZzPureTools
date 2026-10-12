@@ -75,8 +75,6 @@ void ZzExampleSettingsWindow::changeEvent(QEvent *event)
     }
     if (event->type() == QEvent::LanguageChange) {
         d_ptr->refreshTranslations();
-    } else if (event->type() == QEvent::WindowStateChange) {
-        d_ptr->syncWindowState();
     }
 }
 

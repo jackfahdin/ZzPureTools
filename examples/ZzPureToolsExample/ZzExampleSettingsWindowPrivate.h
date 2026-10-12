@@ -6,18 +6,10 @@
 
 #include <ZzCore/ZzResult.h>
 
-namespace ZzFluentUI {
-class ZzFluentTitleBar;
-class ZzThemeController;
-}
-
 namespace ZzPureTools {
 class ZzApplicationWindow;
+class ZzAuxiliaryWindowChrome;
 class ZzPureApplication;
-}
-
-namespace ZzWindowKit {
-class ZzWindowAgent;
 }
 
 namespace ZzExample {
@@ -52,20 +44,12 @@ public:
     /** @brief 刷新设置窗口及标题栏的本地化标题。 */
     void refreshTranslations();
 
-    /** @brief 同步标题栏最大化或还原视觉状态。 */
-    void syncWindowState();
-
-    /** @brief 同步标题栏已生效的应用主题模式。 */
-    void syncTheme();
-
     ZzExampleSettingsWindow *const q_ptr;
     QPointer<ZzPureTools::ZzApplicationWindow> parentWindow;
-    QPointer<ZzFluentUI::ZzThemeController> theme;
-    ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr;
     QPointer<ZzExampleSystemPage> page;
     std::unique_ptr<ZzExampleSystemViewModel> viewModel;
     std::unique_ptr<ZzExampleSystemPresenter> presenter;
-    std::unique_ptr<ZzWindowKit::ZzWindowAgent> agent;
+    std::unique_ptr<ZzPureTools::ZzAuxiliaryWindowChrome> chrome;
     bool initialized = false;
 };
 

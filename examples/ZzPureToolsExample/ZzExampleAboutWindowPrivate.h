@@ -6,17 +6,10 @@
 
 #include <ZzCore/ZzResult.h>
 
-namespace ZzFluentUI {
-class ZzFluentTitleBar;
-}
-
 namespace ZzPureTools {
 class ZzApplicationWindow;
+class ZzAuxiliaryWindowChrome;
 class ZzPureApplication;
-}
-
-namespace ZzWindowKit {
-class ZzWindowAgent;
 }
 
 namespace ZzExample {
@@ -52,11 +45,10 @@ public:
 
     ZzExampleAboutWindow *const q_ptr;
     QPointer<ZzPureTools::ZzApplicationWindow> parentWindow;
-    ZzFluentUI::ZzFluentTitleBar *titleBar = nullptr;
     QPointer<ZzExampleSystemPage> page;
     std::unique_ptr<ZzExampleSystemViewModel> viewModel;
     std::unique_ptr<ZzExampleSystemPresenter> presenter;
-    std::unique_ptr<ZzWindowKit::ZzWindowAgent> agent;
+    std::unique_ptr<ZzPureTools::ZzAuxiliaryWindowChrome> chrome;
     bool initialized = false;
 };
 
