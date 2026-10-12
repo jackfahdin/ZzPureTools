@@ -47,10 +47,14 @@ endif()
 set(zz_a_dir "${ZZ_TEST_ROOT}/A")
 set(zz_b_dir "${ZZ_TEST_ROOT}/B")
 set(zz_consumer_dir "${ZZ_TEST_ROOT}/consumer")
+set(zz_starter_source "${ZZ_TEST_ROOT}/starter-source")
+set(zz_starter_build "${ZZ_TEST_ROOT}/starter-build")
 file(REMOVE_RECURSE
     "${zz_a_dir}"
     "${zz_b_dir}"
     "${zz_consumer_dir}"
+    "${zz_starter_source}"
+    "${zz_starter_build}"
 )
 file(MAKE_DIRECTORY "${ZZ_TEST_ROOT}")
 
@@ -218,6 +222,19 @@ file(GLOB_RECURSE zz_installed_cmake_files
     LIST_DIRECTORIES FALSE
     "${zz_b_dir}/*.cmake"
 )
+
+# Copy the starter out of the repository: its build may use only the installed package.
+file(COPY "${ZZ_SOURCE_DIR}/examples/ZzApplicationStarter/"
+    DESTINATION "${zz_starter_source}")
+zz_run_process("standalone starter configure"
+    "${CMAKE_COMMAND}" -S "${zz_starter_source}" -B "${zz_starter_build}"
+    ${zz_generator_args} ${zz_consumer_cache_args} -DBUILD_TESTING:BOOL=ON)
+zz_run_process("standalone starter build"
+    "${CMAKE_COMMAND}" --build "${zz_starter_build}" ${zz_config_args}
+    --parallel "${zz_nested_build_parallelism}")
+zz_run_process("standalone starter test"
+    "${ZZ_CTEST_COMMAND}" --test-dir "${zz_starter_build}"
+    ${zz_ctest_config_args} --output-on-failure)
 set(zz_forbidden_paths
     "${ZZ_SOURCE_DIR}"
     "${ZZ_PRIMARY_BINARY_DIR}"
