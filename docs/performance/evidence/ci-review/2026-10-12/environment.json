@@ -1,0 +1,14 @@
+{
+  "purpose": "local diagnostic run; not an active reference baseline",
+  "cpu": "Intel(R) Core(TM) i7-14700",
+  "os": "Ubuntu 26.04.1 LTS",
+  "kernel": "7.0.0-38-generic",
+  "renderer": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+  "mesaPackage": "26.0.8-1ubuntu0.3",
+  "xvfbPackage": "2:21.1.22-1ubuntu1.2",
+  "qt": "6.11.1",
+  "compiler": "GNU 15.2.0",
+  "xvfbCpu": 8,
+  "benchmarkCpu": 10,
+  "parallelism": 1
+}

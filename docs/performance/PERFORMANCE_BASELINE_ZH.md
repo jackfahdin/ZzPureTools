@@ -1,12 +1,26 @@
 # Linux 性能参考档案与基线
 
+## 2026-10-12 复核状态
+
+历史参考档案和十二份报告保持原样。当前本机已经升级到 kernel
+`7.0.0-38-generic` / Mesa `26.0.8`，与下文记录的参考环境不同；
+**相对性能门禁待复核，当前主机的绝对门限测试不能代替相对门禁通过。**
+
+十六个正式场景中仍缺少 `workspace-components`、`fluent-standard-surfaces`、
+`backdrop`、`radial-gauge-animation` 四份参考报告。完整性契约继续失败关闭，
+普通 CI 也会受此阻断。不得复制其他环境的数据补齐，或使用旧档案摘要冒充当前环境。
+后续应在原参考环境补采，或另行批准完整的环境迁移并重采全部场景。
+
+本次代码修复、本机实测和剩余问题见
+[CI 与性能门禁复核记录](CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)。
+
 ## 档案选择
 
 项目同时记录两个 Linux 性能参考档案，但任何一次报告只能属于其中一个档案，禁止跨档案比较。
 
 | 档案 | 状态 | 用途 |
 |---|---|---|
-| `local-release-xvfb` | 当前活动，基线已建立 | 本机性能参考与本地发布性能门禁 |
+| `local-release-xvfb` | 保留历史基线；当前主机环境不匹配，待复核 | 原参考环境的本地发布性能门禁 |
 | `ubuntu2204-github-ci` | 待用户在 GitHub 或新主机验证 | 原规划的 Ubuntu 22.04 兼容 CI 参考档案 |
 
 负责人于 2026-08-05 确认：现阶段只有当前主机，因此选用 `local-release-xvfb` 作为发布参考档案。以后上传 GitHub 或购置新主机时，先完成 `ubuntu2204-github-ci` 的独立验证，再决定是否切换活动档案。切换不得删除本机档案及其 Git 历史，也不得把两个档案的 JSON 混为同一基线。
@@ -18,7 +32,7 @@ Linux runner 同样遵循该选择：`scripts/ci/run-linux-gates.sh` 在当前�
 - `docs/performance/profiles/local-release-xvfb.json`
 - `docs/performance/profiles/ubuntu2204-github-ci.json`
 
-## 当前本机参考环境
+## 历史基线的参考环境
 
 seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没有连接物理显示器，Qt 只能看到 0×0 output，无法完成窗口 exposed 验收。因此自动性能门禁固定使用同机专用 Xvfb，不使用 SSH 转发 display，也不把 Intel GPU 冒充为 benchmark renderer。
 
@@ -55,7 +69,7 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 
 任何档案字段变化都会改变 digest，并强制重新采集十六份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
 
-## 当前活动基线
+## 保留的历史活动基线
 
 本机活动基线原于 2026-08-10 建立。由于系统升级到 Ubuntu 26.04.1 LTS，
 2026-08-26 按更新后的参考档案重新采集十二份报告；旧报告保留 Git 历史，

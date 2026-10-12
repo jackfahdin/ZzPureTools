@@ -1,0 +1,55 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "78fe10cd3cfd79a1a571244bdde3289d30155fb3",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:00f36e63d6f253dbb5856af53b3a71a59eba4aa8a7c45ef1645c924692a9b989",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "frame-time": {
+            "count": 100,
+            "max": 0.709706,
+            "p50": 0.620206,
+            "p95": 0.645623,
+            "unit": "ms"
+        },
+        "multi-data-calls": {
+            "count": 100,
+            "max": 28,
+            "p50": 28,
+            "p95": 28,
+            "unit": "count"
+        },
+        "requested-rows": {
+            "count": 100,
+            "max": 14,
+            "p50": 14,
+            "p95": 14,
+            "unit": "count"
+        },
+        "viewport-paints": {
+            "count": 100,
+            "max": 2,
+            "p50": 2,
+            "p95": 2,
+            "unit": "count"
+        }
+    },
+    "scenario": "example-large-model",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}

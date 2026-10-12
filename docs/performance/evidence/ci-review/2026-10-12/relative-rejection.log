@@ -1,0 +1,8 @@
+CMake Error at cmake/ZzComparePerformanceReport.cmake:15 (message):
+  INVALID navigation-pane environment;gpu: baseline=Mesa llvmpipe LLVM 21.1.8
+  Mesa 26.0.3 Xvfb 1920x1080x24, current=Mesa llvmpipe LLVM 21.1.8 Mesa
+  26.0.8 Xvfb 1920x1080x24
+Call Stack (most recent call first):
+  cmake/ZzComparePerformanceReport.cmake:198 (zz_invalid)
+
+

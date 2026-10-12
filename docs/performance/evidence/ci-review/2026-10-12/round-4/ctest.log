@@ -1,0 +1,136 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-benchmarks
+      Start  84: benchmark.fluent-basic-controls
+ 1/51 Test  #84: benchmark.fluent-basic-controls ...................................   Passed   14.49 sec
+      Start  85: benchmark.fluent-theme-switch
+ 2/51 Test  #85: benchmark.fluent-theme-switch .....................................   Passed    0.31 sec
+      Start 203: benchmark.reporter
+ 3/51 Test #203: benchmark.reporter ................................................   Passed    0.00 sec
+      Start 204: benchmark.report-verifier-valid
+ 4/51 Test #204: benchmark.report-verifier-valid ...................................   Passed    0.00 sec
+      Start 205: benchmark.report-verifier-invalid
+ 5/51 Test #205: benchmark.report-verifier-invalid .................................   Passed    0.00 sec
+      Start 206: benchmark.report-verifier-rejects-threshold
+ 6/51 Test #206: benchmark.report-verifier-rejects-threshold .......................   Passed    0.00 sec
+      Start 207: benchmark.report-verifier-rejects-fingerprint
+ 7/51 Test #207: benchmark.report-verifier-rejects-fingerprint .....................   Passed    0.00 sec
+      Start 208: benchmark.startup
+ 8/51 Test #208: benchmark.startup .................................................   Passed    0.77 sec
+      Start 209: benchmark.theme-switch
+ 9/51 Test #209: benchmark.theme-switch ............................................   Passed    0.52 sec
+      Start 210: benchmark.animation
+10/51 Test #210: benchmark.animation ...............................................   Passed   19.52 sec
+      Start 211: benchmark.large-model
+11/51 Test #211: benchmark.large-model .............................................   Passed    0.42 sec
+      Start 212: benchmark.window-lifecycle
+12/51 Test #212: benchmark.window-lifecycle ........................................   Passed    0.49 sec
+      Start 213: benchmark.navigation-pane
+13/51 Test #213: benchmark.navigation-pane .........................................   Passed    2.08 sec
+      Start 214: benchmark.workspace-components
+14/51 Test #214: benchmark.workspace-components ....................................   Passed    3.93 sec
+      Start 215: benchmark.radial-gauge-animation
+15/51 Test #215: benchmark.radial-gauge-animation ..................................   Passed   22.99 sec
+      Start 216: benchmark.fluent-standard-surfaces
+16/51 Test #216: benchmark.fluent-standard-surfaces ................................   Passed    0.25 sec
+      Start 217: benchmark.backdrop
+17/51 Test #217: benchmark.backdrop ................................................   Passed    0.21 sec
+      Start 218: benchmark.idle-cpu
+18/51 Test #218: benchmark.idle-cpu ................................................   Passed   35.05 sec
+      Start 219: benchmark.reference-gate.startup
+19/51 Test #219: benchmark.reference-gate.startup ..................................   Passed    0.00 sec
+      Start 220: benchmark.reference-gate.theme-switch
+20/51 Test #220: benchmark.reference-gate.theme-switch .............................   Passed    0.00 sec
+      Start 221: benchmark.reference-gate.animation
+21/51 Test #221: benchmark.reference-gate.animation ................................   Passed    0.00 sec
+      Start 222: benchmark.reference-gate.large-model
+22/51 Test #222: benchmark.reference-gate.large-model ..............................   Passed    0.00 sec
+      Start 223: benchmark.reference-gate.navigation-pane-frame
+23/51 Test #223: benchmark.reference-gate.navigation-pane-frame ....................   Passed    0.00 sec
+      Start 224: benchmark.reference-gate.navigation-pane-paint
+24/51 Test #224: benchmark.reference-gate.navigation-pane-paint ....................   Passed    0.00 sec
+      Start 225: benchmark.reference-gate.navigation-pane-reset
+25/51 Test #225: benchmark.reference-gate.navigation-pane-reset ....................   Passed    0.00 sec
+      Start 226: benchmark.reference-gate.workspace-components
+26/51 Test #226: benchmark.reference-gate.workspace-components .....................   Passed    0.00 sec
+      Start 227: benchmark.reference-gate.workspace-cross-transfer-time
+27/51 Test #227: benchmark.reference-gate.workspace-cross-transfer-time ............   Passed    0.00 sec
+      Start 228: benchmark.reference-gate.workspace-cross-transfer-object-growth
+28/51 Test #228: benchmark.reference-gate.workspace-cross-transfer-object-growth ...   Passed    0.00 sec
+      Start 229: benchmark.reference-gate.radial-gauge-animation
+29/51 Test #229: benchmark.reference-gate.radial-gauge-animation ...................***Failed    0.00 sec
+CMake Error at /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/cmake/ZzVerifyPerformanceReport.cmake:98 (message):
+  P95 16.708231000000001 exceeds 16.7
+
+
+
+      Start 230: benchmark.reference-gate.fluent-standard-surfaces-state
+30/51 Test #230: benchmark.reference-gate.fluent-standard-surfaces-state ...........   Passed    0.00 sec
+      Start 231: benchmark.reference-gate.fluent-standard-surfaces-render
+31/51 Test #231: benchmark.reference-gate.fluent-standard-surfaces-render ..........   Passed    0.00 sec
+      Start 232: benchmark.reference-gate.backdrop-enable
+32/51 Test #232: benchmark.reference-gate.backdrop-enable ..........................   Passed    0.00 sec
+      Start 233: benchmark.reference-gate.backdrop-frame
+33/51 Test #233: benchmark.reference-gate.backdrop-frame ...........................   Passed    0.00 sec
+      Start 234: benchmark.reference-gate.backdrop-rebuild
+34/51 Test #234: benchmark.reference-gate.backdrop-rebuild .........................   Passed    0.00 sec
+      Start 235: benchmark.reference-gate.idle-cpu
+35/51 Test #235: benchmark.reference-gate.idle-cpu .................................   Passed    0.00 sec
+      Start 236: benchmark.reference-gate.idle-rss
+36/51 Test #236: benchmark.reference-gate.idle-rss .................................   Passed    0.00 sec
+      Start 237: benchmark.relative-comparison-valid
+37/51 Test #237: benchmark.relative-comparison-valid ...............................   Passed    0.00 sec
+      Start 238: benchmark.relative-comparison-rejects-regression
+38/51 Test #238: benchmark.relative-comparison-rejects-regression ..................   Passed    0.00 sec
+      Start 239: benchmark.relative-comparison-rejects-environment-mismatch
+39/51 Test #239: benchmark.relative-comparison-rejects-environment-mismatch ........   Passed    0.00 sec
+      Start 263: platform.performance-threshold-contract
+40/51 Test #263: platform.performance-threshold-contract ...........................***Failed    0.00 sec
+CMake Error at /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/tests/Platform/ZzPerformanceThresholdContract.cmake:71 (message):
+  Formal threshold scenarios differ from reporters
+Call Stack (most recent call first):
+  /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/tests/Platform/ZzPerformanceThresholdContract.cmake:307 (zz_validate_formal_thresholds)
+
+
+
+      Start 294: benchmark.example-startup
+41/51 Test #294: benchmark.example-startup .........................................   Passed    4.27 sec
+      Start 295: benchmark.example-navigation
+42/51 Test #295: benchmark.example-navigation ......................................   Passed    1.07 sec
+      Start 296: benchmark.example-theme-switch
+43/51 Test #296: benchmark.example-theme-switch ....................................   Passed    1.02 sec
+      Start 297: benchmark.example-large-model
+44/51 Test #297: benchmark.example-large-model .....................................   Passed    0.23 sec
+      Start 298: benchmark.example-idle
+45/51 Test #298: benchmark.example-idle ............................................   Passed   35.15 sec
+      Start 299: benchmark.reference-gate.example-startup
+46/51 Test #299: benchmark.reference-gate.example-startup ..........................   Passed    0.00 sec
+      Start 300: benchmark.reference-gate.example-navigation
+47/51 Test #300: benchmark.reference-gate.example-navigation .......................   Passed    0.00 sec
+      Start 301: benchmark.reference-gate.example-theme-switch
+48/51 Test #301: benchmark.reference-gate.example-theme-switch .....................   Passed    0.00 sec
+      Start 302: benchmark.reference-gate.example-large-model
+49/51 Test #302: benchmark.reference-gate.example-large-model ......................   Passed    0.00 sec
+      Start 303: benchmark.reference-gate.example-idle-cpu
+50/51 Test #303: benchmark.reference-gate.example-idle-cpu .........................   Passed    0.00 sec
+      Start 304: benchmark.reference-gate.example-idle-rss
+51/51 Test #304: benchmark.reference-gate.example-idle-rss .........................   Passed    0.00 sec
+
+96% tests passed, 2 tests failed out of 51
+
+Label Time Summary:
+benchmark              = 142.84 sec*proc (51 tests)
+contract               =   0.00 sec*proc (1 test)
+example                =  41.74 sec*proc (5 tests)
+fluent                 =  15.05 sec*proc (3 tests)
+linux                  =  35.05 sec*proc (1 test)
+observe                =   0.25 sec*proc (1 test)
+platform               =   0.00 sec*proc (1 test)
+reference-gate         =   0.05 sec*proc (24 tests)
+relative-comparison    =   0.01 sec*proc (3 tests)
+unit                   =   0.02 sec*proc (8 tests)
+
+Total Test time (real) = 142.85 sec
+
+The following tests FAILED:
+	229 - benchmark.reference-gate.radial-gauge-animation (Failed) benchmark reference-gate
+	263 - platform.performance-threshold-contract (Failed)  benchmark contract platform
+Errors while running CTest

@@ -1,0 +1,38 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-benchmarks
+      Start  82: fluent.screenshot-200
+      Start  81: fluent.screenshot-150
+      Start  80: fluent.screenshot-125
+      Start  79: fluent.screenshot-100
+ 1/12 Test  #79: fluent.screenshot-100 ................   Passed    4.78 sec
+      Start 100: puretools.workspace-screenshot-200
+ 2/12 Test  #80: fluent.screenshot-125 ................   Passed    7.31 sec
+      Start  99: puretools.workspace-screenshot-150
+ 3/12 Test #100: puretools.workspace-screenshot-200 ...   Passed    5.20 sec
+      Start  98: puretools.workspace-screenshot-125
+ 4/12 Test  #99: puretools.workspace-screenshot-150 ...   Passed    3.01 sec
+      Start  97: puretools.workspace-screenshot-100
+ 5/12 Test  #81: fluent.screenshot-150 ................   Passed   10.35 sec
+      Start 292: example.puretools-screenshot-200
+ 6/12 Test #292: example.puretools-screenshot-200 .....   Passed    0.31 sec
+      Start 291: example.puretools-screenshot-150
+ 7/12 Test #291: example.puretools-screenshot-150 .....   Passed    0.24 sec
+      Start 290: example.puretools-screenshot-125
+ 8/12 Test #290: example.puretools-screenshot-125 .....   Passed    0.21 sec
+      Start 289: example.puretools-screenshot-100
+ 9/12 Test #289: example.puretools-screenshot-100 .....   Passed    0.19 sec
+10/12 Test  #97: puretools.workspace-screenshot-100 ...   Passed    1.43 sec
+11/12 Test  #98: puretools.workspace-screenshot-125 ...   Passed    2.17 sec
+12/12 Test  #82: fluent.screenshot-200 ................   Passed   17.35 sec
+
+100% tests passed, 0 tests failed out of 12
+
+Label Time Summary:
+component     =  39.80 sec*proc (4 tests)
+example       =   0.95 sec*proc (4 tests)
+fluent        =  39.80 sec*proc (4 tests)
+puretools     =  11.81 sec*proc (4 tests)
+screenshot    =  52.55 sec*proc (12 tests)
+smoke         =   0.95 sec*proc (4 tests)
+workspace     =  11.81 sec*proc (4 tests)
+
+Total Test time (real) =  17.35 sec
