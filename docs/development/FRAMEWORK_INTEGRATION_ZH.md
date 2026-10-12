@@ -15,7 +15,98 @@ SSH、SFTP、终端、数据库或任何具体业务协议；这些能力必须�
 UI 只通过信号或公开意图接口通知应用层。Presenter/ViewModel 将业务状态转换为页面
 需要的快照，页面不直接读取服务、数据库或设置存储。
 
-## 最小窗口装配
+## 从可运行的起步工程开始
+
+[`examples/ZzApplicationStarter`](../../examples/ZzApplicationStarter/) 可以单独复制到
+其他目录。它只通过 `find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)` 使用安装包，
+无需 Example 的私有头、资源路径或业务上下文。
+
+先使用匹配的 Qt kit、编译器、架构和构建类型安装框架，再配置 Starter。
+以下路径均替换为本机绝对路径；Ninja 的 Release 配置示例：
+
+```bash
+cmake --install /absolute/path/to/framework-build --prefix /absolute/path/to/zz-install
+cmake -S /absolute/path/to/ZzApplicationStarter -B /absolute/path/to/starter-build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  "-DCMAKE_PREFIX_PATH=/absolute/path/to/zz-install;/absolute/path/to/Qt/6.x/kit"
+cmake --build /absolute/path/to/starter-build --parallel
+ctest --test-dir /absolute/path/to/starter-build --output-on-failure
+```
+
+Windows 在匹配 Qt kit 的 x64 Developer PowerShell / MinGW 环境中执行同样的 CMake
+命令，去掉 Bash 的 `\` 换行或改用 PowerShell 续行；多配置生成器构建时加
+`--config Release`、CTest 加 `-C Release`。默认动态库运行需要框架与 Qt 的运行库路径：
+
+| 启动环境 | 需要加入的目录 |
+|---|---|
+| Windows `PATH` | 已安装框架的 `bin`、Qt kit 的 `bin` |
+| Linux `LD_LIBRARY_PATH` | 已安装框架的 `lib`（或配置的 libdir）、Qt kit 的 `lib` |
+| macOS `DYLD_LIBRARY_PATH` | 已安装框架的 `lib`、Qt kit 的 `lib` |
+
+例如 Linux 在构建后从终端启动：
+
+```bash
+LD_LIBRARY_PATH=/absolute/path/to/zz-install/lib:/absolute/path/to/Qt/6.x/gcc_64/lib \
+  /absolute/path/to/starter-build/ZzApplicationStarter
+```
+
+CTest 自动补齐上述测试进程的动态库路径；这不等于给普通桌面启动完成运行库部署。
+向其他机器分发时仍需平台部署工具和依赖审计，Starter 本身不生成可分发安装包。
+
+| 文件 | 负责内容 |
+|---|---|
+| [main.cpp](../../examples/ZzApplicationStarter/main.cpp) | Bootstrap、唯一 QApplication、设置生命周期与退出 |
+| [ZzStarterSetup.cpp](../../examples/ZzApplicationStarter/ZzStarterSetup.cpp) | 页面注册、标题与内嵌 TTF 图标、主题恢复/保存、新窗口和关于窗口 |
+| [ZzStarterSmoke.cpp](../../examples/ZzApplicationStarter/ZzStarterSmoke.cpp) | `--smoke`：临时设置文件、真实按钮操作、窗口及退出断言 |
+
+根项目的 `install.consumer` 会重新构建并安装框架，再把整个 Starter 复制到隔离目录
+构建与测试；`platform.package-relocation` 还会移动安装目录、移除原前缀，再构建并运行
+复制出的 Starter，确认实际使用搬迁后的包。测试失败返回非零；smoke 不会改写用户的
+主题偏好。正常启动的设置使用
+Qt `QSettings` 默认平台存储，组织名 `ZzStarter`、应用名 `ZzApplicationStarter`。
+
+## 标题、主题和辅助窗口
+
+主窗口通过 QWidget 的 `setWindowTitle()` / `setWindowIcon()` 设置属性，框架自动同步
+到 Fluent 标题栏。推荐在 `setWindowSetupCallback()` 中设置，首窗和后续窗口会复用
+同一回调。默认标题随框架翻译变化；业务改过标题后（包括清空标题），框架的
+`LanguageChange` 不再覆盖它，应用应自行翻译自己的名称。
+仅对同一个默认值重复赋值不会产生 Qt 属性变化通知，不构成所有权切换。
+
+使用 `ZzWorkspaceShell` 自动生成“页面名 + 应用名”的标题时，应配置 Shell 的
+`setApplicationTitle()` / `setTitleMode()`；Shell 会更新 QWidget 标题，不要另行设置
+标题栏文本形成第二个来源。
+
+标题栏主题按钮直接切换浅色/深色。通过触发窗口的 `themeToggled` 保存用户选择，
+启动时再设置应用的 `themeController()`。其他窗口的主题同步不会重复发出该窗口的
+`themeToggled`，持久化策略仍属于业务层。
+
+设置、关于等普通 `QMainWindow` 可复用
+[`ZzAuxiliaryWindowChrome`](../../ZzPureTools/widgets/include/ZzPureTools/ZzAuxiliaryWindowChrome.h)：
+
+```cpp
+auto result = ZzPureTools::ZzAuxiliaryWindowChrome::create(
+    &auxiliaryWindow, application.themeController());
+if (!result) {
+    return ZzCore::ZzResult<void>::failure(result.error());
+}
+chrome = std::move(result).value();
+```
+
+`chrome` 是调用方保存的 `std::unique_ptr<ZzAuxiliaryWindowChrome>`，不能在局部回调
+结束时销毁。Starter 的 `ZzStarterAboutWindow` 演示了把它作为窗口成员保存；其析构
+先释放 chrome，再释放 QMainWindow 子树。创建时宿主须是尚未显示、没有 menuWidget 的
+顶层窗口，所有对象同 GUI 线程；失败通过 `ZzResult` 返回。成功后不要替换 menuWidget。
+
+框架负责标题/图标/主题同步、命中区域、关闭命令和代理释放；调用方负责窗口及业务
+内容的所有权、模态、尺寸和 `WA_DeleteOnClose`。自绘按钮只保留关闭；macOS 的原生
+系统按钮由平台处理，仍可显示最小化和缩放，不承诺与自绘按钮数量一致。
+
+系统按钮通过 `ZzWindowAgent::configureChrome()` 交给私有 QWindowKit 后端，最终使用
+QWindowKit 的 `setTitleBar()` / `setSystemButton()` 接口登记命中区域。自绘 SVG/TTF
+视觉由 FluentUI 提供，点击后的 Qt 窗口动作由框架连接，业务无需直接依赖 QWindowKit。
+
+## 工作区窗口装配
 
 默认中央区域是无标签堆叠页面，接入见 [中央堆叠页面](STACKED_WORKSPACE_ZH.md)。
 下文含标签撕出与拓扑恢复的示例显式选择 `Tabbed` 模式；普通堆叠应用不需要这些步骤。

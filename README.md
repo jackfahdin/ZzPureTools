@@ -126,18 +126,32 @@ ctest --preset windows-msvc2022-release -C Release --output-on-failure
 [构建手册](docs/development/BUILDING_ZH.md)。本机路径请放在环境变量或不入库的
 `CMakeUserPresets.json` 中，参考[本机配置示例](CMakeUserPresets.json.example)。
 
+### 在自己的项目中使用
+
+安装框架后，复制 [`ZzApplicationStarter`](examples/ZzApplicationStarter/) 到自己的工程目录，
+通过 `find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)` 接入即可。
+Starter 演示统一标题栏、内嵌字体图标、主题保存与恢复、多窗口和关于窗口；
+它使用公开安装包，无需复制完整 Example 的业务代码。
+
+Qt kit、编译器、架构和构建类型须与已安装框架匹配。
+[接入指南](docs/development/FRAMEWORK_INTEGRATION_ZH.md#从可运行的起步工程开始)
+提供独立构建命令、运行库路径、smoke 验证和窗口所有权说明。
+
 ## 🖥️ 示例入口
 
 | 示例 | 适合了解 |
 |---|---|
+| `ZzApplicationStarter` | 新项目起点：独立安装包消费、标题栏、主题持久化、多窗口和辅助窗口 |
 | `ZzPureToolsExample` | 完整桌面应用：组件演示、双向导航、工作区、多窗口与关闭守卫 |
 | `ZzFluentControlsGallery` | 控件交互、主题与标准表面 |
 | `ZzFluentFoundationDemo` | 主题快照与基础令牌 |
 | `ZzWindowKitDemo` | 无边框窗口、标题栏命中区域与窗口控制 |
 | `ZzPureToolsDemo` | 模块注册、页面路由与基础应用装配 |
 
-从[最小应用装配](examples/ZzPureToolsDemo/main.cpp)入手，或直接阅读
-[综合应用入口](examples/ZzPureToolsExample/main.cpp)。多窗口与拓扑恢复的接入方式见
+新应用推荐从[独立 Starter](examples/ZzApplicationStarter/main.cpp)入手；
+[最小应用装配](examples/ZzPureToolsDemo/main.cpp)和
+[综合应用入口](examples/ZzPureToolsExample/main.cpp)可用于了解更多框架能力。
+多窗口与拓扑恢复的接入方式见
 [通用应用接入指南](docs/development/FRAMEWORK_INTEGRATION_ZH.md)。
 
 ## 🧪 质量状态
@@ -152,15 +166,20 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 | 检查 | 已验证的状态 |
 |---|---|
 | ✅ 历史完整 CI 矩阵 | [`a9396b1`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780) 全部成功，已发布五个平台示例 |
-| ✅ 本机修复验证 | GCC 15.2 / Qt 6.11 Release + LTO 构建通过；非性能首轮 246/258，修复后其余 12 项截图复验全部通过 |
-| ⚠️ 新增性能门禁 | 三轮均 49/51；径向仪表 P95 为 16.708–16.721 ms，仍高于 16.7 ms，另有四份参考报告缺失 |
+| ✅ 本机接入回归 | GCC 15.2 / Qt 6.11 Release + LTO 构建通过；263 项非性能回归首轮 261 项通过，两项契约登记遗漏已修复并定向复验通过 |
+| ✅ 独立安装包接入 | 全新安装消费通过；搬迁安装目录并移除原前缀后，复制出的 Starter 编译与 smoke 通过 |
+| ⚠️ 后续远端 CI | [`f0cf1c0`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38211345718) 配置契约成功，五个平台 job 失败，发布跳过 |
+| ⚠️ 性能绝对门限 | 追加串行复验：仪表 P95 16.721 ms、开关 17.015 ms，均高于 16.7 ms；另有四份参考报告缺失 |
 | ⏳ 相对性能比较 | 保留历史 Mesa 26.0.3 基线；本机已为 26.0.8，环境不匹配，待复核 |
 | ⏳ 真实桌面验收 | Windows、macOS、Linux 的显示与系统集成按各平台清单继续验证 |
 
 新增门禁提交 [`0c455de`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38198884242)
 的 Linux 和 macOS arm64 已确认被参考报告完整性契约阻断。
-本轮本机修复的远端矩阵尚未验证；不能把历史成功状态当作当前提交的全绿证明。
-具体修复、原始报告与剩余条件见
+`f0cf1c0` 的表格只登记 job 结论，未据此推断各平台具体失败原因。
+本轮接入改动保存在本地 `codex/framework-integration-hardening` 分支，尚未推送；
+不能把历史成功状态当作当前提交的全绿证明。
+接入回归与提交拆分见[本轮执行记录](docs/superpowers/plans/2026-10-12-framework-integration-hardening.md#执行记录)，
+性能原始报告与剩余条件见
 [CI 与性能门禁复核记录](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)。
 
 ## 📚 开发资料
