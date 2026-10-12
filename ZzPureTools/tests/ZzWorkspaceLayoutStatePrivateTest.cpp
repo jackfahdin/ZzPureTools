@@ -328,6 +328,52 @@ private slots:
         QCOMPARE(targetValue.activity.leftPrimary, expectedOrder);
     }
 
+    void consecutiveOmissionsKeepSnapshotOrder_data()
+    {
+        QTest::addColumn<QStringList>("requestedOrder");
+        QTest::addColumn<QList<int>>("requestedSizes");
+        QTest::addColumn<QStringList>("expectedOrder");
+        QTest::addColumn<QList<int>>("expectedSizes");
+        QTest::newRow("reordered-anchors")
+            << QStringList({"f", "c"}) << QList<int>({606, 303})
+            << QStringList({"d", "e", "f", "g", "h", "a", "b", "c"})
+            << QList<int>({104, 105, 606, 107, 108, 101, 102, 303});
+        QTest::newRow("unanchored-tail")
+            << QStringList{} << QList<int>{}
+            << QStringList({"a", "b", "c", "d", "e", "f", "g", "h"})
+            << QList<int>({101, 102, 103, 104, 105, 106, 107, 108});
+    }
+
+    void consecutiveOmissionsKeepSnapshotOrder()
+    {
+        QFETCH(QStringList, requestedOrder);
+        QFETCH(QList<int>, requestedSizes);
+        QFETCH(QStringList, expectedOrder);
+        QFETCH(QList<int>, expectedSizes);
+        ZzPlannerLayoutState::ZzWorkspaceSnapshot snapshot;
+        snapshot.leftSide.order = {"a", "b", "c", "d", "e", "f", "g", "h"};
+        snapshot.leftSide.visible = snapshot.leftSide.order;
+        snapshot.leftSide.sizes = {101, 102, 103, 104, 105, 106, 107, 108};
+        snapshot.activity.leftPrimary = snapshot.leftSide.order;
+        for (const QString &id : std::as_const(snapshot.leftSide.order)) {
+            snapshot.identities.append(zzSideIdentity(id));
+        }
+        ZzPlannerLayoutState::ZzLayoutRequest request;
+        request.sourceSchema =
+            ZzPlannerLayoutState::ZzLayoutRequest::ZzSourceSchema::VersionOne;
+        request.projection = ZzPlannerLayoutState::ZzWorkspaceProjection{};
+        request.projection->leftSide.order = requestedOrder;
+        request.projection->leftSide.visible = requestedOrder;
+        request.projection->leftSide.sizes = requestedSizes;
+        request.projection->activity.leftPrimary = requestedOrder;
+        const auto target = ZzPlannerLayoutState::buildRestoreTarget(snapshot, request);
+        QVERIFY(target.has_value());
+        QCOMPARE(target->leftSide.order, expectedOrder);
+        QCOMPARE(target->leftSide.visible, expectedOrder);
+        QCOMPARE(target->leftSide.sizes, expectedSizes);
+        QCOMPARE(target->activity.leftPrimary, expectedOrder);
+    }
+
     void restorePlannerScalesBelowQuadraticGrowth()
     {
         const ZzPlannerFixture smallFixture = zzAlternatingPlannerFixture(512);
@@ -339,31 +385,44 @@ private slots:
                      largeFixture.snapshot, largeFixture.request)
                      .has_value());
 
-        const auto measure = [](const ZzPlannerFixture &fixture) {
-            QList<qint64> samples;
-            quint64 checksum = 0;
-            samples.reserve(7);
-            for (int sample = 0; sample < 7; ++sample) {
-                const auto measurement = zzMeasurePlanner(fixture, 3);
-                if (!measurement.has_value()) {
-                    return std::optional<ZzPlannerMeasurement>{};
-                }
-                samples.append(measurement->medianNanoseconds);
-                checksum += measurement->checksum;
+        // Keep both workloads on the same repetition count, with a long enough
+        // small sample to avoid scheduler/timer noise dominating the ratio.
+        int repetitions = 3;
+        constexpr int maxRepetitions = 65536;
+        for (; repetitions <= maxRepetitions; repetitions *= 2) {
+            const auto calibration = zzMeasurePlanner(smallFixture, repetitions);
+            QVERIFY(calibration.has_value());
+            if (calibration->medianNanoseconds >= 10000000) {
+                break;
             }
+        }
+        QVERIFY2(repetitions <= maxRepetitions,
+            "Planner timing calibration could not reach the sample duration");
+        QList<qint64> smallSamples;
+        QList<qint64> largeSamples;
+        quint64 smallChecksum = 0;
+        quint64 largeChecksum = 0;
+        for (int sample = 0; sample < 7; ++sample) {
+            // Alternate which size runs first so CPU/load changes do not bias
+            // one complete series relative to the other.
+            for (int turn = 0; turn < 2; ++turn) {
+                const bool measureSmall = (sample + turn) % 2 == 0;
+                const auto measurement = zzMeasurePlanner(
+                    measureSmall ? smallFixture : largeFixture, repetitions);
+                QVERIFY(measurement.has_value());
+                (measureSmall ? smallSamples : largeSamples)
+                    .append(measurement->medianNanoseconds);
+                (measureSmall ? smallChecksum : largeChecksum)
+                    += measurement->checksum;
+            }
+        }
+        const auto median = [](QList<qint64> samples, quint64 checksum) {
             std::sort(samples.begin(), samples.end());
-            return std::optional<ZzPlannerMeasurement>{ZzPlannerMeasurement{
-                samples.at(samples.size() / 2), checksum}};
+            return ZzPlannerMeasurement{
+                samples.at(samples.size() / 2), checksum};
         };
-
-        const auto small = measure(smallFixture);
-        const auto large = measure(largeFixture);
-        QVERIFY(small.has_value());
-        QVERIFY(large.has_value());
-        const ZzPlannerMeasurement smallValue =
-            small.value_or(ZzPlannerMeasurement{});
-        const ZzPlannerMeasurement largeValue =
-            large.value_or(ZzPlannerMeasurement{});
+        const ZzPlannerMeasurement smallValue = median(smallSamples, smallChecksum);
+        const ZzPlannerMeasurement largeValue = median(largeSamples, largeChecksum);
         QVERIFY(smallValue.medianNanoseconds > 0);
         QVERIFY(largeValue.medianNanoseconds > 0);
         QVERIFY(smallValue.checksum > 0);
@@ -396,6 +455,12 @@ private slots:
                 fixture->expectedOrder.cbegin(), fixture->expectedOrder.cend());
             QCOMPARE(targetValue.activity, expectedActivity);
         }
+        qInfo().nospace() << "Planner samples (" << repetitions
+                         << " repetitions): small="
+                         << smallValue.medianNanoseconds << " ns, large="
+                         << largeValue.medianNanoseconds << " ns, ratio="
+                         << static_cast<double>(largeValue.medianNanoseconds)
+                / static_cast<double>(smallValue.medianNanoseconds);
         QVERIFY2(
             largeValue.medianNanoseconds < smallValue.medianNanoseconds * 20,
             qPrintable(

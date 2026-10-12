@@ -179,12 +179,14 @@ struct ZzStableMergeResult final
             nextTarget = targetPosition.value();
         }
     }
-    QVector<QStringList> before(targetCount);
-    QVector<QList<int>> beforeSizes(targetCount);
-    QVector<QStringList> after(targetCount);
-    QVector<QList<int>> afterSizes(targetCount);
-    QStringList tail;
-    QList<int> tailSizes;
+    // Link snapshot positions in flat buckets: before/after each requested
+    // anchor, then an unanchored tail. Nested lists allocate separately for
+    // every omitted panel in alternating saved/current layouts.
+    const qsizetype noPosition = snapshotOrder.size();
+    const qsizetype tailBucket = targetCount * 2;
+    QVector<qsizetype> bucketHeads(tailBucket + 1, noPosition);
+    QVector<qsizetype> bucketTails(tailBucket + 1, noPosition);
+    QVector<qsizetype> nextPositions(snapshotOrder.size(), noPosition);
     qsizetype previousTarget = noTarget;
     for (qsizetype position = 0; position < snapshotOrder.size(); ++position) {
         const QString &id = snapshotOrder.at(position);
@@ -196,35 +198,39 @@ struct ZzStableMergeResult final
         if (!omittedIds.contains(id)) {
             continue;
         }
-        const int size = position < snapshotSizes.size()
-            ? std::max(snapshotSizes.at(position), 1) : 1;
+        qsizetype bucket = tailBucket;
         if (successorPositions.at(position) != noTarget) {
-            const qsizetype anchor = successorPositions.at(position);
-            before[anchor].append(id);
-            beforeSizes[anchor].append(size);
+            bucket = successorPositions.at(position) * 2;
         } else if (previousTarget != noTarget) {
-            after[previousTarget].append(id);
-            afterSizes[previousTarget].append(size);
-        } else {
-            tail.append(id);
-            tailSizes.append(size);
+            bucket = previousTarget * 2 + 1;
         }
+        if (bucketHeads.at(bucket) == noPosition) {
+            bucketHeads[bucket] = position;
+        } else {
+            nextPositions[bucketTails.at(bucket)] = position;
+        }
+        bucketTails[bucket] = position;
     }
     ZzStableMergeResult result;
     result.order.reserve(targetCount + omittedIds.size());
     result.sizes.reserve(targetCount + omittedIds.size());
+    const auto appendBucket = [&](qsizetype bucket) {
+        for (qsizetype position = bucketHeads.at(bucket);
+             position != noPosition; position = nextPositions.at(position)) {
+            result.order.append(snapshotOrder.at(position));
+            result.sizes.append(position < snapshotSizes.size()
+                    ? std::max(snapshotSizes.at(position), 1) : 1);
+        }
+    };
     for (qsizetype position = 0; position < targetCount; ++position) {
-        result.order.append(before.at(position));
-        result.sizes.append(beforeSizes.at(position));
+        appendBucket(position * 2);
         result.order.append(requestedOrder.at(position));
         const int size = position < requestedSizes.size()
             ? std::max(requestedSizes.at(position), 1) : 1;
         result.sizes.append(size);
-        result.order.append(after.at(position));
-        result.sizes.append(afterSizes.at(position));
+        appendBucket(position * 2 + 1);
     }
-    result.order.append(tail);
-    result.sizes.append(tailSizes);
+    appendBucket(tailBucket);
     return result;
 }
 
@@ -459,9 +465,10 @@ void zzAlignContents(
 {
     contents->clear();
     contents->reserve(order.size());
+    const QList<ZzLayoutState::ZzSubsystemIdentity> ancestry = {
+        paneIdentity, stackIdentity};
     for (const QString &panelId : order) {
-        contents->append({panelId, stackIdentity,
-            {paneIdentity, stackIdentity}});
+        contents->append({panelId, stackIdentity, ancestry});
     }
 }
 
