@@ -1,0 +1,45 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-benchmarks
+    Start 214: benchmark.startup
+1/6 Test #214: benchmark.startup .................................   Passed    0.75 sec
+    Start 216: benchmark.animation
+2/6 Test #216: benchmark.animation ...............................   Passed   19.54 sec
+    Start 221: benchmark.radial-gauge-animation
+3/6 Test #221: benchmark.radial-gauge-animation ..................   Passed   23.01 sec
+    Start 227: benchmark.reference-gate.animation
+4/6 Test #227: benchmark.reference-gate.animation ................   Passed    0.00 sec
+    Start 235: benchmark.reference-gate.radial-gauge-animation
+5/6 Test #235: benchmark.reference-gate.radial-gauge-animation ...***Failed    0.00 sec
+CMake Error at /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/cmake/ZzVerifyPerformanceReport.cmake:98 (message):
+  P95 16.759788 exceeds 16.7
+
+
+
+    Start 269: platform.performance-threshold-contract
+6/6 Test #269: platform.performance-threshold-contract ...........***Failed    0.00 sec
+CMake Error at /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/tests/Platform/ZzPerformanceReferenceContract.cmake:60 (message):
+  Formal threshold scenarios differ from reporters
+
+  Missing reference reports: [backdrop, fluent-standard-surfaces,
+  radial-gauge-animation, workspace-components]
+
+  Reports without thresholds: []
+Call Stack (most recent call first):
+  /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/tests/Platform/ZzPerformanceReferenceContract.cmake:125 (zz_validate_formal_thresholds)
+
+
+
+
+67% tests passed, 2 tests failed out of 6
+
+Label Time Summary:
+benchmark         =  43.31 sec*proc (6 tests)
+contract          =   0.00 sec*proc (1 test)
+platform          =   0.00 sec*proc (1 test)
+reference-gate    =   0.00 sec*proc (2 tests)
+
+Total Test time (real) =  43.31 sec
+
+The following tests FAILED:
+	235 - benchmark.reference-gate.radial-gauge-animation (Failed) benchmark reference-gate
+	269 - platform.performance-threshold-contract (Failed)  benchmark contract platform
+Errors while running CTest

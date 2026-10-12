@@ -1,0 +1,19 @@
+{
+  "purpose": "GLib timer precision diagnostic; not a formal reference",
+  "benchmarkCommit": "d583f1d319c3a5102f53e237e8276493374a3ea2",
+  "qtVersion": "6.11.1",
+  "glibVersion": "2.88.0",
+  "dispatcher": "GLib in both ABBA groups",
+  "xcbSharedMemory": "default enabled",
+  "override": "LD_PRELOAD of matching diagnostic dispatcher and timer list",
+  "order": ["original", "candidate", "candidate", "original"],
+  "xvfbCpu": 8,
+  "benchmarkCpu": 10,
+  "probeLibrarySha256": {
+    "original": "4af6abab0943a5d29ae6bf508fed9f230298f7a13714bd09a3b494bea83dc554",
+    "candidate": "d5a1523acee8c54b02a44c3308b5f4e3b5348c1c36b1f75d72b25626141a4d99"
+  },
+  "sourceAdaptation": "Both variants use QThreadData::get2(QThread::currentThread()) because SDK thread-data helpers are hidden",
+  "formalSdkModified": false,
+  "discardedExperiment": "First ready_time prototype self-woke repeatedly; its incomplete ABBA is excluded"
+}

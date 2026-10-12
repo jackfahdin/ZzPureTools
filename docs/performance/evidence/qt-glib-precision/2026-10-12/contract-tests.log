@@ -1,0 +1,117 @@
+Start testing: Oct 12 18:19 CST
+----------------------------------------------------------
+1/4 Testing: qt.glib-source-original
+1/4 Test: qt.glib-source-original
+Command: "/tmp/zz-qt-glib-VT3wabEi/build/glib-source-original"
+Directory: /tmp/zz-qt-glib-VT3wabEi/build
+"qt.glib-source-original" start time: Oct 12 18:19 CST
+Output:
+----------------------------------------------------------
+diagnostic GLib timer prepare active: original
+PASS empty timer list does not schedule a wakeup
+FAIL future timer publishes a microsecond deadline without millisecond rounding
+FAIL unchanged Qt deadline keeps the same GLib ready time
+FAIL inserting an earlier timer updates the armed deadline
+FAIL removing the earliest timer restores the remaining deadline
+FAIL normal source clears its deadline when yielding to idle
+FAIL idle timer arms its own source only
+PASS idle source clears its deadline when yielding to normal
+FAIL excluded timers clear their deadline and do not pass check
+FAIL disarmed source can rearm the same unchanged future timer
+PASS expired timer is immediately ready
+FAIL active-only timer list clears a previous deadline
+FAIL removing the last timer disarms the source
+FAIL normal dispatch disarms its old deadline
+FAIL idle dispatch disarms its old deadline
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Failed.
+"qt.glib-source-original" end time: Oct 12 18:19 CST
+"qt.glib-source-original" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/4 Testing: qt.glib-runtime-original
+2/4 Test: qt.glib-runtime-original
+Command: "/tmp/zz-qt-glib-VT3wabEi/build/glib-runtime-original"
+Directory: /tmp/zz-qt-glib-VT3wabEi/build
+"qt.glib-runtime-original" start time: Oct 12 18:19 CST
+Output:
+----------------------------------------------------------
+diagnostic GLib timer prepare active: original
+PASS uses GLib dispatcher
+PASS nested loop does not reenter the active repeating timer
+PASS repeating timer and nested loop complete
+PASS cross-thread posted event wakes the loop
+PASS socket notifier remains functional
+PASS stopped and deleted timers never fire
+PASS precise timer does not fire early
+PASS idle loop waits without spinning on stale deadlines
+PASS GLib poll does not spin inside Qt processEvents
+pollCalls=2
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"qt.glib-runtime-original" end time: Oct 12 18:19 CST
+"qt.glib-runtime-original" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/4 Testing: qt.glib-source-candidate
+3/4 Test: qt.glib-source-candidate
+Command: "/tmp/zz-qt-glib-VT3wabEi/build/glib-source-candidate"
+Directory: /tmp/zz-qt-glib-VT3wabEi/build
+"qt.glib-source-candidate" start time: Oct 12 18:19 CST
+Output:
+----------------------------------------------------------
+diagnostic GLib timer prepare active: candidate
+PASS empty timer list does not schedule a wakeup
+PASS future timer publishes a microsecond deadline without millisecond rounding
+PASS unchanged Qt deadline keeps the same GLib ready time
+PASS inserting an earlier timer updates the armed deadline
+PASS removing the earliest timer restores the remaining deadline
+PASS normal source clears its deadline when yielding to idle
+PASS idle timer arms its own source only
+PASS idle source clears its deadline when yielding to normal
+PASS excluded timers clear their deadline and do not pass check
+PASS disarmed source can rearm the same unchanged future timer
+PASS expired timer is immediately ready
+PASS active-only timer list clears a previous deadline
+PASS removing the last timer disarms the source
+PASS normal dispatch disarms its old deadline
+PASS idle dispatch disarms its old deadline
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"qt.glib-source-candidate" end time: Oct 12 18:19 CST
+"qt.glib-source-candidate" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: qt.glib-runtime-candidate
+4/4 Test: qt.glib-runtime-candidate
+Command: "/tmp/zz-qt-glib-VT3wabEi/build/glib-runtime-candidate"
+Directory: /tmp/zz-qt-glib-VT3wabEi/build
+"qt.glib-runtime-candidate" start time: Oct 12 18:19 CST
+Output:
+----------------------------------------------------------
+diagnostic GLib timer prepare active: candidate
+PASS uses GLib dispatcher
+PASS nested loop does not reenter the active repeating timer
+PASS repeating timer and nested loop complete
+PASS cross-thread posted event wakes the loop
+PASS socket notifier remains functional
+PASS stopped and deleted timers never fire
+PASS precise timer does not fire early
+PASS idle loop waits without spinning on stale deadlines
+PASS GLib poll does not spin inside Qt processEvents
+pollCalls=3
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"qt.glib-runtime-candidate" end time: Oct 12 18:19 CST
+"qt.glib-runtime-candidate" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 12 18:19 CST

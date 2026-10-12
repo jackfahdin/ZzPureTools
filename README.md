@@ -170,7 +170,7 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 | ✅ 独立安装包接入 | 全新安装消费通过；搬迁安装目录并移除原前缀后，复制出的 Starter 编译与 smoke 通过 |
 | ✅ 性能门禁自测 | 比较器、噪声分析与参考校验器自测通过；失败轮次独立留档，正式入口拒绝未纳入指纹的诊断参数 |
 | ⚠️ 后续远端 CI | [`f0cf1c0`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38211345718) 配置契约成功，五个平台 job 失败，发布跳过 |
-| ⚠️ 性能绝对门限 | 最新串行复验：仪表 P95 16.760 ms 仍超 16.7 ms，开关 16.615 ms 本轮通过但此前有失败；另有四份参考报告缺失 |
+| ⚠️ 性能绝对门限 | 原 SDK 最新串行复验：仪表 P95 16.760 ms 仍超 16.7 ms，开关 16.623 ms 本轮通过但此前有失败；另有四份参考报告缺失 |
 | ⏳ 相对性能比较 | 保留历史 Mesa 26.0.3 基线；本机已为 26.0.8，环境不匹配，待复核 |
 | ⏳ 真实桌面验收 | Windows、macOS、Linux 的显示与系统集成按各平台清单继续验证 |
 
@@ -183,9 +183,10 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 性能原始报告与剩余条件见
 [CI 与性能门禁复核记录](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)，
 [仪表逐帧追踪](docs/performance/evidence/frame-timeline/2026-10-12/README.md)
-记录 X11 同步等待；最新 [Qt 定时精度对照](docs/performance/evidence/qt-timer-precision/2026-10-12/README.md)
-在 UNIX 诊断环境将仪表 P95 从约 16.73 ms 降至约 16.23 ms。
-默认 GLib 路径仍有毫秒取整，SDK 未修改，以上正式门禁状态保持不变。
+记录 X11 同步等待；[Qt 定时精度对照](docs/performance/evidence/qt-timer-precision/2026-10-12/README.md)
+定位毫秒取整影响。最新 [GLib 候选修复](docs/performance/evidence/qt-glib-precision/2026-10-12/README.md)
+保持 GLib 后端，将仪表 P95 从约 16.76 ms 降至 16.23 ms，并验证未发生忙等。
+候选尚未集成到正式 Qt SDK，以上正式门禁状态保持不变。
 
 ## 📚 开发资料
 
