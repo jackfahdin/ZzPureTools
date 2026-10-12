@@ -11,6 +11,7 @@ file(MAKE_DIRECTORY "${fixture}/scripts/ci" "${fixture}/cmake"
     "${fixture}/docs/performance/reference/linux" "${fixture}/mock-bin"
     "${fixture}/input")
 file(COPY "${ZZ_SOURCE_DIR}/scripts/ci/capture-linux-performance-reference.sh"
+    "${ZZ_SOURCE_DIR}/scripts/ci/ZzPerformanceEnvironment.sh"
     DESTINATION "${fixture}/scripts/ci")
 file(GLOB helpers "${ZZ_SOURCE_DIR}/scripts/ci/ZzCapturePerformanceReference.cmake")
 if(helpers)
@@ -48,6 +49,7 @@ file(CHMOD "${fixture}/mock-bin/cmake" "${fixture}/mock-bin/taskset"
 
 function(run_capture expected)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+        --unset=QT_NO_GLIB --unset=QT_XCB_NO_MITSHM --unset=LD_PRELOAD
         "PATH=${fixture}/mock-bin:$ENV{PATH}"
         DISPLAY=:99 QT_QPA_PLATFORM=xcb
         "ZZ_BENCHMARK_COMMIT=${commit}"

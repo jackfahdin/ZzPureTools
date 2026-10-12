@@ -128,6 +128,14 @@ set_tests_properties(platform.performance-comparison-contract PROPERTIES
     LABELS "platform;contract;benchmark")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME platform.performance-environment-contract
+        COMMAND "${CMAKE_COMMAND}"
+            "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+            "-DZZ_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/performance-environment-contract"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPerformanceEnvironmentContract.cmake")
+    set_tests_properties(platform.performance-environment-contract PROPERTIES
+        LABELS "platform;contract")
+
     add_test(NAME platform.performance-runner-contract
         COMMAND "${CMAKE_COMMAND}"
             "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"

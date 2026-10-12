@@ -14,6 +14,8 @@ set -euo pipefail
 
 source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 cd "$source_dir"
+source "$source_dir/scripts/ci/ZzPerformanceEnvironment.sh"
+zz_require_default_performance_runtime
 
 require_env() {
   [[ -n "${!1:-}" ]] || {

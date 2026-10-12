@@ -15,6 +15,7 @@ set(build "${fixture}/build/linux-gcc-benchmarks")
 file(MAKE_DIRECTORY "${fixture}/scripts/ci" "${fixture}/mock-bin"
     "${fixture}/input" "${build}/reports")
 file(COPY "${ZZ_SOURCE_DIR}/scripts/ci/run-linux-performance-gates.sh"
+    "${ZZ_SOURCE_DIR}/scripts/ci/ZzPerformanceEnvironment.sh"
     DESTINATION "${fixture}/scripts/ci")
 file(WRITE "${build}/CMakeCache.txt" "ZZ_PERFORMANCE_REFERENCE:BOOL=ON\n")
 file(WRITE "${fixture}/mock-bin/taskset" [=[#!/usr/bin/env bash
@@ -44,6 +45,7 @@ set(compare_result 0)
 set(log_result 0)
 function(run_runner expected)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+        --unset=QT_NO_GLIB --unset=QT_XCB_NO_MITSHM --unset=LD_PRELOAD
         "PATH=${fixture}/mock-bin:$ENV{PATH}" DISPLAY=:99 QT_QPA_PLATFORM=xcb
         ZZ_BENCHMARK_COMMIT=1111111111111111111111111111111111111111
         ZZ_RUNNER_IMAGE_DIGEST=contract ZZ_GPU_IDENTITY=contract
