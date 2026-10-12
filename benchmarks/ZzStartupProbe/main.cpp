@@ -30,6 +30,8 @@
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
+#include "ZzStartupReadyWaiter.h"
+
 namespace {
 
 /** @brief 保存从进程入口起算且严格递增的启动时间标记。 */
@@ -135,17 +137,16 @@ protected:
         if (markers_ != nullptr) {
             markers_->record(QStringLiteral("first-paint"));
         }
-        QTimer::singleShot(0, application_, [this] {
-            const bool usable = !window_.isNull()
-                && window_->isVisible()
-                && window_->isEnabled()
-                && window_->windowHandle() != nullptr
-                && window_->windowHandle()->isExposed()
-                && application_ != nullptr
-                && application_->focusWidget() != nullptr;
-            if (!usable || markers_ == nullptr) {
+        auto *waiter = new ZzStartupReadyWaiter(window_.data(), [this](bool usable) {
+            if (!usable || markers_ == nullptr || application_ == nullptr) {
                 QTextStream error(stderr, QIODevice::WriteOnly);
-                error << "startup window was not usable after first paint\n";
+                error << "startup window was not usable after first paint: visible="
+                      << (!window_.isNull() && window_->isVisible())
+                      << ", enabled=" << (!window_.isNull() && window_->isEnabled())
+                      << ", exposed=" << (!window_.isNull() && window_->windowHandle()
+                          && window_->windowHandle()->isExposed())
+                      << ", focus=" << (application_ && application_->focusWidget())
+                      << '\n';
                 error.flush();
                 if (application_ != nullptr) {
                     application_->exit(2);
@@ -159,7 +160,8 @@ protected:
                    << '\n';
             output.flush();
             application_->exit(EXIT_SUCCESS);
-        });
+        }, this);
+        waiter->start();
         return QObject::eventFilter(watched, event);
     }
 
