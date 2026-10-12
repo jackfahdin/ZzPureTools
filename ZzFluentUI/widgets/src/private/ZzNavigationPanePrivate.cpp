@@ -71,8 +71,6 @@ ZzNavigationPanePrivate::ZzNavigationPanePrivate(
         ZzNavigationProjection::Primary, q_ptr);
     footerProjection = new ZzNavigationProjectionModel(
         ZzNavigationProjection::Footer, q_ptr);
-    treeProjection = new ZzNavigationTreeModel(
-        ZzNavigationProjection::All, q_ptr);
     primaryView = new ZzNavigationView(q_ptr);
     footerView = new ZzNavigationView(q_ptr);
     treeView = new QTreeView(q_ptr);
@@ -91,7 +89,6 @@ ZzNavigationPanePrivate::ZzNavigationPanePrivate(
     treeView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ZzSidePanelAppearance::applyTreeView(treeView);
-    treeView->setModel(treeProjection);
     treeView->hide();
 
     auto *layout = new QVBoxLayout(q_ptr);
@@ -130,16 +127,6 @@ ZzNavigationPanePrivate::ZzNavigationPanePrivate(
         q_ptr,
         projectionReset);
     QObject::connect(
-        treeProjection,
-        &QAbstractItemModel::modelReset,
-        q_ptr,
-        [this] {
-            if (treeMode && treeView != nullptr) {
-                treeView->expandAll();
-            }
-            restoreCurrentSelection();
-        });
-    QObject::connect(
         treeView,
         &QTreeView::clicked,
         q_ptr,
@@ -168,7 +155,9 @@ void ZzNavigationPanePrivate::setModel(QAbstractItemModel *model)
     currentSourceIndex = QPersistentModelIndex();
     primaryProjection->setSourceModel(model);
     footerProjection->setSourceModel(model);
-    treeProjection->setSourceModel(model);
+    if (treeProjection != nullptr && treeMode) {
+        treeProjection->setSourceModel(model);
+    }
     if (model != nullptr) {
         modelDestroyedConnection = QObject::connect(
             model,
@@ -191,7 +180,9 @@ void ZzNavigationPanePrivate::handleModelDestroyed()
     currentSourceIndex = QPersistentModelIndex();
     primaryProjection->setSourceModel(nullptr);
     footerProjection->setSourceModel(nullptr);
-    treeProjection->setSourceModel(nullptr);
+    if (treeProjection != nullptr) {
+        treeProjection->setSourceModel(nullptr);
+    }
     modelDestroyedConnection = {};
     setCurrentSourceIndex({});
     updateFooterGeometry();
@@ -384,6 +375,22 @@ void ZzNavigationPanePrivate::setTreeMode(bool enabled)
     }
     treeMode = enabled;
     if (treeMode) {
+        if (treeProjection == nullptr) {
+            treeProjection = new ZzNavigationTreeModel(
+                ZzNavigationProjection::All, q_ptr);
+            treeView->setModel(treeProjection);
+            QObject::connect(
+                treeProjection,
+                &QAbstractItemModel::modelReset,
+                q_ptr,
+                [this] {
+                    if (treeMode) {
+                        treeView->expandAll();
+                    }
+                    restoreCurrentSelection();
+                });
+        }
+        treeProjection->setSourceModel(sourceModel.data());
         primaryView->hide();
         footerView->hide();
         treeView->show();
@@ -391,6 +398,9 @@ void ZzNavigationPanePrivate::setTreeMode(bool enabled)
         setCurrentSourceIndex(currentSourceIndex);
     } else {
         treeView->hide();
+        // Keep the reusable view/model, but release all per-row tree nodes and
+        // stop observing source mutations while flat navigation is active.
+        treeProjection->setSourceModel(nullptr);
         primaryView->show();
         updateFooterGeometry();
         setCurrentSourceIndex(currentSourceIndex);

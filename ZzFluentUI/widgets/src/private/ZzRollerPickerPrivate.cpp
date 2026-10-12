@@ -10,7 +10,6 @@
 #include <QtCore/QSet>
 #include <QtCore/QUuid>
 #include <QtGui/QGuiApplication>
-#include <QtGui/QFontMetrics>
 #include <QtGui/QHideEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
@@ -743,14 +742,12 @@ void ZzRollerPickerPrivate::preparePopupGeometry()
     // layout's size hint already accounts for margins, spacing and buttons;
     // this pass only raises the width when content or a caller supplied
     // minimum would otherwise be clipped.
-    QFontMetrics metrics(popup->font());
     int columnsWidth = 0;
-    for (const ZzRollerColumn &column : columns) {
-        int contentWidth = 0;
-        for (const QString &item : column.items) {
-            contentWidth = std::max(contentWidth, metrics.horizontalAdvance(item));
-        }
-        columnsWidth += std::max(column.minimumWidth, contentWidth + 24);
+    for (qsizetype index = 0; index < columns.size(); ++index) {
+        // Roller caches the longest text width and invalidates it on item/font
+        // changes. Reopening a picker must not measure every item again.
+        columnsWidth += std::max(
+            columns.at(index).minimumWidth, rollers.at(index)->sizeHint().width());
     }
     if (columns.size() > 1) {
         columnsWidth += static_cast<int>(columns.size() - 1)

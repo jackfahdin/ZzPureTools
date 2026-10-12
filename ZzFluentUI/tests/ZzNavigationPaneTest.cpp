@@ -1,6 +1,7 @@
 #include <memory>
 
 #include <QtCore/QAbstractAnimation>
+#include <QtCore/QAbstractProxyModel>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QItemSelectionModel>
 #include <QtGui/QStandardItemModel>
@@ -271,6 +272,33 @@ private Q_SLOTS:
         QVERIFY(footerResetSpy.count() >= 1);
         QCOMPARE(primaryModel->rowCount(), 1);
         QCOMPARE(footerModel->rowCount(), 1);
+    }
+
+    void keepsInactiveTreeProjectionUnbound()
+    {
+        QStandardItemModel model;
+        model.appendRow(zzNavigationItem(QStringLiteral("First")));
+        ZzFluentUI::ZzNavigationPane pane;
+        pane.setModel(&model);
+        // Flat navigation must not allocate a third per-row projection.
+        QCOMPARE(pane.findChildren<QAbstractProxyModel *>().size(), 2);
+        QTreeView *const tree = pane.treeView();
+        QVERIFY(tree != nullptr);
+        pane.setTreeMode(true);
+        QCOMPARE(tree->model()->rowCount(), 1);
+        pane.setTreeMode(false);
+        QCOMPARE(tree->model()->rowCount(), 0);
+        model.appendRow(zzNavigationItem(QStringLiteral("Second")));
+        QCOMPARE(tree->model()->rowCount(), 0);
+        pane.setCurrentSourceIndex(model.index(1, 0));
+        pane.setTreeMode(true);
+        QCOMPARE(pane.treeView(), tree);
+        QCOMPARE(tree->model()->rowCount(), 2);
+        QCOMPARE(tree->currentIndex().data().toString(), QStringLiteral("Second"));
+        pane.setTreeMode(false);
+        pane.setModel(nullptr);
+        pane.setTreeMode(true);
+        QCOMPARE(tree->model()->rowCount(), 0);
     }
 
     void treeModeBuildsExpandableSectionRows()

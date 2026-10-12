@@ -96,7 +96,7 @@ public:
     /** @brief 返回是否启用了纵向 Tree View 导航模式。 */
     [[nodiscard]] bool isTreeMode() const noexcept;
 
-    /** @brief 返回 Tree View 模式使用的非拥有树视图。 */
+    /** @brief 返回非拥有树视图；首次启用树模式时才创建并绑定其模型。 */
     [[nodiscard]] QTreeView *treeView() const noexcept;
 
 Q_SIGNALS:
