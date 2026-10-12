@@ -12,6 +12,8 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
+#include <ZzTestEventLoop.h>
+
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
@@ -307,7 +309,7 @@ private Q_SLOTS:
         QTranslator translator;
         QVERIFY(translator.load(QStringLiteral(ZZ_TRANSLATION_TEST_QM)));
         QVERIFY(application.installTranslator(&translator));
-        QTRY_COMPARE(window->windowTitle(), QStringLiteral("Document"));
+        ZZ_COMPARE_EVENTUALLY(window->windowTitle(), QStringLiteral("Document"));
         QVERIFY(application.removeTranslator(&translator));
         QCoreApplication::sendPostedEvents(nullptr, QEvent::LanguageChange);
         QCOMPARE(window->windowTitle(), QStringLiteral("Document"));
