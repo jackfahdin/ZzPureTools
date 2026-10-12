@@ -1,0 +1,16 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+    Start 217: benchmark.large-model
+1/4 Test #217: benchmark.large-model ............   Passed    0.40 sec
+    Start 219: benchmark.navigation-pane
+2/4 Test #219: benchmark.navigation-pane ........   Passed    2.06 sec
+    Start 220: benchmark.workspace-components
+3/4 Test #220: benchmark.workspace-components ...   Passed    3.82 sec
+    Start 223: benchmark.backdrop
+4/4 Test #223: benchmark.backdrop ...............   Passed    0.20 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+benchmark    =   6.49 sec*proc (4 tests)
+
+Total Test time (real) =   6.49 sec

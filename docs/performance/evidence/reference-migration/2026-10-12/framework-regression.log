@@ -1,0 +1,565 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+        Start 263: platform.compile
+        Start   1: zzlog.smoke
+  1/263 Test   #1: zzlog.smoke ....................................................................................................   Passed    0.00 sec
+        Start   2: zzlog.format-contract
+  2/263 Test   #2: zzlog.format-contract ..........................................................................................   Passed    0.00 sec
+        Start   3: zzlog.overflow
+  3/263 Test #263: platform.compile ...............................................................................................   Passed    0.01 sec
+        Start 264: platform.binary-dependencies
+  4/263 Test   #3: zzlog.overflow .................................................................................................   Passed    0.01 sec
+        Start   4: zzlog.async-barrier
+  5/263 Test   #4: zzlog.async-barrier ............................................................................................   Passed    0.02 sec
+        Start   5: core.result
+  6/263 Test   #5: core.result ....................................................................................................   Passed    0.00 sec
+        Start   6: core.application-paths
+  7/263 Test   #6: core.application-paths .........................................................................................   Passed    0.00 sec
+        Start   7: core.qt-settings-store
+  8/263 Test   #7: core.qt-settings-store .........................................................................................   Passed    0.00 sec
+        Start   8: core.task-executor
+  9/263 Test   #8: core.task-executor .............................................................................................   Passed    0.01 sec
+        Start   9: core.qt-log-bridge
+ 10/263 Test #264: platform.binary-dependencies ...................................................................................   Passed    0.07 sec
+        Start  10: windowkit.agent
+ 11/263 Test  #10: windowkit.agent ................................................................................................   Passed    0.01 sec
+        Start  11: windowkit.software-backdrop
+ 12/263 Test  #11: windowkit.software-backdrop ....................................................................................   Passed    0.01 sec
+        Start  12: windowkit.bootstrap
+ 13/263 Test  #12: windowkit.bootstrap ............................................................................................   Passed    0.00 sec
+        Start  13: windowkit.lifecycle
+ 14/263 Test  #13: windowkit.lifecycle ............................................................................................   Passed    0.02 sec
+        Start  14: fluent.timeline
+ 15/263 Test  #14: fluent.timeline ................................................................................................   Passed    0.03 sec
+        Start  15: fluent.liquid-gauge
+ 16/263 Test  #15: fluent.liquid-gauge ............................................................................................   Passed    0.11 sec
+        Start  16: fluent.radial-gauge
+ 17/263 Test  #16: fluent.radial-gauge ............................................................................................   Passed    0.84 sec
+        Start  17: fluent.border-beam
+ 18/263 Test  #17: fluent.border-beam .............................................................................................   Passed    0.17 sec
+        Start  18: fluent.data-views
+ 19/263 Test  #18: fluent.data-views ..............................................................................................   Passed    0.03 sec
+        Start  19: fluent.selection-indicator
+ 20/263 Test  #19: fluent.selection-indicator .....................................................................................   Passed    0.40 sec
+        Start  20: fluent.workspace-transfer-registry-private
+ 21/263 Test  #20: fluent.workspace-transfer-registry-private .....................................................................   Passed    0.02 sec
+        Start  21: fluent.workspace-transfer-registry-lifetime
+ 22/263 Test  #21: fluent.workspace-transfer-registry-lifetime ....................................................................   Passed    0.02 sec
+        Start  22: fluent.workspace-cross-transfer
+ 23/263 Test  #22: fluent.workspace-cross-transfer ................................................................................   Passed    0.15 sec
+        Start  23: fluent.workspace-page-id
+ 24/263 Test  #23: fluent.workspace-page-id .......................................................................................   Passed    0.01 sec
+        Start  24: fluent.theme-snapshot
+ 25/263 Test  #24: fluent.theme-snapshot ..........................................................................................   Passed    0.01 sec
+        Start  25: fluent.animation-dpi
+ 26/263 Test  #25: fluent.animation-dpi ...........................................................................................   Passed    0.00 sec
+        Start  26: fluent.icon-font
+ 27/263 Test  #26: fluent.icon-font ...............................................................................................   Passed    0.02 sec
+        Start  27: fluent.theme-controller
+ 28/263 Test  #27: fluent.theme-controller ........................................................................................   Passed    0.01 sec
+        Start  28: fluent.style
+ 29/263 Test  #28: fluent.style ...................................................................................................   Passed    0.02 sec
+        Start  29: fluent.standard-controls
+ 30/263 Test  #29: fluent.standard-controls .......................................................................................   Passed    0.85 sec
+        Start  30: fluent.command-status-surfaces
+ 31/263 Test  #30: fluent.command-status-surfaces .................................................................................   Passed    0.13 sec
+        Start  31: fluent.command-bar
+ 32/263 Test  #31: fluent.command-bar .............................................................................................   Passed    0.05 sec
+        Start  32: fluent.popup-surfaces
+ 33/263 Test  #32: fluent.popup-surfaces ..........................................................................................   Passed    0.33 sec
+        Start  33: fluent.text-input-controls
+ 34/263 Test  #33: fluent.text-input-controls .....................................................................................   Passed    0.47 sec
+        Start  34: fluent.combo-box-controls
+ 35/263 Test  #34: fluent.combo-box-controls ......................................................................................   Passed    0.07 sec
+        Start  35: fluent.slider-value-tip
+ 36/263 Test  #35: fluent.slider-value-tip ........................................................................................   Passed    1.07 sec
+        Start  36: fluent.range-slider
+ 37/263 Test  #36: fluent.range-slider ............................................................................................   Passed    0.02 sec
+        Start  37: fluent.range-slider-accessibility
+ 38/263 Test  #37: fluent.range-slider-accessibility ..............................................................................   Passed    0.02 sec
+        Start  38: fluent.suggest-box
+ 39/263 Test  #38: fluent.suggest-box .............................................................................................   Passed    0.05 sec
+        Start  39: fluent.password-box
+ 40/263 Test  #39: fluent.password-box ............................................................................................   Passed    0.06 sec
+        Start  40: fluent.split-button
+ 41/263 Test  #40: fluent.split-button ............................................................................................   Passed    0.03 sec
+        Start  41: fluent.rating-control
+ 42/263 Test   #9: core.qt-log-bridge .............................................................................................   Passed    5.07 sec
+        Start  42: fluent.key-binder
+ 43/263 Test  #41: fluent.rating-control ..........................................................................................   Passed    0.03 sec
+        Start  43: fluent.color-picker-surfaces
+ 44/263 Test  #42: fluent.key-binder ..............................................................................................   Passed    0.02 sec
+        Start  44: fluent.color-picker
+ 45/263 Test  #43: fluent.color-picker-surfaces ...................................................................................   Passed    0.08 sec
+        Start  45: fluent.multi-select-combo-box
+ 46/263 Test  #44: fluent.color-picker ............................................................................................   Passed    0.11 sec
+        Start  46: fluent.roller-controls
+ 47/263 Test  #45: fluent.multi-select-combo-box ..................................................................................   Passed    0.09 sec
+        Start  47: fluent.flow-layout
+ 48/263 Test  #46: fluent.roller-controls .........................................................................................   Passed    0.05 sec
+        Start  48: fluent.buttons
+ 49/263 Test  #47: fluent.flow-layout .............................................................................................   Passed    0.01 sec
+        Start  49: fluent.toggle-switch
+ 50/263 Test  #48: fluent.buttons .................................................................................................   Passed    0.03 sec
+        Start  50: fluent.progress-ring
+ 51/263 Test  #49: fluent.toggle-switch ...........................................................................................   Passed    0.02 sec
+        Start  51: fluent.scroll-controls
+ 52/263 Test  #50: fluent.progress-ring ...........................................................................................   Passed    0.02 sec
+        Start  52: fluent.annotated-scroll-bar
+ 53/263 Test  #52: fluent.annotated-scroll-bar ....................................................................................   Passed    0.05 sec
+        Start  53: fluent.spin-box-controls
+ 54/263 Test  #53: fluent.spin-box-controls .......................................................................................   Passed    0.03 sec
+        Start  54: fluent.info-bar
+ 55/263 Test  #51: fluent.scroll-controls .........................................................................................   Passed    0.62 sec
+        Start  55: fluent.info-bar-host
+ 56/263 Test  #54: fluent.info-bar ................................................................................................   Passed    0.74 sec
+        Start  56: fluent.message-bar
+ 57/263 Test  #56: fluent.message-bar .............................................................................................   Passed    0.40 sec
+        Start  57: fluent.info-badge
+ 58/263 Test  #57: fluent.info-badge ..............................................................................................   Passed    0.02 sec
+        Start  58: fluent.content-dialog
+ 59/263 Test  #58: fluent.content-dialog ..........................................................................................   Passed    0.03 sec
+        Start  59: fluent.teaching-tip
+ 60/263 Test  #59: fluent.teaching-tip ............................................................................................   Passed    0.33 sec
+        Start  60: fluent.expander
+ 61/263 Test  #60: fluent.expander ................................................................................................   Passed    0.25 sec
+        Start  61: fluent.pivot
+ 62/263 Test  #61: fluent.pivot ...................................................................................................   Passed    0.23 sec
+        Start  62: fluent.drawer
+ 63/263 Test  #62: fluent.drawer ..................................................................................................   Passed    0.18 sec
+        Start  63: fluent.calendar-controls
+ 64/263 Test  #63: fluent.calendar-controls .......................................................................................   Passed    0.09 sec
+        Start  64: fluent.card-controls
+ 65/263 Test  #55: fluent.info-bar-host ...........................................................................................   Passed    1.91 sec
+        Start  65: fluent.carousel-view
+ 66/263 Test  #64: fluent.card-controls ...........................................................................................   Passed    0.20 sec
+        Start  66: fluent.tab-controls
+ 67/263 Test  #65: fluent.carousel-view ...........................................................................................   Passed    0.07 sec
+        Start  67: fluent.navigation-pane
+ 68/263 Test  #67: fluent.navigation-pane .........................................................................................   Passed    0.03 sec
+        Start  68: fluent.activity-bar
+ 69/263 Test  #68: fluent.activity-bar ............................................................................................   Passed    0.05 sec
+        Start  69: fluent.side-pane
+ 70/263 Test  #69: fluent.side-pane ...............................................................................................   Passed    0.02 sec
+        Start  70: fluent.bottom-pane
+ 71/263 Test  #70: fluent.bottom-pane .............................................................................................   Passed    0.02 sec
+        Start  71: fluent.panel-stack
+ 72/263 Test  #71: fluent.panel-stack .............................................................................................   Passed    0.02 sec
+        Start  72: fluent.explorer
+ 73/263 Test  #66: fluent.tab-controls ............................................................................................   Passed    0.27 sec
+        Start  73: fluent.command-palette
+ 74/263 Test  #72: fluent.explorer ................................................................................................   Passed    0.12 sec
+        Start  74: fluent.dock-panel
+ 75/263 Test  #73: fluent.command-palette .........................................................................................   Passed    0.03 sec
+        Start  75: fluent.navigation-controls
+ 76/263 Test  #74: fluent.dock-panel ..............................................................................................   Passed    0.02 sec
+        Start  76: fluent.item-delegate
+ 77/263 Test  #76: fluent.item-delegate ...........................................................................................   Passed    0.03 sec
+        Start  77: fluent.title-bar
+ 78/263 Test  #75: fluent.navigation-controls .....................................................................................   Passed    0.04 sec
+        Start  78: fluent.accessibility
+ 79/263 Test  #78: fluent.accessibility ...........................................................................................   Passed    0.02 sec
+        Start  79: fluent.screenshot-100
+ 80/263 Test  #77: fluent.title-bar ...............................................................................................   Passed    0.07 sec
+        Start  80: fluent.screenshot-125
+ 81/263 Test  #79: fluent.screenshot-100 ..........................................................................................   Passed    4.65 sec
+        Start  81: fluent.screenshot-150
+ 82/263 Test  #80: fluent.screenshot-125 ..........................................................................................   Passed    7.19 sec
+        Start  82: fluent.screenshot-200
+ 83/263 Test  #81: fluent.screenshot-150 ..........................................................................................   Passed   10.21 sec
+        Start  83: fluent.split-workspace
+ 84/263 Test  #83: fluent.split-workspace .........................................................................................   Passed    0.22 sec
+        Start  86: fluent.audio-level-meter
+ 85/263 Test  #86: fluent.audio-level-meter .......................................................................................   Passed    1.30 sec
+        Start  87: appcore.module-graph
+ 86/263 Test  #87: appcore.module-graph ...........................................................................................   Passed    0.00 sec
+        Start  88: appcore.runtime
+ 87/263 Test  #88: appcore.runtime ................................................................................................   Passed    0.00 sec
+        Start  89: puretools.page-lifecycle
+ 88/263 Test  #89: puretools.page-lifecycle .......................................................................................   Passed    0.03 sec
+        Start  90: puretools.navigation
+ 89/263 Test  #90: puretools.navigation ...........................................................................................   Passed    0.02 sec
+        Start  91: puretools.workspace-activity-id
+ 90/263 Test  #91: puretools.workspace-activity-id ................................................................................   Passed    0.01 sec
+        Start  92: puretools.workspace-shell
+ 91/263 Test  #82: fluent.screenshot-200 ..........................................................................................   Passed   17.22 sec
+        Start  93: puretools.workspace-public-api
+ 92/263 Test  #93: puretools.workspace-public-api .................................................................................   Passed    0.03 sec
+        Start  94: puretools.auxiliary-window-chrome
+ 93/263 Test  #94: puretools.auxiliary-window-chrome ..............................................................................   Passed    0.02 sec
+        Start  95: puretools.workspace-layout-state-private
+ 94/263 Test  #95: puretools.workspace-layout-state-private .......................................................................   Passed    1.36 sec
+        Start  96: puretools.workspace-layout-codec-private
+ 95/263 Test  #96: puretools.workspace-layout-codec-private .......................................................................   Passed    0.04 sec
+        Start  97: puretools.workspace-topology-codec-private
+ 96/263 Test  #97: puretools.workspace-topology-codec-private .....................................................................   Passed    0.01 sec
+        Start  98: puretools.workspace-screenshot-100
+ 97/263 Test  #98: puretools.workspace-screenshot-100 .............................................................................   Passed    1.34 sec
+        Start  99: puretools.workspace-screenshot-125
+ 98/263 Test  #99: puretools.workspace-screenshot-125 .............................................................................   Passed    2.06 sec
+        Start 100: puretools.workspace-screenshot-150
+ 99/263 Test #100: puretools.workspace-screenshot-150 .............................................................................   Passed    2.92 sec
+        Start 101: puretools.workspace-screenshot-200
+100/263 Test #101: puretools.workspace-screenshot-200 .............................................................................   Passed    4.93 sec
+        Start 102: puretools.application-builder.buildFreezesModulesAndPages
+101/263 Test #102: puretools.application-builder.buildFreezesModulesAndPages ......................................................   Passed    0.02 sec
+        Start 103: puretools.application-builder.buildRejectsDuplicateRoutesBeforeStartingModules
+102/263 Test #103: puretools.application-builder.buildRejectsDuplicateRoutesBeforeStartingModules .................................   Passed    0.01 sec
+        Start 104: puretools.application-builder.buildRejectsNavigationNodeWithoutPage
+103/263 Test #104: puretools.application-builder.buildRejectsNavigationNodeWithoutPage ............................................   Passed    0.01 sec
+        Start 105: puretools.application-builder.buildRejectsInvalidNavigationPresentationBeforeStartingModules
+104/263 Test #105: puretools.application-builder.buildRejectsInvalidNavigationPresentationBeforeStartingModules ...................   Passed    0.01 sec
+        Start 106: puretools.application-builder.buildRequiresRegisteredInitialRoute
+105/263 Test #106: puretools.application-builder.buildRequiresRegisteredInitialRoute ..............................................   Passed    0.01 sec
+        Start 107: puretools.application-builder.moduleStartFailureDoesNotCreateWindow
+106/263 Test #107: puretools.application-builder.moduleStartFailureDoesNotCreateWindow ............................................   Passed    0.01 sec
+        Start 108: puretools.application-builder.successfulBuildCreatesOneWindowWithoutCreatingUnvisitedPages
+107/263 Test #108: puretools.application-builder.successfulBuildCreatesOneWindowWithoutCreatingUnvisitedPages .....................   Passed    0.02 sec
+        Start 109: puretools.application-builder.windowSetupCallbackValidatesAndRunsBeforeDisplay
+108/263 Test #109: puretools.application-builder.windowSetupCallbackValidatesAndRunsBeforeDisplay .................................   Passed    0.02 sec
+        Start 110: puretools.application-builder.windowSetupFailureRollsBackInitialWindow
+109/263 Test #110: puretools.application-builder.windowSetupFailureRollsBackInitialWindow .........................................   Passed    0.02 sec
+        Start 111: puretools.application-builder.subsequentWindowsReuseWindowSetupCallback
+110/263 Test #111: puretools.application-builder.subsequentWindowsReuseWindowSetupCallback ........................................   Passed    0.02 sec
+        Start 112: puretools.application-builder.deferredWindowCompletesSetupWithoutBeingShown
+111/263 Test #112: puretools.application-builder.deferredWindowCompletesSetupWithoutBeingShown ....................................   Passed    0.02 sec
+        Start 113: puretools.application-builder.invalidWindowVisibilityDoesNotCreateWindow
+112/263 Test #113: puretools.application-builder.invalidWindowVisibilityDoesNotCreateWindow .......................................   Passed    0.02 sec
+        Start 114: puretools.application-builder.windowFailureLeavesApplicationUnbuilt
+113/263 Test #114: puretools.application-builder.windowFailureLeavesApplicationUnbuilt ............................................   Passed    0.02 sec
+        Start 115: puretools.application-builder.failedBuildCanRetryWithFreshBuilder
+114/263 Test #115: puretools.application-builder.failedBuildCanRetryWithFreshBuilder ..............................................   Passed    0.02 sec
+        Start 116: puretools.application-builder.successfulApplicationRejectsSecondBuilder
+115/263 Test #116: puretools.application-builder.successfulApplicationRejectsSecondBuilder ........................................   Passed    0.02 sec
+        Start 117: puretools.application-builder.applicationInstallsFluentStyleBeforeBuilding
+116/263 Test #117: puretools.application-builder.applicationInstallsFluentStyleBeforeBuilding .....................................   Passed    0.01 sec
+        Start 118: puretools.application-builder.aboutToQuitDestroysWindowsBeforeStoppingModules
+117/263 Test #118: puretools.application-builder.aboutToQuitDestroysWindowsBeforeStoppingModules ..................................   Passed    0.02 sec
+        Start 119: puretools.workspace-window-coordinator.forwardsWorkspaceActivityWithWindowIdentityAndDisconnectsOnUnregister
+118/263 Test #119: puretools.workspace-window-coordinator.forwardsWorkspaceActivityWithWindowIdentityAndDisconnectsOnUnregister ...   Passed    0.02 sec
+        Start 120: puretools.workspace-window-coordinator.stackedClosingHonorsPoliciesAndRejectsReentry
+119/263 Test #120: puretools.workspace-window-coordinator.stackedClosingHonorsPoliciesAndRejectsReentry ...........................   Passed    0.02 sec
+        Start 121: puretools.workspace-window-coordinator.aboutToCloseRejectsReentrantCloseAndUnregister
+120/263 Test #121: puretools.workspace-window-coordinator.aboutToCloseRejectsReentrantCloseAndUnregister ..........................   Passed    0.02 sec
+        Start 122: puretools.workspace-window-coordinator.committedTransferMayDestroySourceWorkspaceSafely
+121/263 Test #122: puretools.workspace-window-coordinator.committedTransferMayDestroySourceWorkspaceSafely ........................   Passed    0.02 sec
+        Start 123: puretools.workspace-window-coordinator.nonMonotonicOriginsRestoreExactOrder
+122/263 Test #123: puretools.workspace-window-coordinator.nonMonotonicOriginsRestoreExactOrder ....................................   Passed    0.02 sec
+        Start 124: puretools.workspace-window-coordinator.thirdPageFailureRestoresExactCurrentOrder
+123/263 Test #124: puretools.workspace-window-coordinator.thirdPageFailureRestoresExactCurrentOrder ...............................   Passed    0.02 sec
+        Start 125: puretools.workspace-window-coordinator.reclaimDoesNotSuppressUnrelatedTransferOrClose
+124/263 Test #125: puretools.workspace-window-coordinator.reclaimDoesNotSuppressUnrelatedTransferOrClose ..........................   Passed    0.03 sec
+        Start 126: puretools.workspace-window-coordinator.rejectedInternalCloseRollsBackAndCannotBypassDeny
+125/263 Test #126: puretools.workspace-window-coordinator.rejectedInternalCloseRollsBackAndCannotBypassDeny .......................   Passed    0.02 sec
+        Start 127: puretools.workspace-window-coordinator.closePolicyChangeInvalidatesDelegateRequest
+126/263 Test #127: puretools.workspace-window-coordinator.closePolicyChangeInvalidatesDelegateRequest .............................   Passed    0.02 sec
+        Start 128: puretools.workspace-window-coordinator.failedReclaimAuditContainsNoCommitSuccess
+127/263 Test #128: puretools.workspace-window-coordinator.failedReclaimAuditContainsNoCommitSuccess ...............................   Passed    0.02 sec
+        Start 129: puretools.workspace-window-coordinator.reclaimDoesNotExposeSourceTabBarSignals
+128/263 Test #129: puretools.workspace-window-coordinator.reclaimDoesNotExposeSourceTabBarSignals .................................   Passed    0.02 sec
+        Start 130: puretools.workspace-window-coordinator.reclaimDoesNotExposeTargetTabBarSignals
+129/263 Test #130: puretools.workspace-window-coordinator.reclaimDoesNotExposeTargetTabBarSignals .................................   Passed    0.02 sec
+        Start 131: puretools.workspace-window-coordinator.reclaimCommitSignalCannotReflowPage
+130/263 Test #131: puretools.workspace-window-coordinator.reclaimCommitSignalCannotReflowPage .....................................   Passed    0.02 sec
+        Start 132: puretools.workspace-window-coordinator.windowAboutToClosePrecedesAcceptedClose
+131/263 Test #132: puretools.workspace-window-coordinator.windowAboutToClosePrecedesAcceptedClose .................................   Passed    0.02 sec
+        Start 133: puretools.workspace-window-coordinator.aboutToCloseRejectsDestroyedTargetAndPreservesPage
+132/263 Test #133: puretools.workspace-window-coordinator.aboutToCloseRejectsDestroyedTargetAndPreservesPage ......................   Passed    0.02 sec
+        Start 134: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTransferOutOfSource
+133/263 Test #134: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTransferOutOfSource .............................   Passed    0.02 sec
+        Start 135: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTabInsertionAndRemoval
+134/263 Test #135: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTabInsertionAndRemoval ..........................   Passed    0.02 sec
+        Start 136: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTabVisibilityChanges
+135/263 Test #136: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTabVisibilityChanges ............................   Passed    0.02 sec
+        Start 137: puretools.workspace-window-coordinator.aboutToCloseBlocksDirectTabBarInsertion
+136/263 Test #137: puretools.workspace-window-coordinator.aboutToCloseBlocksDirectTabBarInsertion .................................   Passed    0.03 sec
+        Start 138: puretools.workspace-window-coordinator.aboutToCloseRestoresBaseClassTabVisibilitySnapshot
+137/263 Test #138: puretools.workspace-window-coordinator.aboutToCloseRestoresBaseClassTabVisibilitySnapshot ......................   Passed    0.03 sec
+        Start 139: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges
+138/263 Test #139: puretools.workspace-window-coordinator.aboutToCloseBlocksPublicTabMetadataPinnedAndCurrentChanges ..............   Passed    0.02 sec
+        Start 140: puretools.workspace-window-coordinator.aboutToCloseRestoresBaseClassTabMutationSnapshot
+139/263 Test #140: puretools.workspace-window-coordinator.aboutToCloseRestoresBaseClassTabMutationSnapshot ........................   Passed    0.02 sec
+        Start 141: puretools.workspace-window-coordinator.rejectedSystemCloseRollsBackAndClearsState
+140/263 Test  #92: puretools.workspace-shell ......................................................................................   Passed   21.55 sec
+        Start 142: puretools.workspace-window-coordinator.denyPolicyIgnoresSystemCloseEvent
+141/263 Test #141: puretools.workspace-window-coordinator.rejectedSystemCloseRollsBackAndClearsState ..............................   Passed    0.03 sec
+        Start 143: puretools.workspace-window-coordinator.delegatePolicyRequestsApprovalOnlyOnce
+142/263 Test #142: puretools.workspace-window-coordinator.denyPolicyIgnoresSystemCloseEvent .......................................   Passed    0.02 sec
+        Start 144: puretools.workspace-window-coordinator.delegatedApprovalConsumesPendingRequestOnlyOnce
+143/263 Test #143: puretools.workspace-window-coordinator.delegatePolicyRequestsApprovalOnlyOnce ..................................   Passed    0.02 sec
+        Start 145: puretools.workspace-window-coordinator.delegatedApprovalCannotBypassDenyPolicy
+144/263 Test #144: puretools.workspace-window-coordinator.delegatedApprovalConsumesPendingRequestOnlyOnce .........................   Passed    0.02 sec
+        Start 146: puretools.workspace-window-coordinator.delegatedApprovalRejectsForeignThreadWithoutConsumingToken
+145/263 Test #146: puretools.workspace-window-coordinator.delegatedApprovalRejectsForeignThreadWithoutConsumingToken ..............   Passed    0.02 sec
+        Start 147: puretools.workspace-window-coordinator.allowSystemCloseReclaimsBeforeAcceptedClose
+146/263 Test #145: puretools.workspace-window-coordinator.delegatedApprovalCannotBypassDenyPolicy .................................   Passed    0.02 sec
+        Start 148: puretools.workspace-window-coordinator.closingChainedWindowsReclaimsInReverseOriginOrder
+147/263 Test #147: puretools.workspace-window-coordinator.allowSystemCloseReclaimsBeforeAcceptedClose .............................   Passed    0.02 sec
+        Start 149: puretools.workspace-window-coordinator.reclaimRestoresOriginalSourceIndex
+148/263 Test #148: puretools.workspace-window-coordinator.closingChainedWindowsReclaimsInReverseOriginOrder .......................   Passed    0.02 sec
+        Start 150: puretools.workspace-window-coordinator.returningToKnownOriginTruncatesHistory
+149/263 Test #149: puretools.workspace-window-coordinator.reclaimRestoresOriginalSourceIndex ......................................   Passed    0.02 sec
+        Start 151: puretools.workspace-window-coordinator.missingOriginGroupUsesTargetActiveGroup
+150/263 Test #150: puretools.workspace-window-coordinator.returningToKnownOriginTruncatesHistory ..................................   Passed    0.02 sec
+        Start 152: puretools.workspace-window-coordinator.destroyedOriginFallsBackToPrimaryWindow
+151/263 Test #152: puretools.workspace-window-coordinator.destroyedOriginFallsBackToPrimaryWindow .................................   Passed    0.02 sec
+        Start 153: puretools.workspace-window-coordinator.destroyedOriginAndPrimaryFallBackToFirstWindow
+152/263 Test #151: puretools.workspace-window-coordinator.missingOriginGroupUsesTargetActiveGroup .................................   Passed    0.02 sec
+        Start 154: puretools.workspace-window-coordinator.orphanedPagesPreserveStableOrderAndWindow
+153/263 Test #153: puretools.workspace-window-coordinator.destroyedOriginAndPrimaryFallBackToFirstWindow ..........................   Passed    0.02 sec
+        Start 155: puretools.workspace-window-coordinator.emptyWindowClosesWithoutOrphanSignal
+154/263 Test #154: puretools.workspace-window-coordinator.orphanedPagesPreserveStableOrderAndWindow ...............................   Passed    0.02 sec
+        Start 156: puretools.workspace-window-coordinator.shutdownDoesNotRunOrdinaryReclaim
+155/263 Test #156: puretools.workspace-window-coordinator.shutdownDoesNotRunOrdinaryReclaim .......................................   Passed    0.02 sec
+        Start 157: puretools.workspace-window-coordinator.topologyPersistenceRejectsEmptyStateAndMissingPageKeys
+156/263 Test #155: puretools.workspace-window-coordinator.emptyWindowClosesWithoutOrphanSignal ....................................   Passed    0.02 sec
+        Start 158: puretools.workspace-window-coordinator.topologyPersistenceRoundTripsDeferredWindowsAndPages
+157/263 Test #157: puretools.workspace-window-coordinator.topologyPersistenceRejectsEmptyStateAndMissingPageKeys ..................   Passed    0.02 sec
+        Start 159: puretools.workspace-window-coordinator.topologyRestoreReusesRegisteredEmptyPrimaryWithoutExtraWindow
+158/263 Test #158: puretools.workspace-window-coordinator.topologyPersistenceRoundTripsDeferredWindowsAndPages ....................   Passed    0.02 sec
+        Start 160: puretools.workspace-window-coordinator.topologyRestoreRejectsResolverInvalidatingRegisteredWindow
+159/263 Test #160: puretools.workspace-window-coordinator.topologyRestoreRejectsResolverInvalidatingRegisteredWindow ..............   Passed    0.02 sec
+        Start 161: puretools.workspace-window-coordinator.topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories
+160/263 Test #159: puretools.workspace-window-coordinator.topologyRestoreReusesRegisteredEmptyPrimaryWithoutExtraWindow ...........   Passed    0.02 sec
+        Start 162: puretools.workspace-window-coordinator.topologyRestoreRejectsResolverResultsWithoutLeakingObjects
+161/263 Test #161: puretools.workspace-window-coordinator.topologyRestoreRejectsRawAndOriginMismatchesBeforeFactories .............   Passed    0.03 sec
+        Start 163: puretools.workspace-window-coordinator.topologyRestoreCleansFactoryHandleRejectedByRegistration
+162/263 Test #162: puretools.workspace-window-coordinator.topologyRestoreRejectsResolverResultsWithoutLeakingObjects ..............   Passed    0.03 sec
+        Start 164: puretools.workspace-window-coordinator.topologyRestoreFallsBackToPrimaryAndConvergesGeometry
+163/263 Test #163: puretools.workspace-window-coordinator.topologyRestoreCleansFactoryHandleRejectedByRegistration ................   Passed    0.02 sec
+        Start 165: puretools.workspace-window-coordinator.topologyRestoreValidatesMaximizedState
+164/263 Test #164: puretools.workspace-window-coordinator.topologyRestoreFallsBackToPrimaryAndConvergesGeometry ...................   Passed    0.02 sec
+        Start 166: puretools.workspace-window-coordinator.topologyRestoreRejectsMinimumSizeThatCannotFitScreen
+165/263 Test #165: puretools.workspace-window-coordinator.topologyRestoreValidatesMaximizedState ..................................   Passed    0.03 sec
+        Start 167: puretools.workspace-window-coordinator.layoutKeyConflictIsRejectedBeforeAnyPageMoves
+166/263 Test #166: puretools.workspace-window-coordinator.topologyRestoreRejectsMinimumSizeThatCannotFitScreen ....................   Passed    0.03 sec
+        Start 168: puretools.workspace-window-coordinator.secondPageFailureRollsBackIdentityMetadataAndOrder
+167/263 Test #168: puretools.workspace-window-coordinator.secondPageFailureRollsBackIdentityMetadataAndOrder ......................   Passed    0.02 sec
+        Start 169: puretools.workspace-window-coordinator.actualOperationsWriteStableAuditEvents
+168/263 Test #167: puretools.workspace-window-coordinator.layoutKeyConflictIsRejectedBeforeAnyPageMoves ...........................   Passed    0.02 sec
+        Start 170: puretools.workspace-window-coordinator.failedTopologyRestoreWritesOneSanitizedAuditEvent
+169/263 Test #170: puretools.workspace-window-coordinator.failedTopologyRestoreWritesOneSanitizedAuditEvent .......................   Passed    0.02 sec
+        Start 171: puretools.workspace-window-coordinator.successfulTopologyRestoreWritesOneSanitizedAuditEvent
+170/263 Test #169: puretools.workspace-window-coordinator.actualOperationsWriteStableAuditEvents ..................................   Passed    0.02 sec
+        Start 172: puretools.workspace-window-coordinator.operationsDoNotInitializeLogging
+171/263 Test #171: puretools.workspace-window-coordinator.successfulTopologyRestoreWritesOneSanitizedAuditEvent ...................   Passed    0.02 sec
+        Start 173: puretools.workspace-window-coordinator.registrationStoresConfigurationSnapshot
+172/263 Test #172: puretools.workspace-window-coordinator.operationsDoNotInitializeLogging ........................................   Passed    0.02 sec
+        Start 174: puretools.workspace-window-coordinator.registrationValidatesConfigurationWithoutMutation
+173/263 Test #174: puretools.workspace-window-coordinator.registrationValidatesConfigurationWithoutMutation .......................   Passed    0.02 sec
+        Start 175: puretools.workspace-window-coordinator.registrationRejectsDuplicateWindowAndShell
+174/263 Test #173: puretools.workspace-window-coordinator.registrationStoresConfigurationSnapshot .................................   Passed    0.02 sec
+        Start 176: puretools.workspace-window-coordinator.registrationAllowsOnlyOnePrimaryWindow
+175/263 Test #175: puretools.workspace-window-coordinator.registrationRejectsDuplicateWindowAndShell ..............................   Passed    0.02 sec
+        Start 177: puretools.workspace-window-coordinator.registrationRejectsWrongHostAndForeignThread
+176/263 Test #176: puretools.workspace-window-coordinator.registrationAllowsOnlyOnePrimaryWindow ..................................   Passed    0.02 sec
+        Start 178: puretools.workspace-window-coordinator.destroyedWindowOrShellUnregistersItsRecord
+177/263 Test #177: puretools.workspace-window-coordinator.registrationRejectsWrongHostAndForeignThread ............................   Passed    0.02 sec
+        Start 179: puretools.workspace-window-coordinator.destroyedWindowUnregistersItsRecordBeforeApplicationErase
+178/263 Test #178: puretools.workspace-window-coordinator.destroyedWindowOrShellUnregistersItsRecord ..............................   Passed    0.02 sec
+        Start 180: puretools.workspace-window-coordinator.unregisterOnlyRemovesCoordinatorState
+179/263 Test #179: puretools.workspace-window-coordinator.destroyedWindowUnregistersItsRecordBeforeApplicationErase ...............   Passed    0.02 sec
+        Start 181: puretools.workspace-window-coordinator.createWindowRequiresFactoryAndAppliesConfiguration
+180/263 Test #180: puretools.workspace-window-coordinator.unregisterOnlyRemovesCoordinatorState ...................................   Passed    0.02 sec
+        Start 182: puretools.workspace-window-coordinator.deferredFactoryWindowIsHiddenBeforeCoordinatorCommit
+181/263 Test #181: puretools.workspace-window-coordinator.createWindowRequiresFactoryAndAppliesConfiguration ......................   Passed    0.03 sec
+        Start 183: puretools.workspace-window-coordinator.emitsWindowLifecycleSignalsOnlyAfterCommit
+182/263 Test #182: puretools.workspace-window-coordinator.deferredFactoryWindowIsHiddenBeforeCoordinatorCommit ....................   Passed    0.02 sec
+        Start 184: puretools.workspace-window-coordinator.registeredWorkspaceSignalTearsOffTheSamePageTransactionally
+183/263 Test #183: puretools.workspace-window-coordinator.emitsWindowLifecycleSignalsOnlyAfterCommit ..............................   Passed    0.02 sec
+        Start 185: puretools.workspace-window-coordinator.factoryAndTransferFailuresLeaveSourceAndCoordinatorUnchanged
+184/263 Test #184: puretools.workspace-window-coordinator.registeredWorkspaceSignalTearsOffTheSamePageTransactionally .............   Passed    0.03 sec
+        Start 186: puretools.workspace-window-coordinator.factoryExceptionReturnsUnknownWithoutCoordinatorMutation
+185/263 Test #185: puretools.workspace-window-coordinator.factoryAndTransferFailuresLeaveSourceAndCoordinatorUnchanged ............   Passed    0.02 sec
+        Start 187: puretools.workspace-window-coordinator.tearOffRejectsForeignThreadAndShutdownBeforeStateAccess
+186/263 Test #186: puretools.workspace-window-coordinator.factoryExceptionReturnsUnknownWithoutCoordinatorMutation ................   Passed    0.02 sec
+        Start 188: puretools.workspace-window-coordinator.applyConfigurationPreflightsAlwaysOnTopBeforeChangingRealSurfaces
+187/263 Test #187: puretools.workspace-window-coordinator.tearOffRejectsForeignThreadAndShutdownBeforeStateAccess .................   Passed    0.02 sec
+        Start 189: puretools.workspace-navigation-integration
+188/263 Test #188: puretools.workspace-window-coordinator.applyConfigurationPreflightsAlwaysOnTopBeforeChangingRealSurfaces .......   Passed    0.02 sec
+        Start 190: puretools.multi-window.customWindowTitleSurvivesSetupAndLanguageChange
+189/263 Test #190: puretools.multi-window.customWindowTitleSurvivesSetupAndLanguageChange .........................................   Passed    0.02 sec
+        Start 191: puretools.multi-window.runtimeWindowTitleSynchronizesWithoutAffectingOtherWindows
+190/263 Test #189: puretools.workspace-navigation-integration .....................................................................   Passed    0.04 sec
+        Start 192: puretools.multi-window.everyWindowOwnsDifferentWindowAgent
+191/263 Test #191: puretools.multi-window.runtimeWindowTitleSynchronizesWithoutAffectingOtherWindows ..............................   Passed    0.02 sec
+        Start 193: puretools.multi-window.everyWindowOwnsDifferentNavigationState
+192/263 Test #192: puretools.multi-window.everyWindowOwnsDifferentWindowAgent .....................................................   Passed    0.02 sec
+        Start 194: puretools.multi-window.titleBarIntentInvokesOnlyOwningWindow
+193/263 Test #193: puretools.multi-window.everyWindowOwnsDifferentNavigationState .................................................   Passed    0.02 sec
+        Start 195: puretools.multi-window.chromeConfigurationUsesTitleBarChildren
+194/263 Test #194: puretools.multi-window.titleBarIntentInvokesOnlyOwningWindow ...................................................   Passed    0.02 sec
+        Start 196: puretools.multi-window.nativeSystemButtonCapabilityControlsCustomButtons
+195/263 Test #195: puretools.multi-window.chromeConfigurationUsesTitleBarChildren .................................................   Passed    0.02 sec
+        Start 197: puretools.multi-window.titleBarTogglesSharedThemeWithoutWorkspace
+196/263 Test #196: puretools.multi-window.nativeSystemButtonCapabilityControlsCustomButtons .......................................   Passed    0.02 sec
+        Start 198: puretools.multi-window.titleBarPinsOnlyOwningWindowWithoutWorkspace
+197/263 Test #197: puretools.multi-window.titleBarTogglesSharedThemeWithoutWorkspace ..............................................   Passed    0.02 sec
+        Start 199: puretools.multi-window.navigationIntentUsesTheOwningModelRoute
+198/263 Test #198: puretools.multi-window.titleBarPinsOnlyOwningWindowWithoutWorkspace ............................................   Passed    0.02 sec
+        Start 200: puretools.multi-window.navigationSelectionTracksRoutesAndModelResets
+199/263 Test #199: puretools.multi-window.navigationIntentUsesTheOwningModelRoute .................................................   Passed    0.02 sec
+        Start 201: puretools.multi-window.footerNavigationAffectsOnlyOwningWindow
+200/263 Test #200: puretools.multi-window.navigationSelectionTracksRoutesAndModelResets ...........................................   Passed    0.02 sec
+        Start 202: puretools.multi-window.topLevelWindowDisablesDeleteOnClose
+201/263 Test #201: puretools.multi-window.footerNavigationAffectsOnlyOwningWindow .................................................   Passed    0.02 sec
+        Start 203: puretools.multi-window.acceptedCloseQueuesExactlyOneApplicationErase
+202/263 Test #202: puretools.multi-window.topLevelWindowDisablesDeleteOnClose .....................................................   Passed    0.02 sec
+        Start 204: puretools.multi-window.metaObjectSignalWithoutAcceptedCloseCannotEraseWindow
+203/263 Test #203: puretools.multi-window.acceptedCloseQueuesExactlyOneApplicationErase ...........................................   Passed    0.02 sec
+        Start 205: puretools.translation.reentrantCustomTitleSurvivesNextLanguageChange
+204/263 Test #204: puretools.multi-window.metaObjectSignalWithoutAcceptedCloseCannotEraseWindow ...................................   Passed    0.02 sec
+        Start 206: puretools.translation.languageChangeRefreshesStaticAndDynamicText
+205/263 Test #205: puretools.translation.reentrantCustomTitleSurvivesNextLanguageChange ...........................................   Passed    0.02 sec
+        Start 207: puretools.translation.failedTranslatorLoadLeavesApplicationUnbuilt
+206/263 Test #206: puretools.translation.languageChangeRefreshesStaticAndDynamicText ..............................................   Passed    0.02 sec
+        Start 208: puretools.translation.runtimeFailureRollsBackInstalledTranslators
+207/263 Test #207: puretools.translation.failedTranslatorLoadLeavesApplicationUnbuilt .............................................   Passed    0.01 sec
+        Start 247: architecture.generated-code-probe
+208/263 Test #247: architecture.generated-code-probe ..............................................................................   Passed    0.00 sec
+        Start 248: architecture.generated-code-flags
+209/263 Test #208: puretools.translation.runtimeFailureRollsBackInstalledTranslators ..............................................   Passed    0.01 sec
+        Start 249: architecture.version-api
+210/263 Test #249: architecture.version-api .......................................................................................   Passed    0.01 sec
+        Start 251: architecture.boundaries
+211/263 Test #251: architecture.boundaries ........................................................................................   Passed    0.07 sec
+        Start 252: architecture.complete-audit
+212/263 Test #252: architecture.complete-audit ....................................................................................   Passed    3.54 sec
+        Start 253: architecture.workspace-boundaries-contract
+213/263 Test #253: architecture.workspace-boundaries-contract .....................................................................   Passed    0.02 sec
+        Start 254: architecture.fluent-visual-token-contract
+214/263 Test #254: architecture.fluent-visual-token-contract ......................................................................   Passed    0.02 sec
+        Start 255: architecture.zzcore-dependencies
+215/263 Test #255: architecture.zzcore-dependencies ...............................................................................   Passed    0.02 sec
+        Start 256: architecture.zzcore-dependencies-contract
+216/263 Test #256: architecture.zzcore-dependencies-contract ......................................................................   Passed    0.01 sec
+        Start 257: architecture.zzwindowkit-boundaries
+217/263 Test #257: architecture.zzwindowkit-boundaries ............................................................................   Passed    0.97 sec
+        Start 258: architecture.zzfluent-boundaries
+218/263 Test #258: architecture.zzfluent-boundaries ...............................................................................   Passed    0.04 sec
+        Start 259: architecture.zzfluentui-boundaries
+219/263 Test #248: architecture.generated-code-flags ..............................................................................   Passed    4.72 sec
+        Start 260: architecture.puretools-boundaries-contract
+220/263 Test #259: architecture.zzfluentui-boundaries .............................................................................   Passed    0.03 sec
+        Start 261: architecture.puretools-boundaries
+221/263 Test #260: architecture.puretools-boundaries-contract .....................................................................   Passed    0.02 sec
+        Start 262: headers.zzcore-smoke
+222/263 Test #262: headers.zzcore-smoke ...........................................................................................   Passed    0.00 sec
+        Start 266: platform.gate-script-contract
+223/263 Test #266: platform.gate-script-contract ..................................................................................   Passed    0.01 sec
+        Start 267: platform.local-development-gate-contract
+224/263 Test #267: platform.local-development-gate-contract .......................................................................   Passed    0.03 sec
+        Start 270: platform.performance-environment-contract
+225/263 Test #270: platform.performance-environment-contract ......................................................................   Passed    0.14 sec
+        Start 271: platform.performance-runner-contract
+226/263 Test #261: architecture.puretools-boundaries ..............................................................................   Passed    0.84 sec
+        Start 272: platform.performance-capture-contract
+227/263 Test #272: platform.performance-capture-contract ..........................................................................   Passed    0.26 sec
+        Start 273: platform.github-actions-contract
+228/263 Test #273: platform.github-actions-contract ...............................................................................   Passed    0.01 sec
+        Start 274: platform.example-application-metadata-contract
+229/263 Test #274: platform.example-application-metadata-contract .................................................................   Passed    0.00 sec
+        Start 275: platform.release-packaging-support-contract
+230/263 Test #275: platform.release-packaging-support-contract ....................................................................   Passed    0.05 sec
+        Start 276: platform.linux-appimage-packaging-contract
+231/263 Test #271: platform.performance-runner-contract ...........................................................................   Passed    1.10 sec
+        Start 277: platform.windows-packaging-contract
+232/263 Test #277: platform.windows-packaging-contract ............................................................................   Passed    0.02 sec
+        Start 278: platform.macos-packaging-contract
+233/263 Test #278: platform.macos-packaging-contract ..............................................................................   Passed    0.05 sec
+        Start 279: platform.macos-architecture-policy
+234/263 Test #279: platform.macos-architecture-policy .............................................................................   Passed    0.00 sec
+        Start 280: platform.macos-bundle-policy
+235/263 Test #276: platform.linux-appimage-packaging-contract .....................................................................   Passed    0.25 sec
+        Start 281: platform.continuous-publish
+236/263 Test #280: platform.macos-bundle-policy ...................................................................................   Passed    0.07 sec
+        Start 282: platform.continuous-release-contract
+237/263 Test #282: platform.continuous-release-contract ...........................................................................   Passed    0.04 sec
+        Start 283: platform.governor-state
+238/263 Test #283: platform.governor-state ........................................................................................   Passed    0.75 sec
+        Start 284: platform.linux-desktop-acceptance-contract
+239/263 Test #284: platform.linux-desktop-acceptance-contract .....................................................................   Passed    0.01 sec
+        Start 287: example.windowkit
+240/263 Test #287: example.windowkit ..............................................................................................   Passed    0.12 sec
+        Start 288: example.fluent-foundation
+241/263 Test #288: example.fluent-foundation ......................................................................................   Passed    0.11 sec
+        Start 289: example.fluent-controls
+242/263 Test #289: example.fluent-controls ........................................................................................   Passed    0.16 sec
+        Start 290: example.puretools
+243/263 Test #290: example.puretools ..............................................................................................   Passed    0.12 sec
+        Start 291: example.puretools-integration
+244/263 Test #281: platform.continuous-publish ....................................................................................   Passed    1.84 sec
+        Start 292: example.puretools-integration-english
+245/263 Test #291: example.puretools-integration ..................................................................................   Passed    0.56 sec
+        Start 293: example.puretools-close-cancel
+246/263 Test #293: example.puretools-close-cancel .................................................................................   Passed    0.12 sec
+        Start 294: example.puretools-close-minimize
+247/263 Test #292: example.puretools-integration-english ..........................................................................   Passed    0.26 sec
+        Start 295: example.puretools-close-confirm
+248/263 Test #294: example.puretools-close-minimize ...............................................................................   Passed    0.12 sec
+        Start 296: example.puretools-multi-window
+249/263 Test #295: example.puretools-close-confirm ................................................................................   Passed    0.12 sec
+        Start 297: example.puretools-screenshot-100
+250/263 Test #296: example.puretools-multi-window .................................................................................   Passed    0.17 sec
+        Start 298: example.puretools-screenshot-125
+251/263 Test #297: example.puretools-screenshot-100 ...............................................................................   Passed    0.18 sec
+        Start 299: example.puretools-screenshot-150
+252/263 Test #298: example.puretools-screenshot-125 ...............................................................................   Passed    0.21 sec
+        Start 300: example.puretools-screenshot-200
+253/263 Test #299: example.puretools-screenshot-150 ...............................................................................   Passed    0.23 sec
+        Start 301: example.puretools-activity-model
+254/263 Test #301: example.puretools-activity-model ...............................................................................   Passed    0.00 sec
+        Start 313: example.carousel-playback
+255/263 Test #300: example.puretools-screenshot-200 ...............................................................................   Passed    0.31 sec
+        Start 314: example.audio-meter-simulation
+256/263 Test #314: example.audio-meter-simulation .................................................................................   Passed    0.64 sec
+        Start 315: example.workspace-smoke
+257/263 Test #315: example.workspace-smoke ........................................................................................   Passed    0.33 sec
+258/263 Test #313: example.carousel-playback ......................................................................................   Passed    3.18 sec
+        Start 246: install.consumer
+259/263 Test #246: install.consumer ...............................................................................................   Passed  185.22 sec
+        Start 250: architecture.public-headers
+260/263 Test #250: architecture.public-headers ....................................................................................   Passed   12.32 sec
+        Start 265: platform.package-relocation
+261/263 Test #265: platform.package-relocation ....................................................................................   Passed  245.99 sec
+        Start 285: release.blocked-without-evidence
+262/263 Test #285: release.blocked-without-evidence ...............................................................................   Passed    0.70 sec
+        Start 286: release.complete-fixture
+263/263 Test #286: release.complete-fixture .......................................................................................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 263
+
+Label Time Summary:
+accessibility    =   4.88 sec*proc (42 tests)
+appcore          =   0.85 sec*proc (3 tests)
+architecture     =  22.62 sec*proc (15 tests)
+binary           =   0.07 sec*proc (1 test)
+close-guard      =   0.35 sec*proc (3 tests)
+component        =  73.04 sec*proc (174 tests)
+contract         =   5.36 sec*proc (21 tests)
+core             =   5.12 sec*proc (8 tests)
+documentation    =   0.01 sec*proc (1 test)
+example          =   6.92 sec*proc (18 tests)
+fluent           =  49.39 sec*proc (69 tests)
+foundation       =   0.05 sec*proc (5 tests)
+headers          = 258.31 sec*proc (3 tests)
+install          = 431.21 sec*proc (2 tests)
+integration      =   3.82 sec*proc (2 tests)
+linux            =   0.99 sec*proc (2 tests)
+macos            =   0.12 sec*proc (3 tests)
+multi-window     =   0.17 sec*proc (1 test)
+packaging        =   0.44 sec*proc (7 tests)
+platform         = 250.69 sec*proc (21 tests)
+public-api       =   0.03 sec*proc (1 test)
+puretools        =  37.48 sec*proc (122 tests)
+release          =   2.58 sec*proc (4 tests)
+screenshot       =  51.45 sec*proc (12 tests)
+smoke            =   3.10 sec*proc (15 tests)
+translation      =   0.26 sec*proc (1 test)
+unit             =  16.58 sec*proc (78 tests)
+widgets          =   0.81 sec*proc (7 tests)
+windowkit        =   1.01 sec*proc (5 tests)
+windows          =   0.02 sec*proc (1 test)
+workspace        =  35.89 sec*proc (82 tests)
+zzlog            =   0.04 sec*proc (4 tests)
+
+Total Test time (real) = 503.21 sec

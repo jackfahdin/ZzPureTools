@@ -1,0 +1,20 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+    Start 264: architecture.documentation-audit
+1/4 Test #264: architecture.documentation-audit ..........   Passed    0.10 sec
+    Start 271: platform.performance-threshold-contract
+2/4 Test #271: platform.performance-threshold-contract ...   Passed    0.07 sec
+    Start 274: platform.performance-runner-contract
+3/4 Test #274: platform.performance-runner-contract ......   Passed    1.08 sec
+    Start 275: platform.performance-capture-contract
+4/4 Test #275: platform.performance-capture-contract .....   Passed    0.24 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+architecture     =   0.10 sec*proc (1 test)
+benchmark        =   0.07 sec*proc (1 test)
+contract         =   1.39 sec*proc (3 tests)
+documentation    =   0.10 sec*proc (1 test)
+platform         =   1.39 sec*proc (3 tests)
+
+Total Test time (real) =   1.50 sec

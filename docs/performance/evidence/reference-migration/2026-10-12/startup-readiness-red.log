@@ -1,0 +1,31 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+    Start 247: benchmark.startup-readiness
+1/1 Test #247: benchmark.startup-readiness ......***Failed    0.06 sec
+********* Start testing of ZzStartupReadyWaiterTest *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+PASS   : ZzStartupReadyWaiterTest::initTestCase()
+FAIL!  : ZzStartupReadyWaiterTest::waitsForFocusAfterPaint() Compared values are not the same
+   Actual   (completions): 1
+   Expected (0)          : 0
+   Loc: [/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/benchmarks/ZzStartupProbe/ZzStartupReadyWaiterTest.cpp(31)]
+FAIL!  : ZzStartupReadyWaiterTest::unusableWindowTimesOut() Compared values are not the same
+   Actual   (completions): 1
+   Expected (0)          : 0
+   Loc: [/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/benchmarks/ZzStartupProbe/ZzStartupReadyWaiterTest.cpp(52)]
+PASS   : ZzStartupReadyWaiterTest::destroyingWindowFailsAndDestroyingWaiterCancels()
+PASS   : ZzStartupReadyWaiterTest::cleanupTestCase()
+Totals: 3 passed, 2 failed, 0 skipped, 0 blacklisted, 55ms
+********* Finished testing of ZzStartupReadyWaiterTest *********
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+benchmark    =   0.06 sec*proc (1 test)
+unit         =   0.06 sec*proc (1 test)
+
+Total Test time (real) =   0.07 sec
+
+The following tests FAILED:
+	247 - benchmark.startup-readiness (Failed)              benchmark unit
+Errors while running CTest

@@ -1,0 +1,13 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qtimer
+    Start 1: tst_qtimer
+1/2 Test #1: tst_qtimer .......................   Passed   24.52 sec
+    Start 2: tst_qtimer_no_glib
+2/2 Test #2: tst_qtimer_no_glib ...............   Passed   24.50 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+tst_qtimer            =  24.52 sec*proc (1 test)
+tst_qtimer_no_glib    =  24.50 sec*proc (1 test)
+
+Total Test time (real) =  49.02 sec

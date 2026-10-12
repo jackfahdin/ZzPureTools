@@ -1,0 +1,3 @@
+-- PASS theme-switch/latency.p95 baseline=7.0154110000000003 current=6.979711 change=-0% mode=observe band=66%
+-- PASS theme-switch/latency.max baseline=8.5777129999999993 current=7.139386 change=-16% mode=observe band=100%
+-- PASS theme-switch

@@ -1,0 +1,9 @@
+-- PASS fluent-standard-surfaces/object-count.p95 baseline=125 current=125 change=0% mode=gate band=10%
+-- PASS fluent-standard-surfaces/object-count.max baseline=125 current=125 change=0% mode=gate band=10%
+-- PASS fluent-standard-surfaces/render-time.p95 baseline=1.4992730000000001 current=1.4754210000000001 change=-1% mode=gate band=10%
+-- PASS fluent-standard-surfaces/render-time.max baseline=1.6043959999999999 current=1.666404 change=3% mode=observe band=25%
+-- PASS fluent-standard-surfaces/state-update-time.p95 baseline=0.28974100000000003 current=0.28318900000000002 change=-2% mode=gate band=10%
+-- PASS fluent-standard-surfaces/state-update-time.max baseline=0.30679299999999998 current=0.34043099999999998 change=10% mode=observe band=25%
+-- PASS fluent-standard-surfaces/style-cache-bytes.p95 baseline=6272 current=6272 change=0% mode=gate band=10%
+-- PASS fluent-standard-surfaces/style-cache-bytes.max baseline=6272 current=6272 change=0% mode=gate band=10%
+-- PASS fluent-standard-surfaces

@@ -1,0 +1,45 @@
+Start testing: Oct 12 20:50 CST
+----------------------------------------------------------
+1/1 Testing: tst_qabstractanimation
+1/1 Test: tst_qabstractanimation
+Command: "/home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake" "-P" "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qabstractanimation/tst_qabstractanimationWrapperRelease.cmake"
+Directory: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qabstractanimation
+"tst_qabstractanimation" start time: Oct 12 20:50 CST
+Output:
+----------------------------------------------------------
+********* Start testing of tst_QAbstractAnimation *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+PASS   : tst_QAbstractAnimation::initTestCase()
+PASS   : tst_QAbstractAnimation::construction()
+PASS   : tst_QAbstractAnimation::destruction()
+PASS   : tst_QAbstractAnimation::currentLoop()
+PASS   : tst_QAbstractAnimation::currentLoopTime()
+PASS   : tst_QAbstractAnimation::currentTime()
+PASS   : tst_QAbstractAnimation::direction()
+PASS   : tst_QAbstractAnimation::group()
+PASS   : tst_QAbstractAnimation::loopCount()
+PASS   : tst_QAbstractAnimation::state()
+PASS   : tst_QAbstractAnimation::totalDuration()
+PASS   : tst_QAbstractAnimation::avoidJumpAtStart()
+PASS   : tst_QAbstractAnimation::avoidJumpAtStartWithStop()
+PASS   : tst_QAbstractAnimation::avoidJumpAtStartWithRunning()
+PASS   : tst_QAbstractAnimation::stateBinding()
+PASS   : tst_QAbstractAnimation::loopCountBinding()
+PASS   : tst_QAbstractAnimation::currentTimeBinding()
+PASS   : tst_QAbstractAnimation::currentLoopBinding()
+PASS   : tst_QAbstractAnimation::directionBinding()
+PASS   : tst_QAbstractAnimation::cleanupTestCase()
+Totals: 20 passed, 0 failed, 0 skipped, 0 blacklisted, 1503ms
+********* Finished testing of tst_QAbstractAnimation *********
+<end of output>
+Test time =   1.51 sec
+----------------------------------------------------------
+Test Passed.
+"tst_qabstractanimation" end time: Oct 12 20:50 CST
+"tst_qabstractanimation" time elapsed: 00:00:01
+----------------------------------------------------------
+
+End testing: Oct 12 20:50 CST
+
+tst_qabstractanimation =   1.51 sec*proc
+

@@ -1,0 +1,3 @@
+-- PASS animation/frame-time.p95 baseline=16.438307999999999 current=16.403569999999998 change=-0% mode=gate band=10%
+-- PASS animation/frame-time.max baseline=18.632679 current=16.850950999999998 change=-9% mode=observe band=21%
+-- PASS animation

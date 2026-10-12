@@ -1,0 +1,104 @@
+-- Checking dependencies of submodule 'qtbase'
+-- Checking dependencies of submodule 'qtsvg'
+-- Checking dependencies of submodule 'qtactiveqt'
+-- Checking dependencies of submodule 'qtdeclarative'
+-- Checking dependencies of submodule 'qttools'
+-- Skipping optional dependency 'qtactiveqt' of 'qttools', because qtactiveqt's CMakeLists.txt couldn't be found.
+-- Skipping optional dependency 'qtdeclarative' of 'qttools', because qtdeclarative's CMakeLists.txt couldn't be found.
+-- Configuring submodule 'qtbase'
+-- [QtBase] CMAKE_BUILD_TYPE was already explicitly set to: 'Release'
+CMake Warning at /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/qt-build/CMakeFiles/CMakeScratch/TryCompile-ZfyVYC/CMakeLists.txt:25 (add_executable):
+  Cannot generate a safe runtime search path for target cmTC_c5b1a because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libxcb.so.1] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+
+  Some of these libraries may not be found correctly.
+
+
+-- Configuring submodule 'qtsvg'
+-- Configuring submodule 'qtactiveqt'
+-- Configuring submodule 'qtdeclarative'
+-- Configuring submodule 'qttools'
+CMake Warning (dev) at qtbase/cmake/QtPublicSbomHelpers.cmake:1963 (cmake_parse_arguments):
+  The PACKAGE_VERSION keyword was followed by an empty string or no value at
+  all.  Policy CMP0174 is not set, so cmake_parse_arguments() will unset the
+  arg_PACKAGE_VERSION variable rather than setting it to an empty string.
+Call Stack (most recent call first):
+  qtbase/cmake/QtSbomHelpers.cmake:28 (_qt_find_package_extend_sbom)
+  qttools/configure.cmake:10 (qt_find_package_extend_sbom)
+  qtbase/cmake/QtModuleHelpers.cmake:751 (include)
+  qttools/src/global/CMakeLists.txt:8 (qt_internal_add_module)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+
+-- Configuration summary has been written to /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/qt-build/config.summary
+
+-- 
+
+Qt is now configured for building. Just run 'cmake --build . --parallel'
+
+Once everything is built, you must run 'cmake --install .'
+Qt will be installed into '/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/install'
+
+To configure and build other Qt modules, you can use the following convenience script:
+        /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/install/bin/qt-configure-module
+
+If reconfiguration fails for some reason, try removing 'CMakeCache.txt' from the build directory
+Alternatively, you can add the --fresh flag to your CMake flags.
+
+-- Configuring done (5.8s)
+CMake Warning at qtbase/src/corelib/Qt6CoreMacros.cmake:2927 (add_library):
+  Cannot generate a safe runtime search path for target XcbQpaPrivate because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libxcb.so.1] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+    runtime library [libxkbcommon.so.0] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  qtbase/cmake/QtModuleHelpers.cmake:187 (_qt_internal_add_library)
+  qtbase/src/plugins/platforms/xcb/CMakeLists.txt:13 (qt_internal_add_module)
+
+
+CMake Warning at qtbase/src/corelib/Qt6CoreMacros.cmake:2927 (add_library):
+  Cannot generate a safe runtime search path for target QXcbIntegrationPlugin
+  because files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libxkbcommon.so.0] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+    runtime library [libxcb.so.1] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  qtbase/src/corelib/Qt6CoreMacros.cmake:2720 (_qt_internal_add_library)
+  qtbase/cmake/QtPluginHelpers.cmake:95 (qt6_add_plugin)
+  qtbase/src/plugins/platforms/xcb/CMakeLists.txt:145 (qt_internal_add_plugin)
+
+
+CMake Warning at qtbase/src/corelib/Qt6CoreMacros.cmake:2927 (add_library):
+  Cannot generate a safe runtime search path for target
+  QXcbEglIntegrationPlugin because files in some directories may conflict
+  with libraries in implicit directories:
+
+    runtime library [libxkbcommon.so.0] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+    runtime library [libxcb.so.1] in /usr/lib/x86_64-linux-gnu may be hidden by files in:
+      /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/lib/x86_64-linux-gnu
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  qtbase/src/corelib/Qt6CoreMacros.cmake:2720 (_qt_internal_add_library)
+  qtbase/cmake/QtPluginHelpers.cmake:95 (qt6_add_plugin)
+  qtbase/src/plugins/platforms/xcb/gl_integrations/xcb_egl/CMakeLists.txt:10 (qt_internal_add_plugin)
+
+
+-- Generating done (0.6s)
+-- Build files have been written to: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/qt-build

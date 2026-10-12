@@ -1,0 +1,9 @@
+-- PASS example-idle/average-cpu-percent.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS example-idle/average-cpu-percent.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS example-idle/rss-end-bytes.p95 baseline=72990720 current=72790016 change=-0% mode=gate band=10%
+-- PASS example-idle/rss-end-bytes.max baseline=72990720 current=72790016 change=-0% mode=gate band=10%
+-- PASS example-idle/rss-growth-percent.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS example-idle/rss-growth-percent.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS example-idle/rss-start-bytes.p95 baseline=72990720 current=72790016 change=-0% mode=gate band=10%
+-- PASS example-idle/rss-start-bytes.max baseline=72990720 current=72790016 change=-0% mode=gate band=10%
+-- PASS example-idle

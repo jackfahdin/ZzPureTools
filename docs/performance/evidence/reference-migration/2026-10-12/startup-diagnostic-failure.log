@@ -1,0 +1,29 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.75 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.75 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.75 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.76 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.76 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.76 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................***Failed    0.17 sec
+startup probe failed: Unknown error; stdout=; stderr=startup window was not usable after first paint: visible=1, enabled=1, exposed=1, focus=0
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+benchmark    =   0.17 sec*proc (1 test)
+
+Total Test time (real) =   4.70 sec
+
+The following tests FAILED:
+	214 - benchmark.startup (Failed)                        benchmark
+Errors while running CTest

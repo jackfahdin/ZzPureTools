@@ -1,0 +1,55 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "1548d4b5ce0b5e498d46654d2f9461b27c057a3a",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:d9c4d03b3c3ef2caad176ed0381eb947574b01cadfef08e86df0be9af9ffcedf",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "enable-time": {
+            "count": 100,
+            "max": 0.009472,
+            "p50": 0.003812,
+            "p95": 0.005115,
+            "unit": "ms"
+        },
+        "frame-time": {
+            "count": 100,
+            "max": 0.146836,
+            "p50": 0.132642,
+            "p95": 0.143505,
+            "unit": "ms"
+        },
+        "object-count": {
+            "count": 100,
+            "max": 1,
+            "p50": 1,
+            "p95": 1,
+            "unit": "objects"
+        },
+        "rebuild-time": {
+            "count": 100,
+            "max": 0.009937,
+            "p50": 0.003574,
+            "p95": 0.005566,
+            "unit": "ms"
+        }
+    },
+    "scenario": "backdrop",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}

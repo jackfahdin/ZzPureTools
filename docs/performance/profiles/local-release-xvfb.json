@@ -13,9 +13,9 @@
     "memoryBytes": 32682016768,
     "memoryFingerprintBucketBytes": 67108864,
     "os": "Ubuntu 26.04.1 LTS",
-    "kernel": "7.0.0-28-generic",
+    "kernel": "7.0.0-38-generic",
     "hardwareGpu": "Intel UHD Graphics 770 [8086:a780]",
-    "hardwareGpuDriver": "i915 7.0.0-28-generic"
+    "hardwareGpuDriver": "i915 7.0.0-38-generic"
   },
   "display": {
     "server": "Xvfb 21.1.22",
@@ -25,7 +25,7 @@
     "dpr": 1,
     "refreshRateHz": 60,
     "accelerated": false,
-    "rendererIdentity": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24"
+    "rendererIdentity": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24"
   },
   "toolchain": {
     "qt": "6.11.1",
@@ -33,15 +33,42 @@
     "libstdcxx": "libstdc++.so.6.0.35",
     "cmake": "4.3.3",
     "ninja": "1.12.1",
-    "mesa": "26.0.3-1ubuntu1",
+    "mesa": "26.0.8-1ubuntu0.3",
+    "glib": "2.88.0",
     "xkbcommonRuntime": "1.13.1-1"
   },
   "configuration": {
     "gccPath": "/usr/bin/gcc-15",
     "gxxPath": "/usr/bin/g++-15",
-    "qtRoot": "/home/zz/Qt/6.11.1/gcc_64",
-    "xkbcommonInclude": "/home/zz/Jackfahdin/github/ZzPureToolsFrame/ZzPureToolsFrame/build/dependencies/xkbcommon/root/usr/include",
+    "qtRoot": "/home/zz/.local/share/ZzPureTools/qt-6.11.1-precision-JHwE5eyb",
+    "xkbcommonInclude": "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/include",
     "xkbcommonLibrary": "/usr/lib/x86_64-linux-gnu/libxkbcommon.so.0"
+  },
+  "qtSdk": {
+    "modules": ["qtbase", "qtsvg", "qttools"],
+    "buildType": "Release",
+    "glib": true,
+    "xcb": true,
+    "xkbcommonX11": true,
+    "xcbEglPlugin": true,
+    "xcbGlxPlugin": false,
+    "linguist": true,
+    "assistant": false,
+    "designer": false,
+    "qdoc": false,
+    "distancefieldgenerator": false,
+    "pixeltool": false,
+    "patchSha256": {
+      "qtbase-6.11.1-timer-wait.patch": "2231fd6b0090900b0031d018ba41b6886dbc815628151123c48b3d0a69b51962",
+      "qtbase-6.11.1-glib-ready-time.patch": "a73fb8eda0e1eb4a965d0e5575283e1ef4714d6bdcca624ce7fdab782f5d403e"
+    },
+    "librarySha256": {
+      "libQt6Core.so.6.11.1": "36f04c593959c309230ef3d54fc50d2c4d0074cccdfc0e6367d5ee9bbc7ed8d3",
+      "libQt6Gui.so.6.11.1": "3ab98c05b4b1fb6b0aba2401705865045055ae91371d61a38afce6488ac367ba",
+      "libQt6Widgets.so.6.11.1": "474e8664e4fc96b9be3c888134a9141525f97941e5b0dac9eaee5c9a43675e83",
+      "libQt6XcbQpa.so.6.11.1": "b4f81b085338a2d56b9d60b6fbb5be32a4336d38ec9835ebde79140df45bd6ab",
+      "libQt6Svg.so.6.11.1": "b84ccd9a56c46f120e3c7f8ddd0d637465ef1ec8557e51ccc9431a5434943d6c"
+    }
   },
   "build": {
     "preset": "linux-gcc-reference",

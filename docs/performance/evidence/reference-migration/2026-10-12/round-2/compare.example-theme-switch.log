@@ -1,0 +1,3 @@
+-- PASS example-theme-switch/latency.p95 baseline=9.0744989999999994 current=8.1016329999999996 change=-10% mode=gate band=10%
+-- PASS example-theme-switch/latency.max baseline=9.6857220000000002 current=8.6388890000000007 change=-10% mode=observe band=10%
+-- PASS example-theme-switch

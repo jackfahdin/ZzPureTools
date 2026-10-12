@@ -1,0 +1,9 @@
+-- PASS idle/average-cpu-percent.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS idle/average-cpu-percent.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS idle/rss-end-bytes.p95 baseline=45858816 current=45887488 change=0% mode=gate band=10%
+-- PASS idle/rss-end-bytes.max baseline=45858816 current=45887488 change=0% mode=gate band=10%
+-- PASS idle/rss-growth-percent.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS idle/rss-growth-percent.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS idle/rss-start-bytes.p95 baseline=45858816 current=45887488 change=0% mode=gate band=10%
+-- PASS idle/rss-start-bytes.max baseline=45858816 current=45887488 change=0% mode=gate band=10%
+-- PASS idle

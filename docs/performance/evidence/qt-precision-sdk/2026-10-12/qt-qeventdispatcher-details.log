@@ -1,0 +1,72 @@
+Start testing: Oct 12 20:50 CST
+----------------------------------------------------------
+1/2 Testing: tst_qeventdispatcher
+1/2 Test: tst_qeventdispatcher
+Command: "/home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake" "-P" "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qeventdispatcher/tst_qeventdispatcherWrapperRelease.cmake"
+Directory: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qeventdispatcher
+"tst_qeventdispatcher" start time: Oct 12 20:50 CST
+Output:
+----------------------------------------------------------
+********* Start testing of tst_QEventDispatcher *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+PASS   : tst_QEventDispatcher::initTestCase()
+PASS   : tst_QEventDispatcher::registerTimer()
+PASS   : tst_QEventDispatcher::sendPostedEvents(WaitForMoreEvents)
+PASS   : tst_QEventDispatcher::sendPostedEvents(AllEvents)
+PASS   : tst_QEventDispatcher::processEventsOnlySendsQueuedEvents()
+PASS   : tst_QEventDispatcher::postEventFromThread()
+QDEBUG : tst_QEventDispatcher::postEventFromEventHandler() "QEventDispatcherGlib"
+PASS   : tst_QEventDispatcher::postEventFromEventHandler()
+PASS   : tst_QEventDispatcher::postedEventsPingPong()
+PASS   : tst_QEventDispatcher::eventLoopExit()
+PASS   : tst_QEventDispatcher::interruptTrampling()
+PASS   : tst_QEventDispatcher::cleanupTestCase()
+Totals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 630ms
+********* Finished testing of tst_QEventDispatcher *********
+<end of output>
+Test time =   0.64 sec
+----------------------------------------------------------
+Test Passed.
+"tst_qeventdispatcher" end time: Oct 12 20:50 CST
+"tst_qeventdispatcher" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/2 Testing: tst_qeventdispatcher_no_glib
+2/2 Test: tst_qeventdispatcher_no_glib
+Command: "/home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake" "-P" "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qeventdispatcher/tst_qeventdispatcher_no_glibWrapperRelease.cmake"
+Directory: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qeventdispatcher
+"tst_qeventdispatcher_no_glib" start time: Oct 12 20:50 CST
+Output:
+----------------------------------------------------------
+********* Start testing of tst_QEventDispatcher_no_glib *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+PASS   : tst_QEventDispatcher_no_glib::initTestCase()
+PASS   : tst_QEventDispatcher_no_glib::registerTimer()
+PASS   : tst_QEventDispatcher_no_glib::sendPostedEvents(WaitForMoreEvents)
+PASS   : tst_QEventDispatcher_no_glib::sendPostedEvents(AllEvents)
+PASS   : tst_QEventDispatcher_no_glib::processEventsOnlySendsQueuedEvents()
+PASS   : tst_QEventDispatcher_no_glib::postEventFromThread()
+QDEBUG : tst_QEventDispatcher_no_glib::postEventFromEventHandler() "QEventDispatcherUNIX"
+XFAIL  : tst_QEventDispatcher_no_glib::postEventFromEventHandler() QEventDispatcherUNIX
+   Loc: [/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/source/qtbase/tests/auto/corelib/kernel/qeventdispatcher/tst_qeventdispatcher.cpp(471)]
+PASS   : tst_QEventDispatcher_no_glib::postEventFromEventHandler()
+PASS   : tst_QEventDispatcher_no_glib::postedEventsPingPong()
+PASS   : tst_QEventDispatcher_no_glib::eventLoopExit()
+PASS   : tst_QEventDispatcher_no_glib::interruptTrampling()
+PASS   : tst_QEventDispatcher_no_glib::cleanupTestCase()
+Totals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 926ms
+********* Finished testing of tst_QEventDispatcher_no_glib *********
+<end of output>
+Test time =   0.93 sec
+----------------------------------------------------------
+Test Passed.
+"tst_qeventdispatcher_no_glib" end time: Oct 12 20:50 CST
+"tst_qeventdispatcher_no_glib" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 12 20:50 CST
+
+tst_qeventdispatcher =   0.64 sec*proc
+
+tst_qeventdispatcher_no_glib =   0.93 sec*proc
+

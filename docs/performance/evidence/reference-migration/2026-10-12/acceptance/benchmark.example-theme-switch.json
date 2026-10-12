@@ -1,0 +1,34 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "7fffaa1030abed28f1b7b8e5feac6728548a250d",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:d9c4d03b3c3ef2caad176ed0381eb947574b01cadfef08e86df0be9af9ffcedf",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "latency": {
+            "count": 100,
+            "max": 8.523504,
+            "p50": 7.964104,
+            "p95": 8.330561,
+            "unit": "ms"
+        }
+    },
+    "scenario": "example-theme-switch",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}

@@ -1,0 +1,3 @@
+-- PASS radial-gauge-animation/frame-time.p95 baseline=16.306774999999998 current=16.215782000000001 change=-0% mode=gate band=10%
+-- PASS radial-gauge-animation/frame-time.max baseline=19.251332999999999 current=16.538871 change=-14% mode=observe band=21%
+-- PASS radial-gauge-animation

@@ -1,7 +1,7 @@
 {
     "build": {
         "buildType": "Release",
-        "commit": "5ee0e57d5477c6636be9597e3d5a7207f9fe3087",
+        "commit": "1548d4b5ce0b5e498d46654d2f9461b27c057a3a",
         "lto": true,
         "preset": "linux-gcc-reference",
         "sanitizers": "none",
@@ -11,20 +11,20 @@
         "compiler": "GNU 15.2.0",
         "cpu": "Intel(R) Core(TM) i7-14700",
         "dpr": 1,
-        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24",
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
         "memoryBytes": 32682016768,
         "os": "Ubuntu 26.04.1 LTS",
         "qtVersion": "6.11.1",
         "refreshRateHz": 60,
-        "runnerImageDigest": "sha256:18b3c573eb8ae733ed4f1992b3d0dc2d2c6e265cf975fe1975a7103701a8ec0b",
+        "runnerImageDigest": "sha256:d9c4d03b3c3ef2caad176ed0381eb947574b01cadfef08e86df0be9af9ffcedf",
         "windowSystem": "xcb"
     },
     "metrics": {
         "frame-time": {
             "count": 100,
-            "max": 3.330192,
-            "p50": 1.524936,
-            "p95": 1.584755,
+            "max": 1.564019,
+            "p50": 1.517471,
+            "p95": 1.54922,
             "unit": "ms"
         },
         "multi-data-calls": {

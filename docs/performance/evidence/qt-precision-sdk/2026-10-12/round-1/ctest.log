@@ -1,0 +1,19 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+    Start 214: benchmark.startup
+1/5 Test #214: benchmark.startup .................................   Passed    0.77 sec
+    Start 216: benchmark.animation
+2/5 Test #216: benchmark.animation ...............................   Passed   19.47 sec
+    Start 221: benchmark.radial-gauge-animation
+3/5 Test #221: benchmark.radial-gauge-animation ..................   Passed   22.95 sec
+    Start 227: benchmark.reference-gate.animation
+4/5 Test #227: benchmark.reference-gate.animation ................   Passed    0.00 sec
+    Start 235: benchmark.reference-gate.radial-gauge-animation
+5/5 Test #235: benchmark.reference-gate.radial-gauge-animation ...   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+benchmark         =  43.19 sec*proc (5 tests)
+reference-gate    =   0.00 sec*proc (2 tests)
+
+Total Test time (real) =  43.20 sec

@@ -1,0 +1,13 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qchronotimer
+    Start 1: tst_qchronotimer
+1/2 Test #1: tst_qchronotimer .................   Passed   20.99 sec
+    Start 2: tst_qchronotimer_no_glib
+2/2 Test #2: tst_qchronotimer_no_glib .........   Passed   21.00 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+tst_qchronotimer            =  20.99 sec*proc (1 test)
+tst_qchronotimer_no_glib    =  21.00 sec*proc (1 test)
+
+Total Test time (real) =  41.99 sec

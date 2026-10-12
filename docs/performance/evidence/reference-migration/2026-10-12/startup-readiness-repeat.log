@@ -1,0 +1,129 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/linux-gcc-qt-precision
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.76 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.81 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.76 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+    Test #214: benchmark.startup ................   Passed    0.77 sec
+    Start 214: benchmark.startup
+1/2 Test #214: benchmark.startup ................   Passed    0.78 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.14 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+    Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+    Start 247: benchmark.startup-readiness
+2/2 Test #247: benchmark.startup-readiness ......   Passed    0.15 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+benchmark    =   0.92 sec*proc (2 tests)
+unit         =   0.15 sec*proc (1 test)
+
+Total Test time (real) =  27.66 sec

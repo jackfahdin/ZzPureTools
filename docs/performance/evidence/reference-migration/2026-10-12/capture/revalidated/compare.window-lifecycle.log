@@ -1,0 +1,5 @@
+-- PASS window-lifecycle/lifecycle-time.p95 baseline=4.7720919999999998 current=4.7720919999999998 change=0% mode=gate band=10%
+-- PASS window-lifecycle/lifecycle-time.max baseline=6.2849839999999997 current=6.2849839999999997 change=0% mode=observe band=10%
+-- PASS window-lifecycle/rss-bytes.p95 baseline=46067712 current=46067712 change=0% mode=gate band=10%
+-- PASS window-lifecycle/rss-bytes.max baseline=46071808 current=46071808 change=0% mode=gate band=10%
+-- PASS window-lifecycle

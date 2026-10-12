@@ -1,0 +1,1270 @@
+{
+  "scenarios" : 
+  {
+    "animation" : 
+    {
+      "metrics" : 
+      {
+        "frame-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 14,
+            "percent" : 14
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "backdrop" : 
+    {
+      "metrics" : 
+      {
+        "enable-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 206,
+            "percent" : 100
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 5,
+            "percent" : 10
+          }
+        },
+        "frame-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 9,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 7,
+            "percent" : 10
+          }
+        },
+        "object-count" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "rebuild-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 83,
+            "percent" : 83
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 73,
+            "percent" : 73
+          }
+        }
+      }
+    },
+    "example-idle" : 
+    {
+      "metrics" : 
+      {
+        "average-cpu-percent" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "rss-end-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        },
+        "rss-growth-percent" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "rss-start-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "example-large-model" : 
+    {
+      "metrics" : 
+      {
+        "frame-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 19,
+            "percent" : 19
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "multi-data-calls" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "requested-rows" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "viewport-paints" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "example-navigation" : 
+    {
+      "metrics" : 
+      {
+        "latency" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 5,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 3,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "example-startup" : 
+    {
+      "metrics" : 
+      {
+        "external-total" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 17,
+            "percent" : 17
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "first-paint" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 20,
+            "percent" : 20
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "example-theme-switch" : 
+    {
+      "metrics" : 
+      {
+        "latency" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 33,
+            "percent" : 33
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "fluent-standard-surfaces" : 
+    {
+      "metrics" : 
+      {
+        "object-count" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "render-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 14,
+            "percent" : 14
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        },
+        "state-update-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 41,
+            "percent" : 41
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 3,
+            "percent" : 10
+          }
+        },
+        "style-cache-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "idle" : 
+    {
+      "metrics" : 
+      {
+        "average-cpu-percent" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "rss-end-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        },
+        "rss-growth-percent" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "rss-start-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "large-model" : 
+    {
+      "metrics" : 
+      {
+        "frame-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 149,
+            "percent" : 100
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 79,
+            "percent" : 79
+          }
+        },
+        "multi-data-calls" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "requested-rows" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "viewport-paints" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "navigation-pane" : 
+    {
+      "metrics" : 
+      {
+        "descendants" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "frame-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 11,
+            "percent" : 11
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 5,
+            "percent" : 10
+          }
+        },
+        "mapping-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 56,
+            "percent" : 56
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 12,
+            "percent" : 12
+          }
+        },
+        "paint-complexity-ratio" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        },
+        "projections-per-pane" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "render-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 11,
+            "percent" : 11
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 5,
+            "percent" : 10
+          }
+        },
+        "reset-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 16,
+            "percent" : 16
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 17,
+            "percent" : 17
+          }
+        },
+        "state-update-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 38,
+            "percent" : 38
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 41,
+            "percent" : 41
+          }
+        },
+        "views-per-pane" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "radial-gauge-animation" : 
+    {
+      "metrics" : 
+      {
+        "frame-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "startup" : 
+    {
+      "metrics" : 
+      {
+        "external-total" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 4,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "first-paint" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 4,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "modules-started" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 4,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 3,
+            "percent" : 10
+          }
+        },
+        "page-created" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 5,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "qt-created" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 4,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 3,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "theme-switch" : 
+    {
+      "metrics" : 
+      {
+        "latency" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 3,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "window-lifecycle" : 
+    {
+      "metrics" : 
+      {
+        "lifecycle-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 23,
+            "percent" : 23
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 22,
+            "percent" : 22
+          }
+        },
+        "rss-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        }
+      }
+    },
+    "workspace-components" : 
+    {
+      "metrics" : 
+      {
+        "activity-activation-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 409,
+            "percent" : 100
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 24,
+            "percent" : 24
+          }
+        },
+        "activity-row-widgets" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "animation-count" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "command-filter-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 87,
+            "percent" : 87
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "explorer-filter-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 6,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "fixed-action-steady-object-growth" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "group-structure-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 35,
+            "percent" : 35
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 30,
+            "percent" : 30
+          }
+        },
+        "layout-restore-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 6,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 9,
+            "percent" : 10
+          }
+        },
+        "layout-save-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 10,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 7,
+            "percent" : 10
+          }
+        },
+        "marker-paint-100000-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 43,
+            "percent" : 43
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 13,
+            "percent" : 13
+          }
+        },
+        "marker-paint-20-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 90,
+            "percent" : 90
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 6,
+            "percent" : 10
+          }
+        },
+        "object-count" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "panel-toggle-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 153,
+            "percent" : 100
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 10,
+            "percent" : 10
+          }
+        },
+        "result-view-widget-count" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "right-empty-layout-width" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "rss-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 1,
+            "percent" : 10
+          }
+        },
+        "single-side-visible-panels" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "style-cache-bytes" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "sampled-resource",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "tab-state-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 29,
+            "percent" : 29
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 24,
+            "percent" : 24
+          }
+        },
+        "timer-count" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "title-menu-switch-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 202,
+            "percent" : 100
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "workspace-cross-transfer-object-growth" : 
+        {
+          "max" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          },
+          "metricKind" : "deterministic",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 0,
+            "percent" : 10
+          }
+        },
+        "workspace-cross-transfer-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 32,
+            "percent" : 32
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        },
+        "workspace-paint-32-groups-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 18,
+            "percent" : 18
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 23,
+            "percent" : 23
+          }
+        },
+        "workspace-paint-4-groups-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 13,
+            "percent" : 13
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 16,
+            "percent" : 16
+          }
+        },
+        "workspace-render-time" : 
+        {
+          "max" : 
+          {
+            "mode" : "observe",
+            "noisePercent" : 3,
+            "percent" : 10
+          },
+          "metricKind" : "statistical-duration",
+          "p95" : 
+          {
+            "mode" : "gate",
+            "noisePercent" : 4,
+            "percent" : 10
+          }
+        }
+      }
+    }
+  },
+  "schemaVersion" : 2
+}

@@ -1,0 +1,5 @@
+-- PASS example-startup/external-total.p95 baseline=127.129707 current=122.98867300000001 change=-3% mode=gate band=10%
+-- PASS example-startup/external-total.max baseline=146.10324600000001 current=124.512158 change=-14% mode=observe band=10%
+-- PASS example-startup/first-paint.p95 baseline=106.38069400000001 current=105.11271000000001 change=-1% mode=gate band=10%
+-- PASS example-startup/first-paint.max baseline=129.27388300000001 current=106.29073699999999 change=-17% mode=observe band=10%
+-- PASS example-startup

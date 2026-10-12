@@ -1,0 +1,7 @@
+-- activity-activation-time P95=1: exit=0; -- workspace-components/activity-activation-time: p95=1, max=1
+
+-- activity-activation-time P95=1.000001: exit=1; CMake Error at cmake/ZzVerifyPerformanceReport.cmake:98 (message):
+  P95 1.0000009999999999 exceeds 1
+
+
+

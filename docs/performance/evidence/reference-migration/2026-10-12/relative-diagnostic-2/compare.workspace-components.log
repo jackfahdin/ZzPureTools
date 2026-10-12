@@ -1,0 +1,56 @@
+-- FAIL workspace-components/activity-activation-time.p95 baseline=0.163327 current=0.188747 change=15% mode=gate band=10%
+-- OBSERVE workspace-components/activity-activation-time.max baseline=0.21201999999999999 current=0.28309000000000001 change=33% mode=observe band=25%
+-- PASS workspace-components/activity-row-widgets.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/activity-row-widgets.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/animation-count.p95 baseline=3 current=3 change=0% mode=gate band=10%
+-- PASS workspace-components/animation-count.max baseline=3 current=3 change=0% mode=gate band=10%
+-- PASS workspace-components/command-filter-time.p95 baseline=3.2451059999999998 current=3.2089310000000002 change=-1% mode=gate band=10%
+-- OBSERVE workspace-components/command-filter-time.max baseline=3.4043139999999998 current=5.306241 change=55% mode=observe band=25%
+-- PASS workspace-components/explorer-filter-time.p95 baseline=25.659120999999999 current=25.774798000000001 change=0% mode=gate band=10%
+-- OBSERVE workspace-components/explorer-filter-time.max baseline=25.932091 current=49.374222000000003 change=90% mode=observe band=25%
+-- PASS workspace-components/fixed-action-steady-object-growth.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/fixed-action-steady-object-growth.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/group-structure-time.p95 baseline=0.19231100000000001 current=0.18049799999999999 change=-6% mode=gate band=10%
+-- PASS workspace-components/group-structure-time.max baseline=0.221966 current=0.21481 change=-3% mode=observe band=25%
+-- PASS workspace-components/layout-restore-time.p95 baseline=0.68575200000000003 current=0.69584500000000005 change=1% mode=gate band=10%
+-- PASS workspace-components/layout-restore-time.max baseline=0.70824100000000001 current=0.70555299999999999 change=-0% mode=observe band=25%
+-- PASS workspace-components/layout-save-time.p95 baseline=0.16292200000000001 current=0.16012000000000001 change=-1% mode=gate band=10%
+-- PASS workspace-components/layout-save-time.max baseline=0.177204 current=0.16650799999999999 change=-6% mode=observe band=25%
+-- PASS workspace-components/marker-paint-100000-time.p95 baseline=0.014845000000000001 current=0.012017999999999999 change=-19% mode=gate band=10%
+-- PASS workspace-components/marker-paint-100000-time.max baseline=0.015949999999999999 current=0.015748999999999999 change=-1% mode=observe band=25%
+-- PASS workspace-components/marker-paint-20-time.p95 baseline=0.024702000000000002 current=0.024608000000000001 change=-0% mode=gate band=10%
+-- PASS workspace-components/marker-paint-20-time.max baseline=0.029345 current=0.027102000000000001 change=-7% mode=observe band=25%
+-- PASS workspace-components/object-count.p95 baseline=1137 current=1137 change=0% mode=gate band=10%
+-- PASS workspace-components/object-count.max baseline=1137 current=1137 change=0% mode=gate band=10%
+-- PASS workspace-components/panel-toggle-time.p95 baseline=1.6578569999999999 current=1.6452800000000001 change=-0% mode=gate band=10%
+-- PASS workspace-components/panel-toggle-time.max baseline=2.084025 current=1.9942279999999999 change=-4% mode=observe band=25%
+-- PASS workspace-components/result-view-widget-count.p95 baseline=5 current=5 change=0% mode=gate band=10%
+-- PASS workspace-components/result-view-widget-count.max baseline=5 current=5 change=0% mode=gate band=10%
+-- PASS workspace-components/right-empty-layout-width.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/right-empty-layout-width.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/rss-bytes.p95 baseline=185905152 current=185819136 change=-0% mode=gate band=10%
+-- PASS workspace-components/rss-bytes.max baseline=185905152 current=185819136 change=-0% mode=gate band=10%
+-- PASS workspace-components/single-side-visible-panels.p95 baseline=1 current=1 change=0% mode=gate band=10%
+-- PASS workspace-components/single-side-visible-panels.max baseline=1 current=1 change=0% mode=gate band=10%
+-- PASS workspace-components/style-cache-bytes.p95 baseline=17040 current=17040 change=0% mode=gate band=10%
+-- PASS workspace-components/style-cache-bytes.max baseline=17040 current=17040 change=0% mode=gate band=10%
+-- PASS workspace-components/tab-state-time.p95 baseline=0.026523999999999999 current=0.031248999999999999 change=17% mode=observe band=44%
+-- PASS workspace-components/tab-state-time.max baseline=0.037185999999999997 current=0.043747000000000001 change=17% mode=observe band=25%
+-- PASS workspace-components/timer-count.p95 baseline=3 current=3 change=0% mode=gate band=10%
+-- PASS workspace-components/timer-count.max baseline=3 current=3 change=0% mode=gate band=10%
+-- PASS workspace-components/title-menu-switch-time.p95 baseline=3.5787949999999999 current=3.5412210000000002 change=-1% mode=gate band=10%
+-- PASS workspace-components/title-menu-switch-time.max baseline=6.1315010000000001 current=3.6669770000000002 change=-40% mode=observe band=25%
+-- PASS workspace-components/workspace-cross-transfer-object-growth.p95 baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/workspace-cross-transfer-object-growth.max baseline=0 current=0 change=0% mode=gate band=10%
+-- PASS workspace-components/workspace-cross-transfer-time.p95 baseline=0.100156 current=0.099770999999999999 change=-0% mode=gate band=10%
+-- PASS workspace-components/workspace-cross-transfer-time.max baseline=0.15567500000000001 current=0.14684900000000001 change=-5% mode=observe band=25%
+-- PASS workspace-components/workspace-paint-32-groups-time.p95 baseline=0.340057 current=0.31553199999999998 change=-7% mode=gate band=10%
+-- PASS workspace-components/workspace-paint-32-groups-time.max baseline=0.38565300000000002 current=0.34301799999999999 change=-11% mode=observe band=25%
+-- PASS workspace-components/workspace-paint-4-groups-time.p95 baseline=0.36066799999999999 current=0.34921099999999999 change=-3% mode=gate band=10%
+-- PASS workspace-components/workspace-paint-4-groups-time.max baseline=0.37546499999999999 current=0.36426199999999997 change=-2% mode=observe band=25%
+-- PASS workspace-components/workspace-render-time.p95 baseline=1.9295659999999999 current=1.8862209999999999 change=-2% mode=gate band=10%
+-- PASS workspace-components/workspace-render-time.max baseline=2.1934019999999999 current=2.1823869999999999 change=-0% mode=observe band=25%
+CMake Error at cmake/ZzComparePerformanceReport.cmake:274 (message):
+  FAIL workspace-components: one or more gated fields regressed
+
+

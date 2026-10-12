@@ -1,0 +1,260 @@
+Start testing: Oct 12 20:49 CST
+----------------------------------------------------------
+1/2 Testing: tst_qchronotimer
+1/2 Test: tst_qchronotimer
+Command: "/home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake" "-P" "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qchronotimer/tst_qchronotimerWrapperRelease.cmake"
+Directory: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qchronotimer
+"tst_qchronotimer" start time: Oct 12 20:49 CST
+Output:
+----------------------------------------------------------
+********* Start testing of tst_QChronoTimer *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+PASS   : tst_QChronoTimer::initTestCase()
+PASS   : tst_QChronoTimer::zeroTimer()
+PASS   : tst_QChronoTimer::singleShotTimeout()
+PASS   : tst_QChronoTimer::timeout()
+PASS   : tst_QChronoTimer::sequentialTimers(0,0,0,0,0,0)
+PASS   : tst_QChronoTimer::sequentialTimers(0,1,2)
+PASS   : tst_QChronoTimer::sequentialTimers(1,1,1,2,2,2,2)
+PASS   : tst_QChronoTimer::sequentialTimers(1,2,3)
+PASS   : tst_QChronoTimer::sequentialTimers(19,19,19)
+PASS   : tst_QChronoTimer::sequentialTimers(20,20,20,20,20)
+PASS   : tst_QChronoTimer::sequentialTimers(25,25,25,25,25,25,50)
+PASS   : tst_QChronoTimer::remainingTime()
+PASS   : tst_QChronoTimer::remainingTimeInitial(precisetiemr-0ns)
+PASS   : tst_QChronoTimer::remainingTimeInitial(precisetimer-1ms)
+PASS   : tst_QChronoTimer::remainingTimeInitial(precisetimer-10ms)
+PASS   : tst_QChronoTimer::remainingTimeInitial(precisetimer-25days)
+PASS   : tst_QChronoTimer::remainingTimeInitial(precisetimer-50days)
+PASS   : tst_QChronoTimer::remainingTimeInitial(coarsetimer-0ns)
+PASS   : tst_QChronoTimer::remainingTimeInitial(coarsetimer-1ms)
+PASS   : tst_QChronoTimer::remainingTimeInitial(coarsetimer-10ms)
+PASS   : tst_QChronoTimer::remainingTimeInitial(coarsetimer-25days)
+PASS   : tst_QChronoTimer::remainingTimeInitial(coarsetimer-50days)
+PASS   : tst_QChronoTimer::remainingTimeDuringActivation(repeating)
+PASS   : tst_QChronoTimer::remainingTimeDuringActivation(single-shot)
+PASS   : tst_QChronoTimer::basic_chrono()
+PASS   : tst_QChronoTimer::livelock(zero-timer)
+PASS   : tst_QChronoTimer::livelock(non-zero-timer)
+PASS   : tst_QChronoTimer::livelock(longer-than-sleep)
+PASS   : tst_QChronoTimer::timerInfiniteRecursion(zero timer)
+PASS   : tst_QChronoTimer::timerInfiniteRecursion(non-zero timer)
+PASS   : tst_QChronoTimer::timerInfiniteRecursion(10ms timer)
+PASS   : tst_QChronoTimer::timerInfiniteRecursion(11ms timer)
+PASS   : tst_QChronoTimer::timerInfiniteRecursion(100ms timer)
+PASS   : tst_QChronoTimer::timerInfiniteRecursion(1s timer)
+PASS   : tst_QChronoTimer::recurringTimer(zero timer, don't recurse)
+PASS   : tst_QChronoTimer::recurringTimer(zero timer, recurse)
+PASS   : tst_QChronoTimer::recurringTimer(non-zero timer, don't recurse)
+PASS   : tst_QChronoTimer::recurringTimer(non-zero timer, recurse)
+PASS   : tst_QChronoTimer::deleteLaterOnQChronoTimer()
+PASS   : tst_QChronoTimer::moveToThread()
+SKIP   : tst_QChronoTimer::newTimerFiresTooSoon() Only relevant on Windows
+   Loc: [/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/source/qtbase/tests/auto/corelib/kernel/qchronotimer/tst_qchronotimer.cpp(661)]
+PASS   : tst_QChronoTimer::restartedTimerFiresTooSoon()
+PASS   : tst_QChronoTimer::timerFiresOnlyOncePerProcessEvents(zero-timer)
+PASS   : tst_QChronoTimer::timerFiresOnlyOncePerProcessEvents(non-zero-timer)
+QWARN  : tst_QChronoTimer::timerIdPersistsAfterThreadExit() QObject::killTimer: Timers cannot be stopped from another thread
+QWARN  : tst_QChronoTimer::timerIdPersistsAfterThreadExit() QObject::~QObject: Timers cannot be stopped from another thread
+PASS   : tst_QChronoTimer::timerIdPersistsAfterThreadExit()
+PASS   : tst_QChronoTimer::cancelLongTimer()
+PASS   : tst_QChronoTimer::recurseOnTimeoutAndStopTimer()
+PASS   : tst_QChronoTimer::timerOrder(permutation=0)
+PASS   : tst_QChronoTimer::timerOrder(permutation=1)
+PASS   : tst_QChronoTimer::timerOrder(permutation=2)
+PASS   : tst_QChronoTimer::timerOrder(permutation=3)
+PASS   : tst_QChronoTimer::timerOrder(permutation=4)
+PASS   : tst_QChronoTimer::timerOrder(permutation=5)
+PASS   : tst_QChronoTimer::timerOrder(permutation=6)
+PASS   : tst_QChronoTimer::timerOrder(permutation=7)
+PASS   : tst_QChronoTimer::timerOrder(permutation=8)
+PASS   : tst_QChronoTimer::timerOrder(permutation=9)
+PASS   : tst_QChronoTimer::timerOrder(permutation=10)
+PASS   : tst_QChronoTimer::timerOrder(permutation=11)
+PASS   : tst_QChronoTimer::timerOrder(permutation=12)
+PASS   : tst_QChronoTimer::timerOrder(permutation=13)
+PASS   : tst_QChronoTimer::timerOrder(permutation=14)
+PASS   : tst_QChronoTimer::timerOrder(permutation=15)
+PASS   : tst_QChronoTimer::timerOrder(permutation=16)
+PASS   : tst_QChronoTimer::timerOrder(permutation=17)
+PASS   : tst_QChronoTimer::timerOrder(permutation=18)
+PASS   : tst_QChronoTimer::timerOrder(permutation=19)
+PASS   : tst_QChronoTimer::timerOrder(permutation=20)
+PASS   : tst_QChronoTimer::timerOrder(permutation=21)
+PASS   : tst_QChronoTimer::timerOrder(permutation=22)
+PASS   : tst_QChronoTimer::timerOrder(permutation=23)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=0)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=1)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=2)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=3)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=4)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=5)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=6)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=7)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=8)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=9)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=10)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=11)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=12)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=13)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=14)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=15)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=16)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=17)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=18)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=19)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=20)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=21)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=22)
+PASS   : tst_QChronoTimer::timerOrderBackgroundThread(permutation=23)
+PASS   : tst_QChronoTimer::timerPrecision()
+PASS   : tst_QChronoTimer::dontBlockEvents()
+PASS   : tst_QChronoTimer::postedEventsShouldNotStarveTimers()
+PASS   : tst_QChronoTimer::callOnTimeout()
+PASS   : tst_QChronoTimer::bindToTimer()
+PASS   : tst_QChronoTimer::bindTimer()
+PASS   : tst_QChronoTimer::automatedBindingTests()
+PASS   : tst_QChronoTimer::negativeInterval()
+PASS   : tst_QChronoTimer::cleanupTestCase()
+Totals: 103 passed, 0 failed, 1 skipped, 0 blacklisted, 20986ms
+********* Finished testing of tst_QChronoTimer *********
+<end of output>
+Test time =  20.99 sec
+----------------------------------------------------------
+Test Passed.
+"tst_qchronotimer" end time: Oct 12 20:50 CST
+"tst_qchronotimer" time elapsed: 00:00:20
+----------------------------------------------------------
+
+2/2 Testing: tst_qchronotimer_no_glib
+2/2 Test: tst_qchronotimer_no_glib
+Command: "/home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake" "-P" "/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qchronotimer/tst_qchronotimer_no_glibWrapperRelease.cmake"
+Directory: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qchronotimer
+"tst_qchronotimer_no_glib" start time: Oct 12 20:50 CST
+Output:
+----------------------------------------------------------
+********* Start testing of tst_QChronoTimer_no_glib *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+PASS   : tst_QChronoTimer_no_glib::initTestCase()
+PASS   : tst_QChronoTimer_no_glib::zeroTimer()
+PASS   : tst_QChronoTimer_no_glib::singleShotTimeout()
+PASS   : tst_QChronoTimer_no_glib::timeout()
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(0,0,0,0,0,0)
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(0,1,2)
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(1,1,1,2,2,2,2)
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(1,2,3)
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(19,19,19)
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(20,20,20,20,20)
+PASS   : tst_QChronoTimer_no_glib::sequentialTimers(25,25,25,25,25,25,50)
+PASS   : tst_QChronoTimer_no_glib::remainingTime()
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(precisetiemr-0ns)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(precisetimer-1ms)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(precisetimer-10ms)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(precisetimer-25days)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(precisetimer-50days)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(coarsetimer-0ns)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(coarsetimer-1ms)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(coarsetimer-10ms)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(coarsetimer-25days)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeInitial(coarsetimer-50days)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeDuringActivation(repeating)
+PASS   : tst_QChronoTimer_no_glib::remainingTimeDuringActivation(single-shot)
+PASS   : tst_QChronoTimer_no_glib::basic_chrono()
+PASS   : tst_QChronoTimer_no_glib::livelock(zero-timer)
+PASS   : tst_QChronoTimer_no_glib::livelock(non-zero-timer)
+PASS   : tst_QChronoTimer_no_glib::livelock(longer-than-sleep)
+PASS   : tst_QChronoTimer_no_glib::timerInfiniteRecursion(zero timer)
+PASS   : tst_QChronoTimer_no_glib::timerInfiniteRecursion(non-zero timer)
+PASS   : tst_QChronoTimer_no_glib::timerInfiniteRecursion(10ms timer)
+PASS   : tst_QChronoTimer_no_glib::timerInfiniteRecursion(11ms timer)
+PASS   : tst_QChronoTimer_no_glib::timerInfiniteRecursion(100ms timer)
+PASS   : tst_QChronoTimer_no_glib::timerInfiniteRecursion(1s timer)
+PASS   : tst_QChronoTimer_no_glib::recurringTimer(zero timer, don't recurse)
+PASS   : tst_QChronoTimer_no_glib::recurringTimer(zero timer, recurse)
+PASS   : tst_QChronoTimer_no_glib::recurringTimer(non-zero timer, don't recurse)
+PASS   : tst_QChronoTimer_no_glib::recurringTimer(non-zero timer, recurse)
+PASS   : tst_QChronoTimer_no_glib::deleteLaterOnQChronoTimer()
+PASS   : tst_QChronoTimer_no_glib::moveToThread()
+SKIP   : tst_QChronoTimer_no_glib::newTimerFiresTooSoon() Only relevant on Windows
+   Loc: [/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/source/qtbase/tests/auto/corelib/kernel/qchronotimer/tst_qchronotimer.cpp(661)]
+PASS   : tst_QChronoTimer_no_glib::restartedTimerFiresTooSoon()
+PASS   : tst_QChronoTimer_no_glib::timerFiresOnlyOncePerProcessEvents(zero-timer)
+PASS   : tst_QChronoTimer_no_glib::timerFiresOnlyOncePerProcessEvents(non-zero-timer)
+QWARN  : tst_QChronoTimer_no_glib::timerIdPersistsAfterThreadExit() QObject::killTimer: Timers cannot be stopped from another thread
+QWARN  : tst_QChronoTimer_no_glib::timerIdPersistsAfterThreadExit() QObject::~QObject: Timers cannot be stopped from another thread
+PASS   : tst_QChronoTimer_no_glib::timerIdPersistsAfterThreadExit()
+PASS   : tst_QChronoTimer_no_glib::cancelLongTimer()
+PASS   : tst_QChronoTimer_no_glib::recurseOnTimeoutAndStopTimer()
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=0)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=1)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=2)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=3)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=4)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=5)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=6)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=7)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=8)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=9)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=10)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=11)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=12)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=13)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=14)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=15)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=16)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=17)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=18)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=19)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=20)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=21)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=22)
+PASS   : tst_QChronoTimer_no_glib::timerOrder(permutation=23)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=0)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=1)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=2)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=3)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=4)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=5)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=6)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=7)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=8)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=9)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=10)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=11)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=12)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=13)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=14)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=15)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=16)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=17)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=18)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=19)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=20)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=21)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=22)
+PASS   : tst_QChronoTimer_no_glib::timerOrderBackgroundThread(permutation=23)
+PASS   : tst_QChronoTimer_no_glib::timerPrecision()
+PASS   : tst_QChronoTimer_no_glib::dontBlockEvents()
+PASS   : tst_QChronoTimer_no_glib::postedEventsShouldNotStarveTimers()
+PASS   : tst_QChronoTimer_no_glib::callOnTimeout()
+PASS   : tst_QChronoTimer_no_glib::bindToTimer()
+PASS   : tst_QChronoTimer_no_glib::bindTimer()
+PASS   : tst_QChronoTimer_no_glib::automatedBindingTests()
+PASS   : tst_QChronoTimer_no_glib::negativeInterval()
+PASS   : tst_QChronoTimer_no_glib::cleanupTestCase()
+Totals: 103 passed, 0 failed, 1 skipped, 0 blacklisted, 20992ms
+********* Finished testing of tst_QChronoTimer_no_glib *********
+<end of output>
+Test time =  21.00 sec
+----------------------------------------------------------
+Test Passed.
+"tst_qchronotimer_no_glib" end time: Oct 12 20:50 CST
+"tst_qchronotimer_no_glib" time elapsed: 00:00:20
+----------------------------------------------------------
+
+End testing: Oct 12 20:50 CST
+
+tst_qchronotimer =  20.99 sec*proc
+
+tst_qchronotimer_no_glib =  21.00 sec*proc
+

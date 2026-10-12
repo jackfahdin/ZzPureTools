@@ -27,6 +27,10 @@ set(performance_scenarios
     large-model
     window-lifecycle
     navigation-pane
+    workspace-components
+    fluent-standard-surfaces
+    backdrop
+    radial-gauge-animation
     idle
     example-startup
     example-navigation
@@ -94,9 +98,9 @@ foreach(required_runner_token IN ITEMS
             "Linux 性能 runner 缺少场景数组契约：${required_runner_token}")
     endif()
 endforeach()
-string(FIND "${performance_document}" "十二份" report_count_position)
+string(FIND "${performance_document}" "十六份" report_count_position)
 if(report_count_position EQUAL -1)
-    message(FATAL_ERROR "性能基线文档没有声明十二份同源报告")
+    message(FATAL_ERROR "性能基线文档没有声明十六份同源报告")
 endif()
 
 set(reference_commit "")
@@ -140,7 +144,7 @@ foreach(scenario IN LISTS performance_scenarios)
     elseif(NOT "${report_commit}" STREQUAL "${reference_commit}"
            OR NOT "${report_digest}" STREQUAL "${reference_digest}")
         message(FATAL_ERROR
-            "十二份性能参考报告不是同一 commit 和 runner 档案：${report_relative_path}")
+            "十六份性能参考报告不是同一 commit 和 runner 档案：${report_relative_path}")
     endif()
 
     string(FIND "${linux_runner}" "\n  ${scenario}\n"
@@ -177,8 +181,8 @@ set(linux_checklist_path
     "${source_root}/docs/release/MANUAL_LINUX_CHECKLIST_ZH.md")
 file(READ "${linux_checklist_path}" linux_checklist)
 foreach(required_performance_count IN ITEMS
-    "12 个报告生产者"
-    "15 项绝对门禁")
+    "16 个报告生产者"
+    "26 项绝对门禁")
     string(FIND "${linux_checklist}" "${required_performance_count}"
         checklist_count_position)
     if(checklist_count_position EQUAL -1)

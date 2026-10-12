@@ -1,0 +1,9 @@
+-- PASS example-large-model/frame-time.p95 baseline=0.62531999999999999 current=0.66168400000000005 change=5% mode=gate band=10%
+-- OBSERVE example-large-model/frame-time.max baseline=0.65101600000000004 current=1.009234 change=55% mode=observe band=25%
+-- PASS example-large-model/multi-data-calls.p95 baseline=28 current=28 change=0% mode=gate band=10%
+-- PASS example-large-model/multi-data-calls.max baseline=28 current=28 change=0% mode=gate band=10%
+-- PASS example-large-model/requested-rows.p95 baseline=14 current=14 change=0% mode=gate band=10%
+-- PASS example-large-model/requested-rows.max baseline=14 current=14 change=0% mode=gate band=10%
+-- PASS example-large-model/viewport-paints.p95 baseline=2 current=2 change=0% mode=gate band=10%
+-- PASS example-large-model/viewport-paints.max baseline=2 current=2 change=0% mode=gate band=10%
+-- OBSERVE example-large-model

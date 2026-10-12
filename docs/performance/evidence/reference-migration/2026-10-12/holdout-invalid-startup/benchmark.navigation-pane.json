@@ -1,0 +1,90 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "6a78a6c5031d910b7a6565a4e8df27fd03643512",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:d9c4d03b3c3ef2caad176ed0381eb947574b01cadfef08e86df0be9af9ffcedf",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "descendants": {
+            "count": 1,
+            "max": 47,
+            "p50": 47,
+            "p95": 47,
+            "unit": "count"
+        },
+        "frame-time": {
+            "count": 120,
+            "max": 8.795063,
+            "p50": 8.322494,
+            "p95": 8.562129,
+            "unit": "ms"
+        },
+        "mapping-time": {
+            "count": 1000,
+            "max": 6.027,
+            "p50": 1.142,
+            "p95": 1.417,
+            "unit": "us"
+        },
+        "paint-complexity-ratio": {
+            "count": 1,
+            "max": 0.964449188865706,
+            "p50": 0.964449188865706,
+            "p95": 0.964449188865706,
+            "unit": "ratio"
+        },
+        "projections-per-pane": {
+            "count": 1,
+            "max": 2,
+            "p50": 2,
+            "p95": 2,
+            "unit": "count"
+        },
+        "render-time": {
+            "count": 120,
+            "max": 8.703708,
+            "p50": 8.237857,
+            "p95": 8.474067,
+            "unit": "ms"
+        },
+        "reset-time": {
+            "count": 20,
+            "max": 17.421089,
+            "p50": 16.679827,
+            "p95": 17.220799,
+            "unit": "ms"
+        },
+        "state-update-time": {
+            "count": 120,
+            "max": 0.109644,
+            "p50": 0.084254,
+            "p95": 0.098113,
+            "unit": "ms"
+        },
+        "views-per-pane": {
+            "count": 1,
+            "max": 2,
+            "p50": 2,
+            "p95": 2,
+            "unit": "count"
+        }
+    },
+    "scenario": "navigation-pane",
+    "schemaVersion": 1,
+    "warmupIterations": 10
+}

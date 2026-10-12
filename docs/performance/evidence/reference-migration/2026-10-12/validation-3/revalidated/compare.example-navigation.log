@@ -1,0 +1,3 @@
+-- PASS example-navigation/latency.p95 baseline=10.884383 current=10.537096999999999 change=-3% mode=gate band=10%
+-- PASS example-navigation/latency.max baseline=19.212368999999999 current=15.613807 change=-18% mode=observe band=10%
+-- PASS example-navigation

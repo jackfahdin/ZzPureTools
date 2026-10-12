@@ -1,0 +1,13 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/build/qt-precision-sdk-JHwE5eyb/tests/qeventdispatcher
+    Start 1: tst_qeventdispatcher
+1/2 Test #1: tst_qeventdispatcher .............   Passed    0.64 sec
+    Start 2: tst_qeventdispatcher_no_glib
+2/2 Test #2: tst_qeventdispatcher_no_glib .....   Passed    0.93 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+tst_qeventdispatcher            =   0.64 sec*proc (1 test)
+tst_qeventdispatcher_no_glib    =   0.93 sec*proc (1 test)
+
+Total Test time (real) =   1.57 sec

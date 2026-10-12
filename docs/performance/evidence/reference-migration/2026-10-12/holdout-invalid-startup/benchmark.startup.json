@@ -1,0 +1,62 @@
+{
+    "build": {
+        "buildType": "Release",
+        "commit": "1548d4b5ce0b5e498d46654d2f9461b27c057a3a",
+        "lto": true,
+        "preset": "linux-gcc-benchmarks",
+        "sanitizers": "none",
+        "shared": true
+    },
+    "environment": {
+        "compiler": "GNU 15.2.0",
+        "cpu": "Intel(R) Core(TM) i7-14700",
+        "dpr": 1,
+        "gpu": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+        "memoryBytes": 32682016768,
+        "os": "Ubuntu 26.04.1 LTS",
+        "qtVersion": "6.11.1",
+        "refreshRateHz": 60,
+        "runnerImageDigest": "sha256:d9c4d03b3c3ef2caad176ed0381eb947574b01cadfef08e86df0be9af9ffcedf",
+        "windowSystem": "xcb"
+    },
+    "metrics": {
+        "external-total": {
+            "count": 30,
+            "max": 21.405697,
+            "p50": 20.930923,
+            "p95": 21.267314,
+            "unit": "ms"
+        },
+        "first-paint": {
+            "count": 30,
+            "max": 14.562651,
+            "p50": 14.280191,
+            "p95": 14.531396,
+            "unit": "ms"
+        },
+        "modules-started": {
+            "count": 30,
+            "max": 2.4857,
+            "p50": 2.402893,
+            "p95": 2.469426,
+            "unit": "ms"
+        },
+        "page-created": {
+            "count": 30,
+            "max": 13.508597,
+            "p50": 13.215808,
+            "p95": 13.477786,
+            "unit": "ms"
+        },
+        "qt-created": {
+            "count": 30,
+            "max": 2.466142,
+            "p50": 2.386919,
+            "p95": 2.452986,
+            "unit": "ms"
+        }
+    },
+    "scenario": "startup",
+    "schemaVersion": 1,
+    "warmupIterations": 5
+}

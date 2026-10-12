@@ -1,0 +1,60 @@
+{
+  "purpose": "isolated normally linked Qt SDK validation; not the historical active reference",
+  "cpu": "Intel(R) Core(TM) i7-14700",
+  "os": "Ubuntu 26.04.1 LTS",
+  "kernel": "7.0.0-38-generic",
+  "renderer": "Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24",
+  "mesaPackage": "26.0.8-1ubuntu0.3",
+  "xvfbPackage": "2:21.1.22-1ubuntu1.2",
+  "glib": "2.88.0",
+  "qt": "6.11.1",
+  "compiler": "GNU 15.2.0",
+  "qtBuild": {
+    "modules": ["qtbase", "qtsvg", "qttools"],
+    "buildType": "Release",
+    "glib": true,
+    "xcb": true,
+    "xkbcommonX11": true,
+    "xcbEglPlugin": true,
+    "xcbGlxPlugin": false,
+    "linguist": true,
+    "assistant": false,
+    "designer": false,
+    "qdoc": false,
+    "distancefieldgenerator": false,
+    "pixeltool": false,
+    "sdkPrefix": "build/qt-precision-sdk-JHwE5eyb/install",
+    "sha256": {
+      "libQt6Core.so.6.11.1": "36f04c593959c309230ef3d54fc50d2c4d0074cccdfc0e6367d5ee9bbc7ed8d3",
+      "libQt6Gui.so.6.11.1": "3ab98c05b4b1fb6b0aba2401705865045055ae91371d61a38afce6488ac367ba",
+      "libQt6Widgets.so.6.11.1": "474e8664e4fc96b9be3c888134a9141525f97941e5b0dac9eaee5c9a43675e83",
+      "libQt6XcbQpa.so.6.11.1": "b4f81b085338a2d56b9d60b6fbb5be32a4336d38ec9835ebde79140df45bd6ab",
+      "libQt6Svg.so.6.11.1": "b84ccd9a56c46f120e3c7f8ddd0d637465ef1ec8557e51ccc9431a5434943d6c"
+    },
+    "patchSha256": {
+      "qtbase-6.11.1-timer-wait.patch": "2231fd6b0090900b0031d018ba41b6886dbc815628151123c48b3d0a69b51962",
+      "qtbase-6.11.1-glib-ready-time.patch": "a73fb8eda0e1eb4a965d0e5575283e1ef4714d6bdcca624ce7fdab782f5d403e"
+    }
+  },
+  "frameworkBuild": {
+    "commit": "6f28ac68d9659bd68caeef0dc461fc78a7547768",
+    "preset": "linux-gcc-benchmarks",
+    "binaryDir": "build/linux-gcc-qt-precision",
+    "buildType": "Release",
+    "shared": true,
+    "lto": true,
+    "sanitizers": "none"
+  },
+  "runtime": {
+    "qtPlatform": "xcb",
+    "glib": "default enabled",
+    "preload": false,
+    "diagnosticTimerOverrides": false,
+    "mitShm": "default enabled",
+    "xvfbCpu": 8,
+    "benchmarkCpu": 10,
+    "parallelism": 1,
+    "geometry": "1920x1080x24",
+    "dpr": 1
+  }
+}

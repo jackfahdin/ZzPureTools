@@ -1,18 +1,48 @@
 # Linux 性能参考档案与基线
 
-## 2026-10-12 复核状态
+## 2026-10-12 活动基线迁移
 
-历史参考档案和十二份报告保持原样。当前本机已经升级到 kernel
-`7.0.0-38-generic` / Mesa `26.0.8`，与下文记录的参考环境不同；
-**相对性能门禁待复核，当前主机的绝对门限测试不能代替相对门禁通过。**
+经确认，历史 Mesa 26.0.3 档案、十二份报告及其门限原样归档到
+[`archive/2026-10-12-mesa-26.0.3/`](archive/2026-10-12-mesa-26.0.3/)。
+活动目录现在包含同一次采集的十六份报告，已补齐工作区、标准表面、材质层和仪表动画。
+报告完整性契约通过；旧环境报告没有混入新基线。
 
-十六个正式场景中仍缺少 `workspace-components`、`fluent-standard-surfaces`、
-`backdrop`、`radial-gauge-animation` 四份参考报告。完整性契约继续失败关闭，
-普通 CI 也会受此阻断。不得复制其他环境的数据补齐，或使用旧档案摘要冒充当前环境。
-后续应在原参考环境补采，或另行批准完整的环境迁移并重采全部场景。
+| 活动身份 | 值 |
+|---|---|
+| 被测源码 | `1548d4b5ce0b5e498d46654d2f9461b27c057a3a` |
+| runner 档案 SHA-256 | `d9c4d03b3c3ef2caad176ed0381eb947574b01cadfef08e86df0be9af9ffcedf` |
+| 系统 / renderer | Ubuntu 26.04.1，kernel 7.0.0-38，Mesa llvmpipe 26.0.8 / LLVM 21.1.8 |
+| SDK | 独立 Qt 6.11.1，应用 timerWait 与 GLib ready_time 补丁；正常链接，默认 GLib |
+| 构建 | GCC 15.2，Release，共享库，LTO；`linux-gcc-reference` |
+| 执行 | Xvfb CPU 8，基准 CPU 10，1920×1080×24，xcb，DPR 1，串行 |
 
-本次代码修复、本机实测和剩余问题见
-[CI 与性能门禁复核记录](CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)。
+采集阶段 51/51 CTest 通过；为引导新基线只排除了当时缺报告的完整性契约，
+24 项绝对门禁全部执行。三轮后续验证各 52/52 通过，原始相对比较在前两轮
+仅 Tab 状态耗时失败，第三轮全部通过。新增 Tab 状态 1 ms 预算后，采集及三轮
+保存的报告各通过 25 项绝对门禁与 16 场景相对比较。独立复测结果及全部原始日志见
+[迁移证据](evidence/reference-migration/2026-10-12/README.md)。
+
+收尾过程中又修复启动探针的异步焦点竞态，并完成活动切换的完整跨轮校准。
+最终在 `7fffaa1030abed28f1b7b8e5feac6728548a250d` 上，从空报告目录执行独立
+验收：**55/55 CTest、26 项绝对门禁、16/16 场景相对比较全部通过**。
+中途失败记录保留，未用原始失败轮次宣称通过。
+
+相对策略仅调整两项，各有独立 P95 ≤ 1 ms 预算：
+
+| 指标 | 校准 | 策略与测量范围 |
+|---|---|---|
+| `tab-state-time.p95` | 四轮 0.023097–0.033249 ms，噪声 44% | observe 44%；200 个标签中单个标签的四项状态更新 |
+| `activity-activation-time.p95` | 后续四轮完整报告 0.153810–0.190087 ms，噪声 24% | observe 24%；32 个侧面板中一次活动激活的同步处理，不含后续绘制 |
+
+1 ms 约占一帧预算的 6%，是同步操作预算，不再承诺拦截预算内的 10% 退化。
+其余相对策略原样保留，未整份采纳噪声工具候选；动画仍为 16.7 ms，
+布局增长仍为 20 倍。活动切换预算使当前绝对门禁数量增至 26 项。
+
+新基线依赖该独立 SDK，**原安装 SDK 的精度问题不会因更新 JSON 自动消失**。
+SDK 路径、补丁和库摘要在活动 profile 中登记，构建与复现步骤见
+[SDK 验证记录](evidence/qt-precision-sdk/2026-10-12/README.md)。
+此 SDK 不含 QtMultimedia，因此本轮不覆盖可选的真实音频源测试。
+Linux 本机结果不代表 Windows/macOS 真机或远端 CI 已通过。
 
 ## 档案选择
 
@@ -20,7 +50,7 @@
 
 | 档案 | 状态 | 用途 |
 |---|---|---|
-| `local-release-xvfb` | 保留历史基线；当前主机环境不匹配，待复核 | 原参考环境的本地发布性能门禁 |
+| `local-release-xvfb` | 已迁移至 Mesa 26.0.8 与独立精度修复 SDK | 本机发布性能门禁，须匹配完整活动指纹 |
 | `ubuntu2204-github-ci` | 待用户在 GitHub 或新主机验证 | 原规划的 Ubuntu 22.04 兼容 CI 参考档案 |
 
 负责人于 2026-08-05 确认：现阶段只有当前主机，因此选用 `local-release-xvfb` 作为发布参考档案。以后上传 GitHub 或购置新主机时，先完成 `ubuntu2204-github-ci` 的独立验证，再决定是否切换活动档案。切换不得删除本机档案及其 Git 历史，也不得把两个档案的 JSON 混为同一基线。
@@ -32,7 +62,9 @@ Linux runner 同样遵循该选择：`scripts/ci/run-linux-gates.sh` 在当前�
 - `docs/performance/profiles/local-release-xvfb.json`
 - `docs/performance/profiles/ubuntu2204-github-ci.json`
 
-## 历史基线的参考环境
+## 历史基线的参考环境（2026-08-26，已归档）
+
+本节至“Governor 可逆对照实验”保存旧环境的验证记录，数值不代表当前活动基线。
 
 seat0 KDE Wayland 会话使用 Intel UHD 770 硬件合成，但主机当前没有连接物理显示器，Qt 只能看到 0×0 output，无法完成窗口 exposed 验收。因此自动性能门禁固定使用同机专用 Xvfb，不使用 SSH 转发 display，也不把 Intel GPU 冒充为 benchmark renderer。
 
@@ -69,7 +101,7 @@ sha256sum docs/performance/profiles/local-release-xvfb.json
 
 任何档案字段变化都会改变 digest，并强制重新采集十六份基线。该 digest 只表示经过版本控制的物理 runner 档案，不表示容器镜像。
 
-## 保留的历史活动基线
+## 保留的历史基线
 
 本机活动基线原于 2026-08-10 建立。由于系统升级到 Ubuntu 26.04.1 LTS，
 2026-08-26 按更新后的参考档案重新采集十二份报告；旧报告保留 Git 历史，
@@ -171,20 +203,26 @@ Windows/macOS 真机验收。
 export ZZ_BENCHMARK_COMMIT="$(git rev-parse --verify HEAD)"
 export ZZ_RUNNER_IMAGE_DIGEST="sha256:$(sha256sum \
   docs/performance/profiles/local-release-xvfb.json | awk '{print $1}')"
-export ZZ_GPU_IDENTITY="Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.3 Xvfb 1920x1080x24"
+export ZZ_GPU_IDENTITY="Mesa llvmpipe LLVM 21.1.8 Mesa 26.0.8 Xvfb 1920x1080x24"
 export GCC_13=/usr/bin/gcc-15
 export GXX_13=/usr/bin/g++-15
-export QT_ROOT=/home/zz/Qt/6.11.1/gcc_64
+export QT_ROOT=/home/zz/.local/share/ZzPureTools/qt-6.11.1-precision-JHwE5eyb
+export QT_QPA_PLATFORM=xcb
 
 cmake --preset linux-gcc-reference \
-  -DXKB_INCLUDE_DIR="$PWD/build/dependencies/xkbcommon/root/usr/include" \
+  -DXKB_INCLUDE_DIR="$PWD/build/qt-precision-sdk-JHwE5eyb/dependencies/root/usr/include" \
   -DXKB_LIBRARY=/usr/lib/x86_64-linux-gnu/libxkbcommon.so.0
 cmake --build --preset linux-gcc-reference
-taskset -c 8 xvfb-run -a \
+env -u LD_PRELOAD -u QT_NO_GLIB -u QT_XCB_NO_MITSHM \
+  taskset -c 8 xvfb-run -a \
   -s '-screen 0 1920x1080x24 -nolisten tcp' \
   taskset -c 10 ctest --preset linux-gcc-reference \
     -L benchmark --output-on-failure -j1
 ```
+
+上述路径仅适用于已登记的活动主机。先按 [SDK 说明](evidence/qt-precision-sdk/2026-10-12/README.md)
+核对实际 SDK 与依赖摘要，再生成身份字段；禁止把原安装 SDK 的结果标为新 profile。
+采样前须归档并清空 reports，实际更新基线使用捕获脚本的批次校验。
 
 CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，被测进程固定到另一物理 P-core 的逻辑 CPU 10。这样避免显示服务与 GUI 进程互相抢占同一物理核心，也避免调度迁移把数十微秒噪声计入 16.7 ms 动画 P95。不得在缺少 `taskset`、CPU 编号变化或亲和性设置失败时降级运行；必须更新档案、提交并重新采集。
 
@@ -228,7 +266,7 @@ CPU 亲和性是本机参考档案的一部分：Xvfb 固定到逻辑 CPU 8，�
 | `build/linux-gcc-reference/reports/benchmark.example-large-model.json` | `docs/performance/reference/linux/example-large-model.json` |
 | `build/linux-gcc-reference/reports/benchmark.example-idle.json` | `docs/performance/reference/linux/example-idle.json` |
 
-十六份 JSON 只能逐字复制 reporter 输出，不得手改数值。后接入的四个场景（工作区组件、标准控件面板、软件材质层、仪表动画）用 `scripts/ci/capture-linux-performance-reference.sh` 在参考机上完成捕获，脚本先跑完整 benchmark 轮次（含全部绝对门禁），再把报告逐字复制到活动基线目录。复制前必须满足组件与综合示例启动 P95/max 不超过 300 ms，组件与综合示例主题切换 P95 不超过 50 ms，综合示例页面切换 P95 不超过 50 ms，动画、仪表动画、组件与综合示例大模型 P95 不超过 16.7 ms，导航整帧 P95 不超过 12 ms，绘制复杂度不超过 1.5 倍，导航 reset P95 不超过 80 ms，工作区渲染 P95 不超过 12 ms、跨工作区转移 P95 不超过 4 ms 且对象零增长，标准控件面板状态更新 P95 不超过 12 ms、整窗渲染 P95 不超过 50 ms，材质层启用与重建 P95 不超过 50 ms，两项空闲 CPU 均严格低于 0.5%、RSS 增长均不超过 10%，并完成窗口生命周期计数和对应 ASan/UBSan 门禁。
+十六份 JSON 只能逐字复制 reporter 输出，不得手改数值。完整采集使用 `scripts/ci/capture-linux-performance-reference.sh`，先运行生产者和所有绝对门禁，再验证并发布报告。预算覆盖启动 300 ms、主题/页面切换 50 ms、动画/大模型 16.7 ms、导航整帧 12 ms、导航 reset 80 ms、绘制复杂度 1.5 倍、工作区渲染 12 ms、标签状态更新/活动同步激活各 1 ms、跨工作区转移 4 ms 且对象零增长、标准表面状态更新 12 ms / 整窗渲染 50 ms、材质层启用/重建 50 ms。两项空闲 CPU 均严格低于 0.5%，RSS 增长不超过 10%；还须完成窗口生命周期计数和对应 ASan/UBSan 门禁。各项 P95/max 的具体接线以 CTest reference-gate 命令为准。
 
 ## 跨轮噪声与相对回归门限
 
@@ -246,7 +284,7 @@ cmake \
 
 工具对每个字段计算 `((max-min)/min)*100` 的向上取整结果。`schemaVersion: 2`
 先按 `metricKind` 约束策略，再用噪声选择门限带：`ms`、`us` 是
-`statistical-duration`，`count`、`ratio` 是 `deterministic`，`bytes`、`percent`
+`statistical-duration`，`count`、`ratio`、`px`、`objects` 是 `deterministic`，`bytes`、`percent`
 是 `sampled-resource`。统计耗时 P95 在噪声不超过 10% 时使用 10% gate，超过 10%
 时记录实测向上取整值为 observe；max 始终 observe。确定性和采样资源字段在不超过
 10% 时使用 10% gate，10% 至 20% 使用实测 gate，超过 20% 则候选生成失败，必须修复
@@ -257,6 +295,8 @@ benchmark 或运行环境，不能自动降为 observe。实测噪声超过 100%
 绝对 reference gate 已通过后，才向比较器传入
 `ZZ_ABSOLUTE_GATES_VERIFIED=TRUE`，允许该字段通过相对比较。缺少该证明仍按
 `new-nonzero` 失败关闭，`deterministic` 指标不适用此例外。
+噪声分析器采用相同的零资源例外：调用者核实所有输入轮次的绝对门禁后，
+可显式传入该证明；候选仍保持 gate/10%，不会把资源增长降为 observe。
 候选文件不得直接覆盖正式策略，必须结合原始三轮报告人工审核。
 
 2026-08-11 在源码 `9b79f65cd107fdd25d99cbfb9e7528c69ea74c29` 上完成三轮校准，每轮 23/23 benchmark 与契约测试通过，单轮约 113 秒。原始报告保留在本机 `build/noise/round-{1,2,3}`，不进入版本库。审核结果如下：

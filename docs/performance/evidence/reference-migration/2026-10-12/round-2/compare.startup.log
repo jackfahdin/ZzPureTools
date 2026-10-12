@@ -1,0 +1,11 @@
+-- PASS startup/external-total.p95 baseline=21.528300000000002 current=21.467621000000001 change=-0% mode=gate band=10%
+-- PASS startup/external-total.max baseline=22.620903999999999 current=21.477819 change=-5% mode=observe band=10%
+-- PASS startup/first-paint.p95 baseline=14.509981 current=14.568883 change=0% mode=gate band=10%
+-- PASS startup/first-paint.max baseline=15.824142999999999 current=14.582976 change=-7% mode=observe band=10%
+-- PASS startup/modules-started.p95 baseline=2.4864329999999999 current=2.5134859999999999 change=1% mode=gate band=10%
+-- PASS startup/modules-started.max baseline=3.4056920000000002 current=2.5218940000000001 change=-25% mode=observe band=10%
+-- PASS startup/page-created.p95 baseline=13.386818999999999 current=13.494783 change=0% mode=gate band=10%
+-- PASS startup/page-created.max baseline=14.738583 current=13.506029 change=-8% mode=observe band=10%
+-- PASS startup/qt-created.p95 baseline=2.4701870000000001 current=2.4979789999999999 change=1% mode=gate band=10%
+-- PASS startup/qt-created.max baseline=3.3897469999999998 current=2.4997940000000001 change=-26% mode=observe band=10%
+-- PASS startup
