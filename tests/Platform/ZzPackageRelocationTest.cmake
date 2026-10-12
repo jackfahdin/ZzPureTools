@@ -55,9 +55,12 @@ set(prefix_a "${ZZ_TEST_ROOT}/prefix-a")
 set(prefix_b "${ZZ_TEST_ROOT}/prefix-b")
 set(install_consumer "${ZZ_TEST_ROOT}/install-consumer")
 set(header_consumer "${ZZ_TEST_ROOT}/public-header-consumer")
+set(starter_source "${ZZ_TEST_ROOT}/starter-source")
+set(starter_build "${ZZ_TEST_ROOT}/starter-build")
 file(REMOVE_RECURSE
     "${producer}" "${prefix_a}" "${prefix_b}"
-    "${install_consumer}" "${header_consumer}")
+    "${install_consumer}" "${header_consumer}"
+    "${starter_source}" "${starter_build}")
 
 set(generator_args -G "${ZZ_GENERATOR}")
 if(NOT "${ZZ_GENERATOR_PLATFORM}" STREQUAL "")
@@ -182,7 +185,26 @@ zz_run("public header consumer build" "${CMAKE_COMMAND}"
     --target ZzInstalledPublicHeaders
     --parallel "${zz_nested_build_parallelism}")
 
-foreach(consumer_dir IN ITEMS "${install_consumer}" "${header_consumer}")
+# Build a copied application against the relocated prefix, with prefix A absent.
+file(COPY "${ZZ_SOURCE_DIR}/examples/ZzApplicationStarter/"
+    DESTINATION "${starter_source}")
+zz_run("relocated starter configure" "${CMAKE_COMMAND}"
+    -S "${starter_source}" -B "${starter_build}"
+    ${generator_args} ${toolchain_args}
+    "-DCMAKE_PREFIX_PATH:STRING=${consumer_prefix}"
+    "-DZzPureToolsFrame_DIR:PATH=${package_config_dir}"
+    -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
+    -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF
+    -DBUILD_TESTING:BOOL=ON)
+zz_run("relocated starter build" "${CMAKE_COMMAND}"
+    --build "${starter_build}" ${build_config_args}
+    --parallel "${zz_nested_build_parallelism}")
+zz_run("relocated starter test" "${ZZ_CTEST_COMMAND}"
+    --test-dir "${starter_build}" ${ctest_config_args}
+    --output-on-failure)
+
+foreach(consumer_dir IN ITEMS "${install_consumer}" "${header_consumer}"
+        "${starter_build}")
     file(STRINGS "${consumer_dir}/CMakeCache.txt" package_dir_entries
         REGEX "^ZzPureToolsFrame_DIR:[^=]*=")
     list(LENGTH package_dir_entries package_dir_entry_count)
