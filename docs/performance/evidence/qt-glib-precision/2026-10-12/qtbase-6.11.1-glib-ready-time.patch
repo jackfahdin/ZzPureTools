@@ -1,0 +1,119 @@
+diff --git a/src/corelib/kernel/qeventdispatcher_glib.cpp b/src/corelib/kernel/qeventdispatcher_glib.cpp
+index 2a98f40..c4a0a4b 100644
+--- a/src/corelib/kernel/qeventdispatcher_glib.cpp
++++ b/src/corelib/kernel/qeventdispatcher_glib.cpp
+@@ -96,19 +96,39 @@ struct GTimerSource
+     QTimerInfoList timerList;
+     QEventLoop::ProcessEventsFlags processEventsFlags;
+     bool runWithIdlePriority;
++    qint64 lastDeadline;
+ };
+ 
+-static gboolean timerSourcePrepareHelper(GTimerSource *src, gint *timeout)
++static gboolean timerSourcePrepareHelper(GTimerSource *src, GSource *source,
++                                        qint64 &lastDeadline, gint *timeout)
+ {
+-    if (src->processEventsFlags & QEventLoop::X11ExcludeTimers) {
++    if (timeout)
+         *timeout = -1;
++    if (src->processEventsFlags & QEventLoop::X11ExcludeTimers) {
++        g_source_set_ready_time(source, -1);
+         return true;
+     }
+ 
+-    auto remaining = src->timerList.timerWait().value_or(-1ms);
+-    *timeout = q26::saturating_cast<gint>(ceil<milliseconds>(remaining).count());
++    const auto remaining = src->timerList.timerWait();
++    if (!remaining) {
++        g_source_set_ready_time(source, -1);
++        return false;
++    }
+ 
+-    return (*timeout == 0);
++    // The prepare timeout is milliseconds; ready_time lets GLib retain
++    // microsecond precision on backends that support it.
++    const auto delay = ceil<microseconds>(*remaining).count();
++    const auto deadline = (src->timerList.currentTime + *remaining).time_since_epoch().count();
++    if (delay == 0) {
++        g_source_set_ready_time(source, 0);
++    } else if (g_source_get_ready_time(source) == -1 || lastDeadline != deadline) {
++        // Setting a changed ready_time wakes the context. Map an unchanged Qt
++        // deadline only once, avoiding prepare/poll self-wakeup loops and
++        // avoiding assumptions about the epochs of the two monotonic clocks.
++        lastDeadline = deadline;
++        g_source_set_ready_time(source, g_get_monotonic_time() + delay);
++    }
++    return delay == 0;
+ }
+ 
+ static gboolean timerSourceCheckHelper(GTimerSource *src)
+@@ -128,12 +148,13 @@ static gboolean timerSourcePrepare(GSource *source, gint *timeout)
+ 
+     GTimerSource *src = reinterpret_cast<GTimerSource *>(source);
+     if (src->runWithIdlePriority) {
++        g_source_set_ready_time(source, -1);
+         if (timeout)
+             *timeout = -1;
+         return false;
+     }
+ 
+-    return timerSourcePrepareHelper(src, timeout);
++    return timerSourcePrepareHelper(src, source, src->lastDeadline, timeout);
+ }
+ 
+ static gboolean timerSourceCheck(GSource *source)
+@@ -146,6 +167,7 @@ static gboolean timerSourceCheck(GSource *source)
+ 
+ static gboolean timerSourceDispatch(GSource *source, GSourceFunc, gpointer)
+ {
++    g_source_set_ready_time(source, -1);
+     GTimerSource *timerSource = reinterpret_cast<GTimerSource *>(source);
+     if (timerSource->processEventsFlags & QEventLoop::X11ExcludeTimers)
+         return true;
+@@ -167,6 +189,7 @@ struct GIdleTimerSource
+ {
+     GSource source;
+     GTimerSource *timerSource;
++    qint64 lastDeadline;
+ };
+ 
+ static gboolean idleTimerSourcePrepare(GSource *source, gint *timeout)
+@@ -175,12 +198,13 @@ static gboolean idleTimerSourcePrepare(GSource *source, gint *timeout)
+     GTimerSource *timerSource = idleTimerSource->timerSource;
+     if (!timerSource->runWithIdlePriority) {
+         // Yield to the normal priority timer source
++        g_source_set_ready_time(source, -1);
+         if (timeout)
+             *timeout = -1;
+         return false;
+     }
+ 
+-    return timerSourcePrepareHelper(timerSource, timeout);
++    return timerSourcePrepareHelper(timerSource, source, idleTimerSource->lastDeadline, timeout);
+ }
+ 
+ static gboolean idleTimerSourceCheck(GSource *source)
+@@ -196,6 +220,7 @@ static gboolean idleTimerSourceCheck(GSource *source)
+ 
+ static gboolean idleTimerSourceDispatch(GSource *source, GSourceFunc, gpointer)
+ {
++    g_source_set_ready_time(source, -1);
+     GTimerSource *timerSource = reinterpret_cast<GIdleTimerSource *>(source)->timerSource;
+     (void) timerSourceDispatch(&timerSource->source, nullptr, nullptr);
+     return true;
+@@ -314,6 +339,7 @@ QEventDispatcherGlibPrivate::QEventDispatcherGlibPrivate(GMainContext *context)
+     (void) new (&timerSource->timerList) QTimerInfoList();
+     timerSource->processEventsFlags = QEventLoop::AllEvents;
+     timerSource->runWithIdlePriority = false;
++    timerSource->lastDeadline = 0;
+     g_source_set_can_recurse(&timerSource->source, true);
+     g_source_attach(&timerSource->source, mainContext);
+ 
+@@ -321,6 +347,7 @@ QEventDispatcherGlibPrivate::QEventDispatcherGlibPrivate(GMainContext *context)
+     g_source_set_name(source, "[Qt] GIdleTimerSource");
+     idleTimerSource = reinterpret_cast<GIdleTimerSource *>(source);
+     idleTimerSource->timerSource = timerSource;
++    idleTimerSource->lastDeadline = 0;
+     g_source_set_can_recurse(&idleTimerSource->source, true);
+     g_source_attach(&idleTimerSource->source, mainContext);
+ }
