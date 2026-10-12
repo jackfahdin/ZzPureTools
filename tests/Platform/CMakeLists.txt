@@ -120,6 +120,16 @@ add_test(NAME platform.performance-threshold-contract
 set_tests_properties(platform.performance-threshold-contract PROPERTIES
     LABELS "platform;contract;benchmark")
 
+if(UNIX)
+    add_test(NAME platform.performance-capture-contract
+        COMMAND "${CMAKE_COMMAND}"
+            "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+            "-DZZ_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/performance-capture-contract"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPerformanceCaptureContract.cmake")
+    set_tests_properties(platform.performance-capture-contract PROPERTIES
+        LABELS "platform;contract")
+endif()
+
 add_test(NAME platform.github-actions-contract
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"

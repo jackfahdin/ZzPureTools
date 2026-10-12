@@ -37,7 +37,13 @@ for arg in "$@"; do
   if [[ "$arg" == "--force" ]]; then
     force=1
   else
-    scenarios+=("$arg")
+    case "$arg" in
+      startup|theme-switch|animation|large-model|window-lifecycle|navigation-pane|\
+      workspace-components|fluent-standard-surfaces|backdrop|radial-gauge-animation|\
+      idle|example-startup|example-navigation|example-theme-switch|example-large-model|example-idle)
+        scenarios+=("$arg") ;;
+      *) echo "unknown performance scenario: $arg" >&2; exit 64 ;;
+    esac
   fi
 done
 if [[ ${#scenarios[@]} -eq 0 ]]; then
@@ -60,21 +66,19 @@ done
 
 cmake --preset "$preset" -DCMAKE_BUILD_WITH_INSTALL_RPATH=OFF
 cmake --build --preset "$preset" --parallel
-taskset -c 10 ctest --preset "$preset" -L benchmark --output-on-failure -j1
-
+# Do not accept reports left by an earlier run, even if a producer is removed
+# from CTest by mistake. Only the explicitly selected generated files are removed.
 for scenario in "${scenarios[@]}"; do
-  report="$reports_dir/benchmark.$scenario.json"
-  [[ -f "$report" ]] || {
-    echo "missing report: $report" >&2
-    exit 1
-  }
-  reported=$(cmake -P /dev/stdin <<<"file(READ \"$report\" j); string(JSON s GET \"\${j}\" scenario); message(\"\${s}\")" 2>&1 | tail -1)
-  [[ "$reported" == "$scenario" ]] || {
-    echo "report scenario mismatch: $reported != $scenario" >&2
-    exit 1
-  }
-  cmake -E copy "$report" "$reference_dir/$scenario.json"
-  echo "captured baseline: $reference_dir/$scenario.json"
+  cmake -E rm -f "$reports_dir/benchmark.$scenario.json"
 done
+# The threshold contract requires the baselines we are about to create. Exclude
+# only that contract during bootstrap; all producers and absolute gates still run.
+taskset -c 10 ctest --preset "$preset" -L benchmark \
+  -E '^platform.performance-threshold-contract$' --output-on-failure -j1
+
+scenario_list=$(IFS=';'; echo "${scenarios[*]}")
+cmake "-DZZ_REPORT_DIR=$reports_dir" "-DZZ_REFERENCE_DIR=$reference_dir" \
+  "-DZZ_SCENARIOS=$scenario_list" "-DZZ_COMMIT=$ZZ_BENCHMARK_COMMIT" \
+  "-DZZ_FORCE=$force" -P "$source_dir/scripts/ci/ZzCapturePerformanceReference.cmake"
 
 echo "下一步：提交 reference/linux/ 下新增基线，再运行 scripts/ci/run-linux-gates.sh"
