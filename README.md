@@ -121,7 +121,7 @@ ctest --preset windows-msvc2022-release -C Release --output-on-failure
 
 </details>
 
-当前完整 CTest 会被缺失参考报告的契约阻断，具体情况见[质量状态](#-质量状态)。
+性能参考报告现已补齐，本机验证与平台限制见[质量状态](#-质量状态)。
 更多平台、静态库、LTO、clang-tidy 与 sanitizer 配置见
 [构建手册](docs/development/BUILDING_ZH.md)。本机路径请放在环境变量或不入库的
 `CMakeUserPresets.json` 中，参考[本机配置示例](CMakeUserPresets.json.example)。
@@ -161,32 +161,33 @@ CTest 覆盖单元测试、公共头独立编译、架构边界、安装消费�
 macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 启动检查与真实桌面交互验收分别记录。
 
-**2026-10-12 复核快照：**
+**2026-10-12 本机验证快照：**
 
 | 检查 | 已验证的状态 |
 |---|---|
-| ✅ 历史完整 CI 矩阵 | [`a9396b1`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780) 全部成功，已发布五个平台示例 |
-| ✅ 本机接入回归 | GCC 15.2 / Qt 6.11 Release + LTO 构建通过；263 项非性能回归首轮 261 项通过，两项契约登记遗漏已修复并定向复验通过 |
-| ✅ 独立安装包接入 | 全新安装消费通过；搬迁安装目录并移除原前缀后，复制出的 Starter 编译与 smoke 通过 |
-| ✅ 性能门禁自测 | 比较器、噪声分析与参考校验器自测通过；失败轮次独立留档，正式入口拒绝未纳入指纹的诊断参数 |
-| ⚠️ 后续远端 CI | [`f0cf1c0`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38211345718) 配置契约成功，五个平台 job 失败，发布跳过 |
-| ⚠️ 性能绝对门限 | 原 SDK 最新串行复验：仪表 P95 16.760 ms 仍超 16.7 ms，开关 16.623 ms 本轮通过但此前有失败；另有四份参考报告缺失 |
-| ⏳ 相对性能比较 | 保留历史 Mesa 26.0.3 基线；本机已为 26.0.8，环境不匹配，待复核 |
-| ⏳ 真实桌面验收 | Windows、macOS、Linux 的显示与系统集成按各平台清单继续验证 |
+| ✅ 框架回归 | 外置 Qt 6.11.1 精度修复 SDK / GCC 15.2 / Release + LTO：263/263 非性能测试通过；文档与性能脚本契约另行通过 |
+| ✅ 安装包接入 | 安装消费、公共头、包重定位和动态依赖检查通过 |
+| ✅ Qt 定时修复 | 独立完整构建 SDK，正常链接；Qt 原生 7/7 CTest、498 项检查通过，2 项 Windows 专用检查跳过 |
+| ✅ 性能验收 | 独立最终运行 55/55 CTest、26 项绝对门禁、16/16 场景相对比较通过 |
+| ✅ 完整参考基线 | 新环境的 16 份同源报告已启用；旧 Mesa 26.0.3 档案、12 份报告和门限原样归档 |
+| ✅ 启动探针 | 修复首帧早于焦点到达的竞态；真实 XCB 启动与就绪检查各连续 30 轮通过 |
+| ⚠️ 最新已查 CI | [`35ea071`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38244328922) 的 Linux 缺参考、macOS arm64 生命周期及布局增长失败已有本地修复，尚未复核远端矩阵 |
+| 📦 历史成功发布 | [`a9396b1`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780) 完整矩阵成功，发布五个平台示例；不代表当前提交状态 |
+| ⏳ 真实桌面验收 | Windows、macOS 与 Linux 显示/系统集成仍按平台清单验证 |
 
-新增门禁提交 [`0c455de`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38198884242)
-的 Linux 和 macOS arm64 已确认被参考报告完整性契约阻断。
-`f0cf1c0` 的表格只登记 job 结论，未据此推断各平台具体失败原因。
-本轮接入改动保存在本地 `codex/framework-integration-hardening` 分支，尚未推送；
-不能把历史成功状态当作当前提交的全绿证明。
-接入回归与提交拆分见[本轮执行记录](docs/superpowers/plans/2026-10-12-framework-integration-hardening.md#执行记录)，
-性能原始报告与剩余条件见
-[CI 与性能门禁复核记录](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)，
-[仪表逐帧追踪](docs/performance/evidence/frame-timeline/2026-10-12/README.md)
-记录 X11 同步等待；[Qt 定时精度对照](docs/performance/evidence/qt-timer-precision/2026-10-12/README.md)
-定位毫秒取整影响。最新 [GLib 候选修复](docs/performance/evidence/qt-glib-precision/2026-10-12/README.md)
-保持 GLib 后端，将仪表 P95 从约 16.76 ms 降至 16.23 ms，并验证未发生忙等。
-候选尚未集成到正式 Qt SDK，以上正式门禁状态保持不变。
+性能通过依赖[独立精度修复 SDK](docs/performance/evidence/qt-precision-sdk/2026-10-12/README.md)，
+原安装 Qt SDK 没有被修改；本轮 SDK 不含 QtMultimedia，未覆盖真实音频源测试。
+动画仍执行 16.7 ms 预算，布局增长仍限制 20 倍。
+Tab 状态和侧栏活动激活的相对 P95 经多轮校准改为观察，各增加 1 ms 绝对预算；
+预算内的百分比退化仍会记录，但不阻断。
+
+本轮修复与报告已分项提交到本地 `codex/ci-runtime-fixes`，尚未推送。
+没有监控或触发新的 CI；macOS 原生销毁行为仍需对应平台复核。
+[迁移与完整原始证据](docs/performance/evidence/reference-migration/2026-10-12/README.md)
+保留了中途失败、校准依据和最终独立验收；
+[CI 与性能复核](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)
+记录问题与平台边界，[修复计划](docs/superpowers/plans/2026-10-12-ci-runtime-repairs.md)
+记录执行结果。
 
 ## 📚 开发资料
 
