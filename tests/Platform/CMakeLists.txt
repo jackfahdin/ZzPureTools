@@ -128,6 +128,19 @@ set_tests_properties(platform.performance-comparison-contract PROPERTIES
     LABELS "platform;contract;benchmark")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME platform.qt-sdk-build-contract
+        COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/ZzQtSdkBuildTest.sh" "${PROJECT_SOURCE_DIR}")
+    set_tests_properties(platform.qt-sdk-build-contract PROPERTIES
+        LABELS "platform;contract" TIMEOUT 30)
+    add_test(NAME platform.qt-sdk-verify-contract
+        COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/ZzQtSdkVerifyTest.sh" "${PROJECT_SOURCE_DIR}")
+    set_tests_properties(platform.qt-sdk-verify-contract PROPERTIES
+        LABELS "platform;contract" TIMEOUT 30)
+    add_test(NAME platform.qt-sdk-validation-contract
+        COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/ZzQtSdkValidationTest.sh" "${PROJECT_SOURCE_DIR}")
+    set_tests_properties(platform.qt-sdk-validation-contract PROPERTIES
+        LABELS "platform;contract" TIMEOUT 30)
+
     add_test(NAME platform.performance-environment-contract
         COMMAND "${CMAKE_COMMAND}"
             "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
