@@ -1,0 +1,19 @@
+Test project /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/.worktrees/qt-sdk-reproducible/build/linux-qt-sdk-audio
+    Start 222: architecture.documentation-audit
+1/4 Test #222: architecture.documentation-audit ......   Passed    0.39 sec
+    Start 231: platform.qt-sdk-build-contract
+2/4 Test #231: platform.qt-sdk-build-contract ........   Passed    0.20 sec
+    Start 232: platform.qt-sdk-verify-contract
+3/4 Test #232: platform.qt-sdk-verify-contract .......   Passed    0.01 sec
+    Start 233: platform.qt-sdk-validation-contract
+4/4 Test #233: platform.qt-sdk-validation-contract ...   Passed    0.09 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+architecture     =   0.39 sec*proc (1 test)
+contract         =   0.30 sec*proc (3 tests)
+documentation    =   0.39 sec*proc (1 test)
+platform         =   0.30 sec*proc (3 tests)
+
+Total Test time (real) =   0.69 sec

@@ -1,0 +1,28 @@
+-- The CXX compiler identification is GNU 15.2.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/g++-15 - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test ZZ_HAS_REQUIRED_CXX20_LIBRARY
+-- Performing Test ZZ_HAS_REQUIRED_CXX20_LIBRARY - Success
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Found OpenGL: /usr/lib/x86_64-linux-gnu/libOpenGL.so
+-- Found WrapOpenGL: TRUE
+-- Performing Test COMPILER_HAS_HIDDEN_VISIBILITY
+-- Performing Test COMPILER_HAS_HIDDEN_VISIBILITY - Success
+-- Performing Test COMPILER_HAS_HIDDEN_INLINE_VISIBILITY
+-- Performing Test COMPILER_HAS_HIDDEN_INLINE_VISIBILITY - Success
+-- Performing Test COMPILER_HAS_DEPRECATED_ATTR
+-- Performing Test COMPILER_HAS_DEPRECATED_ATTR - Success
+-- Configuring qmsetup...
+-- Building qmsetup (Release)...
+-- Installing qmsetup (Release)...
+-- Configuring done (6.7s)
+-- Generating done (0.3s)
+-- Build files have been written to: /home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/.worktrees/qt-sdk-reproducible/build/linux-qt-sdk-audio

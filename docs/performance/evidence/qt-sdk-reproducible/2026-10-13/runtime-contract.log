@@ -1,0 +1,3 @@
+Foreign Qt runtime: /tmp/zz-sdk-runtime-contract-lIGvMpwA/alien/app loads /tmp/zz-sdk-runtime-contract-lIGvMpwA/alien/lib/libQt6Fixture.so
+Real audio playback did not pass without skips: /tmp/zz-sdk-runtime-contract-lIGvMpwA/skipped.log
+SDK runtime identity and skipped-playback rejection checks passed.

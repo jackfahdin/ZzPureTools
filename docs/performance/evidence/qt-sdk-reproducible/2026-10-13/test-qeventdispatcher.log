@@ -1,0 +1,64 @@
+UpdateCTestConfiguration  from :/home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qeventdispatcher/DartConfiguration.tcl
+Test project /home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qeventdispatcher
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: tst_qeventdispatcher
+
+1: Test command: /home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake "-P" "/home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qeventdispatcher/tst_qeventdispatcherWrapperRelease.cmake"
+1: Working Directory: /home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qeventdispatcher
+1: Test timeout computed to be: 10000000
+1: ********* Start testing of tst_QEventDispatcher *********
+1: Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+1: PASS   : tst_QEventDispatcher::initTestCase()
+1: PASS   : tst_QEventDispatcher::registerTimer()
+1: PASS   : tst_QEventDispatcher::sendPostedEvents(WaitForMoreEvents)
+1: PASS   : tst_QEventDispatcher::sendPostedEvents(AllEvents)
+1: PASS   : tst_QEventDispatcher::processEventsOnlySendsQueuedEvents()
+1: PASS   : tst_QEventDispatcher::postEventFromThread()
+1: QDEBUG : tst_QEventDispatcher::postEventFromEventHandler() "QEventDispatcherGlib"
+1: PASS   : tst_QEventDispatcher::postEventFromEventHandler()
+1: PASS   : tst_QEventDispatcher::postedEventsPingPong()
+1: PASS   : tst_QEventDispatcher::eventLoopExit()
+1: PASS   : tst_QEventDispatcher::interruptTrampling()
+1: PASS   : tst_QEventDispatcher::cleanupTestCase()
+1: Totals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 629ms
+1: ********* Finished testing of tst_QEventDispatcher *********
+1/2 Test #1: tst_qeventdispatcher .............   Passed    0.63 sec
+test 2
+    Start 2: tst_qeventdispatcher_no_glib
+
+2: Test command: /home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake "-P" "/home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qeventdispatcher/tst_qeventdispatcher_no_glibWrapperRelease.cmake"
+2: Working Directory: /home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qeventdispatcher
+2: Test timeout computed to be: 10000000
+2: ********* Start testing of tst_QEventDispatcher_no_glib *********
+2: Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+2: PASS   : tst_QEventDispatcher_no_glib::initTestCase()
+2: PASS   : tst_QEventDispatcher_no_glib::registerTimer()
+2: PASS   : tst_QEventDispatcher_no_glib::sendPostedEvents(WaitForMoreEvents)
+2: PASS   : tst_QEventDispatcher_no_glib::sendPostedEvents(AllEvents)
+2: PASS   : tst_QEventDispatcher_no_glib::processEventsOnlySendsQueuedEvents()
+2: PASS   : tst_QEventDispatcher_no_glib::postEventFromThread()
+2: QDEBUG : tst_QEventDispatcher_no_glib::postEventFromEventHandler() "QEventDispatcherUNIX"
+2: XFAIL  : tst_QEventDispatcher_no_glib::postEventFromEventHandler() QEventDispatcherUNIX
+2:    Loc: [/home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/src/qtbase/tests/auto/corelib/kernel/qeventdispatcher/tst_qeventdispatcher.cpp(471)]
+2: PASS   : tst_QEventDispatcher_no_glib::postEventFromEventHandler()
+2: PASS   : tst_QEventDispatcher_no_glib::postedEventsPingPong()
+2: PASS   : tst_QEventDispatcher_no_glib::eventLoopExit()
+2: PASS   : tst_QEventDispatcher_no_glib::interruptTrampling()
+2: PASS   : tst_QEventDispatcher_no_glib::cleanupTestCase()
+2: Totals: 11 passed, 0 failed, 0 skipped, 0 blacklisted, 874ms
+2: ********* Finished testing of tst_QEventDispatcher_no_glib *********
+2/2 Test #2: tst_qeventdispatcher_no_glib .....   Passed    0.88 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+tst_qeventdispatcher            =   0.63 sec*proc (1 test)
+tst_qeventdispatcher_no_glib    =   0.88 sec*proc (1 test)
+
+Total Test time (real) =   1.51 sec

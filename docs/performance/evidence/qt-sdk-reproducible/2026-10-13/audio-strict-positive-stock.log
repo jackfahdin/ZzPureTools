@@ -1,0 +1,12 @@
+********* Start testing of ZzExampleAudioMeterSourceTest *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 11.5.0 20240719 (Red Hat 11.5.0-11)), ubuntu 26.04
+PASS   : ZzExampleAudioMeterSourceTest::initTestCase()
+QWARN  : ZzExampleAudioMeterSourceTest::simulationFollowsPageVisibility() This plugin does not support propagateSizeHints()
+PASS   : ZzExampleAudioMeterSourceTest::simulationFollowsPageVisibility()
+QINFO  : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden() qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.3 LGPL version 2.1 or later
+QWARN  : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden() This plugin does not support propagateSizeHints()
+QWARN  : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden() This plugin does not support propagateSizeHints()
+PASS   : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden()
+PASS   : ZzExampleAudioMeterSourceTest::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 756ms
+********* Finished testing of ZzExampleAudioMeterSourceTest *********

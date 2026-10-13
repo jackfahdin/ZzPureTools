@@ -1,0 +1,49 @@
+-- The CXX compiler identification is GNU 15.2.0
+-- The C compiler identification is GNU 15.2.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/x86_64-linux-gnu-g++-15 - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/x86_64-linux-gnu-gcc-15 - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Found OpenGL: /usr/lib/x86_64-linux-gnu/libOpenGL.so
+-- Could NOT find Qt6ShaderTools (missing: Qt6ShaderTools_DIR)
+CMake Warning at src/multimedia/CMakeLists.txt:8 (find_package):
+  Found package configuration file:
+
+    /home/zz/.local/share/ZzPureTools/qt-6.11.1-repro-multimedia-yInNRcEC/lib/cmake/Qt6/Qt6Config.cmake
+
+  but it set Qt6_FOUND to FALSE so package "Qt6" is considered to be NOT
+  FOUND.  Reason given by package:
+
+  Failed to find required Qt component "ShaderTools".
+
+  Expected Config file at
+  "/home/zz/.local/share/ZzPureTools/qt-6.11.1-repro-multimedia-yInNRcEC/lib/cmake/Qt6ShaderTools/Qt6ShaderToolsConfig.cmake"
+  does NOT exist
+
+
+
+  Configuring with --debug-find-pkg=Qt6ShaderTools might reveal details why
+  the package was not found.
+
+  Configuring with -DQT_DEBUG_FIND_PACKAGE=ON will print the values of some
+  of the path variables that find_package uses to try and find the package.
+
+
+
+CMake Error at src/multimedia/CMakeLists.txt:460 (qt_internal_add_shaders):
+  Unknown CMake command "qt_internal_add_shaders".
+
+
+-- Configuring incomplete, errors occurred!

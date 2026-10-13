@@ -1,0 +1,46 @@
+UpdateCTestConfiguration  from :/home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qabstractanimation/DartConfiguration.tcl
+Test project /home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qabstractanimation
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: tst_qabstractanimation
+
+1: Test command: /home/zz/Jackfahdin/.local/cmake-4.3.3-linux-x86_64/bin/cmake "-P" "/home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qabstractanimation/tst_qabstractanimationWrapperRelease.cmake"
+1: Working Directory: /home/zz/.cache/ZzPureTools/qt-6.11.1-repro-yInNRcEC/final-build/verification/build/qabstractanimation
+1: Test timeout computed to be: 10000000
+1: ********* Start testing of tst_QAbstractAnimation *********
+1: Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 15.2.0), ubuntu 26.04
+1: PASS   : tst_QAbstractAnimation::initTestCase()
+1: PASS   : tst_QAbstractAnimation::construction()
+1: PASS   : tst_QAbstractAnimation::destruction()
+1: PASS   : tst_QAbstractAnimation::currentLoop()
+1: PASS   : tst_QAbstractAnimation::currentLoopTime()
+1: PASS   : tst_QAbstractAnimation::currentTime()
+1: PASS   : tst_QAbstractAnimation::direction()
+1: PASS   : tst_QAbstractAnimation::group()
+1: PASS   : tst_QAbstractAnimation::loopCount()
+1: PASS   : tst_QAbstractAnimation::state()
+1: PASS   : tst_QAbstractAnimation::totalDuration()
+1: PASS   : tst_QAbstractAnimation::avoidJumpAtStart()
+1: PASS   : tst_QAbstractAnimation::avoidJumpAtStartWithStop()
+1: PASS   : tst_QAbstractAnimation::avoidJumpAtStartWithRunning()
+1: PASS   : tst_QAbstractAnimation::stateBinding()
+1: PASS   : tst_QAbstractAnimation::loopCountBinding()
+1: PASS   : tst_QAbstractAnimation::currentTimeBinding()
+1: PASS   : tst_QAbstractAnimation::currentLoopBinding()
+1: PASS   : tst_QAbstractAnimation::directionBinding()
+1: PASS   : tst_QAbstractAnimation::cleanupTestCase()
+1: Totals: 20 passed, 0 failed, 0 skipped, 0 blacklisted, 1503ms
+1: ********* Finished testing of tst_QAbstractAnimation *********
+1/1 Test #1: tst_qabstractanimation ...........   Passed    1.51 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+tst_qabstractanimation    =   1.51 sec*proc (1 test)
+
+Total Test time (real) =   1.51 sec

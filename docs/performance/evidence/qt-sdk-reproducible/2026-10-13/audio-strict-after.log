@@ -1,0 +1,10 @@
+********* Start testing of ZzExampleAudioMeterSourceTest *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 11.5.0 20240719 (Red Hat 11.5.0-11)), ubuntu 26.04
+PASS   : ZzExampleAudioMeterSourceTest::initTestCase()
+QWARN  : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden() No QtMultimedia backends found. Only QMediaDevices, QAudioDevice, QSoundEffect, QAudioSink, and QAudioSource are available.
+QWARN  : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden() Failed to initialize QMediaPlayer "Not available"
+FAIL!  : ZzExampleAudioMeterSourceTest::playsIndependentChannelsAndPausesWhenHidden() '!requirePlayback || probe.isAvailable()' returned FALSE. (Audio acceptance requires an available Qt media backend; skipping is not allowed.)
+   Loc: [/home/zz/Jackfahdin/github/ZzPureToolsPro/ZzPureToolsFrame/.worktrees/qt-sdk-reproducible/examples/ZzPureToolsExample/tests/ZzExampleAudioMeterSourceTest.cpp(92)]
+PASS   : ZzExampleAudioMeterSourceTest::cleanupTestCase()
+Totals: 2 passed, 1 failed, 0 skipped, 0 blacklisted, 10ms
+********* Finished testing of ZzExampleAudioMeterSourceTest *********
