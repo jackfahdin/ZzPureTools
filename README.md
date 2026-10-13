@@ -181,8 +181,8 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 Tab 状态和侧栏活动激活的相对 P95 经多轮校准改为观察，各增加 1 ms 绝对预算；
 预算内的百分比退化仍会记录，但不阻断。
 
-本轮修复与报告已分项提交到本地 `codex/ci-runtime-fixes`，尚未推送。
-没有监控或触发新的 CI；macOS 原生销毁行为仍需对应平台复核。
+本轮修复与报告已分项提交并合并到 `master`。上表记录本机验证证据，
+远端矩阵状态以对应提交的 CI 结果为准；macOS 原生销毁行为仍需对应平台复核。
 [迁移与完整原始证据](docs/performance/evidence/reference-migration/2026-10-12/README.md)
 保留了中途失败、校准依据和最终独立验收；
 [CI 与性能复核](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)
