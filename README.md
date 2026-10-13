@@ -171,12 +171,12 @@ macOS arm64 与 macOS x86_64。CI smoke 不等于真机验收；
 | ✅ 性能验收 | 独立最终运行 55/55 CTest、26 项绝对门禁、16/16 场景相对比较通过 |
 | ✅ 完整参考基线 | 新环境的 16 份同源报告已启用；旧 Mesa 26.0.3 档案、12 份报告和门限原样归档 |
 | ✅ 启动探针 | 修复首帧早于焦点到达的竞态；真实 XCB 启动与就绪检查各连续 30 轮通过 |
-| ⚠️ 最新已查 CI | [`35ea071`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38244328922) 的 Linux 缺参考、macOS arm64 生命周期及布局增长失败已有本地修复，尚未复核远端矩阵 |
+| ✅ CI 回归 | 维护者于 2026-10-13 确认 [`e9fc1e9`](https://github.com/jackfahdin/ZzPureTools/commit/e9fc1e91e7318ad654fc2047a84b2beb7c0b0a09) 的矩阵全绿；此前缺参考、生命周期及布局增长问题已合入修复 |
 | 📦 历史成功发布 | [`a9396b1`](https://github.com/jackfahdin/ZzPureTools/actions/runs/38049701780) 完整矩阵成功，发布五个平台示例；不代表当前提交状态 |
 | ⏳ 真实桌面验收 | Windows、macOS 与 Linux 显示/系统集成仍按平台清单验证 |
 
 性能通过依赖[独立精度修复 SDK](docs/performance/evidence/qt-precision-sdk/2026-10-12/README.md)，
-原安装 Qt SDK 没有被修改；本轮 SDK 不含 QtMultimedia，未覆盖真实音频源测试。
+原安装 Qt SDK 没有被修改；该性能基线 SDK 不含 QtMultimedia，音频专项见下方独立验证。
 动画仍执行 16.7 ms 预算，布局增长仍限制 20 倍。
 Tab 状态和侧栏活动激活的相对 P95 经多轮校准改为观察，各增加 1 ms 绝对预算；
 预算内的百分比退化仍会记录，但不阻断。
@@ -188,6 +188,20 @@ Tab 状态和侧栏活动激活的相对 P95 经多轮校准改为观察，各�
 [CI 与性能复核](docs/performance/CI_PERFORMANCE_REVIEW_2026-10-12_ZH.md)
 记录问题与平台边界，[修复计划](docs/superpowers/plans/2026-10-12-ci-runtime-repairs.md)
 记录执行结果。
+
+**2026-10-13 独立 SDK 与音频补充验证：**
+
+| 检查 | 结果 |
+|---|---|
+| 🛠️ 可复现构建入口 | 锁定 Qt 6.11.1 官方源码和补丁摘要；五模块 SDK 从头构建成功，同配方重跑无需重新编译 |
+| ✅ 原生定时测试 | 新 SDK 上 7/7 CTest、498 个检查通过；2 个 Windows 专用检查跳过 |
+| 🎵 真实音频解码 | FFmpeg / PulseAudio 配置，3/3 音频测试、13 个检查通过，0 跳过；覆盖双声道电平、隐藏暂停和模拟切换 |
+| 🔎 防误判检查 | 拒绝覆盖未知安装、坏源码缓存、错误 Qt 运行库及播放用例跳过；三项脚本契约通过 |
+
+使用方式见 [Qt SDK 构建与验证指南](docs/performance/QT_PRECISION_SDK_ZH.md)，
+完整记录见 [SDK 与音频验证证据](docs/performance/evidence/qt-sdk-reproducible/2026-10-13/README.md)。
+新 SDK 尚未迁移为活动性能基线；本轮新增工具仅完成本机验证。
+音频测试采用生成的 WAV 静音解码，不替代声卡、麦克风和蓝牙设备的人工验收。
 
 ## 📚 开发资料
 
