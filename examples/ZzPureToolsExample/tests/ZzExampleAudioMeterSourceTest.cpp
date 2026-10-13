@@ -88,6 +88,9 @@ private slots:
             output.setVolume(0);
             QAudioBufferOutput buffers;
             QMediaPlayer probe;
+            const bool requirePlayback = qEnvironmentVariableIntValue("ZZ_REQUIRE_AUDIO_PLAYBACK") == 1;
+            QVERIFY2(!requirePlayback || probe.isAvailable(),
+                "Audio acceptance requires an available Qt media backend; skipping is not allowed.");
             if (!probe.isAvailable())
                 QSKIP("No Qt media backend installed; simulation and PCM tests remain available.");
             bool received = false;
@@ -102,6 +105,8 @@ private slots:
             while (!received && elapsed.elapsed() < 4000)
                 QTest::qWait(20);
             probe.stop();
+            QVERIFY2(!requirePlayback || received,
+                "Audio acceptance requires real decoded WAV buffers; skipping is not allowed.");
             if (!received)
                 QSKIP("Qt backend cannot deliver decoded WAV buffers; FFmpeg backend required.");
         }
