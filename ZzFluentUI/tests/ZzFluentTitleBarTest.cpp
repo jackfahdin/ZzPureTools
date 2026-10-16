@@ -13,12 +13,14 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QToolButton>
+#include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzFluentTitleBar.h>
 #include <ZzFluentUI/ZzColorToken.h>
@@ -62,6 +64,46 @@ class ZzFluentTitleBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 标题栏所有入口均不参与 Tab / Shift+Tab，焦点只在内容控件间循环。 */
+    void keepsTabNavigationInsideWindowContent()
+    {
+        QMainWindow window;
+        auto *bar = new ZzFluentUI::ZzFluentTitleBar(&window);
+        bar->menuBar()->addMenu(QStringLiteral("File"));
+        window.setMenuWidget(bar);
+        auto *content = new QWidget(&window);
+        auto *layout = new QVBoxLayout(content);
+        auto *first = new QLineEdit(content);
+        auto *second = new QLineEdit(content);
+        layout->addWidget(first);
+        layout->addWidget(second);
+        window.setCentralWidget(content);
+        window.show();
+        window.activateWindow();
+        for (auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            window.setLayoutDirection(direction);
+            for (auto mode : {ZzFluentUI::ZzTitleBarMenuDisplayMode::Expanded,
+                              ZzFluentUI::ZzTitleBarMenuDisplayMode::Compact,
+                              ZzFluentUI::ZzTitleBarMenuDisplayMode::Adaptive}) {
+                bar->setMenuDisplayMode(mode);
+                for (int width : {420, 1200}) {
+                    window.resize(width, 300);
+                    first->setFocus();
+                    QCoreApplication::processEvents();
+                    QVERIFY(first->hasFocus());
+                    QTest::keyClick(first, Qt::Key_Tab);
+                    QVERIFY(second->hasFocus());
+                    QTest::keyClick(second, Qt::Key_Tab);
+                    QVERIFY(first->hasFocus());
+                    QTest::keyClick(first, Qt::Key_Tab, Qt::ShiftModifier);
+                    QVERIFY(second->hasFocus());
+                    QTest::keyClick(second, Qt::Key_Tab, Qt::ShiftModifier);
+                    QVERIFY(first->hasFocus());
+                }
+            }
+        }
+    }
+
     /** @brief 每个按钮独立显隐，重复设置不发通知，刷新后配置与命令状态保持不变。 */
     void controlsEachButtonIndependently()
     {

@@ -148,6 +148,7 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
 
     menuBar->setObjectName(QStringLiteral("zzTitleBarMenuBar"));
     menuBar->setNativeMenuBar(false);
+    menuBar->setFocusPolicy(Qt::NoFocus);
     compactMenuButton->setObjectName(
         QStringLiteral("zzTitleBarCompactMenuButton"));
     compactMenu->setObjectName(QStringLiteral("zzTitleBarCompactMenu"));
@@ -179,7 +180,8 @@ ZzFluentTitleBarPrivate::ZzFluentTitleBarPrivate(ZzFluentTitleBar *q)
              maximizeButton,
              closeButton}) {
         button->setAutoRaise(true);
-        button->setFocusPolicy(Qt::StrongFocus);
+        // 标题栏入口不参与内容区的 Tab 循环，点击时也不夺走编辑焦点。
+        button->setFocusPolicy(Qt::NoFocus);
     }
 
     QObject::connect(
