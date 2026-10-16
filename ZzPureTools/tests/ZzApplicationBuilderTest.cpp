@@ -427,6 +427,9 @@ private Q_SLOTS:
                         ZzCore::ZzErrorCode::InvalidState,
                         QStringLiteral("window setup order is invalid")));
                 }
+                using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+                window.titleBar()->setButtonVisible(Button::Minimize, false);
+                window.titleBar()->setButtonVisible(Button::Theme, false);
                 auto *toolbar = new QToolBar(&window);
                 toolbar->setObjectName(QStringLiteral("zzSetupToolbar"));
                 window.addToolBar(toolbar);
@@ -443,6 +446,10 @@ private Q_SLOTS:
         QVERIFY(window != nullptr);
         QVERIFY(window->isVisible());
         QCOMPARE(window->menuWidget(), window->titleBar());
+        using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+        QVERIFY(!window->titleBar()->isButtonVisible(Button::Minimize));
+        QVERIFY(!window->titleBar()->isButtonVisible(Button::Theme));
+        QVERIFY(window->titleBar()->minimizeButton()->isHidden());
         QVERIFY(window->findChild<QToolBar *>(
                     QStringLiteral("zzSetupToolbar"))
                 != nullptr);

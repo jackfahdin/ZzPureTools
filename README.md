@@ -137,6 +137,22 @@ Qt kit、编译器、架构和构建类型须与已安装框架匹配。
 [接入指南](docs/development/FRAMEWORK_INTEGRATION_ZH.md#从可运行的起步工程开始)
 提供独立构建命令、运行库路径、smoke 验证和窗口所有权说明。
 
+标题栏按钮支持逐个显示或隐藏，隐藏后自动释放布局空间：
+
+```cpp
+using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+auto *bar = window.titleBar();
+
+bar->setButtonVisible(Button::Maximize, false);    // 隐藏最大化/还原
+bar->setButtonVisible(Button::Theme, false);       // 隐藏主题切换
+bar->setButtonVisible(Button::AlwaysOnTop, false); // 隐藏置顶
+bar->setButtonVisible(Button::Maximize);           // 默认 true，重新显示
+```
+
+五个自绘按钮（`Minimize`、`Maximize`、`Close`、`AlwaysOnTop`、`Theme`）
+初始配置均为显示，可通过 `isButtonVisible(Button::Close)` 查询。
+隐藏按钮不改变窗口能力、主题或置顶状态；macOS 原生系统按钮由宿主平台策略管理。
+
 ## 🖥️ 示例入口
 
 | 示例 | 适合了解 |

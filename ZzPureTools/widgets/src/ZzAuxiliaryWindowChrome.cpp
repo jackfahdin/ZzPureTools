@@ -54,7 +54,9 @@ ZzAuxiliaryWindowChrome::create(
         bar->setTitle(window->windowTitle());
         bar->setWindowIcon(window->windowIcon());
         bar->setThemeMode(theme->mode());
-        bar->setCommandButtonsVisible(false);
+        using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+        bar->setButtonVisible(Button::Theme, false);
+        bar->setButtonVisible(Button::AlwaysOnTop, false);
         window->setMenuWidget(bar);
         state.agent = std::make_unique<ZzWindowKit::ZzWindowAgent>();
         const auto attached = state.agent->attach(window);
@@ -63,7 +65,9 @@ ZzAuxiliaryWindowChrome::create(
         }
         const bool native = state.agent->capabilities().testFlag(
             ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
-        bar->setWindowButtonsVisible(false, false, !native);
+        bar->setButtonVisible(Button::Minimize, false);
+        bar->setButtonVisible(Button::Maximize, false);
+        bar->setButtonVisible(Button::Close, !native);
         ZzWindowKit::ZzWindowChromeConfiguration configuration;
         configuration.titleBar = bar;
         configuration.windowIcon = bar->windowIconWidget();

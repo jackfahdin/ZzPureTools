@@ -211,7 +211,12 @@ ZzCore::ZzResult<void> ZzApplicationWindowPrivate::initialize(
     const auto capabilities = agent->capabilities();
     const bool nativeSystemButtons = capabilities.testFlag(
         ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
-    titleBar->setSystemButtonsVisible(!nativeSystemButtons);
+    if (nativeSystemButtons) {
+        using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+        titleBar->setButtonVisible(Button::Minimize, false);
+        titleBar->setButtonVisible(Button::Maximize, false);
+        titleBar->setButtonVisible(Button::Close, false);
+    }
     ZzWindowKit::ZzWindowChromeConfiguration chrome;
     chrome.titleBar = titleBar;
     chrome.windowIcon = titleBar->windowIconWidget();

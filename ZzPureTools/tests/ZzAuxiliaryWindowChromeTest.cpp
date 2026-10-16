@@ -77,7 +77,9 @@ private Q_SLOTS:
         QCOMPARE(bar->themeMode(), ZzFluentUI::ZzThemeMode::Dark);
         QVERIFY(bar->minimizeButton()->isHidden());
         QVERIFY(bar->maximizeButton()->isHidden());
-        QVERIFY(!bar->areCommandButtonsVisible());
+        using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+        QVERIFY(!bar->isButtonVisible(Button::Theme));
+        QVERIFY(!bar->isButtonVisible(Button::AlwaysOnTop));
         const bool native = chrome->windowAgent()->capabilities().testFlag(
             ZzWindowKit::ZzWindowCapability::NativeSystemButtons);
         QCOMPARE(bar->closeButton()->isHidden(), native);

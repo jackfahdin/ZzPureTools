@@ -19,6 +19,7 @@ namespace ZzFluentUI {
 class ZzFluentTitleBar;
 enum class ZzThemeMode : std::uint8_t;
 enum class ZzTitleBarMenuDisplayMode : std::uint8_t;
+enum class ZzTitleBarButton : std::uint8_t;
 
 /** @brief 管理标题栏纯视觉子控件、翻译和状态，不执行窗口命令。 */
 class ZzFluentTitleBarPrivate final
@@ -32,6 +33,9 @@ public:
 
     /** @brief 刷新图标、tooltip、accessible name 和标题。 */
     void refreshPresentation();
+
+    /** @brief 返回按钮展示配置的非拥有指针，无效标识返回 nullptr。 */
+    [[nodiscard]] bool *buttonVisibility(ZzTitleBarButton button) noexcept;
 
     /** @brief 刷新标题文本和全窗口中心安全几何。 */
     void refreshTitle();
@@ -77,7 +81,8 @@ public:
     bool minimizeButtonVisible = true;
     bool maximizeButtonVisible = true;
     bool closeButtonVisible = true;
-    bool commandButtonsVisible = true;
+    bool themeButtonVisible = true;
+    bool alwaysOnTopButtonVisible = true;
     bool alwaysOnTop = false;
     bool menuCollapseEnabled = true;
     bool adaptiveExpanded = true;

@@ -1,3 +1,4 @@
+#include <array>
 #include <cstring>
 
 #include <QtCore/QCoreApplication>
@@ -61,6 +62,140 @@ class ZzFluentTitleBarTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    /** @brief 每个按钮独立显隐，重复设置不发通知，刷新后配置与命令状态保持不变。 */
+    void controlsEachButtonIndependently()
+    {
+        using Bar = ZzFluentUI::ZzFluentTitleBar;
+        using Button = Bar::Button;
+        Bar bar;
+        bar.resize(900, bar.height());
+        bar.show();
+        const std::array<Button, 5> buttons{
+            Button::Minimize, Button::Maximize, Button::Close,
+            Button::AlwaysOnTop, Button::Theme};
+        const std::array<QWidget *, 5> widgets{
+            bar.minimizeButton(), bar.maximizeButton(), bar.closeButton(),
+            bar.findChild<QToolButton *>("zzTitleBarAlwaysOnTopButton"),
+            bar.findChild<QToolButton *>("zzTitleBarThemeButton")};
+        QSignalSpy visibility(&bar, &Bar::buttonVisibleChanged);
+        QVERIFY(visibility.isValid());
+        bar.setAlwaysOnTop(true);
+        for (std::size_t index = 0; index < buttons.size(); ++index) {
+            QVERIFY(widgets[index]);
+            QVERIFY(bar.isButtonVisible(buttons[index]));
+            QVERIFY(widgets[index]->isVisible());
+            bar.setButtonVisible(buttons[index], false);
+            bar.setButtonVisible(buttons[index], false);
+            QCOMPARE(visibility.count(), 1);
+            QCOMPARE(visibility.at(0).at(0).value<ZzFluentUI::ZzTitleBarButton>(), buttons[index]);
+            QCOMPARE(visibility.at(0).at(1).toBool(), false);
+            bar.setMaximized(true);
+            bar.setThemeMode(ZzFluentUI::ZzThemeMode::Dark);
+            QEvent languageChange(QEvent::LanguageChange);
+            QCoreApplication::sendEvent(&bar, &languageChange);
+            for (std::size_t other = 0; other < buttons.size(); ++other) {
+                QCOMPARE(bar.isButtonVisible(buttons[other]), other != index);
+                QCOMPARE(widgets[other]->isHidden(), other == index);
+            }
+            QVERIFY(bar.isAlwaysOnTop());
+            bar.setButtonVisible(buttons[index], true);
+            QCOMPARE(visibility.count(), 2);
+            visibility.clear();
+        }
+    }
+
+    /** @brief 覆盖全部组合及 RTL：隐藏不占宽度，剩余按钮排列紧凑且可单个恢复。 */
+    void packsAllButtonVisibilityCombinations()
+    {
+        using Bar = ZzFluentUI::ZzFluentTitleBar;
+        using Button = Bar::Button;
+        Bar bar;
+        bar.resize(1000, bar.height());
+        bar.show();
+        const std::array<Button, 5> buttons{
+            Button::Theme, Button::AlwaysOnTop, Button::Minimize,
+            Button::Maximize, Button::Close};
+        const std::array<QWidget *, 5> widgets{
+            bar.findChild<QToolButton *>("zzTitleBarThemeButton"),
+            bar.findChild<QToolButton *>("zzTitleBarAlwaysOnTopButton"),
+            bar.minimizeButton(), bar.maximizeButton(), bar.closeButton()};
+        for (auto *widget : widgets) QVERIFY(widget);
+        const int spacing = widgets[4]->x() - widgets[3]->geometry().right() - 1;
+        const int expandedWidth = bar.minimumExpandedWidth();
+        for (auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            bar.setLayoutDirection(direction);
+            for (unsigned int mask = 0; mask < 32; ++mask) {
+                for (std::size_t index = 0; index < buttons.size(); ++index)
+                    bar.setButtonVisible(buttons[index], (mask & (1U << index)) != 0);
+                QWidget *previous = nullptr;
+                for (std::size_t index = 0; index < buttons.size(); ++index) {
+                    const bool visible = (mask & (1U << index)) != 0;
+                    QCOMPARE(widgets[index]->isVisible(), visible);
+                    if (!visible) continue;
+                    if (previous) {
+                        const int gap = direction == Qt::LeftToRight
+                            ? widgets[index]->x() - previous->geometry().right() - 1
+                            : previous->x() - widgets[index]->geometry().right() - 1;
+                        QCOMPARE(gap, spacing);
+                    }
+                    previous = widgets[index];
+                }
+                if (previous) {
+                    QCOMPARE(direction == Qt::LeftToRight ? previous->geometry().right()
+                                                         : previous->x(),
+                             direction == Qt::LeftToRight ? bar.width() - 1 : 0);
+                }
+                QVERIFY(bar.minimumExpandedWidth() <= expandedWidth);
+                QVERIFY(bar.isVisible());
+            }
+        }
+    }
+
+    /** @brief 隐藏父窗口不改变展示配置，无效枚举不修改按钮，省略 bool 时恢复显示。 */
+    void keepsVisibilityConfigurationWithoutAVisibleHost()
+    {
+        using Bar = ZzFluentUI::ZzFluentTitleBar;
+        using Button = Bar::Button;
+        Bar bar;
+        QVERIFY(!bar.isVisible());
+        QVERIFY(bar.isButtonVisible(Button::Theme));
+        bar.setButtonVisible(Button::Theme, false);
+        QVERIFY(!bar.isButtonVisible(Button::Theme));
+        bar.setButtonVisible(Button::Theme);
+        QVERIFY(bar.isButtonVisible(Button::Theme));
+        QSignalSpy changes(&bar, &Bar::buttonVisibleChanged);
+        const auto invalid = static_cast<Button>(255);
+        QVERIFY(!bar.isButtonVisible(invalid));
+        bar.setButtonVisible(invalid, false);
+        bar.setButtonVisible(invalid, true);
+        QCOMPARE(changes.count(), 0);
+        QVERIFY(bar.isButtonVisible(Button::Theme));
+        QVERIFY(bar.isButtonVisible(Button::Minimize));
+    }
+
+    /** @brief 隐藏按钮同步释放禁止菜单折叠时的宿主最小宽度，同时保留外部约束。 */
+    void releasesWindowMinimumWidthWhenHidingButtons()
+    {
+        using Bar = ZzFluentUI::ZzFluentTitleBar;
+        using Button = Bar::Button;
+        QMainWindow window;
+        window.setMinimumWidth(100);
+        auto *bar = new Bar(&window);
+        window.setMenuWidget(bar);
+        window.show();
+        bar->setMenuCollapseEnabled(false);
+        const int before = window.minimumWidth();
+        bar->setButtonVisible(Button::Close, false);
+        QVERIFY(bar->minimumExpandedWidth() < before);
+        QCOMPARE(window.minimumWidth(), bar->minimumExpandedWidth());
+        const int externalMinimum = before + 80;
+        window.setMinimumWidth(externalMinimum);
+        bar->setButtonVisible(Button::Theme, false);
+        QCOMPARE(window.minimumWidth(), externalMinimum);
+        bar->setMenuCollapseEnabled(true);
+        QCOMPARE(window.minimumWidth(), externalMinimum);
+    }
+
     void defaultThemeButtonRequestsToggleWithoutMenu()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
@@ -622,12 +757,15 @@ private Q_SLOTS:
             QVERIFY(!interactive.contains(widget));
         }
 
-        titleBar.setSystemButtonsVisible(false);
+        using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+        titleBar.setButtonVisible(Button::Minimize, false);
+        titleBar.setButtonVisible(Button::Maximize, false);
+        titleBar.setButtonVisible(Button::Close, false);
         QVERIFY(titleBar.minimizeButton()->isHidden());
         QVERIFY(titleBar.maximizeButton()->isHidden());
         QVERIFY(titleBar.closeButton()->isHidden());
 
-        titleBar.setWindowButtonsVisible(false, false, true);
+        titleBar.setButtonVisible(Button::Close, true);
         QVERIFY(titleBar.minimizeButton()->isHidden());
         QVERIFY(titleBar.maximizeButton()->isHidden());
         QVERIFY(titleBar.closeButton()->isVisible());
@@ -639,7 +777,9 @@ private Q_SLOTS:
         titleBar.show();
         QCoreApplication::processEvents();
 
-        titleBar.setCommandButtonsVisible(false);
+        using Button = ZzFluentUI::ZzFluentTitleBar::Button;
+        titleBar.setButtonVisible(Button::Theme, false);
+        titleBar.setButtonVisible(Button::AlwaysOnTop, false);
 
         QVERIFY(titleBar.findChild<QToolButton *>(
                     QStringLiteral("zzTitleBarThemeButton"))->isHidden());
@@ -649,7 +789,8 @@ private Q_SLOTS:
         QVERIFY(titleBar.maximizeButton()->isVisible());
         QVERIFY(titleBar.closeButton()->isVisible());
 
-        titleBar.setWindowButtonsVisible(false, false, true);
+        titleBar.setButtonVisible(Button::Minimize, false);
+        titleBar.setButtonVisible(Button::Maximize, false);
         QCoreApplication::processEvents();
         QVERIFY(titleBar.minimizeButton()->isHidden());
         QVERIFY(titleBar.maximizeButton()->isHidden());

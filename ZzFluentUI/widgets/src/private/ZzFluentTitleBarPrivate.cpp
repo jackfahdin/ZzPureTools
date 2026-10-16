@@ -306,12 +306,24 @@ void ZzFluentTitleBarPrivate::refreshPresentation()
     minimizeButton->setVisible(minimizeButtonVisible);
     maximizeButton->setVisible(maximizeButtonVisible);
     closeButton->setVisible(closeButtonVisible);
-    themeButton->setVisible(commandButtonsVisible);
-    alwaysOnTopButton->setVisible(commandButtonsVisible);
+    themeButton->setVisible(themeButtonVisible);
+    alwaysOnTopButton->setVisible(alwaysOnTopButtonVisible);
     separator->setVisible(true);
     themeButton->setChecked(themeMode != ZzThemeMode::System);
     alwaysOnTopButton->setChecked(alwaysOnTop);
     updateLayout();
+}
+
+bool *ZzFluentTitleBarPrivate::buttonVisibility(ZzTitleBarButton button) noexcept
+{
+    switch (button) {
+    case ZzTitleBarButton::Minimize: return &minimizeButtonVisible;
+    case ZzTitleBarButton::Maximize: return &maximizeButtonVisible;
+    case ZzTitleBarButton::Close: return &closeButtonVisible;
+    case ZzTitleBarButton::AlwaysOnTop: return &alwaysOnTopButtonVisible;
+    case ZzTitleBarButton::Theme: return &themeButtonVisible;
+    }
+    return nullptr;
 }
 
 void ZzFluentTitleBarPrivate::refreshTitle()
@@ -339,8 +351,11 @@ int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
         ? visibleSystemButtons * zzTitleBarSystemButtonWidth
             + (visibleSystemButtons - 1) * zzTitleBarSpacing
         : 0;
-    const int commandWidth = commandButtonsVisible
-        ? (2 * zzTitleBarCommandExtent + zzTitleBarSpacing)
+    const int visibleCommandButtons = static_cast<int>(themeButtonVisible)
+        + static_cast<int>(alwaysOnTopButtonVisible);
+    const int commandWidth = visibleCommandButtons > 0
+        ? visibleCommandButtons * zzTitleBarCommandExtent
+            + (visibleCommandButtons - 1) * zzTitleBarSpacing
         : 0;
     const int rightGroupWidth = commandWidth
         + ((commandWidth > 0 && systemWidth > 0) ? zzTitleBarSpacing : 0)
@@ -396,7 +411,7 @@ void ZzFluentTitleBarPrivate::syncWindowMinimumWidth(int requiredWidth)
     const int targetWidth = qMax(originalHostMinimumWidth, requiredWidth);
     // 先记录组件将要写入的值，QWidget 可能同步触发下一次布局回调。
     enforcedHostMinimumWidth = targetWidth;
-    if (host->minimumWidth() < targetWidth) {
+    if (host->minimumWidth() != targetWidth) {
         host->setMinimumWidth(targetWidth);
     }
 }
@@ -412,8 +427,11 @@ void ZzFluentTitleBarPrivate::updateLayout()
         ? visibleSystemButtons * zzTitleBarSystemButtonWidth
             + (visibleSystemButtons - 1) * zzTitleBarSpacing
         : 0;
-    const int commandWidth = commandButtonsVisible
-        ? (2 * zzTitleBarCommandExtent + zzTitleBarSpacing)
+    const int visibleCommandButtons = static_cast<int>(themeButtonVisible)
+        + static_cast<int>(alwaysOnTopButtonVisible);
+    const int commandWidth = visibleCommandButtons > 0
+        ? visibleCommandButtons * zzTitleBarCommandExtent
+            + (visibleCommandButtons - 1) * zzTitleBarSpacing
         : 0;
     const int rightGroupWidth = commandWidth
         + ((commandWidth > 0 && systemWidth > 0) ? zzTitleBarSpacing : 0)
@@ -494,11 +512,13 @@ void ZzFluentTitleBarPrivate::updateLayout()
     if (minimizeButtonVisible) {
         placeRight(minimizeButton, zzTitleBarSystemButtonWidth);
     }
-    if (commandButtonsVisible) {
+    if (alwaysOnTopButtonVisible) {
         placeRight(alwaysOnTopButton, zzTitleBarCommandExtent);
+    }
+    if (themeButtonVisible) {
         placeRight(themeButton, zzTitleBarCommandExtent);
     }
-    const bool hasRightGroup = commandButtonsVisible || visibleSystemButtons > 0;
+    const bool hasRightGroup = visibleCommandButtons > 0 || visibleSystemButtons > 0;
     const int rightGroupStart = hasRightGroup
         ? rightCursor + zzTitleBarSpacing
         : availableWidth;

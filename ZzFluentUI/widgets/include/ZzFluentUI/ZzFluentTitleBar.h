@@ -9,6 +9,7 @@
 
 #include <ZzFluentUI/ZzFluentUIExport.h>
 #include <ZzFluentUI/ZzThemeMode.h>
+#include <ZzFluentUI/ZzTitleBarButton.h>
 #include <ZzFluentUI/ZzTitleBarMenuDisplayMode.h>
 
 class QEvent;
@@ -50,15 +51,13 @@ class ZZ_FLUENT_UI_EXPORT ZzFluentTitleBar final : public QWidget
         READ isAlwaysOnTop
         WRITE setAlwaysOnTop
         NOTIFY alwaysOnTopChanged)
-    Q_PROPERTY(
-        bool commandButtonsVisible
-        READ areCommandButtonsVisible
-        WRITE setCommandButtonsVisible
-        NOTIFY commandButtonsVisibleChanged)
 
 public:
+    /** @brief 标题栏按钮标识的简写，用于逐个配置按钮。 */
+    using Button = ZzTitleBarButton;
+
     /**
-     * @brief 创建带图标、标题和三个系统按钮的纯视觉标题栏。
+     * @brief 创建带图标、标题、三个系统按钮及主题和置顶按钮的纯视觉标题栏。
      * @param parent 可为空的 QObject 所有者。
      */
     explicit ZzFluentTitleBar(QWidget *parent = nullptr);
@@ -88,34 +87,21 @@ public:
     void setMaximized(bool maximized);
 
     /**
-     * @brief 统一显示或隐藏三个系统按钮。
-     * @param visible 外层平台策略决定的可见性。
+     * @brief 独立设置一个自绘按钮的可见性，所有按钮默认显示。
+     *
+     * 隐藏时释放布局宽度，不改变窗口能力、置顶或主题状态。
+     * 此接口不控制平台原生系统按钮；宿主负责原生按钮的平台策略。
+     * @param button 按钮标识；无效枚举不产生效果。
+     * @param visible 是否显示，省略时为 true。
      */
-    void setSystemButtonsVisible(bool visible);
+    void setButtonVisible(Button button, bool visible = true);
 
     /**
-     * @brief 独立设置最小化、最大化和关闭按钮的可见性。
-     *
-     * 该接口只调整标题栏展示和布局，不改变按钮已有的窗口意图信号。
-     * @param minimizeVisible 是否显示最小化按钮。
-     * @param maximizeVisible 是否显示最大化或还原按钮。
-     * @param closeVisible 是否显示关闭按钮。
+     * @brief 返回按钮的展示配置，不受标题栏或父窗口当前是否显示影响。
+     * @param button 按钮标识。
+     * @return 配置的可见性；无效枚举返回 false。
      */
-    void setWindowButtonsVisible(
-        bool minimizeVisible,
-        bool maximizeVisible,
-        bool closeVisible);
-
-    /**
-     * @brief 设置主题与置顶命令按钮是否显示。
-     *
-     * 该设置不影响按钮保留的状态和信号，只调整标题栏 chrome 的展示与布局。
-     * @param visible 为 false 时隐藏主题和置顶按钮，并释放其占用宽度。
-     */
-    void setCommandButtonsVisible(bool visible);
-
-    /** @brief 返回主题与置顶命令按钮是否显示。 */
-    [[nodiscard]] bool areCommandButtonsVisible() const noexcept;
+    [[nodiscard]] bool isButtonVisible(Button button) const noexcept;
 
     /**
      * @brief 返回由标题栏拥有的非原生菜单栏。
@@ -214,8 +200,8 @@ Q_SIGNALS:
     /** @brief 宿主确认的置顶状态实际变化后发出。 */
     void alwaysOnTopChanged(bool alwaysOnTop);
 
-    /** @brief 主题与置顶命令按钮可见性实际变化后发出。 */
-    void commandButtonsVisibleChanged(bool visible);
+    /** @brief 单个自绘按钮的展示配置实际变化并更新布局后发出。 */
+    void buttonVisibleChanged(ZzFluentUI::ZzTitleBarButton button, bool visible);
 
     /** @brief 用户请求修改置顶状态；标题栏不会直接修改窗口标志。 */
     void alwaysOnTopRequested(bool alwaysOnTop);

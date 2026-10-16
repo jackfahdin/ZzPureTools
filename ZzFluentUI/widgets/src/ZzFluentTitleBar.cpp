@@ -134,40 +134,21 @@ void ZzFluentTitleBar::setMaximized(bool maximized)
     d_ptr->refreshPresentation();
 }
 
-void ZzFluentTitleBar::setSystemButtonsVisible(bool visible)
+void ZzFluentTitleBar::setButtonVisible(Button button, bool visible)
 {
-    setWindowButtonsVisible(visible, visible, visible);
-}
-
-void ZzFluentTitleBar::setWindowButtonsVisible(
-    bool minimizeVisible,
-    bool maximizeVisible,
-    bool closeVisible)
-{
-    if (d_ptr->minimizeButtonVisible == minimizeVisible
-        && d_ptr->maximizeButtonVisible == maximizeVisible
-        && d_ptr->closeButtonVisible == closeVisible) {
+    bool *const state = d_ptr->buttonVisibility(button);
+    if (state == nullptr || *state == visible) {
         return;
     }
-    d_ptr->minimizeButtonVisible = minimizeVisible;
-    d_ptr->maximizeButtonVisible = maximizeVisible;
-    d_ptr->closeButtonVisible = closeVisible;
+    *state = visible;
     d_ptr->refreshPresentation();
+    Q_EMIT buttonVisibleChanged(button, visible);
 }
 
-void ZzFluentTitleBar::setCommandButtonsVisible(bool visible)
+bool ZzFluentTitleBar::isButtonVisible(Button button) const noexcept
 {
-    if (d_ptr->commandButtonsVisible == visible) {
-        return;
-    }
-    d_ptr->commandButtonsVisible = visible;
-    d_ptr->refreshPresentation();
-    Q_EMIT commandButtonsVisibleChanged(visible);
-}
-
-bool ZzFluentTitleBar::areCommandButtonsVisible() const noexcept
-{
-    return d_ptr->commandButtonsVisible;
+    const bool *const state = d_ptr->buttonVisibility(button);
+    return state != nullptr && *state;
 }
 
 QWidget *ZzFluentTitleBar::windowIconWidget() const noexcept
