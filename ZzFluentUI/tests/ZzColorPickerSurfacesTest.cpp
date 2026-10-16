@@ -8,6 +8,8 @@
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QTabBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QScrollArea>
@@ -15,6 +17,8 @@
 #include <ZzFluentUI/ZzColorPicker.h>
 #include <ZzFluentUI/ZzColorPickerButton.h>
 #include <ZzFluentUI/ZzColorPickerDialog.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzThemeController.h>
 
 using namespace ZzFluentUI;
 
@@ -37,6 +41,83 @@ class ZzColorPickerSurfacesTest final : public QObject
         return editor;
     }
 private Q_SLOTS:
+    void palettePopupBecomesIdle_data()
+    {
+        QTest::addColumn<bool>("fluentStyle");
+        QTest::addColumn<int>("colorCount");
+        for (bool fluent : {false, true}) {
+            for (int count : {24, 48, 49, 256}) {
+                const QByteArray name = QByteArray(fluent ? "fluent-" : "fusion-")
+                    + QByteArray::number(count);
+                QTest::newRow(name.constData()) << fluent << count;
+            }
+        }
+    }
+    /** @brief 色板切换及弹层缩放后必须停止尺寸振荡和连续重绘。 */
+    void palettePopupBecomesIdle()
+    {
+        QFETCH(bool, fluentStyle);
+        QFETCH(int, colorCount);
+        ZzThemeController controller;
+        ZzFluentStyle style(&controller);
+        QProxyStyle baseStyle(QStringLiteral("Fusion"));
+        QWidget window;
+        window.resize(600, 600);
+        ZzColorPickerButton button(&window);
+        QList<QColor> colors;
+        for (int i = 0; i < colorCount; ++i) colors.append(QColor(i, 100, 150));
+        auto *picker = button.colorPicker();
+        picker->setPaletteColors(colors);
+        // Fusion also avoids QMacStyle's unsupported offscreen scrollbar paint.
+        QStyle *pickerStyle = fluentStyle ? static_cast<QStyle *>(&style) : &baseStyle;
+        picker->setStyle(pickerStyle);
+        for (auto *widget : picker->findChildren<QWidget *>()) widget->setStyle(pickerStyle);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTest::mouseClick(&button, Qt::LeftButton);
+        auto *popup = picker->window();
+        QVERIFY(QTest::qWaitForWindowExposed(popup));
+        auto *tabs = picker->findChild<QTabBar *>();
+        auto *view = picker->findChild<QListView *>(QStringLiteral("zzColorPaletteView"));
+        QVERIFY(tabs);
+        QVERIFY(view);
+        // Restoring resize-driven fixed heights must break this test: 48 colors
+        // straddle the outer scrollbar threshold in the default 360px popup.
+        class LayoutProbe final : public QObject {
+        public:
+            int resizes = 0;
+            int paints = 0;
+            bool eventFilter(QObject *, QEvent *event) override
+            {
+                if (event->type() == QEvent::Resize) ++resizes;
+                if (event->type() == QEvent::Paint) ++paints;
+                return false;
+            }
+        } probe;
+        picker->installEventFilter(&probe);
+        view->viewport()->installEventFilter(&probe);
+        for (int tab : {1, 0, 1, 2, 1}) {
+            QTest::mouseClick(popup->windowHandle(), Qt::LeftButton, Qt::NoModifier,
+                             tabs->mapTo(popup, tabs->tabRect(tab).center()));
+            if (tab != 1) continue;
+            for (const QSize &size : {QSize(360, 388), QSize(300, 320)}) {
+                popup->resize(size);
+                QTest::qWait(250); // Allow layout and finite tab transitions to settle.
+                probe.resizes = 0;
+                probe.paints = 0;
+                QTest::qWait(150);
+                QVERIFY(popup->isVisible());
+                QCOMPARE(tabs->currentIndex(), 1);
+                QCOMPARE(probe.resizes, 0);
+                QCOMPARE(probe.paints, 0);
+                const QModelIndex last = view->model()->index(colorCount - 1, 0);
+                view->scrollTo(last);
+                QTRY_VERIFY(view->viewport()->rect().contains(view->visualRect(last)));
+            }
+            popup->resize(360, 388);
+            QCoreApplication::processEvents();
+        }
+    }
     void nativeTabClicksKeepPopupOpen_data()
     {
         QTest::addColumn<int>("tab");

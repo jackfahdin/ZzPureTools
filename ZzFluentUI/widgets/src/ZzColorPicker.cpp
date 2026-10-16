@@ -210,6 +210,15 @@ void ZzColorPicker::resetPaletteColors()
     setPaletteColors(ZzColorPickerPrivate::defaultPaletteColors());
 }
 
+bool ZzColorPicker::event(QEvent *event)
+{
+    const bool handled = QWidget::event(event);
+    if (event->type() == QEvent::ParentChange) {
+        d_ptr->syncPaletteMetrics();
+    }
+    return handled;
+}
+
 void ZzColorPicker::changeEvent(QEvent *event)
 {
     QWidget::changeEvent(event);

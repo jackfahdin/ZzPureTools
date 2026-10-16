@@ -39,8 +39,29 @@ namespace {
 
 constexpr int ZzMaximumPaletteColors = 256;
 constexpr int ZzVisiblePaletteRows = 3;
+constexpr int ZzFluentPaletteRows = 6;
 constexpr int ZzChannelEditorWidth = 84;
 constexpr int ZzSectionSpacing = 10;
+
+/** @brief 为八列 Fluent 色板保留 QListView 的流布局内边距。 */
+int zzFluentPaletteGridExtent(int viewportWidth)
+{
+    return qMax(1, (viewportWidth - 2) / 8);
+}
+
+/** @brief 返回色板滚动条实际占用的布局宽度，浮层滚动条不压缩 viewport。 */
+int zzFluentPaletteScrollBarWidth(const QListView *view, int colorCount)
+{
+    const QScrollBar *bar = view->verticalScrollBar();
+    QStyleOptionSlider option;
+    option.initFrom(bar);
+    option.orientation = bar->orientation();
+    if (colorCount <= 48 || bar->style()->pixelMetric(
+            QStyle::PM_ScrollView_ScrollBarOverlap, &option, bar) > 0) {
+        return 0;
+    }
+    return bar->sizeHint().width();
+}
 
 /** @brief 把有效颜色规范化到 8 位 RGBA。 */
 QColor zzNormalizedColor(const QColor &color)
@@ -116,6 +137,19 @@ public:
     explicit ZzColorPaletteView(ZzColorPickerPrivate *owner, QWidget *parent)
         : QListView(parent), owner_(owner)
     {
+    }
+    /** @brief 向外层布局声明 Fluent 色板的六行高度随宽度变化。 */
+    bool hasHeightForWidth() const override
+    {
+        return owner_->appearance == ZzColorPicker::Fluent;
+    }
+    /** @brief 在调整 viewport 之前预测色板高度，避免外层滚动条反复切换。 */
+    int heightForWidth(int width) const override
+    {
+        if (!hasHeightForWidth()) return QListView::heightForWidth(width);
+        const int scrollWidth = zzFluentPaletteScrollBarWidth(this, owner_->paletteColorCount());
+        return ZzFluentPaletteRows * zzFluentPaletteGridExtent(width - 2 * frameWidth() - scrollWidth)
+            + 2 * frameWidth();
     }
 protected:
     /** @brief 重算适配当前 viewport 的固定八列网格。 */
@@ -530,6 +564,9 @@ bool ZzColorPickerPrivate::applyPaletteColors(QList<QColor> colors)
         zzNormalizedPalette(std::move(colors)));
     if (changed) {
         syncPaletteMetrics();
+        // 48/49 色切换改变滚动条占位及 HFW，QListView 的 AdjustIgnored
+        // 不会主动使父布局的高度缓存失效。
+        paletteView->updateGeometry();
         syncDerivedState();
     }
     return changed;
@@ -746,29 +783,28 @@ void ZzColorPickerPrivate::syncPaletteMetrics()
     syncingPaletteMetrics = true;
     const auto snapshot = theme.snapshot();
     const bool fluent = appearance == ZzColorPicker::Fluent;
-    // 溢出色板（>48 色）会显示滚动条；网格必须按滚动条占位后的稳定宽度计算，
-    // 否则滚动条出现/隐藏会改变 viewport 宽度，与网格尺寸形成循环依赖，
-    // 在不同平台事件时序下产生不同的中间布局（macOS CI 出现过 9 列瞬态）。
-    int availableWidth = paletteView->viewport()->width();
-    if (fluent && paletteColorCount() > 48) {
-        const QScrollBar *scrollBar = paletteView->verticalScrollBar();
-        if (scrollBar->isVisible()) {
-            availableWidth += scrollBar->width();
-        }
-        availableWidth -= scrollBar->sizeHint().width();
-    }
+    paletteView->setFrameShape(fluent ? QFrame::NoFrame : QFrame::StyledPanel);
+    // 与 HFW 使用同一宽度预测，不依赖滚动条当前是否已经显示。
+    const int availableWidth = paletteView->width() - 2 * paletteView->frameWidth()
+        - (fluent ? zzFluentPaletteScrollBarWidth(paletteView, paletteColorCount()) : 0);
     // QListView keeps a small flow inset even with a frameless viewport.
-    const int gridExtent = fluent ? qMax(1, (availableWidth - 2) / 8) : qMax(
+    const int gridExtent = fluent ? zzFluentPaletteGridExtent(availableWidth) : qMax(
         1,
         qCeil(snapshot->metric(ZzMetricToken::ColorSwatchExtent)
               + snapshot->metric(ZzMetricToken::ColorSwatchGap)));
     paletteView->setGridSize({gridExtent, gridExtent});
-    paletteView->setFrameShape(fluent ? QFrame::NoFrame : QFrame::StyledPanel);
     paletteView->setVerticalScrollBarPolicy(fluent && paletteColorCount() <= 48
         ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAsNeeded);
-    paletteView->setFixedHeight(
-        (appearance == ZzColorPicker::Fluent ? 6 : ZzVisiblePaletteRows) * gridExtent
-        + 2 * paletteView->frameWidth());
+    if (fluent && !q_ptr->isWindow()) {
+        // Fluent 使用 heightForWidth 提供高度约束，不能在 resizeEvent 中
+        // 修改固定高度，否则外层滚动区域无法在改变宽度前预测所需高度。
+        paletteView->setMinimumHeight(0);
+        paletteView->setMaximumHeight(QWIDGETSIZE_MAX);
+    } else {
+        // 独立窗口没有父布局按 HFW 分配高度，保留原有完整六行的最小尺寸。
+        paletteView->setFixedHeight((fluent ? ZzFluentPaletteRows : ZzVisiblePaletteRows) * gridExtent
+            + 2 * paletteView->frameWidth());
+    }
     paletteView->doItemsLayout();
     syncingPaletteMetrics = false;
 }

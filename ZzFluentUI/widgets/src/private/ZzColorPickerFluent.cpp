@@ -126,6 +126,8 @@ void ZzColorPickerPrivate::syncAppearance()
     if (fluent) {
         fluentLayout->insertWidget(0, previewWidget);
         palettePage->layout()->addWidget(paletteView);
+        // 按 heightForWidth 分配六行高度，保留原固定高度色板的垂直居中位置。
+        palettePage->layout()->setAlignment(paletteView, Qt::AlignVCenter);
         static_cast<QVBoxLayout *>(slidersPage->layout())->insertWidget(0, editorHost);
         previewWidget->setFixedHeight(ZzColorPickerPreviewHeight);
     } else {

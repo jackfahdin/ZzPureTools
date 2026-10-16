@@ -15,6 +15,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
+#include <QtWidgets/QProxyStyle>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QStyleFactory>
@@ -274,6 +275,109 @@ private Q_SLOTS:
         picker.setCurrentColor(QColor(18, 52, 86, 40));
         spinBox(&picker, editorName)->setValue(editedValue);
         QCOMPARE(picker.currentColor(), expected);
+    }
+
+    /** @brief 同宽重新挂接后，嵌入布局可预测高度，独立窗口仍完整显示六行。 */
+    void fluentPaletteReparentingKeepsWidthPrediction()
+    {
+        QWidget host;
+        host.show();
+        ZzFluentUI::ZzColorPicker picker;
+        picker.setAppearance(ZzFluentUI::ZzColorPicker::Fluent);
+        QList<QColor> colors;
+        for (int index = 0; index < 48; ++index) colors.append(QColor(index, 100, 150));
+        picker.setPaletteColors(colors);
+        picker.findChild<QTabBar *>("zzColorPickerTabs")->setCurrentIndex(1);
+        picker.setFixedWidth(360);
+        auto *view = paletteView(&picker);
+        const auto last = view->model()->index(47, 0);
+        for (bool visible : {false, true}) {
+            picker.setVisible(visible);
+            picker.setParent(&host);
+            picker.show();
+            QCoreApplication::processEvents();
+            // A stale fixed height would make these predictions equal, even
+            // though eight square cells need more row height at the wider size.
+            QVERIFY(picker.heightForWidth(600) > picker.heightForWidth(300));
+            picker.setParent(nullptr);
+            picker.show();
+            QCoreApplication::processEvents();
+            QVERIFY(view->viewport()->rect().contains(view->visualRect(last)));
+        }
+    }
+
+    /** @brief 同宽增减到 49 色时，父布局必须重新计算滚动条占位后的高度。 */
+    void fluentPalettePredictionTracksOverflow()
+    {
+        QProxyStyle style(QStringLiteral("Fusion"));
+        QWidget host;
+        ZzFluentUI::ZzColorPicker picker(&host);
+        picker.setAppearance(ZzFluentUI::ZzColorPicker::Fluent);
+        // 此用例固定为占位滚动条；浮层滚动条由下一用例独立覆盖。
+        auto *view = paletteView(&picker);
+        view->setStyle(&style);
+        view->verticalScrollBar()->setStyle(&style);
+        picker.findChild<QTabBar *>("zzColorPickerTabs")->setCurrentIndex(1);
+        QList<QColor> colors;
+        for (int index = 0; index < 48; ++index) colors.append(QColor(index, 100, 150));
+        picker.setPaletteColors(colors);
+        host.show();
+        QCoreApplication::processEvents();
+        const int heightWithoutScrollBar = picker.heightForWidth(600);
+        colors.append(QColor(48, 100, 150));
+        picker.setPaletteColors(colors);
+        QTRY_VERIFY(picker.heightForWidth(600) < heightWithoutScrollBar);
+        colors.removeLast();
+        picker.setPaletteColors(colors);
+        QTRY_COMPARE(picker.heightForWidth(600), heightWithoutScrollBar);
+    }
+
+    /** @brief 浮层滚动条不占 viewport 宽度，预测高度仍须容纳八列六行。 */
+    void fluentPaletteSupportsOverlayScrollBars()
+    {
+        class OverlayStyle final : public QProxyStyle {
+        public:
+            OverlayStyle() : QProxyStyle(QStringLiteral("Fusion")) {}
+            int pixelMetric(PixelMetric metric, const QStyleOption *option,
+                            const QWidget *widget) const override
+            {
+                if (metric == PM_ScrollView_ScrollBarOverlap)
+                    return qobject_cast<const QScrollBar *>(widget) ? 1 : 0;
+                return QProxyStyle::pixelMetric(metric, option, widget);
+            }
+        } style;
+        QWidget host;
+        ZzFluentUI::ZzColorPicker picker(&host);
+        picker.setAppearance(ZzFluentUI::ZzColorPicker::Fluent);
+        picker.findChild<QTabBar *>("zzColorPickerTabs")->setCurrentIndex(1);
+        auto *view = paletteView(&picker);
+        view->setStyle(&style);
+        view->verticalScrollBar()->setStyle(&style);
+        host.show();
+        for (int count : {49, 256}) {
+            QList<QColor> colors;
+            for (int index = 0; index < count; ++index) colors.append(QColor(index, 100, 150));
+            picker.setPaletteColors(colors);
+            QCoreApplication::processEvents();
+            for (int width : {360, picker.minimumSizeHint().width()}) {
+                picker.resize(width, picker.heightForWidth(width));
+                QCoreApplication::processEvents();
+                QCOMPARE(view->viewport()->width(), view->width() - 2 * view->frameWidth());
+                QCOMPARE(view->visualRect(view->model()->index(7, 0)).top(),
+                         view->visualRect(view->model()->index(0, 0)).top());
+                QVERIFY(view->visualRect(view->model()->index(8, 0)).top()
+                        > view->visualRect(view->model()->index(0, 0)).top());
+                QVERIFY2(view->viewport()->height() >= 6 * view->gridSize().height(),
+                         qPrintable(QStringLiteral("picker=%1x%2 view=%3x%4 grid=%5 predicted=%6")
+                             .arg(picker.width()).arg(picker.height()).arg(view->width())
+                             .arg(view->height()).arg(view->gridSize().height())
+                             .arg(picker.heightForWidth(width))));
+                const auto last = view->model()->index(count - 1, 0);
+                view->scrollTo(last);
+                QTRY_VERIFY(view->viewport()->rect().contains(view->visualRect(last)));
+                view->verticalScrollBar()->setValue(0);
+            }
+        }
     }
 
     /** @brief 标准 48 色板在 360px 选择器内不足八列或出现截断时失败。 */

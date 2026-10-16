@@ -194,6 +194,9 @@ Q_SIGNALS:
     void paletteColorsChanged();
 
 protected:
+    /** @brief 重新挂接父控件后更新独立窗口与嵌入布局的尺寸约束。 */
+    bool event(QEvent *event) override;
+
     /** @brief 在语言、主题、palette 或方向变化后刷新派生展示。 */
     void changeEvent(QEvent *event) override;
 
