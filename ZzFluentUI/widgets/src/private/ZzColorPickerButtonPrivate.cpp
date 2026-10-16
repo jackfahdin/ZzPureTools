@@ -155,7 +155,11 @@ bool ZzColorPickerButtonPrivate::eventFilter(QObject *watched, QEvent *event)
     }
     if (!popup->isVisible()) return false;
     auto *widget = qobject_cast<QWidget *>(watched);
-    const bool inside = widget && (widget == popup || popup->isAncestorOf(widget));
+    // Native input first targets QWindow, before Qt routes it to a QWidget.
+    // Classify only widget deliveries; otherwise every native press appears
+    // to be outside and dismisses the popup before its controls receive it.
+    if (!widget) return false;
+    const bool inside = widget == popup || popup->isAncestorOf(widget);
     if (event->type() == QEvent::KeyPress && inside
         && QApplication::activePopupWidget() == popup
         && static_cast<QKeyEvent *>(event)->key() == Qt::Key_Escape) {

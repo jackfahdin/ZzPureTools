@@ -3,6 +3,9 @@
 #include <QtTest/QSignalSpy>
 #include <QtCore/QPointer>
 #include <QtGui/QScreen>
+#include <QtGui/QWindow>
+#include <QtWidgets/QAbstractSlider>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QTabBar>
@@ -34,6 +37,132 @@ class ZzColorPickerSurfacesTest final : public QObject
         return editor;
     }
 private Q_SLOTS:
+    void nativeTabClicksKeepPopupOpen_data()
+    {
+        QTest::addColumn<int>("tab");
+        QTest::newRow("spectrum") << 0;
+        QTest::newRow("palette") << 1;
+        QTest::newRow("sliders") << 2;
+    }
+    void nativeTabClicksKeepPopupOpen()
+    {
+        QFETCH(int, tab);
+        QWidget window;
+        window.resize(600, 600);
+        ZzColorPickerButton button(&window);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTest::mouseClick(&button, Qt::LeftButton);
+        auto *popup = button.colorPicker()->window();
+        QVERIFY(QTest::qWaitForWindowExposed(popup));
+        auto *tabs = button.colorPicker()->findChild<QTabBar *>();
+        QVERIFY(tabs);
+        tabs->setCurrentIndex((tab + 1) % 3);
+        // Real input reaches QWindow before Qt dispatches it to a child widget.
+        // Direct QWidget test clicks bypass that stage and missed this bug.
+        QTest::mouseClick(popup->windowHandle(), Qt::LeftButton, Qt::NoModifier,
+                         tabs->mapTo(popup, tabs->tabRect(tab).center()));
+        QVERIFY2(popup->isVisible(), "An internal tab click must not dismiss the color picker");
+        QCOMPARE(tabs->currentIndex(), tab);
+    }
+    void nativeSliderDragKeepsPopupOpen_data()
+    {
+        QTest::addColumn<QString>("sliderName");
+        QTest::addColumn<int>("tab");
+        QTest::newRow("spectrum-value") << QStringLiteral("zzColorValueSlider") << 0;
+        QTest::newRow("spectrum-alpha") << QStringLiteral("zzColorAlphaSlider") << 0;
+        QTest::newRow("red-channel") << QStringLiteral("zzColorChannelSlider0") << 2;
+    }
+    void nativeSliderDragKeepsPopupOpen()
+    {
+        QFETCH(QString, sliderName);
+        QFETCH(int, tab);
+        QWidget window;
+        window.resize(600, 600);
+        ZzColorPickerButton button(&window);
+        button.setSelectedColor(QColor("#80402010"));
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTest::mouseClick(&button, Qt::LeftButton);
+        auto *picker = button.colorPicker();
+        auto *popup = picker->window();
+        QVERIFY(QTest::qWaitForWindowExposed(popup));
+        auto *tabs = picker->findChild<QTabBar *>();
+        QVERIFY(tabs);
+        tabs->setCurrentIndex(tab);
+        auto *slider = picker->findChild<QAbstractSlider *>(sliderName);
+        QVERIFY(slider);
+        ZZ_VERIFY_EVENTUALLY(slider->isVisible());
+        const bool horizontal = slider->orientation() == Qt::Horizontal;
+        const QPoint start = slider->mapTo(popup, horizontal
+            ? QPoint(slider->width() / 4, slider->height() / 2)
+            : QPoint(slider->width() / 2, 3 * slider->height() / 4));
+        const QPoint end = slider->mapTo(popup, horizontal
+            ? QPoint(3 * slider->width() / 4, slider->height() / 2)
+            : QPoint(slider->width() / 2, slider->height() / 4));
+        QSignalSpy changed(&button, &ZzColorPickerButton::selectedColorChanged);
+        QTest::mousePress(popup->windowHandle(), Qt::LeftButton, Qt::NoModifier, start);
+        QVERIFY2(popup->isVisible(), "A slider press must not dismiss the color picker");
+        QVERIFY(slider->isSliderDown());
+        const int pressedValue = slider->value();
+        QTest::mouseMove(popup->windowHandle(), end);
+        QVERIFY(popup->isVisible());
+        QVERIFY(slider->value() > pressedValue);
+        QTest::mouseRelease(popup->windowHandle(), Qt::LeftButton, Qt::NoModifier, end);
+        QVERIFY(popup->isVisible());
+        QVERIFY(!slider->isSliderDown());
+        QVERIFY(!changed.isEmpty());
+        QCOMPARE(button.selectedColor(), picker->currentColor());
+    }
+    void nativeOutsideAndAnchorClicksStillDismiss()
+    {
+        QWidget window;
+        window.resize(600, 600);
+        ZzColorPickerButton button(&window);
+        button.move(20, 20);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *popup = button.colorPicker()->window();
+        const QPoint anchor = button.mapTo(&window, button.rect().center());
+        for (const QPoint outside : {QPoint(590, 590), anchor}) {
+            QTest::mouseClick(window.windowHandle(), Qt::LeftButton, Qt::NoModifier, anchor);
+            QVERIFY(QTest::qWaitForWindowExposed(popup));
+            const QPoint position = popup->mapFromGlobal(window.mapToGlobal(outside));
+            QVERIFY(!popup->rect().contains(position));
+            QTest::mouseClick(window.windowHandle(), Qt::LeftButton, Qt::NoModifier, outside);
+            ZZ_VERIFY_EVENTUALLY(!popup->isVisible());
+            ZZ_VERIFY_EVENTUALLY(button.hasFocus());
+        }
+    }
+    void nativeRepresentationSelectionKeepsPickerOpen()
+    {
+        QWidget window;
+        window.resize(600, 600);
+        ZzColorPickerButton button(&window);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTest::mouseClick(&button, Qt::LeftButton);
+        auto *picker = button.colorPicker();
+        auto *popup = picker->window();
+        QVERIFY(QTest::qWaitForWindowExposed(popup));
+        auto *tabs = picker->findChild<QTabBar *>();
+        QVERIFY(tabs);
+        tabs->setCurrentIndex(2);
+        auto *combo = picker->findChild<QComboBox *>(QStringLiteral("zzColorRepresentationCombo"));
+        QVERIFY(combo);
+        QTest::mouseClick(popup->windowHandle(), Qt::LeftButton, Qt::NoModifier,
+                         combo->mapTo(popup, combo->rect().center()));
+        auto *comboPopup = QApplication::activePopupWidget();
+        QVERIFY(comboPopup);
+        QVERIFY(comboPopup != popup);
+        QVERIFY(QTest::qWaitForWindowExposed(comboPopup));
+        // Select HSV through the nested popup's native input path.
+        QTest::keyClick(comboPopup->windowHandle(), Qt::Key_End);
+        QTest::keyClick(comboPopup->windowHandle(), Qt::Key_Return);
+        ZZ_VERIFY_EVENTUALLY(QApplication::activePopupWidget() == popup);
+        QVERIFY(popup->isVisible());
+        QCOMPARE(picker->colorRepresentation(), ZzColorPicker::Hsva);
+    }
     void buttonLiveValueAndStablePopup()
     {
         QWidget window;
