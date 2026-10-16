@@ -112,7 +112,7 @@ private Q_SLOTS:
                 QCOMPARE(probe.paints, 0);
                 const QModelIndex last = view->model()->index(colorCount - 1, 0);
                 view->scrollTo(last);
-                QTRY_VERIFY(view->viewport()->rect().contains(view->visualRect(last)));
+                ZZ_VERIFY_EVENTUALLY(view->viewport()->rect().contains(view->visualRect(last)));
             }
             popup->resize(360, 388);
             QCoreApplication::processEvents();

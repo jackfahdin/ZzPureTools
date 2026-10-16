@@ -12,6 +12,7 @@
 #include <QtGui/QPainter>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListView>
@@ -326,10 +327,10 @@ private Q_SLOTS:
         const int heightWithoutScrollBar = picker.heightForWidth(600);
         colors.append(QColor(48, 100, 150));
         picker.setPaletteColors(colors);
-        QTRY_VERIFY(picker.heightForWidth(600) < heightWithoutScrollBar);
+        ZZ_VERIFY_EVENTUALLY(picker.heightForWidth(600) < heightWithoutScrollBar);
         colors.removeLast();
         picker.setPaletteColors(colors);
-        QTRY_COMPARE(picker.heightForWidth(600), heightWithoutScrollBar);
+        ZZ_COMPARE_EVENTUALLY(picker.heightForWidth(600), heightWithoutScrollBar);
     }
 
     /** @brief 浮层滚动条不占 viewport 宽度，预测高度仍须容纳八列六行。 */
@@ -374,7 +375,7 @@ private Q_SLOTS:
                              .arg(picker.heightForWidth(width))));
                 const auto last = view->model()->index(count - 1, 0);
                 view->scrollTo(last);
-                QTRY_VERIFY(view->viewport()->rect().contains(view->visualRect(last)));
+                ZZ_VERIFY_EVENTUALLY(view->viewport()->rect().contains(view->visualRect(last)));
                 view->verticalScrollBar()->setValue(0);
             }
         }
