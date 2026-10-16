@@ -379,7 +379,7 @@ int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
     const int adaptiveTitleWidth = qMin(
         zzTitleBarAdaptiveTitleWidthCap,
         qMax(0, requestedTitleWidth));
-    return 2 * qMax(expandedLeftGroupWidth, rightGroupWidth)
+    return expandedLeftGroupWidth + rightGroupWidth
         + adaptiveTitleWidth
         + (2 * zzTitleBarSpacing)
         + zzTitleBarMargin;
@@ -449,7 +449,7 @@ void ZzFluentTitleBarPrivate::updateLayout()
         + systemWidth;
     const QSize menuSizeHint = menuBar->sizeHint();
     const int desiredMenuWidth = qMax(1, menuSizeHint.width());
-    // 标题以窗口中心为锚点；短标题只按实际宽度预留，避免菜单过早折叠。
+    // 按左右组与实际标题预算计算阈值，避免菜单过早折叠。
     const int adaptiveThreshold = minimumExpandedWidth();
     const int hysteresisHalf = zzTitleBarAdaptiveHysteresis / 2;
 
@@ -566,23 +566,17 @@ void ZzFluentTitleBarPrivate::updateLayout()
         leftSafeBoundary = availableWidth - rightGroupStart;
         rightSafeBoundary = availableWidth - leftGroupEnd;
     }
-    const int center = q_ptr->rect().center().x();
-    const int safeHalfWidth = qMax(
-        0,
-        qMin(
-            center - leftSafeBoundary - zzTitleBarSpacing,
-            rightSafeBoundary - zzTitleBarSpacing - center));
-    int titleWidth = qMin(
-        q_ptr->fontMetrics().horizontalAdvance(title) + 4,
-        (2 * safeHalfWidth) + 1);
-    if (titleWidth > 0 && titleWidth % 2 == 0) {
-        --titleWidth;
-    }
+    // 标题在两组控件之间的全部可用区域居中，窄窗口也可利用非对称空白。
+    const int titleLeft = qBound(
+        0, leftSafeBoundary + zzTitleBarSpacing, availableWidth);
+    const int titleRight = qBound(
+        0, rightSafeBoundary - zzTitleBarSpacing, availableWidth);
+    const int titleWidth = qMax(0, titleRight - titleLeft);
     if (titleWidth <= 0 || title.isEmpty()) {
         titleLabel->setGeometry(0, 0, 0, availableHeight);
     } else {
         titleLabel->setGeometry(
-            center - titleWidth / 2,
+            titleLeft,
             0,
             titleWidth,
             availableHeight);

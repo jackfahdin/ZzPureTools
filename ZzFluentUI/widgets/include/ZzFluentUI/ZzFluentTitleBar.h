@@ -222,7 +222,7 @@ protected:
     /** @brief 观察菜单 Action 增删并同步折叠菜单的同一 QAction 实例。 */
     bool eventFilter(QObject *watched, QEvent *event) override;
 
-    /** @brief 窗口宽度变化时重新计算菜单形态和全窗口居中标题。 */
+    /** @brief 窗口宽度变化时重新计算菜单形态和可用区域居中标题。 */
     void resizeEvent(QResizeEvent *event) override;
 
     /** @brief 宿主关系变化后重新绑定最小宽度约束。 */

@@ -6,6 +6,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QTranslator>
 #include <QtGui/QColor>
+#include <QtGui/QFontMetricsF>
 #include <QtGui/QImage>
 #include <QtGui/QPalette>
 #include <QtGui/QPainter>
@@ -455,6 +456,12 @@ private Q_SLOTS:
 
         titleBar.resize(420, titleBar.height());
         QCoreApplication::processEvents();
+        // 没有标题时 420 像素足够完整展示左右控件，不应提前折叠菜单。
+        QVERIFY(menuBar->isVisible());
+        QVERIFY(compactButton->isHidden());
+
+        titleBar.resize(300, titleBar.height());
+        QCoreApplication::processEvents();
         QVERIFY(menuBar->isHidden());
         QVERIFY(compactButton->isVisible());
         QVERIFY(compactButton->menu()->actions().contains(
@@ -660,13 +667,106 @@ private Q_SLOTS:
         QCOMPARE(window.minimumWidth(), 0);
     }
 
-    void keepsTitleCenteredInsideInteractiveSafeArea()
+    /** @brief 标题充分利用可用区，动态按钮和菜单布局下均不提前省略或覆盖。 */
+    void centersTitleInAvailableArea_data()
+    {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<int>("menuMode");
+        QTest::addColumn<bool>("rightToLeft");
+        for (const int width : {500, 861, 300, 260, 200}) {
+            for (const int menuMode : {-1, 0, 1}) {
+                for (const bool rtl : {false, true}) {
+                    const QByteArray name = QByteArray::number(width) + "-menu-"
+                        + QByteArray::number(menuMode) + (rtl ? "-rtl" : "-ltr");
+                    QTest::newRow(name.constData()) << width << menuMode << rtl;
+                }
+            }
+        }
+    }
+
+    void centersTitleInAvailableArea()
+    {
+        QFETCH(int, width);
+        QFETCH(int, menuMode);
+        QFETCH(bool, rightToLeft);
+        using Bar = ZzFluentUI::ZzFluentTitleBar;
+        using Button = Bar::Button;
+        Bar bar;
+        const QString title = QStringLiteral("ZzApkInfo-v1.0.0 (Jackfahdin)");
+        bar.setTitle(title);
+        bar.setLayoutDirection(rightToLeft ? Qt::RightToLeft : Qt::LeftToRight);
+        if (menuMode >= 0) {
+            bar.menuBar()->addMenu(QStringLiteral("File"));
+            bar.menuBar()->addMenu(QStringLiteral("Edit"));
+            bar.setMenuDisplayMode(menuMode == 0
+                ? ZzFluentUI::ZzTitleBarMenuDisplayMode::Expanded
+                : ZzFluentUI::ZzTitleBarMenuDisplayMode::Compact);
+        }
+        bar.resize(width, bar.height());
+        bar.show();
+        QCoreApplication::processEvents();
+        auto *label = bar.findChild<QLabel *>(QStringLiteral("zzTitleBarTitle"));
+        QVERIFY(label != nullptr);
+        const std::array<Button, 5> buttons{
+            Button::Theme, Button::AlwaysOnTop, Button::Minimize,
+            Button::Maximize, Button::Close};
+        const std::array<QWidget *, 5> rightWidgets{
+            bar.findChild<QToolButton *>(QStringLiteral("zzTitleBarThemeButton")),
+            bar.findChild<QToolButton *>(QStringLiteral("zzTitleBarAlwaysOnTopButton")),
+            bar.minimizeButton(), bar.maximizeButton(), bar.closeButton()};
+        const std::array<QWidget *, 3> leftWidgets{
+            bar.windowIconWidget(), bar.menuBar(),
+            bar.findChild<QToolButton *>(QStringLiteral("zzTitleBarCompactMenuButton"))};
+        for (QWidget *widget : rightWidgets) QVERIFY(widget != nullptr);
+        for (QWidget *widget : leftWidgets) QVERIFY(widget != nullptr);
+
+        for (unsigned int mask = 0; mask < 32; ++mask) {
+            for (std::size_t index = 0; index < buttons.size(); ++index) {
+                bar.setButtonVisible(buttons[index], (mask & (1U << index)) != 0);
+            }
+            int leftEdge = 0;
+            int rightEdge = bar.width();
+            for (QWidget *widget : leftWidgets) {
+                if (!widget->isVisible()) continue;
+                if (rightToLeft) rightEdge = qMin(rightEdge, widget->x());
+                else leftEdge = qMax(leftEdge, widget->geometry().right() + 1);
+            }
+            for (QWidget *widget : rightWidgets) {
+                if (!widget->isVisible()) continue;
+                if (rightToLeft) leftEdge = qMax(leftEdge, widget->geometry().right() + 1);
+                else rightEdge = qMin(rightEdge, widget->x());
+            }
+            const int availableTextWidth = rightEdge - leftEdge - 8;
+            if (availableTextWidth <= 0) {
+                QVERIFY(label->isHidden());
+                QVERIFY(label->geometry().isEmpty());
+                continue;
+            }
+            QVERIFY(label->isVisible());
+            QCOMPARE(label->width(), availableTextWidth);
+            QVERIFY(bar.rect().contains(label->geometry()));
+            QVERIFY(label->x() > leftEdge);
+            QVERIFY(label->geometry().right() < rightEdge);
+            const int leftGap = label->x() - leftEdge;
+            const int rightGap = rightEdge - label->geometry().right() - 1;
+            QVERIFY(qAbs(leftGap - rightGap) <= 1);
+            // 整数 fontMetrics 会向最近像素取整，恰好相等时仍可能放不下实际字形。
+            if (availableTextWidth >= QFontMetricsF(label->font()).horizontalAdvance(title)) {
+                QCOMPARE(label->text(), title);
+            } else {
+                QVERIFY(label->text() != title);
+            }
+        }
+        bar.setTitle({});
+        QVERIFY(label->isHidden());
+    }
+
+    void keepsTitleInsideInteractiveSafeArea()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
         titleBar.menuBar()->addMenu(QStringLiteral("File"));
         titleBar.menuBar()->addMenu(QStringLiteral("Edit"));
-        titleBar.setTitle(QStringLiteral(
-            "A very long workspace title that must be elided safely"));
+        titleBar.setTitle(QString(160, QLatin1Char('W')));
         titleBar.resize(720, titleBar.height());
         titleBar.show();
         QCoreApplication::processEvents();
@@ -678,7 +778,6 @@ private Q_SLOTS:
             return;
         }
         QVERIFY(titleLabel->isVisible());
-        QCOMPARE(titleLabel->geometry().center().x(), titleBar.rect().center().x());
         QVERIFY(titleLabel->text() != titleBar.title());
         for (QWidget *widget : titleBar.hitTestVisibleWidgets()) {
             if (widget->isVisible()) {
@@ -785,7 +884,6 @@ private Q_SLOTS:
     void mirrorsChromeGroupsForRightToLeftLayouts()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
-        titleBar.menuBar()->addMenu(QStringLiteral("File"));
         titleBar.setTitle(QStringLiteral("Workspace"));
         titleBar.resize(900, titleBar.height());
         titleBar.show();
@@ -794,6 +892,10 @@ private Q_SLOTS:
             titleBar.windowIconWidget()->geometry().center().x();
         const int leftToRightCloseX =
             titleBar.closeButton()->geometry().center().x();
+        auto *titleLabel = titleBar.findChild<QLabel *>(
+            QStringLiteral("zzTitleBarTitle"));
+        QVERIFY(titleLabel != nullptr);
+        const QRect leftToRightTitleRect = titleLabel->geometry();
         QVERIFY(leftToRightIconX < titleBar.rect().center().x());
         QVERIFY(leftToRightCloseX > titleBar.rect().center().x());
 
@@ -805,13 +907,8 @@ private Q_SLOTS:
         QVERIFY(
             titleBar.closeButton()->geometry().center().x()
             < titleBar.rect().center().x());
-        auto *titleLabel = titleBar.findChild<QLabel *>(
-            QStringLiteral("zzTitleBarTitle"));
-        QVERIFY(titleLabel != nullptr);
-        if (titleLabel == nullptr) {
-            return;
-        }
-        QCOMPARE(titleLabel->geometry().center().x(), titleBar.rect().center().x());
+        QCOMPARE(titleLabel->width(), leftToRightTitleRect.width());
+        QCOMPARE(titleLabel->x(), titleBar.width() - leftToRightTitleRect.right() - 1);
     }
 
     void emitsSystemButtonIntentOnly()

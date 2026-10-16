@@ -37,7 +37,7 @@ public:
     /** @brief 返回按钮展示配置的非拥有指针，无效标识返回 nullptr。 */
     [[nodiscard]] bool *buttonVisibility(ZzTitleBarButton button) noexcept;
 
-    /** @brief 刷新标题文本和全窗口中心安全几何。 */
+    /** @brief 在已分配的可用区域内刷新标题文本及省略状态。 */
     void refreshTitle();
 
     /** @brief 按策略与可用宽度更新菜单形态和全部子控件几何。 */
