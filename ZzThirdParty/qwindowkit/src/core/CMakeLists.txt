@@ -84,19 +84,20 @@ if(QWINDOWKIT_ENABLE_STYLE_AGENT)
         list(APPEND _src style/styleagent_linux.cpp)
     endif()
 else()
-    list(APPEND _sync_include_options EXCLUDE "src/core/style/\\.+")
+    list(APPEND _sync_include_options EXCLUDE "src/core/style/.+")
 endif()
 
-qwk_add_library(${PROJECT_NAME} AUTOGEN
+qwk_add_library(${PROJECT_NAME} QT_AUTOGEN
     SOURCES ${_src}
     FEATURES cxx_std_17
     LINKS_PRIVATE ${_links_private}
     QT_LINKS Core Gui
     QT_INCLUDE_PRIVATE Core Gui
     INCLUDE_PRIVATE *
-    PREFIX QWK_CORE
-    SYNC_INCLUDE_OPTIONS ${_sync_include_options}
+    MACRO_PREFIX QWK_CORE
 )
+
+qwk_sync_include(${PROJECT_NAME} FORCE ${_sync_include_options})
 
 set(QWINDOWKIT_ENABLED_TARGETS ${QWINDOWKIT_ENABLED_TARGETS} ${PROJECT_NAME} PARENT_SCOPE)
 set(QWINDOWKIT_ENABLED_SUBDIRECTORIES ${QWINDOWKIT_ENABLED_SUBDIRECTORIES} core PARENT_SCOPE)

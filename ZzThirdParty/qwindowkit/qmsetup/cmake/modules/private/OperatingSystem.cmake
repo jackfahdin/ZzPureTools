@@ -1,6 +1,12 @@
+#[[
+    Warning: This module is private, may be modified or removed in the future, please use with caution.
+]] #
+
 include_guard(DIRECTORY)
 
 function(qm_get_windows_proxy _out)
+    set(${_out} "" PARENT_SCOPE)
+
     if(NOT WIN32)
         return()
     endif()

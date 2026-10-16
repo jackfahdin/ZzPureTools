@@ -96,3 +96,8 @@ CMakeSettings.json
 *.sublime-*
 setup-vcpkg.json
 setup-vcpkg-temp*
+
+CLAUDE.md
+AGENTS.md
+# Sphinx output for the CMake reference under docs/sphinx/
+docs/sphinx/_build/

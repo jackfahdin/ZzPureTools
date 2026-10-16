@@ -1,7 +1,18 @@
+#[==[.rst:
+Protobuf
+--------
+
+Turning ``.proto`` files into sources with the protobuf compiler.
+#]==]
+
 include_guard(DIRECTORY)
 
-#[[
-    Add rules for creating Google Protobuf source files.
+#[==[.rst:
+.. cmake:command:: qm_create_protobuf
+
+  Add rules for creating Google Protobuf source files.
+
+  .. code-block:: cmake
 
     qm_create_protobuf(<OUT>
         INPUT <files...>
@@ -13,19 +24,44 @@ include_guard(DIRECTORY)
         [CREATE_ONCE]
     )
 
-    INPUT: source files
-    OUTPUT_DIR: output directory
+  ``<OUT>``
+    the variable to answer with, holding the paths of the generated sources
+  ``INPUT``
+    source files
+  ``OUTPUT_DIR``
+    output directory
 
-    TARGET: add a custom target to run the generating command
+  ``TARGET``
+    add a custom target to run the generating command
 
-    INCLUDE_DIRECTORIES: extra include directories
-    OPTIONS: extra options passed to protobuf compiler
-    DEPENDS: dependencies
+  ``INCLUDE_DIRECTORIES``
+    extra include directories
+  ``OPTIONS``
+    extra options passed to protobuf compiler
+  ``DEPENDS``
+    dependencies
 
-    CREATE_ONCE: create proto code files at configure phase if not exist
+  ``CREATE_ONCE``
+    create proto code files at configure phase if not exist
 
-    OUT: output source file paths
-#]]
+  .. note::
+     protobuf has to be found before this is called, either way round:
+     ``find_package(Protobuf)`` or ``find_package(Protobuf CONFIG)``. What is
+     wanted out of it is ``protobuf::protoc``, and a call made without one stops
+     with an error saying so.
+
+  .. code-block:: cmake
+
+     qm_import(Protobuf)
+
+     find_package(Protobuf CONFIG REQUIRED)
+     qm_create_protobuf(_proto_src
+         INPUT a.proto b.proto
+         INCLUDE_DIRECTORIES src/proto
+         OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto
+     )
+     target_sources(${PROJECT_NAME} PUBLIC ${_proto_src})
+#]==]
 function(qm_create_protobuf _out)
     set(options CREATE_ONCE)
     set(oneValueArgs OUTPUT_DIR TARGET)
@@ -35,7 +71,7 @@ function(qm_create_protobuf _out)
     # Find `protoc`
     if(NOT PROTOC_EXECUTABLE)
         if(NOT TARGET protobuf::protoc)
-            message(FATAL_ERROR "qm_create_protobuf: protobuf compiler not found. Add find_package(Protobuf) to CMake to enable.")
+            message(FATAL_ERROR "qm_create_protobuf: protobuf compiler not found. Add find_package(Protobuf) or find_package(Protobuf CONFIG) to CMake to enable.")
         endif()
 
         get_target_property(PROTOC_EXECUTABLE protobuf::protoc LOCATION)
@@ -83,7 +119,7 @@ function(qm_create_protobuf _out)
     # Prepare for create once
     if(FUNC_CREATE_ONCE)
         # Check if options contain generator expressions
-        foreach(_opt IN LISTS _include_options LISTS FUNC_OPTIONS)
+        foreach(_opt IN LISTS _include_options FUNC_OPTIONS)
             string(GENEX_STRIP "${_opt}" _no_genex)
 
             if(NOT _no_genex STREQUAL _opt)
@@ -130,11 +166,17 @@ function(qm_create_protobuf _out)
     endforeach()
 
     if(FUNC_TARGET)
-        if(NOT TARGET ${FUNC_TARGET})
-            add_custom_target(${FUNC_TARGET})
+        # The files go on the target as it is made. add_dependencies takes the
+        # names of targets and nothing else, so a target that is already there
+        # cannot be handed them afterwards, and saying so here beats the four
+        # errors the generate step would otherwise give, one per file.
+        if(TARGET ${FUNC_TARGET})
+            message(FATAL_ERROR "qm_create_protobuf: TARGET \"${FUNC_TARGET}\" already exists. "
+                "Name one that does not, or leave TARGET out and add the generated files to a "
+                "target of your own as sources.")
         endif()
 
-        add_dependencies(${FUNC_TARGET} ${_out_files})
+        add_custom_target(${FUNC_TARGET} DEPENDS ${_out_files})
     endif()
 
     set(${_out} ${_out_files} PARENT_SCOPE)

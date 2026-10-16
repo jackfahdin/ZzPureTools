@@ -1,14 +1,25 @@
+#[==[.rst:
+Filesystem
+----------
+
+Copying, configuring and laying out files, at build time and at install time.
+#]==]
+
 include_guard(DIRECTORY)
 
 if(NOT QMSETUP_MODULES_DIR)
     get_filename_component(QMSETUP_MODULES_DIR ${CMAKE_CURRENT_LIST_DIR} DIRECTORY)
 endif()
 
-#[[
-    Initialize the build output directories of targets and resources.
+#[==[.rst:
+.. cmake:command:: qm_init_directories
+
+  Initialize the build output directories of targets and resources.
+
+  .. code-block:: cmake
 
     qm_init_directories()
-]] #
+#]==]
 macro(qm_init_directories)
     if(NOT DEFINED QMSETUP_BUILD_DIR)
         set(QMSETUP_BUILD_DIR "${CMAKE_BINARY_DIR}/out-$<LOWER_CASE:${CMAKE_SYSTEM_PROCESSOR}>-$<CONFIG>")
@@ -26,13 +37,24 @@ macro(qm_init_directories)
         set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${QMSETUP_BUILD_DIR}/lib)
     endif()
 
+    if(NOT DEFINED QMSETUP_BUILD_SHARE_DIR)
+        set(QMSETUP_BUILD_SHARE_DIR ${QMSETUP_BUILD_DIR}/share)
+    endif()
+
+    # Deprecated, and set for as long as something may still be reading it.
+    # Read QMSETUP_BUILD_SHARE_DIR instead. The three above are CMake's own
+    # variables and this one is not, so it does not belong in that namespace.
     if(NOT DEFINED CMAKE_BUILD_SHARE_DIR)
-        set(CMAKE_BUILD_SHARE_DIR ${QMSETUP_BUILD_DIR}/share)
+        set(CMAKE_BUILD_SHARE_DIR ${QMSETUP_BUILD_SHARE_DIR})
     endif()
 endmacro()
 
-#[[
-    Add a resources copying command for whole project.
+#[==[.rst:
+.. cmake:command:: qm_add_copy_command
+
+  Add a resources copying command for whole project.
+
+  .. code-block:: cmake
 
     qm_add_copy_command(<target>
         [CUSTOM_TARGET <target>]
@@ -43,18 +65,25 @@ endmacro()
         SOURCES <file/dir...> [DESTINATION <dir>] [INSTALL_DIR <dir>]
     )
 
-    CUSTOM_TARGET: Use a custom target to control the copy command
-    EXTRA_ARGS: Extra arguments to pass to file(INSTALL) statement
-    DEPENDS: Targets that the copy command depends
+  ``CUSTOM_TARGET``
+    Use a custom target to control the copy command
+  ``EXTRA_ARGS``
+    Extra arguments to pass to file(INSTALL) statement
+  ``DEPENDS``
+    Targets that the copy command depends
 
-    SOURCES: Source files or directories, directories ending with "/" will have their contents copied
-    DESTINATION: Copy the source file to the destination path. If the given value is a relative path, 
-                 the base directory depends on the type of the target
-                    - `$<TARGET_FILE_DIR>`: real target
-                    - `QMSETUP_BUILD_DIR`: custom target
-    INSTALL_DIR: Install the source files into a subdirectory in the given path. The subdirectory is the
-                 relative path from the `QMSETUP_BUILD_DIR` to `DESTINATION`.
-]] #
+  ``SOURCES``
+    Source files or directories, directories ending with "/" will have their contents copied
+  ``DESTINATION``
+    Copy the source file to the destination path. If the given value is a relative path,
+    the base directory depends on the type of the target
+
+    - ``$<TARGET_FILE_DIR>``: real target
+    - ``QMSETUP_BUILD_DIR``: custom target
+  ``INSTALL_DIR``
+    Install the source files into a subdirectory in the given path. The subdirectory is the
+    relative path from the ``QMSETUP_BUILD_DIR`` to ``DESTINATION``.
+#]==]
 function(qm_add_copy_command _target)
     set(options VERBOSE SKIP_BUILD SKIP_INSTALL)
     set(oneValueArgs CUSTOM_TARGET DESTINATION INSTALL_DIR)
@@ -108,8 +137,12 @@ function(qm_add_copy_command _target)
     set(_extra_args)
     set(_ignore_stdout)
 
+    # Escaped, so that the whole of it stays one argument. A list put into a
+    # command becomes one argument for each of its items, which left the script
+    # with the first of them and handed the rest to CMake itself.
     if(FUNC_EXTRA_ARGS)
-        list(APPEND _extra_args -D "args=${FUNC_EXTRA_ARGS}")
+        string(REPLACE ";" "\\;" _escaped_args "${FUNC_EXTRA_ARGS}")
+        list(APPEND _extra_args -D "args=${_escaped_args}")
     endif()
 
     if(NOT FUNC_VERBOSE)
@@ -135,10 +168,18 @@ function(qm_add_copy_command _target)
             message(FATAL_ERROR "qm_add_copy_command: `QMSETUP_BUILD_DIR` not defined, the install directory cannot be determined.")
         endif()
 
+        # The same pair the build phase passes, written out rather than expanded
+        # from a variable so that the script is handed a name to read them under
+        # rather than bare arguments.
+        set(_install_extra_args)
+
+        if(FUNC_EXTRA_ARGS)
+            set(_install_extra_args "-D \"args=${FUNC_EXTRA_ARGS}\"")
+        endif()
+
         # Install phase
         install(CODE "
             set(_src \"${FUNC_SOURCES}\")
-            set(_extra_args \"${FUNC_EXTRA_ARGS}\")
 
             # Calculate the relative path from build phase destination to build directory
             get_filename_component(_build_dir \"${_dest}\" ABSOLUTE BASE_DIR \"${_dest_base}\")
@@ -151,16 +192,21 @@ function(qm_add_copy_command _target)
                 COMMAND \${CMAKE_COMMAND}
                 -D \"src=\${_src}\"
                 -D \"dest=\${_dest}\"
-                \${_extra_args}
+                ${_install_extra_args}
                 -P \"${QMSETUP_MODULES_DIR}/scripts/copy.cmake\"
                 WORKING_DIRECTORY \"${CMAKE_CURRENT_SOURCE_DIR}\"
+                COMMAND_ERROR_IS_FATAL ANY
             )
         ")
     endif()
 endfunction()
 
-#[[
-    Add a custom command to run `configure_file`.
+#[==[.rst:
+.. cmake:command:: qm_future_configure_file
+
+  Add a custom command to run ``configure_file``.
+
+  .. code-block:: cmake
 
     qm_future_configure_file(<_input> <output>
         [FORCE]
@@ -168,7 +214,7 @@ endfunction()
         [DEPENDS <deps...>]
         [VARIABLES <var...>]
     )
-]] #
+#]==]
 function(qm_future_configure_file _input _output)
     set(options FORCE)
     set(oneValueArgs)
@@ -182,7 +228,7 @@ function(qm_future_configure_file _input _output)
     endforeach()
 
     if(FUNC_FORCE)
-        list(APPLE _options -D "force=TRUE")
+        list(APPEND _options -D "force=TRUE")
     endif()
 
     add_custom_command(OUTPUT ${_output}

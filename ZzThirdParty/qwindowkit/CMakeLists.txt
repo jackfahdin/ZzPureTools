@@ -14,6 +14,7 @@ option(QWINDOWKIT_BUILD_STATIC "Build static libraries" OFF)
 option(QWINDOWKIT_BUILD_WIDGETS "Build widgets module" ON)
 option(QWINDOWKIT_BUILD_QUICK "Build quick module" OFF)
 option(QWINDOWKIT_BUILD_EXAMPLES "Build examples" OFF)
+option(QWINDOWKIT_BUILD_TESTS "Build test cases" OFF)
 option(QWINDOWKIT_BUILD_DOCUMENTATIONS "Build documentations" OFF)
 option(QWINDOWKIT_INSTALL "Install library" ON)
 
@@ -134,6 +135,11 @@ if(NOT TARGET qmsetup::library)
 endif()
 
 qm_import(Filesystem)
+
+if(NOT DEFINED QMSETUP_BUILD_DIR)
+    set(QMSETUP_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/out")
+endif()
+
 qm_init_directories()
 
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
@@ -145,4 +151,10 @@ add_subdirectory(src)
 
 if(QWINDOWKIT_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(QWINDOWKIT_BUILD_TESTS)
+    enable_testing()
+
+    add_subdirectory(tests)
 endif()

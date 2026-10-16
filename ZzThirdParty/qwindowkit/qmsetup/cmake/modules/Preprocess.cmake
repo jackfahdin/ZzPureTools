@@ -1,6 +1,13 @@
-#[[
-    Warning: This module depends on `qmcorecmd` after installation.
-]] #
+#[==[.rst:
+Preprocess
+----------
+
+Generating headers before anything is compiled: configuration macros, build
+information, and an include directory built out of a source tree.
+
+.. warning::
+   This module depends on ``qmcorecmd`` after installation.
+#]==]
 if(NOT QMSETUP_CORECMD_EXECUTABLE)
     message(FATAL_ERROR "QMSETUP_CORECMD_EXECUTABLE not defined. Add find_package(qmsetup) to CMake first.")
 endif()
@@ -23,9 +30,13 @@ endif()
 
 include_guard(DIRECTORY)
 
-#[[
-    Generate indirect reference files for header files to make the include statements more orderly.
-    The generated file has the same timestamp as the source file.
+#[==[.rst:
+.. cmake:command:: qm_sync_include
+
+  Generate indirect reference files for header files to make the include statements more orderly.
+  The generated file has the same timestamp as the source file.
+
+  .. code-block:: cmake
 
     qm_sync_include(<src> <dest>
         [STANDARD] [NO_STANDARD] [NO_ALL]
@@ -35,11 +46,13 @@ include_guard(DIRECTORY)
         [FORCE] [VERBOSE]
     )
 
-    STANDARD: Enable standard public-private pattern, can be forced to enable by enabling `QMSETUP_SYNC_INCLUDE_STANDARD`
-    NO_STANDARD: Disable standard public-private pattern, enable it to override `QMSETUP_SYNC_INCLUDE_STANDARD`
-#]]
+  ``STANDARD``
+    Enable standard public-private pattern, can be forced to enable by enabling ``QMSETUP_SYNC_INCLUDE_STANDARD``
+  ``NO_STANDARD``
+    Disable standard public-private pattern, enable it to override ``QMSETUP_SYNC_INCLUDE_STANDARD``
+#]==]
 function(qm_sync_include _src_dir _dest_dir)
-    set(options FORCE VERBOSE NO_STANDARD NO_ALL)
+    set(options FORCE VERBOSE STANDARD NO_STANDARD NO_ALL)
     set(oneValueArgs INSTALL_DIR)
     set(multiValueArgs INCLUDE EXCLUDE)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -103,20 +116,20 @@ function(qm_sync_include _src_dir _dest_dir)
 
         if(FUNC_INSTALL_DIR)
             set(_install_dir ${FUNC_INSTALL_DIR})
-            set(_args_quoted)
-
-            foreach(_item IN LISTS _args)
-                set(_args_quoted "${_args_quoted}\"${_item}\" ")
-            endforeach()
 
             # Get command output only and use file(INSTALL) to install files
+            #
+            # The command is carried over as a list and rebuilt on the other
+            # side, so that a path with a space or a quote in it stays one
+            # argument. Bracket arguments, since what goes between them is text
+            # and nothing in it is a variable reference or an escape.
             install(CODE "
-                get_filename_component(_install_dir \"${_install_dir}\" ABSOLUTE BASE_DIR \${CMAKE_INSTALL_PREFIX})
-        
+                get_filename_component(_install_dir [==[${_install_dir}]==] ABSOLUTE BASE_DIR \${CMAKE_INSTALL_PREFIX})
+                set(_command [==[${QMSETUP_CORECMD_EXECUTABLE};incsync;-d;${_args};${_src_dir}]==])
+
                 execute_process(
-                    COMMAND \"${QMSETUP_CORECMD_EXECUTABLE}\" incsync -d 
-                        ${_args_quoted} \"${_src_dir}\" \${_install_dir}
-                    WORKING_DIRECTORY \"${CMAKE_CURRENT_SOURCE_DIR}\"
+                    COMMAND \${_command} \${_install_dir}
+                    WORKING_DIRECTORY [==[${CMAKE_CURRENT_SOURCE_DIR}]==]
                     OUTPUT_VARIABLE _output_contents
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                     COMMAND_ERROR_IS_FATAL ANY
@@ -124,9 +137,20 @@ function(qm_sync_include _src_dir _dest_dir)
                 string(REPLACE \"\\n\" \";\" _lines \"\${_output_contents}\")
 
                 foreach(_line IN LISTS _lines)
-                    string(REGEX MATCH \"from \\\"([^\\\"]*)\\\" to \\\"([^\\\"]*)\\\"\" _ \${_line})
-                    get_filename_component(_target_path \${CMAKE_MATCH_2} DIRECTORY)
-                    file(INSTALL \${CMAKE_MATCH_1} DESTINATION \${_target_path})
+                    string(REGEX MATCH \"from \\\"([^\\\"]*)\\\" to \\\"([^\\\"]*)\\\"\" _matched \"\${_line}\")
+
+                    # A line that says something else is passed over rather than acted
+                    # on. CMAKE_MATCH_1 and CMAKE_MATCH_2 keep whatever the last match
+                    # put there, so reading them regardless would install the header
+                    # before this one a second time. Every line the tool prints in this
+                    # mode is of the shape below, so this is a guard rather than
+                    # something that has been seen to happen.
+                    if(NOT _matched)
+                        continue()
+                    endif()
+
+                    get_filename_component(_target_path \"\${CMAKE_MATCH_2}\" DIRECTORY)
+                    file(INSTALL \"\${CMAKE_MATCH_1}\" DESTINATION \"\${_target_path}\")
                 endforeach()
             ")
         endif()
@@ -135,8 +159,12 @@ function(qm_sync_include _src_dir _dest_dir)
     endif()
 endfunction()
 
-#[[
-    Add a definition to a property scope.
+#[==[.rst:
+.. cmake:command:: qm_add_definition
+
+  Add a definition to a property scope.
+
+  .. code-block:: cmake
 
     qm_add_definition( <key | key=value> | <key> <value>
         [GLOBAL | TARGET <target> | SOURCE <file> | DIRECTORY <dir>]
@@ -147,13 +175,17 @@ endfunction()
         [NUMERICAL] [CLASSICAL]
     )
 
-    STRING_LITERAL: Force quotes on values
-    NO_KEYWORD: Treat any keyword as string
-    NUMERICAL: Use 1/-1 as defined/undefined, can be forced to enable by enabling `QMSETUP_DEFINITION_NUMERICAL`
-    CLASSICAL: Use classical definition, enable it to override `QMSETUP_DEFINITION_NUMERICAL`
-]] #
+  ``STRING_LITERAL``
+    Force quotes on values
+  ``NO_KEYWORD``
+    Treat any keyword as string
+  ``NUMERICAL``
+    Use 1/-1 as defined/undefined, can be forced to enable by enabling ``QMSETUP_DEFINITION_NUMERICAL``
+  ``CLASSICAL``
+    Use classical definition, enable it to override ``QMSETUP_DEFINITION_NUMERICAL``
+#]==]
 function(qm_add_definition _first)
-    set(options STRING_LITERAL NO_KEYWORD NUMERICAL CLASSICAL)
+    set(options GLOBAL STRING_LITERAL NO_KEYWORD NUMERICAL CLASSICAL)
     set(oneValueArgs TARGET SOURCE DIRECTORY PROPERTY)
     set(multiValueArgs CONDITION)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -183,6 +215,12 @@ function(qm_add_definition _first)
     if(_len EQUAL 1)
         set(_result ${_list})
         set(_defined on)
+
+        # A key given as key=value in one argument carries a value just as much
+        # as one given as two, and has nothing to say numerically either way.
+        if(_result MATCHES "=")
+            set(_is_pair on)
+        endif()
 
         if(NOT _cond)
             set(_defined off)
@@ -236,40 +274,56 @@ function(qm_add_definition _first)
         return()
     endif()
 
-    _qm_calc_property_scope_helper(_scope _prop)
+    _qm_calc_property_scope_helper(_scope _prop
+        TARGET "${FUNC_TARGET}" SOURCE "${FUNC_SOURCE}" DIRECTORY "${FUNC_DIRECTORY}"
+        GLOBAL "${FUNC_GLOBAL}" PROPERTY "${FUNC_PROPERTY}"
+    )
     set_property(${_scope} APPEND PROPERTY ${_prop} "${_result}")
 endfunction()
 
-#[[
-    Remove a definition from a property scope.
+#[==[.rst:
+.. cmake:command:: qm_remove_definition
+
+  Remove a definition from a property scope.
+
+  .. code-block:: cmake
 
     qm_remove_definition(<key>
         [GLOBAL | TARGET <target> | SOURCE <file> | DIRECTORY <dir>]
         [PROPERTY <prop>]
     )
-]] #
+#]==]
 function(qm_remove_definition _key)
-    set(options)
-    set(oneValueArgs TARGET PROPERTY)
+    set(options GLOBAL)
+    set(oneValueArgs TARGET SOURCE DIRECTORY PROPERTY)
     set(multiValueArgs)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    if(FUNC_TARGET)
-        get_target_property(_definitions ${FUNC_TARGET} ${_prop})
-    else()
-        get_property(_definitions GLOBAL PROPERTY ${_prop})
+    # Which property, before reading it, since both the read below and the write
+    # after it are of that name.
+    _qm_calc_property_scope_helper(_scope _prop
+        TARGET "${FUNC_TARGET}" SOURCE "${FUNC_SOURCE}" DIRECTORY "${FUNC_DIRECTORY}"
+        GLOBAL "${FUNC_GLOBAL}" PROPERTY "${FUNC_PROPERTY}"
+    )
+    get_property(_definitions ${_scope} PROPERTY ${_prop})
+
+    if(NOT _definitions)
+        set(_definitions) # May be _-NOTFOUND
     endif()
 
     # Filter
     list(FILTER _definitions EXCLUDE REGEX "^${_key}(=.*)?$")
 
-    _qm_calc_property_scope_helper(_scope _prop)
     set_property(${_scope} PROPERTY ${_prop} "${_definitions}")
 endfunction()
 
-#[[
-    Generate a configuration header of a property scope. If the configuration has not changed,
-    the generated file's timestemp will not be updated when you reconfigure it.
+#[==[.rst:
+.. cmake:command:: qm_generate_config
+
+  Generate a configuration header of a property scope. If the configuration has not changed,
+  the generated file's timestemp will not be updated when you reconfigure it.
+
+  .. code-block:: cmake
 
     qm_generate_config(<file>
         [GLOBAL | TARGET <target> | SOURCE <file> | DIRECTORY <dir>]
@@ -280,25 +334,47 @@ endfunction()
         [NO_WARNING]
         [NO_HASH]
     )
-]] #
+#]==]
 function(qm_generate_config _file)
-    set(options NO_WARNING NO_HASH)
-    set(oneValueArgs TARGET PROPERTY PROJECT_NAME WARNING_FILE)
+    set(options GLOBAL NO_WARNING NO_HASH)
+    set(oneValueArgs TARGET SOURCE DIRECTORY PROPERTY PROJECT_NAME WARNING_FILE)
     set(multiValueArgs)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    _qm_calc_property_scope_helper(_scope _prop)
+    _qm_calc_property_scope_helper(_scope _prop
+        TARGET "${FUNC_TARGET}" SOURCE "${FUNC_SOURCE}" DIRECTORY "${FUNC_DIRECTORY}"
+        GLOBAL "${FUNC_GLOBAL}" PROPERTY "${FUNC_PROPERTY}"
+    )
     get_property(_definitions ${_scope} PROPERTY ${_prop})
 
     if(NOT _definitions)
         set(_definitions) # May be _-NOTFOUND
     endif()
 
-    _qm_generate_config_helper()
+    set(_options)
+
+    if(FUNC_NO_WARNING)
+        list(APPEND _options NO_WARNING)
+    endif()
+
+    if(FUNC_NO_HASH)
+        list(APPEND _options NO_HASH)
+    endif()
+
+    _qm_generate_config_helper("${_file}"
+        DEFINITIONS ${_definitions}
+        PROJECT_NAME "${FUNC_PROJECT_NAME}"
+        WARNING_FILE "${FUNC_WARNING_FILE}"
+        ${_options}
+    )
 endfunction()
 
-#[[
-    Generate build info information header.
+#[==[.rst:
+.. cmake:command:: qm_generate_build_info
+
+  Generate build info information header.
+
+  .. code-block:: cmake
 
     qm_generate_build_info(<file>
         [REQUIRED]
@@ -312,12 +388,15 @@ endfunction()
         [NO_HASH]
     )
 
-    file: Output file
-
-    REQUIRED: Abort if there's any error with git
-    ROOT_DIRECTORY: Repository root directory (CMake will try to run `git` at this directory)
-    PREFIX: Macros prefix, default to the upper case of `PROJECT_NAME`
-]] #
+  ``<file>``
+    Output file
+  ``REQUIRED``
+    Abort if there's any error with git
+  ``ROOT_DIRECTORY``
+    Repository root directory (CMake will try to run ``git`` at this directory)
+  ``PREFIX``
+    Macros prefix, default to the upper case of ``PROJECT_NAME``
+#]==]
 function(qm_generate_build_info _file)
     set(options NO_WARNING NO_HASH YEAR TIME REQUIRED)
     set(oneValueArgs ROOT_DIRECTORY PREFIX PROJECT_NAME WARNING_FILE)
@@ -328,8 +407,13 @@ function(qm_generate_build_info _file)
         set(_prefix ${FUNC_PREFIX})
     else()
         string(TOUPPER "${PROJECT_NAME}" _prefix)
-        string(MAKE_C_IDENTIFIER ${_prefix} _prefix)
     endif()
+
+    # Both ways round. A prefix that was given went through as it stood, so a
+    # project named on the command line as my-lib asked for macros called
+    # my-lib_SYSTEM_NAME, which no compiler will take, while the same name
+    # arrived at from PROJECT_NAME came out fine.
+    string(MAKE_C_IDENTIFIER "${_prefix}" _prefix)
 
     set(_dir)
     qm_set_value(_dir FUNC_ROOT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -465,12 +549,6 @@ function(qm_generate_build_info _file)
 
     list(APPEND _definitions "%")
 
-    # build time (deprecated)
-    # list(APPEND _definitions ${_prefix}_BUILD_DATE_TIME=\"${_build_time}\")
-    # list(APPEND _definitions ${_prefix}_BUILD_YEAR=\"${_build_year}\")
-
-    # list(APPEND _definitions "%")
-
     # git info
     list(APPEND _definitions ${_prefix}_GIT_BRANCH=\"${_git_branch}\")
     list(APPEND _definitions ${_prefix}_GIT_LAST_COMMIT_HASH=\"${_git_hash}\")
@@ -479,55 +557,103 @@ function(qm_generate_build_info _file)
     list(APPEND _definitions ${_prefix}_GIT_LAST_COMMIT_EMAIL=\"${_git_commit_email}\")
     list(APPEND _definitions ${_prefix}_GIT_REVISION_ID=\"${_git_revision_id}\")
 
-    _qm_generate_config_helper()
+    set(_options)
+
+    if(FUNC_NO_WARNING)
+        list(APPEND _options NO_WARNING)
+    endif()
+
+    if(FUNC_NO_HASH)
+        list(APPEND _options NO_HASH)
+    endif()
+
+    _qm_generate_config_helper("${_file}"
+        DEFINITIONS ${_definitions}
+        PROJECT_NAME "${FUNC_PROJECT_NAME}"
+        WARNING_FILE "${FUNC_WARNING_FILE}"
+        ${_options}
+    )
 endfunction()
 
 # ----------------------------------
 # Private functions
 # ----------------------------------
-function(_qm_calc_property_scope_helper _scope _prop)
-    if(FUNC_TARGET)
-        set(_scope TARGET ${FUNC_TARGET})
-    elseif(FUNC_SOURCE)
-        set(_scope SOURCE ${FUNC__SOURCE})
-    elseif(FUNC_DIRECTORY)
-        set(_scope DIRECTORY ${FUNC_DIRECTORY})
-    elseif(FUNC_GLOBAL)
-        set(_scope GLOBAL)
+#[[
+    Which property, on which scope, a definition belongs to.
+
+      _qm_calc_property_scope_helper(<scope_var> <prop_var>
+          [TARGET <target>] [SOURCE <file>] [DIRECTORY <dir>] [GLOBAL <bool>]
+          [PROPERTY <prop>]
+      )
+
+    Everything it reads is passed to it, so that a caller may name its own
+    variables whatever it likes. The locals below are named apart from the two
+    out parameters for the same reason.
+]] #
+function(_qm_calc_property_scope_helper _scope_out _prop_out)
+    set(options)
+    set(oneValueArgs TARGET SOURCE DIRECTORY GLOBAL PROPERTY)
+    set(multiValueArgs)
+    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(ARG_TARGET)
+        set(_result_scope TARGET ${ARG_TARGET})
+    elseif(ARG_SOURCE)
+        set(_result_scope SOURCE ${ARG_SOURCE})
+    elseif(ARG_DIRECTORY)
+        set(_result_scope DIRECTORY ${ARG_DIRECTORY})
+    elseif(ARG_GLOBAL)
+        set(_result_scope GLOBAL)
     elseif(QMSETUP_DEFINITION_SCOPE)
-        set(_scope ${QMSETUP_DEFINITION_SCOPE})
+        set(_result_scope ${QMSETUP_DEFINITION_SCOPE})
     else()
-        set(_scope GLOBAL)
+        set(_result_scope GLOBAL)
     endif()
 
-    qm_set_value(_prop FUNC_PROPERTY QMSETUP_DEFINITION_PROPERTY "CONFIG_DEFINITIONS")
+    qm_set_value(_result_prop ARG_PROPERTY QMSETUP_DEFINITION_PROPERTY "CONFIG_DEFINITIONS")
 
-    set(_scope ${_scope} PARENT_SCOPE)
-    set(_prop ${_prop} PARENT_SCOPE)
+    set(${_scope_out} ${_result_scope} PARENT_SCOPE)
+    set(${_prop_out} ${_result_prop} PARENT_SCOPE)
 endfunction()
 
-function(_qm_generate_config_helper)
+#[[
+    Run the configure command over a list of definitions.
+
+      _qm_generate_config_helper(<file>
+          [DEFINITIONS <def...>]
+          [PROJECT_NAME <name>] [WARNING_FILE <file>]
+          [NO_WARNING] [NO_HASH]
+      )
+
+    Also passed everything it reads.
+]] #
+function(_qm_generate_config_helper _file)
+    set(options NO_WARNING NO_HASH)
+    set(oneValueArgs PROJECT_NAME WARNING_FILE)
+    set(multiValueArgs DEFINITIONS)
+    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
     set(_args)
 
-    foreach(_item IN LISTS _definitions)
+    foreach(_item IN LISTS ARG_DEFINITIONS)
         list(APPEND _args "-D${_item}")
     endforeach()
 
-    if(FUNC_PROJECT_NAME)
-        list(APPEND _args "-p" ${FUNC_PROJECT_NAME})
+    if(ARG_PROJECT_NAME)
+        list(APPEND _args "-p" ${ARG_PROJECT_NAME})
     endif()
 
-    if(FUNC_NO_HASH)
+    if(ARG_NO_HASH)
         list(APPEND _args "-f")
     endif()
 
     list(APPEND _args ${_file})
 
-    if(NOT FUNC_NO_WARNING)
+    if(NOT ARG_NO_WARNING)
         list(APPEND _args "-w")
 
-        if(FUNC_WARNING_FILE)
-            list(APPEND _args ${FUNC_WARNING_FILE})
+        if(ARG_WARNING_FILE)
+            list(APPEND _args ${ARG_WARNING_FILE})
         endif()
     endif()
 

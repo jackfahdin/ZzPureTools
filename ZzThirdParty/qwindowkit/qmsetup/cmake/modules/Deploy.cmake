@@ -1,6 +1,14 @@
-#[[
-    Warning: This module depends on `qmcorecmd` after installation.
-]] #
+#[==[.rst:
+Deploy
+------
+
+Gathering what a built or an installed binary needs to run, and putting it
+beside the binary. Windows is done after a build and every platform can be done
+during an install.
+
+.. warning::
+   This module depends on ``qmcorecmd`` after installation.
+#]==]
 if(NOT QMSETUP_CORECMD_EXECUTABLE)
     message(FATAL_ERROR "QMSETUP_CORECMD_EXECUTABLE not defined. Add find_package(qmsetup) to CMake first.")
 endif()
@@ -27,79 +35,35 @@ endif()
 
 include_guard(DIRECTORY)
 
-#[[
-    Record searching paths for Windows Executables, must be called before calling `qm_win_applocal_deps`
-    or `qm_deploy_directory` if your project supports Windows.
+#[==[.rst:
+.. cmake:command:: qm_win_applocal_deps
 
-    WARNING: This function is deprecated.
+  Automatically copy dependencies for Windows Executables after build.
 
-    qm_win_record_deps(<target>)
-]] #
-function(qm_win_record_deps _target)
-    if(NOT WIN32)
-        return()
-    endif()
-
-    set(_paths)
-    get_target_property(_link_libraries ${_target} LINK_LIBRARIES)
-
-    foreach(_item IN LISTS _link_libraries)
-        if(NOT TARGET ${_item})
-            continue()
-        endif()
-
-        get_target_property(_imported ${_item} IMPORTED)
-
-        if(_imported)
-            get_target_property(_path ${_item} LOCATION)
-
-            if(NOT _path OR NOT ${_path} MATCHES "\\.dll$")
-                continue()
-            endif()
-
-            set(_path "$<TARGET_PROPERTY:${_item},LOCATION_$<CONFIG>>")
-        else()
-            get_target_property(_type ${_item} TYPE)
-
-            if(NOT ${_type} MATCHES "SHARED_LIBRARY")
-                continue()
-            endif()
-
-            set(_path "$<TARGET_FILE:${_item}>")
-        endif()
-
-        list(APPEND _paths ${_path})
-    endforeach()
-
-    if(NOT _paths)
-        return()
-    endif()
-
-    set(_deps_file "${CMAKE_CURRENT_BINARY_DIR}/${_target}_deps_$<CONFIG>.txt")
-    file(GENERATE OUTPUT ${_deps_file} CONTENT "$<JOIN:${_paths},\n>")
-    set_target_properties(${_target} PROPERTIES QMSETUP_DEPENDENCIES_FILE ${_deps_file})
-endfunction()
-
-#[[
-    Automatically copy dependencies for Windows Executables after build.
+  .. code-block:: cmake
 
     qm_win_applocal_deps(<target>
         [CUSTOM_TARGET <target>]
         [FORCE] [VERBOSE]
         [EXTRA_SEARCHING_PATHS <path...>]
-        [EXTRA_TARGETS <target...>]
         [OUTPUT_DIR <dir>]
         [EXCLUDE <pattern...>]
     )
-]] #
+
+  Does nothing where the platform is not Windows, so a call needs no guard
+  around it.
+
+  .. seealso:: :cmake:command:`qm_deploy_directory`, for the same thing done
+     while installing rather than after building.
+#]==]
 function(qm_win_applocal_deps _target)
     if(NOT WIN32)
         return()
     endif()
 
     set(options FORCE VERBOSE)
-    set(oneValueArgs TARGET CUSTOM_TARGET OUTPUT_DIR)
-    set(multiValueArgs EXTRA_SEARCHING_PATHS EXTRA_TARGETS EXCLUDE)
+    set(oneValueArgs CUSTOM_TARGET OUTPUT_DIR)
+    set(multiValueArgs EXTRA_SEARCHING_PATHS EXCLUDE)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     # Get output directory and deploy target
@@ -125,14 +89,6 @@ function(qm_win_applocal_deps _target)
     if(NOT _out_dir)
         message(FATAL_ERROR "qm_win_applocal_deps: cannot determine output directory.")
     endif()
-
-    # Get dep files
-    set(_dep_files)
-    _qm_win_get_all_dep_files(_dep_files ${_target})
-
-    foreach(_item IN LISTS FUNC_EXTRA_TARGETS)
-        _qm_win_get_all_dep_files(_dep_files ${_item})
-    endforeach()
 
     # Prepare command
     set(_args)
@@ -172,15 +128,21 @@ function(qm_win_applocal_deps _target)
         endforeach()
     endif()
 
-    foreach(_item IN LISTS _dep_files)
-        list(APPEND _args "--linkdirs-file" "${_item}")
-    endforeach()
-
     foreach(_item IN LISTS FUNC_EXCLUDE)
         list(APPEND _args -e ${_item})
     endforeach()
 
     list(APPEND _args "$<TARGET_FILE:${_target}>")
+
+    # Made first, and on its own, since a working directory applies to every
+    # command of the one it is given to and would be entered before this ran.
+    # The default output directory is the one the target was built into and is
+    # always there, but an OUTPUT_DIR of the caller's own need not be, and a
+    # working directory that does not exist stops the build.
+    add_custom_command(TARGET ${_deploy_target} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_out_dir}
+        VERBATIM
+    )
 
     add_custom_command(TARGET ${_deploy_target} POST_BUILD
         COMMAND ${QMSETUP_CORECMD_EXECUTABLE} deploy ${_args}
@@ -189,8 +151,12 @@ function(qm_win_applocal_deps _target)
     )
 endfunction()
 
-#[[
-    Add deploy command when install project, not available in debug mode.
+#[==[.rst:
+.. cmake:command:: qm_deploy_directory
+
+  Add a deploy command when installing the project. Not for a debug build.
+
+  .. code-block:: cmake
 
     qm_deploy_directory(<install_dir>
         [FORCE] [STANDARD] [VERBOSE]
@@ -205,24 +171,54 @@ endfunction()
         [QML <qml>...]
         [QML_DIR <dir>]
 
-        [WIN_TARGETS <target>...]
-
         [COMMENT <comment>]
     )
 
-    PLUGINS: Qt plugins, in format of `<category>/<name>`
-    PLUGIN_DIR: Qt plugins destination
-    EXTRA_PLUGIN_PATHS: Extra Qt plugins searching paths
-    QML: Qt qml directories
-    QML_DIR: Qt qml destination
-    LIBRARY_DIR: Library destination
-    EXTRA_LIBRARIES： Extra library names list to deploy
-    EXTRA_SEARCHING_PATHS: Extra library searching paths
-]] #
+  ``PLUGINS``
+    Qt plugins, in format of ``<category>/<name>``
+  ``PLUGIN_DIR``
+    Qt plugins destination
+  ``EXTRA_PLUGIN_PATHS``
+    Extra Qt plugins searching paths
+  ``QML``
+    Qt qml directories
+  ``QML_DIR``
+    Qt qml destination
+  ``LIBRARY_DIR``
+    Library destination
+  ``EXTRA_LIBRARIES``
+    Extra library names list to deploy
+  ``EXTRA_SEARCHING_PATHS``
+    Extra library searching paths
+
+  What it gathers is the release flavour of everything, and that is decided in
+  the scripts underneath rather than here. A plugin is looked for by the name it
+  was given, so ``iconengines/qsvgicon`` finds ``qsvgicon.dll`` and never
+  ``qsvgicond.dll``, and a debug build beside a release one is turned down on
+  sight. Unix leaves out anything whose name carries ``debug``, which is how a
+  macOS framework spells its debug library.
+
+  So nothing stops this being called in a debug build, and what it leaves is a
+  release deployment. Nothing here reads the configuration, and the note above is
+  the whole of the enforcement.
+
+  ``QML`` is the one thing here that cannot be asked for without a Qt, the
+  modules being named relative to a directory only qmake can say where is.
+  ``PLUGINS`` given ``EXTRA_PLUGIN_PATHS`` never reaches qmake.
+
+  .. note::
+     Where qmake is wanted it has to be found first, which
+     :cmake:command:`qm_find_qt` with any component is the short way to. A call
+     that needs it and does not have it stops with an error saying so.
+
+  ``EXTRA_LIBRARIES`` is matched against what is on disk while the project is
+  being read, so it names neither a target of this build nor a generator
+  expression.
+#]==]
 function(qm_deploy_directory _install_dir)
     set(options FORCE STANDARD VERBOSE)
     set(oneValueArgs LIBRARY_DIR PLUGIN_DIR QML_DIR COMMENT)
-    set(multiValueArgs EXTRA_PLUGIN_PATHS PLUGINS QML WIN_TARGETS EXTRA_SEARCHING_PATHS EXTRA_LIBRARIES)
+    set(multiValueArgs EXTRA_PLUGIN_PATHS PLUGINS QML EXTRA_SEARCHING_PATHS EXTRA_LIBRARIES)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     # Get qmake
@@ -302,28 +298,24 @@ function(qm_deploy_directory _install_dir)
     endforeach()
 
     if(WIN32)
-        set(_dep_files)
-
-        if(FUNC_WIN_TARGETS)
-            _qm_win_get_all_dep_files(_dep_files ${FUNC_WIN_TARGETS})
-        endif()
-
-        foreach(_item IN LISTS _dep_files)
-            list(APPEND _args "--linkdirs-file" "${_item}")
-        endforeach()
-
-        set(_script_quoted "cmd /c \"${QMSETUP_MODULES_DIR}/scripts/windeps.bat\"")
+        set(_script cmd /c "${QMSETUP_MODULES_DIR}/scripts/windeps.bat")
     else()
-        set(_script_quoted "bash \"${QMSETUP_MODULES_DIR}/scripts/unixdeps.sh\"")
+        set(_script bash "${QMSETUP_MODULES_DIR}/scripts/unixdeps.sh")
     endif()
 
     # Add extra libraries
-    foreach(_item IN LISTS _searching_paths)
-        foreach(_lib IN LISTS FUNC_EXTRA_LIBRARIES)
+    #
+    # One copy per library rather than per place it was found in. The search
+    # paths are in the order they are to be searched, so the first that has it
+    # is the one meant, and the rest are shadowed the way a loader would shadow
+    # them.
+    foreach(_lib IN LISTS FUNC_EXTRA_LIBRARIES)
+        foreach(_item IN LISTS _searching_paths)
             set(_path "${_item}/${_lib}")
 
             if((EXISTS ${_path}) AND(NOT IS_DIRECTORY ${_path}))
                 list(APPEND _args --copy ${_path} ${_lib_dir})
+                break()
             endif()
         endforeach()
     endforeach()
@@ -341,81 +333,29 @@ function(qm_deploy_directory _install_dir)
         list(APPEND _args "-V")
     endif()
 
-    set(_args_quoted)
-
-    foreach(_item IN LISTS _args)
-        set(_args_quoted "${_args_quoted}\"${_item}\" ")
-    endforeach()
-
     set(_comment_code)
 
     if(FUNC_COMMENT)
-        set(_comment_code "message(STATUS \"${FUNC_COMMENT}\")")
+        set(_comment_code "message(STATUS [==[${FUNC_COMMENT}]==])")
     endif()
 
     # Add install command
+    #
+    # The command is carried over as a list and rebuilt on the other side, so
+    # that a path with a space or a quote in it is one argument there as it is
+    # one here. Written by pasting each argument into a string between quotes,
+    # anything holding a quote of its own ended the argument early.
+    #
+    # Bracket arguments, since what goes between them is text and nothing in it
+    # is a variable reference or an escape. The list itself is expanded on the
+    # way in, being what varies.
     install(CODE "
         ${_comment_code}
+        set(_command [==[${_script};${_args}]==])
         execute_process(
-            COMMAND ${_script_quoted} ${_args_quoted}
-            WORKING_DIRECTORY \"${_install_dir}\"
+            COMMAND \${_command}
+            WORKING_DIRECTORY [==[${_install_dir}]==]
             COMMAND_ERROR_IS_FATAL ANY
         )
     ")
-endfunction()
-
-# ----------------------------------
-# Private functions
-# ----------------------------------
-function(_qm_win_get_all_dep_files _out)
-    # Get searching paths
-    macro(get_recursive_dynamic_dependencies _current_target _result)
-        get_target_property(_deps ${_current_target} LINK_LIBRARIES)
-
-        if(_deps)
-            foreach(_dep IN LISTS _deps)
-                if(NOT TARGET ${_dep})
-                    continue()
-                endif()
-
-                get_target_property(_type ${_dep} TYPE)
-
-                if(_type STREQUAL "SHARED_LIBRARY")
-                    list(APPEND ${_result} ${_dep})
-                endif()
-
-                get_recursive_dynamic_dependencies(${_dep} ${_result})
-            endforeach()
-        endif()
-    endmacro()
-
-    set(_visited_targets ${ARGN})
-
-    foreach(_target ${ARGN})
-        set(_all_deps)
-        get_recursive_dynamic_dependencies(${_target} _all_deps)
-
-        foreach(_cur_dep IN LISTS _all_deps)
-            if(${_cur_dep} IN_LIST _visited_targets)
-                continue()
-            endif()
-
-            list(APPEND _visited_targets ${_cur_dep})
-        endforeach()
-    endforeach()
-
-    set(_dep_files)
-
-    foreach(_target IN LISTS _visited_targets)
-        # Add file
-        get_target_property(_file ${_target} QMSETUP_DEPENDENCIES_FILE)
-
-        if(NOT _file)
-            continue()
-        endif()
-
-        list(APPEND _dep_files ${_file})
-    endforeach()
-
-    set(${_out} ${_dep_files} PARENT_SCOPE)
 endfunction()

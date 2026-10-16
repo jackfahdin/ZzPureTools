@@ -10,12 +10,13 @@ if(QMSETUP_STATIC_RUNTIME)
     endif()
 endif()
 
-# Get syscmdline
-find_package(syscmdline QUIET)
+# Get stdcorelib
+find_package(stdcorelib QUIET)
 
-if(NOT TARGET syscmdline::syscmdline)
-    set(SYSCMDLINE_INSTALL off)
-    add_subdirectory(syscmdline)
+if(NOT TARGET stdcorelib::stdcorelib)
+    set(STDC_BUILD_STATIC TRUE)
+    set(STDC_INSTALL FALSE)
+    add_subdirectory(stdcorelib)
 endif()
 
 # Add subdirectories
@@ -34,46 +35,26 @@ install(TARGETS ${_corelib_name}
     EXPORT ${QMSETUP_INSTALL_NAME}Targets
 )
 
-if(TRUE)
-    # Add install target
-    set(_install_dir ${CMAKE_INSTALL_LIBDIR}/cmake/${QMSETUP_INSTALL_NAME})
+qm_basic_install(
+    NAME ${QMSETUP_INSTALL_NAME}
+    VERSION ${QMSETUP_VERSION}
+    CONFIG_TEMPLATE ${CMAKE_CURRENT_LIST_DIR}/${QMSETUP_INSTALL_NAME}Config.cmake.in
+    NAMESPACE qmsetup::
+    EXPORT ${QMSETUP_INSTALL_NAME}Targets
+    WRITE_CONFIG_OPTIONS NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
 
-    # Add version file
-    write_basic_package_version_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/${QMSETUP_INSTALL_NAME}ConfigVersion.cmake"
-        VERSION ${QMSETUP_VERSION}
-        COMPATIBILITY AnyNewerVersion
-    )
+set(_install_dir ${CMAKE_INSTALL_LIBDIR}/cmake/${QMSETUP_INSTALL_NAME})
 
-    # Add configuration file
-    configure_package_config_file(
-        ${CMAKE_CURRENT_LIST_DIR}/${QMSETUP_INSTALL_NAME}Config.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/${QMSETUP_INSTALL_NAME}Config.cmake"
-        INSTALL_DESTINATION ${_install_dir}
-        NO_CHECK_REQUIRED_COMPONENTS_MACRO
-    )
+# Install headers
+install(DIRECTORY ../include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
-    # Install cmake files
-    install(FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/${QMSETUP_INSTALL_NAME}Config.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/${QMSETUP_INSTALL_NAME}ConfigVersion.cmake"
-        DESTINATION ${_install_dir}
-    )
-
-    # Install cmake targets files
-    install(EXPORT ${QMSETUP_INSTALL_NAME}Targets
-        FILE "${QMSETUP_INSTALL_NAME}Targets.cmake"
-        NAMESPACE qmsetup::
-        DESTINATION ${_install_dir}
-    )
-
-    # Install headers
-    install(DIRECTORY ../include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    )
-
-    # Install cmake modules
-    install(DIRECTORY ../cmake/
-        DESTINATION ${_install_dir}/cmake
-    )
-endif()
+# Install cmake modules
+#
+# Beside the package files, which is where the configuration file looks for
+# QMSetupAPI.cmake.
+install(DIRECTORY ../cmake/
+    DESTINATION ${_install_dir}/cmake
+)
