@@ -1,14 +1,40 @@
 # QWindowKit 与 Qt 派生代码来源核对
 
-## 审计边界
+## 当前快照：2026-10-16
+
+本次技术核对确认以下三个固定归档与仓库受版本控制的源码逐字节一致。子模块在 vendor 目录中展开，`.gitmodules` 文件保留；比较时排除展开的子模块目录和本机 `.git` 元数据。
+
+| 项目 | 固定 commit | codeload 归档 SHA-256 |
+|---|---|---|
+| QWindowKit 1.5.1.0 | `5626b3ae5f22508d77361495f589abedb39c2ee4` | `c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496` |
+| qmsetup 1.1.2.0 | `f9cb0153a9dc913b7b8226451cd6760ed83b6ce8` | `75e8790303479edce30337a8ededc75c8e3be47c4e9d528b5d3001aa546eb2a3` |
+| stdcorelib 0.2.1.0 | `2fbefa9b152451d9621bf71bb1dfc8f98f8d2120` | `96fe7b6a3f41ad7c4e0d9dc8233a165a37932f3ebbd25d81037ee29317a026f9` |
+
+stdcorelib 替代旧 syscmdline。运行包和 SDK 安装均复制 `qmsetup/src/stdcorelib/LICENSE`，目标名称为 `stdcorelib-LICENSE`。qmsetup 与 stdcorelib 只参与构建，不作为框架运行库安装。
+
+Qt 派生文件现为 `ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp`，SHA-256 为 `729c2b7cfdf337aa7026081cd8d9dd454f54298575e45bcf8521d74e003fc0fc`。将迁移前后文件中的 `WindowsDeployQt` namespace 单独比较，只有三个错误文本调用从 `winErrorMessage` 改为 `stdc::windows::systemError`。完整文件有其他构建工具调整，manifest 必须锁定新摘要。原 Qt 来源、许可证表达式和不安装构建工具的限制继续保留。
+
+来源记录见 `qwindowkit-vendor.json`、`release-evidence.json`、`reviews/qwindowkit-source-verification.json` 和 `reviews/windeployqt-source-verification.json`。技术核对记录的 reviewer 明确为 Codex，不改写下文历史人工审核，不表示 Jackfahdin 为新快照重新签署了审核。原审核 JSON 保持原字节不变，随安装包一并保留。
+
+最新验证矩阵只记录已实跑的 Linux / GCC / Qt 6.11.1 shared Debug，不沿用旧快照的 Clang、static、LTO 或 Sanitizer 结论。
+
+当前归档和 Qt 许可证可在空证据目录中重新准备，脚本会验证 manifest 中的固定摘要：
+
+```bash
+mkdir -p build/provenance-audit/current-evidence
+cmake -DZZ_OUTPUT_DIR="$PWD/build/provenance-audit/current-evidence" \
+  -P scripts/package/PrepareReleaseEvidence.cmake
+```
+
+## 历史审计边界：2026-08-05
 
 本文记录 2026-08-05 完成的技术核对，只证明可由 Git 历史、逐文件比较和 SHA-256 复现的事实。本文不是法律意见，也不代替发布 manifest 要求的具名来源审核、再分发审核或项目所有者批准记录。
 
 未跟踪的证据根目录约定为 `build/provenance-audit/evidence`。正式发布配置必须通过绝对路径 `ZZ_RELEASE_EVIDENCE_ROOT` 指向该目录或包含相同字节的受控目录。
 
-## QWindowKit 快照
+## 历史 QWindowKit 快照
 
-本地 `ZzThirdParty/qwindowkit` 与以下上游身份匹配：
+当时的 `ZzThirdParty/qwindowkit` 与以下上游身份匹配；以下命令仅用于复核旧快照：
 
 | 项目 | 固定值 |
 |---|---|
@@ -44,7 +70,7 @@ curl --fail --location \
 sha256sum build/provenance-audit/evidence/qwindowkit/qwindowkit-2813c1f810cb3fb1999a14ad524124562081f2c2.tar.gz
 ```
 
-## Qt 5.15.2 派生代码
+## 历史 Qt 5.15.2 派生代码
 
 qmsetup 文件 `ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp` 第 245 行起明确注明修改自 `windeployqt 5.15.2`。对应 Qt 标签为 `v5.15.2`，解引用后的 qttools commit 是 `cc52debd905e0ed061290d6fd00a5f1ab67478a5`，实际源文件路径是 `qttools/src/shared/winutils/utils.cpp`。
 
@@ -69,7 +95,7 @@ sha256sum \
   ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp
 ```
 
-## 当前结论
+## 历史结论
 
 技术身份、上游字节和摘要已经固定，Jackfahdin 于 `2026-08-05T06:05:49Z` 签署以下记录：
 

@@ -88,7 +88,7 @@ function(zz_download_manifest_evidence relative_path url)
     endif()
 endfunction()
 
-set(qwindowkit_commit 2813c1f810cb3fb1999a14ad524124562081f2c2)
+set(qwindowkit_commit 5626b3ae5f22508d77361495f589abedb39c2ee4)
 zz_download_manifest_evidence(
     "qwindowkit/qwindowkit-${qwindowkit_commit}.tar.gz"
     "https://github.com/stdware/qwindowkit/archive/${qwindowkit_commit}.tar.gz"

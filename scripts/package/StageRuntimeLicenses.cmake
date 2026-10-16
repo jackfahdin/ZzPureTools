@@ -130,8 +130,8 @@ zz_stage_regular_file(
     "${source_root}/ZzThirdParty/qwindowkit/qmsetup/LICENSE"
     licenses/QWindowKit/qmsetup-LICENSE)
 zz_stage_regular_file(
-    "${source_root}/ZzThirdParty/qwindowkit/qmsetup/src/syscmdline/LICENSE"
-    licenses/QWindowKit/syscmdline-LICENSE)
+    "${source_root}/ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE"
+    licenses/QWindowKit/stdcorelib-LICENSE)
 zz_stage_regular_file(
     "${source_root}/ZzThirdParty/ZzLog/LICENSE"
     licenses/ZzLog/LICENSE)

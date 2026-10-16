@@ -22,12 +22,20 @@ if("${work_root}" STREQUAL "${filesystem_root}"
     message(FATAL_ERROR "拒绝不安全的完整发布 fixture 目录：${work_root}")
 endif()
 
-file(REMOVE_RECURSE "${work_root}")
 set(fixture_source "${work_root}/source")
 set(fixture_evidence "${work_root}/evidence")
+include("${source_root}/cmake/ZzReleaseChecks.cmake")
+if(ZZ_VERIFY_ONLY)
+    zz_verify_release_evidence(
+        SOURCE_ROOT "${fixture_source}"
+        EVIDENCE_ROOT "${fixture_evidence}")
+    return()
+endif()
+
+file(REMOVE_RECURSE "${work_root}")
 file(MAKE_DIRECTORY
-    "${fixture_source}/docs/third-party"
-    "${fixture_source}/ZzThirdParty/qwindowkit/qmsetup/src/corecmd"
+    "${fixture_source}/docs/third-party/reviews"
+    "${fixture_source}/ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils"
     "${fixture_evidence}/qwindowkit"
     "${fixture_evidence}/qt-5.15.2"
     "${fixture_evidence}/reviews")
@@ -35,7 +43,7 @@ file(MAKE_DIRECTORY
 file(WRITE "${fixture_source}/LICENSE"
     "Fixture project license text for release validation.\n")
 file(WRITE
-    "${fixture_source}/ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp"
+    "${fixture_source}/ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp"
     "// Fixture derived source used only by the release checker test.\n")
 file(WRITE "${fixture_evidence}/qwindowkit/source.tar.gz"
     "Fixture QWindowKit source archive bytes.\n")
@@ -49,10 +57,20 @@ file(WRITE "${fixture_evidence}/reviews/windeployqt-review.json"
     "{\"reviewer\":\"fixture-reviewer\",\"reviewedAt\":\"2026-08-02T00:00:00Z\",\"conclusion\":\"approved\"}\n")
 file(WRITE "${fixture_evidence}/reviews/project-license-approval.json"
     "{\"owner\":\"fixture-owner\",\"reviewedAt\":\"2026-08-02T00:00:00Z\",\"conclusion\":\"approved\",\"spdxExpression\":\"MIT\"}\n")
+foreach(review IN ITEMS qwindowkit-provenance windeployqt-redistribution)
+    file(WRITE "${fixture_source}/docs/third-party/reviews/${review}-review.json"
+        "{\"reviewer\":\"historical-fixture-reviewer\",\"reviewedAt\":\"2026-08-02T00:00:00Z\"}\n")
+endforeach()
+file(SHA256
+    "${fixture_source}/docs/third-party/reviews/qwindowkit-provenance-review.json"
+    q_history_sha)
+file(SHA256
+    "${fixture_source}/docs/third-party/reviews/windeployqt-redistribution-review.json"
+    qt_history_sha)
 
 file(SHA256 "${fixture_source}/LICENSE" project_license_sha)
 file(SHA256
-    "${fixture_source}/ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp"
+    "${fixture_source}/ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp"
     local_source_sha)
 file(SHA256 "${fixture_evidence}/qwindowkit/source.tar.gz" q_archive_sha)
 file(SHA256
@@ -117,13 +135,18 @@ set(release_template [=[
         "scope": "external",
         "path": "qwindowkit/provenance-review.json",
         "sha256": "@q_review_sha@"
+      },
+      "historicalHumanReview": {
+        "scope": "repository",
+        "path": "docs/third-party/reviews/qwindowkit-provenance-review.json",
+        "sha256": "@q_history_sha@"
       }
     },
     "windeployqtDerivedWork": {
       "upstreamProject": "Qt",
       "upstreamVersion": "5.15.2",
       "upstreamFile": "qttools/src/shared/winutils/utils.cpp",
-      "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp",
+      "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp",
       "upstreamSource": {
         "scope": "external",
         "path": "qt-5.15.2/qttools-src-shared-winutils-utils.cpp",
@@ -140,6 +163,11 @@ set(release_template [=[
         "scope": "external",
         "path": "reviews/windeployqt-review.json",
         "sha256": "@qt_review_sha@"
+      },
+      "historicalHumanReview": {
+        "scope": "repository",
+        "path": "docs/third-party/reviews/windeployqt-redistribution-review.json",
+        "sha256": "@qt_history_sha@"
       }
     },
     "projectLicense": {
@@ -163,7 +191,29 @@ file(WRITE
     "${fixture_source}/docs/third-party/release-evidence.json"
     "${release_json}")
 
-include("${source_root}/cmake/ZzReleaseChecks.cmake")
 zz_verify_release_evidence(
     SOURCE_ROOT "${fixture_source}"
     EVIDENCE_ROOT "${fixture_evidence}")
+
+foreach(review IN ITEMS qwindowkit-provenance windeployqt-redistribution)
+    set(review_path "${fixture_source}/docs/third-party/reviews/${review}-review.json")
+    file(READ "${review_path}" original_review)
+    file(APPEND "${review_path}" " ")
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}"
+            "-DZZ_SOURCE_DIR=${source_root}"
+            "-DZZ_BINARY_ROOT=${binary_root}"
+            "-DZZ_WORK_DIR=${work_root}"
+            -DZZ_VERIFY_ONLY=ON
+            -P "${CMAKE_CURRENT_LIST_FILE}"
+        RESULT_VARIABLE verify_result
+        OUTPUT_VARIABLE verify_stdout
+        ERROR_VARIABLE verify_stderr)
+    file(WRITE "${review_path}" "${original_review}")
+    if(verify_result EQUAL 0
+       OR NOT "${verify_stdout}${verify_stderr}" MATCHES "historicalHumanReview.*SHA-256")
+        message(FATAL_ERROR
+            "篡改历史审核记录未被摘要门禁拒绝：${review}\n"
+            "${verify_stdout}\n${verify_stderr}")
+    endif()
+endforeach()

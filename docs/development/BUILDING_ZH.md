@@ -20,6 +20,8 @@
 
 ## 开发机最小门禁
 
+更新第三方依赖后还需运行打包合同检查；下述普通测试会排除 `packaging` 标签，不能覆盖许可证路径和发布证据迁移。可执行 `ctest --test-dir build/linux-gcc-debug -L packaging -R contract --output-on-failure`，并在发布配置下执行 `release.installed-licenses`。
+
 普通开发机只需安装一种与本机 Qt ABI 匹配的原生 shared 工具链。提交生产代码前，
 统一入口会检查工作区和暂存区空白错误、完整编译库/测试/Example、运行不依赖参考
 环境的普通测试，并要求调用方提供至少一个实际匹配的定向 CTest 正则。它不会下载

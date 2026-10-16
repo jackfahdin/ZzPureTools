@@ -264,6 +264,8 @@ endif()
 foreach(staged_path IN ITEMS
     licenses/ZzPureToolsFrame/LICENSE
     licenses/QWindowKit/LICENSE
+    licenses/QWindowKit/qmsetup-LICENSE
+    licenses/QWindowKit/stdcorelib-LICENSE
     licenses/ZzLog/spdlog-LICENSE.txt
     licenses/Qt/LGPL-3.0-only.txt
     licenses/Qt/GPL-3.0-only.txt
@@ -279,6 +281,15 @@ foreach(staged_path IN ITEMS
         message(FATAL_ERROR "Staged license file is empty: ${staged_path}")
     endif()
 endforeach()
+
+file(SHA256
+    "${source_dir}/ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE"
+    stdcorelib_source_sha)
+file(SHA256 "${stage_root}/licenses/QWindowKit/stdcorelib-LICENSE"
+    stdcorelib_staged_sha)
+if(NOT stdcorelib_source_sha STREQUAL stdcorelib_staged_sha)
+    message(FATAL_ERROR "Staged stdcorelib license does not match its source")
+endif()
 
 set(incomplete_qt_license_dir "${test_root}/qt-licenses-without-lgpl")
 file(MAKE_DIRECTORY "${incomplete_qt_license_dir}")

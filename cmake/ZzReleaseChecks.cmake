@@ -292,6 +292,20 @@ function(_zz_release_verify_file_object
     set(${out_errors} "${errors}" PARENT_SCOPE)
 endfunction()
 
+function(_zz_release_verify_historical_review
+         json source_root evidence_root evidence_key expected_file out_errors)
+    set(label "evidence.${evidence_key}.historicalHumanReview")
+    _zz_release_verify_file_object(
+        "${json}" "${source_root}" "${evidence_root}" "${label}"
+        scope relative_path resolved_path actual_sha errors
+        evidence ${evidence_key} historicalHumanReview)
+    if(NOT "${scope}" STREQUAL "repository"
+       OR NOT "${relative_path}" STREQUAL "docs/third-party/reviews/${expected_file}")
+        list(APPEND errors "${label} 必须引用仓库内固定的历史人工审核文件")
+    endif()
+    set(${out_errors} "${errors}" PARENT_SCOPE)
+endfunction()
+
 function(zz_verify_release_evidence)
     set(options)
     set(one_value_args SOURCE_ROOT EVIDENCE_ROOT)
@@ -431,6 +445,10 @@ function(zz_verify_release_evidence)
         q_review_scope q_review_relative q_review_path q_review_sha
         q_review_errors evidence qwindowkit provenanceReview)
     list(APPEND qwindowkit_errors ${q_review_errors})
+    _zz_release_verify_historical_review(
+        "${release_json}" "${source_root}" "${evidence_root}"
+        qwindowkit qwindowkit-provenance-review.json q_history_errors)
+    list(APPEND qwindowkit_errors ${q_history_errors})
     if(NOT "${q_review_path}" STREQUAL "")
         _zz_release_read_json(
             "${q_review_path}" "QWindowKit 来源审核记录"
@@ -470,7 +488,7 @@ function(zz_verify_release_evidence)
         "${release_json}" STRING local_file local_file_valid
         evidence windeployqtDerivedWork localFile)
     set(expected_local_file
-        "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils_win.cpp")
+        "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp")
     if(NOT local_file_valid
        OR NOT "${local_file}" STREQUAL "${expected_local_file}")
         list(APPEND derived_work_errors
@@ -495,6 +513,10 @@ function(zz_verify_release_evidence)
         qt_review_scope qt_review_relative qt_review_path qt_review_sha
         qt_review_errors evidence windeployqtDerivedWork reviewRecord)
     list(APPEND derived_work_errors ${qt_review_errors})
+    _zz_release_verify_historical_review(
+        "${release_json}" "${source_root}" "${evidence_root}"
+        windeployqtDerivedWork windeployqt-redistribution-review.json qt_history_errors)
+    list(APPEND derived_work_errors ${qt_history_errors})
 
     _zz_release_json_value(
         "${release_json}" STRING local_source_sha local_source_sha_valid

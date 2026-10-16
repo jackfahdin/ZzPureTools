@@ -64,7 +64,7 @@ set(required_files
     share/ZzPureToolsFrame/licenses/PROJECT-LICENSE
     share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE
     share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE
-    share/ZzPureToolsFrame/licenses/qwindowkit/syscmdline-LICENSE
+    share/ZzPureToolsFrame/licenses/qwindowkit/stdcorelib-LICENSE
     share/ZzPureToolsFrame/licenses/ZzLog/LICENSE
     share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt
     share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt
@@ -73,7 +73,9 @@ set(required_files
     share/ZzPureToolsFrame/release-evidence.json
     share/ZzPureToolsFrame/reviews/project-license-approval.json
     share/ZzPureToolsFrame/reviews/qwindowkit-provenance-review.json
-    share/ZzPureToolsFrame/reviews/windeployqt-redistribution-review.json)
+    share/ZzPureToolsFrame/reviews/windeployqt-redistribution-review.json
+    share/ZzPureToolsFrame/reviews/qwindowkit-source-verification.json
+    share/ZzPureToolsFrame/reviews/windeployqt-source-verification.json)
 if(runtime_cache)
     list(APPEND required_files
         share/ZzPureToolsFrame/licenses/gcc-runtime/COPYING3
@@ -115,7 +117,7 @@ set(required_notice_tokens
     QWindowKit
     FramelessHelper
     qmsetup
-    syscmdline
+    stdcorelib
     spdlog
     fmt
     "GCC Runtime Library Exception"
@@ -129,7 +131,7 @@ set(required_notice_tokens
     "share/ZzPureToolsFrame/licenses/PROJECT-LICENSE"
     "share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE"
     "share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE"
-    "share/ZzPureToolsFrame/licenses/qwindowkit/syscmdline-LICENSE"
+    "share/ZzPureToolsFrame/licenses/qwindowkit/stdcorelib-LICENSE"
     "share/ZzPureToolsFrame/licenses/ZzLog/LICENSE"
     "share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt"
     "share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt"

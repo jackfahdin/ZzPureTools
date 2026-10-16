@@ -2,27 +2,26 @@
   "name": "QWindowKit",
   "declaredVersion": "1.5.1.0",
   "upstreamUrl": "https://github.com/stdware/qwindowkit",
-  "upstreamCommit": "2813c1f810cb3fb1999a14ad524124562081f2c2",
-  "importDate": "2026-08-02",
-  "archiveSha256": "cd0d3ad3c94ce5c0965337f2e59262613d684f46d6ce0c45613726e751d3d90c",
+  "upstreamCommit": "5626b3ae5f22508d77361495f589abedb39c2ee4",
+  "importDate": "2026-10-16",
+  "archiveSha256": "c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496",
   "licenses": ["Apache-2.0", "MIT"],
-  "localPatches": [
-    {
-      "kind": "vendor-layout",
-      "paths": [".gitmodules", "qmsetup/.gitmodules"],
-      "description": "Submodule contents are expanded in-tree and Git metadata files are omitted; all vendored source bytes otherwise match the pinned commits"
-    }
-  ],
+  "localPatches": [],
+  "vendorLayout": "Submodule contents are expanded in-tree; .gitmodules files are retained and all tracked source bytes match the pinned upstream archives",
+  "submodules": {
+    "qmsetup": "f9cb0153a9dc913b7b8226451cd6760ed83b6ce8",
+    "stdcorelib": "2fbefa9b152451d9621bf71bb1dfc8f98f8d2120"
+  },
   "validatedMatrix": [
     {
       "platform": "Ubuntu 26.04 LTS x86_64",
       "qtVersion": "6.11.1",
-      "toolchains": ["GCC 15.2.0", "Clang 20.1.8"],
-      "modes": ["shared", "static", "LTO", "ASan+UBSan"],
+      "toolchains": ["GCC 15.2.0"],
+      "modes": ["shared", "Debug"],
       "result": "automated-gates-passed",
-      "sourceCommit": "936f5d9c5f9d2079b7da0c62c208d7252aa7ff99",
-      "evidence": "build/gate-evidence/linux-native.log",
-      "validatedAt": "2026-08-05T05:44:01Z"
+      "sourceCommit": "e4ba06d55b0ac29f1def36fc5b4d5ba703d84f55",
+      "evidence": "build/linux-gcc-debug/Testing/Temporary/LastTest.log",
+      "validatedAt": "2026-10-16T08:46:39Z"
     }
   ],
   "releaseBlockers": []

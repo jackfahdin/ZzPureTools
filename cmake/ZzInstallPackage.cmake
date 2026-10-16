@@ -211,10 +211,10 @@ function(zz_install_package)
             RENAME qmsetup-LICENSE
             COMPONENT Runtime)
         install(FILES
-            "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/src/syscmdline/LICENSE"
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE"
             DESTINATION
                 "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
-            RENAME syscmdline-LICENSE
+            RENAME stdcorelib-LICENSE
             COMPONENT Runtime)
         install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/LICENSE"
             DESTINATION
@@ -242,6 +242,8 @@ function(zz_install_package)
             "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/project-license-approval.json"
             "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/qwindowkit-provenance-review.json"
             "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/windeployqt-redistribution-review.json"
+            "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/qwindowkit-source-verification.json"
+            "${PROJECT_SOURCE_DIR}/docs/third-party/reviews/windeployqt-source-verification.json"
             DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/reviews"
             COMPONENT Runtime)
     elseif(NOT EXISTS "${PROJECT_SOURCE_DIR}/LICENSE")
