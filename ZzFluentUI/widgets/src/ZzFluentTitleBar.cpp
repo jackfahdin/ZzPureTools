@@ -208,7 +208,8 @@ bool ZzFluentTitleBar::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == d_ptr->menuBar && event != nullptr
         && (event->type() == QEvent::ActionAdded
-            || event->type() == QEvent::ActionRemoved)) {
+            || event->type() == QEvent::ActionRemoved
+            || event->type() == QEvent::ActionChanged)) {
         d_ptr->handleMenuActionEvent(static_cast<QActionEvent *>(event));
     }
     return QWidget::eventFilter(watched, event);

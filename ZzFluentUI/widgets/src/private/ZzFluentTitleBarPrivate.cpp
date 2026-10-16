@@ -342,6 +342,14 @@ void ZzFluentTitleBarPrivate::refreshTitle()
     titleLabel->setVisible(true);
 }
 
+bool ZzFluentTitleBarPrivate::hasVisibleMenuActions() const
+{
+    const auto actions = menuBar->actions();
+    return std::any_of(actions.cbegin(), actions.cend(), [](const QAction *action) {
+        return action->isVisible() && !action->isSeparator();
+    });
+}
+
 int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
 {
     const int visibleSystemButtons = static_cast<int>(minimizeButtonVisible)
@@ -360,9 +368,10 @@ int ZzFluentTitleBarPrivate::minimumExpandedWidth() const noexcept
     const int rightGroupWidth = commandWidth
         + ((commandWidth > 0 && systemWidth > 0) ? zzTitleBarSpacing : 0)
         + systemWidth;
-    const int desiredMenuWidth = qMax(1, menuBar->sizeHint().width());
-    const int expandedLeftGroupWidth =
-        zzTitleBarIconExtent + zzTitleBarSpacing + desiredMenuWidth;
+    const int menuWidth = hasVisibleMenuActions()
+        ? zzTitleBarSpacing + qMax(1, menuBar->sizeHint().width())
+        : 0;
+    const int expandedLeftGroupWidth = zzTitleBarIconExtent + menuWidth;
     const int requestedTitleWidth =
         q_ptr->fontMetrics().horizontalAdvance(title) + 4;
     const int adaptiveTitleWidth = qMin(
@@ -455,8 +464,14 @@ void ZzFluentTitleBarPrivate::updateLayout()
         }
         expanded = adaptiveExpanded;
     }
-    menuBar->setVisible(expanded);
-    compactMenuButton->setVisible(!expanded);
+    const bool hasMenu = hasVisibleMenuActions();
+    menuBar->setVisible(hasMenu && expanded);
+    compactMenuButton->setVisible(hasMenu && !expanded);
+    if (!hasMenu) {
+        compactMenu->hide();
+        menuBar->setGeometry(QRect());
+        compactMenuButton->setGeometry(QRect());
+    }
 
     int leftCursor = zzTitleBarMargin;
     iconLabel->setGeometry(
@@ -464,35 +479,38 @@ void ZzFluentTitleBarPrivate::updateLayout()
         (availableHeight - zzTitleBarIconExtent) / 2,
         zzTitleBarIconExtent,
         zzTitleBarIconExtent);
-    leftCursor += zzTitleBarIconExtent + zzTitleBarSpacing;
-    const int maximumMenuWidth = qMax(
-        1,
-        availableWidth
-            - zzTitleBarMargin
-            - zzTitleBarIconExtent
-            - zzTitleBarSpacing
-            - rightGroupWidth
-            - zzTitleBarSpacing);
-    const int activeMenuWidth = expanded
-        ? qMin(desiredMenuWidth, maximumMenuWidth)
-        : zzTitleBarCompactMenuWidth;
-    QWidget *const activeMenu = expanded
-        ? static_cast<QWidget *>(menuBar)
-        : static_cast<QWidget *>(compactMenuButton);
-    // 菜单 action 的完整高度可能超过标题栏固定高度，保留 sizeHint 高度
-    // 让 Qt 基于完整菜单区域进行溢出判定，外围像素由标题栏自然裁剪。
-    const int activeMenuHeight = expanded
-        ? qMax(availableHeight, menuSizeHint.height())
-        : availableHeight;
-    const int activeMenuTop = expanded
-        ? (availableHeight - activeMenuHeight) / 2
-        : 0;
-    activeMenu->setGeometry(
-        leftCursor,
-        activeMenuTop,
-        activeMenuWidth,
-        activeMenuHeight);
-    leftCursor += activeMenuWidth;
+    leftCursor += zzTitleBarIconExtent;
+    if (hasMenu) {
+        leftCursor += zzTitleBarSpacing;
+        const int maximumMenuWidth = qMax(
+            1,
+            availableWidth
+                - zzTitleBarMargin
+                - zzTitleBarIconExtent
+                - zzTitleBarSpacing
+                - rightGroupWidth
+                - zzTitleBarSpacing);
+        const int activeMenuWidth = expanded
+            ? qMin(desiredMenuWidth, maximumMenuWidth)
+            : zzTitleBarCompactMenuWidth;
+        QWidget *const activeMenu = expanded
+            ? static_cast<QWidget *>(menuBar)
+            : static_cast<QWidget *>(compactMenuButton);
+        // 菜单 action 的完整高度可能超过标题栏固定高度，保留 sizeHint 高度
+        // 让 Qt 基于完整菜单区域进行溢出判定，外围像素由标题栏自然裁剪。
+        const int activeMenuHeight = expanded
+            ? qMax(availableHeight, menuSizeHint.height())
+            : availableHeight;
+        const int activeMenuTop = expanded
+            ? (availableHeight - activeMenuHeight) / 2
+            : 0;
+        activeMenu->setGeometry(
+            leftCursor,
+            activeMenuTop,
+            activeMenuWidth,
+            activeMenuHeight);
+        leftCursor += activeMenuWidth;
+    }
     const int leftGroupEnd = leftCursor;
 
     int rightCursor = availableWidth;

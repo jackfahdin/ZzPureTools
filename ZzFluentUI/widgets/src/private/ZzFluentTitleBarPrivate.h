@@ -46,6 +46,9 @@ public:
     /** @brief 计算完整菜单、标题和窗口按钮所需的最小逻辑宽度。 */
     [[nodiscard]] int minimumExpandedWidth() const noexcept;
 
+    /** @brief 菜单栏是否包含可见且非分隔符的顶层动作，禁用动作仍计入。 */
+    [[nodiscard]] bool hasVisibleMenuActions() const;
+
     /** @brief 按开关状态同步宿主顶层窗口最小宽度并保留外部值。 */
     void syncWindowMinimumWidth(int requiredWidth);
 
@@ -57,7 +60,7 @@ public:
 
     /**
      * @brief 增量同步一个菜单栏 QAction 事件。
-     * @param event ActionAdded 或 ActionRemoved 事件。
+     * @param event ActionAdded、ActionRemoved 或 ActionChanged 事件。
      */
     void handleMenuActionEvent(QActionEvent *event);
 

@@ -211,6 +211,96 @@ private Q_SLOTS:
         QVERIFY(!button->isChecked());
     }
 
+    /** @brief 没有可展示菜单时，所有模式与布局方向均不显示完整或折叠菜单。 */
+    void hidesEmptyMenuInEveryDisplayMode()
+    {
+        ZzFluentUI::ZzFluentTitleBar bar;
+        auto *compact = bar.findChild<QToolButton *>("zzTitleBarCompactMenuButton");
+        QVERIFY(compact);
+        bar.show();
+        for (auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            bar.setLayoutDirection(direction);
+            for (auto mode : {ZzFluentUI::ZzTitleBarMenuDisplayMode::Adaptive,
+                              ZzFluentUI::ZzTitleBarMenuDisplayMode::Compact,
+                              ZzFluentUI::ZzTitleBarMenuDisplayMode::Expanded}) {
+                bar.setMenuDisplayMode(mode);
+                for (int width : {420, 1200}) {
+                    bar.resize(width, bar.height());
+                    QCoreApplication::processEvents();
+                    QVERIFY(bar.menuBar()->isHidden());
+                    QVERIFY(compact->isHidden());
+                    QVERIFY(bar.menuBar()->geometry().isEmpty());
+                    QVERIFY(compact->geometry().isEmpty());
+                }
+            }
+        }
+        bar.setMenuCollapseEnabled(false);
+        QVERIFY(bar.menuBar()->isHidden());
+        QVERIFY(compact->isHidden());
+    }
+
+    /** @brief 增删、隐藏或恢复最后一个菜单项时同步入口，禁用项仍保留展示。 */
+    void tracksDisplayableMenuActions()
+    {
+        ZzFluentUI::ZzFluentTitleBar bar;
+        bar.setMenuDisplayMode(ZzFluentUI::ZzTitleBarMenuDisplayMode::Compact);
+        bar.resize(420, bar.height());
+        bar.show();
+        auto *compact = bar.findChild<QToolButton *>("zzTitleBarCompactMenuButton");
+        QVERIFY(compact);
+        auto *separator = bar.menuBar()->addSeparator();
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isHidden());
+        auto *menu = bar.menuBar()->addMenu(QStringLiteral("File"));
+        auto *action = menu->menuAction();
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isVisible());
+        QCOMPARE(compact->menu()->actions().last(), action);
+        action->setVisible(false);
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isHidden());
+        action->setEnabled(false);
+        action->setVisible(true);
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isVisible());
+        bar.menuBar()->removeAction(action);
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isHidden());
+        QVERIFY(bar.menuBar()->isHidden());
+        bar.menuBar()->removeAction(separator);
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isHidden());
+    }
+
+    /** @brief 最后一个可见动作消失时关闭已打开的折叠菜单并释放最小宽度。 */
+    void closesEmptyCompactPopupAndReleasesMenuWidth()
+    {
+        ZzFluentUI::ZzFluentTitleBar bar;
+        bar.show();
+        bar.setMenuCollapseEnabled(false);
+        const int emptyMinimum = bar.minimumExpandedWidth();
+        auto *action = bar.menuBar()->addAction(QString(100, QLatin1Char('W')));
+        QCoreApplication::processEvents();
+        QVERIFY(bar.minimumExpandedWidth() > emptyMinimum);
+        action->setVisible(false);
+        QCoreApplication::processEvents();
+        QCOMPARE(bar.minimumExpandedWidth(), emptyMinimum);
+        QCOMPARE(bar.minimumWidth(), emptyMinimum);
+        bar.setMenuCollapseEnabled(true);
+        bar.setMenuDisplayMode(ZzFluentUI::ZzTitleBarMenuDisplayMode::Compact);
+        action->setVisible(true);
+        QCoreApplication::processEvents();
+        auto *compact = bar.findChild<QToolButton *>("zzTitleBarCompactMenuButton");
+        QVERIFY(compact);
+        compact->menu()->popup(compact->mapToGlobal(compact->rect().bottomLeft()));
+        QCoreApplication::processEvents();
+        QVERIFY(compact->menu()->isVisible());
+        action->setVisible(false);
+        QCoreApplication::processEvents();
+        QVERIFY(compact->isHidden());
+        QVERIFY(!compact->menu()->isVisible());
+    }
+
     void preservesCompactMenuOrderForMiddleInsertions()
     {
         ZzFluentUI::ZzFluentTitleBar titleBar;
