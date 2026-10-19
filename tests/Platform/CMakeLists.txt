@@ -89,7 +89,8 @@ set_tests_properties(platform.binary-dependencies PROPERTIES
 add_test(NAME platform.package-relocation
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-        "-DZZ_TEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/relocation/$<CONFIG>"
+        # 使用更浅、更短的测试根目录，避开 Windows MAX_PATH 限制。
+        "-DZZ_TEST_ROOT=${CMAKE_BINARY_DIR}/reloc/$<CONFIG>"
         "-DZZ_CONTEXT_FILE=${platform_support_dir}/ZzPlatformGateContext.cmake"
         "-DZZ_CONFIG=$<CONFIG>"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPackageRelocationTest.cmake")
