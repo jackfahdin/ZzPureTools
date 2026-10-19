@@ -131,6 +131,20 @@ int cmd_incsync(const cli::ParseResult &result) {
 #ifdef _WIN32
                 // Replace separator
                 std::replace(rel.begin(), rel.end(), '\\', '/');
+
+                // A quoted include is opened as the directory of the generated header
+                // with this reference appended, and the concatenation reaches Win32
+                // unnormalized, so a target that is well short of MAX_PATH once
+                // normalized still fails to open when the `..` segments push the
+                // concatenation past it. Where that would happen, the absolute source
+                // path, already normalized, is written instead. The margin below
+                // MAX_PATH (260, terminator included) covers non-ASCII paths, whose
+                // UTF-8 length here undercounts the UTF-16 length Win32 checks.
+                if (!relPath.empty() &&
+                    tstr2str(targetDir).size() + 1 + rel.size() >= 240) {
+                    rel = tstr2str(path);
+                    std::replace(rel.begin(), rel.end(), '\\', '/');
+                }
 #endif
 
                 // Create file
