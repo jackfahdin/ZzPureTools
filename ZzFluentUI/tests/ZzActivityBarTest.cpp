@@ -201,19 +201,15 @@ struct ZzActiveSelectionMeasurement final
     if (bar == nullptr || repetitions <= 0) {
         return measurement;
     }
-    QList<qint64> samples;
-    samples.reserve(7);
-    for (int sample = 0; sample < 7; ++sample) {
-        QElapsedTimer timer;
-        timer.start();
-        for (int repetition = 0; repetition < repetitions; ++repetition) {
-            bar->setActiveSourceIndexes(indexes);
-            measurement.checksum += bar->activeSourceIndexes().size();
-        }
-        samples.append(timer.nsecsElapsed());
+    // 单次采样，采样循环与中位数合成由调用方负责，
+    // 与 ZzWorkspaceLayoutStatePrivateTest 的 planner 门禁保持一致。
+    QElapsedTimer timer;
+    timer.start();
+    for (int repetition = 0; repetition < repetitions; ++repetition) {
+        bar->setActiveSourceIndexes(indexes);
+        measurement.checksum += bar->activeSourceIndexes().size();
     }
-    std::sort(samples.begin(), samples.end());
-    measurement.medianNanoseconds = samples.at(samples.size() / 2);
+    measurement.medianNanoseconds = timer.nsecsElapsed();
     return measurement;
 }
 
@@ -792,10 +788,48 @@ private Q_SLOTS:
         smallBar.setActiveSourceIndexes(smallIndexes);
         largeBar.setActiveSourceIndexes(largeIndexes);
 
-        const ZzActiveSelectionMeasurement small = zzMeasureActiveSelection(
-            &smallBar, smallIndexes, 3);
-        const ZzActiveSelectionMeasurement large = zzMeasureActiveSelection(
-            &largeBar, largeIndexes, 3);
+        // 先把小规模采样校准到足够时长，
+        // 避免计时器分辨率与调度噪声主导比例。
+        int repetitions = 3;
+        constexpr int maxRepetitions = 65536;
+        for (; repetitions <= maxRepetitions; repetitions *= 2) {
+            const ZzActiveSelectionMeasurement calibration =
+                zzMeasureActiveSelection(&smallBar, smallIndexes, repetitions);
+            if (calibration.medianNanoseconds >= 10000000) {
+                break;
+            }
+        }
+        QVERIFY2(repetitions <= maxRepetitions,
+                 "活动栏计时校准无法达到采样时长");
+
+        QList<qint64> smallSamples;
+        QList<qint64> largeSamples;
+        qsizetype smallChecksum = 0;
+        qsizetype largeChecksum = 0;
+        for (int sample = 0; sample < 7; ++sample) {
+            // 交错两种规模的测量顺序，避免 CPU/负载漂移偏向单一序列。
+            for (int turn = 0; turn < 2; ++turn) {
+                const bool measureSmall = (sample + turn) % 2 == 0;
+                const ZzActiveSelectionMeasurement measurement =
+                    zzMeasureActiveSelection(
+                        measureSmall ? &smallBar : &largeBar,
+                        measureSmall ? smallIndexes : largeIndexes,
+                        repetitions);
+                (measureSmall ? smallSamples : largeSamples)
+                    .append(measurement.medianNanoseconds);
+                (measureSmall ? smallChecksum : largeChecksum)
+                    += measurement.checksum;
+            }
+        }
+        const auto median = [](QList<qint64> samples, qsizetype checksum) {
+            std::sort(samples.begin(), samples.end());
+            return ZzActiveSelectionMeasurement{
+                samples.at(samples.size() / 2), checksum};
+        };
+        const ZzActiveSelectionMeasurement small =
+            median(smallSamples, smallChecksum);
+        const ZzActiveSelectionMeasurement large =
+            median(largeSamples, largeChecksum);
 
         QVERIFY(small.medianNanoseconds > 0);
         QVERIFY(large.medianNanoseconds > 0);
@@ -805,6 +839,10 @@ private Q_SLOTS:
         QCOMPARE(largeBar.activeSourceIndexes(), largeIndexes);
         const double ratio = static_cast<double>(large.medianNanoseconds)
             / static_cast<double>(small.medianNanoseconds);
+        qInfo().nospace() << "活动栏选择采样 (" << repetitions
+                          << " 次重复): small=" << small.medianNanoseconds
+                          << " ns, large=" << large.medianNanoseconds
+                          << " ns, ratio=" << ratio;
         QVERIFY2(
             large.medianNanoseconds < small.medianNanoseconds * 10,
             qPrintable(QStringLiteral("small=%1ns large=%2ns ratio=%3x")
