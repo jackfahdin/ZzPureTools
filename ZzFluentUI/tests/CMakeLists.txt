@@ -1079,3 +1079,11 @@ add_test(NAME fluent.audio-level-meter COMMAND ZzAudioLevelMeterTest)
 set_tests_properties(fluent.audio-level-meter PROPERTIES
     LABELS "fluent;unit;component"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(ZzToolTipTest ZzToolTipTest.cpp)
+target_link_libraries(ZzToolTipTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzToolTipTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzToolTipTest)
+zz_enable_sanitizers(ZzToolTipTest)
+add_test(NAME fluent.tool-tip COMMAND ZzToolTipTest)
+set_tests_properties(fluent.tool-tip PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

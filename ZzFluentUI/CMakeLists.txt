@@ -151,6 +151,7 @@ set(zz_fluent_ui_sources
     widgets/src/private/ZzWorkspaceTransferRegistryPrivate.cpp
     widgets/src/ZzTabWidget.cpp
     widgets/src/private/ZzTabWidgetPrivate.cpp
+    widgets/src/ZzToolTip.cpp
     widgets/src/ZzSplitWorkspace.cpp
     widgets/src/private/ZzSplitWorkspacePrivate.cpp
     widgets/src/private/ZzSplitWorkspaceTransactionPrivate.cpp
@@ -242,6 +243,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzTabBar.h
     widgets/include/ZzFluentUI/ZzTabBarAppearance.h
     widgets/include/ZzFluentUI/ZzTabWidget.h
+    widgets/include/ZzFluentUI/ZzToolTip.h
     widgets/include/ZzFluentUI/ZzSplitWorkspace.h
     widgets/include/ZzFluentUI/ZzNavigationView.h
     widgets/include/ZzFluentUI/ZzNavigationPane.h
