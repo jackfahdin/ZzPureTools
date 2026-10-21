@@ -5694,8 +5694,7 @@ private Q_SLOTS:
 
     void activityMoveAuditScalesBelowQuadraticGrowth()
     {
-        const auto measureMove = [](int panelCount) {
-            ZzShellFixture fixture;
+        const auto preparePanels = [](ZzShellFixture &fixture, int panelCount) {
             for (int index = 0; index < panelCount; ++index) {
                 auto content = std::make_unique<QWidget>();
                 const auto id = ZzPureTools::ZzWorkspacePanelId(
@@ -5704,16 +5703,28 @@ private Q_SLOTS:
                     id, id.value(), zzIcon(),
                     ZzFluentUI::ZzActivityArea::LeftPrimary, content.get());
                 if (!registered) {
-                    return qint64{-1};
+                    return false;
                 }
                 zzReleaseAfterAdoption(content);
             }
-
+            return true;
+        };
+        ZzShellFixture smallFixture;
+        ZzShellFixture largeFixture;
+        QVERIFY(preparePanels(smallFixture, 128));
+        QVERIFY(preparePanels(largeFixture, 512));
+        const auto measureMove = [](ZzShellFixture &fixture, int repetitions) {
             auto *const bar = fixture.shell->activityBar(
                 ZzFluentUI::ZzSidePaneEdge::Left);
             auto *const pane = fixture.shell->sidePane(
                 ZzFluentUI::ZzSidePaneEdge::Left);
             QAbstractItemModel *const model = bar->model();
+            const int panelCount = model->rowCount();
+            const QList<QWidget *> originalPanels = pane->panelStack()->panels();
+            QList<QPointer<QWidget>> owners;
+            for (QWidget *const panel : originalPanels) {
+                owners.append(panel->parentWidget());
+            }
             const auto move = [bar, model, pane](int sourceRow, int targetRow) {
                 const QString movedTitle = model->index(sourceRow, 0)
                     .data().toString();
@@ -5738,35 +5749,120 @@ private Q_SLOTS:
                 }
                 return elapsed;
             };
-            if (move(0, panelCount - 1) <= 0
-                || move(panelCount - 1, 0) <= 0) {
-                return qint64{-1};
-            }
-
-            QList<qint64> samples;
-            samples.reserve(5);
-            for (int iteration = 0; iteration < 5; ++iteration) {
-                const int sourceRow = iteration % 2 == 0 ? 0 : panelCount - 1;
-                const int targetRow = iteration % 2 == 0 ? panelCount - 1 : 0;
-                const qint64 elapsed = move(sourceRow, targetRow);
-                if (elapsed <= 0) {
+            qint64 elapsed = 0;
+            for (int iteration = 0; iteration < repetitions; ++iteration) {
+                const qint64 forward = move(0, panelCount - 1);
+                const qint64 backward = move(panelCount - 1, 0);
+                if (forward <= 0 || backward <= 0) {
                     return qint64{-1};
                 }
-                samples.append(elapsed);
+                elapsed += forward + backward;
             }
-            std::sort(samples.begin(), samples.end());
-            return samples.at(samples.size() / 2);
+            // 校验放在计时外；往返后模型、物理顺序和原有归属都必须恢复。
+            if (pane->panelStack()->panels() != originalPanels) {
+                return qint64{-1};
+            }
+            for (int row = 0; row < panelCount; ++row) {
+                QWidget *const panel = originalPanels.at(row);
+                if (model->index(row, 0).data().toString()
+                        != QStringLiteral("audit-%1").arg(row)
+                    || owners.at(row) == nullptr
+                    || panel->parentWidget() != owners.at(row)
+                    || !pane->isAncestorOf(panel)
+                    || !pane->panelStack()->isAncestorOf(panel)) {
+                    return qint64{-1};
+                }
+            }
+            return elapsed;
         };
 
-        const qint64 small = measureMove(128);
-        const qint64 large = measureMove(512);
+        QVERIFY(measureMove(smallFixture, 1) > 0);
+        QVERIFY(measureMove(largeFixture, 1) > 0);
+        int repetitions = 1;
+        constexpr int maxRepetitions = 65536;
+        for (; repetitions <= maxRepetitions; repetitions *= 2) {
+            const qint64 elapsed = measureMove(smallFixture, repetitions);
+            QVERIFY(elapsed > 0);
+            if (elapsed >= 10000000) {
+                break;
+            }
+        }
+        QVERIFY2(repetitions <= maxRepetitions,
+            "Activity move timing calibration did not reach 10 ms");
+        QList<qint64> smallSamples;
+        QList<qint64> largeSamples;
+        for (int sample = 0; sample < 7; ++sample) {
+            // 两个夹具先完成构造，再交错次序采样，避免构造负载及CPU漂移偏置。
+            for (int turn = 0; turn < 2; ++turn) {
+                const bool measureSmall = (sample + turn) % 2 == 0;
+                const qint64 elapsed = measureMove(
+                    measureSmall ? smallFixture : largeFixture, repetitions);
+                QVERIFY(elapsed > 0);
+                (measureSmall ? smallSamples : largeSamples).append(elapsed);
+            }
+        }
+        std::sort(smallSamples.begin(), smallSamples.end());
+        std::sort(largeSamples.begin(), largeSamples.end());
+        const qint64 small = smallSamples.at(smallSamples.size() / 2);
+        const qint64 large = largeSamples.at(largeSamples.size() / 2);
         QVERIFY(small > 0);
         QVERIFY(large > 0);
+        qInfo().nospace() << "Activity move sampling (" << repetitions
+                         << " round trips): small=" << small
+                         << " ns, large=" << large << " ns, ratio="
+                         << static_cast<double>(large) / static_cast<double>(small);
         QVERIFY2(large < small * 10,
             qPrintable(QStringLiteral(
                 "Activity move grew from %1 ns to %2 ns")
                     .arg(small)
                     .arg(large)));
+    }
+
+    void activityMovePreservesRememberedStackedVisibility()
+    {
+        ZzShellFixture fixture;
+        QList<QWidget *> contents;
+        QList<QPointer<QWidget>> owners;
+        for (int row = 0; row < 3; ++row) {
+            auto content = std::make_unique<QWidget>();
+            const auto id = ZzPureTools::ZzWorkspacePanelId(
+                QStringLiteral("remembered-%1").arg(row));
+            QVERIFY(fixture.shell->registerSidePanel(id, id.value(), zzIcon(),
+                ZzFluentUI::ZzActivityArea::LeftPrimary, content.get()));
+            contents.append(content.get());
+            owners.append(content->parentWidget());
+            zzReleaseAfterAdoption(content);
+        }
+        auto *const pane = fixture.shell->sidePane(ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *const bar = fixture.shell->activityBar(ZzFluentUI::ZzSidePaneEdge::Left);
+        QAbstractItemModel *const model = bar->model();
+        pane->setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+        QVERIFY(pane->setWidgetVisible(contents.at(0), true));
+        QCOMPARE(pane->visibleWidgets(),
+            QList<QWidget *>({contents.at(0), contents.at(2)}));
+        pane->setMode(ZzFluentUI::ZzSidePaneMode::Single);
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contents.at(2)}));
+
+        Q_EMIT bar->moveRequested(model->index(0, 0),
+            ZzFluentUI::ZzActivityArea::LeftPrimary, 2);
+        const QList<QWidget *> expectedOrder = {
+            contents.at(1), contents.at(2), contents.at(0)};
+        QCOMPARE(pane->panelStack()->panels(), expectedOrder);
+        QCOMPARE(pane->currentWidget(), contents.at(2));
+        QCOMPARE(pane->visibleWidgets(), QList<QWidget *>({contents.at(2)}));
+        for (int row = 0; row < 3; ++row) {
+            QCOMPARE(model->index(row, 0).data().toString(),
+                QStringLiteral("remembered-%1").arg((row + 1) % 3));
+            QCOMPARE(contents.at(row)->parentWidget(), owners.at(row).data());
+            QVERIFY(owners.at(row) != nullptr);
+            QVERIFY(pane->isAncestorOf(contents.at(row)));
+            QVERIFY(pane->panelStack()->isAncestorOf(contents.at(row)));
+        }
+        pane->setMode(ZzFluentUI::ZzSidePaneMode::Stacked);
+        QCOMPARE(pane->visibleWidgets(),
+            QList<QWidget *>({contents.at(2), contents.at(0)}));
+        QCOMPARE(pane->currentWidget(), contents.at(2));
+        QCOMPARE(pane->panelStack()->panels(), expectedOrder);
     }
 
     void activityMoveReordersOnlyRequestedPanel()

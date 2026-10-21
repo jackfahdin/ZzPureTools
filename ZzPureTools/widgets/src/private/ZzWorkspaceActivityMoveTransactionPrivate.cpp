@@ -1615,8 +1615,12 @@ bool ZzWorkspaceActivityMoveTransactionPrivate::applyProjection(
                     return false;
                 }
             } else {
+                // Visibility was applied and audited above. Re-selecting the
+                // same Single-mode current repeats every panel's linear lookup
+                // and overwrites the remembered Stacked-mode visible set.
                 const bool currentApplied =
-                    paneGuard->setCurrentWidget(current->content);
+                    paneGuard->currentWidget() == current->content
+                    || paneGuard->setCurrentWidget(current->content);
                 if (paneGuard == nullptr) {
                     complete = false;
                     return false;
