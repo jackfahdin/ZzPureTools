@@ -1086,4 +1086,6 @@ set_target_properties(ZzToolTipTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzToolTipTest)
 zz_enable_sanitizers(ZzToolTipTest)
 add_test(NAME fluent.tool-tip COMMAND ZzToolTipTest)
-set_tests_properties(fluent.tool-tip PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+set_tests_properties(fluent.tool-tip PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

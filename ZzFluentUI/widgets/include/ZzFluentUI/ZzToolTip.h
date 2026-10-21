@@ -17,8 +17,9 @@ namespace ZzFluentUI {
  * 文字强制走灰度抗锯齿，规避部分平台（如 KDE Wayland）上 QTipLabel
  * 子像素抗锯齿合成后文字发灰的问题。
  *
- * 行为对齐 QToolTip：再次 showText 复用并移动同一实例；鼠标按下、
- * 滚轮、非修饰键按键或 10 秒超时自动关闭。
+ * 支持纯文本、多行与自动换行，窗口尺寸限制在当前屏幕的可用区域内；
+ * 超出屏幕高度的内容会被裁剪。再次 showText 复用并移动同一实例；
+ * 鼠标按下、滚轮、非修饰键按键或 10 秒超时自动关闭。
  */
 class ZZ_FLUENT_UI_EXPORT ZzToolTip final
 {
@@ -26,7 +27,8 @@ public:
     ZzToolTip() = delete;
 
     /** @brief 在全局坐标 @a globalPos 附近（光标右下方）显示文本提示；
-     *  @a parent 销毁时提示一并关闭。@a text 为空等价于 hideText()。 */
+     *  @a parent 隐藏或销毁时提示一并关闭。@a text 为空或 @a parent
+     *  为空指针时等价于 hideText()。 */
     static void showText(const QPoint &globalPos, const QString &text, QWidget *parent);
 
     /** @brief 立即关闭当前提示（无实例时为空操作）。 */

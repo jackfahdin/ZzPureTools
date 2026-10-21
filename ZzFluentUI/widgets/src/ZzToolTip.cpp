@@ -5,12 +5,14 @@
 #include <QtGui/QPainter>
 #include <QtGui/QPaintEvent>
 #include <QtGui/QScreen>
+#include <QtGui/QTextLayout>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
 #include <QtCore/QBasicTimer>
 #include <QtCore/QPointer>
 #include <QtCore/QTimerEvent>
+#include <QtCore/QtMath>
 
 namespace ZzFluentUI {
 
@@ -19,6 +21,8 @@ namespace {
 constexpr int kTextMarginH = 10;
 constexpr int kTextMarginV = 6;
 constexpr int kHideDelayMs = 10000;
+constexpr int kMaximumTextWidth = 480;
+constexpr qreal kCornerRadius = 4.0;
 
 /** @brief ZzToolTip 的单实例弹出窗口；颜色全部即时取自 palette()。 */
 class ZzToolTipLabel final : public QWidget
@@ -31,26 +35,37 @@ public:
         setObjectName(QStringLiteral("ZzToolTipLabel"));
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
-        setFont(QApplication::font("QTipLabel"));
-        qApp->installEventFilter(this);
         reuse(text, globalPos, parent);
     }
 
     void reuse(const QString &text, const QPoint &globalPos, QWidget *parent)
     {
+        // Reparent the window too: a QPointer alone does not transfer ownership.
+        qApp->removeEventFilter(this);
+        if (parentWidget() != parent)
+            setParent(parent, windowFlags());
         parent_ = parent;
         text_ = text;
+        setAccessibleName(text);
+        QFont textFont = QApplication::font("QTipLabel");
+        textFont.setStyleStrategy(static_cast<QFont::StyleStrategy>(
+            textFont.styleStrategy() | QFont::NoSubpixelAntialias));
+        setFont(textFont);
+        layoutText(globalPos);
         hideTimer_.start(kHideDelayMs, this);
-        adjustSize();
         placeNear(globalPos);
         show();
+        update();
+        qApp->installEventFilter(this);
     }
 
-    QSize sizeHint() const override
+    void retire()
     {
-        const QFontMetrics fm(font());
-        return { fm.horizontalAdvance(text_) + 2 * kTextMarginH + 2,
-                 fm.height() + 2 * kTextMarginV + 2 };
+        // Deferred deletion must not leave a filter/timer affecting the next tip.
+        qApp->removeEventFilter(this);
+        hideTimer_.stop();
+        close();
+        deleteLater();
     }
 
 protected:
@@ -61,11 +76,11 @@ protected:
         const QRectF frame = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
         painter.setPen(QPen(palette().color(QPalette::Mid), 1.0));
         painter.setBrush(palette().color(QPalette::ToolTipBase));
-        painter.drawRoundedRect(frame, 4.0, 4.0);
+        painter.drawRoundedRect(frame, kCornerRadius, kCornerRadius);
         painter.setPen(palette().color(QPalette::ToolTipText));
-        painter.drawText(rect().adjusted(kTextMarginH, kTextMarginV,
-                                         -kTextMarginH, -kTextMarginV),
-                         Qt::AlignLeft | Qt::AlignVCenter, text_);
+        painter.setClipRect(rect().adjusted(kTextMarginH, kTextMarginV,
+                                           -kTextMarginH, -kTextMarginV));
+        textLayout_.draw(&painter, QPointF(kTextMarginH, kTextMarginV));
     }
 
     void timerEvent(QTimerEvent *event) override
@@ -107,6 +122,13 @@ protected:
             if (watched == parent_)
                 ZzToolTip::hideText();
             break;
+        case QEvent::Hide: {
+            const auto *widget = qobject_cast<QWidget *>(watched);
+            if (widget && parent_
+                && (widget == parent_ || widget->isAncestorOf(parent_)))
+                ZzToolTip::hideText();
+            break;
+        }
         default:
             break;
         }
@@ -114,13 +136,56 @@ protected:
     }
 
 private:
+    static QRect screenBounds(const QPoint &globalPos)
+    {
+        if (QScreen *screen = QGuiApplication::screenAt(globalPos))
+            return screen->availableGeometry();
+        if (QScreen *primary = QGuiApplication::primaryScreen())
+            return primary->availableGeometry();
+        return {};
+    }
+
+    void layoutText(const QPoint &globalPos)
+    {
+        const QRect bounds = screenBounds(globalPos);
+        const int horizontalPadding = 2 * kTextMarginH + 2;
+        const int verticalPadding = 2 * kTextMarginV + 2;
+        const int maximumWidth = bounds.isValid()
+            ? qMax(1, qMin(kMaximumTextWidth, bounds.width() - horizontalPadding))
+            : kMaximumTextWidth;
+        const qreal maximumHeight = bounds.isValid()
+            ? qMax(1, bounds.height() - verticalPadding) : kMaximumTextWidth;
+        // QTextLayout uses a line separator for explicit line breaks.
+        QString layoutText = text_;
+        layoutText.replace(QLatin1Char('\n'), QChar::LineSeparator);
+        textLayout_.setText(layoutText);
+        textLayout_.setFont(font());
+        QTextOption option;
+        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        textLayout_.setTextOption(option);
+        textLayout_.beginLayout();
+        qreal height = 0;
+        qreal width = 0;
+        while (height < maximumHeight) {
+            QTextLine line = textLayout_.createLine();
+            if (!line.isValid())
+                break;
+            line.setLineWidth(maximumWidth);
+            line.setPosition(QPointF(0, height));
+            height += line.height();
+            width = qMax(width, line.naturalTextWidth());
+        }
+        textLayout_.endLayout();
+        QSize size(qCeil(qMin(width, qreal(maximumWidth))) + horizontalPadding,
+                   qCeil(qMin(height, maximumHeight)) + verticalPadding);
+        if (bounds.isValid())
+            size = size.boundedTo(bounds.size());
+        resize(size);
+    }
+
     void placeNear(const QPoint &globalPos)
     {
-        QRect bounds;
-        if (QScreen *screen = QGuiApplication::screenAt(globalPos))
-            bounds = screen->availableGeometry();
-        else if (QScreen *primary = QGuiApplication::primaryScreen())
-            bounds = primary->availableGeometry();
+        const QRect bounds = screenBounds(globalPos);
 
         QPoint pos = globalPos + QPoint(2, 16);
         if (bounds.isValid()) {
@@ -128,13 +193,14 @@ private:
                 pos.setX(bounds.right() - width() + 1);
             if (pos.y() + height() > bounds.bottom())
                 pos.setY(globalPos.y() - height() - 2);
-            pos.setX(qMax(pos.x(), bounds.left()));
-            pos.setY(qMax(pos.y(), bounds.top()));
+            pos.setX(qBound(bounds.left(), pos.x(), bounds.right() - width() + 1));
+            pos.setY(qBound(bounds.top(), pos.y(), bounds.bottom() - height() + 1));
         }
         move(pos);
     }
 
     QString text_;
+    QTextLayout textLayout_;
     QPointer<QWidget> parent_;
     QBasicTimer hideTimer_;
 };
@@ -158,8 +224,7 @@ void ZzToolTip::showText(const QPoint &globalPos, const QString &text, QWidget *
 void ZzToolTip::hideText()
 {
     if (tipInstance) {
-        tipInstance->close();
-        tipInstance->deleteLater();
+        tipInstance->retire();
         tipInstance.clear();
     }
 }
