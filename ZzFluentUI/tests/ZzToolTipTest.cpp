@@ -1,4 +1,5 @@
 #include <ZzFluentUI/ZzToolTip.h>
+#include <ZzTestEventLoop.h>
 
 #include <QPointer>
 #include <QEventLoop>
@@ -94,7 +95,7 @@ void ZzToolTipTest::followsPaletteWhileVisible()
     palette.setColor(QPalette::ToolTipBase, QColor("#123456"));
     palette.setColor(QPalette::ToolTipText, QColor("#abcdef"));
     QApplication::setPalette(palette);
-    QTRY_COMPARE(tip->palette().color(QPalette::ToolTipText), QColor("#abcdef"));
+    ZZ_COMPARE_EVENTUALLY(tip->palette().color(QPalette::ToolTipText), QColor("#abcdef"));
     QCOMPARE(tip->palette().color(QPalette::ToolTipBase), QColor("#123456"));
     QCOMPARE(findTipLabel(), tip.data());
 }
