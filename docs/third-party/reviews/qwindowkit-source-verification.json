@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "reviewer": "Codex (automated technical source verification)",
-  "reviewedAt": "2026-10-16T08:46:39Z",
+  "reviewedAt": "2026-10-21T03:27:52Z",
   "conclusion": "approved",
   "scope": "Source identity, dependency layout and unchanged license expressions; this is not a new human signature",
   "upstream": "https://github.com/stdware/qwindowkit.git",
@@ -15,7 +15,16 @@
     "qmsetup": "75e8790303479edce30337a8ededc75c8e3be47c4e9d528b5d3001aa546eb2a3",
     "stdcorelib": "96fe7b6a3f41ad7c4e0d9dc8233a165a37932f3ebbd25d81037ee29317a026f9"
   },
-  "verification": "Each expanded source tree was compared byte for byte with its pinned codeload archive, excluding expanded submodule directories and local .git metadata; .gitmodules files are retained",
+  "verification": "The 2026-10-16 comparison established source identity against the pinned archives, excluding expanded submodule directories and local .git metadata. On 2026-10-21, incsync.cpp was compared with the SHA-256-verified qmsetup archive: its only difference is the Windows long-path patch from b80a5d2, now recorded below. .gitmodules files are retained",
+  "localPatches": [
+    {
+      "commit": "b80a5d2bb6b9c30fc0a186f9be7d4c637222bfa0",
+      "path": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/commands/incsync.cpp",
+      "upstreamSha256": "31befddc251e2028f0949e6c65e4a58f561baa990b4d734433984f30989fad9b",
+      "localSha256": "b4dffe5543e92b5337a64dedad69628454a0f2ade0d1962c6c85abe1b8c94345",
+      "scope": "Windows build-time include generation only; upstream identity and license expressions are unchanged"
+    }
+  ],
   "historicalHumanReview": {
     "path": "docs/third-party/reviews/qwindowkit-provenance-review.json",
     "sha256": "949dda0f8742e6edddaa829840f09c714ecd6317844a00b8431c78f5f59f5d77",

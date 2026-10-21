@@ -16,7 +16,7 @@
       "provenanceReview": {
         "scope": "repository",
         "path": "docs/third-party/reviews/qwindowkit-source-verification.json",
-        "sha256": "7134bc2d8ac276e0abd717f5dd1f7e3cb4ca9e60a96df845f2133ceeecca607d"
+        "sha256": "11385a51c0e01ec90696d6aec7571c608a989d4c424d01ae022e1359809aee65"
       },
       "historicalHumanReview": {
         "scope": "repository",

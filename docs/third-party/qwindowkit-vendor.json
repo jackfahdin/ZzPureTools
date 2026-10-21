@@ -6,8 +6,16 @@
   "importDate": "2026-10-16",
   "archiveSha256": "c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496",
   "licenses": ["Apache-2.0", "MIT"],
-  "localPatches": [],
-  "vendorLayout": "Submodule contents are expanded in-tree; .gitmodules files are retained and all tracked source bytes match the pinned upstream archives",
+  "localPatches": [
+    {
+      "commit": "b80a5d2bb6b9c30fc0a186f9be7d4c637222bfa0",
+      "path": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/commands/incsync.cpp",
+      "description": "Use a normalized absolute include on Windows when the generated relative include would approach MAX_PATH",
+      "upstreamSha256": "31befddc251e2028f0949e6c65e4a58f561baa990b4d734433984f30989fad9b",
+      "localSha256": "b4dffe5543e92b5337a64dedad69628454a0f2ade0d1962c6c85abe1b8c94345"
+    }
+  ],
+  "vendorLayout": "Submodule contents are expanded in-tree; .gitmodules files are retained. The pinned upstream sources have the explicit local patches listed above",
   "submodules": {
     "qmsetup": "f9cb0153a9dc913b7b8226451cd6760ed83b6ce8",
     "stdcorelib": "2fbefa9b152451d9621bf71bb1dfc8f98f8d2120"
