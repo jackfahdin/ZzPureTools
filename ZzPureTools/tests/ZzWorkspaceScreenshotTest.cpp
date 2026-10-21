@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "../../tests/shared/ZzScreenshotBaseline.h"
+#include "../../tests/support/ZzTestEventLoop.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -888,10 +889,18 @@ void zzVerifyNarrowWorkspaceGeometry(ZzWorkspaceScreenshotSurface &surface)
         || alwaysOnTop == nullptr) {
         return;
     }
-    QVERIFY(compactMenu->isVisible());
-    QVERIFY(!surface.titleBar.menuBar()->isVisible());
+    const QMenuBar *const menuBar = surface.titleBar.menuBar();
+    QVERIFY(!menuBar->actions().isEmpty());
+    QVERIFY(menuBar->isVisible() != compactMenu->isVisible());
+    const QWidget *const activeMenu = menuBar->isVisible()
+        ? static_cast<const QWidget *>(menuBar)
+        : static_cast<const QWidget *>(compactMenu);
+    if (compactMenu->isVisible()) {
+        QVERIFY(compactMenu->menu() != nullptr);
+        QCOMPARE(compactMenu->menu()->actions(), menuBar->actions());
+    }
     const std::array<const QWidget *, 8> titleBarWidgets{
-        compactMenu, title, theme, alwaysOnTop,
+        activeMenu, title, theme, alwaysOnTop,
         surface.titleBar.minimizeButton(), surface.titleBar.maximizeButton(),
         surface.titleBar.closeButton(), surface.titleBar.windowIconWidget()};
     for (const QWidget *widget : titleBarWidgets) {
@@ -910,6 +919,13 @@ void zzVerifyNarrowWorkspaceGeometry(ZzWorkspaceScreenshotSurface &surface)
                 "narrow title bar widgets overlap");
         }
     }
+    const int leftGap = title->x() - activeMenu->geometry().right() - 1;
+    const int rightGap = theme->x() - title->geometry().right() - 1;
+    QVERIFY(leftGap > 0);
+    QVERIFY(rightGap > 0);
+    QCOMPARE(leftGap, rightGap);
+    QVERIFY(surface.titleBar.rect().contains(title->geometry()));
+    QVERIFY(!title->text().isEmpty());
     auto *activity = surface.shell->activityBar(ZzFluentUI::ZzSidePaneEdge::Left);
     auto *tabs = surface.shell->tabWidget();
     auto *dock = surface.window.findChild<ZzFluentUI::ZzDockPanel *>();
@@ -1143,13 +1159,44 @@ private Q_SLOTS:
             << QStringLiteral("workspace-narrow-high-contrast");
     }
 
+    void adaptsNarrowWorkspaceMenuToTitleBudget()
+    {
+        ZzWorkspaceScreenshotSurface surface(zzNarrowWorkspaceSurfaceSize);
+        QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
+        surface.polish();
+        auto *const compactMenu = surface.titleBar.findChild<QToolButton *>(
+            QStringLiteral("zzTitleBarCompactMenuButton"));
+        auto *const title = surface.titleBar.findChild<QLabel *>(
+            QStringLiteral("zzTitleBarTitle"));
+        QVERIFY(compactMenu != nullptr);
+        QVERIFY(title != nullptr);
+
+        ZZ_VERIFY_EVENTUALLY(surface.titleBar.menuBar()->isVisible());
+        QVERIFY(!compactMenu->isVisible());
+        QCOMPARE(title->text(), QStringLiteral("Workspace"));
+        zzVerifyNarrowWorkspaceGeometry(surface);
+
+        surface.shell->setApplicationTitle(
+            QStringLiteral("Narrow workspace title requiring elision"));
+        ZZ_VERIFY_EVENTUALLY(compactMenu->isVisible());
+        QVERIFY(!surface.titleBar.menuBar()->isVisible());
+        QVERIFY(!title->text().isEmpty());
+        QVERIFY(title->text() != surface.titleBar.title());
+        zzVerifyNarrowWorkspaceGeometry(surface);
+
+        surface.shell->setApplicationTitle(QStringLiteral("Workspace"));
+        ZZ_VERIFY_EVENTUALLY(surface.titleBar.menuBar()->isVisible());
+        QVERIFY(!compactMenu->isVisible());
+        QCOMPARE(title->text(), QStringLiteral("Workspace"));
+        zzVerifyNarrowWorkspaceGeometry(surface);
+    }
+
     void rendersNarrowWorkspaceThemes()
     {
         QFETCH(int, mode);
         QFETCH(QString, fileStem);
         controller_->setMode(static_cast<ZzFluentUI::ZzThemeMode>(mode));
-        ZzWorkspaceScreenshotSurface surface(zzNarrowWorkspaceSurfaceSize,
-            QStringLiteral("Narrow workspace title"));
+        ZzWorkspaceScreenshotSurface surface(zzNarrowWorkspaceSurfaceSize);
         QVERIFY2(surface.isValid(), qPrintable(surface.setupError()));
         surface.polish();
         zzVerifyNarrowWorkspaceGeometry(surface);
