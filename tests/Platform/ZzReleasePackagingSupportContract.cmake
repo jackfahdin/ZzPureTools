@@ -267,6 +267,8 @@ foreach(staged_path IN ITEMS
     licenses/QWindowKit/qmsetup-LICENSE
     licenses/QWindowKit/stdcorelib-LICENSE
     licenses/ZzLog/spdlog-LICENSE.txt
+    licenses/KissFFT/COPYING
+    licenses/KissFFT/LICENSES/BSD-3-Clause
     licenses/Qt/LGPL-3.0-only.txt
     licenses/Qt/GPL-3.0-only.txt
     licenses/Qt/DEPLOYED_MODULES.txt
@@ -279,6 +281,35 @@ foreach(staged_path IN ITEMS
     file(SIZE "${full_staged_path}" staged_size)
     if(staged_size EQUAL 0)
         message(FATAL_ERROR "Staged license file is empty: ${staged_path}")
+    endif()
+endforeach()
+
+foreach(kissfft_license IN ITEMS COPYING LICENSES/BSD-3-Clause)
+    file(SHA256 "${source_dir}/ZzThirdParty/kissfft/${kissfft_license}"
+        kissfft_source_sha)
+    file(SHA256 "${stage_root}/licenses/KissFFT/${kissfft_license}"
+        kissfft_staged_sha)
+    if(NOT kissfft_source_sha STREQUAL kissfft_staged_sha)
+        message(FATAL_ERROR "Staged KissFFT license differs: ${kissfft_license}")
+    endif()
+endforeach()
+
+file(READ "${source_dir}/ZzThirdParty/kissfft/UPSTREAM.json" kissfft_provenance)
+string(JSON kissfft_revision GET "${kissfft_provenance}" revision)
+if(NOT kissfft_revision STREQUAL "8f47a67f595a6641c566087bf5277034be64f24d")
+    message(FATAL_ERROR "KissFFT provenance must pin the approved 131.1.0 revision")
+endif()
+string(JSON kissfft_file_count LENGTH "${kissfft_provenance}" files)
+if(NOT kissfft_file_count EQUAL 8)
+    message(FATAL_ERROR "KissFFT provenance must cover six source/header and two license files")
+endif()
+math(EXPR kissfft_last_file "${kissfft_file_count} - 1")
+foreach(kissfft_index RANGE 0 ${kissfft_last_file})
+    string(JSON kissfft_path GET "${kissfft_provenance}" files ${kissfft_index} path)
+    string(JSON kissfft_expected_sha GET "${kissfft_provenance}" files ${kissfft_index} sha256)
+    file(SHA256 "${source_dir}/ZzThirdParty/kissfft/${kissfft_path}" kissfft_actual_sha)
+    if(NOT kissfft_actual_sha STREQUAL kissfft_expected_sha)
+        message(FATAL_ERROR "KissFFT vendored file hash mismatch: ${kissfft_path}")
     endif()
 endforeach()
 

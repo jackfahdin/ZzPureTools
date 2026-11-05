@@ -68,6 +68,9 @@ set(required_files
     share/ZzPureToolsFrame/licenses/ZzLog/LICENSE
     share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt
     share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt
+    share/ZzPureToolsFrame/licenses/KissFFT/COPYING
+    share/ZzPureToolsFrame/licenses/KissFFT/LICENSES/BSD-3-Clause
+    share/ZzPureToolsFrame/licenses/KissFFT/UPSTREAM.json
     share/ZzPureToolsFrame/THIRD_PARTY_NOTICES.md
     share/ZzPureToolsFrame/qwindowkit-vendor.json
     share/ZzPureToolsFrame/release-evidence.json
@@ -120,6 +123,12 @@ set(required_notice_tokens
     stdcorelib
     spdlog
     fmt
+    KissFFT
+    "131.1.0"
+    "8f47a67f595a6641c566087bf5277034be64f24d"
+    "BSD-3-Clause"
+    "share/ZzPureToolsFrame/licenses/KissFFT/COPYING"
+    "share/ZzPureToolsFrame/licenses/KissFFT/LICENSES/BSD-3-Clause"
     "GCC Runtime Library Exception"
     "GPL-3.0-only WITH Qt-GPL-exception-1.0"
     Jackfahdin

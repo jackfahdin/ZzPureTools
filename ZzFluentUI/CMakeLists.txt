@@ -263,6 +263,10 @@ set(zz_fluent_ui_moc_headers
 add_library(ZzFluentUI ${zz_fluent_ui_sources})
 add_library(Zz::FluentUI ALIAS ZzFluentUI)
 
+add_subdirectory("${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft"
+    "${PROJECT_BINARY_DIR}/ZzThirdParty/kissfft")
+zz_use_private_kissfft(ZzFluentUI)
+
 target_link_libraries(ZzFluentUI PUBLIC
     Zz::FluentFoundation
     Qt6::Widgets

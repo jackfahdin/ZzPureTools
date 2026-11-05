@@ -194,6 +194,17 @@ function(zz_install_package)
             COMPONENT Runtime)
     endif()
 
+    # The FFT code is embedded in both development SDKs and release binaries.
+    install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/COPYING"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT"
+        COMPONENT Runtime)
+    install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/LICENSES/BSD-3-Clause"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT/LICENSES"
+        COMPONENT Runtime)
+    install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/UPSTREAM.json"
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT"
+        COMPONENT Runtime)
+
     if(ZZ_RELEASE_BUILD)
         install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
             DESTINATION

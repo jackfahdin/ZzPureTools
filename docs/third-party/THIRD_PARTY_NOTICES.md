@@ -59,6 +59,15 @@
 - 发布包许可证位置：`share/ZzPureToolsFrame/licenses/qwindowkit/stdcorelib-LICENSE`。
 - 分发说明：stdcorelib 替代旧版 syscmdline，作为 qmsetup 构建工具的静态依赖，不作为 ZzPureToolsFrame 运行库安装。
 
+## KissFFT
+
+- 上游：https://github.com/mborgerding/kissfft；版本 131.1.0，修订 `8f47a67f595a6641c566087bf5277034be64f24d`。
+- Copyright (c) 2003-2010 Mark Borgerding. All rights reserved. SPDX：`BSD-3-Clause`。
+- 仅纳入一维实数 FFT 所需的两个 C 源文件和四个头文件；不使用上游工具、安装规则或运行时动态库。来源、归档与逐文件 SHA-256 记录于 `ZzThirdParty/kissfft/UPSTREAM.json`；仅 `kiss_fft_log.h` 补齐末尾换行，其余上游文件逐字节保留。
+- 构建时以 C++ 编译，并对外部函数名加 `zz_fluent_` 前缀、隐藏符号；对象私有编入 `ZzFluentUI`，不安装头文件或导出第三方 CMake 目标。
+- SDK 许可证位置：`share/ZzPureToolsFrame/licenses/KissFFT/COPYING`、`share/ZzPureToolsFrame/licenses/KissFFT/LICENSES/BSD-3-Clause`；同目录 `UPSTREAM.json` 记录来源。COPYING 的具名版权声明与 LICENSES 中的完整许可正文必须一起分发。
+- 应用运行时包对应位置：`licenses/KissFFT/COPYING`、`licenses/KissFFT/LICENSES/BSD-3-Clause`。
+
 ## ZzLog、spdlog 与 fmt
 
 - ZzLog：版本 0.1.0，项目内日志封装；发布包许可证位置为 `share/ZzPureToolsFrame/licenses/ZzLog/LICENSE`。

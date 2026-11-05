@@ -142,6 +142,12 @@ zz_stage_regular_file(
     "${source_root}/ZzThirdParty/ZzLog/licenses/fmt/LICENSE.txt"
     licenses/ZzLog/fmt-LICENSE.txt)
 zz_stage_regular_file(
+    "${source_root}/ZzThirdParty/kissfft/COPYING"
+    licenses/KissFFT/COPYING)
+zz_stage_regular_file(
+    "${source_root}/ZzThirdParty/kissfft/LICENSES/BSD-3-Clause"
+    licenses/KissFFT/LICENSES/BSD-3-Clause)
+zz_stage_regular_file(
     "${source_root}/docs/third-party/THIRD_PARTY_NOTICES.md"
     THIRD_PARTY_NOTICES.md)
 
