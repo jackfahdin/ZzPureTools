@@ -58,8 +58,11 @@ void ZzControlAppearance::setTabBarColors(QTabBar *bar, const ZzTabBarColors &li
 
 ZzTabBarColors ZzControlAppearance::tabBarColors(const QTabBar *bar, bool dark)
 {
-    return bar ? bar->property(dark ? "zzFluentTabBarDarkColors" : "zzFluentTabBarLightColors")
-        .value<ZzTabBarColors>() : ZzTabBarColors {};
+    if (!bar) return {};
+    // Qt 6.8's rvalue QVariant cast triggers GCC 15 -Warray-bounds for
+    // out-of-line value types. Use the const lvalue path on all Qt versions.
+    const QVariant colors = bar->property(dark ? "zzFluentTabBarDarkColors" : "zzFluentTabBarLightColors");
+    return colors.value<ZzTabBarColors>();
 }
 
 void ZzControlAppearance::setProgressBarAppearance(

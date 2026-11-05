@@ -3,4 +3,4 @@ FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzBreadcrumbBarPrivate.cpp
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|29|setContentsMargins
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|30|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|31|setFixedSize
-FLUENT_RAW_COLOR|ZzFluentUI/widgets/src/private/ZzFluentStylePrivate.cpp|2244|QColor
+FLUENT_RAW_COLOR|ZzFluentUI/widgets/src/private/ZzFluentStylePrivate.cpp|2302|QColor
