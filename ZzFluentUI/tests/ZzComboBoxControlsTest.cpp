@@ -13,6 +13,7 @@
 #include <QtGui/QIntValidator>
 #include <QtGui/QPainter>
 #include <QtGui/QPixmap>
+#include <QtGui/QScreen>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -20,6 +21,9 @@
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QCompleter>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QFrame>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QScrollBar>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QWidget>
 
@@ -82,6 +86,134 @@ class ZzComboBoxControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void customComboChildPopupKeepsItsBackgroundAndDoesNotCreateTheView()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox combo;
+        combo.setStyle(&style);
+        QFrame custom(&combo, Qt::Popup);
+        custom.setStyle(&style);
+        QListView customView(&custom);
+        customView.setStyle(&style);
+        const auto views = combo.findChildren<QAbstractItemView *>().size();
+        custom.ensurePolished();
+        QVERIFY(!custom.testAttribute(Qt::WA_TranslucentBackground));
+        QVERIFY(!custom.testAttribute(Qt::WA_NoSystemBackground));
+        QCOMPARE(combo.findChildren<QAbstractItemView *>().size(), views);
+    }
+
+    void longPopupStaysOnScreenAndPreservesSelection_data()
+    {
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("editable");
+        QTest::addColumn<int>("theme");
+        for (bool rtl : {false, true}) {
+            for (bool editable : {false, true}) {
+                for (int theme = 0; theme < 3; ++theme) {
+                    const QByteArray name = QByteArray::number(rtl) + '-'
+                        + QByteArray::number(editable) + '-' + QByteArray::number(theme);
+                    QTest::newRow(name.constData()) << rtl << editable << theme;
+                }
+            }
+        }
+    }
+
+    void longPopupStaysOnScreenAndPreservesSelection()
+    {
+        QFETCH(bool, rtl);
+        QFETCH(bool, editable);
+        QFETCH(int, theme);
+        ZzFluentUI::ZzThemeController controller;
+        const std::array modes{ZzFluentUI::ZzThemeMode::Light, ZzFluentUI::ZzThemeMode::Dark,
+            ZzFluentUI::ZzThemeMode::HighContrast};
+        controller.setMode(modes.at(static_cast<std::size_t>(theme)));
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox combo;
+        combo.setStyle(&style);
+        combo.setEditable(editable);
+        combo.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        combo.setMaxVisibleItems(100);
+        for (int index = 0; index < 100; ++index) {
+            combo.addItem(QStringLiteral("Environment %1").arg(index), index);
+        }
+        combo.setCurrentIndex(95);
+        const QRect screen = combo.screen()->availableGeometry();
+        combo.setGeometry(rtl ? screen.left() : screen.right() - 70,
+            screen.center().y(), 180, 36);
+        combo.show();
+        QCoreApplication::processEvents();
+        auto *view = combo.view();
+        auto *popup = view->window();
+        popup->setStyle(&style);
+        view->setStyle(&style);
+        view->viewport()->setStyle(&style);
+        QSignalSpy activated(&combo, qOverload<int>(&QComboBox::activated));
+        combo.showPopup();
+        QCoreApplication::processEvents();
+        QVERIFY(screen.contains(popup->geometry()));
+        QVERIFY(view->verticalScrollBar()->maximum() > 0);
+        QVERIFY(view->viewport()->rect().intersects(view->visualRect(view->currentIndex())));
+        QCOMPARE(combo.currentData().toInt(), 95);
+        QTest::keyClick(view, Qt::Key_End);
+        QTest::keyClick(view, Qt::Key_Return);
+        QCOMPARE(combo.currentData().toInt(), 99);
+        QCOMPARE(activated.count(), 1);
+        QVERIFY(!popup->isVisible());
+        combo.showPopup();
+        QCoreApplication::processEvents();
+        QTest::keyClick(view, Qt::Key_Escape);
+        QCOMPARE(combo.currentData().toInt(), 99);
+        QCOMPARE(activated.count(), 1);
+    }
+
+    void popupHasTransparentCornersAndSymmetricGap_data()
+    {
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("above");
+        QTest::newRow("ltr-below") << false << false;
+        QTest::newRow("rtl-below") << true << false;
+        QTest::newRow("ltr-above") << false << true;
+        QTest::newRow("rtl-above") << true << true;
+    }
+
+    void popupHasTransparentCornersAndSymmetricGap()
+    {
+        QFETCH(bool, rtl);
+        QFETCH(bool, above);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QComboBox combo;
+        combo.setStyle(&style);
+        combo.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        combo.addItems({QStringLiteral("Alpha"), QStringLiteral("Beta"), QStringLiteral("Gamma")});
+        const QRect screen = combo.screen()->availableGeometry();
+        combo.setGeometry(screen.center().x(), above ? screen.bottom() - 60 : screen.top() + 60, 180, 36);
+        combo.show();
+        QCoreApplication::processEvents();
+        auto *view = combo.view();
+        auto *popup = view->window();
+        popup->setStyle(&style);
+        view->setStyle(&style);
+        view->viewport()->setStyle(&style);
+        for (int round = 0; round < 2; ++round) {
+            combo.showPopup();
+            QCoreApplication::processEvents();
+            const QRect anchor(combo.mapToGlobal(QPoint()), combo.size());
+            const QRect geometry = popup->geometry();
+            QCOMPARE(above ? anchor.top() - geometry.bottom() - 1
+                           : geometry.top() - anchor.bottom() - 1, 3);
+            QCOMPARE(geometry.left(), anchor.left());
+            QCOMPARE(geometry.width(), anchor.width());
+            QVERIFY(screen.contains(geometry));
+            const QImage image = popup->grab().toImage();
+            QCOMPARE(image.pixelColor(0, 0).alpha(), 0);
+            QVERIFY(image.pixelColor(image.rect().center()).alpha() > 0);
+            QCOMPARE(combo.currentIndex(), 0);
+            combo.hidePopup();
+        }
+    }
+
     /** @brief 下拉列表复用公共指示条的先收后展动画，并遵循减少动画设置。 */
     void animatesPopupSelectionWithSharedTransition()
     {

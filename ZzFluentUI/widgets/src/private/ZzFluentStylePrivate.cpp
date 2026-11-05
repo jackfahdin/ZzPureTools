@@ -1,4 +1,5 @@
 #include "ZzFluentStylePrivate.h"
+#include "ZzPopupStylePrivate.h"
 #include "ZzControlAppearancePrivate.h"
 
 #include "ZzItemSelectionAnimation.h"
@@ -2020,9 +2021,9 @@ void ZzFluentStylePrivate::drawMenuBarItem(
         || option->state.testFlag(QStyle::State_MouseOver);
     if (enabled && (pressed || hovered)) {
         const QRectF surface = QRectF(option->rect).adjusted(
+            zzMenuBarItemHorizontalInset,
             2.0,
-            2.0,
-            -2.0,
+            -zzMenuBarItemHorizontalInset,
             -2.0);
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);

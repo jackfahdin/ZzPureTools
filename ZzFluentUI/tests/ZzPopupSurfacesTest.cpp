@@ -1,5 +1,6 @@
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <vector>
 
 #include <QtCore/QAbstractAnimation>
@@ -18,6 +19,8 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
+#include <QtWidgets/QStyleFactory>
+#include <QtGui/QScreen>
 #include <QtWidgets/QStyleOption>
 #include <QtWidgets/QToolTip>
 #include <QtWidgets/QWidget>
@@ -93,6 +96,102 @@ class ZzPopupSurfacesTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void realMenuCornersAreTransparentAndStyleCanBeRemoved_data()
+    {
+        QTest::addColumn<bool>("initialTranslucent");
+        QTest::addColumn<bool>("initialNoBackground");
+        QTest::newRow("opaque") << false << false;
+        QTest::newRow("transparent") << true << true;
+        QTest::newRow("no-background") << false << true;
+    }
+
+    void realMenuCornersAreTransparentAndStyleCanBeRemoved()
+    {
+        QFETCH(bool, initialTranslucent);
+        QFETCH(bool, initialNoBackground);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        const std::unique_ptr<QStyle> base(QStyleFactory::create(QStringLiteral("Fusion")));
+        QMenu menu;
+        menu.setStyle(base.get());
+        menu.setAttribute(Qt::WA_TranslucentBackground, initialTranslucent);
+        menu.setAttribute(Qt::WA_NoSystemBackground, initialNoBackground);
+        menu.ensurePolished();
+        const bool translucent = menu.testAttribute(Qt::WA_TranslucentBackground);
+        const bool noBackground = menu.testAttribute(Qt::WA_NoSystemBackground);
+        menu.addAction(QStringLiteral("Open"));
+        menu.setStyle(&style);
+        menu.popup(QPoint(100, 100));
+        QCoreApplication::processEvents();
+        const QImage image = menu.grab().toImage();
+        QCOMPARE(image.pixelColor(0, 0).alpha(), 0);
+        QVERIFY(image.pixelColor(image.rect().center()).alpha() > 0);
+        menu.hide();
+        menu.setStyle(base.get());
+        QCOMPARE(menu.testAttribute(Qt::WA_TranslucentBackground), translucent);
+        QCOMPARE(menu.testAttribute(Qt::WA_NoSystemBackground), noBackground);
+    }
+
+    void menuBarPopupAlignsWithHighlight_data()
+    {
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("edge");
+        QTest::addColumn<bool>("externalOwner");
+        QTest::newRow("ltr") << false << false << false;
+        QTest::newRow("rtl") << true << false << false;
+        QTest::newRow("ltr-screen-edge") << false << true << false;
+        QTest::newRow("rtl-screen-edge") << true << true << false;
+        QTest::newRow("ltr-external-owner") << false << false << true;
+        QTest::newRow("rtl-external-owner") << true << false << true;
+    }
+
+    void menuBarPopupAlignsWithHighlight()
+    {
+        QFETCH(bool, rtl);
+        QFETCH(bool, edge);
+        QFETCH(bool, externalOwner);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QWidget owner;
+        QMenuBar bar;
+        bar.setNativeMenuBar(false);
+        bar.setStyle(&style);
+        bar.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        bar.setGeometry(180, 120, 360, 36);
+        const QRect available = bar.screen()->availableGeometry();
+        if (edge) {
+            bar.move(rtl ? available.left() - 280 : available.right() - 80, 120);
+        }
+        auto *menu = externalOwner ? new QMenu(QStringLiteral("File"), &owner)
+                                   : bar.addMenu(QStringLiteral("File"));
+        if (externalOwner) {
+            bar.addMenu(menu);
+        }
+        menu->setStyle(&style);
+        menu->addAction(QStringLiteral("Open workspace"));
+        bar.show();
+        QCoreApplication::processEvents();
+        for (int round = 0; round < 2; ++round) {
+            const QRect item = bar.actionGeometry(menu->menuAction());
+            QTest::mouseClick(&bar, Qt::LeftButton, Qt::NoModifier, item.center());
+            QCoreApplication::processEvents();
+            QVERIFY(menu->isVisible());
+            QCOMPARE(menu->parentWidget(), externalOwner ? &owner : &bar);
+            const int expected = bar.mapToGlobal(rtl ? item.topRight() : item.topLeft()).x()
+                + (rtl ? -2 : 2);
+            const int expectedLeft = qBound(available.left(),
+                rtl ? expected - menu->width() + 1 : expected, available.right() - menu->width() + 1);
+            const int alignedLeft = rtl ? expected - menu->width() + 1 : expected;
+            if (alignedLeft == expectedLeft) {
+                QCOMPARE(menu->geometry().left(), expectedLeft);
+            }
+            // At the screen edge the platform may reserve a native frame
+            // margin (offscreen uses 2px); containment wins over alignment.
+            QVERIFY(available.contains(menu->geometry()));
+            QTest::keyClick(menu, Qt::Key_Escape);
+        }
+    }
+
     void preservesBaseMeasurementsAndStableMetrics()
     {
         ZzFluentUI::ZzThemeController controller;

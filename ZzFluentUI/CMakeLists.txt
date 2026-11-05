@@ -66,6 +66,7 @@ set(zz_fluent_ui_sources
     widgets/src/ZzFluentPainter.cpp
     widgets/src/ZzFluentStyle.cpp
     widgets/src/private/ZzFluentStylePrivate.cpp
+    widgets/src/private/ZzPopupStylePrivate.cpp
     widgets/src/ZzPushButton.cpp
     widgets/src/private/ZzPushButtonPrivate.cpp
     widgets/src/ZzSplitButton.cpp

@@ -1,6 +1,7 @@
 #include <ZzFluentUI/ZzFluentStyle.h>
 
 #include "private/ZzFluentStylePrivate.h"
+#include "private/ZzPopupStylePrivate.h"
 #include "private/ZzTabBarStylePrivate.h"
 #include "private/ZzControlAppearancePrivate.h"
 #include "private/ZzItemViewVisual.h"
@@ -683,6 +684,11 @@ void ZzFluentStyle::drawPrimitive(
 bool ZzFluentStyle::eventFilter(QObject *watched, QEvent *event)
 {
     d_ptr->handleInputEvent(watched, event);
+    if (event->type() == QEvent::Show) {
+        if (auto *widget = qobject_cast<QWidget *>(watched); widget && widget->style() == this) {
+            ZzPopupStylePrivate::alignMenuBarPopup(widget);
+        }
+    }
     const auto *eventWidget = qobject_cast<const QWidget *>(watched);
     if (eventWidget != nullptr && (eventWidget->style() == this
         || (qobject_cast<const QAbstractItemView *>(eventWidget->parentWidget()) != nullptr
@@ -1053,6 +1059,10 @@ QRect ZzFluentStyle::subControlRect(
         result.moveCenter(center);
     }
     if (control == CC_ComboBox
+        && subControl == SC_ComboBoxListBoxPopup && option != nullptr) {
+        return ZzPopupStylePrivate::comboAnchorRect(option->rect);
+    }
+    if (control == CC_ComboBox
         && (subControl == SC_ComboBoxFrame
             || subControl == SC_ComboBoxEditField
             || subControl == SC_ComboBoxArrow)) {
@@ -1082,6 +1092,7 @@ QRect ZzFluentStyle::subControlRect(
 void ZzFluentStyle::polish(QWidget *widget)
 {
     QProxyStyle::polish(widget);
+    ZzPopupStylePrivate::polish(widget, true);
     ZzDataViewStylePrivate::polish(widget, true);
     if (qobject_cast<QSplitterHandle *>(widget) != nullptr) {
         widget->setAttribute(Qt::WA_Hover, true);
@@ -1090,6 +1101,7 @@ void ZzFluentStyle::polish(QWidget *widget)
 
 void ZzFluentStyle::unpolish(QWidget *widget)
 {
+    ZzPopupStylePrivate::polish(widget, false);
     if (auto *bar = qobject_cast<QTabBar *>(widget)) delete d_ptr->tabStyles.take(bar);
     ZzDataViewStylePrivate::polish(widget, false);
     if (qobject_cast<QSplitterHandle *>(widget) != nullptr) {
