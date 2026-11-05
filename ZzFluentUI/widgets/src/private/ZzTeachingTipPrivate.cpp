@@ -218,12 +218,6 @@ ZzTeachingTipPrivate::~ZzTeachingTipPrivate()
     if (targetDestroyedConnection) {
         QObject::disconnect(targetDestroyedConnection);
     }
-    if (targetWidget != nullptr) {
-        targetWidget->removeEventFilter(this);
-    }
-    if (targetWindow != nullptr && targetWindow != targetWidget) {
-        targetWindow->removeEventFilter(this);
-    }
     if (applicationFilterInstalled
         && QCoreApplication::instance() != nullptr) {
         QCoreApplication::instance()->removeEventFilter(this);
@@ -299,20 +293,31 @@ void ZzTeachingTipPrivate::setContentWidget(QWidget *widget)
         qWarning("ZzTeachingTip rejected a cyclic content widget");
         return;
     }
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    const QPointer<QWidget> incoming(widget);
+    const quint64 revision = ++contentRevision;
     if (contentDestroyedConnection) {
         QObject::disconnect(contentDestroyedConnection);
         contentDestroyedConnection = {};
     }
-    QWidget *oldWidget = contentWidget.data();
+    const QPointer<QWidget> oldWidget = contentWidget;
     contentWidget = nullptr;
     if (oldWidget != nullptr) {
         contentLayout->removeWidget(oldWidget);
-        delete oldWidget;
+        // Detach before destruction: a destroyed callback may delete the tip.
+        oldWidget->setParent(nullptr);
+        delete oldWidget.data();
     }
-
+    if (!guard || contentRevision != revision) {
+        return;
+    }
+    widget = incoming.data();
     contentWidget = widget;
     if (widget != nullptr) {
         widget->setParent(contentHost);
+        if (!guard || !incoming || contentRevision != revision) {
+            return;
+        }
         contentLayout->addWidget(widget);
         contentDestroyedConnection = QObject::connect(
             widget,
@@ -328,12 +333,14 @@ void ZzTeachingTipPrivate::setContentWidget(QWidget *widget)
     }
     contentHost->setVisible(widget != nullptr);
     refreshPresentation();
-    Q_EMIT q_ptr->contentWidgetChanged(widget);
+    if (guard && contentRevision == revision) {
+        Q_EMIT q_ptr->contentWidgetChanged(contentWidget.data());
+    }
 }
 
 QWidget *ZzTeachingTipPrivate::takeContentWidget()
 {
-    QWidget *widget = contentWidget.data();
+    const QPointer<QWidget> widget = contentWidget;
     if (widget == nullptr) {
         return nullptr;
     }
@@ -341,13 +348,20 @@ QWidget *ZzTeachingTipPrivate::takeContentWidget()
         QObject::disconnect(contentDestroyedConnection);
         contentDestroyedConnection = {};
     }
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    const quint64 revision = ++contentRevision;
     contentWidget = nullptr;
     contentLayout->removeWidget(widget);
     widget->setParent(nullptr);
+    if (!guard || contentRevision != revision) {
+        return widget.data();
+    }
     contentHost->hide();
     refreshPresentation();
-    Q_EMIT q_ptr->contentWidgetChanged(nullptr);
-    return widget;
+    if (guard && contentRevision == revision) {
+        Q_EMIT q_ptr->contentWidgetChanged(nullptr);
+    }
+    return widget.data();
 }
 
 void ZzTeachingTipPrivate::setTargetWidget(QWidget *target)
@@ -359,38 +373,36 @@ void ZzTeachingTipPrivate::setTargetWidget(QWidget *target)
         qWarning("ZzTeachingTip rejected an owned target widget");
         return;
     }
+    ++visibilityRevision;
     if (targetDestroyedConnection) {
         QObject::disconnect(targetDestroyedConnection);
         targetDestroyedConnection = {};
     }
-    if (targetWidget != nullptr) {
-        targetWidget->removeEventFilter(this);
-    }
-    if (targetWindow != nullptr && targetWindow != targetWidget) {
-        targetWindow->removeEventFilter(this);
-    }
     targetWindow = nullptr;
     targetWidget = target;
     if (target != nullptr) {
-        target->installEventFilter(this);
         targetDestroyedConnection = QObject::connect(
             target,
             &QObject::destroyed,
             q_ptr,
             [this] {
-                if (targetWindow != nullptr) {
-                    targetWindow->removeEventFilter(this);
-                }
                 targetWidget = nullptr;
                 targetWindow = nullptr;
                 targetDestroyedConnection = {};
+                const QPointer<ZzTeachingTip> guard(q_ptr);
                 Q_EMIT q_ptr->targetWidgetChanged(nullptr);
-                dismiss();
+                if (guard && !targetWidget) {
+                    dismiss();
+                }
             });
-        refreshTargetWindowFilter();
+        refreshTargetWindow();
     }
+    const QPointer<ZzTeachingTip> guard(q_ptr);
     Q_EMIT q_ptr->targetWidgetChanged(target);
-    if (target == nullptr) {
+    if (!guard) {
+        return;
+    }
+    if (targetWidget == nullptr) {
         dismiss();
     } else if (q_ptr->isVisible() && !dismissing) {
         static_cast<void>(reposition());
@@ -399,20 +411,30 @@ void ZzTeachingTipPrivate::setTargetWidget(QWidget *target)
 
 void ZzTeachingTipPrivate::showForTarget()
 {
+    const quint64 revision = ++visibilityRevision;
     QWidget *target = targetWidget.data();
     if (target == nullptr || !target->isVisible() || target->screen() == nullptr) {
         dismiss();
         return;
     }
     const bool wasVisible = q_ptr->isVisible();
+    if (!wasVisible) {
+        QWidget *focus = QApplication::focusWidget();
+        previousFocus = focus && focus->window() == target->window() ? focus : nullptr;
+    }
+    restoreFocusPending = false;
     const QPoint previousPosition = q_ptr->pos();
     const qreal previousOpacity = q_ptr->windowOpacity();
     animationGroup->stop();
     dismissing = false;
     dismissSignalPending = false;
+    const QPointer<ZzTeachingTip> guard(q_ptr);
     refreshPresentation();
+    if (!guard || revision != visibilityRevision) {
+        return;
+    }
     q_ptr->adjustSize();
-    if (!reposition()) {
+    if (!reposition() || !guard || revision != visibilityRevision) {
         return;
     }
     const int duration = animationDuration();
@@ -420,7 +442,6 @@ void ZzTeachingTipPrivate::showForTarget()
         q_ptr->move(finalPosition);
         q_ptr->setWindowOpacity(1.0);
         q_ptr->show();
-        syncApplicationEventFilter();
         return;
     }
     const QPoint startPosition = wasVisible
@@ -430,19 +451,29 @@ void ZzTeachingTipPrivate::showForTarget()
     q_ptr->move(startPosition);
     q_ptr->setWindowOpacity(startOpacity);
     q_ptr->show();
-    syncApplicationEventFilter();
+    if (!guard || revision != visibilityRevision || !q_ptr->isVisible()) {
+        return;
+    }
     startAnimation(
         startOpacity, 1.0, startPosition, finalPosition, duration);
 }
 
-void ZzTeachingTipPrivate::dismiss()
+void ZzTeachingTipPrivate::dismiss(bool allowFocusRestore)
 {
+    ++visibilityRevision;
+    if (!allowFocusRestore) {
+        restoreFocusPending = false;
+    }
     if ((!q_ptr->isVisible()
          && animationGroup->state() == QAbstractAnimation::Stopped)
         || dismissing) {
         return;
     }
     animationGroup->stop();
+    QWidget *focus = QApplication::focusWidget();
+    restoreFocusPending = allowFocusRestore && focus
+        && (focus == q_ptr || q_ptr->isAncestorOf(focus))
+        && QApplication::activeWindow() == q_ptr;
     dismissing = true;
     dismissSignalPending = true;
     const int duration = animationDuration();
@@ -465,19 +496,18 @@ bool ZzTeachingTipPrivate::reposition()
 {
     QWidget *target = targetWidget.data();
     QScreen *screen = target != nullptr ? target->screen() : nullptr;
-    if (target == nullptr || !target->isVisible() || screen == nullptr) {
+    const QRect targetRect = visibleTargetRect();
+    if (targetRect.isEmpty() || screen == nullptr) {
         dismiss();
         return false;
     }
-    refreshTargetWindowFilter();
+    refreshTargetWindow();
     q_ptr->adjustSize();
     const QRect available = screen->availableGeometry();
     QSize tipSize = q_ptr->size().boundedTo(available.size());
     tipSize.setWidth(std::max(1, tipSize.width()));
     tipSize.setHeight(std::max(1, tipSize.height()));
     q_ptr->resize(tipSize);
-    const QRect targetRect(
-        target->mapToGlobal(QPoint()), target->size());
     const int gap = qCeil(
         theme.snapshot()->metric(ZzMetricToken::TeachingTipTargetGap));
     const auto order = zzPlacementOrder(preferredPlacement);
@@ -504,7 +534,6 @@ bool ZzTeachingTipPrivate::reposition()
     if (selectedOverflow > 0) {
         selected = zzClampToAvailable(selected, available);
     }
-    setEffectivePlacement(selectedPlacement);
     finalPosition = selected.topLeft();
     q_ptr->move(finalPosition);
 
@@ -532,13 +561,15 @@ bool ZzTeachingTipPrivate::reposition()
                 - arrowInset - radius - arrowHalf);
     }
     q_ptr->update();
-    return true;
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    setEffectivePlacement(selectedPlacement);
+    return !guard.isNull();
 }
 
 void ZzTeachingTipPrivate::syncApplicationEventFilter()
 {
     QCoreApplication *application = QCoreApplication::instance();
-    const bool shouldInstall = q_ptr->isVisible() && lightDismissEnabled
+    const bool shouldInstall = q_ptr->isVisible()
         && application != nullptr;
     if (shouldInstall == applicationFilterInstalled) {
         return;
@@ -553,6 +584,7 @@ void ZzTeachingTipPrivate::syncApplicationEventFilter()
 
 void ZzTeachingTipPrivate::handleHidden()
 {
+    ++visibilityRevision;
     if (animationGroup->state() != QAbstractAnimation::Stopped) {
         animationGroup->stop();
     }
@@ -560,68 +592,108 @@ void ZzTeachingTipPrivate::handleHidden()
     q_ptr->setWindowOpacity(1.0);
     q_ptr->move(finalPosition);
     dismissing = false;
-    if (dismissSignalPending) {
-        dismissSignalPending = false;
+    const bool notify = dismissSignalPending;
+    dismissSignalPending = false;
+    const QPointer<QWidget> focus = previousFocus;
+    previousFocus = nullptr;
+    const bool restore = restoreFocusPending;
+    restoreFocusPending = false;
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    QWidget *active = QApplication::activeWindow();
+    if (restore && focus && focus->isVisible() && focus->isEnabled()
+        && focus->window() == targetWindow
+        && (!active || active == q_ptr || active == targetWindow)) {
+        focus->window()->activateWindow();
+        if (focus) {
+            focus->setFocus(Qt::OtherFocusReason);
+        }
+    }
+    if (guard && notify) {
         Q_EMIT q_ptr->dismissed();
     }
 }
 
 bool ZzTeachingTipPrivate::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event == nullptr) {
-        return QObject::eventFilter(watched, event);
+    if (!event || !q_ptr->isVisible()) {
+        return false;
     }
     if (applicationFilterInstalled
         && event->type() == QEvent::MouseButtonPress
         && lightDismissEnabled && q_ptr->isVisible()) {
         const auto *mouseEvent = static_cast<QMouseEvent *>(event);
         const QPoint globalPosition = mouseEvent->globalPosition().toPoint();
-        const QRect targetRect = targetWidget != nullptr
-            ? QRect(
-                  targetWidget->mapToGlobal(QPoint()), targetWidget->size())
-            : QRect();
+        const QRect targetRect = visibleTargetRect();
         if (!q_ptr->frameGeometry().contains(globalPosition)
             && !targetRect.contains(globalPosition)) {
-            dismiss();
+            const QPointer<QObject> receiver(watched);
+            // The outside event chooses its own focus recipient.
+            dismiss(false);
+            return receiver.isNull();
         }
         return false;
     }
 
-    if (watched == targetWidget.data() || watched == targetWindow.data()) {
-        if (event->type() == QEvent::Hide) {
+    switch (event->type()) {
+    case QEvent::Hide:
+    case QEvent::Close:
+    case QEvent::ParentChange:
+    case QEvent::Move:
+    case QEvent::Resize:
+    case QEvent::LayoutRequest:
+    case QEvent::Show:
+    case QEvent::ScreenChangeInternal:
+        break;
+    default:
+        return false;
+    }
+    auto *widget = qobject_cast<QWidget *>(watched);
+    if (widget && targetWidget && (widget == targetWidget || widget->isAncestorOf(targetWidget))) {
+        const QPointer<QObject> receiver(watched);
+        if (event->type() == QEvent::Hide || event->type() == QEvent::Close) {
             dismiss();
         } else if (event->type() == QEvent::ParentChange) {
-            refreshTargetWindowFilter();
+            refreshTargetWindow();
             if (q_ptr->isVisible() && !dismissing) {
                 static_cast<void>(reposition());
             }
         } else if (event->type() == QEvent::Move
                    || event->type() == QEvent::Resize
+                   || event->type() == QEvent::LayoutRequest
                    || event->type() == QEvent::Show
                    || event->type() == QEvent::ScreenChangeInternal) {
             if (q_ptr->isVisible() && !dismissing) {
                 static_cast<void>(reposition());
             }
         }
+        return receiver.isNull();
     }
-    return QObject::eventFilter(watched, event);
+    return false;
 }
 
-void ZzTeachingTipPrivate::refreshTargetWindowFilter()
+void ZzTeachingTipPrivate::refreshTargetWindow()
 {
-    QWidget *nextWindow = targetWidget != nullptr
+    targetWindow = targetWidget != nullptr
         ? targetWidget->window()
         : nullptr;
-    if (targetWindow == nextWindow) {
-        return;
+}
+
+QRect ZzTeachingTipPrivate::visibleTargetRect() const
+{
+    if (!targetWidget || !targetWidget->isVisible()) {
+        return {};
     }
-    if (targetWindow != nullptr && targetWindow != targetWidget) {
-        targetWindow->removeEventFilter(this);
+    QRect visible(targetWidget->mapToGlobal(QPoint()), targetWidget->size());
+    if (targetWidget->isWindow()) {
+        return visible;
     }
-    targetWindow = nextWindow;
-    if (targetWindow != nullptr && targetWindow != targetWidget) {
-        targetWindow->installEventFilter(this);
+    for (QWidget *ancestor = targetWidget->parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
+        visible = visible.intersected(QRect(ancestor->mapToGlobal(QPoint()), ancestor->size()));
+        if (ancestor->isWindow()) {
+            break;
+        }
     }
+    return visible;
 }
 
 int ZzTeachingTipPrivate::animationDuration() const noexcept

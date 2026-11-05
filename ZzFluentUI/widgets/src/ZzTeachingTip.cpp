@@ -3,6 +3,7 @@
 #include <utility>
 
 #include <QtCore/QEvent>
+#include <QtCore/QPointer>
 #include <QtGui/QHideEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
@@ -25,6 +26,7 @@ ZzTeachingTip::ZzTeachingTip(QWidget *parent)
     , d_ptr(std::make_unique<ZzTeachingTipPrivate>(this))
 {
     setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_ShowWithoutActivating, true);
     setFocusPolicy(Qt::StrongFocus);
     d_ptr->refreshPresentation();
 }
@@ -42,8 +44,11 @@ void ZzTeachingTip::setTitle(QString title)
         return;
     }
     d_ptr->title = std::move(title);
+    const QPointer<ZzTeachingTip> guard(this);
     d_ptr->refreshPresentation();
-    Q_EMIT titleChanged(d_ptr->title);
+    if (guard) {
+        Q_EMIT titleChanged(d_ptr->title);
+    }
 }
 
 QString ZzTeachingTip::text() const
@@ -57,8 +62,11 @@ void ZzTeachingTip::setText(QString text)
         return;
     }
     d_ptr->text = std::move(text);
+    const QPointer<ZzTeachingTip> guard(this);
     d_ptr->refreshPresentation();
-    Q_EMIT textChanged(d_ptr->text);
+    if (guard) {
+        Q_EMIT textChanged(d_ptr->text);
+    }
 }
 
 QWidget *ZzTeachingTip::contentWidget() const noexcept
@@ -98,10 +106,13 @@ void ZzTeachingTip::setPreferredPlacement(
         return;
     }
     d_ptr->preferredPlacement = placement;
+    const QPointer<ZzTeachingTip> guard(this);
     if (isVisible() && !d_ptr->dismissing) {
         static_cast<void>(d_ptr->reposition());
     }
-    Q_EMIT preferredPlacementChanged(placement);
+    if (guard) {
+        Q_EMIT preferredPlacementChanged(placement);
+    }
 }
 
 ZzTeachingTipPlacement ZzTeachingTip::effectivePlacement() const noexcept
@@ -135,8 +146,11 @@ void ZzTeachingTip::setActionText(QString text)
         return;
     }
     d_ptr->actionText = std::move(text);
+    const QPointer<ZzTeachingTip> guard(this);
     d_ptr->refreshPresentation();
-    Q_EMIT actionTextChanged(d_ptr->actionText);
+    if (guard) {
+        Q_EMIT actionTextChanged(d_ptr->actionText);
+    }
 }
 
 bool ZzTeachingTip::isActionEnabled() const noexcept
@@ -150,8 +164,11 @@ void ZzTeachingTip::setActionEnabled(bool enabled)
         return;
     }
     d_ptr->actionEnabled = enabled;
+    const QPointer<ZzTeachingTip> guard(this);
     d_ptr->refreshPresentation();
-    Q_EMIT actionEnabledChanged(enabled);
+    if (guard) {
+        Q_EMIT actionEnabledChanged(enabled);
+    }
 }
 
 bool ZzTeachingTip::isActionVisible() const noexcept
@@ -165,8 +182,11 @@ void ZzTeachingTip::setActionVisible(bool visible)
         return;
     }
     d_ptr->actionVisible = visible;
+    const QPointer<ZzTeachingTip> guard(this);
     d_ptr->refreshPresentation();
-    Q_EMIT actionVisibleChanged(visible);
+    if (guard) {
+        Q_EMIT actionVisibleChanged(visible);
+    }
 }
 
 bool ZzTeachingTip::isCloseButtonVisible() const noexcept
@@ -180,8 +200,11 @@ void ZzTeachingTip::setCloseButtonVisible(bool visible)
         return;
     }
     d_ptr->closeButtonVisible = visible;
+    const QPointer<ZzTeachingTip> guard(this);
     d_ptr->refreshPresentation();
-    Q_EMIT closeButtonVisibleChanged(visible);
+    if (guard) {
+        Q_EMIT closeButtonVisibleChanged(visible);
+    }
 }
 
 void ZzTeachingTip::showForTarget()

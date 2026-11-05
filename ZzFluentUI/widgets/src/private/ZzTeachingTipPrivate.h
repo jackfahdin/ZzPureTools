@@ -55,7 +55,7 @@ public:
     void showForTarget();
 
     /** @brief 启动或直接完成一次幂等关闭过渡。 */
-    void dismiss();
+    void dismiss(bool allowFocusRestore = true);
 
     /** @brief 根据首选顺序和屏幕可用区域计算最终方向与位置。 */
     [[nodiscard]] bool reposition();
@@ -83,6 +83,7 @@ public:
     QMetaObject::Connection contentDestroyedConnection;
     QPointer<QWidget> targetWidget;
     QPointer<QWidget> targetWindow;
+    QPointer<QWidget> previousFocus;
     QMetaObject::Connection targetDestroyedConnection;
     QParallelAnimationGroup *animationGroup = nullptr;
     QPropertyAnimation *opacityAnimation = nullptr;
@@ -103,10 +104,16 @@ public:
     bool applicationFilterInstalled = false;
     bool dismissing = false;
     bool dismissSignalPending = false;
+    bool restoreFocusPending = false;
+    quint64 visibilityRevision = 0;
+    quint64 contentRevision = 0;
 
 private:
-    /** @brief 更新目标所属顶层窗口的屏幕与可见性监听。 */
-    void refreshTargetWindowFilter();
+    /** @brief 更新目标所属顶层窗口，不取得所有权。 */
+    void refreshTargetWindow();
+
+    /** @brief 返回被祖先视口裁剪后的全局目标区域。 */
+    [[nodiscard]] QRect visibleTargetRect() const;
 
     /** @brief 返回当前动效策略处理后的 Fast 时长。 */
     [[nodiscard]] int animationDuration() const noexcept;
