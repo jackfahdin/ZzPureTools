@@ -1,6 +1,7 @@
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QItemSelectionModel>
+#include <QtCore/QPointer>
 #include <QtCore/QVariantAnimation>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -325,6 +326,65 @@ private Q_SLOTS:
         compactPainter.end();
         QCOMPARE(model.index(0, 0).data().toString(), QStringLiteral("Workspace"));
         QVERIFY(regular != compact);
+    }
+
+    void breadcrumbCanBeDestroyedByNavigationReceiver()
+    {
+        auto *bar = new ZzFluentUI::ZzBreadcrumbBar;
+        const QPointer<ZzFluentUI::ZzBreadcrumbBar> guard(bar);
+        bar->setItems({QStringLiteral("Root"), QStringLiteral("Page")});
+        QToolButton *const button = zzBreadcrumbButton(bar, 0);
+        QVERIFY(button != nullptr);
+        connect(bar, &ZzFluentUI::ZzBreadcrumbBar::indexRequested,
+            this, [bar](int) { delete bar; });
+
+        button->click();
+
+        QVERIFY(guard.isNull());
+    }
+
+    void breadcrumbCanRebuildDuringNavigation_data()
+    {
+        QTest::addColumn<bool>("changeDirection");
+        QTest::newRow("replace-path") << false;
+        QTest::newRow("change-direction") << true;
+    }
+
+    void breadcrumbCanRebuildDuringNavigation()
+    {
+        QFETCH(bool, changeDirection);
+        ZzFluentUI::ZzBreadcrumbBar bar;
+        bar.setItems({QStringLiteral("Root"), QStringLiteral("Page")});
+        const QPointer<QToolButton> oldButton(zzBreadcrumbButton(&bar, 0));
+        QVERIFY(oldButton != nullptr);
+        int requestCount = 0;
+        connect(&bar, &ZzFluentUI::ZzBreadcrumbBar::indexRequested,
+            this, [&](int index) {
+                ++requestCount;
+                QCOMPARE(index, 0);
+                if (changeDirection) {
+                    bar.setLayoutDirection(Qt::RightToLeft);
+                } else {
+                    bar.setItems({QStringLiteral("New root"), QStringLiteral("New page")});
+                }
+                bar.setCurrentIndex(1);
+            });
+
+        oldButton->click();
+
+        QCOMPARE(requestCount, 1);
+        // An input-event sender must survive until its event has unwound.
+        QVERIFY(oldButton != nullptr);
+        QVERIFY(oldButton->isHidden());
+        oldButton->click();
+        QCOMPARE(requestCount, 1);
+        QToolButton *const current = zzBreadcrumbButton(&bar, 1);
+        QVERIFY(current != nullptr);
+        QVERIFY(current->property("zzBreadcrumbCurrent").toBool());
+        QCOMPARE(bar.currentIndex(), 1);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(oldButton.isNull());
+        QCOMPARE(bar.findChildren<QToolButton *>().size(), 2);
     }
 
     void keepsBreadcrumbLogicalIndexesAcrossRtl()

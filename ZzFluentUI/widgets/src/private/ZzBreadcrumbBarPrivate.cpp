@@ -30,7 +30,14 @@ void ZzBreadcrumbBarPrivate::rebuild()
 {
     buttons.clear();
     while (QLayoutItem *item = layout->takeAt(0)) {
-        delete item->widget();
+        if (QWidget *widget = item->widget()) {
+            // Navigation receivers may rebuild while a button handles input.
+            // Retire it immediately, but let the active event unwind first.
+            QObject::disconnect(widget, nullptr, q_ptr, nullptr);
+            widget->setProperty(zzBreadcrumbIndexProperty, -1);
+            widget->hide();
+            widget->deleteLater();
+        }
         delete item;
     }
 
@@ -48,11 +55,10 @@ void ZzBreadcrumbBarPrivate::rebuild()
             button,
             &QToolButton::clicked,
             q_ptr,
-            [this, button] {
-                Q_EMIT q_ptr->indexRequested(
-                    button->property(
-                        zzBreadcrumbIndexProperty).toInt());
-                updateCurrentState();
+            [q = q_ptr, logicalIndex] {
+                // A receiver may delete the bar. State setters already refresh
+                // presentation; do not touch the bar after notifying clients.
+                Q_EMIT q->indexRequested(logicalIndex);
             });
         layout->addWidget(button, 1);
         buttons.append(button);
