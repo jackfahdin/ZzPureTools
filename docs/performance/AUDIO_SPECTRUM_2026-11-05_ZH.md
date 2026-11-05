@@ -87,7 +87,14 @@ Qt 6.8 与 GCC 15 严格构建发现已有 TabBar 的临时 QVariant 转换触�
 安装测试使用完整 `cmake --install`。额外尝试仅安装 `Development` 组件时，已有
 ZzLog 包配置属于 `Unspecified` 组件，消费者无法找到 `ZzLogConfig.cmake`；本轮未改变
 这一已有分组件打包限制。KissFFT 在 Development 中的许可完整性已单独验证。
-当前接入请使用完整安装，不能将本报告视为 Development-only SDK 已通过。
+上述为频谱交付时的验证范围，不能将当时的结果视为 Development-only SDK 已通过。
+
+后续 SDK 专项已修复 ZzLog 的组件归属，并在 Linux / Qt 6.8.3 / Release 实测通过：
+静态 Development 独立消费、共享 Runtime＋Development 消费，以及各自的完整安装。
+每条路径均编译运行外部消费者，组件路径另行检查全部公开头和独立 Starter。
+同时修复了验收脚本将 Qt 前缀列表拆成多个参数的问题。
+共享库仍需 Runtime，具体命令见[按组件安装 SDK](../development/FRAMEWORK_INTEGRATION_ZH.md#按组件安装-sdk)。
+此补充不改变上述性能数据，也不代表其他平台已完成原生验证。
 
 Windows/MSVC、MinGW、macOS 构建及真实显示服务器交互未在本机执行，须由对应平台
 验证。本轮只在本地线性提交，不推送或监控远端 CI。

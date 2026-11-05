@@ -157,7 +157,8 @@ endif()
 include(ZzFirstPartyTarget)
 include(ZzLibraryTarget)
 
-set(ZZLOG_INSTALL ON)
+# The framework owns Runtime/Development installation for the embedded target.
+set(ZZLOG_INSTALL OFF)
 set(ZZLOG_BUILD_TESTS ${ZZ_BUILD_TESTS})
 set(ZZLOG_BUILD_EXAMPLES OFF)
 set(ZZLOG_BUILD_WARNINGS OFF)

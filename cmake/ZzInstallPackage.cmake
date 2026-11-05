@@ -2,6 +2,7 @@ include_guard(GLOBAL)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
+include("${CMAKE_CURRENT_LIST_DIR}/ZzInstallLogPackage.cmake")
 
 function(zz_install_package)
     set(zz_export_name ZzPureToolsFrameTargets)
@@ -39,16 +40,7 @@ function(zz_install_package)
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     )
 
-    # ZzLog 的上游安装规则没有 component；在项目集成层补齐应用运行时组件。
-    install(TARGETS ZzLog
-        RUNTIME
-            DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            COMPONENT Runtime
-        LIBRARY
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            COMPONENT Runtime
-            NAMELINK_COMPONENT Development
-    )
+    zz_install_log_package()
 
     set(zz_public_include_roots
         "${PROJECT_SOURCE_DIR}/ZzCore/include"

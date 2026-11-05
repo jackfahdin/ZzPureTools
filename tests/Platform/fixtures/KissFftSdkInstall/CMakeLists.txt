@@ -17,6 +17,7 @@ foreach(library IN ITEMS ZzCore ZzWindowKit ZzFluentFoundation ZzFluentUI
         ZZ_GENERATED_EXPORT_HEADER "${CMAKE_CURRENT_BINARY_DIR}/export.h"
         ZZ_EXPORT_HEADER_INSTALL_SUBDIR "${library}")
 endforeach()
+set_target_properties(ZzLog PROPERTIES VERSION 0.1.0)
 set_target_properties(ZzWindowKit PROPERTIES
     ZZ_QWK_PRIVATE_INSTALL_DIR "lib/private"
     ZZ_QWK_CORE_FILE "fixture-core.a"

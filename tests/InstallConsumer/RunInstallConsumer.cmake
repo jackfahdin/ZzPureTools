@@ -49,18 +49,25 @@ set(zz_b_dir "${ZZ_TEST_ROOT}/B")
 set(zz_consumer_dir "${ZZ_TEST_ROOT}/consumer")
 set(zz_starter_source "${ZZ_TEST_ROOT}/starter-source")
 set(zz_starter_build "${ZZ_TEST_ROOT}/starter-build")
+set(zz_full_dir "${ZZ_TEST_ROOT}/full-install")
+set(zz_full_consumer_dir "${ZZ_TEST_ROOT}/full-consumer")
 file(REMOVE_RECURSE
     "${zz_a_dir}"
     "${zz_b_dir}"
     "${zz_consumer_dir}"
     "${zz_starter_source}"
     "${zz_starter_build}"
+    "${zz_full_dir}"
+    "${zz_full_consumer_dir}"
 )
 file(MAKE_DIRECTORY "${ZZ_TEST_ROOT}")
 
 function(zz_run_process zz_step)
+    # PARSE_ARGV preserves literal semicolons in cache arguments across this
+    # function boundary (notably CMAKE_PREFIX_PATH and OSX_ARCHITECTURES).
+    cmake_parse_arguments(PARSE_ARGV 1 zz_process "" "" "")
     execute_process(
-        COMMAND ${ARGN}
+        COMMAND ${zz_process_UNPARSED_ARGUMENTS}
         RESULT_VARIABLE zz_result
         OUTPUT_VARIABLE zz_stdout
         ERROR_VARIABLE zz_stderr
@@ -147,9 +154,21 @@ zz_run_process("fresh producer build"
     "${CMAKE_COMMAND}" --build "${zz_a_dir}" ${zz_config_args}
     --parallel "${zz_nested_build_parallelism}")
 
-zz_run_process("fresh producer install"
+# Never let an Unspecified-component install hide missing SDK artifacts.
+# Shared development files need their Runtime component; static SDKs do not.
+if(ZZ_BUILD_SHARED)
+    zz_run_process("shared Runtime component install"
+        "${CMAKE_COMMAND}" --install "${zz_a_dir}"
+        --prefix "${zz_b_dir}" ${zz_config_args} --component Runtime)
+    file(GLOB_RECURSE zz_runtime_development_files LIST_DIRECTORIES FALSE
+        "${zz_b_dir}/*.cmake" "${zz_b_dir}/*.h")
+    if(zz_runtime_development_files)
+        message(FATAL_ERROR "Runtime component leaked SDK headers/package configuration")
+    endif()
+endif()
+zz_run_process("Development component install"
     "${CMAKE_COMMAND}" --install "${zz_a_dir}"
-    --prefix "${zz_b_dir}" ${zz_config_args})
+    --prefix "${zz_b_dir}" ${zz_config_args} --component Development)
 
 set(zz_install_root "${zz_b_dir}")
 cmake_path(ABSOLUTE_PATH zz_install_root NORMALIZE)
@@ -191,7 +210,7 @@ endif()
 string(REPLACE ";" "\\;" zz_consumer_prefix_escaped
     "${zz_consumer_prefix_path}")
 
-set(zz_consumer_cache_args ${zz_common_cache_args})
+set(zz_consumer_cache_args "${zz_common_cache_args}")
 list(FILTER zz_consumer_cache_args EXCLUDE
     REGEX "^-DCMAKE_PREFIX_PATH:")
 list(APPEND zz_consumer_cache_args
@@ -235,6 +254,30 @@ zz_run_process("standalone starter build"
 zz_run_process("standalone starter test"
     "${ZZ_CTEST_COMMAND}" --test-dir "${zz_starter_build}"
     ${zz_ctest_config_args} --output-on-failure)
+
+# Full installation remains a supported, separately configured consumer path.
+zz_run_process("full producer install"
+    "${CMAKE_COMMAND}" --install "${zz_a_dir}"
+    --prefix "${zz_full_dir}" ${zz_config_args})
+set(zz_full_prefix "${zz_full_dir};${ZZ_CMAKE_PREFIX_PATH}")
+string(REPLACE ";" "\\;" zz_full_prefix_escaped "${zz_full_prefix}")
+set(zz_full_consumer_args "${zz_common_cache_args}")
+list(FILTER zz_full_consumer_args EXCLUDE REGEX "^-DCMAKE_PREFIX_PATH:")
+list(APPEND zz_full_consumer_args
+    "-DCMAKE_PREFIX_PATH:STRING=${zz_full_prefix_escaped}"
+    "-DZZ_PACKAGE_ROOT:PATH=${zz_full_dir}")
+zz_run_process("full consumer configure"
+    "${CMAKE_COMMAND}" -S "${ZZ_SOURCE_DIR}/tests/InstallConsumer"
+    -B "${zz_full_consumer_dir}" ${zz_generator_args} ${zz_full_consumer_args})
+zz_run_process("full consumer build"
+    "${CMAKE_COMMAND}" --build "${zz_full_consumer_dir}" ${zz_config_args}
+    --target ZzInstallConsumer ZzFluentInstallConsumer
+    --parallel "${zz_nested_build_parallelism}")
+zz_run_process("full consumer test"
+    "${ZZ_CTEST_COMMAND}" --test-dir "${zz_full_consumer_dir}"
+    ${zz_ctest_config_args} --output-on-failure)
+file(GLOB_RECURSE zz_full_cmake_files LIST_DIRECTORIES FALSE "${zz_full_dir}/*.cmake")
+list(APPEND zz_installed_cmake_files ${zz_full_cmake_files})
 set(zz_forbidden_paths
     "${ZZ_SOURCE_DIR}"
     "${ZZ_PRIMARY_BINARY_DIR}"
@@ -261,4 +304,4 @@ foreach(zz_cmake_file IN LISTS zz_installed_cmake_files)
 endforeach()
 
 message(STATUS
-    "fresh A/B/consumer install test passed for BUILD_SHARED_LIBS=${ZZ_BUILD_SHARED}")
+    "fresh component/full consumer install tests passed for BUILD_SHARED_LIBS=${ZZ_BUILD_SHARED}")

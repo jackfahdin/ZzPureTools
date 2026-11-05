@@ -18,6 +18,10 @@
 
 构建并安装后，外部项目使用 `find_package(ZzPureToolsFrame 0.1 CONFIG REQUIRED)`，链接目标仍为 `Zz::Core`、`Zz::WindowKit`、`Zz::FluentUI` 和 `Zz::PureTools`。
 
+需要拆分安装时，静态 SDK 安装 `Development`；共享 SDK 将 `Runtime` 和 `Development`
+安装到同一前缀。ZzLog 的头文件、CMake 配置、库和许可由框架统一安装，详见
+[分组件接入命令](FRAMEWORK_INTEGRATION_ZH.md#按组件安装-sdk)。
+
 ## 开发机最小门禁
 
 更新第三方依赖后还需运行打包合同检查；下述普通测试会排除 `packaging` 标签，不能覆盖许可证路径和发布证据迁移。可执行 `ctest --test-dir build/linux-gcc-debug -L packaging -R contract --output-on-failure`，并在发布配置下执行 `release.installed-licenses`。

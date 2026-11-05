@@ -65,6 +65,33 @@ CTest 自动补齐上述测试进程的动态库路径；这不等于给普通�
 主题偏好。正常启动的设置使用
 Qt `QSettings` 默认平台存储，组织名 `ZzStarter`、应用名 `ZzApplicationStarter`。
 
+### 按组件安装 SDK
+
+默认的完整安装适用于日常接入。需要拆分开发包和运行包时，使用同一个构建目录和安装前缀：
+
+| 构建方式 | 接入所需组件 | 内容 |
+| --- | --- | --- |
+| `BUILD_SHARED_LIBS=OFF` | `Development` | 静态库、公开头、CMake 包配置及许可证 |
+| `BUILD_SHARED_LIBS=ON` | `Runtime` ＋ `Development` | Runtime 提供 DLL／SO／dylib；Development 提供头、包配置、导入库／链接名及许可证 |
+
+```bash
+# 静态 SDK
+cmake --install /absolute/path/to/static-build \
+  --prefix /absolute/path/to/static-sdk --component Development
+
+# 共享 SDK：两部分安装到同一前缀
+cmake --install /absolute/path/to/shared-build \
+  --prefix /absolute/path/to/shared-sdk --component Runtime
+cmake --install /absolute/path/to/shared-build \
+  --prefix /absolute/path/to/shared-sdk --component Development
+```
+
+ZzLog 的开发文件、导出目标和许可证随上述组件安装，不需要另行安装 ZzLog。
+共享 SDK 只装 Development 不包含所需动态运行库，不能独立使用。这里的静态指框架
+库的构建方式，Qt 仍可使用匹配的共享 kit；Qt 的部署要求不因此消失。
+`install.consumer` 同时检查分组件和完整安装，并通过已安装的公开接口执行频谱 FFT。
+安装后的包配置保持可重定位；多配置生成器为每条安装命令加 `--config Release`。
+
 ## 标题、主题和辅助窗口
 
 主窗口通过 QWidget 的 `setWindowTitle()` / `setWindowIcon()` 设置属性，框架自动同步
