@@ -23,6 +23,7 @@ public:
         RangeSlider,
         BorderBeam,
         AudioLevelMeter,
+        AudioSpectrum,
         RadialGauge,
         LiquidGauge,
         ProgressRing,

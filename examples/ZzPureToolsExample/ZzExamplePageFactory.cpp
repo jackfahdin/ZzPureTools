@@ -92,6 +92,9 @@ zzShowcasePageKind(const ZzPureTools::ZzRouteId &routeId)
     if (routeId.value() == QStringLiteral("audio-level-meter")) {
         return ZzExampleShowcasePage::ZzPageKind::AudioLevelMeter;
     }
+    if (routeId.value() == QStringLiteral("audio-spectrum")) {
+        return ZzExampleShowcasePage::ZzPageKind::AudioSpectrum;
+    }
     if (routeId.value() == QStringLiteral("radial-gauge")) {
         return ZzExampleShowcasePage::ZzPageKind::RadialGauge;
     }

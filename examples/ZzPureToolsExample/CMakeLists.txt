@@ -33,6 +33,7 @@ set(zz_pure_tools_example_sources
     ZzExampleColorButton.h
     ZzExampleCustomCard.h
     ZzExampleAudioLevelMeterPage.cpp
+    ZzExampleAudioSpectrumPage.cpp
     ZzExampleRadialGaugePage.cpp
     ZzExampleLiquidGaugePage.cpp
     ZzExampleProgressRingPage.cpp

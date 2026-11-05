@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzExampleAudioSpectrumTest
+    ZzExampleAudioSpectrumTest.cpp ../ZzExampleAudioSpectrumPage.cpp)
+target_link_libraries(ZzExampleAudioSpectrumTest PRIVATE Qt6::Test Zz::FluentUI)
+set_target_properties(ZzExampleAudioSpectrumTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzExampleAudioSpectrumTest)
+zz_enable_sanitizers(ZzExampleAudioSpectrumTest)
+add_test(NAME example.audio-spectrum COMMAND ZzExampleAudioSpectrumTest)
+set_tests_properties(example.audio-spectrum PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" LABELS "example;integration" TIMEOUT 20)
+
 add_executable(ZzExampleCarouselPlaybackTest
     ZzExampleCarouselPlaybackTest.cpp
     ../ZzExampleCarouselPlayback.cpp

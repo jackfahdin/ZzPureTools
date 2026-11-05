@@ -11,7 +11,7 @@ namespace {
 using ZzLifetime = ZzPureTools::ZzPageLifetimePolicy;
 using ZzPlacement = ZzFluentUI::ZzNavigationPlacement;
 
-constexpr std::array<ZzExampleRouteDescriptor, 41> zzRoutes{{
+constexpr std::array<ZzExampleRouteDescriptor, 42> zzRoutes{{
     {"home", QT_TRANSLATE_NOOP("ZzPureToolsExample", "首页"),
      QT_TRANSLATE_NOOP("ZzPureToolsExample", "工作区"),
      ZzLifetime::Persistent,
@@ -78,6 +78,8 @@ constexpr std::array<ZzExampleRouteDescriptor, 41> zzRoutes{{
     {"border-beam", QT_TRANSLATE_NOOP("ZzPureToolsExample", "边框光束(BorderBeam)"),
      "", ZzLifetime::Recreatable, ZzPlacement::Primary},
     {"audio-level-meter", QT_TRANSLATE_NOOP("ZzPureToolsExample", "音频电平表(AudioLevelMeter)"),
+     "", ZzLifetime::Recreatable, ZzPlacement::Primary},
+    {"audio-spectrum", QT_TRANSLATE_NOOP("ZzPureToolsExample", "音频频谱(AudioSpectrum)"),
      "", ZzLifetime::Recreatable, ZzPlacement::Primary},
     {"radial-gauge", QT_TRANSLATE_NOOP("ZzPureToolsExample", "径向仪表盘(RadialGauge)"),
      "", ZzLifetime::Recreatable, ZzPlacement::Primary},

@@ -4,6 +4,10 @@
 <context>
     <name>ZzPureToolsExample</name>
     <message>
+        <source>音频频谱(AudioSpectrum)</source>
+        <translation>Audio spectrum (AudioSpectrum)</translation>
+    </message>
+    <message>
         <source>颜色选择器(ColorPicker)</source>
         <translation>Color Picker</translation>
     </message>
@@ -4030,5 +4034,25 @@
         <source>编辑颜色</source>
         <translation>Edit color</translation>
     </message>
+</context>
+<context>
+    <name>ZzAudioSpectrumExample</name>
+    <message><source>观察声音的频率分布。切换信号和外观，体验峰值保持、平滑回落与渐隐倒影。演示信号不会播放声音。</source><translation>Explore the frequency content of sound. Switch signals and appearance to try peak hold, smooth decay and fading reflections. Demo signals are silent.</translation></message>
+    <message><source>实时频谱预览</source><translation>Live spectrum preview</translation></message>
+    <message><source>演示信号</source><translation>Demo signal</translation></message>
+    <message><source>正弦 · 1 kHz</source><translation>Sine · 1 kHz</translation></message>
+    <message><source>多音 · 220 / 1000 / 4000 Hz</source><translation>Multi-tone · 220 / 1000 / 4000 Hz</translation></message>
+    <message><source>扫频 · 80 Hz—12 kHz</source><translation>Sweep · 80 Hz–12 kHz</translation></message>
+    <message><source>静音</source><translation>Silence</translation></message>
+    <message><source>运行</source><translation>Run</translation></message>
+    <message><source>频带数量</source><translation>Band count</translation></message>
+    <message><source>频率分辨率</source><translation>Frequency resolution</translation></message>
+    <message><source>最低频率 / Hz</source><translation>Minimum frequency / Hz</translation></message>
+    <message><source>最高频率 / Hz</source><translation>Maximum frequency / Hz</translation></message>
+    <message><source>彩虹配色（关闭后跟随主题）</source><translation>Rainbow colors (off follows theme)</translation></message>
+    <message><source>渐隐倒影</source><translation>Fading reflection</translation></message>
+    <message><source>峰值保持</source><translation>Peak hold</translation></message>
+    <message><source>平滑动画</source><translation>Smooth animation</translation></message>
+    <message><source>较大的 FFT 窗口能区分更接近的低频，但响应延迟也会增加。真实应用可直接输入 PCM，或传入已计算的频带。</source><translation>Larger FFT windows separate closer low frequencies but increase latency. Applications can provide PCM or precomputed bands.</translation></message>
 </context>
 </TS>

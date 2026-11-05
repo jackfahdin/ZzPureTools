@@ -1,4 +1,5 @@
 #include "ZzExampleShowcasePagePrivate.h"
+#include "ZzExampleAudioSpectrumPage.h"
 
 #include <array>
 
@@ -206,6 +207,10 @@ void ZzExampleShowcasePagePrivate::initialize(
             titleLabel->setFont(font);
         }
         buildRadialGauge(layout, content);
+        break;
+    case ZzExampleShowcasePage::ZzPageKind::AudioSpectrum:
+        q_ptr->setObjectName(QStringLiteral("zzExampleAudioSpectrumHost"));
+        layout->addWidget(ZzExampleAudioSpectrumPage::create(content));
         break;
     case ZzExampleShowcasePage::ZzPageKind::AudioLevelMeter:
         q_ptr->setObjectName(QStringLiteral("zzExampleAudioLevelMeterPage"));

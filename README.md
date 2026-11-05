@@ -49,12 +49,17 @@
 | ⌨️ 输入与选择 | 密码框、快捷键录入、建议框、多选下拉、滚轮、日历、颜色选择器、评分、范围滑块 |
 | 🧭 导航与内容 | 导航视图与树、面包屑、TabBar / TabWidget、Pivot、轮播图、展开区和抽屉 |
 | 💬 反馈与表面 | 信息栏、徽标、内容对话框、教学提示、操作卡片与图像卡片 |
-| 📊 动画与仪表 | 环形进度、边框光束、音频电平表、径向仪表、水波进度球、时间轴 |
+| 📊 动画与仪表 | 环形进度、边框光束、音频电平表、[音频频谱](docs/development/AUDIO_SPECTRUM_ZH.md)、径向仪表、水波进度球、时间轴 |
 | 🗂️ 应用工作区 | 页面路由、侧面板、分屏、多窗口撕出、关闭守卫、布局保存与恢复 |
 
 `QListView`、`QTableView`、`QTreeView` 等标准控件保留 Qt 的模型、选择、键盘、
 RTL 和无障碍语义，由样式与委托提供 Fluent 外观。无需为每个标准控件增加同义包装。
 命令切换使用 `ZzPushButton::setCheckable(true)`，开关轨道使用 `ZzToggleSwitch`。
+
+`ZzAudioSpectrum` 可直接接收 PCM 或外部频带，提供彩虹柱、峰值保持、平滑回落与渐隐倒影。
+KissFFT 为库内私有依赖，无需额外链接 QtMultimedia；Example 自带无需音频设备的信号演示。
+[接入与参数](docs/development/AUDIO_SPECTRUM_ZH.md) ·
+[本机验证和测量](docs/performance/AUDIO_SPECTRUM_2026-11-05_ZH.md)
 
 四个模块、六个导出目标，可按需要选择依赖：
 

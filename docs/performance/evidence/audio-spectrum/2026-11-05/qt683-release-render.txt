@@ -1,0 +1,12 @@
+********* Start testing of ZzAudioSpectrumTest *********
+Config: Using QtTest library 6.8.3, Qt 6.8.3 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 10.3.1 20210422 (Red Hat 10.3.1-1)), ubuntu 26.04
+PASS   : ZzAudioSpectrumTest::initTestCase()
+PASS   : ZzAudioSpectrumTest::directRenderBenchmark(64-bars)
+RESULT : ZzAudioSpectrumTest::directRenderBenchmark():"64-bars":
+     0.66 msecs per iteration (total: 85, iterations: 128)
+PASS   : ZzAudioSpectrumTest::directRenderBenchmark(256-bars)
+RESULT : ZzAudioSpectrumTest::directRenderBenchmark():"256-bars":
+     2.4 msecs per iteration (total: 77, iterations: 32)
+PASS   : ZzAudioSpectrumTest::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 2078ms
+********* Finished testing of ZzAudioSpectrumTest *********

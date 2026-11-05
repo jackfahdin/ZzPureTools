@@ -204,7 +204,7 @@ private Q_SLOTS:
     void colorPickerRouteFollowsCarousel()
     {
         const auto routes = ZzExample::ZzExampleRouteCatalog::routes();
-        QCOMPARE(routes.size(), std::size_t(41));
+        QCOMPARE(routes.size(), std::size_t(42));
         bool found = false;
         for (std::size_t index = 1; index < routes.size(); ++index) {
             if (routes[index].routeId == std::string_view("color-picker")) {
@@ -680,7 +680,9 @@ private Q_SLOTS:
         QVERIFY(navigationModel != nullptr);
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("liquid-gauge"))));
-        QCOMPARE(navigationModel->rowCount(), 41);
+        QCOMPARE(navigationModel->rowCount(), 42);
+        QVERIFY(navigationModel->indexForRoute(
+            ZzPureTools::ZzRouteId(QStringLiteral("audio-spectrum"))));
         QVERIFY(navigationModel->indexForRoute(
             ZzPureTools::ZzRouteId(QStringLiteral("radial-gauge"))));
         QVERIFY(navigationModel->indexForRoute(

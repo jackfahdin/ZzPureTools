@@ -1,0 +1,12 @@
+********* Start testing of ZzSpectrumAnalyzerTest *********
+Config: Using QtTest library 6.8.3, Qt 6.8.3 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 10.3.1 20210422 (Red Hat 10.3.1-1)), ubuntu 26.04
+PASS   : ZzSpectrumAnalyzerTest::initTestCase()
+PASS   : ZzSpectrumAnalyzerTest::analysisBenchmark(default-stereo)
+RESULT : ZzSpectrumAnalyzerTest::analysisBenchmark():"default-stereo":
+     0.027 msecs per iteration (total: 56, iterations: 2048)
+PASS   : ZzSpectrumAnalyzerTest::analysisBenchmark(maximum-eight-channel)
+RESULT : ZzSpectrumAnalyzerTest::analysisBenchmark():"maximum-eight-channel":
+     0.44 msecs per iteration (total: 57, iterations: 128)
+PASS   : ZzSpectrumAnalyzerTest::cleanupTestCase()
+Totals: 4 passed, 0 failed, 0 skipped, 0 blacklisted, 1599ms
+********* Finished testing of ZzSpectrumAnalyzerTest *********
