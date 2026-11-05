@@ -313,6 +313,59 @@ foreach(kissfft_index RANGE 0 ${kissfft_last_file})
     endif()
 endforeach()
 
+# Component-only SDK installation must keep the FFT notices alongside static
+# archives, as well as alongside shared-library/runtime distribution.
+set(sdk_fixture_build "${test_root}/sdk-install-build")
+execute_process(
+    COMMAND "${CMAKE_COMMAND}"
+        -S "${source_dir}/tests/Platform/fixtures/KissFftSdkInstall"
+        -B "${sdk_fixture_build}"
+        "-DZZ_SOURCE_DIR=${source_dir}"
+    RESULT_VARIABLE sdk_configure_result
+    OUTPUT_VARIABLE sdk_configure_stdout ERROR_VARIABLE sdk_configure_stderr)
+if(NOT sdk_configure_result EQUAL 0)
+    message(FATAL_ERROR "SDK install fixture configuration failed\n"
+        "${sdk_configure_stdout}\n${sdk_configure_stderr}")
+endif()
+execute_process(
+    COMMAND "${CMAKE_COMMAND}" --build "${sdk_fixture_build}" --config Release -j4
+    RESULT_VARIABLE sdk_build_result
+    OUTPUT_VARIABLE sdk_build_stdout ERROR_VARIABLE sdk_build_stderr)
+if(NOT sdk_build_result EQUAL 0)
+    message(FATAL_ERROR "SDK install fixture build failed\n"
+        "${sdk_build_stdout}\n${sdk_build_stderr}")
+endif()
+foreach(sdk_component IN ITEMS Development Runtime)
+    set(sdk_stage "${test_root}/sdk-${sdk_component}")
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" --install "${sdk_fixture_build}"
+            --prefix "${sdk_stage}" --config Release --component "${sdk_component}"
+        RESULT_VARIABLE sdk_install_result
+        OUTPUT_VARIABLE sdk_install_stdout ERROR_VARIABLE sdk_install_stderr)
+    if(NOT sdk_install_result EQUAL 0)
+        message(FATAL_ERROR "SDK ${sdk_component} install failed\n"
+            "${sdk_install_stdout}\n${sdk_install_stderr}")
+    endif()
+    if(sdk_component STREQUAL "Development")
+        file(GLOB_RECURSE sdk_archives
+            "${sdk_stage}/*ZzFluentUI.a" "${sdk_stage}/*ZzFluentUI.lib")
+        if(NOT sdk_archives)
+            message(FATAL_ERROR "SDK Development fixture did not install the static widget archive")
+        endif()
+    endif()
+    foreach(kissfft_file IN ITEMS COPYING LICENSES/BSD-3-Clause UPSTREAM.json)
+        set(sdk_license "${sdk_stage}/share/ZzPureToolsFrame/licenses/KissFFT/${kissfft_file}")
+        if(NOT EXISTS "${sdk_license}" OR IS_DIRECTORY "${sdk_license}")
+            message(FATAL_ERROR "SDK ${sdk_component} component omitted KissFFT ${kissfft_file}")
+        endif()
+        file(SHA256 "${source_dir}/ZzThirdParty/kissfft/${kissfft_file}" sdk_source_sha)
+        file(SHA256 "${sdk_license}" sdk_installed_sha)
+        if(NOT sdk_source_sha STREQUAL sdk_installed_sha)
+            message(FATAL_ERROR "SDK ${sdk_component} KissFFT file differs: ${kissfft_file}")
+        endif()
+    endforeach()
+endforeach()
+
 file(SHA256
     "${source_dir}/ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE"
     stdcorelib_source_sha)

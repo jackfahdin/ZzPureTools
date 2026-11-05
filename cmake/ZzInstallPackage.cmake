@@ -194,16 +194,18 @@ function(zz_install_package)
             COMPONENT Runtime)
     endif()
 
-    # The FFT code is embedded in both development SDKs and release binaries.
-    install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/COPYING"
-        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT"
-        COMPONENT Runtime)
-    install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/LICENSES/BSD-3-Clause"
-        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT/LICENSES"
-        COMPONENT Runtime)
-    install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/UPSTREAM.json"
-        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT"
-        COMPONENT Runtime)
+    # Static archives are Development; shared binaries are Runtime. Each
+    # component must remain independently redistributable with its FFT notices.
+    foreach(zz_license_component IN ITEMS Runtime Development)
+        install(FILES
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/COPYING"
+            "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/UPSTREAM.json"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT"
+            COMPONENT ${zz_license_component})
+        install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/kissfft/LICENSES/BSD-3-Clause"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/KissFFT/LICENSES"
+            COMPONENT ${zz_license_component})
+    endforeach()
 
     if(ZZ_RELEASE_BUILD)
         install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
