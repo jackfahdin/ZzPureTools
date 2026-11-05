@@ -3,8 +3,12 @@
 #include <algorithm>
 
 #include <QtCore/QEvent>
+#include <QtCore/QPointer>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QHideEvent>
+#include <QtGui/QMouseEvent>
 #include <QtGui/QPainter>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QStyleOptionButton>
 
 #include "private/ZzToggleSwitchPrivate.h"
@@ -20,6 +24,32 @@ constexpr int zzKnobExtent = 12;
 constexpr int zzTrackInset = 3;
 constexpr int zzTextSpacing = 8;
 constexpr double zzMinimumKnobContrast = 3.0;
+
+QRect zzTrackRect(const QWidget *widget)
+{
+    const QRect content = widget->rect().marginsRemoved(widget->contentsMargins());
+    return QRect(widget->isRightToLeft() ? content.right() - zzTrackWidth + 1 : content.left(),
+        content.center().y() - zzTrackHeight / 2, zzTrackWidth, zzTrackHeight);
+}
+
+QRectF zzKnobRect(const QRect &track, bool rtl, qreal progress, bool hovered, bool pressed)
+{
+    const qreal height = hovered && !pressed ? 14.0 : zzKnobExtent;
+    const qreal width = pressed ? 18.0 : height;
+    const qreal travel = zzTrackWidth - (2 * zzTrackInset) - width;
+    return QRectF(track.left() + zzTrackInset + travel * (rtl ? 1.0 - progress : progress),
+        track.top() + (zzTrackHeight - height) / 2.0, width, height);
+}
+
+qreal zzDragProgress(const QWidget *widget, const QPointF &pressPosition,
+    qreal pressProgress, const QPointF &position)
+{
+    const qreal travel = zzTrackWidth - 2 * zzTrackInset
+        - zzKnobRect(zzTrackRect(widget), widget->isRightToLeft(), 0.0, false, true).width();
+    const qreal delta = position.x() - pressPosition.x();
+    return std::clamp(pressProgress + (widget->isRightToLeft() ? -delta : delta) / travel,
+        0.0, 1.0);
+}
 
 /**
  * @brief 按表面明暗选择无描边的开启态圆点。
@@ -58,8 +88,10 @@ QColor zzCheckedKnobColor(const QPalette &palette)
 
 ZzToggleSwitch::ZzToggleSwitch(QWidget *parent)
     : QCheckBox(parent)
-    , d_ptr(std::make_unique<ZzToggleSwitchPrivate>(this))
 {
+    // Creating the animation sends ChildAdded synchronously through event().
+    // Keep the pointer initialized to null until construction has completed.
+    d_ptr = std::make_unique<ZzToggleSwitchPrivate>(this);
     setAttribute(Qt::WA_Hover);
     d_ptr->progress = isChecked() ? 1.0 : 0.0;
     connect(
@@ -97,7 +129,120 @@ QSize ZzToggleSwitch::sizeHint() const
 
 bool ZzToggleSwitch::hitButton(const QPoint &position) const
 {
-    return rect().contains(position);
+    return d_ptr->committingDrag || rect().contains(position);
+}
+
+bool ZzToggleSwitch::event(QEvent *event)
+{
+    if (d_ptr && (event->type() == QEvent::UngrabMouse
+        || event->type() == QEvent::WindowDeactivate
+        || event->type() == QEvent::FocusOut
+        || event->type() == QEvent::EnabledChange
+        || (d_ptr->dragCandidate && (event->type() == QEvent::Resize
+            || event->type() == QEvent::ContentsRectChange)))) {
+        // Cancel before Qt's focus/enable handlers can turn an interrupted
+        // thumb gesture into released() inside QWidget's focus transition.
+        d_ptr->finishImmediately();
+    }
+    return QCheckBox::event(event);
+}
+
+void ZzToggleSwitch::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && isEnabled()) {
+        d_ptr->canceledUntilRelease = false;
+        const QRectF knob = zzKnobRect(zzTrackRect(this), isRightToLeft(),
+            d_ptr->progress, underMouse(), false);
+        d_ptr->dragCandidate = knob.contains(event->position());
+        d_ptr->dragging = false;
+        d_ptr->pressPosition = event->position();
+        d_ptr->pressProgress = d_ptr->progress;
+        if (d_ptr->dragCandidate) {
+            d_ptr->animation->stop();
+        }
+    }
+    // pressed() receivers may delete this widget.
+    QCheckBox::mousePressEvent(event);
+}
+
+void ZzToggleSwitch::mouseMoveEvent(QMouseEvent *event)
+{
+    if (d_ptr->canceledUntilRelease) {
+        event->accept();
+        return;
+    }
+    if (!d_ptr->dragCandidate || !isEnabled()) {
+        QCheckBox::mouseMoveEvent(event);
+        return;
+    }
+    const qreal delta = event->position().x() - d_ptr->pressPosition.x();
+    const int threshold = std::max(2, QApplication::startDragDistance() / 3);
+    if (!d_ptr->dragging && qAbs(delta) < threshold) {
+        event->accept();
+        return;
+    }
+    d_ptr->dragging = true;
+    d_ptr->animation->stop();
+    d_ptr->progress = zzDragProgress(this, d_ptr->pressPosition,
+        d_ptr->pressProgress, event->position());
+    setDown(true);
+    update();
+    event->accept();
+}
+
+void ZzToggleSwitch::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && d_ptr->canceledUntilRelease) {
+        d_ptr->canceledUntilRelease = false;
+        setDown(false);
+        QCheckBox::mouseReleaseEvent(event);
+        return;
+    }
+    if (event->button() != Qt::LeftButton || !d_ptr->dragging) {
+        const bool resume = event->button() == Qt::LeftButton && d_ptr->dragCandidate;
+        if (event->button() == Qt::LeftButton) {
+            d_ptr->dragCandidate = false;
+        }
+        const QPointer<ZzToggleSwitch> guard(this);
+        QCheckBox::mouseReleaseEvent(event);
+        if (guard && resume && !d_ptr->dragCandidate) {
+            // An outside release or exclusive-group click need not change
+            // checked, so toggled() alone cannot resume the frozen animation.
+            d_ptr->moveTo(isChecked());
+        }
+        return;
+    }
+    d_ptr->progress = zzDragProgress(this, d_ptr->pressPosition,
+        d_ptr->pressProgress, event->position());
+    d_ptr->dragTarget = d_ptr->progress >= 0.5;
+    d_ptr->dragCandidate = false;
+    d_ptr->dragging = false;
+    d_ptr->committingDrag = true;
+    const QPointer<ZzToggleSwitch> guard(this);
+    // Qt owns exclusive-group rules, released/clicked and group notifications.
+    QCheckBox::mouseReleaseEvent(event);
+    if (!guard) {
+        return;
+    }
+    d_ptr->committingDrag = false;
+    if (!d_ptr->dragCandidate) {
+        d_ptr->moveTo(isChecked());
+    }
+}
+
+void ZzToggleSwitch::nextCheckState()
+{
+    if (d_ptr->committingDrag) {
+        const bool checked = d_ptr->dragTarget;
+        d_ptr->committingDrag = false;
+        const QPointer<ZzToggleSwitch> guard(this);
+        setChecked(checked);
+        if (guard) {
+            QCheckBox::checkStateSet();
+        }
+        return;
+    }
+    QCheckBox::nextCheckState();
 }
 
 void ZzToggleSwitch::paintEvent(QPaintEvent *event)
@@ -107,29 +252,10 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
     initStyleOption(&option);
     const QRect content = rect().marginsRemoved(contentsMargins());
     const bool rightToLeft = option.direction == Qt::RightToLeft;
-    const int trackX = rightToLeft
-        ? content.right() - zzTrackWidth + 1
-        : content.left();
-    const QRect track(
-        trackX,
-        content.center().y() - zzTrackHeight / 2,
-        zzTrackWidth,
-        zzTrackHeight);
+    const QRect track = zzTrackRect(this);
     const bool hovered = isEnabled() && option.state.testFlag(QStyle::State_MouseOver);
     const bool pressed = isEnabled() && option.state.testFlag(QStyle::State_Sunken);
-    const qreal knobHeight = hovered && !pressed ? 14.0 : zzKnobExtent;
-    const qreal knobWidth = pressed ? 18.0 : knobHeight;
-    const qreal visualProgress = rightToLeft
-        ? 1.0 - d_ptr->progress
-        : d_ptr->progress;
-    const qreal travel = zzTrackWidth
-        - (2 * zzTrackInset)
-        - knobWidth;
-    const QRectF knob(
-        track.left() + zzTrackInset + (travel * visualProgress),
-        track.top() + (zzTrackHeight - knobHeight) / 2.0,
-        knobWidth,
-        knobHeight);
+    const QRectF knob = zzKnobRect(track, rightToLeft, d_ptr->progress, hovered, pressed);
 
     const QPalette::ColorGroup group = isEnabled()
         ? QPalette::Normal
@@ -154,7 +280,7 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
         zzTrackHeight / 2.0);
     painter.setBrush(knobColor);
     painter.setPen(Qt::NoPen);
-    painter.drawRoundedRect(knob, knobHeight / 2.0, knobHeight / 2.0);
+    painter.drawRoundedRect(knob, knob.height() / 2.0, knob.height() / 2.0);
 
     if (!text().isEmpty()) {
         QRect textRect = content;
@@ -190,8 +316,9 @@ void ZzToggleSwitch::paintEvent(QPaintEvent *event)
 
 void ZzToggleSwitch::changeEvent(QEvent *event)
 {
+    const QPointer<ZzToggleSwitch> guard(this);
     QCheckBox::changeEvent(event);
-    if (event == nullptr) {
+    if (!guard || event == nullptr) {
         return;
     }
     switch (event->type()) {

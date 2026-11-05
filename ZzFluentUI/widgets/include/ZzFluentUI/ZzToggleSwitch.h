@@ -18,6 +18,8 @@ class ZzToggleSwitchPrivate;
  *
  * 控件必须在 GUI 线程创建和调用；键盘、焦点和无障碍检查状态
  * 由 QCheckBox 提供，动画只影响呈现。
+ * 旋钮拖动在释放时提交；失焦、隐藏、禁用等中断只取消手势，
+ * 不发出 released/clicked。正常释放保留按钮组通知与互斥规则。
  */
 class ZZ_FLUENT_UI_EXPORT ZzToggleSwitch final : public QCheckBox
 {
@@ -50,6 +52,17 @@ public:
     [[nodiscard]] QSize sizeHint() const override;
 
 protected:
+    /** @brief 丢失鼠标抓取或窗口失活时取消未提交的拖动。 */
+    bool event(QEvent *event) override;
+    /** @brief 旋钮左键按下开始候选手势，其他区域沿用复选框点击。 */
+    void mousePressEvent(QMouseEvent *event) override;
+    /** @brief 越过阈值后直接更新旋钮呈现，不提前改变 checked。 */
+    void mouseMoveEvent(QMouseEvent *event) override;
+    /** @brief 拖动释放按中点提交一次状态并发出标准按钮信号。 */
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    /** @brief 拖动指定终态，普通点击保留 QCheckBox 的状态循环。 */
+    void nextCheckState() override;
+
     /**
      * @brief 判断控件完整视觉区域是否命中，而非使用平台复选框小区域。
      * @param position 控件局部坐标中的指针位置。

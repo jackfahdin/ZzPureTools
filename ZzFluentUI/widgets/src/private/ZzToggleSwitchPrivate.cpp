@@ -37,6 +37,12 @@ ZzToggleSwitchPrivate::ZzToggleSwitchPrivate(ZzToggleSwitch *q)
 
 void ZzToggleSwitchPrivate::moveTo(bool checked)
 {
+    if (dragCandidate) {
+        canceledUntilRelease = true;
+        dragCandidate = false;
+        dragging = false;
+        q_ptr->setDown(false);
+    }
     const qreal target = checked ? 1.0 : 0.0;
     const bool animate = q_ptr->isVisible()
         && q_ptr->isEnabled()
@@ -58,6 +64,12 @@ void ZzToggleSwitchPrivate::moveTo(bool checked)
 
 void ZzToggleSwitchPrivate::finishImmediately() noexcept
 {
+    if (dragCandidate) {
+        canceledUntilRelease = true;
+        dragCandidate = false;
+        dragging = false;
+        q_ptr->setDown(false);
+    }
     animation->stop();
     progress = q_ptr->isChecked() ? 1.0 : 0.0;
     q_ptr->update();

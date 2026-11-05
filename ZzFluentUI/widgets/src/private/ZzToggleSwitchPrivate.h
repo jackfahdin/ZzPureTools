@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtCore/QtTypes>
+#include <QtCore/QPointF>
 
 class QVariantAnimation;
 
@@ -24,6 +25,13 @@ public:
     ZzToggleSwitch *const q_ptr;
     QVariantAnimation *animation = nullptr;
     qreal progress = 0.0;
+    QPointF pressPosition;
+    qreal pressProgress = 0.0;
+    bool dragCandidate = false;
+    bool dragging = false;
+    bool canceledUntilRelease = false;
+    bool committingDrag = false;
+    bool dragTarget = false;
 };
 
 } // namespace ZzFluentUI
