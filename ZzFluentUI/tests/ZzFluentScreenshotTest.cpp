@@ -6909,7 +6909,13 @@ private Q_SLOTS:
         QVERIFY2(
             QFontDatabase::families().contains(QStringLiteral("DejaVu Sans")),
             "参考环境缺少 DejaVu Sans 字体");
-        const QFont referenceFont(QStringLiteral("DejaVu Sans"), 10);
+        QFont referenceFont(QStringLiteral("DejaVu Sans"), 10);
+        // The Qt 6.8 reference uses grayscale AA. Desktop Fontconfig may
+        // enable RGB subpixel rendering even with the offscreen plugin.
+        // Other minor versions retain their own reference font strategy.
+#if QT_VERSION_MAJOR == 6 && QT_VERSION_MINOR == 8
+        referenceFont.setStyleStrategy(QFont::NoSubpixelAntialias);
+#endif
         QApplication::setFont(referenceFont);
         QCOMPARE(QFontInfo(QApplication::font()).family(), QStringLiteral("DejaVu Sans"));
         QCOMPARE(QApplication::font().pointSize(), 10);
