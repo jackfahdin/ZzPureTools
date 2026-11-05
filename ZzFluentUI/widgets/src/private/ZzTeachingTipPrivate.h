@@ -5,6 +5,8 @@
 #include <QtCore/QPointer>
 #include <QtCore/QPoint>
 #include <QtCore/QString>
+#include <QtCore/QList>
+#include <QtGui/QPixmap>
 
 #include <ZzFluentUI/ZzTeachingTipPlacement.h>
 
@@ -14,6 +16,7 @@ class QHBoxLayout;
 class QLabel;
 class QParallelAnimationGroup;
 class QPropertyAnimation;
+class QVariantAnimation;
 class QPushButton;
 class QVBoxLayout;
 class QWidget;
@@ -30,7 +33,7 @@ class ZzTeachingTipPrivate final : public QObject
     friend class ZzTeachingTip;
 
 public:
-    /** @brief 创建固定子控件树、两条属性动画和一次性信号连接。 */
+    /** @brief 创建固定子控件树、透明度与展开动画和一次性信号连接。 */
     explicit ZzTeachingTipPrivate(ZzTeachingTip *q);
 
     /** @brief 停止动画并注销全部目标与应用事件过滤器。 */
@@ -87,7 +90,7 @@ public:
     QMetaObject::Connection targetDestroyedConnection;
     QParallelAnimationGroup *animationGroup = nullptr;
     QPropertyAnimation *opacityAnimation = nullptr;
-    QPropertyAnimation *positionAnimation = nullptr;
+    QVariantAnimation *transitionAnimation = nullptr;
     QMetaObject::Connection animationFinishedConnection;
     QString title;
     QString text;
@@ -96,6 +99,12 @@ public:
     ZzTeachingTipPlacement preferredPlacement = ZzTeachingTipPlacement::Auto;
     ZzTeachingTipPlacement effectivePlacement = ZzTeachingTipPlacement::Auto;
     QPoint finalPosition;
+    QPoint animationStartPosition;
+    QPoint animationEndPosition;
+    QPixmap openingSnapshot;
+    qreal openingScale = 1.0;
+    qreal animationStartScale = 1.0;
+    qreal animationEndScale = 1.0;
     qreal arrowCenter = 0.0;
     bool lightDismissEnabled = true;
     bool actionEnabled = true;
@@ -109,6 +118,23 @@ public:
     quint64 contentRevision = 0;
 
 private:
+    /** @brief 记录展开期间隐藏的布局宿主及原尺寸保留策略。 */
+    struct ZzHiddenContent {
+        QPointer<QWidget> widget;
+        bool retainSize = false;
+    };
+    QList<ZzHiddenContent> hiddenContent;
+    bool restoringSnapshot = false;
+
+    /** @brief 捕获带 DPR 的内容快照，并暂时隐藏真实交互控件。 */
+    [[nodiscard]] bool prepareOpeningSnapshot();
+
+    /** @brief 释放快照并恢复真实控件与原有尺寸策略。 */
+    void clearOpeningSnapshot();
+
+    /** @brief 外观或定位变化时直接完成展开，避免保留过期快照。 */
+    void settleOpening();
+
     /** @brief 更新目标所属顶层窗口，不取得所有权。 */
     void refreshTargetWindow();
 

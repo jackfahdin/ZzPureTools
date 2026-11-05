@@ -3,13 +3,16 @@
 #include <algorithm>
 #include <array>
 #include <limits>
+#include <utility>
 
 #include <QtCore/QAbstractAnimation>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtCore/QParallelAnimationGroup>
 #include <QtCore/QPropertyAnimation>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QPainter>
 #include <QtGui/QScreen>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QHBoxLayout>
@@ -151,13 +154,28 @@ ZzTeachingTipPrivate::ZzTeachingTipPrivate(ZzTeachingTip *q)
     , animationGroup(new QParallelAnimationGroup(q))
     , opacityAnimation(
           new QPropertyAnimation(q, QByteArrayLiteral("windowOpacity")))
-    , positionAnimation(new QPropertyAnimation(q, QByteArrayLiteral("pos")))
+    , transitionAnimation(new QVariantAnimation)
 {
     Q_ASSERT(q_ptr != nullptr);
     opacityAnimation->setParent(animationGroup);
-    positionAnimation->setParent(animationGroup);
+    transitionAnimation->setParent(animationGroup);
     animationGroup->addAnimation(opacityAnimation);
-    animationGroup->addAnimation(positionAnimation);
+    animationGroup->addAnimation(transitionAnimation);
+    opacityAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    transitionAnimation->setEasingCurve(QEasingCurve::OutCubic);
+    QObject::connect(transitionAnimation, &QVariantAnimation::valueChanged, q_ptr,
+        [this](const QVariant &value) {
+            const qreal progress = value.toReal();
+            openingScale = animationStartScale
+                + (animationEndScale - animationStartScale) * progress;
+            const QPointF position = QPointF(animationStartPosition)
+                + QPointF(animationEndPosition - animationStartPosition) * progress;
+            const QPointer<ZzTeachingTip> guard(q_ptr);
+            q_ptr->move(position.toPoint());
+            if (guard && !openingSnapshot.isNull()) {
+                q_ptr->update();
+            }
+        });
 
     auto *rootLayout = new QVBoxLayout(q_ptr);
     rootLayout->setObjectName(QStringLiteral("zzTeachingTipRootLayout"));
@@ -226,6 +244,11 @@ ZzTeachingTipPrivate::~ZzTeachingTipPrivate()
 
 void ZzTeachingTipPrivate::refreshPresentation()
 {
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    settleOpening();
+    if (!guard) {
+        return;
+    }
     const auto snapshot = theme.snapshot();
     titleLabel->setText(title);
     titleLabel->setVisible(!title.isEmpty());
@@ -296,6 +319,10 @@ void ZzTeachingTipPrivate::setContentWidget(QWidget *widget)
     const QPointer<ZzTeachingTip> guard(q_ptr);
     const QPointer<QWidget> incoming(widget);
     const quint64 revision = ++contentRevision;
+    settleOpening();
+    if (!guard || contentRevision != revision || (widget && !incoming)) {
+        return;
+    }
     if (contentDestroyedConnection) {
         QObject::disconnect(contentDestroyedConnection);
         contentDestroyedConnection = {};
@@ -326,9 +353,17 @@ void ZzTeachingTipPrivate::setContentWidget(QWidget *widget)
             [this] {
                 contentWidget = nullptr;
                 contentDestroyedConnection = {};
+                const QPointer<ZzTeachingTip> callbackGuard(q_ptr);
+                const quint64 callbackRevision = ++contentRevision;
+                settleOpening();
+                if (!callbackGuard || callbackRevision != contentRevision) {
+                    return;
+                }
                 contentHost->hide();
-                q_ptr->updateGeometry();
-                Q_EMIT q_ptr->contentWidgetChanged(nullptr);
+                refreshPresentation();
+                if (callbackGuard && callbackRevision == contentRevision) {
+                    Q_EMIT q_ptr->contentWidgetChanged(nullptr);
+                }
             });
     }
     contentHost->setVisible(widget != nullptr);
@@ -340,6 +375,12 @@ void ZzTeachingTipPrivate::setContentWidget(QWidget *widget)
 
 QWidget *ZzTeachingTipPrivate::takeContentWidget()
 {
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    const quint64 revision = ++contentRevision;
+    settleOpening();
+    if (!guard || contentRevision != revision) {
+        return nullptr;
+    }
     const QPointer<QWidget> widget = contentWidget;
     if (widget == nullptr) {
         return nullptr;
@@ -348,8 +389,6 @@ QWidget *ZzTeachingTipPrivate::takeContentWidget()
         QObject::disconnect(contentDestroyedConnection);
         contentDestroyedConnection = {};
     }
-    const QPointer<ZzTeachingTip> guard(q_ptr);
-    const quint64 revision = ++contentRevision;
     contentWidget = nullptr;
     contentLayout->removeWidget(widget);
     widget->setParent(nullptr);
@@ -425,6 +464,7 @@ void ZzTeachingTipPrivate::showForTarget()
     restoreFocusPending = false;
     const QPoint previousPosition = q_ptr->pos();
     const qreal previousOpacity = q_ptr->windowOpacity();
+    const qreal previousScale = openingScale;
     animationGroup->stop();
     dismissing = false;
     dismissSignalPending = false;
@@ -438,7 +478,8 @@ void ZzTeachingTipPrivate::showForTarget()
         return;
     }
     const int duration = animationDuration();
-    if (duration <= 50) {
+    if (duration <= 50 || restoringSnapshot
+        || (wasVisible && previousScale == 1.0 && previousOpacity == 1.0)) {
         q_ptr->move(finalPosition);
         q_ptr->setWindowOpacity(1.0);
         q_ptr->show();
@@ -448,6 +489,17 @@ void ZzTeachingTipPrivate::showForTarget()
         ? previousPosition
         : finalPosition + targetDisplacement();
     const qreal startOpacity = wasVisible ? previousOpacity : 0.0;
+    const bool captured = prepareOpeningSnapshot();
+    if (!guard || revision != visibilityRevision) {
+        return;
+    }
+    if (!captured) {
+        q_ptr->move(finalPosition);
+        q_ptr->setWindowOpacity(1.0);
+        q_ptr->show();
+        return;
+    }
+    openingScale = wasVisible ? previousScale : 0.01;
     q_ptr->move(startPosition);
     q_ptr->setWindowOpacity(startOpacity);
     q_ptr->show();
@@ -464,9 +516,12 @@ void ZzTeachingTipPrivate::dismiss(bool allowFocusRestore)
     if (!allowFocusRestore) {
         restoreFocusPending = false;
     }
-    if ((!q_ptr->isVisible()
-         && animationGroup->state() == QAbstractAnimation::Stopped)
-        || dismissing) {
+    if (!q_ptr->isVisible()
+        && animationGroup->state() == QAbstractAnimation::Stopped) {
+        clearOpeningSnapshot();
+        return;
+    }
+    if (dismissing) {
         return;
     }
     animationGroup->stop();
@@ -494,6 +549,11 @@ void ZzTeachingTipPrivate::dismiss(bool allowFocusRestore)
 
 bool ZzTeachingTipPrivate::reposition()
 {
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    settleOpening();
+    if (!guard) {
+        return false;
+    }
     QWidget *target = targetWidget.data();
     QScreen *screen = target != nullptr ? target->screen() : nullptr;
     const QRect targetRect = visibleTargetRect();
@@ -561,7 +621,6 @@ bool ZzTeachingTipPrivate::reposition()
                 - arrowInset - radius - arrowHalf);
     }
     q_ptr->update();
-    const QPointer<ZzTeachingTip> guard(q_ptr);
     setEffectivePlacement(selectedPlacement);
     return !guard.isNull();
 }
@@ -585,8 +644,13 @@ void ZzTeachingTipPrivate::syncApplicationEventFilter()
 void ZzTeachingTipPrivate::handleHidden()
 {
     ++visibilityRevision;
+    const QPointer<ZzTeachingTip> guard(q_ptr);
     if (animationGroup->state() != QAbstractAnimation::Stopped) {
         animationGroup->stop();
+    }
+    clearOpeningSnapshot();
+    if (!guard) {
+        return;
     }
     syncApplicationEventFilter();
     q_ptr->setWindowOpacity(1.0);
@@ -598,7 +662,6 @@ void ZzTeachingTipPrivate::handleHidden()
     previousFocus = nullptr;
     const bool restore = restoreFocusPending;
     restoreFocusPending = false;
-    const QPointer<ZzTeachingTip> guard(q_ptr);
     QWidget *active = QApplication::activeWindow();
     if (restore && focus && focus->isVisible() && focus->isEnabled()
         && focus->window() == targetWindow
@@ -732,9 +795,13 @@ void ZzTeachingTipPrivate::startAnimation(
     opacityAnimation->setDuration(duration);
     opacityAnimation->setStartValue(startOpacity);
     opacityAnimation->setEndValue(endOpacity);
-    positionAnimation->setDuration(duration);
-    positionAnimation->setStartValue(startPosition);
-    positionAnimation->setEndValue(endPosition);
+    animationStartPosition = startPosition;
+    animationEndPosition = endPosition;
+    animationStartScale = openingScale;
+    animationEndScale = dismissing && !openingSnapshot.isNull() ? 0.01 : 1.0;
+    transitionAnimation->setDuration(duration);
+    transitionAnimation->setStartValue(0.0);
+    transitionAnimation->setEndValue(1.0);
     animationGroup->start();
 }
 
@@ -746,6 +813,84 @@ void ZzTeachingTipPrivate::finishAnimation()
     }
     q_ptr->move(finalPosition);
     q_ptr->setWindowOpacity(1.0);
+    clearOpeningSnapshot();
+}
+
+bool ZzTeachingTipPrivate::prepareOpeningSnapshot()
+{
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    const quint64 revision = visibilityRevision;
+    q_ptr->layout()->activate();
+    headerLayout->activate();
+    contentLayout->activate();
+    const qreal dpr = q_ptr->devicePixelRatioF();
+    QPixmap snapshot(qCeil(q_ptr->width() * dpr), qCeil(q_ptr->height() * dpr));
+    snapshot.setDevicePixelRatio(dpr);
+    snapshot.fill(Qt::transparent);
+    {
+        QPainter painter(&snapshot);
+        q_ptr->render(&painter, QPoint(), QRegion(), QWidget::DrawChildren);
+    }
+    if (!guard || revision != visibilityRevision) {
+        return false;
+    }
+    openingSnapshot = snapshot;
+    const std::array<QWidget *, 4> hosts = {headerHost, textLabel, contentHost, actionButton};
+    for (QWidget *host : hosts) {
+        if (!host->isHidden()) {
+            QSizePolicy policy = host->sizePolicy();
+            hiddenContent.append({host, policy.retainSizeWhenHidden()});
+            policy.setRetainSizeWhenHidden(true);
+            host->setSizePolicy(policy);
+            host->hide();
+            if (!guard || revision != visibilityRevision || openingSnapshot.isNull()) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void ZzTeachingTipPrivate::clearOpeningSnapshot()
+{
+    if (openingSnapshot.isNull() && hiddenContent.isEmpty()) {
+        return;
+    }
+    openingSnapshot = QPixmap();
+    openingScale = 1.0;
+    const auto hosts = std::exchange(hiddenContent, {});
+    const QPointer<ZzTeachingTip> guard(q_ptr);
+    restoringSnapshot = true;
+    for (const auto &entry : hosts) {
+        if (entry.widget) {
+            QSizePolicy policy = entry.widget->sizePolicy();
+            policy.setRetainSizeWhenHidden(entry.retainSize);
+            entry.widget->setSizePolicy(policy);
+            const bool visible = entry.widget == headerHost ? (!title.isEmpty() || closeButtonVisible)
+                : entry.widget == textLabel ? !text.isEmpty()
+                : entry.widget == contentHost ? !contentWidget.isNull() : actionVisible;
+            entry.widget->setVisible(visible);
+            if (!guard) {
+                return;
+            }
+        }
+    }
+    restoringSnapshot = false;
+    q_ptr->update();
+}
+
+void ZzTeachingTipPrivate::settleOpening()
+{
+    if (openingSnapshot.isNull()) {
+        return;
+    }
+    // During closing, release stale pixels without cancelling the close request.
+    if (!dismissing) {
+        animationGroup->stop();
+        q_ptr->move(finalPosition);
+        q_ptr->setWindowOpacity(1.0);
+    }
+    clearOpeningSnapshot();
 }
 
 void ZzTeachingTipPrivate::setEffectivePlacement(

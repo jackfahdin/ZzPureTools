@@ -56,10 +56,16 @@ class ZzTeachingTipReparentContent final : public QWidget
 {
 public:
     std::function<void()> onParentChange;
+    std::function<void()> onShow;
 
 protected:
     bool event(QEvent *event) override
     {
+        if (event->type() == QEvent::Show && onShow) {
+            const auto callback = onShow;
+            callback();
+            return true;
+        }
         if (event->type() == QEvent::ParentChange && onParentChange) {
             const auto callback = onParentChange;
             callback();
@@ -695,6 +701,224 @@ private Q_SLOTS:
         tip.dismiss();
         ZZ_VERIFY_EVENTUALLY(!tip.isVisible());
         QCOMPARE(dismissedSpy.count(), 2);
+    }
+
+    void opensFromTargetEdge_data()
+    {
+        QTest::addColumn<ZzFluentUI::ZzTeachingTipPlacement>("placement");
+        QTest::newRow("top") << ZzFluentUI::ZzTeachingTipPlacement::Top;
+        QTest::newRow("bottom") << ZzFluentUI::ZzTeachingTipPlacement::Bottom;
+        QTest::newRow("left") << ZzFluentUI::ZzTeachingTipPlacement::Left;
+        QTest::newRow("right") << ZzFluentUI::ZzTeachingTipPlacement::Right;
+    }
+
+    void opensFromTargetEdge()
+    {
+        QFETCH(ZzFluentUI::ZzTeachingTipPlacement, placement);
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setTitle(QStringLiteral("Scale"));
+        tip.setTargetWidget(target);
+        tip.setPreferredPlacement(placement);
+        auto *content = new QLabel(QStringLiteral("Live content"));
+        tip.setContentWidget(content);
+        auto *group = tip.findChild<QParallelAnimationGroup *>();
+        QVERIFY(group);
+        tip.showForTarget();
+        QCOMPARE(tip.effectivePlacement(), placement);
+        const QSize finalSize = tip.size();
+        const auto opaqueBounds = [](const QImage &image) {
+            QRect result;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    if (qAlpha(image.pixel(x, y)) > 32) {
+                        result |= QRect(x, y, 1, 1);
+                    }
+                }
+            }
+            return result;
+        };
+        group->setCurrentTime(group->duration() / 4);
+        const QImage intermediate = tip.grab().toImage();
+        const QRect during = opaqueBounds(intermediate);
+        group->setCurrentTime(group->duration());
+        const QImage completed = tip.grab().toImage();
+        const QRect after = opaqueBounds(completed);
+        QVERIFY(!during.isEmpty());
+        QVERIFY(during.width() < after.width());
+        QVERIFY(during.height() < after.height());
+        QCOMPARE(tip.size(), finalSize);
+        QVERIFY(content->isVisible());
+        QVERIFY(!content->parentWidget()->sizePolicy().retainSizeWhenHidden());
+        switch (placement) {
+        case ZzFluentUI::ZzTeachingTipPlacement::Top:
+            QVERIFY(during.center().y() > after.center().y());
+            break;
+        case ZzFluentUI::ZzTeachingTipPlacement::Bottom:
+            QVERIFY(during.center().y() < after.center().y());
+            break;
+        case ZzFluentUI::ZzTeachingTipPlacement::Left:
+            QVERIFY(during.center().x() > after.center().x());
+            break;
+        case ZzFluentUI::ZzTeachingTipPlacement::Right:
+            QVERIFY(during.center().x() < after.center().x());
+            break;
+        case ZzFluentUI::ZzTeachingTipPlacement::Auto:
+            QFAIL("Expected an explicit placement");
+        }
+    }
+
+    void interruptedOpeningRestoresLiveContent()
+    {
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setStyle(&style);
+        tip.setTargetWidget(target);
+        auto *content = new QLineEdit;
+        tip.setContentWidget(content);
+        auto *group = tip.findChild<QParallelAnimationGroup *>();
+        QVERIFY(group);
+        tip.showForTarget();
+        group->setCurrentTime(group->duration() / 4);
+        QVERIFY(!content->isVisible());
+        tip.setText(QStringLiteral("Content changed while opening"));
+        QVERIFY(content->isVisible());
+        QCOMPARE(group->state(), QAbstractAnimation::Stopped);
+        QCOMPARE(tip.windowOpacity(), 1.0);
+        tip.hide();
+        tip.showForTarget();
+        tip.dismiss();
+        tip.showForTarget();
+        group->setCurrentTime(group->duration());
+        QVERIFY(content->isVisible());
+        tip.hide();
+        QVERIFY(!content->parentWidget()->isHidden());
+        controller.setReducedMotion(true);
+        tip.showForTarget();
+        QVERIFY(content->isVisible());
+        QCOMPARE(group->state(), QAbstractAnimation::Stopped);
+        QCOMPARE(tip.findChildren<QAbstractAnimation *>().size(), 3);
+    }
+
+    void restoringContentCanDeleteIncomingWidget()
+    {
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setTargetWidget(target);
+        auto *content = new ZzTeachingTipReparentContent;
+        tip.setContentWidget(content);
+        tip.showForTarget();
+        auto *incoming = new QLabel(QStringLiteral("Incoming"));
+        const QPointer<QWidget> incomingGuard(incoming);
+        content->onShow = [content, incoming] {
+            content->onShow = {};
+            delete incoming;
+        };
+        tip.setContentWidget(incoming);
+        QVERIFY(!incomingGuard);
+        QCOMPARE(tip.contentWidget(), content);
+        QVERIFY(content->isVisible());
+    }
+
+    void restoringContentCanReopenAndChangeVisibility()
+    {
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setTargetWidget(target);
+        tip.setTitle(QStringLiteral("Title"));
+        tip.setText(QStringLiteral("Text"));
+        tip.setActionVisible(true);
+        auto *content = new ZzTeachingTipReparentContent;
+        tip.setContentWidget(content);
+        tip.showForTarget();
+        content->onShow = [&tip, content] {
+            content->onShow = {};
+            tip.showForTarget();
+            tip.setActionVisible(false);
+        };
+        auto *group = tip.findChild<QParallelAnimationGroup *>();
+        QVERIFY(group);
+        group->setCurrentTime(group->duration());
+        QCOMPARE(group->state(), QAbstractAnimation::Stopped);
+        QVERIFY(tip.isVisible());
+        QVERIFY(content->isVisible());
+        QVERIFY(tip.findChild<QWidget *>(QStringLiteral("zzTeachingTipHeader"))->isVisible());
+        QVERIFY(tip.findChild<QWidget *>(QStringLiteral("zzTeachingTipText"))->isVisible());
+        QVERIFY(!tip.findChild<QWidget *>(QStringLiteral("zzTeachingTipActionButton"))->isVisible());
+        QVERIFY(!content->parentWidget()->sizePolicy().retainSizeWhenHidden());
+    }
+
+    void contentDestructionDuringOpeningClearsSnapshot()
+    {
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setTargetWidget(target);
+        auto *content = new QLabel(QStringLiteral("Old content"));
+        tip.setContentWidget(content);
+        tip.showForTarget();
+        auto *group = tip.findChild<QParallelAnimationGroup *>();
+        QVERIFY(group);
+        QCOMPARE(group->state(), QAbstractAnimation::Running);
+        delete content;
+        QVERIFY(!tip.contentWidget());
+        QCOMPARE(group->state(), QAbstractAnimation::Stopped);
+        QVERIFY(!tip.findChild<QWidget *>(QStringLiteral("zzTeachingTipContentHost"))->isVisible());
+        QVERIFY(tip.findChild<QWidget *>(QStringLiteral("zzTeachingTipHeader"))->isVisible());
+    }
+
+    void snapshotRestorationPreservesNestedTake()
+    {
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setTargetWidget(target);
+        auto *content = new ZzTeachingTipReparentContent;
+        tip.setContentWidget(content);
+        tip.showForTarget();
+        QWidget *taken = nullptr;
+        content->onShow = [&] {
+            content->onShow = {};
+            taken = tip.takeContentWidget();
+        };
+        auto incoming = std::make_unique<QWidget>();
+        tip.setContentWidget(incoming.get());
+        QCOMPARE(taken, content);
+        QVERIFY(!tip.contentWidget());
+        QVERIFY(!incoming->parent());
+        QVERIFY(!taken->parent());
+        delete taken;
+    }
+
+    void changingThemeOrTargetSettlesOpening()
+    {
+        QWidget host;
+        auto *target = showCenteredTarget(&host);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzTeachingTip tip;
+        tip.setStyle(&style);
+        tip.setTargetWidget(target);
+        auto *content = new QLabel(QStringLiteral("Content"));
+        tip.setContentWidget(content);
+        tip.showForTarget();
+        controller.setReducedMotion(true);
+        auto *group = tip.findChild<QParallelAnimationGroup *>();
+        QVERIFY(group);
+        QCOMPARE(group->state(), QAbstractAnimation::Stopped);
+        QVERIFY(content->isVisible());
+        tip.hide();
+        controller.setReducedMotion(false);
+        tip.showForTarget();
+        target->move(target->pos() + QPoint(0, 12));
+        QCOMPARE(group->state(), QAbstractAnimation::Stopped);
+        QVERIFY(content->isVisible());
     }
 };
 

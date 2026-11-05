@@ -220,6 +220,31 @@ void ZzTeachingTip::dismiss()
 void ZzTeachingTip::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
+    if (!d_ptr->openingSnapshot.isNull()) {
+        QPointF anchor;
+        switch (d_ptr->effectivePlacement) {
+        case ZzTeachingTipPlacement::Top:
+            anchor = QPointF(d_ptr->arrowCenter, height());
+            break;
+        case ZzTeachingTipPlacement::Left:
+            anchor = QPointF(width(), d_ptr->arrowCenter);
+            break;
+        case ZzTeachingTipPlacement::Right:
+            anchor = QPointF(0.0, d_ptr->arrowCenter);
+            break;
+        case ZzTeachingTipPlacement::Bottom:
+        case ZzTeachingTipPlacement::Auto:
+            anchor = QPointF(d_ptr->arrowCenter, 0.0);
+            break;
+        }
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        painter.translate(anchor);
+        painter.scale(d_ptr->openingScale, d_ptr->openingScale);
+        painter.translate(-anchor);
+        painter.drawPixmap(0, 0, d_ptr->openingSnapshot);
+        return;
+    }
     const auto snapshot = d_ptr->theme.snapshot();
     const qreal inset = snapshot->metric(
         ZzMetricToken::TeachingTipTargetGap);
