@@ -53,7 +53,11 @@ set(zz_fluent_ui_sources
     widgets/src/ZzMultiRadialGauge.cpp
     widgets/src/ZzMultiProgressRing.cpp
     widgets/src/ZzAudioLevelMeter.cpp
+    widgets/src/ZzAudioSpectrum.cpp
+    widgets/src/private/ZzAudioSpectrumPrivate.cpp
     widgets/src/private/ZzAudioLevelMeterPrivate.cpp
+    widgets/src/private/ZzSpectrumAnalyzer.cpp
+    widgets/src/private/ZzSpectrumInput.cpp
     widgets/src/ZzSidePanelAppearance.cpp
     widgets/src/private/ZzSidePanelAppearancePrivate.cpp
     widgets/src/ZzControlAppearance.cpp
@@ -200,6 +204,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzMultiRadialGauge.h
     widgets/include/ZzFluentUI/ZzMultiProgressRing.h
     widgets/include/ZzFluentUI/ZzAudioLevelMeter.h
+    widgets/include/ZzFluentUI/ZzAudioSpectrum.h
     widgets/include/ZzFluentUI/ZzSliderValueTip.h
     widgets/include/ZzFluentUI/ZzRangeSlider.h
     widgets/include/ZzFluentUI/ZzBorderBeam.h

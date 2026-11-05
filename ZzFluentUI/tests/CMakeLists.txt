@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzAudioSpectrumTest ZzAudioSpectrumTest.cpp)
+target_link_libraries(ZzAudioSpectrumTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzAudioSpectrumTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzAudioSpectrumTest)
+zz_enable_sanitizers(ZzAudioSpectrumTest)
+add_test(NAME fluent.audio-spectrum COMMAND ZzAudioSpectrumTest)
+set_tests_properties(fluent.audio-spectrum PROPERTIES
+    LABELS "fluent;unit;component"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzTimelineTest ZzTimelineTest.cpp)
 target_link_libraries(ZzTimelineTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
 set_target_properties(ZzTimelineTest PROPERTIES AUTOMOC ON)
@@ -179,6 +189,18 @@ add_test(NAME fluent.theme-controller COMMAND ZzThemeControllerTest)
 set_tests_properties(fluent.theme-controller PROPERTIES
     LABELS "component;fluent;foundation"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(ZzSpectrumAnalyzerTest
+    ZzSpectrumAnalyzerTest.cpp
+    ../widgets/src/private/ZzSpectrumAnalyzer.cpp
+    ../widgets/src/private/ZzSpectrumInput.cpp)
+zz_use_private_kissfft(ZzSpectrumAnalyzerTest)
+target_link_libraries(ZzSpectrumAnalyzerTest PRIVATE Qt6::Test Qt6::Core)
+set_target_properties(ZzSpectrumAnalyzerTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzSpectrumAnalyzerTest)
+zz_enable_sanitizers(ZzSpectrumAnalyzerTest)
+add_test(NAME fluent.spectrum-analyzer COMMAND ZzSpectrumAnalyzerTest)
+set_tests_properties(fluent.spectrum-analyzer PROPERTIES LABELS "fluent;unit;component")
 
 add_executable(ZzFluentStyleTest ZzFluentStyleTest.cpp)
 qt_add_resources(ZzFluentStyleTest "zzfluent-test-icons"

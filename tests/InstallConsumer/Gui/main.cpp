@@ -1,8 +1,12 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDate>
+#include <QtCore/QEventLoop>
 #include <QtCore/QTimer>
 #include <memory>
+#include <algorithm>
+#include <cmath>
+#include <numbers>
 #include <QtGui/QActionGroup>
 #include <QtGui/QImage>
 #include <QtGui/QIntValidator>
@@ -34,6 +38,7 @@
 #include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzActionCard.h>
+#include <ZzFluentUI/ZzAudioSpectrum.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
 #include <ZzFluentUI/ZzActivityItemRole.h>
@@ -93,6 +98,25 @@
 
 int main(int argc, char *argv[]) {
   QApplication application(argc, argv);
+  // Exercise the installed public API and private FFT linkage in both SDK modes.
+  ZzFluentUI::ZzAudioSpectrum spectrum;
+  spectrum.setAnimationEnabled(false);
+  spectrum.setInputTimeout(0);
+  spectrum.show();
+  QVector<float> pcm(spectrum.fftSize());
+  for (qsizetype i = 0; i < pcm.size(); ++i)
+    pcm[i] = static_cast<float>(0.5 * std::sin(
+        2 * std::numbers::pi * 1000 * static_cast<double>(i) / spectrum.sampleRate()));
+  QEventLoop spectrumLoop;
+  QObject::connect(&spectrum, &ZzFluentUI::ZzAudioSpectrum::levelsChanged,
+                   &spectrumLoop, &QEventLoop::quit);
+  QTimer::singleShot(2000, &spectrumLoop, &QEventLoop::quit);
+  spectrum.pushSamples(pcm);
+  spectrumLoop.exec();
+  const auto spectrumLevels = spectrum.levels();
+  if (std::none_of(spectrumLevels.cbegin(), spectrumLevels.cend(),
+                   [](qreal level) { return level > 0.1; })) return 1;
+  spectrum.hide();
   ZzFluentUI::ZzThemeController themeController;
   ZzFluentUI::ZzFluentStyle fluentStyle(&themeController);
   ZzFluentUI::ZzPushButton checkableButton(
