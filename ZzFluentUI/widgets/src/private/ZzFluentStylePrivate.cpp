@@ -32,6 +32,7 @@
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QSplitter>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
@@ -1132,6 +1133,63 @@ void ZzFluentStylePrivate::drawStatusBarPanel(
     painter->drawLine(
         QPointF(bounds.left(), bounds.top() + pixelWidth / 2.0),
         QPointF(bounds.right(), bounds.top() + pixelWidth / 2.0));
+    painter->restore();
+}
+
+void ZzFluentStylePrivate::drawSplitter(
+    const QStyleOption *option,
+    QPainter *painter,
+    const QWidget *widget) const
+{
+    const auto *handle = qobject_cast<const QSplitterHandle *>(widget);
+    if (option == nullptr || painter == nullptr || handle == nullptr) {
+        return;
+    }
+
+    const QRect rect = option->rect;
+    if (rect.isEmpty()) {
+        return;
+    }
+
+    // QSplitter::Horizontal creates a vertical handle between side-by-side panes.
+    const bool verticalGrip = handle->orientation() == Qt::Horizontal;
+    const int mainAxisLength = verticalGrip ? rect.height() : rect.width();
+    const int crossAxisLength = verticalGrip ? rect.width() : rect.height();
+    constexpr int zzSplitterGripLength = 64;
+    constexpr qreal zzSplitterGripThickness = 2.0;
+    if (mainAxisLength < zzSplitterGripLength || crossAxisLength < 2) {
+        return;
+    }
+
+    const qreal thickness = qMin(
+        zzSplitterGripThickness,
+        static_cast<qreal>(crossAxisLength));
+    const qreal length = static_cast<qreal>(zzSplitterGripLength);
+    const QRectF bounds(rect);
+    const QRectF grip = verticalGrip
+        ? QRectF(
+            bounds.center().x() - thickness / 2.0,
+            bounds.center().y() - length / 2.0,
+            thickness,
+            length)
+        : QRectF(
+            bounds.center().x() - length / 2.0,
+            bounds.center().y() - thickness / 2.0,
+            length,
+            thickness);
+
+    const bool enabled = option->state.testFlag(QStyle::State_Enabled);
+    const bool hovered = enabled
+        && option->state.testFlag(QStyle::State_MouseOver);
+    const QColor color = snapshot->color(
+        !enabled ? ZzColorToken::ControlFillDisabled
+        : hovered ? ZzColorToken::TextSecondary
+                  : ZzColorToken::ControlFill);
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(color);
+    painter->drawRoundedRect(grip, thickness / 2.0, thickness / 2.0);
     painter->restore();
 }
 

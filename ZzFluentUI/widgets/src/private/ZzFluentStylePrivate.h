@@ -132,6 +132,11 @@ public:
     void drawStatusBarPanel(
         const QStyleOption *option,
         QPainter *painter) const;
+    /** @brief 绘制 QSplitter 的 Fluent 胶囊分隔手柄。 */
+    void drawSplitter(
+        const QStyleOption *option,
+        QPainter *painter,
+        const QWidget *widget) const;
     /** @brief 绘制输入控件面板，不接触文本和输入法状态。 */
     void drawInputPanel(
         const QStyleOption *option,

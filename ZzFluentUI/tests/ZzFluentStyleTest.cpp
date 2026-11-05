@@ -6,6 +6,8 @@
 #include <QtGui/QPainter>
 #include <QtTest/QTest>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QProxyStyle>
+#include <QtWidgets/QSplitter>
 #include <QtWidgets/QStyleOptionFrame>
 #include <QtWidgets/QStyleOptionGroupBox>
 
@@ -58,6 +60,32 @@ public:
             return;
         }
         QProxyStyle::drawComplexControl(control, option, painter, widget);
+    }
+};
+
+/** @brief 记录非 splitter handle 的分隔条仍交给基础样式处理。 */
+class ZzSplitterDelegatingBaseStyle final : public QProxyStyle
+{
+public:
+    ZzSplitterDelegatingBaseStyle()
+        : QProxyStyle(QStringLiteral("Fusion"))
+    {
+    }
+
+    mutable int splitterDrawCount = 0;
+
+    void drawControl(
+        ControlElement element,
+        const QStyleOption *option,
+        QPainter *painter,
+        const QWidget *widget = nullptr) const override
+    {
+        if (element == CE_Splitter && option != nullptr && painter != nullptr) {
+            ++splitterDrawCount;
+            painter->fillRect(option->rect, Qt::magenta);
+            return;
+        }
+        QProxyStyle::drawControl(element, option, painter, widget);
     }
 };
 
@@ -178,6 +206,99 @@ private Q_SLOTS:
             style.standardPalette().color(QPalette::Window),
             controller.snapshot()->color(
                 ZzFluentUI::ZzColorToken::Surface));
+    }
+
+    void paintsThemeAwareSplitterGrip()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        for (const auto mode : {
+                 ZzFluentUI::ZzThemeMode::Light,
+                 ZzFluentUI::ZzThemeMode::Dark}) {
+            controller.setMode(mode);
+            for (const auto orientation : {Qt::Horizontal, Qt::Vertical}) {
+                QSplitter splitter(orientation);
+                auto *handle = new QSplitterHandle(orientation, &splitter);
+                const bool verticalGrip = orientation == Qt::Horizontal;
+                handle->setGeometry(
+                    0,
+                    0,
+                    verticalGrip ? 8 : 200,
+                    verticalGrip ? 200 : 8);
+                style.polish(handle);
+                QVERIFY(handle->testAttribute(Qt::WA_Hover));
+
+                QStyleOption option;
+                option.initFrom(handle);
+                option.rect = handle->rect();
+                option.state |= QStyle::State_Enabled;
+                QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+                QPainter painter(&image);
+                style.drawControl(QStyle::CE_Splitter, &option, &painter, handle);
+                painter.end();
+
+                const QPoint center = option.rect.center();
+                const QColor normal = controller.snapshot()->color(
+                    ZzFluentUI::ZzColorToken::ControlFill);
+                QCOMPARE(image.pixelColor(center), normal);
+
+                image.fill(Qt::transparent);
+                option.state |= QStyle::State_MouseOver;
+                QPainter hoveredPainter(&image);
+                style.drawControl(QStyle::CE_Splitter, &option, &hoveredPainter, handle);
+                hoveredPainter.end();
+                const QColor hovered = controller.snapshot()->color(
+                    ZzFluentUI::ZzColorToken::TextSecondary);
+                QCOMPARE(image.pixelColor(center), hovered);
+
+                style.unpolish(handle);
+                QVERIFY(!handle->testAttribute(Qt::WA_Hover));
+            }
+        }
+    }
+
+    void skipsSplitterGripWhenHandleIsTooSmall()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        QSplitter splitter(Qt::Horizontal);
+        auto *handle = new QSplitterHandle(Qt::Horizontal, &splitter);
+        handle->setGeometry(0, 0, 8, 63);
+
+        QStyleOption option;
+        option.initFrom(handle);
+        option.rect = handle->rect();
+        option.state |= QStyle::State_Enabled;
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_Splitter, &option, &painter, handle);
+        painter.end();
+
+        QCOMPARE(image.pixelColor(4, 31), QColor(Qt::transparent));
+    }
+
+    void delegatesNonSplitterHandleDrawingToBaseStyle()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        auto *base = new ZzSplitterDelegatingBaseStyle;
+        style.setBaseStyle(base);
+        QWidget separator;
+        separator.setGeometry(0, 0, 12, 80);
+
+        QStyleOption option;
+        option.initFrom(&separator);
+        option.rect = separator.rect();
+        QImage image(option.rect.size(), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        QPainter painter(&image);
+        style.drawControl(QStyle::CE_Splitter, &option, &painter, &separator);
+        painter.end();
+
+        QCOMPARE(base->splitterDrawCount, 1);
+        QCOMPARE(image.pixelColor(0, 0), QColor(Qt::magenta));
     }
 
     void mapsStandardTextRolesForDarkAndHighContrast()

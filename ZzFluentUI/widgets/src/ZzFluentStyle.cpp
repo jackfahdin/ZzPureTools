@@ -23,6 +23,7 @@
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QStyleFactory>
 #include <QtWidgets/QStyleOption>
+#include <QtWidgets/QSplitter>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QToolButton>
 #include <QtGui/QPainterPath>
@@ -801,6 +802,12 @@ void ZzFluentStyle::drawControl(
         d_ptr->drawToolBarPanel(option, painter);
         return;
     }
+    if (element == CE_Splitter
+        && option != nullptr && painter != nullptr
+        && qobject_cast<const QSplitterHandle *>(widget) != nullptr) {
+        d_ptr->drawSplitter(option, painter, widget);
+        return;
+    }
     if (element == CE_MenuEmptyArea
         && option != nullptr && painter != nullptr) {
         d_ptr->drawMenuEmptyArea(option, painter);
@@ -1076,12 +1083,18 @@ void ZzFluentStyle::polish(QWidget *widget)
 {
     QProxyStyle::polish(widget);
     ZzDataViewStylePrivate::polish(widget, true);
+    if (qobject_cast<QSplitterHandle *>(widget) != nullptr) {
+        widget->setAttribute(Qt::WA_Hover, true);
+    }
 }
 
 void ZzFluentStyle::unpolish(QWidget *widget)
 {
     if (auto *bar = qobject_cast<QTabBar *>(widget)) delete d_ptr->tabStyles.take(bar);
     ZzDataViewStylePrivate::polish(widget, false);
+    if (qobject_cast<QSplitterHandle *>(widget) != nullptr) {
+        widget->setAttribute(Qt::WA_Hover, false);
+    }
     QProxyStyle::unpolish(widget);
 }
 
