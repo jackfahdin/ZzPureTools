@@ -296,12 +296,13 @@ private Q_SLOTS:
             QStringLiteral("Settings")});
         const auto breadcrumbButtons =
             breadcrumb.findChildren<QToolButton *>();
-        QCOMPARE(breadcrumbButtons.size(), 2);
+        QCOMPARE(breadcrumbButtons.size(), 3); // Two path items plus the named overflow menu.
         for (QToolButton *button : breadcrumbButtons) {
             QVERIFY(!button->accessibleName().isEmpty());
             QAccessibleInterface *interface = zzAccessible(button);
             QVERIFY(interface != nullptr);
-            QCOMPARE(interface->role(), QAccessible::Button);
+            QCOMPARE(interface->role(), button->objectName() == QStringLiteral("zzBreadcrumbOverflow")
+                ? QAccessible::ButtonMenu : QAccessible::Button);
         }
 
         ZzFluentUI::ZzFluentTitleBar titleBar;

@@ -55,8 +55,14 @@ Q_SIGNALS:
     void indexRequested(int index);
 
 protected:
-    /** @brief 布局方向变化时重建视觉顺序并保留逻辑索引。 */
+    /** @brief 同步方向、字体和主题，保留原逻辑索引。 */
     void changeEvent(QEvent *event) override;
+
+    /** @brief 宽度变化时将放不下的前缀收入溢出菜单。 */
+    void resizeEvent(QResizeEvent *event) override;
+
+    /** @brief 在可见路径项之间处理方向键、Home、End 和 Enter。 */
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     std::unique_ptr<ZzBreadcrumbBarPrivate> d_ptr;

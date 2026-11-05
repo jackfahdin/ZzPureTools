@@ -2,6 +2,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QItemSelectionModel>
 #include <QtCore/QPointer>
+#include <QtCore/QTimer>
 #include <QtCore/QVariantAnimation>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -9,6 +10,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QStackedWidget>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QToolButton>
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
@@ -63,6 +65,172 @@ class ZzNavigationControlsTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void breadcrumbOverflowPreservesLogicalNavigation_data()
+    {
+        QTest::addColumn<bool>("rtl");
+        QTest::newRow("ltr") << false;
+        QTest::newRow("rtl") << true;
+    }
+
+    void breadcrumbOverflowPreservesLogicalNavigation()
+    {
+        QFETCH(bool, rtl);
+        ZzFluentUI::ZzBreadcrumbBar bar;
+        bar.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        bar.setItems({QStringLiteral("Root directory"), QStringLiteral("Documents"),
+            QStringLiteral("Project workspace"), QStringLiteral("Current page")});
+        bar.setCurrentIndex(3);
+        bar.resize(190, 40);
+        bar.show();
+        QCoreApplication::processEvents();
+        auto *overflow = bar.findChild<QToolButton *>(QStringLiteral("zzBreadcrumbOverflow"));
+        QVERIFY(overflow != nullptr);
+        QVERIFY(overflow->isVisible());
+        QVERIFY(!overflow->accessibleName().isEmpty());
+        QMenu *const menu = overflow->menu();
+        QVERIFY(menu != nullptr);
+        QVERIFY(!menu->actions().isEmpty());
+        QToolButton *const last = zzBreadcrumbButton(&bar, 3);
+        QVERIFY(last != nullptr && last->isVisible());
+        QVERIFY(bar.rect().contains(last->geometry()));
+        QVERIFY(!last->geometry().intersects(overflow->geometry()));
+        QSignalSpy requested(&bar, &ZzFluentUI::ZzBreadcrumbBar::indexRequested);
+        for (QAction *action : menu->actions()) {
+            const int index = action->data().toInt();
+            QVERIFY(!zzBreadcrumbButton(&bar, index)->isVisible());
+            QCOMPARE(action->text(), bar.items().at(index));
+        }
+        menu->actions().first()->trigger();
+        QCOMPARE(requested.count(), 1);
+        QCOMPARE(requested.first().first().toInt(), 0);
+        QCOMPARE(bar.currentIndex(), 3);
+        overflow->setFocus();
+        QTest::keyClick(overflow, Qt::Key_End);
+        QVERIFY(last->hasFocus());
+        QTest::keyClick(last, Qt::Key_Home);
+        QVERIFY(overflow->hasFocus());
+        QTest::keyClick(overflow, rtl ? Qt::Key_Left : Qt::Key_Right);
+        QVERIFY(!overflow->hasFocus());
+        bar.resize(1000, 40);
+        QCoreApplication::processEvents();
+        QVERIFY(overflow->isHidden());
+        for (int index = 0; index < 4; ++index) {
+            QVERIFY(zzBreadcrumbButton(&bar, index)->isVisible());
+        }
+        auto *first = zzBreadcrumbButton(&bar, 0);
+        first->setFocus();
+        bar.resize(120, 40);
+        QCoreApplication::processEvents();
+        QVERIFY(overflow->hasFocus());
+    }
+
+    void breadcrumbOverflowReceiverCanRebuildOrDelete_data()
+    {
+        QTest::addColumn<bool>("destroy");
+        QTest::newRow("rebuild") << false;
+        QTest::newRow("destroy") << true;
+    }
+
+    void breadcrumbHandlesTinyWidthsAndFontChanges()
+    {
+        ZzFluentUI::ZzBreadcrumbBar bar;
+        bar.setItems({QStringLiteral("Root"), QStringLiteral("A very long last component")});
+        bar.resize(20, 40);
+        bar.show();
+        QCoreApplication::processEvents();
+        auto *overflow = bar.findChild<QToolButton *>(QStringLiteral("zzBreadcrumbOverflow"));
+        QVERIFY(overflow && overflow->isVisible());
+        QCOMPARE(overflow->menu()->actions().size(), 2);
+        QVERIFY(bar.rect().contains(overflow->geometry()));
+        QVERIFY(!zzBreadcrumbButton(&bar, 1)->isVisible());
+        bar.resize(500, 40);
+        QCoreApplication::processEvents();
+        QVERIFY(overflow->isHidden());
+        QFont large = bar.font();
+        large.setPointSize(40);
+        bar.setFont(large);
+        QCoreApplication::processEvents();
+        QVERIFY(overflow->isVisible());
+        auto *last = zzBreadcrumbButton(&bar, 1);
+        QVERIFY(last->isVisible());
+        QVERIFY(bar.rect().contains(last->geometry()));
+        QCOMPARE(last->accessibleName(), bar.items().last());
+        bar.setItems({QStringLiteral("One extremely long component which must remain accessible")});
+        bar.resize(30, 40);
+        QCoreApplication::processEvents();
+        auto *only = zzBreadcrumbButton(&bar, 0);
+        QVERIFY(only->isVisible());
+        QVERIFY(bar.rect().contains(only->geometry()));
+        QCOMPARE(only->accessibleName(), bar.items().first());
+        QVERIFY(overflow->isHidden());
+        bar.setItems({});
+        QVERIFY(overflow->isHidden());
+        QVERIFY(overflow->menu()->actions().isEmpty());
+    }
+
+    void breadcrumbKeyboardActivationUsesLogicalIndex()
+    {
+        ZzFluentUI::ZzBreadcrumbBar bar;
+        bar.setItems({QStringLiteral("Root"), QStringLiteral("Page")});
+        bar.resize(400, 40);
+        bar.show();
+        QCoreApplication::processEvents();
+        QSignalSpy requested(&bar, &ZzFluentUI::ZzBreadcrumbBar::indexRequested);
+        auto *last = zzBreadcrumbButton(&bar, 1);
+        last->setFocus();
+        QTest::keyClick(last, Qt::Key_Return);
+        QTest::keyClick(last, Qt::Key_Space);
+        QCOMPARE(requested.count(), 2);
+        QCOMPARE(requested.at(0).first().toInt(), 1);
+        QCOMPARE(requested.at(1).first().toInt(), 1);
+        QCOMPARE(bar.currentIndex(), -1);
+        bar.resize(65, 40);
+        QCoreApplication::processEvents();
+        auto *overflow = bar.findChild<QToolButton *>(QStringLiteral("zzBreadcrumbOverflow"));
+        QVERIFY(overflow && overflow->isVisible());
+        auto *menu = overflow->menu();
+        QVERIFY(menu && !menu->actions().isEmpty());
+        QTimer::singleShot(0, menu, [menu] {
+            menu->setActiveAction(menu->actions().first());
+            QTest::keyClick(menu, Qt::Key_Return);
+        });
+        overflow->setFocus();
+        QTest::keyClick(overflow, Qt::Key_Return);
+        QCOMPARE(requested.count(), 3);
+        QCOMPARE(requested.at(2).first().toInt(), 0);
+    }
+
+    void breadcrumbOverflowReceiverCanRebuildOrDelete()
+    {
+        QFETCH(bool, destroy);
+        auto *bar = new ZzFluentUI::ZzBreadcrumbBar;
+        const QPointer<ZzFluentUI::ZzBreadcrumbBar> guard(bar);
+        bar->setItems({QStringLiteral("A long root name"), QStringLiteral("Nested path"),
+            QStringLiteral("Page")});
+        bar->resize(100, 40);
+        bar->show();
+        QCoreApplication::processEvents();
+        auto *overflow = bar->findChild<QToolButton *>(QStringLiteral("zzBreadcrumbOverflow"));
+        QVERIFY(overflow && overflow->menu() && !overflow->menu()->actions().isEmpty());
+        connect(bar, &ZzFluentUI::ZzBreadcrumbBar::indexRequested, this, [bar, destroy] {
+            if (destroy) {
+                delete bar;
+            } else {
+                bar->setItems({QStringLiteral("Replacement")});
+                bar->setCurrentIndex(0);
+            }
+        });
+        overflow->menu()->actions().first()->trigger();
+        if (destroy) {
+            QVERIFY(guard.isNull());
+        } else {
+            QCOMPARE(bar->items(), QStringList{QStringLiteral("Replacement")});
+            QCOMPARE(bar->currentIndex(), 0);
+            QVERIFY(overflow->isHidden());
+            delete bar;
+        }
+    }
+
     void configuresBoundedLargeModelLayout()
     {
         ZzFluentUI::ZzNavigationView view;
@@ -375,16 +543,22 @@ private Q_SLOTS:
         QCOMPARE(requestCount, 1);
         // An input-event sender must survive until its event has unwound.
         QVERIFY(oldButton != nullptr);
-        QVERIFY(oldButton->isHidden());
-        oldButton->click();
-        QCOMPARE(requestCount, 1);
+        if (changeDirection) {
+            // Direction changes now update presentation in place.
+            QCOMPARE(zzBreadcrumbButton(&bar, 0), oldButton.data());
+            QCOMPARE(bar.layoutDirection(), Qt::RightToLeft);
+        } else {
+            QVERIFY(oldButton->isHidden());
+            oldButton->click();
+            QCOMPARE(requestCount, 1);
+        }
         QToolButton *const current = zzBreadcrumbButton(&bar, 1);
         QVERIFY(current != nullptr);
         QVERIFY(current->property("zzBreadcrumbCurrent").toBool());
         QCOMPARE(bar.currentIndex(), 1);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        QVERIFY(oldButton.isNull());
-        QCOMPARE(bar.findChildren<QToolButton *>().size(), 2);
+        QCOMPARE(oldButton.isNull(), !changeDirection);
+        QCOMPARE(bar.findChildren<QToolButton *>().size(), 3);
     }
 
     void keepsBreadcrumbLogicalIndexesAcrossRtl()

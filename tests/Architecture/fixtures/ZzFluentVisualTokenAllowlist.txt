@@ -1,5 +1,4 @@
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/ZzCarouselView.cpp|33|setMinimumSize
-FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzBreadcrumbBarPrivate.cpp|26|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|29|setContentsMargins
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|30|setSpacing
 FLUENT_DIMENSION_MAGIC|ZzFluentUI/widgets/src/private/ZzMessageBarPrivate.cpp|31|setFixedSize
