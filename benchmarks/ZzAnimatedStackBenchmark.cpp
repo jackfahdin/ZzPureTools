@@ -2,6 +2,7 @@
 #include <QtCore/QEvent>
 #include <QtCore/QVariantAnimation>
 #include <QtCore/QTextStream>
+#include <QtGui/QScreen>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QFormLayout>
 #include <QtWidgets/QLabel>
@@ -75,7 +76,8 @@ int main(int argc, char *argv[])
         QTextStream(stderr) << metadata.error().technicalMessage() << '\n';
         return 3;
     }
-    reporter.addEnvironmentMetadata(QStringLiteral("actual_device_pixel_ratio"), stack.devicePixelRatioF());
+    // 报告固定 schema 的 dpr 字段来自屏幕；确认与实际捕获的控件 DPR 一致。
+    if (!qFuzzyCompare(stack.devicePixelRatioF(), stack.screen()->devicePixelRatio())) return 10;
     const auto objectCount = stack.findChildren<QObject *>().size();
     for (int iteration = 0; iteration < 110; ++iteration) {
         QElapsedTimer preparation;
