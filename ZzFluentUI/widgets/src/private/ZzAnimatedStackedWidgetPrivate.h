@@ -3,10 +3,15 @@
 #include <QtCore/QList>
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
+#include <QtGui/QImage>
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include "ZzWidgetTheme.h"
 
+class QVariantAnimation;
+
 namespace ZzFluentUI {
+
+class ZzStackTransitionOverlay;
 
 /** @brief 保留页面稳定身份、快照开关和销毁观察。 */
 struct ZzAnimatedStackPage final
@@ -44,12 +49,20 @@ public:
     void endMutation();
     /** @brief 按最后已通知的身份和索引去重，不吞掉结构重入后的有效提交。 */
     void notifyCurrent();
+    /** @brief 清理动效；环境中断时直接提交最后待切页。 */
+    void finish(bool latest);
+    /** @brief 按内容尺寸捕获已布局的页面，不在帧循环中调用。 */
+    QImage capture(QWidget *page, QSize pixels);
+    /** @brief 判断页面子树能否安全使用普通 QWidget 截图。 */
+    bool canCapture(QWidget *page) const;
     /** @brief 观察页面被外部移动。 */
     bool eventFilter(QObject *watched, QEvent *event) override;
 
     ZzAnimatedStackedWidget *const q;
     ZzWidgetTheme theme;
     QWidget *host;
+    ZzStackTransitionOverlay *overlay;
+    QVariantAnimation *animation;
     QList<ZzAnimatedStackPage> pages;
     QWidget *current = nullptr;
     QWidget *notifiedCurrent = nullptr;
@@ -58,6 +71,11 @@ public:
     int milliseconds = -1;
     quint64 generation = 0;
     bool running = false;
+    bool announced = false;
+    bool preparing = false;
+    bool settling = false;
+    bool restoreFocus = false;
+    QWidget *source = nullptr;
     int mutationDepth = 0;
     bool draining = false;
     QPointer<QWidget> pending;

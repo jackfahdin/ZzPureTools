@@ -2,18 +2,34 @@
 #include <algorithm>
 #include <QtCore/QEvent>
 #include <QtCore/QThread>
+#include <QtCore/QVariantAnimation>
+#include <QtGui/QPainter>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QLayout>
+#include <ZzFluentUI/ZzAnimationPolicy.h>
+#include <ZzFluentUI/ZzMotionToken.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
+#include "ZzStackTransitionOverlay.h"
 
 namespace ZzFluentUI {
 
 ZzAnimatedStackedWidgetPrivate::ZzAnimatedStackedWidgetPrivate(ZzAnimatedStackedWidget *owner)
-    : q(owner), theme(owner), host(new QWidget(owner))
+    : q(owner), theme(owner), host(new QWidget(owner)),
+      overlay(new ZzStackTransitionOverlay(owner)), animation(new QVariantAnimation(owner))
 {
     host->setGeometry(q->contentsRect());
     host->installEventFilter(this);
+    animation->setEasingCurve(QEasingCurve::OutCubic);
+    animation->setStartValue(0.0);
+    animation->setEndValue(1.0);
+    QObject::connect(animation, &QVariantAnimation::valueChanged, this,
+        [this](const QVariant &value) { overlay->setProgress(value.toReal()); });
+    QObject::connect(animation, &QVariantAnimation::finished, this, [this] { finish(false); });
 }
 
 ZzAnimatedStackedWidgetPrivate::~ZzAnimatedStackedWidgetPrivate()
 {
+    animation->stop();
     for (const auto &page : pages) {
         QObject::disconnect(page.destroyed);
         if (page.view) page.view->removeEventFilter(this);
@@ -117,6 +133,7 @@ QWidget *ZzAnimatedStackedWidgetPrivate::remove(QWidget *page, bool detach)
     const auto entry = pages.at(index);
     const QPointer<QWidget> view = entry.view;
     const bool removedCurrent = current == page;
+    const bool involved = (running || preparing) && (removedCurrent || source == page);
     ++mutationDepth;
     ++generation;
     pages.removeAt(index);
@@ -124,6 +141,11 @@ QWidget *ZzAnimatedStackedWidgetPrivate::remove(QWidget *page, bool detach)
     if (view) view->removeEventFilter(this);
     if (pending == page) pending.clear();
     if (removedCurrent) current = pages.isEmpty() ? nullptr : pages.at(std::min(index, static_cast<int>(pages.size()) - 1)).identity;
+    if (involved) {
+        pending.clear();
+        finish(false);
+        if (!guard) return view;
+    }
     if (detach && view) {
         view->hide();
         if (!guard) return nullptr;
@@ -150,17 +172,161 @@ bool ZzAnimatedStackedWidgetPrivate::request(QWidget *page, Direction direction)
     }
     if (current == page) return true;
     const QPointer<ZzAnimatedStackedWidget> guard(q);
+    const QPointer<QWidget> destination(page);
+    const QPointer<QWidget> outgoing(q->currentWidget());
+    const int fromIndex = indexOf(current);
+    const int toIndex = indexOf(page);
+    const auto snapshot = theme.snapshot();
+    const int duration = ZzAnimationPolicy::adjustedDuration(milliseconds < 0
+        ? snapshot->duration(ZzMotionToken::PageTransition) : milliseconds,
+        snapshot->reducedMotion(), false);
+    const QSize pixels = ZzStackTransitionOverlay::boundedPixelSize(q->contentsRect().size(), q->devicePixelRatioF());
+    bool animate = mode != Mode::None && duration > 0 && q->isVisible() && q->isEnabled()
+        && !pixels.isEmpty() && canCapture(outgoing) && canCapture(destination);
     ++mutationDepth;
-    ++generation;
+    const quint64 operation = ++generation;
+    preparing = true;
+    source = outgoing;
+    QWidget *focused = QApplication::focusWidget();
+    restoreFocus = outgoing && focused && (focused == outgoing || outgoing->isAncestorOf(focused));
+    if (restoreFocus && fromIndex >= 0) pages[fromIndex].focus = focused;
+    QImage oldImage;
+    if (animate) oldImage = capture(outgoing, pixels);
+    if (!guard) return true;
+    if (!destination || indexOf(destination) < 0) {
+        preparing = false;
+        source = nullptr;
+        endMutation();
+        return true;
+    }
+    animate = animate && operation == generation && !oldImage.isNull();
     current = page;
     synchronizePages();
     if (!guard) return true;
+    QImage newImage;
+    if (animate && destination && destination == q->currentWidget() && operation == generation) newImage = capture(destination, pixels);
+    if (!guard) return true;
+    preparing = false;
+    animate = animate && operation == generation && !newImage.isNull();
+    if (animate) {
+        bool reverse = direction == Direction::Backward || (direction == Direction::Automatic && toIndex < fromIndex);
+        if (mode == Mode::SlideHorizontal && q->isRightToLeft()) reverse = !reverse;
+        overlay->setGeometry(q->contentsRect());
+        overlay->setFrames(std::move(oldImage), std::move(newImage), mode, reverse);
+        running = true;
+        if (restoreFocus) q->setFocus(Qt::OtherFocusReason);
+        if (!guard) return true;
+        if (running) host->hide();
+        if (!guard) return true;
+        if (running) overlay->show();
+        if (!guard) return true;
+        if (running) overlay->raise();
+        if (!guard) return true;
+    } else {
+        source = nullptr;
+        restoreFocus = false;
+    }
     notifyCurrent();
+    if (!guard) return true;
+    if (running) {
+        announced = true;
+        Q_EMIT q->transitionStarted();
+        if (!guard) return true;
+        if (running) {
+            animation->setDuration(duration);
+            animation->start();
+        }
+    }
     if (guard) endMutation();
     return true;
 }
 
-void ZzAnimatedStackedWidgetPrivate::settle() {}
+bool ZzAnimatedStackedWidgetPrivate::canCapture(QWidget *page) const
+{
+    const int index = indexOf(page);
+    if (index < 0 || !pages.at(index).animationEnabled) return false;
+    auto widgets = page->findChildren<QWidget *>();
+    widgets.prepend(page);
+    for (auto *child : widgets) {
+        if (child->testAttribute(Qt::WA_NativeWindow) || child->inherits("QOpenGLWidget")
+            || child->inherits("QQuickWidget") || child->inherits("QVideoWidget")
+            || child->inherits("QWindowContainer")) return false;
+    }
+    return true;
+}
+
+QImage ZzAnimatedStackedWidgetPrivate::capture(QWidget *page, QSize pixels)
+{
+    const QPointer<ZzAnimatedStackedWidget> guard(q);
+    const QPointer<QWidget> view(page);
+    page->ensurePolished();
+    if (!guard || !view) return {};
+    view->setGeometry(host->rect());
+    if (!guard || !view) return {};
+    if (view->layout()) view->layout()->activate();
+    if (!guard || !view) return {};
+    QImage image(pixels, QImage::Format_ARGB32_Premultiplied);
+    if (image.isNull()) return {};
+    image.setDevicePixelRatio(q->devicePixelRatioF());
+    image.fill(q->palette().color(QPalette::Window));
+    QPainter painter(&image);
+    view->render(&painter, QPoint(), QRegion(), QWidget::DrawWindowBackground | QWidget::DrawChildren);
+    return image;
+}
+
+void ZzAnimatedStackedWidgetPrivate::settle()
+{
+    if (running || preparing) finish(true);
+}
+
+void ZzAnimatedStackedWidgetPrivate::finish(bool latest)
+{
+    if (settling) return;
+    const QPointer<ZzAnimatedStackedWidget> guard(q);
+    ++mutationDepth;
+    ++generation;
+    settling = true;
+    preparing = false;
+    const bool notify = announced;
+    const bool focusOwned = restoreFocus && q->hasFocus();
+    announced = false;
+    running = false;
+    restoreFocus = false;
+    source = nullptr;
+    animation->stop();
+    overlay->hide();
+    if (!guard) return;
+    overlay->clear();
+    if (latest && pending && indexOf(pending) >= 0) { current = pending; pending.clear(); }
+    host->show();
+    if (!guard) return;
+    synchronizePages();
+    if (!guard) return;
+    if (focusOwned && q->isVisible() && q->isEnabled() && q->isActiveWindow()) {
+        const int index = indexOf(current);
+        QPointer<QWidget> target = q->currentWidget();
+        QPointer<QWidget> focus = index >= 0 ? pages.at(index).focus : nullptr;
+        if (!focus || !target || !target->isAncestorOf(focus) || !focus->isVisible() || !focus->isEnabled()) {
+            focus.clear();
+            if (target) {
+                QWidget *candidate = target;
+                do {
+                    if (candidate->isVisible() && candidate->isEnabled()
+                        && (candidate->focusPolicy() & Qt::TabFocus)
+                        && (candidate == target || target->isAncestorOf(candidate))) { focus = candidate; break; }
+                    candidate = candidate->nextInFocusChain();
+                } while (candidate != target);
+            }
+        }
+        if (focus) focus->setFocus(Qt::OtherFocusReason);
+        if (!guard) return;
+    }
+    settling = false;
+    notifyCurrent();
+    if (!guard) return;
+    if (notify) Q_EMIT q->transitionFinished();
+    if (guard) endMutation();
+}
 
 bool ZzAnimatedStackedWidgetPrivate::eventFilter(QObject *watched, QEvent *event)
 {

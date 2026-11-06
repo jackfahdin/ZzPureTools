@@ -138,6 +138,7 @@ set(zz_fluent_ui_sources
     widgets/src/ZzExpander.cpp
     widgets/src/ZzAnimatedStackedWidget.cpp
     widgets/src/private/ZzAnimatedStackedWidgetPrivate.cpp
+    widgets/src/private/ZzStackTransitionOverlay.cpp
     widgets/src/private/ZzExpanderPrivate.cpp
     widgets/src/ZzPivot.cpp
     widgets/src/private/ZzPivotPrivate.cpp

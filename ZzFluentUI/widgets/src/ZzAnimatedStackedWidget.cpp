@@ -79,9 +79,31 @@ bool ZzAnimatedStackedWidget::isPageAnimationEnabled(QWidget *page) const noexce
 }
 bool ZzAnimatedStackedWidget::event(QEvent *event)
 {
-    if (d_ptr && (event->type() == QEvent::Resize || event->type() == QEvent::ContentsRectChange)) {
+    if (d_ptr) {
         const QPointer<ZzAnimatedStackedWidget> guard(this);
-        d_ptr->synchronizePages();
+        switch (event->type()) {
+        case QEvent::Resize:
+        case QEvent::ContentsRectChange:
+        case QEvent::Hide:
+        case QEvent::EnabledChange:
+        case QEvent::WindowDeactivate:
+        case QEvent::StyleChange:
+        case QEvent::PaletteChange:
+        case QEvent::FontChange:
+        case QEvent::LanguageChange:
+        case QEvent::LayoutDirectionChange:
+        case QEvent::DevicePixelRatioChange:
+            d_ptr->settle();
+            if (!guard) return true;
+            d_ptr->theme.refreshFallback();
+            break;
+        case QEvent::KeyPress:
+        case QEvent::KeyRelease:
+            if (d_ptr->running) { event->accept(); return true; }
+            break;
+        default: break;
+        }
+        if (event->type() == QEvent::Resize || event->type() == QEvent::ContentsRectChange) d_ptr->synchronizePages();
         if (!guard) return true;
     }
     return QWidget::event(event);

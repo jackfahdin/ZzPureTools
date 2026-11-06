@@ -1,4 +1,9 @@
 #include <QtCore/QPointer>
+#include <QtCore/QVariantAnimation>
+#include <QtGui/QPainter>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPushButton>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QWidget>
@@ -6,8 +11,29 @@
 #include <functional>
 
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzThemeController.h>
 
 using ZzStack = ZzFluentUI::ZzAnimatedStackedWidget;
+
+/** @brief 提供可按像素验证的页面，并统计实际绘制次数。 */
+class ZzStackColorPage final : public QWidget
+{
+public:
+    explicit ZzStackColorPage(QColor value) : color(value) {}
+    QColor color;
+    int paints = 0;
+    std::function<void()> onPaint;
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        ++paints;
+        QPainter painter(this);
+        painter.fillRect(rect(), color);
+        const auto callback = onPaint;
+        if (callback) callback();
+    }
+};
 
 /** @brief 在真实 Qt 事件中重入容器，验证事务边界。 */
 class ZzStackEventPage final : public QWidget
@@ -29,6 +55,178 @@ class ZzAnimatedStackedWidgetTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void rendersSlideAndFade_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<bool>("rtl");
+        QTest::addColumn<bool>("backward");
+        for (int mode = 1; mode <= 3; ++mode) for (bool rtl : {false, true}) for (bool backward : {false, true}) {
+            QTest::newRow(qPrintable(QStringLiteral("%1-%2-%3").arg(mode).arg(rtl).arg(backward))) << mode << rtl << backward;
+        }
+    }
+
+    void rendersSlideAndFade()
+    {
+        QFETCH(int, mode);
+        QFETCH(bool, rtl);
+        QFETCH(bool, backward);
+        ZzStack stack;
+        stack.setContentsMargins(7, 9, 11, 13);
+        stack.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        stack.setTransitionMode(static_cast<ZzStack::ZzTransitionMode>(mode));
+        stack.setDuration(200);
+        auto *red = new ZzStackColorPage(Qt::red);
+        auto *blue = new ZzStackColorPage(Qt::blue);
+        stack.addWidget(red);
+        stack.addWidget(blue);
+        stack.resize(218, 122);
+        stack.show();
+        QCoreApplication::processEvents();
+        QSignalSpy started(&stack, &ZzStack::transitionStarted);
+        QSignalSpy finished(&stack, &ZzStack::transitionFinished);
+        QVERIFY(stack.setCurrentIndex(1, backward ? ZzStack::ZzTransitionDirection::Backward : ZzStack::ZzTransitionDirection::Forward));
+        QCOMPARE(stack.currentWidget(), blue);
+        QVERIFY(stack.isTransitionRunning());
+        QCOMPARE(started.count(), 1);
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        QVERIFY(animation);
+        animation->pause();
+        animation->setCurrentTime(100);
+        const int previousPaints = red->paints + blue->paints;
+        const QImage frame = stack.grab().toImage();
+        QCOMPARE(red->paints + blue->paints, previousPaints);
+        const qreal dpr = frame.devicePixelRatio();
+        const auto pixel = [&](int x, int y) { return frame.pixelColor(qRound(x * dpr), qRound(y * dpr)); };
+        if (mode == 3) {
+            const QColor color = pixel(100, 50);
+            QVERIFY(qAbs(color.red() - 32) <= 2);
+            QVERIFY(qAbs(color.blue() - 223) <= 2);
+        } else {
+            const bool reverse = backward != (mode == 1 && rtl);
+            const QColor leading = mode == 1 ? pixel(12, 50) : pixel(100, 12);
+            const QColor trailing = mode == 1 ? pixel(202, 50) : pixel(100, 105);
+            QCOMPARE(leading, QColor(reverse ? Qt::blue : Qt::red));
+            QCOMPARE(trailing, QColor(reverse ? Qt::red : Qt::blue));
+        }
+        animation->setCurrentTime(200);
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(finished.count(), 1);
+        QVERIFY(blue->isVisible());
+        QVERIFY(!red->isVisible());
+    }
+
+    void coalescesLatestDestination()
+    {
+        ZzStack stack;
+        for (auto color : {Qt::red, Qt::blue, Qt::green, Qt::yellow}) stack.addWidget(new ZzStackColorPage(color));
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        QSignalSpy changed(&stack, &ZzStack::currentChanged);
+        stack.setCurrentIndex(1);
+        QVERIFY(stack.isTransitionRunning());
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        QVERIFY(animation);
+        animation->pause();
+        stack.setCurrentIndex(2);
+        stack.setCurrentIndex(3);
+        QVERIFY(!stack.setCurrentIndex(99));
+        QCOMPARE(stack.currentIndex(), 1);
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(stack.currentIndex(), 3);
+        QVERIFY(stack.isTransitionRunning());
+        animation->pause();
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(changed.count(), 2);
+        QCOMPARE(changed.at(1).at(0).toInt(), 3);
+        QCOMPARE(stack.findChildren<QVariantAnimation *>().size(), 1);
+    }
+
+    void skipsSnapshotsForReducedMotionAndOptOut()
+    {
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzStack stack;
+        stack.setStyle(&style);
+        stack.addWidget(new ZzStackColorPage(Qt::red));
+        stack.addWidget(new ZzStackColorPage(Qt::blue));
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        controller.setReducedMotion(true);
+        QSignalSpy started(&stack, &ZzStack::transitionStarted);
+        stack.setCurrentIndex(1);
+        QVERIFY(!stack.isTransitionRunning());
+        controller.setReducedMotion(false);
+        stack.setPageAnimationEnabled(stack.widget(0), false);
+        stack.setCurrentIndex(0);
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(started.count(), 0);
+    }
+
+    void settlesOnEnvironmentChange_data()
+    {
+        QTest::addColumn<int>("change");
+        for (int i = 0; i < 8; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
+    }
+
+    void settlesOnEnvironmentChange()
+    {
+        QFETCH(int, change);
+        ZzStack stack;
+        for (auto color : {Qt::red, Qt::blue, Qt::green}) stack.addWidget(new ZzStackColorPage(color));
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        stack.setCurrentIndex(1);
+        QVERIFY(stack.isTransitionRunning());
+        stack.setCurrentIndex(2);
+        QSignalSpy finished(&stack, &ZzStack::transitionFinished);
+        switch (change) {
+        case 0: stack.resize(220, 120); break;
+        case 1: stack.hide(); break;
+        case 2: stack.setEnabled(false); break;
+        case 3: stack.setLayoutDirection(Qt::RightToLeft); break;
+        case 4: stack.setDuration(0); break;
+        case 5: stack.setTransitionMode(ZzStack::ZzTransitionMode::None); break;
+        case 6: { QEvent event(QEvent::WindowDeactivate); QApplication::sendEvent(&stack, &event); break; }
+        case 7: { QEvent event(QEvent::DevicePixelRatioChange); QApplication::sendEvent(&stack, &event); break; }
+        }
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(stack.currentIndex(), 2);
+        QCOMPARE(finished.count(), 1);
+    }
+
+    void signalReceiverCanDeleteStack_data()
+    {
+        QTest::addColumn<int>("signal");
+        for (int i = 0; i < 3; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
+    }
+
+    void signalReceiverCanDeleteStack()
+    {
+        QFETCH(int, signal);
+        auto *stack = new ZzStack;
+        QPointer<ZzStack> guard(stack);
+        stack->addWidget(new ZzStackColorPage(Qt::red));
+        stack->addWidget(new ZzStackColorPage(Qt::blue));
+        stack->resize(200, 100);
+        stack->show();
+        QCoreApplication::processEvents();
+        if (signal == 0) connect(stack, &ZzStack::currentChanged, this, [stack] { delete stack; });
+        if (signal == 1) connect(stack, &ZzStack::transitionStarted, this, [stack] { delete stack; });
+        if (signal == 2) connect(stack, &ZzStack::transitionFinished, this, [stack] { delete stack; });
+        stack->setCurrentIndex(1);
+        if (signal == 2) {
+            QVERIFY(guard);
+            auto *animation = stack->findChild<QVariantAnimation *>();
+            QVERIFY(animation);
+            animation->setCurrentTime(animation->duration());
+        }
+        QVERIFY(guard.isNull());
+    }
+
     void showCallbackPreservesCurrentNotification()
     {
         ZzStack stack;
