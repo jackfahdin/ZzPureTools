@@ -66,6 +66,32 @@ class ZzAnimatedStackedWidgetTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void captureFallbackRestoresTargetFocus()
+    {
+        ZzStack stack;
+        auto *first = new QLineEdit;
+        auto *second = new ZzStackColorPage(Qt::blue);
+        auto *layout = new QVBoxLayout(second);
+        auto *input = new QLineEdit;
+        layout->addWidget(input);
+        stack.addWidget(first);
+        stack.addWidget(second);
+        stack.resize(200, 100);
+        stack.show();
+        stack.activateWindow();
+        ZZ_VERIFY_EVENTUALLY(stack.isActiveWindow());
+        first->setFocus();
+        bool once = false;
+        second->onPaint = [&] {
+            if (!once) { once = true; stack.addWidget(new QWidget); }
+        };
+        stack.setCurrentIndex(1);
+        QVERIFY(once);
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(stack.currentWidget(), second);
+        QVERIFY(input->hasFocus());
+    }
+
     void signalCallbacksCanRemovePages_data()
     {
         QTest::addColumn<int>("signal");

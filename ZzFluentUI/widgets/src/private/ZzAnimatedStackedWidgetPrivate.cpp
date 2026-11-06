@@ -228,9 +228,15 @@ bool ZzAnimatedStackedWidgetPrivate::request(QWidget *page, Direction direction)
         if (!guard) return true;
     } else {
         source = nullptr;
-        restoreFocus = false;
         oldImage = {};
         newImage = {};
+        // 捕获失败也要归还已临时接管的焦点，且沿用“不抢外部焦点”的检查。
+        if (restoreFocus && q->hasFocus()) {
+            finish(false);
+            if (!guard) return true;
+        } else {
+            restoreFocus = false;
+        }
     }
     notifyCurrent();
     if (!guard) return true;
