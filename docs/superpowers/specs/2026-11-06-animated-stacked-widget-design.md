@@ -1,6 +1,6 @@
 # 带动画的页面容器设计
 
-**状态：** 供审阅的设计草案；本轮仅形成计划，不表示组件已实现。
+**状态：** 独立组件与示例接入已实现；实测范围见[使用与验收记录](../../development/ANIMATED_STACK_ZH.md)。
 
 **核对基点：** `cd41d79`，Qt 6.8+、C++20、Linux 优先，Windows／macOS 保留原生验收。
 
@@ -149,9 +149,12 @@ stateDiagram-v2
 
 ## 5. 绘制、方向、输入与可访问性
 
-- 私有结构：一个真实内容宿主及 QStackedLayout，一个覆盖层、一个 QVariantAnimation。
+- 私有结构：一个受保护的普通 QWidget 内容宿主、一个覆盖层、一个 QVariantAnimation。
   内容宿主与覆盖层作为兄弟对象；动画时隐藏真实宿主并保留布局尺寸，
   结束后恢复宿主。不能把覆盖层放在被隐藏的宿主下面。
+  实现时替换了原定的 QStackedLayout：Qt 的切页过程在旧页 Hide 回调后仍操作旧局部目标，
+  无法安全承受同步重入和删除。现由 QPointer、修改深度与代次保护几何／显隐操作，
+  聚合页面尺寸提示并转发宿主 LayoutRequest；相关场景有失败复现及修复回归。
 - 覆盖层由私有 `ZzStackTransitionOverlay` 自绘两张 `QImage::Format_ARGB32_Premultiplied`，
   不使用两个 QLabel、QGraphicsOpacityEffect、动画组或每帧页面 render。
   图像填充当前容器背景后合成页面，透明子控件应按最终背景呈现。
@@ -239,4 +242,4 @@ SlideVertical，保持 `zzExampleNavigationPages`、五个页面名称、布局�
 - CI 配置阶段八项契约必须运行，尤其 `platform.gate-script-contract`，
   增加构建路径时同步嵌套构建次数与并行度限制。
 - 当前工作流：本地 master、线性小提交，文档最后提交，不创建分支、不推送、
-  不访问 `docs/research`，不改第三方源码。用户当前授权仅为编写本设计和计划。
+  不访问 `docs/research`，不改第三方源码。用户在计划后以“开始吧”授权首版实现。
