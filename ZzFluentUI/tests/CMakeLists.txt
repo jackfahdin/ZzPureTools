@@ -695,8 +695,17 @@ set_tests_properties(fluent.teaching-tip PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
-add_executable(ZzAnimatedStackedWidgetTest ZzAnimatedStackedWidgetTest.cpp)
+add_executable(ZzAnimatedStackedWidgetTest ZzAnimatedStackedWidgetTest.cpp
+    ../widgets/src/private/ZzStackTransitionOverlay.cpp)
 target_link_libraries(ZzAnimatedStackedWidgetTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+foreach(zz_stack_optional_module IN ITEMS OpenGLWidgets QuickWidgets MultimediaWidgets)
+    find_package(Qt6 6.8 QUIET OPTIONAL_COMPONENTS ${zz_stack_optional_module})
+    if(TARGET Qt6::${zz_stack_optional_module})
+        target_link_libraries(ZzAnimatedStackedWidgetTest PRIVATE Qt6::${zz_stack_optional_module})
+        target_compile_definitions(ZzAnimatedStackedWidgetTest PRIVATE
+            ZZ_STACK_HAS_${zz_stack_optional_module}=1)
+    endif()
+endforeach()
 set_target_properties(ZzAnimatedStackedWidgetTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzAnimatedStackedWidgetTest)
 zz_enable_sanitizers(ZzAnimatedStackedWidgetTest)

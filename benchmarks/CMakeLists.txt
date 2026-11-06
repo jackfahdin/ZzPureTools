@@ -107,6 +107,11 @@ zz_add_benchmark(ZzThemeSwitchBenchmark
     ZzThemeSwitchBenchmark.cpp benchmark.theme-switch)
 zz_add_benchmark(ZzAnimationBenchmark
     ZzAnimationBenchmark.cpp benchmark.animation)
+zz_add_benchmark(ZzAnimatedStackBenchmark
+    ZzAnimatedStackBenchmark.cpp benchmark.animated-stack)
+target_link_libraries(ZzAnimatedStackBenchmark PRIVATE Zz::FluentUI)
+target_sources(ZzAnimatedStackBenchmark PRIVATE
+    ../ZzFluentUI/widgets/src/private/ZzStackTransitionOverlay.cpp)
 zz_add_benchmark(ZzLargeModelBenchmark
     ZzLargeModelBenchmark.cpp benchmark.large-model)
 zz_add_benchmark(ZzWindowLifecycleBenchmark

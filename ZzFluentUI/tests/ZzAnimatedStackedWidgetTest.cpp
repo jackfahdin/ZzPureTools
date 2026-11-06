@@ -14,6 +14,16 @@
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include "../widgets/src/private/ZzStackTransitionOverlay.h"
+#if defined(ZZ_STACK_HAS_OpenGLWidgets)
+#include <QtOpenGLWidgets/QOpenGLWidget>
+#endif
+#if defined(ZZ_STACK_HAS_QuickWidgets)
+#include <QtQuickWidgets/QQuickWidget>
+#endif
+#if defined(ZZ_STACK_HAS_MultimediaWidgets)
+#include <QtMultimediaWidgets/QVideoWidget>
+#endif
 
 using ZzStack = ZzFluentUI::ZzAnimatedStackedWidget;
 
@@ -56,6 +66,105 @@ class ZzAnimatedStackedWidgetTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void signalCallbacksCanRemovePages_data()
+    {
+        QTest::addColumn<int>("signal");
+        QTest::addColumn<int>("action");
+        for (int signal = 0; signal < 3; ++signal) for (int action = 0; action < 3; ++action)
+            QTest::newRow(qPrintable(QStringLiteral("%1-%2").arg(signal).arg(action))) << signal << action;
+    }
+
+    void signalCallbacksCanRemovePages()
+    {
+        QFETCH(int, signal);
+        QFETCH(int, action);
+        QWidget external;
+        ZzStack stack;
+        for (int i = 0; i < 4; ++i) stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        bool once = false;
+        const auto callback = [&] {
+            if (once) return;
+            once = true;
+            auto *page = stack.currentWidget();
+            if (action == 0) delete page;
+            if (action == 1) delete stack.takeWidget(page);
+            if (action == 2) page->setParent(&external);
+            stack.setCurrentIndex(stack.count() - 1);
+        };
+        if (signal == 0) connect(&stack, &ZzStack::currentChanged, &stack, callback);
+        if (signal == 1) connect(&stack, &ZzStack::transitionStarted, &stack, callback);
+        if (signal == 2) connect(&stack, &ZzStack::transitionFinished, &stack, callback);
+        QSignalSpy started(&stack, &ZzStack::transitionStarted);
+        QSignalSpy finished(&stack, &ZzStack::transitionFinished);
+        stack.setCurrentIndex(1);
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        for (int i = 0; i < 3 && stack.isTransitionRunning(); ++i)
+            animation->setCurrentTime(animation->duration());
+        QVERIFY(once);
+        QCOMPARE(stack.count(), 3);
+        QCOMPARE(stack.currentIndex(), 2);
+        QVERIFY(stack.currentWidget()->isVisible());
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(started.count(), finished.count());
+    }
+
+    void enforcesAllocationBudgetBeforeAllocating()
+    {
+        using Overlay = ZzFluentUI::ZzStackTransitionOverlay;
+        QCOMPARE(Overlay::boundedPixelSize(QSize(1280, 720), 1.5), QSize(1920, 1080));
+        QCOMPARE(Overlay::boundedPixelSize(QSize(4096, 2048), 1), QSize(4096, 2048));
+        QVERIFY(Overlay::boundedPixelSize(QSize(4096, 2049), 1).isEmpty());
+        QVERIFY(Overlay::boundedPixelSize(QSize(INT_MAX, INT_MAX), 2).isEmpty());
+        QVERIFY(Overlay::boundedPixelSize(QSize(1, 1), std::numeric_limits<qreal>::infinity()).isEmpty());
+        QVERIFY(Overlay::boundedPixelSize(QSize(1, 1), std::numeric_limits<qreal>::quiet_NaN()).isEmpty());
+        QVERIFY(Overlay::boundedPixelSize(QSize(1, 1), 0).isEmpty());
+    }
+
+    void keepsResourcesBounded()
+    {
+        ZzStack stack;
+        auto *red = new ZzStackColorPage(Qt::red);
+        auto *blue = new ZzStackColorPage(Qt::blue);
+        stack.addWidget(red);
+        stack.addWidget(blue);
+        stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        auto *overlay = static_cast<ZzFluentUI::ZzStackTransitionOverlay *>(
+            stack.findChild<QWidget *>(QStringLiteral("zzAnimatedStackOverlay")));
+        QVERIFY(overlay);
+        const auto initialObjects = stack.findChildren<QObject *>().size();
+        for (int i = 0; i < 1000; ++i) {
+            stack.setCurrentIndex((i + 1) % 2);
+            QVERIFY(stack.isTransitionRunning());
+            QVERIFY(overlay->retainedBytes() > 0);
+            QVERIFY(overlay->retainedBytes() <= 64 * 1024 * 1024);
+            animation->pause();
+            const int paints = red->paints + blue->paints;
+            for (int t = 1; t < 5; ++t) {
+                animation->setCurrentTime(animation->duration() * t / 5);
+                const auto frame = stack.grab();
+                QVERIFY(!frame.isNull());
+            }
+            QCOMPARE(red->paints + blue->paints, paints);
+            animation->setCurrentTime(animation->duration());
+            QCOMPARE(overlay->retainedBytes(), 0);
+        }
+        stack.setCurrentIndex(1);
+        for (int i = 0; i < 100; ++i) stack.setCurrentIndex(i % 2 == 0 ? 0 : 2);
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(stack.currentIndex(), 2);
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(overlay->retainedBytes(), 0);
+        QCOMPARE(stack.findChildren<QVariantAnimation *>().size(), 1);
+        QCOMPARE(stack.findChildren<QObject *>().size(), initialObjects);
+    }
+
     void clearsPendingForCurrentTarget()
     {
         ZzStack stack;
@@ -383,6 +492,15 @@ private Q_SLOTS:
     {
         QTest::addColumn<int>("reason");
         for (int i = 0; i < 5; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
+#if defined(ZZ_STACK_HAS_OpenGLWidgets)
+        QTest::newRow("OpenGL") << 5;
+#endif
+#if defined(ZZ_STACK_HAS_QuickWidgets)
+        QTest::newRow("Quick") << 6;
+#endif
+#if defined(ZZ_STACK_HAS_MultimediaWidgets)
+        QTest::newRow("Video") << 7;
+#endif
     }
 
     void skipsIneligibleSnapshots()
@@ -400,6 +518,15 @@ private Q_SLOTS:
         case 2: stack.hide(); break;
         case 3: stack.setDuration(0); break;
         case 4: stack.setTransitionMode(ZzStack::ZzTransitionMode::None); break;
+#if defined(ZZ_STACK_HAS_OpenGLWidgets)
+        case 5: new QOpenGLWidget(stack.widget(1)); break;
+#endif
+#if defined(ZZ_STACK_HAS_QuickWidgets)
+        case 6: new QQuickWidget(stack.widget(1)); break;
+#endif
+#if defined(ZZ_STACK_HAS_MultimediaWidgets)
+        case 7: new QVideoWidget(stack.widget(1)); break;
+#endif
         }
         QSignalSpy started(&stack, &ZzStack::transitionStarted);
         stack.setCurrentIndex(1);

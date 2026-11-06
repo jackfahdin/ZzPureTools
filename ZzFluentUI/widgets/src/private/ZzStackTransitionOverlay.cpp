@@ -1,6 +1,4 @@
 #include "ZzStackTransitionOverlay.h"
-#include <cmath>
-#include <limits>
 #include <utility>
 #include <QtCore/QEvent>
 #include <QtGui/QPainter>
@@ -13,17 +11,6 @@ ZzStackTransitionOverlay::ZzStackTransitionOverlay(QWidget *parent) : QWidget(pa
     setFocusPolicy(Qt::NoFocus);
     setAttribute(Qt::WA_AcceptTouchEvents);
     hide();
-}
-
-QSize ZzStackTransitionOverlay::boundedPixelSize(QSize logical, qreal dpr)
-{
-    if (logical.isEmpty() || !std::isfinite(dpr) || dpr <= 0) return {};
-    const qreal width = std::ceil(logical.width() * dpr);
-    const qreal height = std::ceil(logical.height() * dpr);
-    constexpr qreal maximumBytes = 64.0 * 1024.0 * 1024.0;
-    if (width > std::numeric_limits<int>::max() || height > std::numeric_limits<int>::max()
-        || width * height * 8.0 > maximumBytes) return {};
-    return QSize(static_cast<int>(width), static_cast<int>(height));
 }
 
 void ZzStackTransitionOverlay::setFrames(QImage outgoing, QImage incoming, Mode mode, bool reverse)

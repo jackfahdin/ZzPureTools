@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+#include <limits>
 #include <QtGui/QImage>
 #include <QtWidgets/QWidget>
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
@@ -14,7 +16,16 @@ public:
     /** @brief 创建无焦点的私有覆盖层。 */
     explicit ZzStackTransitionOverlay(QWidget *parent);
     /** @brief 验证两张 ARGB32 图像不超过 64 MiB，并返回物理尺寸。 */
-    static QSize boundedPixelSize(QSize logical, qreal dpr);
+    static QSize boundedPixelSize(QSize logical, qreal dpr)
+    {
+        if (logical.isEmpty() || !std::isfinite(dpr) || dpr <= 0) return {};
+        const qreal width = std::ceil(logical.width() * dpr);
+        const qreal height = std::ceil(logical.height() * dpr);
+        constexpr qreal maximumBytes = 64.0 * 1024.0 * 1024.0;
+        if (width > std::numeric_limits<int>::max() || height > std::numeric_limits<int>::max()
+            || width * height * 8.0 > maximumBytes) return {};
+        return QSize(static_cast<int>(width), static_cast<int>(height));
+    }
     /** @brief 接管已通过预算检查的图像。 */
     void setFrames(QImage outgoing, QImage incoming, Mode mode, bool reverse);
     /** @brief 更新归一化绘制进度。 */
