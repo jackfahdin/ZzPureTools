@@ -54,6 +54,7 @@ set(zz_installed_header_specs
     "Zz::FluentUI|ZzFluentUI/ZzDockPanel.h"
     "Zz::FluentUI|ZzFluentUI/ZzPivot.h"
     "Zz::FluentUI|ZzFluentUI/ZzSplitButton.h"
+    "Zz::FluentUI|ZzFluentUI/ZzAnimatedStackedWidget.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreVersion.h"
     "Zz::AppCore|ZzPureTools/ZzAppCoreExport.h"
     "Zz::PureTools|ZzPureTools/ZzPureToolsVersion.h"

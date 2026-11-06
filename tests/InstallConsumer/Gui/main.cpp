@@ -38,6 +38,7 @@
 #include <QtWidgets/QTreeView>
 
 #include <ZzFluentUI/ZzActionCard.h>
+#include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include <ZzFluentUI/ZzAudioSpectrum.h>
 #include <ZzFluentUI/ZzActivityArea.h>
 #include <ZzFluentUI/ZzActivityBar.h>
@@ -98,6 +99,18 @@
 
 int main(int argc, char *argv[]) {
   QApplication application(argc, argv);
+  ZzFluentUI::ZzAnimatedStackedWidget animatedPages;
+  animatedPages.setTransitionMode(ZzFluentUI::ZzAnimatedStackedWidget::ZzTransitionMode::None);
+  auto *firstAnimatedPage = new QWidget;
+  auto *secondAnimatedPage = new QWidget;
+  if (animatedPages.addWidget(firstAnimatedPage) != 0
+      || animatedPages.addWidget(secondAnimatedPage) != 1
+      || !animatedPages.setCurrentIndex(1)
+      || animatedPages.currentWidget() != secondAnimatedPage
+      || animatedPages.takeWidget(firstAnimatedPage) != firstAnimatedPage
+      || firstAnimatedPage->parent() != nullptr
+      || animatedPages.currentIndex() != 0) return 91;
+  delete firstAnimatedPage;
   // Exercise the installed public API and private FFT linkage in both SDK modes.
   ZzFluentUI::ZzAudioSpectrum spectrum;
   spectrum.setAnimationEnabled(false);
