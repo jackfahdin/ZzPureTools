@@ -32,6 +32,7 @@ enum class ZzSegoeIcon : char16_t
     Color = 0xe790,
     Equalizer = 0xe9e9,
     ChevronDown = 0xe70d,
+    ChevronDownMed = 0xe972,
     More = 0xe712,
     ChevronLeft = 0xe76b,
     ChevronRight = 0xe76c

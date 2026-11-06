@@ -97,6 +97,9 @@ Q_SIGNALS:
     void contentWidgetChanged(QWidget *widget);
 
 protected:
+    /** @brief 绘制标题与可见内容共用的连续卡片及单层分隔线。 */
+    void paintEvent(QPaintEvent *event) override;
+
     /** @brief 在内容布局请求期间重定向正在运行的展开动画。 */
     bool event(QEvent *event) override;
 

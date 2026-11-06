@@ -8,14 +8,19 @@
 #include <QtCore/QVariantAnimation>
 #include <QtGui/QFont>
 #include <QtGui/QKeyEvent>
+#include <QtGui/QPainter>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QSizePolicy>
+#include <QtWidgets/QStyle>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
 #include <ZzFluentUI/ZzAnimationPolicy.h>
 #include <ZzFluentUI/ZzExpander.h>
+#include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzFluentPainter.h>
+#include <ZzFluentUI/ZzSegoeIconFont.h>
 #include <ZzFluentUI/ZzMetricToken.h>
 #include <ZzFluentUI/ZzMotionToken.h>
 #include <ZzFluentUI/ZzThemeSnapshot.h>
@@ -30,12 +35,80 @@ class ZzExpanderHeaderButton final : public QToolButton
 {
 public:
     /** @brief 创建由 Expander 固定拥有的 header 按钮。 */
-    explicit ZzExpanderHeaderButton(QWidget *parent)
-        : QToolButton(parent)
+    explicit ZzExpanderHeaderButton(ZzExpanderPrivate *state)
+        : QToolButton(state->q_ptr)
+        , state_(state)
     {
+        setAttribute(Qt::WA_Hover);
+    }
+
+    /** @brief 为尾端 Chevron 预留空间，标题过长时允许布局收窄。 */
+    QSize sizeHint() const override
+    {
+        const auto snapshot = state_->theme.snapshot();
+        const int padding = qCeil(snapshot->metric(ZzMetricToken::HorizontalPadding));
+        const int extent = qCeil(snapshot->metric(ZzMetricToken::ControlHeight));
+        const int vertical = qCeil(snapshot->metric(ZzMetricToken::VerticalPadding));
+        return QSize(fontMetrics().size(Qt::TextShowMnemonic | Qt::TextSingleLine, text()).width()
+                + extent + 3 * padding,
+            std::max(extent + 2 * vertical, fontMetrics().height() + 2 * vertical));
+    }
+
+    /** @brief 最小宽度容纳箭头和内边距，不强迫长标题撑宽窗口。 */
+    QSize minimumSizeHint() const override
+    {
+        const auto snapshot = state_->theme.snapshot();
+        return QSize(qCeil(snapshot->metric(ZzMetricToken::ControlHeight)
+            + 3 * snapshot->metric(ZzMetricToken::HorizontalPadding)), sizeHint().height());
     }
 
 protected:
+    /** @brief 绘制尾端字体箭头、局部悬停反馈、省略标题与焦点环。 */
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event)
+        const auto snapshot = state_->theme.snapshot();
+        const qreal padding = snapshot->metric(ZzMetricToken::HorizontalPadding);
+        const qreal extent = snapshot->metric(ZzMetricToken::ControlHeight);
+        const qreal trailing = snapshot->metric(ZzMetricToken::VerticalPadding);
+        const QRectF chevron(isRightToLeft() ? trailing : width() - trailing - extent,
+            (height() - extent) / 2.0, extent, extent);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        if (isEnabled() && (underMouse() || isDown())) {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(snapshot->color(isDown()
+                ? ZzColorToken::ControlFillPressed : ZzColorToken::ControlFillHover));
+            const qreal radius = snapshot->metric(ZzMetricToken::CornerRadiusSmall);
+            painter.drawRoundedRect(chevron, radius, radius);
+        }
+        const QColor foreground = snapshot->color(isEnabled()
+            ? ZzColorToken::TextPrimary : ZzColorToken::TextSecondary);
+        painter.setPen(foreground);
+        const QRectF textRect(isRightToLeft() ? chevron.right() + padding : padding, 0,
+            std::max<qreal>(0, width() - extent - trailing - 2 * padding), height());
+        painter.setFont(font());
+        int textFlags = Qt::AlignVCenter | Qt::TextSingleLine | Qt::TextShowMnemonic
+            | (isRightToLeft() ? Qt::AlignRight : Qt::AlignLeft);
+        if (!style()->styleHint(QStyle::SH_UnderlineShortcut, nullptr, this)) {
+            textFlags |= Qt::TextHideMnemonic;
+        }
+        painter.drawText(textRect, textFlags,
+            fontMetrics().elidedText(text(), Qt::ElideRight, qFloor(textRect.width()),
+                Qt::TextShowMnemonic));
+        painter.save();
+        painter.translate(chevron.center());
+        painter.rotate(180.0 * state_->expansionProgress);
+        painter.setFont(ZzSegoeIconFont::font(qCeil(snapshot->metric(ZzMetricToken::IconSmall))));
+        painter.drawText(QRectF(-extent / 2, -extent / 2, extent, extent), Qt::AlignCenter,
+            QString(QChar(static_cast<char16_t>(ZzSegoeIcon::ChevronDownMed))));
+        painter.restore();
+        if (hasFocus()) {
+            ZzFluentPainter::drawFocusRing(&painter, QRectF(rect()).adjusted(3, 3, -3, -3),
+                *snapshot, devicePixelRatioF());
+        }
+    }
+
     /** @brief 使用 Enter 或 Return 时执行一次 click，其他按键沿用 Qt。 */
     void keyPressEvent(QKeyEvent *event) override
     {
@@ -48,6 +121,9 @@ protected:
         }
         QToolButton::keyPressEvent(event);
     }
+
+private:
+    ZzExpanderPrivate *const state_;
 };
 
 } // namespace
@@ -55,7 +131,7 @@ protected:
 ZzExpanderPrivate::ZzExpanderPrivate(ZzExpander *q)
     : q_ptr(q)
     , theme(q)
-    , headerButton(new ZzExpanderHeaderButton(q))
+    , headerButton(new ZzExpanderHeaderButton(this))
     , contentHost(new QWidget(q))
     , contentLayout(new QVBoxLayout(contentHost))
     , heightAnimation(new QVariantAnimation(q))
@@ -88,7 +164,14 @@ ZzExpanderPrivate::ZzExpanderPrivate(ZzExpander *q)
         &QVariantAnimation::valueChanged,
         q_ptr,
         [this](const QVariant &value) {
+            const qreal progress = heightAnimation->easingCurve().valueForProgress(
+                static_cast<qreal>(heightAnimation->currentTime())
+                / std::max(1, heightAnimation->duration()));
+            expansionProgress = transitionStartProgress
+                + ((expanded ? 1.0 : 0.0) - transitionStartProgress) * progress;
             contentHost->setMaximumHeight(std::max(0, value.toInt()));
+            headerButton->update();
+            q_ptr->update();
             q_ptr->updateGeometry();
         });
     QObject::connect(
@@ -154,6 +237,8 @@ void ZzExpanderPrivate::refreshPresentation()
         retargetExpandedHeight();
     }
     q_ptr->updateGeometry();
+    headerButton->updateGeometry();
+    headerButton->update();
     q_ptr->update();
 }
 
@@ -200,9 +285,7 @@ void ZzExpanderPrivate::setContentWidget(QWidget *widget)
                 heightAnimation->stop();
                 contentWidget = nullptr;
                 contentDestroyedConnection = {};
-                contentHost->setMaximumHeight(0);
-                contentHost->hide();
-                q_ptr->updateGeometry();
+                settleTransition();
                 Q_EMIT q_ptr->contentWidgetChanged(nullptr);
             });
     }
@@ -250,6 +333,7 @@ void ZzExpanderPrivate::startTransition()
     }
 
     contentHost->setMaximumHeight(startHeight);
+    transitionStartProgress = expansionProgress;
     heightAnimation->setStartValue(startHeight);
     heightAnimation->setEndValue(endHeight);
     heightAnimation->setDuration(duration);
@@ -285,6 +369,8 @@ int ZzExpanderPrivate::transitionDuration() const
 void ZzExpanderPrivate::settleTransition()
 {
     heightAnimation->stop();
+    expansionProgress = expanded ? 1.0 : 0.0;
+    headerButton->update();
     if (expanded && contentWidget != nullptr) {
         contentHost->setMaximumHeight(QWIDGETSIZE_MAX);
         contentHost->show();
@@ -293,6 +379,7 @@ void ZzExpanderPrivate::settleTransition()
         contentHost->hide();
     }
     q_ptr->updateGeometry();
+    q_ptr->update();
 }
 
 void ZzExpanderPrivate::restoreHeaderFocusIfNeeded()

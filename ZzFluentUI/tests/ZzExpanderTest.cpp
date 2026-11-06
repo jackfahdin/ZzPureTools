@@ -18,10 +18,13 @@
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
+#include <QtGui/QPainter>
 
+#include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzExpander.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzThemeController.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 /** @brief 为 Expander 可访问操作文本提供确定的 LanguageChange 翻译。 */
 class ZzExpanderTranslator final : public QTranslator
@@ -74,6 +77,87 @@ private:
     }
 
 private Q_SLOTS:
+    void paintsContinuousCard_data()
+    {
+        QTest::addColumn<ZzFluentUI::ZzThemeMode>("mode");
+        QTest::newRow("light") << ZzFluentUI::ZzThemeMode::Light;
+        QTest::newRow("dark") << ZzFluentUI::ZzThemeMode::Dark;
+        QTest::newRow("contrast") << ZzFluentUI::ZzThemeMode::HighContrast;
+    }
+
+    void paintsContinuousCard()
+    {
+        QFETCH(ZzFluentUI::ZzThemeMode, mode);
+        ZzFluentUI::ZzThemeController controller;
+        controller.setMode(mode);
+        controller.setReducedMotion(true);
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzExpander expander;
+        expander.setStyle(&style);
+        auto *content = new QWidget;
+        content->setMinimumHeight(80);
+        expander.setContentWidget(content);
+        expander.setExpanded(true);
+        expander.resize(300, expander.sizeHint().height());
+        expander.show();
+        QCoreApplication::processEvents();
+        headerButton(&expander)->clearFocus();
+        const QImage image = expander.grab().toImage();
+        const qreal dpr = image.devicePixelRatio();
+        const auto colorAt = [&](QPoint point) {
+            return image.pixelColor(qRound(point.x() * dpr), qRound(point.y() * dpr));
+        };
+        const QColor surface = controller.snapshot()->color(ZzFluentUI::ZzColorToken::SurfaceSecondary);
+        QCOMPARE(colorAt(QPoint(100, headerButton(&expander)->height() / 2)), surface);
+        QCOMPARE(colorAt(contentHost(&expander)->geometry().center()), surface);
+        // The join has a straight outer edge, not two separate rounded cards.
+        const int join = contentHost(&expander)->y();
+        QCOMPARE(colorAt(QPoint(3, join - 3)), surface);
+        QCOMPARE(colorAt(QPoint(3, join + 3)), surface);
+    }
+
+    void hoverFeedbackStaysAtTrailingChevron_data()
+    {
+        QTest::addColumn<bool>("rtl");
+        QTest::newRow("ltr") << false;
+        QTest::newRow("rtl") << true;
+    }
+
+    void hoverFeedbackStaysAtTrailingChevron()
+    {
+        QFETCH(bool, rtl);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        ZzFluentUI::ZzExpander expander;
+        expander.setStyle(&style);
+        expander.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        expander.resize(300, expander.sizeHint().height());
+        expander.show();
+        QCoreApplication::processEvents();
+        auto *button = headerButton(&expander);
+        button->clearFocus();
+        button->setAttribute(Qt::WA_UnderMouse, false);
+        const QImage idle = button->grab().toImage();
+        button->setAttribute(Qt::WA_UnderMouse, true);
+        const QImage hovered = button->grab().toImage();
+        QRect changed;
+        for (int y = 0; y < idle.height(); ++y) {
+            for (int x = 0; x < idle.width(); ++x) {
+                if (idle.pixel(x, y) != hovered.pixel(x, y)) {
+                    changed |= QRect(x, y, 1, 1);
+                }
+            }
+        }
+        QVERIFY(!changed.isEmpty());
+        QVERIFY(changed.width() < idle.width() / 3);
+        QVERIFY(rtl ? changed.center().x() < idle.width() / 2
+                    : changed.center().x() > idle.width() / 2);
+        button->setEnabled(false);
+        const QImage disabledHovered = button->grab().toImage();
+        button->setAttribute(Qt::WA_UnderMouse, false);
+        QCOMPARE(button->grab().toImage(), disabledHovered);
+    }
+
     void defaultsAndPropertiesAreIdempotent()
     {
         ZzFluentUI::ZzExpander expander;
@@ -99,6 +183,106 @@ private Q_SLOTS:
         QCOMPARE(expandedSpy.count(), 1);
         QCOMPARE(headerButton(&expander)->text(), QStringLiteral("Details"));
         QCOMPARE(headerButton(&expander)->arrowType(), Qt::DownArrow);
+    }
+
+    void chevronTracksAnimationAndReversal()
+    {
+        ZzFluentUI::ZzExpander expander;
+        auto *content = new QWidget;
+        content->setMinimumHeight(120);
+        expander.setContentWidget(content);
+        expander.resize(300, expander.sizeHint().height());
+        expander.show();
+        QCoreApplication::processEvents();
+        auto *button = headerButton(&expander);
+        button->clearFocus();
+        button->setAttribute(Qt::WA_UnderMouse, false);
+        const QImage collapsed = button->grab().toImage();
+        auto *animation = expander.findChild<QVariantAnimation *>();
+        QVERIFY(animation);
+        expander.setExpanded(true);
+        animation->setCurrentTime(animation->duration() / 2);
+        const QImage intermediate = button->grab().toImage();
+        QVERIFY(intermediate != collapsed);
+        expander.setExpanded(false);
+        QCOMPARE(button->grab().toImage(), intermediate);
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(button->grab().toImage(), collapsed);
+        expander.setExpanded(true);
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(button->grab().toImage() != collapsed);
+        QCOMPARE(expander.findChildren<QAbstractAnimation *>().size(), 1);
+    }
+
+    void longHeaderCanShrinkAndKeepsAccessibleName()
+    {
+        ZzFluentUI::ZzExpander expander;
+        const QString title = QStringLiteral("Long header ").repeated(30);
+        expander.setHeaderText(title);
+        expander.resize(160, expander.sizeHint().height());
+        expander.show();
+        QCoreApplication::processEvents();
+        QCOMPARE(expander.width(), 160);
+        QCOMPARE(headerButton(&expander)->accessibleName(), title);
+        QFont large = headerButton(&expander)->font();
+        large.setPixelSize(40);
+        headerButton(&expander)->setFont(large);
+        QVERIFY(headerButton(&expander)->sizeHint().height() >= 40);
+        for (const auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            expander.setLayoutDirection(direction);
+            QVERIFY(!expander.grab().isNull());
+        }
+    }
+
+    void destroyingContentSettlesChevron_data()
+    {
+        QTest::addColumn<bool>("expanding");
+        QTest::newRow("expanding") << true;
+        QTest::newRow("collapsing") << false;
+    }
+
+    void headerPreservesMnemonicSizing()
+    {
+        ZzFluentUI::ZzExpander expander;
+        expander.setHeaderText(QStringLiteral("Advanced"));
+        const QSize plain = headerButton(&expander)->sizeHint();
+        expander.setHeaderText(QStringLiteral("&Advanced"));
+        QCOMPARE(headerButton(&expander)->sizeHint(), plain);
+        QVERIFY(!headerButton(&expander)->shortcut().isEmpty());
+        expander.setHeaderText(QStringLiteral("Save  Close"));
+        const int noAmpersand = headerButton(&expander)->sizeHint().width();
+        expander.setHeaderText(QStringLiteral("Save && Close"));
+        QCOMPARE(headerButton(&expander)->sizeHint().width() - noAmpersand,
+            headerButton(&expander)->fontMetrics().horizontalAdvance(QLatin1Char('&')));
+    }
+
+    void destroyingContentSettlesChevron()
+    {
+        QFETCH(bool, expanding);
+        ZzFluentUI::ZzExpander expander;
+        auto *content = new QWidget;
+        content->setMinimumHeight(120);
+        expander.setContentWidget(content);
+        expander.resize(300, expander.sizeHint().height());
+        expander.show();
+        QCoreApplication::processEvents();
+        auto *button = headerButton(&expander);
+        button->clearFocus();
+        button->setAttribute(Qt::WA_UnderMouse, false);
+        auto *animation = expander.findChild<QVariantAnimation *>();
+        QVERIFY(animation);
+        if (!expanding) {
+            expander.setExpanded(true);
+            animation->setCurrentTime(animation->duration());
+        }
+        expander.setExpanded(expanding);
+        animation->setCurrentTime(animation->duration() / 2);
+        delete content;
+        QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+        const QImage afterDelete = button->grab().toImage();
+        expander.setExpanded(!expanding);
+        expander.setExpanded(expanding);
+        QCOMPARE(button->grab().toImage(), afterDelete);
     }
 
     // Qt parent 接管嵌套控件，运行时 QPointer 断言覆盖真实析构路径。
@@ -194,8 +378,9 @@ private Q_SLOTS:
         QVERIFY(expandedHeight > collapsedHeight);
         QVERIFY(contentHost(expander)->isVisible());
 
+        window.activateWindow();
         editor->setFocus(Qt::OtherFocusReason);
-        QCOMPARE(QApplication::focusWidget(), editor);
+        ZZ_COMPARE_EVENTUALLY(QApplication::focusWidget(), editor);
         expander->setExpanded(false);
         QCOMPARE(QApplication::focusWidget(), headerButton(expander));
         QVERIFY(!contentHost(expander)->isVisible());

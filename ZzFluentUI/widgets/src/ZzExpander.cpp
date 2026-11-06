@@ -3,6 +3,12 @@
 #include <utility>
 
 #include <QtCore/QEvent>
+#include <QtGui/QPainter>
+#include <QtWidgets/QToolButton>
+#include <ZzFluentUI/ZzColorToken.h>
+#include <ZzFluentUI/ZzFluentPainter.h>
+#include <ZzFluentUI/ZzMetricToken.h>
+#include <ZzFluentUI/ZzThemeSnapshot.h>
 
 #include "private/ZzExpanderPrivate.h"
 
@@ -61,6 +67,29 @@ void ZzExpander::setContentWidget(QWidget *widget)
 QWidget *ZzExpander::takeContentWidget()
 {
     return d_ptr->takeContentWidget();
+}
+
+void ZzExpander::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event)
+    const auto snapshot = d_ptr->theme.snapshot();
+    const QRect header = d_ptr->headerButton->geometry();
+    const bool connected = !d_ptr->contentHost->isHidden()
+        && d_ptr->contentHost->height() > 0 && d_ptr->contentWidget;
+    const QRect card = connected ? header.united(d_ptr->contentHost->geometry()) : header;
+    QPainter painter(this);
+    ZzFluentPainter::drawRoundedSurface(&painter, card, *snapshot,
+        ZzColorToken::SurfaceSecondary, ZzColorToken::ControlStroke,
+        snapshot->metric(ZzMetricToken::CornerRadiusMedium),
+        snapshot->metric(ZzMetricToken::StrokeThin));
+    if (connected) {
+        const qreal stroke = snapshot->metric(ZzMetricToken::StrokeThin);
+        const qreal dpr = devicePixelRatioF();
+        const qreal y = (qRound(d_ptr->contentHost->y() * dpr) - 0.5) / dpr;
+        painter.setPen(QPen(snapshot->color(ZzColorToken::ControlStroke), stroke));
+        painter.drawLine(QPointF(card.left() + stroke, y),
+            QPointF(card.right() + 1 - stroke, y));
+    }
 }
 
 bool ZzExpander::event(QEvent *event)

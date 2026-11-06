@@ -52,6 +52,8 @@ public:
     QPointer<QWidget> contentWidget;
     QMetaObject::Connection contentDestroyedConnection;
     QString headerText;
+    qreal expansionProgress = 0.0;
+    qreal transitionStartProgress = 0.0;
     bool expanded = false;
 
 private:
