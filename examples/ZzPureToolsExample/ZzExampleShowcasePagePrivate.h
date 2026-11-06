@@ -26,7 +26,7 @@ public:
     void buildNavigation(QVBoxLayout *layout, QWidget *parent);
 
     /** @brief 展示九种标签外观、纯图标和可配置分段标签。 */
-    void buildTabBars(QVBoxLayout *layout, QWidget *parent);
+    static void buildTabBars(QVBoxLayout *layout, QWidget *parent);
 
     /** @brief 展示双端点范围滑块及刻度、吸附、拖动提示等属性。 */
     void buildRangeSlider(QVBoxLayout *layout, QWidget *parent);

@@ -1,5 +1,15 @@
 include_directories("${PROJECT_SOURCE_DIR}/tests/support")
 
+add_executable(ZzExampleAnimatedStackTest
+    ZzExampleAnimatedStackTest.cpp ../ZzExampleTabBarsPage.cpp)
+target_link_libraries(ZzExampleAnimatedStackTest PRIVATE Qt6::Test Zz::FluentUI)
+set_target_properties(ZzExampleAnimatedStackTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzExampleAnimatedStackTest)
+zz_enable_sanitizers(ZzExampleAnimatedStackTest)
+add_test(NAME example.animated-stack COMMAND ZzExampleAnimatedStackTest)
+set_tests_properties(example.animated-stack PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" LABELS "example;integration" TIMEOUT 20)
+
 add_executable(ZzExampleAudioSpectrumTest
     ZzExampleAudioSpectrumTest.cpp ../ZzExampleAudioSpectrumPage.cpp)
 target_link_libraries(ZzExampleAudioSpectrumTest PRIVATE Qt6::Test Zz::FluentUI)

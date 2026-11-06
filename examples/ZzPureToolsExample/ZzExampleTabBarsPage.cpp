@@ -2,8 +2,6 @@
 
 #include <array>
 #include <QtCore/QCoreApplication>
-#include <QtCore/QParallelAnimationGroup>
-#include <QtCore/QPropertyAnimation>
 #include <QtGui/QFont>
 #include <QtGui/QPainter>
 #include <QtGui/QPalette>
@@ -11,7 +9,7 @@
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
-#include <QtWidgets/QStackedWidget>
+#include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include <QtWidgets/QVBoxLayout>
 #include <ZzFluentUI/ZzFluentStyle.h>
 #include <ZzFluentUI/ZzSegoeIconFont.h>
@@ -162,90 +160,6 @@ QLabel *coloredPage(const QString &name, const QColor &color, QWidget *parent)
     return page;
 }
 
-// 两张页面快照仅在切换期间覆盖堆叠页，快速切换或尺寸变化即清理。
-class ZzVerticalPageStack final : public QStackedWidget
-{
-public:
-    explicit ZzVerticalPageStack(QWidget *parent) : QStackedWidget(parent)
-    {
-        overlay_ = new QWidget(this);
-        overlay_->setAutoFillBackground(true);
-        overlay_->setAttribute(Qt::WA_TransparentForMouseEvents);
-        outgoing_ = new QLabel(overlay_);
-        incoming_ = new QLabel(overlay_);
-        overlay_->hide();
-    }
-
-    void switchTo(int index)
-    {
-        if (index < 0 || index >= count() || index == currentIndex()) return;
-        clear();
-        const int previous = currentIndex();
-        const QPixmap oldImage = currentWidget()->grab();
-        setCurrentIndex(index);
-        auto *style = qobject_cast<ZzFluentUI::ZzFluentStyle *>(QApplication::style());
-        const bool reduced = style && style->themeSnapshot()->reducedMotion();
-        if (reduced || !isVisible() || oldImage.isNull()
-            || width() < 1 || height() < 1) return;
-        const QPixmap newImage = currentWidget()->grab();
-        if (newImage.isNull()) return;
-
-        const int direction = index > previous ? 1 : -1;
-        overlay_->setPalette(palette());
-        overlay_->setGeometry(rect());
-        outgoing_->setPixmap(oldImage);
-        incoming_->setPixmap(newImage);
-        outgoing_->setGeometry(rect());
-        incoming_->setGeometry(0, direction * height(), width(), height());
-        overlay_->show();
-        overlay_->raise();
-        outgoing_->show();
-        incoming_->show();
-
-        animation_ = new QParallelAnimationGroup(this);
-        for (auto *image : {outgoing_, incoming_}) {
-            auto *motion = new QPropertyAnimation(image, "pos", animation_);
-            motion->setDuration(220);
-            motion->setEasingCurve(QEasingCurve::OutCubic);
-            motion->setStartValue(image->pos());
-            motion->setEndValue(image == outgoing_
-                ? QPoint(0, -direction * height()) : QPoint(0, 0));
-            animation_->addAnimation(motion);
-        }
-        connect(animation_, &QParallelAnimationGroup::finished,
-            this, [this] { clear(); });
-        animation_->start();
-    }
-
-protected:
-    void resizeEvent(QResizeEvent *event) override
-    {
-        clear();
-        QStackedWidget::resizeEvent(event);
-    }
-    void hideEvent(QHideEvent *event) override
-    {
-        clear();
-        QStackedWidget::hideEvent(event);
-    }
-
-private:
-    void clear()
-    {
-        if (animation_) {
-            animation_->stop();
-            animation_->deleteLater();
-            animation_ = nullptr;
-        }
-        overlay_->hide();
-        outgoing_->clear();
-        incoming_->clear();
-    }
-    QWidget *overlay_ = nullptr;
-    QLabel *outgoing_ = nullptr;
-    QLabel *incoming_ = nullptr;
-    QParallelAnimationGroup *animation_ = nullptr;
-};
 /** @brief 装配标签栏示例页内容，不持有控件所有权。 */
 class ZzExampleTabBarsPage final
 {
@@ -392,7 +306,8 @@ void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
         "zzExampleNavigationTabBar");
     navigation->setShape(QTabBar::RoundedWest);
     navigation->setProperty("TextAlign", int(Qt::AlignVCenter | Qt::AlignLeft));
-    auto *pages = new ZzVerticalPageStack(parent);
+    auto *pages = new ZzFluentUI::ZzAnimatedStackedWidget(parent);
+    pages->setTransitionMode(ZzFluentUI::ZzAnimatedStackedWidget::ZzTransitionMode::SlideVertical);
     pages->setObjectName(QStringLiteral("zzExampleNavigationPages"));
     pages->setMinimumHeight(300);
     constexpr std::array<const char *, 5> navNames {
@@ -413,7 +328,7 @@ void ZzExampleTabBarsPage::build(QVBoxLayout *layout, QWidget *parent)
         pages->addWidget(body);
     }
     QObject::connect(navigation, &QTabBar::currentChanged, pages,
-        [pages](int index) { pages->switchTo(index); });
+        [pages](int index) { pages->setCurrentIndex(index); });
     row->addWidget(navigation, 0, Qt::AlignTop);
     row->addWidget(pages, 1);
     navigationCard->addLayout(row);
