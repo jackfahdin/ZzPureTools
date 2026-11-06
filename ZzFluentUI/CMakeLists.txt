@@ -136,6 +136,8 @@ set(zz_fluent_ui_sources
     widgets/src/ZzTeachingTip.cpp
     widgets/src/private/ZzTeachingTipPrivate.cpp
     widgets/src/ZzExpander.cpp
+    widgets/src/ZzAnimatedStackedWidget.cpp
+    widgets/src/private/ZzAnimatedStackedWidgetPrivate.cpp
     widgets/src/private/ZzExpanderPrivate.cpp
     widgets/src/ZzPivot.cpp
     widgets/src/private/ZzPivotPrivate.cpp
@@ -239,6 +241,7 @@ set(zz_fluent_ui_moc_headers
     widgets/include/ZzFluentUI/ZzContentDialog.h
     widgets/include/ZzFluentUI/ZzTeachingTip.h
     widgets/include/ZzFluentUI/ZzExpander.h
+    widgets/include/ZzFluentUI/ZzAnimatedStackedWidget.h
     widgets/include/ZzFluentUI/ZzPivot.h
     widgets/include/ZzFluentUI/ZzDrawer.h
     widgets/include/ZzFluentUI/ZzCalendar.h

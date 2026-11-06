@@ -695,6 +695,16 @@ set_tests_properties(fluent.teaching-tip PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzAnimatedStackedWidgetTest ZzAnimatedStackedWidgetTest.cpp)
+target_link_libraries(ZzAnimatedStackedWidgetTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzAnimatedStackedWidgetTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzAnimatedStackedWidgetTest)
+zz_enable_sanitizers(ZzAnimatedStackedWidgetTest)
+add_test(NAME fluent.animated-stack COMMAND ZzAnimatedStackedWidgetTest)
+set_tests_properties(fluent.animated-stack PROPERTIES
+    LABELS "fluent;unit;component;accessibility"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzExpanderTest ZzExpanderTest.cpp)
 target_link_libraries(ZzExpanderTest PRIVATE
     Qt6::Test
