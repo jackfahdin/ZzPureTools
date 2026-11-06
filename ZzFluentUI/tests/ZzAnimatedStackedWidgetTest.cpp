@@ -9,6 +9,7 @@
 #include <QtWidgets/QWidget>
 #include <QtWidgets/QVBoxLayout>
 #include <functional>
+#include <ZzTestEventLoop.h>
 
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include <ZzFluentUI/ZzFluentStyle.h>
@@ -55,6 +56,185 @@ class ZzAnimatedStackedWidgetTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void clearsPendingForCurrentTarget()
+    {
+        ZzStack stack;
+        for (int i = 0; i < 3; ++i) stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        stack.setCurrentIndex(1);
+        stack.setCurrentIndex(2);
+        stack.setCurrentIndex(1);
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(stack.currentIndex(), 1);
+        QVERIFY(!stack.isTransitionRunning());
+    }
+
+    void pageRemovalDuringAnimation_data()
+    {
+        QTest::addColumn<int>("which");
+        QTest::addColumn<int>("action");
+        for (int which = 0; which < 3; ++which) for (int action = 0; action < 3; ++action)
+            QTest::newRow(qPrintable(QStringLiteral("%1-%2").arg(which).arg(action))) << which << action;
+    }
+
+    void pageRemovalDuringAnimation()
+    {
+        QFETCH(int, which);
+        QFETCH(int, action);
+        QWidget external;
+        ZzStack stack;
+        for (int i = 0; i < 4; ++i) stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        QSignalSpy started(&stack, &ZzStack::transitionStarted);
+        QSignalSpy finished(&stack, &ZzStack::transitionFinished);
+        stack.setCurrentIndex(1);
+        stack.setCurrentIndex(2);
+        auto *page = stack.widget(which);
+        if (action == 0) delete page;
+        if (action == 1) { QCOMPARE(stack.takeWidget(page), page); delete page; }
+        if (action == 2) page->setParent(&external);
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        if (stack.isTransitionRunning()) animation->setCurrentTime(animation->duration());
+        QCOMPARE(stack.count(), 3);
+        QVERIFY(stack.currentWidget());
+        QVERIFY(stack.currentWidget()->isVisible());
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(started.count(), finished.count());
+    }
+
+    void finishedCallbackReplacesPending()
+    {
+        ZzStack stack;
+        for (int i = 0; i < 4; ++i) stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        stack.setCurrentIndex(1);
+        stack.setCurrentIndex(2);
+        connect(&stack, &ZzStack::transitionFinished, &stack, [&] { stack.setCurrentIndex(3); });
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(stack.currentIndex(), 3);
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(!stack.isTransitionRunning());
+    }
+
+    void renderCanRequestAnotherPage()
+    {
+        ZzStack stack;
+        auto *source = new ZzStackColorPage(Qt::red);
+        stack.addWidget(source);
+        stack.addWidget(new QWidget);
+        stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        source->onPaint = [&] { stack.setCurrentIndex(2); };
+        stack.setCurrentIndex(1);
+        QCOMPARE(stack.currentIndex(), 1);
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        animation->setCurrentTime(animation->duration());
+        QCOMPARE(stack.currentIndex(), 2);
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(!stack.isTransitionRunning());
+    }
+
+    void captureInterruptionKeepsLatestTarget()
+    {
+        ZzStack stack;
+        auto *source = new ZzStackColorPage(Qt::red);
+        stack.addWidget(source);
+        stack.addWidget(new QWidget);
+        stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        source->onPaint = [&] {
+            stack.setCurrentIndex(2);
+            stack.setDuration(0);
+        };
+        stack.setCurrentIndex(1);
+        QCOMPARE(stack.currentIndex(), 2);
+        QVERIFY(!stack.isTransitionRunning());
+        QVERIFY(stack.widget(2)->isVisible());
+    }
+
+    void restoresFocusWithoutStealing()
+    {
+        QWidget window;
+        auto *layout = new QVBoxLayout(&window);
+        auto *external = new QLineEdit;
+        auto *stack = new ZzStack;
+        layout->addWidget(external);
+        layout->addWidget(stack);
+        auto *first = new QLineEdit;
+        auto *second = new QLineEdit;
+        stack->addWidget(first);
+        stack->addWidget(second);
+        window.show();
+        window.activateWindow();
+        ZZ_VERIFY_EVENTUALLY(window.isActiveWindow());
+        first->setFocus();
+        QVERIFY(first->hasFocus());
+        stack->setCurrentIndex(1);
+        auto *animation = stack->findChild<QVariantAnimation *>();
+        QVERIFY(stack->hasFocus());
+        QTest::keyClick(stack, Qt::Key_Tab);
+        QVERIFY(stack->hasFocus());
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(second->hasFocus());
+        stack->setCurrentIndex(0);
+        external->setFocus();
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(external->hasFocus());
+    }
+
+    void pageCallbacksKeepExternalFocus_data()
+    {
+        QTest::addColumn<bool>("atFinish");
+        QTest::newRow("hide") << false;
+        QTest::newRow("show") << true;
+    }
+
+    void pageCallbacksKeepExternalFocus()
+    {
+        QFETCH(bool, atFinish);
+        QWidget window;
+        auto *layout = new QVBoxLayout(&window);
+        auto *external = new QLineEdit;
+        auto *stack = new ZzStack;
+        layout->addWidget(external);
+        layout->addWidget(stack);
+        auto *first = new ZzStackEventPage;
+        auto *firstLayout = new QVBoxLayout(first);
+        auto *input = new QLineEdit;
+        firstLayout->addWidget(input);
+        auto *second = new ZzStackEventPage;
+        auto *secondLayout = new QVBoxLayout(second);
+        secondLayout->addWidget(new QLineEdit);
+        stack->addWidget(first);
+        stack->addWidget(second);
+        window.show();
+        window.activateWindow();
+        ZZ_VERIFY_EVENTUALLY(window.isActiveWindow());
+        input->setFocus();
+        if (!atFinish) first->callback = [&](QEvent::Type type) {
+            if (type == QEvent::Hide) external->setFocus();
+        };
+        stack->setCurrentIndex(1);
+        if (atFinish) second->callback = [&](QEvent::Type type) {
+            if (type == QEvent::Show) external->setFocus();
+        };
+        auto *animation = stack->findChild<QVariantAnimation *>();
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(external->hasFocus());
+    }
+
     void rendersSlideAndFade_data()
     {
         QTest::addColumn<int>("mode");
@@ -165,16 +345,82 @@ private Q_SLOTS:
         QCOMPARE(started.count(), 0);
     }
 
+    void unrelatedOptOutKeepsCurrentTransition()
+    {
+        ZzStack stack;
+        for (int i = 0; i < 3; ++i) stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        stack.setCurrentIndex(1);
+        stack.setPageAnimationEnabled(stack.widget(2), false);
+        QVERIFY(stack.isTransitionRunning());
+    }
+
+    void blocksInputToHiddenPages()
+    {
+        ZzStack stack;
+        auto *first = new QPushButton(QStringLiteral("first"));
+        auto *second = new QPushButton(QStringLiteral("second"));
+        stack.addWidget(first);
+        stack.addWidget(second);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        QSignalSpy clicked(second, &QPushButton::clicked);
+        stack.setCurrentIndex(1);
+        auto *overlay = stack.findChild<QWidget *>(QStringLiteral("zzAnimatedStackOverlay"));
+        QVERIFY(overlay && overlay->isVisible());
+        QVERIFY(!first->isVisible() && !second->isVisible());
+        QTest::mouseClick(overlay, Qt::LeftButton);
+        QTest::keyClick(&stack, Qt::Key_Space);
+        QTest::keyClick(&stack, Qt::Key_Tab);
+        QCOMPARE(clicked.count(), 0);
+        QVERIFY(first->isEnabled() && second->isEnabled());
+    }
+
+    void skipsIneligibleSnapshots_data()
+    {
+        QTest::addColumn<int>("reason");
+        for (int i = 0; i < 5; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
+    }
+
+    void skipsIneligibleSnapshots()
+    {
+        QFETCH(int, reason);
+        ZzStack stack;
+        stack.addWidget(new QWidget);
+        stack.addWidget(new QWidget);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        switch (reason) {
+        case 0: stack.widget(1)->setAttribute(Qt::WA_NativeWindow); break;
+        case 1: stack.resize(0, 0); break;
+        case 2: stack.hide(); break;
+        case 3: stack.setDuration(0); break;
+        case 4: stack.setTransitionMode(ZzStack::ZzTransitionMode::None); break;
+        }
+        QSignalSpy started(&stack, &ZzStack::transitionStarted);
+        stack.setCurrentIndex(1);
+        QCOMPARE(stack.currentIndex(), 1);
+        QVERIFY(!stack.isTransitionRunning());
+        QCOMPARE(started.count(), 0);
+    }
+
     void settlesOnEnvironmentChange_data()
     {
         QTest::addColumn<int>("change");
-        for (int i = 0; i < 8; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
+        for (int i = 0; i < 13; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
     }
 
     void settlesOnEnvironmentChange()
     {
         QFETCH(int, change);
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
         ZzStack stack;
+        stack.setStyle(&style);
         for (auto color : {Qt::red, Qt::blue, Qt::green}) stack.addWidget(new ZzStackColorPage(color));
         stack.resize(200, 100);
         stack.show();
@@ -192,6 +438,11 @@ private Q_SLOTS:
         case 5: stack.setTransitionMode(ZzStack::ZzTransitionMode::None); break;
         case 6: { QEvent event(QEvent::WindowDeactivate); QApplication::sendEvent(&stack, &event); break; }
         case 7: { QEvent event(QEvent::DevicePixelRatioChange); QApplication::sendEvent(&stack, &event); break; }
+        case 8: { QEvent event(QEvent::PaletteChange); QApplication::sendEvent(&stack, &event); break; }
+        case 9: { QEvent event(QEvent::StyleChange); QApplication::sendEvent(&stack, &event); break; }
+        case 10: { QEvent event(QEvent::FontChange); QApplication::sendEvent(&stack, &event); break; }
+        case 11: { QEvent event(QEvent::LanguageChange); QApplication::sendEvent(&stack, &event); break; }
+        case 12: controller.setReducedMotion(true); QCoreApplication::processEvents(); break;
         }
         QVERIFY(!stack.isTransitionRunning());
         QCOMPARE(stack.currentIndex(), 2);

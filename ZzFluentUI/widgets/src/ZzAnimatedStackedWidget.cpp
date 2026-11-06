@@ -69,7 +69,7 @@ bool ZzAnimatedStackedWidget::setPageAnimationEnabled(QWidget *page, bool enable
     const int index = indexOf(page);
     if (index < 0) return false;
     d_ptr->pages[index].animationEnabled = enabled;
-    if (!enabled) d_ptr->settle();
+    if (!enabled && (page == d_ptr->current || page == d_ptr->source)) d_ptr->settle();
     return true;
 }
 bool ZzAnimatedStackedWidget::isPageAnimationEnabled(QWidget *page) const noexcept

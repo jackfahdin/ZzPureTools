@@ -193,14 +193,20 @@ bool ZzAnimatedStackedWidgetPrivate::request(QWidget *page, Direction direction)
     QImage oldImage;
     if (animate) oldImage = capture(outgoing, pixels);
     if (!guard) return true;
+    // 环境事件已收敛准备中的事务，旧捕获不得覆盖新提交的目标。
+    if (!preparing) { oldImage = {}; endMutation(); return true; }
     if (!destination || indexOf(destination) < 0) {
         preparing = false;
         source = nullptr;
+        oldImage = {};
         endMutation();
         return true;
     }
     animate = animate && operation == generation && !oldImage.isNull();
     current = page;
+    // 先接管原页面焦点，显隐回调随后移到外部的焦点必须保留。
+    if (animate && restoreFocus) q->setFocus(Qt::OtherFocusReason);
+    if (!guard) return true;
     synchronizePages();
     if (!guard) return true;
     QImage newImage;
@@ -214,8 +220,6 @@ bool ZzAnimatedStackedWidgetPrivate::request(QWidget *page, Direction direction)
         overlay->setGeometry(q->contentsRect());
         overlay->setFrames(std::move(oldImage), std::move(newImage), mode, reverse);
         running = true;
-        if (restoreFocus) q->setFocus(Qt::OtherFocusReason);
-        if (!guard) return true;
         if (running) host->hide();
         if (!guard) return true;
         if (running) overlay->show();
@@ -225,6 +229,8 @@ bool ZzAnimatedStackedWidgetPrivate::request(QWidget *page, Direction direction)
     } else {
         source = nullptr;
         restoreFocus = false;
+        oldImage = {};
+        newImage = {};
     }
     notifyCurrent();
     if (!guard) return true;
@@ -302,7 +308,7 @@ void ZzAnimatedStackedWidgetPrivate::finish(bool latest)
     if (!guard) return;
     synchronizePages();
     if (!guard) return;
-    if (focusOwned && q->isVisible() && q->isEnabled() && q->isActiveWindow()) {
+    if (focusOwned && q->hasFocus() && q->isVisible() && q->isEnabled() && q->isActiveWindow()) {
         const int index = indexOf(current);
         QPointer<QWidget> target = q->currentWidget();
         QPointer<QWidget> focus = index >= 0 ? pages.at(index).focus : nullptr;

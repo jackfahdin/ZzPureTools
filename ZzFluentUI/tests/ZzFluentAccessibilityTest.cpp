@@ -1,4 +1,5 @@
 #include <QtCore/QCoreApplication>
+#include <QtCore/QVariantAnimation>
 #include <QtGui/QAccessible>
 #include <QtGui/QImage>
 #include <QtGui/QPainter>
@@ -12,6 +13,7 @@
 #include <QtWidgets/QVBoxLayout>
 
 #include <ZzFluentUI/ZzBreadcrumbBar.h>
+#include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include <ZzFluentUI/ZzActionCard.h>
 #include <ZzFluentUI/ZzCalendar.h>
 #include <ZzFluentUI/ZzCalendarPicker.h>
@@ -90,6 +92,37 @@ class ZzFluentAccessibilityTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void animatedPagesExposeOnlyRealVisibleContent()
+    {
+        ZzFluentUI::ZzAnimatedStackedWidget stack;
+        auto *first = new QLineEdit;
+        auto *second = new QLineEdit;
+        first->setAccessibleName(QStringLiteral("First page"));
+        second->setAccessibleName(QStringLiteral("Second page"));
+        stack.addWidget(first);
+        stack.addWidget(second);
+        stack.resize(200, 100);
+        stack.show();
+        QCoreApplication::processEvents();
+        stack.setCurrentIndex(1);
+        QVERIFY(stack.isTransitionRunning());
+        QVERIFY(zzAccessible(first)->state().invisible);
+        QVERIFY(zzAccessible(second)->state().invisible);
+        auto *overlay = stack.findChild<QWidget *>(QStringLiteral("zzAnimatedStackOverlay"));
+        QVERIFY(overlay && overlay->focusPolicy() == Qt::NoFocus);
+        QCOMPARE(zzAccessible(overlay)->childCount(), 0);
+        auto *animation = stack.findChild<QVariantAnimation *>();
+        animation->setCurrentTime(animation->duration());
+        QVERIFY(zzAccessible(first)->state().invisible);
+        QVERIFY(!zzAccessible(second)->state().invisible);
+        QCOMPARE(zzAccessible(second)->text(QAccessible::Name), QStringLiteral("Second page"));
+        stack.setTransitionMode(ZzFluentUI::ZzAnimatedStackedWidget::ZzTransitionMode::None);
+        stack.setCurrentIndex(0);
+        QVERIFY(!stack.isTransitionRunning());
+        QVERIFY(!zzAccessible(first)->state().invisible);
+        QVERIFY(!overlay->isVisible());
+    }
+
     void exposesNamesRolesAndStates()
     {
         ZzFluentUI::ZzPushButton push(QStringLiteral("Apply"));
