@@ -181,7 +181,7 @@ foreach(requirement IN LISTS required_tokens)
 endforeach()
 
 foreach(nested_build_contract IN ITEMS
-        "tests/InstallConsumer/RunInstallConsumer.cmake|3"
+        "tests/InstallConsumer/RunInstallConsumer.cmake|4"
         "tests/Platform/ZzPackageRelocationTest.cmake|4")
     string(REPLACE "|" ";" nested_build_fields
         "${nested_build_contract}")
