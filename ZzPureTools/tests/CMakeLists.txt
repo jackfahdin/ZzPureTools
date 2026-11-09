@@ -28,6 +28,16 @@ set_tests_properties(puretools.page-lifecycle PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzPageTransitionTest ZzPageTransitionTest.cpp)
+target_link_libraries(ZzPageTransitionTest PRIVATE Qt6::Test Zz::PureTools)
+set_target_properties(ZzPageTransitionTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPageTransitionTest)
+zz_enable_sanitizers(ZzPageTransitionTest)
+add_test(NAME puretools.page-transition COMMAND ZzPageTransitionTest)
+set_tests_properties(puretools.page-transition PROPERTIES
+    LABELS "component;puretools"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzNavigationControllerTest ZzNavigationControllerTest.cpp)
 target_link_libraries(ZzNavigationControllerTest PRIVATE Qt6::Test Zz::PureTools)
 set_target_properties(ZzNavigationControllerTest PROPERTIES AUTOMOC ON)

@@ -3,87 +3,80 @@
 #include <list>
 #include <map>
 #include <memory>
-
-#include <QtCore/QtGlobal>
-
-#include <ZzCore/ZzResult.h>
-
+#include <QtCore/QObject>
+#include <QtCore/QPointer>
+#include <QtCore/QSet>
+#include <ZzPureTools/ZzPageHost.h>
 #include <ZzPureTools/ZzPageInstance.h>
-#include <ZzPureTools/ZzPageLifetimePolicy.h>
-#include <ZzPureTools/ZzPageRegistration.h>
-#include <ZzPureTools/ZzRouteId.h>
-
-class QStackedWidget;
-class QWidget;
 
 namespace ZzPureTools {
 
-class ZzPageHost;
-
-/** @brief 保存一个已创建页面的策略和唯一实例。 */
+/** @brief 保存已创建页面及其生命周期策略。 */
 struct ZzPageEntry final
 {
     ZzPageLifetimePolicy policy = ZzPageLifetimePolicy::Recreatable;
     std::unique_ptr<ZzPageInstance> instance;
+    QMetaObject::Connection destroyed;
 };
 
-/** @brief 实现事务式页面切换和容量受限的可重建页面缓存。 */
-class ZzPageHostPrivate final
+/** @brief 保护同步页面事务，管理稳定 QWidget 宿主和容量受限缓存。 */
+class ZzPageHostPrivate final : public QObject
 {
 public:
-    /** @brief 创建页面堆栈和通用框架错误页。 */
-    explicit ZzPageHostPrivate(ZzPageHost *host);
-
-    /** @brief 在 QWidget 父子树销毁前清理全部页面实例。 */
-    ~ZzPageHostPrivate();
-
-    /** @brief 事务式激活指定页面。 */
-    [[nodiscard]] ZzCore::ZzResult<void> activate(
-        const ZzPageRegistration &registration);
-
-    /** @brief 按策略离开当前页。 */
+    using Mode = ZzPageHost::ZzTransitionMode;
+    using Direction = ZzPageHost::ZzTransitionDirection;
+    /** @brief 创建固定页面宿主和通用错误页。 */
+    explicit ZzPageHostPrivate(ZzPageHost *owner);
+    /** @brief 在 QWidget 子树销毁前清理展示对象。 */
+    ~ZzPageHostPrivate() override;
+    /** @brief 创建目标成功后同步提交页面。 */
+    ZzCore::ZzResult<void> activate(const ZzPageRegistration &registration, Direction direction);
+    /** @brief 重入时不执行的幂等离开操作。 */
     void deactivateCurrent() noexcept;
+    /** @brief 直接显示框架错误页。 */
+    ZzCore::ZzResult<void> showFrameworkError(ZzRouteId route);
+    /** @brief 设置缓存容量并立即驱逐溢出页。 */
+    ZzCore::ZzResult<void> setRecreatableCapacity(qsizetype capacity);
+    /** @brief 校验所属线程及同步事务占用。 */
+    ZzCore::ZzResult<void> validateOperation() const;
+    /** @brief 检查线程，查询操作不受事务锁限制。 */
+    bool isOwnerThread() const noexcept;
+    /** @brief 查询有效的活动页面。 */
+    QWidget *currentView() const;
+    /** @brief 同步显隐与几何，所有回调后检查存活。 */
+    void synchronizePages();
+    /** @brief 聚合页面建议尺寸。 */
+    QSize hint(bool minimum) const;
+    /** @brief 观察尺寸请求及页面父对象变化。 */
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    /** @brief 结束视觉状态，恢复最新逻辑页。 */
+    void settle();
 
-    /** @brief 离开当前页并显示通用错误页。 */
-    [[nodiscard]] ZzCore::ZzResult<void> showFrameworkError(
-        ZzRouteId failedRoute);
-
-    /** @brief 返回当前活动页或错误页路由。 */
-    [[nodiscard]] ZzRouteId currentRoute() const;
-
-    /** @brief 设置可重建页面缓存容量并立即缩容。 */
-    [[nodiscard]] ZzCore::ZzResult<void> setRecreatableCapacity(
-        qsizetype capacity);
+    ZzPageHost *const q;
+    QWidget *host;
+    QWidget *errorView;
+    std::map<QString, ZzPageEntry> pages;
+    std::list<QString> lru;
+    ZzRouteId activeRoute;
+    qsizetype capacity = 3;
+    Mode mode = Mode::None;
+    int duration = -1;
+    QSet<QString> disabledRoutes;
+    bool busy = false;
+    bool destroying = false;
+    bool showingError = false;
 
 private:
-    /** @brief 检查调用是否位于宿主所属线程。 */
-    [[nodiscard]] bool isOwnerThread() const noexcept;
-
-    /** @brief 校验路由、策略和 factory。 */
-    [[nodiscard]] ZzCore::ZzResult<void> validateRegistration(
-        const ZzPageRegistration &registration) const;
-
-    /** @brief 捕获 factory 异常并清理本次新增的页面父对象子节点。 */
-    [[nodiscard]] ZzCore::ZzResult<std::unique_ptr<ZzPageInstance>>
-    createPage(const ZzPageRegistration &registration);
-
-    /** @brief 执行不含线程检查的当前页面离开流程。 */
-    void deactivateCurrentUnchecked() noexcept;
-
-    /** @brief 从可重建页面 LRU 中移除指定路由。 */
-    void removeFromRecreatableLru(const QString &routeKey) noexcept;
-
-    /** @brief 驱逐超过当前容量的最旧非活动可重建页面。 */
-    void evictRecreatablePages() noexcept;
-
-    ZzPageHost *const q_ptr;
-    QStackedWidget *stack;
-    QWidget *frameworkErrorWidget;
-    std::map<QString, ZzPageEntry> pages;
-    std::list<QString> recreatableLru;
-    ZzRouteId activeRoute;
-    qsizetype recreatableCapacity = 3;
-    bool showingFrameworkError = false;
+    /** @brief 校验注册并保留 factory 失败时的原页面。 */
+    ZzCore::ZzResult<std::unique_ptr<ZzPageInstance>> createPage(const ZzPageRegistration &registration);
+    /** @brief 先摘下记录，再调用可重入的销毁操作。 */
+    void erasePage(const QString &key);
+    /** @brief 已持有事务锁时按策略离开旧页。 */
+    void leave();
+    /** @brief 驱逐 LRU 尾部以外的最早页面。 */
+    void evict();
+    /** @brief 移除外部销毁或迁出的页面记录。 */
+    void pageLost(const QString &key);
 };
 
 } // namespace ZzPureTools

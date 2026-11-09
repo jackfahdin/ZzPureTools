@@ -14,6 +14,8 @@
 namespace ZzPureTools {
 
 class ZzPageHostPrivate;
+class ZzPageHostTransitionPrivate;
+class ZzNavigationControllerPrivate;
 
 /**
  * @brief 托管延迟创建页面、当前页面切换和容量受限缓存。
@@ -27,6 +29,13 @@ class ZZ_PURE_TOOLS_EXPORT ZzPageHost final : public QWidget
     Q_DISABLE_COPY_MOVE(ZzPageHost)
 
 public:
+    /** @brief 页面切换视效，默认关闭。 */
+    enum class ZzTransitionMode { None, SlideHorizontal, SlideVertical, Fade };
+    Q_ENUM(ZzTransitionMode)
+    /** @brief 逻辑导航方向；横向显示随 RTL 镜像。 */
+    enum class ZzTransitionDirection { Forward, Backward };
+    Q_ENUM(ZzTransitionDirection)
+
     /**
      * @brief 创建默认保留三个非活动 Recreatable 页面的宿主。
      * @param parent 可选 QWidget 父对象。
@@ -43,6 +52,27 @@ public:
      */
     [[nodiscard]] ZzCore::ZzResult<void> activate(
         const ZzPageRegistration &registration);
+    /** @brief 同步激活指定方向；回调中重入返回 InvalidState。 */
+    [[nodiscard]] ZzCore::ZzResult<void> activate(
+        const ZzPageRegistration &registration, ZzTransitionDirection direction);
+    /** @brief 查询视效模式，跨线程返回 None。 */
+    [[nodiscard]] ZzTransitionMode transitionMode() const noexcept;
+    /** @brief 设置视效模式并结束现有视效。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setTransitionMode(ZzTransitionMode mode);
+    /** @brief 查询时长，-1 表示主题时长，跨线程返回 -1。 */
+    [[nodiscard]] int transitionDuration() const noexcept;
+    /** @brief 设置 [-1,10000] 毫秒时长，范围外返回 InvalidArgument。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setTransitionDuration(int milliseconds);
+    /** @brief 查询视效是否播放；逻辑路由始终同步提交。 */
+    [[nodiscard]] bool isTransitionRunning() const noexcept;
+    /** @brief 设置路由截图开关，页面重建后仍生效。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setRouteTransitionEnabled(const ZzRouteId &route, bool enabled);
+    /** @brief 查询路由截图开关；无效路由或跨线程返回 false。 */
+    [[nodiscard]] bool isRouteTransitionEnabled(const ZzRouteId &route) const;
+    /** @brief 返回全部注册页面的最大建议尺寸。 */
+    QSize sizeHint() const override;
+    /** @brief 返回全部注册页面的最大最小尺寸。 */
+    QSize minimumSizeHint() const override;
 
     /** @brief 按当前页面策略幂等离开页面并清空活动路由。 */
     void deactivateCurrent() noexcept;
@@ -69,7 +99,14 @@ public:
     [[nodiscard]] ZzCore::ZzResult<void> setRecreatableCapacity(
         qsizetype capacity);
 
+protected:
+    /** @brief 同步几何和环境变化到页面展示。 */
+    bool event(QEvent *event) override;
+
 private:
+    friend class ZzPageHostPrivate;
+    friend class ZzPageHostTransitionPrivate;
+    friend class ZzNavigationControllerPrivate;
     std::unique_ptr<ZzPageHostPrivate> d_ptr;
 };
 

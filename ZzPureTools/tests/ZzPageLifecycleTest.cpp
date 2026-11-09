@@ -7,7 +7,6 @@
 #include <QtCore/QPointer>
 #include <QtCore/QStringList>
 #include <QtTest/QTest>
-#include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QWidget>
 
 #include <ZzCore/ZzError.h>
@@ -129,13 +128,15 @@ private:
     ZzPureTools::ZzPageLifetimePolicy policy,
     int *factoryCalls,
     int *liveViews,
-    QWidget **lastView = nullptr)
+    QWidget **lastView = nullptr,
+    QPointer<QWidget> *lastParent = nullptr)
 {
     ZzPureTools::ZzPageRegistration registration;
     registration.routeId = ZzPureTools::ZzRouteId(std::move(route));
     registration.lifetime = policy;
     registration.factory =
-        [factoryCalls, liveViews, lastView](QWidget *pageParent) {
+        [factoryCalls, liveViews, lastView, lastParent](QWidget *pageParent) {
+            if (lastParent) *lastParent = pageParent;
             ++(*factoryCalls);
             auto *view = new ZzPageProbeWidget(
                 pageParent, nullptr, {}, liveViews);
@@ -420,12 +421,13 @@ private Q_SLOTS:
     void failedFactoryLeavesNoHalfInitializedWidget()
     {
         ZzPureTools::ZzPageHost host;
-        auto *stack = host.findChild<QStackedWidget *>();
-        QVERIFY(stack != nullptr);
-        const qsizetype childCount = stack->children().size();
+        QPointer<QWidget> pageHost;
+        qsizetype childCount = 0;
         ZzPureTools::ZzPageRegistration failed;
         failed.routeId = ZzPureTools::ZzRouteId(QStringLiteral("failed"));
-        failed.factory = [](QWidget *pageParent) {
+        failed.factory = [&](QWidget *pageParent) {
+            pageHost = pageParent;
+            childCount = pageParent->children().size();
             static_cast<void>(new QWidget(pageParent));
             return zzFactoryFailure();
         };
@@ -434,7 +436,8 @@ private Q_SLOTS:
 
         QVERIFY(!result);
         QCOMPARE(result.error().code(), ZzCore::ZzErrorCode::Backend);
-        QCOMPARE(stack->children().size(), childCount);
+        QVERIFY(pageHost);
+        QCOMPARE(pageHost->children().size(), childCount);
         QVERIFY(!host.currentRoute().isValid());
     }
 
@@ -442,17 +445,18 @@ private Q_SLOTS:
     {
         int currentCalls = 0;
         int liveViews = 0;
+        QWidget *currentView = nullptr;
+        QPointer<QWidget> pageHost;
         ZzPureTools::ZzPageHost host;
         const auto current = zzCountingRegistration(
             QStringLiteral("current"),
             ZzPureTools::ZzPageLifetimePolicy::Persistent,
             &currentCalls,
-            &liveViews);
+            &liveViews, &currentView, &pageHost);
         QVERIFY(host.activate(current));
-        auto *stack = host.findChild<QStackedWidget *>();
-        QVERIFY(stack != nullptr);
-        QWidget *const currentWidget = stack->currentWidget();
-        const qsizetype childCount = stack->children().size();
+        const QPointer<QWidget> currentWidget(currentView);
+        QVERIFY(pageHost);
+        const qsizetype childCount = pageHost->children().size();
         ZzPureTools::ZzPageRegistration throwing;
         throwing.routeId = ZzPureTools::ZzRouteId(QStringLiteral("throwing"));
         throwing.factory = [](QWidget *pageParent)
@@ -469,8 +473,8 @@ private Q_SLOTS:
         QVERIFY(result.error().context().contains(
             QStringLiteral("factory failure")));
         QCOMPARE(host.currentRoute(), current.routeId);
-        QCOMPARE(stack->currentWidget(), currentWidget);
-        QCOMPARE(stack->children().size(), childCount);
+        QVERIFY(currentWidget && !currentWidget->isHidden());
+        QCOMPARE(pageHost->children().size(), childCount);
         QCOMPARE(liveViews, 1);
     }
 
@@ -478,17 +482,18 @@ private Q_SLOTS:
     {
         int currentCalls = 0;
         int liveViews = 0;
+        QWidget *currentView = nullptr;
+        QPointer<QWidget> pageHost;
         ZzPureTools::ZzPageHost host;
         const auto current = zzCountingRegistration(
             QStringLiteral("current"),
             ZzPureTools::ZzPageLifetimePolicy::Persistent,
             &currentCalls,
-            &liveViews);
+            &liveViews, &currentView, &pageHost);
         QVERIFY(host.activate(current));
-        auto *stack = host.findChild<QStackedWidget *>();
-        QVERIFY(stack != nullptr);
-        QWidget *const currentWidget = stack->currentWidget();
-        const qsizetype childCount = stack->children().size();
+        const QPointer<QWidget> currentWidget(currentView);
+        QVERIFY(pageHost);
+        const qsizetype childCount = pageHost->children().size();
         ZzPureTools::ZzPageRegistration nullPage;
         nullPage.routeId = ZzPureTools::ZzRouteId(QStringLiteral("null"));
         nullPage.factory = [](QWidget *pageParent) {
@@ -504,8 +509,8 @@ private Q_SLOTS:
             result.error().code(),
             ZzCore::ZzErrorCode::InvalidState);
         QCOMPARE(host.currentRoute(), current.routeId);
-        QCOMPARE(stack->currentWidget(), currentWidget);
-        QCOMPARE(stack->children().size(), childCount);
+        QVERIFY(currentWidget && !currentWidget->isHidden());
+        QCOMPARE(pageHost->children().size(), childCount);
         QCOMPARE(liveViews, 1);
     }
 };
