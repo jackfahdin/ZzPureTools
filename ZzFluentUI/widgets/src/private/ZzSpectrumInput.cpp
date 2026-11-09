@@ -30,7 +30,7 @@ void ZzSpectrumInput::setInputTimeout(int milliseconds)
 }
 void ZzSpectrumInput::preparePushLocked()
 {
-    const auto now = Clock::now();
+    const auto now = now_();
     if (inputTimeout_ > 0 && lastPush_ != Clock::time_point{}
         && std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPush_).count() >= inputTimeout_)
         resetLocked();
@@ -53,7 +53,7 @@ void ZzSpectrumInput::appendLocked(float sample)
     frames_ = std::min(frames_ + 1, fftSize_ * 8);
     partialCount_ = 0;
     ++serial_;
-    timestamp_ = Clock::now();
+    timestamp_ = now_();
 }
 bool ZzSpectrumInput::finishLocked()
 {

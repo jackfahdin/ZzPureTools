@@ -5,6 +5,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QTimer>
 #include <QtCore/QTranslator>
 #include <QtCore/QVariantAnimation>
@@ -19,6 +20,12 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 #include <QtGui/QPainter>
+#include <QtGui/QKeySequence>
+
+// Qt documents this function but requires callers to declare it explicitly.
+QT_BEGIN_NAMESPACE
+Q_GUI_EXPORT void qt_set_sequence_auto_mnemonic(bool enabled);
+QT_END_NAMESPACE
 
 #include <ZzFluentUI/ZzColorToken.h>
 #include <ZzFluentUI/ZzExpander.h>
@@ -241,14 +248,29 @@ private Q_SLOTS:
         QTest::newRow("collapsing") << false;
     }
 
+    void headerPreservesMnemonicSizing_data()
+    {
+        QTest::addColumn<bool>("disableMnemonics");
+        QTest::newRow("platform-default") << false;
+        QTest::newRow("disabled-mnemonics") << true;
+    }
+
     void headerPreservesMnemonicSizing()
     {
+        QFETCH(bool, disableMnemonics);
+        const bool mnemonicsEnabled = !QKeySequence::mnemonic(QStringLiteral("&A")).isEmpty();
+        const auto restoreMnemonics = qScopeGuard([mnemonicsEnabled] {
+            qt_set_sequence_auto_mnemonic(mnemonicsEnabled);
+        });
+        if (disableMnemonics) qt_set_sequence_auto_mnemonic(false);
         ZzFluentUI::ZzExpander expander;
         expander.setHeaderText(QStringLiteral("Advanced"));
         const QSize plain = headerButton(&expander)->sizeHint();
         expander.setHeaderText(QStringLiteral("&Advanced"));
         QCOMPARE(headerButton(&expander)->sizeHint(), plain);
-        QVERIFY(!headerButton(&expander)->shortcut().isEmpty());
+        // Qt disables automatic mnemonics by default on macOS.
+        QCOMPARE(headerButton(&expander)->shortcut(),
+            QKeySequence::mnemonic(QStringLiteral("&Advanced")));
         expander.setHeaderText(QStringLiteral("Save  Close"));
         const int noAmpersand = headerButton(&expander)->sizeHint().width();
         expander.setHeaderText(QStringLiteral("Save && Close"));

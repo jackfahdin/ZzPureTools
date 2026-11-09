@@ -6,7 +6,7 @@ usage() {
 usage: package-linux-appimage.sh \
   --build-dir <path> --qt-root <path> --evidence-root <path> \
   --gnu-license-dir <path> --linuxdeploy <path> --qt-plugin <path> \
-  --appimagetool <path> --output-dir <path> \
+  --appimagetool <path> --runtime-file <path> --output-dir <path> \
   --commit <40-lower-hex> --built-at-utc <YYYY-MM-DDTHH:MM:SSZ>
 USAGE
 }
@@ -18,6 +18,7 @@ gnu_license_dir_arg=
 linuxdeploy_arg=
 qt_plugin_arg=
 appimagetool_arg=
+runtime_file_arg=
 output_dir_arg=
 commit=
 built_at_utc=
@@ -35,6 +36,7 @@ while [[ $# -gt 0 ]]; do
     --linuxdeploy) linuxdeploy_arg=$2 ;;
     --qt-plugin) qt_plugin_arg=$2 ;;
     --appimagetool) appimagetool_arg=$2 ;;
+    --runtime-file) runtime_file_arg=$2 ;;
     --output-dir) output_dir_arg=$2 ;;
     --commit) commit=$2 ;;
     --built-at-utc) built_at_utc=$2 ;;
@@ -49,7 +51,7 @@ done
 
 for value_name in \
   build_dir_arg qt_root_arg evidence_root_arg gnu_license_dir_arg \
-  linuxdeploy_arg qt_plugin_arg appimagetool_arg output_dir_arg \
+  linuxdeploy_arg qt_plugin_arg appimagetool_arg runtime_file_arg output_dir_arg \
   commit built_at_utc; do
   [[ -n ${!value_name} ]] || {
     echo "missing required argument: $value_name" >&2
@@ -96,6 +98,11 @@ output_dir=$(resolve_directory output-dir "$output_dir_arg")
 linuxdeploy=$(resolve_executable linuxdeploy "$linuxdeploy_arg")
 qt_plugin=$(resolve_executable qt-plugin "$qt_plugin_arg")
 appimagetool=$(resolve_executable appimagetool "$appimagetool_arg")
+[[ -f $runtime_file_arg && -s $runtime_file_arg && ! -L $runtime_file_arg ]] || {
+  echo "runtime-file must be a nonempty regular file: $runtime_file_arg" >&2
+  exit 1
+}
+runtime_file=$(realpath "$runtime_file_arg")
 
 case "$build_dir/" in
   "$build_root"/*) ;;
@@ -266,7 +273,7 @@ cmake \
 
 package_path="$work_dir/$package_name"
 ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 \
-  "$appimagetool" "$appdir" "$package_path"
+  "$appimagetool" --runtime-file "$runtime_file" "$appdir" "$package_path"
 [[ -s $package_path && -x $package_path ]] || {
   echo "appimagetool did not produce an executable AppImage" >&2
   exit 1

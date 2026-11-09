@@ -332,7 +332,8 @@ cmake "-DZZ_OUTPUT_DIR=$ZZ_RELEASE_EVIDENCE_ROOT" \
 ### Ubuntu 22.04 x86_64 AppImage
 
 AppImage 脚本只接受 Ubuntu 22.04。除项目编译环境外，还需要经过固定摘要校验的
-`linuxdeploy`、`linuxdeploy-plugin-qt`、`appimagetool`，以及包含 `COPYING3` 和
+`linuxdeploy`、`linuxdeploy-plugin-qt`、`appimagetool` 和 SHA-256 校验过的
+`type2-runtime`（固定 `20251108` 版本的 `runtime-x86_64`，下载地址与摘要见 CI 工作流），以及包含 `COPYING3` 和
 `COPYING.RUNTIME` 的 GNU runtime 许可证目录：
 
 ```bash
@@ -357,6 +358,7 @@ scripts/package/package-linux-appimage.sh \
   --linuxdeploy "$ZZ_APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage" \
   --qt-plugin "$ZZ_APPIMAGE_TOOLS/linuxdeploy-plugin-qt-x86_64.AppImage" \
   --appimagetool "$ZZ_APPIMAGE_TOOLS/appimagetool-x86_64.AppImage" \
+  --runtime-file "$ZZ_APPIMAGE_TOOLS/runtime-x86_64" \
   --output-dir "$ZZ_ARTIFACT_DIR" \
   --commit "$ZZ_COMMIT" \
   --built-at-utc "$ZZ_BUILT_AT_UTC"

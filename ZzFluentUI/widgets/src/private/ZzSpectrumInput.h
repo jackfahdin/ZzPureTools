@@ -13,6 +13,8 @@ class ZzSpectrumInput final
 {
 public:
     using Clock = std::chrono::steady_clock;
+    using NowFunction = Clock::time_point (*)();
+    explicit ZzSpectrumInput(NowFunction now = Clock::now) : now_(now) {}
     struct ZzSnapshot {
         QVector<float> samples;
         quint64 serial = 0;
@@ -29,6 +31,7 @@ public:
     [[nodiscard]] ZzSnapshot takeLatest();
     [[nodiscard]] int bufferedFrames() const;
 private:
+    const NowFunction now_;
     void resetLocked();
     void preparePushLocked();
     void appendLocked(float sample);

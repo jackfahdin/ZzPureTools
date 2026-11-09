@@ -120,11 +120,15 @@ private Q_SLOTS:
     {
         ZzAudioSpectrum s; s.setAnimationEnabled(false); s.setInputTimeout(50);
         s.pushSamples(tone()); QTest::qSleep(80); s.show();
-        QTest::qWait(35); QCOMPARE(maximum(s.levels()), 0.0);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(!s.isRunning(), 300);
+        QCOMPARE(maximum(s.levels()), 0.0);
+        s.setInputTimeout(0);
         s.pushSamples(tone());
         ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(maximum(s.levels()) > 0.5, 300);
+        s.setInputTimeout(50);
         ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(!s.isRunning(), 300);
         QCOMPARE(maximum(s.displayedLevels()), 0.0);
+        s.setInputTimeout(0);
         s.hide(); s.pushSamples(tone()); QApplication::processEvents();
         QVERIFY(!s.isRunning()); s.show();
         ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(maximum(s.levels()) > 0.5, 300);
@@ -146,10 +150,11 @@ private Q_SLOTS:
         QFETCH(bool, hidden);
         QFETCH(int, resumeInterval);
         ZzAudioSpectrum s; s.setAnimationEnabled(false);
-        s.setRefreshInterval(10); s.setInputTimeout(40); s.show();
+        s.setRefreshInterval(10); s.setInputTimeout(0); s.show();
         s.pushSamples(tone());
         ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(maximum(s.levels()) > 0.5, 300);
         if (hidden) s.hide();
+        s.setInputTimeout(40);
         QTest::qSleep(70); QApplication::processEvents();
         s.pushSamples({0});
         // The stale window must be discarded by the new input, not by a later
@@ -187,13 +192,14 @@ private Q_SLOTS:
         s.setInputMode(ZzAudioSpectrum::ExternalBands); s.setInputTimeout(0);
         s.setAnimationEnabled(false); s.show();
         s.setBandLevels(QVector<qreal>(64, 1));
-        s.setAnimationEnabled(true); s.setPeakHoldDuration(250);
+        // Observe the hold phase without requiring the OS to schedule us inside
+        // a 250 ms window. A missing arrival timestamp still fails this check.
+        s.setAnimationEnabled(true); s.setPeakHoldDuration(10000);
         s.setBandLevels(QVector<qreal>(64, 0));
-        QTest::qSleep(150); QApplication::processEvents();
-        QVERIFY(maximum(s.displayedLevels()) < 1);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(maximum(s.displayedLevels()) < 1, 300);
         QCOMPARE(maximum(s.peakLevels()), 1.0);
-        QTest::qSleep(200); QApplication::processEvents();
-        QVERIFY(maximum(s.peakLevels()) < 1);
+        s.setPeakHoldDuration(0);
+        ZZ_VERIFY_EVENTUALLY_WITH_TIMEOUT(maximum(s.peakLevels()) < 1, 300);
         QVERIFY(maximum(s.peakLevels()) > maximum(s.displayedLevels()));
     }
     void reducedMotionRetainsTimeout()

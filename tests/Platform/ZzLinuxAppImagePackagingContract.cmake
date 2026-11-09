@@ -69,6 +69,7 @@ file(CHMOD
     "${ZZ_TEST_ROOT}/tools/appimagetool"
     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 file(WRITE "${ZZ_TEST_ROOT}/gnu-licenses/COPYING3" "GPL test fixture\n")
+file(WRITE "${ZZ_TEST_ROOT}/tools/runtime-x86_64" "runtime test fixture\n")
 file(WRITE "${ZZ_TEST_ROOT}/gnu-licenses/COPYING.RUNTIME"
     "Runtime exception test fixture\n")
 
@@ -98,6 +99,7 @@ foreach(true_spelling IN ITEMS ON TRUE YES 1 Y)
             --linuxdeploy "${ZZ_TEST_ROOT}/tools/linuxdeploy"
             --qt-plugin "${ZZ_TEST_ROOT}/tools/qt-plugin"
             --appimagetool "${ZZ_TEST_ROOT}/tools/appimagetool"
+            --runtime-file "${ZZ_TEST_ROOT}/tools/runtime-x86_64"
             --output-dir "${ZZ_TEST_ROOT}/output"
             --commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
             --built-at-utc 2026-08-28T00:00:00Z
@@ -147,7 +149,7 @@ set(ordered_script_tokens
     "--component ExampleRuntime"
     "--plugin qt"
     "StageRuntimeLicenses.cmake"
-    "appimagetool\" \"\$appdir"
+    "appimagetool\" --runtime-file \"\$runtime_file\" \"\$appdir"
     "--appimage-extract"
     "check-ubuntu2204-runtime.sh"
     "xvfb-run -a env"

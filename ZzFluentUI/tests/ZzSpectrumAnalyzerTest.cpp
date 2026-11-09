@@ -10,6 +10,7 @@
 using namespace ZzFluentUI;
 
 namespace {
+auto inputTime = ZzSpectrumInput::Clock::time_point(std::chrono::seconds(1));
 QVector<float> signal(int frames, int channels, int bin, qreal amplitude, bool antiphase = false)
 {
     QVector<float> result(frames * channels);
@@ -151,26 +152,29 @@ private Q_SLOTS:
     }
     void inputGapExpiresPartialFramesAndRespectsDisabledTimeout()
     {
-        ZzSpectrumInput input;
+        // Partial-channel pushes must refresh the gap deadline independently
+        // of the last complete frame, regardless of host scheduling delays.
+        inputTime = ZzSpectrumInput::Clock::time_point(std::chrono::seconds(1));
+        ZzSpectrumInput input([] { return inputTime; });
         input.configure(1024, 2, true, 25);
         input.pushPcm(QByteArray::fromHex("ff"));
-        QTest::qSleep(35);
+        inputTime += std::chrono::milliseconds(35);
         input.pushPcm(QByteArray(4096, char(0)));
         QCOMPARE(input.takeLatest().samples, QVector<float>(2048, 0));
         input.clear();
         input.pushFloats({1});
-        QTest::qSleep(35);
+        inputTime += std::chrono::milliseconds(35);
         input.pushFloats(QVector<float>(2048, 0));
         QCOMPARE(input.takeLatest().samples, QVector<float>(2048, 0));
         input.configure(1024, 1, true, 0);
         input.pushFloats(QVector<float>(1024, 0.5f));
-        QTest::qSleep(35);
+        inputTime += std::chrono::milliseconds(35);
         input.pushFloats({0});
         QCOMPARE(input.takeLatest().samples.first(), 0.5f);
         input.configure(1024, 8, true, 25);
         for (int i = 0; i < 8; ++i) {
             input.pushFloats({1});
-            QTest::qSleep(10);
+            inputTime += std::chrono::milliseconds(10);
         }
         input.pushFloats(QVector<float>(8192 - 8, 0));
         const auto continuous = input.takeLatest().samples;
