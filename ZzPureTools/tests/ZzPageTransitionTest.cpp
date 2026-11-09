@@ -95,6 +95,56 @@ class ZzPageTransitionTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void thousandTransitionsKeepBoundedResources()
+    {
+        ZzPageFixture pages[4];
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setRecreatableCapacity(1));
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.setTransitionDuration(1000));
+        for (int i = 0; i < 1000; ++i) {
+            const int index = i % 4;
+            const auto page = pages[index].registration(QString::number(index), Policy::Recreatable);
+            QVERIFY(host.activate(page));
+            QCOMPARE(host.currentRoute(), page.routeId);
+            int live = 0;
+            for (const auto &fixture : pages) if (fixture.view) ++live;
+            QCOMPARE(live, std::min(i + 1, 2));
+            const auto bytes = ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host);
+            QVERIFY(bytes <= 64 * 1024 * 1024);
+            QCOMPARE(bytes > 0, i > 0);
+        }
+        QCOMPARE(host.findChildren<QVariantAnimation *>().size(), 1);
+        host.findChild<QVariantAnimation *>()->setCurrentTime(1000);
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host), 0);
+    }
+
+    void disabledRouteAndNativeViewSkipCapture_data()
+    {
+        QTest::addColumn<bool>("native");
+        QTest::newRow("route") << false;
+        QTest::newRow("native") << true;
+    }
+    void disabledRouteAndNativeViewSkipCapture()
+    {
+        QFETCH(bool, native);
+        ZzPageFixture first, second;
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.activate(first.registration(QStringLiteral("a"))));
+        const auto b = second.registration(QStringLiteral("b"));
+        if (native) second.created = [&] { second.view->setAttribute(Qt::WA_NativeWindow); };
+        else QVERIFY(host.setRouteTransitionEnabled(b.routeId, false));
+        QVERIFY(host.activate(b));
+        QVERIFY(!host.isTransitionRunning());
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host), 0);
+        QVERIFY(second.view->isVisible());
+    }
+
     void viewDestructionCanDestroyHost()
     {
         ZzPageFixture page;

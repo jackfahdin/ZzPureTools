@@ -112,6 +112,16 @@ zz_add_benchmark(ZzAnimatedStackBenchmark
 target_link_libraries(ZzAnimatedStackBenchmark PRIVATE Zz::FluentUI)
 target_sources(ZzAnimatedStackBenchmark PRIVATE
     ../ZzFluentUI/widgets/src/private/ZzStackTransitionOverlay.cpp)
+add_executable(ZzPageHostTransitionBenchmark ZzPageHostTransitionBenchmark.cpp)
+target_link_libraries(ZzPageHostTransitionBenchmark PRIVATE ZzBenchmarkSupport Qt6::Widgets Zz::PureTools)
+zz_enable_project_warnings(ZzPageHostTransitionBenchmark)
+zz_enable_sanitizers(ZzPageHostTransitionBenchmark)
+foreach(zz_page_policy IN ITEMS persistent while-active)
+    add_test(NAME "benchmark.page-host-transition-${zz_page_policy}"
+        COMMAND ZzPageHostTransitionBenchmark --policy "${zz_page_policy}"
+        --report "${CMAKE_BINARY_DIR}/reports/benchmark.page-host-transition-${zz_page_policy}.json")
+    set_tests_properties("benchmark.page-host-transition-${zz_page_policy}" PROPERTIES LABELS "benchmark" TIMEOUT 120)
+endforeach()
 zz_add_benchmark(ZzLargeModelBenchmark
     ZzLargeModelBenchmark.cpp benchmark.large-model)
 zz_add_benchmark(ZzWindowLifecycleBenchmark
