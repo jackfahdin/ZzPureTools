@@ -4,6 +4,7 @@
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QPushButton>
 #include <QtGui/QPainter>
 #include <QtGui/QAccessible>
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
@@ -95,6 +96,105 @@ class ZzPageTransitionTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void transitionBlocksInputAndPreservesDisabledControls()
+    {
+        ZzPageFixture first, second;
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        host.activateWindow();
+        QCoreApplication::processEvents();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.setTransitionDuration(1000));
+        QVERIFY(host.activate(first.registration(QStringLiteral("a"))));
+        auto *input = new QLineEdit(first.view);
+        input->show();
+        input->setFocus();
+        QPointer<QPushButton> button;
+        QPointer<QLineEdit> disabled;
+        int clicks = 0;
+        second.created = [&] {
+            button = new QPushButton(QStringLiteral("Target"), second.view);
+            disabled = new QLineEdit(second.view);
+            disabled->setEnabled(false);
+            QObject::connect(button, &QPushButton::clicked, &host, [&] { ++clicks; });
+        };
+        QVERIFY(host.activate(second.registration(QStringLiteral("b"))));
+        auto *overlay = host.findChild<QWidget *>(QStringLiteral("zzAnimatedStackOverlay"));
+        QVERIFY(overlay && overlay->isVisible());
+        QTest::mouseClick(overlay, Qt::LeftButton);
+        QTest::keyClick(&host, Qt::Key_Tab);
+        QTest::keyClick(&host, Qt::Key_Space);
+        QCOMPARE(clicks, 0);
+        QVERIFY(host.hasFocus());
+        QVERIFY(!button->isVisible());
+        host.findChild<QVariantAnimation *>()->setCurrentTime(1000);
+        QVERIFY(button->isVisible());
+        QVERIFY(!disabled->isEnabled());
+        QTest::mouseClick(button, Qt::LeftButton);
+        QCOMPARE(clicks, 1);
+    }
+
+    void targetMovedDuringSourceCaptureFailsSafely()
+    {
+        ZzPageFixture first, second;
+        QWidget elsewhere;
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        const auto a = first.registration(QStringLiteral("a"));
+        QVERIFY(host.activate(a));
+        first.view->painted = [&] { if (second.view) second.view->setParent(&elsewhere); };
+        QVERIFY(!host.activate(second.registration(QStringLiteral("b"))));
+        QCOMPARE(host.currentRoute(), a.routeId);
+        QVERIFY(!second.view);
+        QVERIFY(first.view->isVisible());
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host), 0);
+    }
+
+    void externalSourceDestructionDuringTargetCaptureFallsBack()
+    {
+        ZzPageFixture first, second;
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.activate(first.registration(QStringLiteral("a"))));
+        second.created = [&] { second.view->painted = [&] { delete first.view.data(); }; };
+        const auto b = second.registration(QStringLiteral("b"));
+        QVERIFY(host.activate(b));
+        QCOMPARE(host.currentRoute(), b.routeId);
+        QVERIFY(!host.isTransitionRunning());
+        QVERIFY(second.view->isVisible());
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host), 0);
+        QCoreApplication::processEvents();
+        QVERIFY(!first.presenter);
+    }
+
+    void independentHostsKeepTheirOwnFrames()
+    {
+        ZzPageFixture first, second, third, fourth;
+        Host one, two;
+        one.resize(200, 100);
+        two.resize(200, 100);
+        one.show();
+        two.show();
+        QCoreApplication::processEvents();
+        QVERIFY(one.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(two.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(one.activate(first.registration(QStringLiteral("a"))));
+        QVERIFY(one.activate(second.registration(QStringLiteral("b"))));
+        const auto bytes = ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&one);
+        QVERIFY(bytes > 0);
+        QVERIFY(two.activate(third.registration(QStringLiteral("c"))));
+        QVERIFY(two.activate(fourth.registration(QStringLiteral("d"))));
+        two.deactivateCurrent();
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&one), bytes);
+        QVERIFY(one.isTransitionRunning());
+        QCOMPARE(one.currentRoute(), Route(QStringLiteral("b")));
+    }
+
     void thousandTransitionsKeepBoundedResources()
     {
         ZzPageFixture pages[4];
@@ -531,6 +631,7 @@ private Q_SLOTS:
         ZzPageFixture page;
         Host host;
         QCOMPARE(host.transitionMode(), Host::ZzTransitionMode::None);
+        QCOMPARE(host.focusPolicy(), Qt::NoFocus);
         QCOMPARE(host.transitionDuration(), -1);
         QVERIFY(!host.isTransitionRunning());
         QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));

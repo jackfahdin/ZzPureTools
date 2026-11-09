@@ -87,6 +87,34 @@ class ZzNavigationControllerTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void rapidNavigationRetainsBoundedHistory()
+    {
+        ZzPureTools::ZzNavigationModel model;
+        ZzPureTools::ZzPageHost host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(ZzPureTools::ZzPageHost::ZzTransitionMode::Fade));
+        QVERIFY(host.setTransitionDuration(1000));
+        ZzPureTools::ZzNavigationController controller(&model, &host);
+        QList<ZzPureTools::ZzPageRegistration> registrations;
+        for (int i = 0; i < 4; ++i) registrations.append(zzRegistration(QString::number(i)));
+        QVERIFY(controller.setRegistrations(registrations));
+        QVERIFY(controller.setHistoryCapacity(7));
+        for (int i = 0; i < 100; ++i) {
+            const auto route = registrations.at(i % 4).routeId;
+            QVERIFY(controller.navigate(route));
+            QCOMPARE(controller.currentRoute(), route);
+            QCOMPARE(host.currentRoute(), route);
+        }
+        int count = 0;
+        while (controller.canGoBack()) {
+            QVERIFY(controller.goBack());
+            ++count;
+            QVERIFY(count <= 7);
+        }
+        QCOMPARE(count, 7);
+    }
+
     void navigationSignalCanDestroyDependencies_data()
     {
         QTest::addColumn<bool>("destroyController");

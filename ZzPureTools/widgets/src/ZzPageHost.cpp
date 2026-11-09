@@ -22,7 +22,6 @@ ZzCore::ZzResult<void> zzInvalid()
 }
 ZzPageHost::ZzPageHost(QWidget *parent) : QWidget(parent)
 {
-    setFocusPolicy(Qt::StrongFocus);
     d_ptr = std::make_unique<ZzPageHostPrivate>(this);
 }
 ZzPageHost::~ZzPageHost() { d_ptr.reset(); }
