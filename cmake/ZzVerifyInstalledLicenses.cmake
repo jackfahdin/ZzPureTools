@@ -63,8 +63,6 @@ endif()
 set(required_files
     share/ZzPureToolsFrame/licenses/PROJECT-LICENSE
     share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE
-    share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE
-    share/ZzPureToolsFrame/licenses/qwindowkit/stdcorelib-LICENSE
     share/ZzPureToolsFrame/licenses/ZzLog/LICENSE
     share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt
     share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt
@@ -139,8 +137,6 @@ set(required_notice_tokens
     "SPDX"
     "share/ZzPureToolsFrame/licenses/PROJECT-LICENSE"
     "share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE"
-    "share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE"
-    "share/ZzPureToolsFrame/licenses/qwindowkit/stdcorelib-LICENSE"
     "share/ZzPureToolsFrame/licenses/ZzLog/LICENSE"
     "share/ZzPureToolsFrame/licenses/ZzLog/spdlog-LICENSE.txt"
     "share/ZzPureToolsFrame/licenses/ZzLog/fmt-LICENSE.txt"

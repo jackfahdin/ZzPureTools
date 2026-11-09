@@ -460,6 +460,42 @@ function(zz_verify_release_evidence)
         list(APPEND qwindowkit_errors ${q_record_review_errors})
     endif()
 
+    _zz_release_json_value("${release_json}" STRING derived_status derived_status_valid
+        evidence windeployqtDerivedWork status)
+    if(derived_status_valid AND "${derived_status}" STREQUAL "removed")
+        _zz_release_json_value("${release_json}" STRING removed_commit removed_commit_valid
+            evidence windeployqtDerivedWork removedByUpstreamCommit)
+        if(NOT removed_commit_valid OR NOT vendor_commit_valid
+           OR NOT "${removed_commit}" STREQUAL "${vendor_commit}")
+            list(APPEND derived_work_errors "removed dependency commit must match the vendor snapshot")
+        endif()
+        if(EXISTS "${source_root}/ZzThirdParty/qwindowkit/qmsetup"
+           OR IS_SYMLINK "${source_root}/ZzThirdParty/qwindowkit/qmsetup")
+            list(APPEND derived_work_errors "removed dependency qmsetup still exists in the source tree")
+        endif()
+        string(JSON submodule_type ERROR_VARIABLE submodule_error TYPE "${vendor_json}" submodules)
+        if(NOT "${submodule_error}" STREQUAL "NOTFOUND" OR NOT "${submodule_type}" STREQUAL "OBJECT")
+            list(APPEND derived_work_errors "removed dependency requires an empty submodules object")
+        else()
+            string(JSON submodule_count LENGTH "${vendor_json}" submodules)
+            if(NOT submodule_count EQUAL 0)
+                list(APPEND derived_work_errors "removed dependency still has declared submodules")
+            endif()
+        endif()
+        _zz_release_verify_historical_review(
+            "${release_json}" "${source_root}" "${evidence_root}"
+            windeployqtDerivedWork windeployqt-redistribution-review.json qt_history_errors)
+        list(APPEND derived_work_errors ${qt_history_errors})
+        _zz_release_verify_file_object(
+            "${release_json}" "${source_root}" "${evidence_root}"
+            "windeployqtDerivedWork.historicalTechnicalReview"
+            qt_history_scope qt_history_relative qt_history_path qt_history_sha
+            qt_technical_errors evidence windeployqtDerivedWork historicalTechnicalReview)
+        list(APPEND derived_work_errors ${qt_technical_errors})
+    else()
+    if(derived_status_valid AND NOT "${derived_status}" STREQUAL "present")
+        list(APPEND derived_work_errors "windeployqtDerivedWork.status must be present or removed")
+    endif()
     _zz_release_json_value(
         "${release_json}" STRING upstream_project upstream_project_valid
         evidence windeployqtDerivedWork upstreamProject)
@@ -570,6 +606,8 @@ function(zz_verify_release_evidence)
             list(APPEND derived_work_errors
                 "windeployqt 再分发审核记录.conclusion 必须是 approved")
         endif()
+    endif()
+
     endif()
 
     _zz_release_json_value(

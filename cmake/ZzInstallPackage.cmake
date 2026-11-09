@@ -209,18 +209,6 @@ function(zz_install_package)
             DESTINATION
                 "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
             COMPONENT Runtime)
-        install(FILES
-            "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/LICENSE"
-            DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
-            RENAME qmsetup-LICENSE
-            COMPONENT Runtime)
-        install(FILES
-            "${PROJECT_SOURCE_DIR}/ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE"
-            DESTINATION
-                "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/qwindowkit"
-            RENAME stdcorelib-LICENSE
-            COMPONENT Runtime)
         install(FILES "${PROJECT_SOURCE_DIR}/ZzThirdParty/ZzLog/LICENSE"
             DESTINATION
                 "${CMAKE_INSTALL_DATAROOTDIR}/ZzPureToolsFrame/licenses/ZzLog"

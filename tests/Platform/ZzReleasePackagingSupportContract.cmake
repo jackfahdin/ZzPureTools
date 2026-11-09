@@ -264,8 +264,6 @@ endif()
 foreach(staged_path IN ITEMS
     licenses/ZzPureToolsFrame/LICENSE
     licenses/QWindowKit/LICENSE
-    licenses/QWindowKit/qmsetup-LICENSE
-    licenses/QWindowKit/stdcorelib-LICENSE
     licenses/ZzLog/spdlog-LICENSE.txt
     licenses/KissFFT/COPYING
     licenses/KissFFT/LICENSES/BSD-3-Clause
@@ -398,14 +396,16 @@ foreach(sdk_component IN ITEMS Development Runtime)
     endforeach()
 endforeach()
 
-file(SHA256
-    "${source_dir}/ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE"
-    stdcorelib_source_sha)
-file(SHA256 "${stage_root}/licenses/QWindowKit/stdcorelib-LICENSE"
-    stdcorelib_staged_sha)
-if(NOT stdcorelib_source_sha STREQUAL stdcorelib_staged_sha)
-    message(FATAL_ERROR "Staged stdcorelib license does not match its source")
+file(SHA256 "${source_dir}/ZzThirdParty/qwindowkit/LICENSE" qwindowkit_source_sha)
+file(SHA256 "${stage_root}/licenses/QWindowKit/LICENSE" qwindowkit_staged_sha)
+if(NOT qwindowkit_source_sha STREQUAL qwindowkit_staged_sha)
+    message(FATAL_ERROR "Staged QWindowKit license does not match its source")
 endif()
+foreach(retired_license IN ITEMS qmsetup-LICENSE stdcorelib-LICENSE)
+    if(EXISTS "${stage_root}/licenses/QWindowKit/${retired_license}")
+        message(FATAL_ERROR "Removed build dependency was staged: ${retired_license}")
+    endif()
+endforeach()
 
 set(incomplete_qt_license_dir "${test_root}/qt-licenses-without-lgpl")
 file(MAKE_DIRECTORY "${incomplete_qt_license_dir}")

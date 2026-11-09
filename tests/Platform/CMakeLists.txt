@@ -99,6 +99,15 @@ set_tests_properties(platform.package-relocation PROPERTIES
     RUN_SERIAL TRUE
     TIMEOUT 1800)
 
+add_test(NAME platform.qwindowkit-build-contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        "-DZZ_BINARY_ROOT=${PROJECT_BINARY_DIR}"
+        "-DZZ_TEST_ROOT=${PROJECT_BINARY_DIR}/contracts/qwindowkit-build"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzQWindowKitBuildContract.cmake")
+set_tests_properties(platform.qwindowkit-build-contract PROPERTIES
+    LABELS "platform;contract;windowkit")
+
 add_test(NAME platform.gate-script-contract
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"

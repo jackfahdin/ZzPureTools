@@ -1,3 +1,0 @@
-add_subdirectory(jsonconformance)
-
-add_subdirectory(cborconformance)

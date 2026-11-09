@@ -29,6 +29,16 @@ set_tests_properties(release.complete-fixture PROPERTIES
     RUN_SERIAL TRUE
     TIMEOUT 30)
 
+add_test(NAME release.removed-dependency-fixture
+    COMMAND "${CMAKE_COMMAND}"
+        "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        "-DZZ_BINARY_ROOT=${CMAKE_BINARY_DIR}"
+        "-DZZ_WORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/removed-dependency-fixture"
+        -DZZ_REMOVED_FIXTURE=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzReleaseChecksFixture.cmake")
+set_tests_properties(release.removed-dependency-fixture PROPERTIES
+    LABELS "release;contract" RUN_SERIAL TRUE TIMEOUT 30)
+
 if(ZZ_RELEASE_BUILD)
     add_test(NAME release.installed-licenses
         COMMAND "${CMAKE_COMMAND}"

@@ -88,7 +88,14 @@ function(zz_download_manifest_evidence relative_path url)
     endif()
 endfunction()
 
-set(qwindowkit_commit 5626b3ae5f22508d77361495f589abedb39c2ee4)
+string(JSON qwindowkit_commit ERROR_VARIABLE qwindowkit_commit_error
+    GET "${manifest_json}" evidence qwindowkit upstreamCommit)
+string(LENGTH "${qwindowkit_commit}" qwindowkit_commit_length)
+if(NOT "${qwindowkit_commit_error}" STREQUAL "NOTFOUND"
+   OR NOT qwindowkit_commit_length EQUAL 40
+   OR NOT "${qwindowkit_commit}" MATCHES "^[0-9a-f]+$")
+    message(FATAL_ERROR "Manifest has no valid pinned QWindowKit commit")
+endif()
 zz_download_manifest_evidence(
     "qwindowkit/qwindowkit-${qwindowkit_commit}.tar.gz"
     "https://github.com/stdware/qwindowkit/archive/${qwindowkit_commit}.tar.gz"
@@ -111,13 +118,17 @@ foreach(qt_license_name IN ITEMS
         "https://raw.githubusercontent.com/qt/qt5/v${qt_runtime_version}/LICENSES/${qt_license_name}"
         evidence qtRuntimeLicenses files "${qt_license_name}")
 endforeach()
-zz_download_manifest_evidence(
-    "qt-5.15.2/qttools-src-shared-winutils-utils.cpp"
-    "https://raw.githubusercontent.com/qt/qttools/v5.15.2/src/shared/winutils/utils.cpp"
-    evidence windeployqtDerivedWork upstreamSource)
-zz_download_manifest_evidence(
-    "qt-5.15.2/LICENSE.GPL3-EXCEPT"
-    "https://raw.githubusercontent.com/qt/qttools/v5.15.2/LICENSE.GPL3-EXCEPT"
-    evidence windeployqtDerivedWork upstreamLicense)
+string(JSON derived_status ERROR_VARIABLE derived_status_error
+    GET "${manifest_json}" evidence windeployqtDerivedWork status)
+if(NOT "${derived_status_error}" STREQUAL "NOTFOUND" OR NOT derived_status STREQUAL "removed")
+    zz_download_manifest_evidence(
+        "qt-5.15.2/qttools-src-shared-winutils-utils.cpp"
+        "https://raw.githubusercontent.com/qt/qttools/v5.15.2/src/shared/winutils/utils.cpp"
+        evidence windeployqtDerivedWork upstreamSource)
+    zz_download_manifest_evidence(
+        "qt-5.15.2/LICENSE.GPL3-EXCEPT"
+        "https://raw.githubusercontent.com/qt/qttools/v5.15.2/LICENSE.GPL3-EXCEPT"
+        evidence windeployqtDerivedWork upstreamLicense)
+endif()
 
 message(STATUS "Prepared release evidence with manifest-locked SHA-256")
