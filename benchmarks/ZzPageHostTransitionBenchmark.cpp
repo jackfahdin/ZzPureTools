@@ -49,7 +49,8 @@ ZzPureTools::ZzPageRegistration zzRegistration(const QString &route, bool transi
         for (int i = 0; i < 12; ++i) layout->addRow(new QLabel(QStringLiteral("Field %1").arg(i)),
             new QLineEdit(QStringLiteral("Page transition sample %1").arg(i)));
         layout->addRow(new QPushButton(QStringLiteral("Apply")));
-        QObject::connect(page, &QObject::destroyed, [&destroyed] { ++destroyed; });
+        // 使用页面外的观察上下文，避免被展示对象之间的断连移除。
+        QObject::connect(page, &QObject::destroyed, parent, [&destroyed] { ++destroyed; });
         return ZzPureTools::ZzPageInstance::create(parent, page, std::make_unique<QObject>(), std::make_unique<QObject>());
     };
     return registration;
@@ -109,10 +110,17 @@ int main(int argc, char *argv[])
         if (!host.activate(target)) return 4;
         const double elapsed = static_cast<double>(total.nsecsElapsed()) / 1'000'000.0;
         if (!host.isTransitionRunning() || host.currentRoute() != target.routeId || observations != 0) return 4;
-        if (destroyed != (transient ? iteration + 1 : 0)) return 5;
+        if (destroyed != (transient ? iteration + 1 : 0)) {
+            QTextStream(stderr) << "iteration " << iteration << ": destroyed views " << destroyed
+                << ", expected " << (transient ? iteration + 1 : 0) << '\n';
+            return 5;
+        }
         animation->pause();
         const auto peak = ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host);
-        if (peak <= 0 || peak > 64 * 1024 * 1024) return 5;
+        if (peak <= 0 || peak > 64 * 1024 * 1024) {
+            QTextStream(stderr) << "iteration " << iteration << ": snapshot bytes " << peak << '\n';
+            return 5;
+        }
         application.paints.clear();
         application.measuring = iteration >= 10;
         for (int frame = 1; frame <= 10; ++frame) {
