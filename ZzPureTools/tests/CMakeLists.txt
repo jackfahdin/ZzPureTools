@@ -29,7 +29,7 @@ set_tests_properties(puretools.page-lifecycle PROPERTIES
 )
 
 add_executable(ZzPageTransitionTest ZzPageTransitionTest.cpp)
-target_link_libraries(ZzPageTransitionTest PRIVATE Qt6::Test Zz::PureTools)
+target_link_libraries(ZzPageTransitionTest PRIVATE Qt6::Test Zz::PureTools Zz::FluentUI)
 set_target_properties(ZzPageTransitionTest PROPERTIES AUTOMOC ON)
 zz_enable_project_warnings(ZzPageTransitionTest)
 zz_enable_sanitizers(ZzPageTransitionTest)

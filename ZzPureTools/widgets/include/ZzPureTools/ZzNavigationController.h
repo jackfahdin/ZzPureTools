@@ -23,7 +23,8 @@ class ZzPageHost;
  * @brief 按强类型路由协调导航模型、页面宿主和窗口级有界历史。
  *
  * model 和 pageHost 是非拥有观察值，生命周期必须覆盖 controller。全部方法只能
- * 在 controller 所属 GUI 线程调用。
+ * 在 controller 所属 GUI 线程调用。导航及历史修改在同步 factory、展示和导航通知
+ * 回调中重入时返回 InvalidState；需要后续导航时应投递到下一次事件循环。
  */
 class ZZ_PURE_TOOLS_EXPORT ZzNavigationController final : public QObject
 {

@@ -78,6 +78,7 @@ public:
     void prepareForDestruction() noexcept;
 
 private:
+    friend class ZzPageHostPrivate;
     explicit ZzPageInstance(
         QWidget *view,
         std::unique_ptr<QObject> viewModel,

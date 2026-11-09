@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <QtCore/QAbstractAnimation>
+#include <QtCore/QPointer>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <QtWidgets/QLabel>
@@ -86,6 +87,126 @@ class ZzNavigationControllerTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void navigationSignalCanDestroyDependencies_data()
+    {
+        QTest::addColumn<bool>("destroyController");
+        QTest::newRow("controller") << true;
+        QTest::newRow("host") << false;
+    }
+    void navigationSignalCanDestroyDependencies()
+    {
+        QFETCH(bool, destroyController);
+        ZzPureTools::ZzNavigationModel model;
+        auto host = std::make_unique<ZzPureTools::ZzPageHost>();
+        auto controller = std::make_unique<ZzPureTools::ZzNavigationController>(&model, host.get());
+        const auto a = zzRegistration(QStringLiteral("a"));
+        const auto b = zzRegistration(QStringLiteral("b"));
+        QVERIFY(controller->setRegistrations({a, b}));
+        QVERIFY(controller->navigate(a.routeId));
+        QSignalSpy history(controller.get(), &ZzPureTools::ZzNavigationController::historyStateChanged);
+        QObject::connect(controller.get(), &ZzPureTools::ZzNavigationController::currentRouteChanged,
+            &model, [&](const ZzPureTools::ZzRouteId &) {
+                if (destroyController) controller.reset();
+                else host.reset();
+            });
+        QVERIFY(controller->navigate(b.routeId));
+        QCOMPARE(history.size(), 0);
+        if (destroyController) QVERIFY(!controller);
+        else QVERIFY(!host);
+    }
+
+    void navigationSignalRejectsReentry()
+    {
+        ZzPureTools::ZzNavigationModel model;
+        ZzPureTools::ZzPageHost host;
+        ZzPureTools::ZzNavigationController controller(&model, &host);
+        const auto a = zzRegistration(QStringLiteral("a"));
+        const auto b = zzRegistration(QStringLiteral("b"));
+        QVERIFY(controller.setRegistrations({a, b}));
+        QVERIFY(controller.navigate(a.routeId));
+        bool rejected = false;
+        const auto connection = QObject::connect(&controller, &ZzPureTools::ZzNavigationController::currentRouteChanged,
+            &controller, [&](const ZzPureTools::ZzRouteId &) {
+                auto result = controller.goBack();
+                rejected = !result && result.error().code() == ZzCore::ZzErrorCode::InvalidState;
+            });
+        QVERIFY(controller.navigate(b.routeId));
+        QObject::disconnect(connection);
+        QVERIFY(rejected);
+        QCOMPARE(controller.currentRoute(), b.routeId);
+        QVERIFY(controller.goBack());
+        QCOMPARE(host.currentRoute(), a.routeId);
+    }
+
+    void hostFactoryRejectsControllerReentry()
+    {
+        ZzPureTools::ZzNavigationModel model;
+        ZzPureTools::ZzPageHost host;
+        ZzPureTools::ZzNavigationController controller(&model, &host);
+        const auto a = zzRegistration(QStringLiteral("a"));
+        QVERIFY(controller.setRegistrations({a}));
+        auto b = zzRegistration(QStringLiteral("b"));
+        const auto factory = b.factory;
+        bool rejected = false;
+        b.factory = [&](QWidget *parent) {
+            auto result = controller.navigate(a.routeId);
+            rejected = !result && result.error().code() == ZzCore::ZzErrorCode::InvalidState;
+            return factory(parent);
+        };
+        QSignalSpy failure(&controller, &ZzPureTools::ZzNavigationController::navigationFailed);
+        QVERIFY(host.activate(b));
+        QVERIFY(rejected);
+        QCOMPARE(failure.size(), 0);
+        QCOMPARE(host.currentRoute(), b.routeId);
+    }
+
+    void animationPreservesHistoryAndFailureSemantics_data()
+    {
+        QTest::addColumn<bool>("animated");
+        QTest::newRow("none") << false;
+        QTest::newRow("fade") << true;
+    }
+    void animationPreservesHistoryAndFailureSemantics()
+    {
+        QFETCH(bool, animated);
+        ZzPageFactoryState state;
+        ZzPureTools::ZzNavigationModel model;
+        ZzPureTools::ZzPageHost host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(animated ? ZzPureTools::ZzPageHost::ZzTransitionMode::Fade
+            : ZzPureTools::ZzPageHost::ZzTransitionMode::None));
+        QVERIFY(host.setTransitionDuration(1000));
+        ZzPureTools::ZzNavigationController controller(&model, &host);
+        const auto a = zzRegistration(QStringLiteral("a"));
+        const auto b = zzRegistration(QStringLiteral("b"));
+        const auto c = zzRegistration(QStringLiteral("c"), &state);
+        QVERIFY(controller.setRegistrations({a, b, c}));
+        QVERIFY(controller.navigate(a.routeId));
+        QVERIFY(controller.navigate(b.routeId));
+        QVERIFY(controller.navigate(c.routeId));
+        QCOMPARE(controller.currentRoute(), c.routeId);
+        QVERIFY(controller.goBack());
+        QCOMPARE(host.currentRoute(), b.routeId);
+        QVERIFY(controller.goBack());
+        QCOMPARE(host.currentRoute(), a.routeId);
+        QVERIFY(controller.goForward());
+        QCOMPARE(host.currentRoute(), b.routeId);
+        state.fail = true;
+        QTest::ignoreMessage(QtWarningMsg, "page navigation failed: test page creation failed routeId=c");
+        QVERIFY(!controller.goForward());
+        QCOMPARE(host.currentRoute(), b.routeId);
+        QVERIFY(controller.canGoBack());
+        QVERIFY(controller.canGoForward());
+        QCOMPARE(host.isTransitionRunning(), animated);
+        QTest::ignoreMessage(QtWarningMsg, "page navigation failed: test page creation failed routeId=c");
+        QVERIFY(!controller.navigate(c.routeId));
+        QCOMPARE(host.currentRoute(), c.routeId);
+        QVERIFY(!host.isTransitionRunning());
+        QVERIFY(controller.goBack());
+        QCOMPARE(host.currentRoute(), b.routeId);
+    }
+
     void modelExposesDisplayAndRouteRoles()
     {
         ZzPureTools::ZzNavigationModel model;

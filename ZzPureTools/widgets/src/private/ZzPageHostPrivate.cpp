@@ -1,5 +1,6 @@
 #include "ZzPageHostPrivate.h"
 #include "ZzPageHostTransitionPrivate.h"
+#include "ZzPageInstancePrivate.h"
 
 #include <exception>
 #include <utility>
@@ -65,6 +66,13 @@ ZzPageHostPrivate::~ZzPageHostPrivate()
     busy = true;
     transition.reset();
     host->removeEventFilter(this);
+    for (const auto &view : retiringViews) {
+        if (view && view->parentWidget() == host) {
+            // 外部 destroyed 回调可以删除宿主；正在析构的 View 不能再由父树删除。
+            view->removeEventFilter(this);
+            view->setParent(nullptr);
+        }
+    }
     for (auto &[key, entry] : pages) {
         Q_UNUSED(key);
         QObject::disconnect(entry.destroyed);
@@ -353,6 +361,10 @@ bool ZzPageHostPrivate::eventFilter(QObject *watched, QEvent *event)
                 if (destroying) return;
                 retiringViews.removeIf([](const auto &item) { return item.isNull(); });
                 retiringViews.append(view);
+                for (auto &[key, entry] : pages) {
+                    Q_UNUSED(key);
+                    if (entry.instance->view() == view) entry.instance->d_ptr->view.clear();
+                }
             });
         }
     }

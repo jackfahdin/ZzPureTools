@@ -5,6 +5,10 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QVBoxLayout>
 #include <QtGui/QPainter>
+#include <QtGui/QAccessible>
+#include <ZzFluentUI/ZzAnimatedStackedWidget.h>
+#include <ZzFluentUI/ZzFluentStyle.h>
+#include <ZzFluentUI/ZzThemeController.h>
 #include <ZzCore/ZzErrorCode.h>
 #include <ZzPureTools/ZzPageHost.h>
 #include <ZzPureTools/ZzPageInstance.h>
@@ -91,6 +95,200 @@ class ZzPageTransitionTest final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void viewDestructionCanDestroyHost()
+    {
+        ZzPageFixture page;
+        auto *host = new Host;
+        QPointer<Host> guard(host);
+        QVERIFY(host->activate(page.registration(QStringLiteral("a"))));
+        QObject::connect(page.view, &QObject::destroyed, [&] { delete host; });
+        delete page.view.data();
+        QVERIFY(!guard);
+        QVERIFY(!page.view);
+        QVERIFY(!page.presenter);
+        QVERIFY(!page.viewModel);
+    }
+
+    void environmentSettlesCommittedRoute_data()
+    {
+        QTest::addColumn<int>("change");
+        for (int i = 0; i < 17; ++i) QTest::newRow(qPrintable(QString::number(i))) << i;
+    }
+    void environmentSettlesCommittedRoute()
+    {
+        QFETCH(int, change);
+        ZzPageFixture first, second;
+        ZzFluentUI::ZzThemeController controller;
+        ZzFluentUI::ZzFluentStyle style(&controller);
+        Host host;
+        host.setStyle(&style);
+        host.resize(200, 100);
+        host.show();
+        QCoreApplication::processEvents();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.setTransitionDuration(1000));
+        const auto a = first.registration(QStringLiteral("a"));
+        const auto b = second.registration(QStringLiteral("b"));
+        QVERIFY(host.activate(a));
+        QVERIFY(host.activate(b));
+        QVERIFY(host.isTransitionRunning());
+        switch (change) {
+        case 0: host.resize(220, 120); break;
+        case 1: host.hide(); break;
+        case 2: host.setEnabled(false); break;
+        case 3: host.setLayoutDirection(Qt::RightToLeft); break;
+        case 4: QVERIFY(host.setTransitionDuration(0)); break;
+        case 5: QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::None)); break;
+        case 6: { QEvent e(QEvent::WindowDeactivate); QApplication::sendEvent(&host, &e); break; }
+        case 7: { QEvent e(QEvent::DevicePixelRatioChange); QApplication::sendEvent(&host, &e); break; }
+        case 8: { QEvent e(QEvent::PaletteChange); QApplication::sendEvent(&host, &e); break; }
+        case 9: { QEvent e(QEvent::StyleChange); QApplication::sendEvent(&host, &e); break; }
+        case 10: { QEvent e(QEvent::FontChange); QApplication::sendEvent(&host, &e); break; }
+        case 11: { QEvent e(QEvent::LanguageChange); QApplication::sendEvent(&host, &e); break; }
+        case 12: controller.setReducedMotion(true); QCoreApplication::processEvents(); break;
+        case 13: host.setContentsMargins(5, 7, 9, 11); break;
+        case 14: QVERIFY(host.setRouteTransitionEnabled(a.routeId, false)); break;
+        case 15: QVERIFY(host.setRouteTransitionEnabled(b.routeId, false)); break;
+        case 16:
+            QVERIFY(host.setRouteTransitionEnabled(Route(QStringLiteral("unrelated")), false));
+            QVERIFY(host.isTransitionRunning());
+            host.findChild<QVariantAnimation *>()->setCurrentTime(1000);
+            break;
+        }
+        QCOMPARE(host.currentRoute(), b.routeId);
+        QVERIFY(!host.isTransitionRunning());
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host), 0);
+        QVERIFY(first.view->isHidden());
+        QVERIFY(!second.view->isHidden());
+    }
+
+    void rendersFrames_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<bool>("backward");
+        QTest::addColumn<bool>("rtl");
+        for (int mode = 1; mode <= 3; ++mode) for (bool backward : {false, true}) for (bool rtl : {false, true}) {
+            const auto name = QStringLiteral("%1-%2-%3").arg(mode).arg(backward).arg(rtl).toLatin1();
+            QTest::newRow(name.constData()) << mode << backward << rtl;
+        }
+    }
+    void rendersFrames()
+    {
+        QFETCH(int, mode);
+        QFETCH(bool, backward);
+        QFETCH(bool, rtl);
+        ZzPageFixture first, second;
+        second.color = Qt::blue;
+        Host host;
+        host.setContentsMargins(5, 7, 9, 11);
+        host.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        host.resize(214, 118);
+        host.show();
+        QVERIFY(host.setTransitionMode(static_cast<Host::ZzTransitionMode>(mode)));
+        QVERIFY(host.setTransitionDuration(200));
+        QVERIFY(host.activate(first.registration(QStringLiteral("a"), Policy::WhileActive)));
+        QVERIFY(host.activate(second.registration(QStringLiteral("b")), backward
+            ? Host::ZzTransitionDirection::Backward : Host::ZzTransitionDirection::Forward));
+        QVERIFY(host.isTransitionRunning());
+        auto *animation = host.findChild<QVariantAnimation *>();
+        animation->pause();
+        animation->setCurrentTime(100);
+        const auto frame = host.grab().toImage();
+        const auto colorAt = [&](QPoint point) {
+            point += host.contentsRect().topLeft();
+            return frame.pixelColor(qRound(point.x() * frame.devicePixelRatio()), qRound(point.y() * frame.devicePixelRatio()));
+        };
+        if (mode == 3) {
+            const auto color = colorAt(QPoint(100, 50));
+            QVERIFY(qAbs(color.red() - 32) <= 1);
+            QVERIFY(qAbs(color.blue() - 223) <= 1);
+        } else {
+            const bool reverse = backward != (mode == 1 && rtl);
+            const QPoint near = mode == 1 ? QPoint(5, 50) : QPoint(100, 5);
+            const QPoint far = mode == 1 ? QPoint(195, 50) : QPoint(100, 95);
+            QCOMPARE(colorAt(reverse ? far : near), QColor(Qt::red));
+            QCOMPARE(colorAt(reverse ? near : far), QColor(Qt::blue));
+        }
+        animation->setCurrentTime(200);
+        QCOMPARE(second.view->geometry(), QRect(0, 0, 200, 100));
+    }
+
+    void interruptedCaptureCommitsWithoutFrames()
+    {
+        ZzPageFixture first, second;
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.activate(first.registration(QStringLiteral("a"))));
+        second.created = [&] { second.view->painted = [&] { host.resize(220, 120); }; };
+        const auto b = second.registration(QStringLiteral("b"));
+        QVERIFY(host.activate(b));
+        QCOMPARE(host.currentRoute(), b.routeId);
+        QVERIFY(!host.isTransitionRunning());
+        QVERIFY(second.view->isVisible());
+        QCOMPARE(ZzPureTools::ZzPageHostTransitionPrivate::snapshotBytes(&host), 0);
+    }
+
+    void focusedTargetAndAccessibilityRecover()
+    {
+        ZzPageFixture first, second;
+        QWidget window;
+        auto *layout = new QVBoxLayout(&window);
+        auto *host = new Host(&window);
+        layout->addWidget(host);
+        window.resize(300, 200);
+        window.show();
+        window.activateWindow();
+        QCoreApplication::processEvents();
+        QVERIFY(host->setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host->setTransitionDuration(1000));
+        QVERIFY(host->activate(first.registration(QStringLiteral("a"))));
+        auto *input = new QLineEdit(first.view);
+        input->show();
+        input->setFocus();
+        QPointer<QLineEdit> targetInput;
+        second.created = [&] {
+            second.view->setAccessibleName(QStringLiteral("target"));
+            targetInput = new QLineEdit(second.view);
+        };
+        QVERIFY(host->activate(second.registration(QStringLiteral("b"))));
+        QVERIFY(host->hasFocus());
+        auto *accessible = QAccessible::queryAccessibleInterface(second.view);
+        QVERIFY(accessible);
+        QVERIFY(accessible->state().invisible);
+        const int paints = second.view->paints;
+        auto *animation = host->findChild<QVariantAnimation *>();
+        animation->pause();
+        for (int t : {100, 200, 500, 800}) animation->setCurrentTime(t);
+        QCOMPARE(second.view->paints, paints);
+        animation->setCurrentTime(1000);
+        QVERIFY(!accessible->state().invisible);
+        QCOMPARE(accessible->text(QAccessible::Name), QStringLiteral("target"));
+        QCOMPARE(QApplication::focusWidget(), targetInput.data());
+    }
+
+    void nestedRunningStackFallsBack()
+    {
+        ZzPageFixture first, second;
+        Host host;
+        host.resize(200, 100);
+        host.show();
+        QVERIFY(host.setTransitionMode(Host::ZzTransitionMode::Fade));
+        QVERIFY(host.activate(first.registration(QStringLiteral("a"))));
+        auto *nested = new ZzFluentUI::ZzAnimatedStackedWidget(first.view);
+        nested->addWidget(new QWidget);
+        nested->addWidget(new QWidget);
+        nested->resize(150, 80);
+        nested->show();
+        nested->setDuration(1000);
+        QVERIFY(nested->setCurrentIndex(1));
+        QVERIFY(nested->isTransitionRunning());
+        QVERIFY(host.activate(second.registration(QStringLiteral("b"))));
+        QVERIFY(!host.isTransitionRunning());
+        QVERIFY(!nested->isTransitionRunning());
+    }
+
     void capturePreservesExternalFocus_data()
     {
         QTest::addColumn<bool>("source");

@@ -1,9 +1,11 @@
 #include "ZzNavigationControllerPrivate.h"
+#include "ZzPageHostPrivate.h"
 
 #include <utility>
 
 #include <QtCore/QDebug>
 #include <QtCore/QThread>
+#include <QtCore/QScopeGuard>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
@@ -115,12 +117,17 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::setRegistrations(
 }
 
 ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
-    const ZzRouteId &routeId)
+    const ZzRouteId &requestedRoute)
 {
     auto valid = validateOperation();
     if (!valid) {
         return valid;
     }
+    const ZzRouteId routeId = requestedRoute;
+    const QPointer<ZzNavigationController> guard(q_ptr);
+    const QPointer<ZzPageHost> hostGuard(host);
+    busy = true;
+    const auto unlock = qScopeGuard([this, guard] { if (guard && guard->d_ptr.get() == this) busy = false; });
     if (!registrationsSet) {
         return zzNavigationFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
@@ -149,6 +156,8 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
     const bool oldCanGoForward = !forwardHistory.isEmpty();
 
     auto activation = host->activate(registrationIterator->second);
+    if (!guard || !hostGuard) return zzNavigationFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+        QStringLiteral("navigation dependencies were destroyed during activation"));
     if (activation) {
         if (!oldWasFrameworkError && oldRoute.isValid()
             && oldRoute != routeId) {
@@ -160,7 +169,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
         }
         showingFrameworkError = false;
         Q_EMIT q_ptr->currentRouteChanged(routeId);
-        notifyHistoryState(oldCanGoBack, oldCanGoForward);
+        if (guard && hostGuard) notifyHistoryState(oldCanGoBack, oldCanGoForward);
         return ZzCore::ZzResult<void>::success();
     }
 
@@ -170,6 +179,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
         forwardHistory.clear();
     }
     auto frameworkResult = host->showFrameworkError(routeId);
+    if (!guard || !hostGuard) return ZzCore::ZzResult<void>::failure(error);
     if (frameworkResult) {
         showingFrameworkError = true;
         Q_EMIT q_ptr->currentRouteChanged(routeId);
@@ -179,8 +189,8 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::navigate(
             << frameworkResult.error().technicalMessage()
             << frameworkResult.error().context();
     }
-    reportNavigationFailure(error);
-    notifyHistoryState(oldCanGoBack, oldCanGoForward);
+    if (guard && hostGuard) reportNavigationFailure(error);
+    if (guard && hostGuard) notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::failure(error);
 }
 
@@ -190,6 +200,10 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
     if (!valid) {
         return valid;
     }
+    const QPointer<ZzNavigationController> guard(q_ptr);
+    const QPointer<ZzPageHost> hostGuard(host);
+    busy = true;
+    const auto unlock = qScopeGuard([this, guard] { if (guard && guard->d_ptr.get() == this) busy = false; });
     if (backHistory.isEmpty()) {
         return zzNavigationFailure<void>(
             ZzCore::ZzErrorCode::NotFound,
@@ -209,7 +223,9 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
     const bool oldCanGoForward = !forwardHistory.isEmpty();
     const ZzRouteId oldRoute = host->currentRoute();
     const bool oldWasFrameworkError = showingFrameworkError;
-    auto activation = host->activate(registrationIterator->second);
+    auto activation = host->activate(registrationIterator->second, ZzPageHost::ZzTransitionDirection::Backward);
+    if (!guard || !hostGuard) return zzNavigationFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+        QStringLiteral("navigation dependencies were destroyed during activation"));
     if (!activation) {
         reportNavigationFailure(activation.error());
         return activation;
@@ -221,7 +237,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goBack()
     }
     showingFrameworkError = false;
     Q_EMIT q_ptr->currentRouteChanged(targetRoute);
-    notifyHistoryState(oldCanGoBack, oldCanGoForward);
+    if (guard && hostGuard) notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -241,6 +257,10 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goForward()
     if (!valid) {
         return valid;
     }
+    const QPointer<ZzNavigationController> guard(q_ptr);
+    const QPointer<ZzPageHost> hostGuard(host);
+    busy = true;
+    const auto unlock = qScopeGuard([this, guard] { if (guard && guard->d_ptr.get() == this) busy = false; });
     if (forwardHistory.isEmpty()) {
         return zzNavigationFailure<void>(
             ZzCore::ZzErrorCode::NotFound,
@@ -261,6 +281,8 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goForward()
     const ZzRouteId oldRoute = host->currentRoute();
     const bool oldWasFrameworkError = showingFrameworkError;
     auto activation = host->activate(registrationIterator->second);
+    if (!guard || !hostGuard) return zzNavigationFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+        QStringLiteral("navigation dependencies were destroyed during activation"));
     if (!activation) {
         reportNavigationFailure(activation.error());
         return activation;
@@ -272,7 +294,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::goForward()
     }
     showingFrameworkError = false;
     Q_EMIT q_ptr->currentRouteChanged(targetRoute);
-    notifyHistoryState(oldCanGoBack, oldCanGoForward);
+    if (guard && hostGuard) notifyHistoryState(oldCanGoBack, oldCanGoForward);
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -288,7 +310,7 @@ bool ZzNavigationControllerPrivate::canGoForward() const noexcept
 
 ZzRouteId ZzNavigationControllerPrivate::currentRoute() const
 {
-    auto valid = validateOperation();
+    auto valid = validateOperation(false);
     if (!valid) {
         return {};
     }
@@ -302,6 +324,9 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::setHistoryCapacity(
     if (!valid) {
         return valid;
     }
+    const QPointer<ZzNavigationController> guard(q_ptr);
+    busy = true;
+    const auto unlock = qScopeGuard([this, guard] { if (guard && guard->d_ptr.get() == this) busy = false; });
     if (capacity < 0) {
         return zzNavigationFailure<void>(
             ZzCore::ZzErrorCode::InvalidArgument,
@@ -322,7 +347,7 @@ ZzCore::ZzResult<void> ZzNavigationControllerPrivate::setHistoryCapacity(
 }
 
 ZzCore::ZzResult<void>
-ZzNavigationControllerPrivate::validateOperation() const
+ZzNavigationControllerPrivate::validateOperation(bool modifying) const
 {
     if (QThread::currentThread() != q_ptr->thread()) {
         return zzNavigationFailure<void>(
@@ -339,6 +364,10 @@ ZzNavigationControllerPrivate::validateOperation() const
         return zzNavigationFailure<void>(
             ZzCore::ZzErrorCode::InvalidState,
             QStringLiteral("navigation dependencies belong to another thread"));
+    }
+    if (modifying && (busy || !host->d_ptr || !host->d_ptr->validateOperation())) {
+        return zzNavigationFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("navigation controller or page host is busy"));
     }
     return ZzCore::ZzResult<void>::success();
 }

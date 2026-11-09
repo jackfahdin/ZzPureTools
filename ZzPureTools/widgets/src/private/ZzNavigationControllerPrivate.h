@@ -59,7 +59,7 @@ public:
 
 private:
     /** @brief 验证对象、观察值和调用线程仍有效。 */
-    [[nodiscard]] ZzCore::ZzResult<void> validateOperation() const;
+    [[nodiscard]] ZzCore::ZzResult<void> validateOperation(bool modifying = true) const;
 
     /** @brief 向指定历史尾部追加路由并裁剪最旧项。 */
     void appendHistory(QList<ZzRouteId> &history, const ZzRouteId &routeId);
@@ -79,6 +79,7 @@ private:
     qsizetype historyCapacity = 100;
     bool registrationsSet = false;
     bool showingFrameworkError = false;
+    bool busy = false;
 };
 
 } // namespace ZzPureTools
