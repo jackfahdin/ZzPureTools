@@ -1,33 +1,33 @@
 {
   "schemaVersion": 1,
   "reviewer": "Codex (automated technical source verification)",
-  "reviewedAt": "2026-10-21T03:27:52Z",
+  "reviewedAt": "2026-11-09T06:33:23Z",
   "conclusion": "approved",
   "scope": "Source identity, dependency layout and unchanged license expressions; this is not a new human signature",
   "upstream": "https://github.com/stdware/qwindowkit.git",
-  "upstreamCommit": "5626b3ae5f22508d77361495f589abedb39c2ee4",
-  "archiveSha256": "c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496",
-  "submodules": {
-    "qmsetup": "f9cb0153a9dc913b7b8226451cd6760ed83b6ce8",
-    "stdcorelib": "2fbefa9b152451d9621bf71bb1dfc8f98f8d2120"
-  },
-  "submoduleArchiveSha256": {
-    "qmsetup": "75e8790303479edce30337a8ededc75c8e3be47c4e9d528b5d3001aa546eb2a3",
-    "stdcorelib": "96fe7b6a3f41ad7c4e0d9dc8233a165a37932f3ebbd25d81037ee29317a026f9"
-  },
-  "verification": "The 2026-10-16 comparison established source identity against the pinned archives, excluding expanded submodule directories and local .git metadata. On 2026-10-21, incsync.cpp was compared with the SHA-256-verified qmsetup archive: its only difference is the Windows long-path patch from b80a5d2, now recorded below. .gitmodules files are retained",
+  "upstreamCommit": "2072958b04820e9e7629f6c40068dee0ce0e9915",
+  "archiveSha256": "82cf5292b7f39729f2d40f63cee340dd77aea3c402d04df735c23b76f98c822c",
+  "submodules": {},
+  "submoduleArchiveSha256": {},
+  "verification": "All 157 tracked upstream files match the pinned codeload archive. The vendor tree matches those files except the documented CMake Windows long-path patch. qmsetup/stdcorelib and their expanded Git metadata are absent from the vendor tree; historical review files remain unchanged.",
   "localPatches": [
     {
-      "commit": "b80a5d2bb6b9c30fc0a186f9be7d4c637222bfa0",
-      "path": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/commands/incsync.cpp",
-      "upstreamSha256": "31befddc251e2028f0949e6c65e4a58f561baa990b4d734433984f30989fad9b",
-      "localSha256": "b4dffe5543e92b5337a64dedad69628454a0f2ade0d1962c6c85abe1b8c94345",
-      "scope": "Windows build-time include generation only; upstream identity and license expressions are unchanged"
+      "commit": "e6bff105790c921a2281c7335404eebb2d2c4423",
+      "carriedFromCommit": "b80a5d2bb6b9c30fc0a186f9be7d4c637222bfa0",
+      "path": "ZzThirdParty/qwindowkit/cmake/SyncHeaders.cmake",
+      "description": "Preserve Windows long-path forwarding includes in the new CMake header synchronizer; use a normalized absolute source path when the unnormalized include reaches 240 characters",
+      "upstreamSha256": "8670e232231090f48864e9daa55f5bd81cfddaf71dbd18cba5277137d3748571",
+      "localSha256": "4e94e9698a921ca75598a5a8e0cb86a6ee427330d79e5ecda61ae6ce3407d543"
     }
   ],
   "historicalHumanReview": {
     "path": "docs/third-party/reviews/qwindowkit-provenance-review.json",
     "sha256": "949dda0f8742e6edddaa829840f09c714ecd6317844a00b8431c78f5f59f5d77",
     "scope": "Original 2026-08-05 snapshot only; preserved unchanged"
-  }
+  },
+  "removedDependencies": [
+    "qmsetup",
+    "stdcorelib",
+    "qmsetup windeployqt 5.15.2 derived build tool"
+  ]
 }

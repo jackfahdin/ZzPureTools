@@ -16,14 +16,15 @@
 
 - 版本：1.5.1.0。
 - 上游：https://github.com/stdware/qwindowkit。
-- 上游提交：`5626b3ae5f22508d77361495f589abedb39c2ee4`。
-- 源码归档 SHA-256：`c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496`。
+- 上游提交：`2072958b04820e9e7629f6c40068dee0ce0e9915`（2026-11-09 同步的 main）。
+- 源码归档 SHA-256：`82cf5292b7f39729f2d40f63cee340dd77aea3c402d04df735c23b76f98c822c`。
 - 许可证：Apache-2.0。
 - SPDX 结论：`Apache-2.0`；实现脉络中单独保留的 FramelessHelper 通知为 `MIT`。历史来源审核记录安装到 `share/ZzPureToolsFrame/reviews/qwindowkit-provenance-review.json`，当前源码技术核对记录安装到 `share/ZzPureToolsFrame/reviews/qwindowkit-source-verification.json`。
 - 版权声明：Copyright (C) 2023-present Stdware Collections；Copyright (C) 2021-2023 wangwenx190 (Yuhang Zhao)。Linux 原生上下文还包含 Copyright (C) 2025-2027 Wing-summer (wingsummer)。
 - 源码证据：`ZzThirdParty/qwindowkit/CMakeLists.txt`、`ZzThirdParty/qwindowkit/LICENSE`、`ZzThirdParty/qwindowkit/src/core/windowagentbase.cpp`、`ZzThirdParty/qwindowkit/src/core/contexts/linuxx11context.cpp`。
 - 发布包许可证位置：`share/ZzPureToolsFrame/licenses/qwindowkit/LICENSE`。
 - 分发说明：共享构建把 QWindowKit 链入 `ZzWindowKit`；静态构建以重命名的私有归档分发，不安装 QWindowKit 头或 CMake package。
+- 构建适配：上游已移除 qmsetup/stdcorelib。唯一保留的本地补丁是 `cmake/SyncHeaders.cmake` 的 Windows 长路径保护，来源及前后摘要见 `qwindowkit-vendor.json`。
 
 ## FramelessHelper 实现脉络
 
@@ -35,29 +36,20 @@
 - 发布包通知位置：`share/ZzPureToolsFrame/THIRD_PARTY_NOTICES.md`。
 - 分发说明：仓库不包含独立的 FramelessHelper 二进制或归档。其实现脉络的上游来源和再许可关系已随 `qwindowkit.upstream-provenance` 完成审核。
 
-## qmsetup
+## 已移除的 qmsetup 与 stdcorelib
 
-- 版本：1.1.2.0。
-- 上游：https://github.com/stdware/qmsetup。
-- 上游提交：`f9cb0153a9dc913b7b8226451cd6760ed83b6ce8`，由 QWindowKit 固定的 submodule 指针确认。
-- 许可证：MIT。
-- SPDX 结论：`MIT`。
-- 版权声明：Copyright (c) 2023-present Stdware Collections。
-- 源码证据：`ZzThirdParty/qwindowkit/qmsetup/LICENSE`。
-- 发布包许可证位置：`share/ZzPureToolsFrame/licenses/qwindowkit/qmsetup-LICENSE`。
-- 分发说明：qmsetup 只参与配置和构建，不作为 ZzPureToolsFrame 运行库安装。`ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp` 含有修改自 Qt 5.15.2 `qttools/src/shared/winutils/utils.cpp` 的代码；Qt 原文件适用 `GPL-3.0-only WITH Qt-GPL-exception-1.0`，不能被 qmsetup 顶层 MIT 声明覆盖。历史再分发审核记录安装到 `share/ZzPureToolsFrame/reviews/windeployqt-redistribution-review.json`，本次目录迁移的技术核对记录安装到 `share/ZzPureToolsFrame/reviews/windeployqt-source-verification.json`，安装审计同时禁止 `qmcorecmd` 进入产品包。
+2026-11-09 随上游同步移除了 qmsetup 1.1.2.0（`f9cb0153a9dc913b7b8226451cd6760ed83b6ce8`）
+及其 stdcorelib 0.2.1.0（`2fbefa9b152451d9621bf71bb1dfc8f98f8d2120`）源码。
+它们不再参与构建或安装，产品包不再复制其许可证文件。原始 MIT 版权及来源记录保留于
+历史来源说明和 Git 历史；上游分别为 https://github.com/stdware/qmsetup 和
+https://github.com/stdware/stdcorelib。
 
-## stdcorelib
-
-- 版本：0.2.1.0。
-- 上游：https://github.com/stdware/stdcorelib。
-- 上游提交：`2fbefa9b152451d9621bf71bb1dfc8f98f8d2120`，由 qmsetup 固定的 submodule 指针确认。
-- 许可证：MIT。
-- SPDX 结论：`MIT`。
-- 版权声明：Copyright (c) 2022-present Stdware Collections。
-- 源码证据：`ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/CMakeLists.txt`、`ZzThirdParty/qwindowkit/qmsetup/src/stdcorelib/LICENSE`。
-- 发布包许可证位置：`share/ZzPureToolsFrame/licenses/qwindowkit/stdcorelib-LICENSE`。
-- 分发说明：stdcorelib 替代旧版 syscmdline，作为 qmsetup 构建工具的静态依赖，不作为 ZzPureToolsFrame 运行库安装。
+qmsetup 中曾包含 Qt 5.15.2 派生构建工具代码，其历史许可证表达式仍为
+`GPL-3.0-only WITH Qt-GPL-exception-1.0`，不能被 MIT 声明覆盖。移除不改写原审核：
+`share/ZzPureToolsFrame/reviews/windeployqt-redistribution-review.json` 和
+`share/ZzPureToolsFrame/reviews/windeployqt-source-verification.json` 继续作为历史证据安装，
+摘要保持不变。发布门禁验证移除提交、源码缺席和历史记录，安装审计仍禁止 `qmcorecmd`
+进入产品包。
 
 ## KissFFT
 
@@ -94,8 +86,8 @@
 
 ## 已完成合规项目
 
-- `qwindowkit.upstream-provenance`：当前上游和子模块 commit、归档 SHA-256 与技术核对记录均已固定；2026-08-05 的具名来源审核记录按原快照保留。
-- `qmsetup.windeployqt-5.15.2-derived-work`：原具名审核记录按原文件保留；本次迁移更新本地摘要并记录三个错误文本调用的变化，保留原许可证表达式及构建期隔离条件。技术核对不表示 Jackfahdin 重新签署了审核。
+- `qwindowkit.upstream-provenance`：当前上游 commit、归档 SHA-256、唯一兼容补丁与技术核对记录均已固定；当前不含子模块，2026-08-05 的具名来源审核记录按原快照保留。
+- `qmsetup.windeployqt-5.15.2-derived-work`：当前状态为 removed，源码已随上游移除；历史人工和技术审核按原字节保留。技术核对不表示 Jackfahdin 重新签署了审核。
 - `project.license`：根 `LICENSE`、`MIT` SPDX 表达式和 Jackfahdin 所有者批准记录均已固定；正式包中的许可证位置为 `share/ZzPureToolsFrame/licenses/PROJECT-LICENSE`。
 
 上述三项完成不替代 Windows、macOS 和 Linux 交互真机门禁；最终许可证安装审计与全部平台证据仍必须同时通过。

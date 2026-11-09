@@ -2,34 +2,91 @@
   "name": "QWindowKit",
   "declaredVersion": "1.5.1.0",
   "upstreamUrl": "https://github.com/stdware/qwindowkit",
-  "upstreamCommit": "5626b3ae5f22508d77361495f589abedb39c2ee4",
-  "importDate": "2026-10-16",
-  "archiveSha256": "c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496",
-  "licenses": ["Apache-2.0", "MIT"],
+  "upstreamCommit": "2072958b04820e9e7629f6c40068dee0ce0e9915",
+  "importDate": "2026-11-09",
+  "archiveSha256": "82cf5292b7f39729f2d40f63cee340dd77aea3c402d04df735c23b76f98c822c",
+  "licenses": [
+    "Apache-2.0",
+    "MIT"
+  ],
   "localPatches": [
     {
-      "commit": "b80a5d2bb6b9c30fc0a186f9be7d4c637222bfa0",
-      "path": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/commands/incsync.cpp",
-      "description": "Use a normalized absolute include on Windows when the generated relative include would approach MAX_PATH",
-      "upstreamSha256": "31befddc251e2028f0949e6c65e4a58f561baa990b4d734433984f30989fad9b",
-      "localSha256": "b4dffe5543e92b5337a64dedad69628454a0f2ade0d1962c6c85abe1b8c94345"
+      "commit": "e6bff105790c921a2281c7335404eebb2d2c4423",
+      "carriedFromCommit": "b80a5d2bb6b9c30fc0a186f9be7d4c637222bfa0",
+      "path": "ZzThirdParty/qwindowkit/cmake/SyncHeaders.cmake",
+      "description": "Preserve Windows long-path forwarding includes in the new CMake header synchronizer; use a normalized absolute source path when the unnormalized include reaches 240 characters",
+      "upstreamSha256": "8670e232231090f48864e9daa55f5bd81cfddaf71dbd18cba5277137d3748571",
+      "localSha256": "4e94e9698a921ca75598a5a8e0cb86a6ee427330d79e5ecda61ae6ce3407d543"
     }
   ],
-  "vendorLayout": "Submodule contents are expanded in-tree; .gitmodules files are retained. The pinned upstream sources have the explicit local patches listed above",
-  "submodules": {
-    "qmsetup": "f9cb0153a9dc913b7b8226451cd6760ed83b6ce8",
-    "stdcorelib": "2fbefa9b152451d9621bf71bb1dfc8f98f8d2120"
-  },
+  "vendorLayout": "Pinned upstream tree without Git metadata; upstream removed all submodules. The sole local patch is listed above.",
+  "submodules": {},
   "validatedMatrix": [
     {
-      "platform": "Ubuntu 26.04 LTS x86_64",
+      "platform": "Ubuntu 26.04.1 LTS x86_64",
       "qtVersion": "6.11.1",
-      "toolchains": ["GCC 15.2.0"],
-      "modes": ["shared", "Debug"],
+      "toolchains": [
+        "GCC 15.2.0"
+      ],
+      "modes": [
+        "shared",
+        "Debug"
+      ],
       "result": "automated-gates-passed",
-      "sourceCommit": "e4ba06d55b0ac29f1def36fc5b4d5ba703d84f55",
-      "evidence": "build/linux-gcc-debug/Testing/Temporary/LastTest.log",
-      "validatedAt": "2026-10-16T08:46:39Z"
+      "sourceCommit": "e6bff105790c921a2281c7335404eebb2d2c4423",
+      "evidence": "build/qwindowkit-sync-20261109/qt611-tests.log",
+      "notes": "278 of 279 passed initially; Q_ENUM scanner corrected and the remaining boundary test plus its contract passed in enum-contract-green.log",
+      "validatedAt": "2026-11-09T06:33:23Z"
+    },
+    {
+      "platform": "Ubuntu 26.04.1 LTS x86_64",
+      "qtVersion": "6.8.3",
+      "toolchains": [
+        "GCC 15.2.0"
+      ],
+      "modes": [
+        "shared",
+        "Release"
+      ],
+      "result": "automated-gates-passed",
+      "sourceCommit": "e6bff105790c921a2281c7335404eebb2d2c4423",
+      "evidence": "build/qwindowkit-sync-20261109/qt683-tests.log",
+      "notes": "147 targeted tests passed; X11 lifecycle/demo, shared install.consumer and package-relocation also passed; see sdk-shared.log",
+      "validatedAt": "2026-11-09T06:33:23Z"
+    },
+    {
+      "platform": "Ubuntu 26.04.1 LTS x86_64",
+      "qtVersion": "6.11.1",
+      "toolchains": [
+        "Clang 20.1.8"
+      ],
+      "modes": [
+        "shared",
+        "Debug",
+        "ASan",
+        "UBSan"
+      ],
+      "result": "automated-gates-passed",
+      "sourceCommit": "e6bff105790c921a2281c7335404eebb2d2c4423",
+      "evidence": "build/qwindowkit-sync-20261109/asan-tests.log",
+      "notes": "21 window, navigation and multi-window tests passed",
+      "validatedAt": "2026-11-09T06:33:23Z"
+    },
+    {
+      "platform": "Ubuntu 26.04.1 LTS x86_64",
+      "qtVersion": "6.8.3",
+      "toolchains": [
+        "GCC 15.2.0"
+      ],
+      "modes": [
+        "static",
+        "Release"
+      ],
+      "result": "automated-gates-passed",
+      "sourceCommit": "e6bff105790c921a2281c7335404eebb2d2c4423",
+      "evidence": "build/qwindowkit-sync-20261109/sdk-static.log",
+      "notes": "install.consumer and package-relocation passed, covering installed public headers, Development/full consumers, Starter and relocated SDK",
+      "validatedAt": "2026-11-09T06:41:18Z"
     }
   ],
   "releaseBlockers": []

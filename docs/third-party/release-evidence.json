@@ -2,21 +2,21 @@
   "schemaVersion": 1,
   "review": {
     "reviewer": "Codex (technical dependency migration; historical human approvals retained)",
-    "reviewedAt": "2026-10-16T08:46:39Z"
+    "reviewedAt": "2026-11-09T06:33:23Z"
   },
   "releaseBlockers": [],
   "evidence": {
     "qwindowkit": {
-      "upstreamCommit": "5626b3ae5f22508d77361495f589abedb39c2ee4",
+      "upstreamCommit": "2072958b04820e9e7629f6c40068dee0ce0e9915",
       "sourceArchive": {
         "scope": "external",
-        "path": "qwindowkit/qwindowkit-5626b3ae5f22508d77361495f589abedb39c2ee4.tar.gz",
-        "sha256": "c649e6bfa1e450e79f08372cc24f40d49ce0137ab3e7ed8f76781fc6a9f2c496"
+        "path": "qwindowkit/qwindowkit-2072958b04820e9e7629f6c40068dee0ce0e9915.tar.gz",
+        "sha256": "82cf5292b7f39729f2d40f63cee340dd77aea3c402d04df735c23b76f98c822c"
       },
       "provenanceReview": {
         "scope": "repository",
         "path": "docs/third-party/reviews/qwindowkit-source-verification.json",
-        "sha256": "11385a51c0e01ec90696d6aec7571c608a989d4c424d01ae022e1359809aee65"
+        "sha256": "558e8508a2f5da122c04327fc1a38903e7a1c5b84b1ae958e02fb863bc0ed2db"
       },
       "historicalHumanReview": {
         "scope": "repository",
@@ -56,31 +56,17 @@
       }
     },
     "windeployqtDerivedWork": {
-      "upstreamProject": "Qt",
-      "upstreamVersion": "5.15.2",
-      "upstreamFile": "qttools/src/shared/winutils/utils.cpp",
-      "localFile": "ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_win.cpp",
-      "upstreamSource": {
-        "scope": "external",
-        "path": "qt-5.15.2/qttools-src-shared-winutils-utils.cpp",
-        "sha256": "6620d8eccfa7c3be50ad6040633beecbd536f91d4358e4c891c6015a7162a1dd"
-      },
-      "upstreamLicense": {
-        "scope": "external",
-        "path": "qt-5.15.2/LICENSE.GPL3-EXCEPT",
-        "sha256": "0dbe024961f6ab5c52689cbd036c977975d0d0f6a67ff97762d96cb819dd5652"
-      },
-      "localSourceSha256": "729c2b7cfdf337aa7026081cd8d9dd454f54298575e45bcf8521d74e003fc0fc",
-      "redistributionConclusion": "approved",
-      "reviewRecord": {
-        "scope": "repository",
-        "path": "docs/third-party/reviews/windeployqt-source-verification.json",
-        "sha256": "e0b8df2c0492b5d36d41f0ad28ded60494883f8b0044ce590c55c505b1ea7e16"
-      },
+      "status": "removed",
+      "removedByUpstreamCommit": "2072958b04820e9e7629f6c40068dee0ce0e9915",
       "historicalHumanReview": {
         "scope": "repository",
         "path": "docs/third-party/reviews/windeployqt-redistribution-review.json",
         "sha256": "7225ece3cde2b8a23d8263988cbc48d892f32175f629a1b90904a57033a069d0"
+      },
+      "historicalTechnicalReview": {
+        "scope": "repository",
+        "path": "docs/third-party/reviews/windeployqt-source-verification.json",
+        "sha256": "e0b8df2c0492b5d36d41f0ad28ded60494883f8b0044ce590c55c505b1ea7e16"
       }
     },
     "projectLicense": {

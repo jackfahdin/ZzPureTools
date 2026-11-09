@@ -1,6 +1,58 @@
 # QWindowKit 与 Qt 派生代码来源核对
 
-## 当前快照：2026-10-21
+## 当前快照：2026-11-09
+
+本次将 QWindowKit 从 `5626b3ae5f22508d77361495f589abedb39c2ee4` 同步到查询时的 main
+HEAD `2072958b04820e9e7629f6c40068dee0ce0e9915`，声明版本仍为 1.5.1.0。
+固定 codeload 归档 SHA-256 为
+`82cf5292b7f39729f2d40f63cee340dd77aea3c402d04df735c23b76f98c822c`。
+归档与 Git checkout 的全部 157 个文件逐字节一致；展开后的 vendor 文件集合一致，
+仅下面登记的兼容补丁有内容差异，未将上游移动分支作为构建期下载来源。
+
+上游移除 qmsetup 及其 stdcorelib 子模块，改用仓库内 CMake 工具处理头同步、目标、
+配置、安装和平台资源。Widgets/Core 运行时代码未变，Quick 仅整理版本分支括号；
+项目继续关闭 Quick 和 style agent，静态后端仍私有链接，不向 SDK 暴露 QWK 头或目标。
+
+### Windows 长路径补丁迁移
+
+原 `b80a5d2` 对 qmsetup incsync 的修复随旧工具移除，等价保护迁移到
+`ZzThirdParty/qwindowkit/cmake/SyncHeaders.cmake`：Windows 的未规范化引用拼接长度
+达到 240 字符时，改用规范化绝对源路径，避免 `..` 导致 MSVC 打不开实际较短的头文件。
+其他平台继续生成相对引用。同步及补丁代码提交为 `e6bff10`。
+
+- 上游文件 SHA-256：`8670e232231090f48864e9daa55f5bd81cfddaf71dbd18cba5277137d3748571`。
+- 本地文件 SHA-256：`4e94e9698a921ca75598a5a8e0cb86a6ee427330d79e5ecda61ae6ce3407d543`。
+- 回归执行真实 CMake 头生成函数，覆盖公有／私有头、style 排除、陈旧头清理、
+  无关生成文件保留及 Windows 分支长路径；先复现失败再验证通过。
+  Linux 上的 Windows 分支模拟不替代 Windows 原生编译或窗口验收。
+
+### 来源与分发记录
+
+`qwindowkit-vendor.json` 和 `reviews/qwindowkit-source-verification.json` 固定新提交、
+归档、唯一补丁和空子模块列表。qmsetup/stdcorelib 及其 Qt 5.15.2 派生构建工具已从
+源码移除，安装和运行包不再引用它们的许可证路径。
+`release-evidence.json` 使用显式 removed 状态，检查移除提交、源码缺席、子模块声明及
+历史审核摘要；原 present 校验仍保留，负例防止用状态字段掩盖残留源码。
+历史人工审核和 `windeployqt-source-verification.json` 原字节保留，继续作为历史证据安装，
+不声明原审核人为本次同步重新签署。正式安装仍拒绝 `qmcorecmd`。
+
+重新准备当前归档与 Qt 运行库许可证（使用新的空目录）：
+
+```bash
+mkdir -p build/provenance-audit/current-evidence
+cmake -DZZ_OUTPUT_DIR="$PWD/build/provenance-audit/current-evidence" \
+  -P scripts/package/PrepareReleaseEvidence.cmake
+```
+
+脚本从 manifest 读取固定提交并校验下载摘要；removed 状态不再下载 Qt 5.15.2
+派生工具源码。本次日志位于 `build/qwindowkit-sync-20261109/`，完成步骤与真实平台
+范围见[同步计划及验收](../superpowers/plans/2026-11-09-qwindowkit-upstream-sync.md)。
+Linux 的 Qt 6.11 Debug、Qt 6.8 Release、X11 和 sanitizer 自动化结果不能推导
+Windows／macOS 原生验收；后两者仅有构建脚本与打包契约检查。
+
+## 历史快照：2026-10-21
+
+以下为旧依赖仍存在时的记录；其中路径、安装范围和验证矩阵不代表当前快照。
 
 2026-10-16 的技术核对确认以下三个固定归档与当时仓库受版本控制的源码逐字节一致。子模块在 vendor 目录中展开，`.gitmodules` 文件保留；比较时排除展开的子模块目录和本机 `.git` 元数据。
 
@@ -20,13 +72,7 @@ Qt 派生文件现为 `ZzThirdParty/qwindowkit/qmsetup/src/corecmd/utils/utils_w
 
 最新验证矩阵只记录已实跑的 Linux / GCC / Qt 6.11.1 shared Debug，不沿用旧快照的 Clang、static、LTO 或 Sanitizer 结论。
 
-当前归档和 Qt 许可证可在空证据目录中重新准备，脚本会验证 manifest 中的固定摘要：
-
-```bash
-mkdir -p build/provenance-audit/current-evidence
-cmake -DZZ_OUTPUT_DIR="$PWD/build/provenance-audit/current-evidence" \
-  -P scripts/package/PrepareReleaseEvidence.cmake
-```
+旧归档身份保留在上表及 Git 历史中；当前下载脚本只准备最新 manifest 所列证据。
 
 ## 历史审计边界：2026-08-05
 
