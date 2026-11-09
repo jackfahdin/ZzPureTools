@@ -69,7 +69,7 @@ foreach(zz_rule IN ITEMS
             "bad fixture output is missing ${zz_rule}:\n${zz_bad_output}")
     endif()
 endforeach()
-foreach(zz_bad_file IN ITEMS ZzBadAppCore.h ZzBadWidget.h)
+foreach(zz_bad_file IN ITEMS ZzBadAppCore.h ZzBadWidget.h ZzBadEnumWidget.h)
     if(NOT zz_bad_output MATCHES "${zz_bad_file}")
         message(FATAL_ERROR
             "bad fixture output is missing ${zz_bad_file}:\n${zz_bad_output}")

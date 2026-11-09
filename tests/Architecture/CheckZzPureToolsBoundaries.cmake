@@ -354,7 +354,7 @@ function(zz_validate_public_header zz_path)
                 OR (zz_last_doxygen_valid
                     AND NOT zz_code MATCHES "[;{}]"))
            AND NOT zz_code MATCHES
-               "^(Q_OBJECT|Q_PROPERTY|Q_DISABLE_|Q_DECLARE_)")
+               "^(Q_OBJECT|Q_PROPERTY|Q_ENUM\\(|Q_DISABLE_|Q_DECLARE_)")
             set(zz_method_line "${zz_line_number}")
             set(zz_method_text "${zz_code}")
             set(zz_method_doxygen "${zz_last_doxygen_valid}")
