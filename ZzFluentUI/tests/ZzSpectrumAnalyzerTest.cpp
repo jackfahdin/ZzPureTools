@@ -2,6 +2,7 @@
 #include "../widgets/src/private/ZzSpectrumInput.h"
 
 #include <QtTest/QTest>
+#include <QtCore/QScopeGuard>
 #include <cmath>
 #include <numbers>
 #include <thread>
@@ -61,8 +62,11 @@ private Q_SLOTS:
     {
         ZzSpectrumInput input;
         input.configure(1024, 1);
-        std::jthread producer([&input] {
+        std::thread producer([&input] {
             for (int i = 0; i < 400; ++i) input.pushFloats(QVector<float>(64, 0.5f));
+        });
+        const auto joinProducer = qScopeGuard([&producer] {
+            if (producer.joinable()) producer.join();
         });
         for (int i = 0; i < 100; ++i) {
             const auto snapshot = input.takeLatest();

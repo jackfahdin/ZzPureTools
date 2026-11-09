@@ -135,12 +135,16 @@ private Q_SLOTS:
     void timedOutPcmCannotReplayOldWindow_data()
     {
         QTest::addColumn<bool>("hidden");
-        QTest::newRow("visible") << false;
-        QTest::newRow("hidden") << true;
+        QTest::addColumn<int>("resumeInterval");
+        QTest::newRow("visible") << false << 10;
+        QTest::newRow("hidden") << true << 10;
+        QTest::newRow("visible-delayed-tick") << false << 60;
+        QTest::newRow("hidden-delayed-tick") << true << 60;
     }
     void timedOutPcmCannotReplayOldWindow()
     {
         QFETCH(bool, hidden);
+        QFETCH(int, resumeInterval);
         ZzAudioSpectrum s; s.setAnimationEnabled(false);
         s.setRefreshInterval(10); s.setInputTimeout(40); s.show();
         s.pushSamples(tone());
@@ -148,9 +152,12 @@ private Q_SLOTS:
         if (hidden) s.hide();
         QTest::qSleep(70); QApplication::processEvents();
         s.pushSamples({0});
+        // The stale window must be discarded by the new input, not by a later
+        // timeout while the test waits for the presentation timer.
+        s.setInputTimeout(0);
+        s.setRefreshInterval(resumeInterval);
         if (hidden) s.show();
-        QTest::qWait(20);
-        QCOMPARE(maximum(s.levels()), 0.0);
+        ZZ_COMPARE_EVENTUALLY_WITH_TIMEOUT(maximum(s.levels()), 0.0, 300);
         QCOMPARE(maximum(s.displayedLevels()), 0.0);
         s.pushSamples(QVector<float>(2047, 0));
         QTest::qWait(20); QCOMPARE(maximum(s.levels()), 0.0);
