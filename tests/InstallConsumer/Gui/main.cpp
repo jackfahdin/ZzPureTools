@@ -96,9 +96,22 @@
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
+#include <ZzPureTools/ZzPageHost.h>
+#include <QtWidgets/QStackedWidget>
+#include <type_traits>
+#include <utility>
+
+static_assert(std::is_same_v<decltype(std::declval<ZzPureTools::ZzWorkspaceShell &>().stackWidget()), QStackedWidget *>);
 
 int main(int argc, char *argv[]) {
   QApplication application(argc, argv);
+  ZzPureTools::ZzPageHost pageHost;
+  const ZzPureTools::ZzRouteId pageRoute(QStringLiteral("sdk-transition"));
+  if (pageHost.transitionMode() != ZzPureTools::ZzPageHost::ZzTransitionMode::None
+      || !pageHost.setTransitionMode(ZzPureTools::ZzPageHost::ZzTransitionMode::Fade)
+      || !pageHost.setTransitionDuration(200)
+      || !pageHost.setRouteTransitionEnabled(pageRoute, false)
+      || pageHost.isRouteTransitionEnabled(pageRoute)) return 95;
   ZzFluentUI::ZzAnimatedStackedWidget animatedPages;
   animatedPages.setTransitionMode(ZzFluentUI::ZzAnimatedStackedWidget::ZzTransitionMode::None);
   auto *firstAnimatedPage = new QWidget;

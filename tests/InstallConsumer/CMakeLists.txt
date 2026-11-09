@@ -100,6 +100,7 @@ target_link_libraries(ZzInstallConsumer PRIVATE
 )
 
 add_test(NAME zz.install-consumer.run COMMAND ZzInstallConsumer)
+set_tests_properties(zz.install-consumer.run PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(ZzFluentInstallConsumer Gui/main.cpp)
 target_compile_features(ZzFluentInstallConsumer PRIVATE cxx_std_20)

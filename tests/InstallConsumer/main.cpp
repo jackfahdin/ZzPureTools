@@ -4,9 +4,26 @@
 #include <ZzPureTools/ZzModuleId.h>
 #include <ZzPureTools/ZzNavigationNode.h>
 #include <ZzPureTools/ZzRouteId.h>
+#include <ZzPureTools/ZzPageHost.h>
+#include <ZzPureTools/ZzPageInstance.h>
+#include <QtWidgets/QApplication>
 
-int main()
+int main(int argc, char *argv[])
 {
+    QApplication application(argc, argv);
+    ZzPureTools::ZzPageHost host;
+    if (host.transitionMode() != ZzPureTools::ZzPageHost::ZzTransitionMode::None
+        || !host.setTransitionMode(ZzPureTools::ZzPageHost::ZzTransitionMode::Fade)
+        || !host.setTransitionDuration(200)) return 2;
+    ZzPureTools::ZzPageRegistration page;
+    page.routeId = ZzPureTools::ZzRouteId(QStringLiteral("sdk-page"));
+    page.factory = [](QWidget *parent) {
+        return ZzPureTools::ZzPageInstance::create(parent, new QWidget(parent),
+            std::make_unique<QObject>(), std::make_unique<QObject>());
+    };
+    if (!host.setRouteTransitionEnabled(page.routeId, false)
+        || host.isRouteTransitionEnabled(page.routeId)
+        || !host.activate(page, ZzPureTools::ZzPageHost::ZzTransitionDirection::Backward)) return 3;
     ZzPureTools::ZzModuleId moduleId(
         QStringLiteral("install.consumer"));
     ZzPureTools::ZzRouteId routeId(QStringLiteral("home"));
