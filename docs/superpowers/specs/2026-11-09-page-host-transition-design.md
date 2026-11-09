@@ -1,10 +1,11 @@
 # 页面动画的框架接入设计
 
-**状态：** 设计与实施计划，尚未实现。用户已确认“库默认关闭，示例开启”。
+**状态：** 已实施并完成本机验收（2026-11-09）；库默认关闭，示例开启。
+**实现记录：** [使用与实际验收边界](../../development/PAGE_HOST_TRANSITION_ZH.md)。
 **核对基点：** `a6e1c93`；Qt 6.8+、C++20。
 **目标：** 在保留同步导航、页面生命周期及公开工作区接口的前提下，为 ZzPageHost 增加可选页面动画。
 
-## 1. 当前代码事实
+## 1. 设计时的代码事实
 
 | 位置 | 当前行为 | 本次约束 |
 | --- | --- | --- |
@@ -96,7 +97,8 @@ PureTools 的适配器把其枚举映射成内部播放器模式，不把私有�
 环境变化、源／目标焦点记忆、播放器回调和宿主显隐，生命周期属于 PageHost 私有状态。
 适配器采用内部导出与 Pimpl，头不安装；PageHost 只增加该私有类型和
 ZzNavigationControllerPrivate 的 friend 声明，供事务预检及测试桥访问，不新增公开私有状态 getter。
-普通 QWidget 内容宿主稳定存在于 PageHost 布局；factory 仍接收该宿主作为唯一 pageParent。
+普通 QWidget 内容宿主作为 PageHost 的稳定子控件，由内容矩形同步几何；
+factory 仍接收该宿主作为唯一 pageParent。
 框架错误页也是其子对象。聚合存活注册页与错误页的 sizeHint／minimumSizeHint，
 转发 LayoutRequest，维持原堆栈的最大建议尺寸策略；不按当前页改变外层窗口尺寸。
 PageHost 增加 sizeHint／minimumSizeHint 和受保护 event 重载，具体逻辑委托到私有状态。
@@ -190,4 +192,20 @@ factory 纳入 16.7 ms 的保证。固定表单场景以准备 p95 ≤16.7 ms、
 - 配置 CI 八项契约继续全跑；Windows／macOS 无环境时仅记录静态验证，原生验收另列。
 
 保持本地 master 线性提交、不建分支或 worktree、不推送、不访问 docs/research、不改第三方。
-本轮只编写设计和计划。实施拆分见[实施计划](../plans/2026-11-09-page-host-transition.md)。
+全部 7 项任务已实施，完成状态见[实施计划](../plans/2026-11-09-page-host-transition.md)。
+
+### 实施补充
+
+播放器使用 shared_ptr Pimpl 保护外层在回调中被删除时的短期内部状态，仍不拥有页面；
+新增 present 阶段先安装首帧再开始计时，保留独立容器的原信号顺序。内部类型使用
+ZzMode／ZzSettings 及 Mode／Settings 别名，满足既有架构命名检查。
+
+Qt 的 QWidget destroyed 通知早于 QPointer 清空；宿主在 ChildAdded 阶段预先观察，
+保护销毁期间的重入并解除对正在析构 View 的重复删除责任。回调中直接删除宿主时，
+将该 View 从父树摘出，剩余失效记录异步清理。正常页面取消与销毁顺序保持原契约。
+宿主保留 Qt::NoFocus 默认策略，逐页隐藏后再隐藏内容父对象，避免回调删除兄弟时
+Qt 显隐遍历继续使用失效指针。以上行为均有回归及 sanitizer 证据。
+
+Example 中英文全路由在真实渐变下约需 11～12 秒，集成总 timeout 改为 30 秒；
+已有截图流程继续使用其原 reducedMotion 设置，未调整截图基线或像素门限。
+最终性能报告来自 `f23ff8d` 的同一干净提交，18 轮及两个 CTest 基准入口通过。

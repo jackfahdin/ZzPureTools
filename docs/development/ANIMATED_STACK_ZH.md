@@ -160,14 +160,19 @@ QT_QPA_PLATFORM=xcb QT_SCALE_FACTOR=1.5 \
 独立 CTest 入口为 `benchmark.animated-stack`，使用相同元数据环境；资源约束是失败条件，
 耗时通过原始报告核对，不改变旧 `benchmark.animation` 或全局门限。
 
-## 框架自动接入的后续设计
+## 框架页面动画已接入
 
-独立组件已完成，框架自动接入另行设计，必须先解决：
+`ZzPureTools::ZzPageHost` 已完成框架接入，库默认 None，Example 显式 Fade。
+源 WhileActive 页面在同步激活返回前销毁，动画只保留其快照；factory 失败、历史和
+错误页保持原契约。`ZzWorkspaceShell::stackWidget()` 的公开类型与对象身份保留，
+工作区不增加第二层动画。配置和本轮验收见[框架页面导航动画](PAGE_HOST_TRANSITION_ZH.md)。
 
-1. 保持 `ZzWorkspaceShell::stackWidget()` 既有 `QStackedWidget *` 公开类型兼容。
-2. 在 WhileActive 页面销毁前捕获旧页，factory 失败时保持原路由、缓存及页面；
-   快照不延长 Presenter／ViewModel 生命周期。
-3. 中央工作区与页面宿主选择一层播放，避免双重动画，并明确默认行为和开关。
+两种容器共用私有播放器，但保留各自请求语义：本组件在动画中只保留最新待切页；
+PageHost 每次导航同步提交路由及生命周期，新请求结束旧视效后重新捕获，不排队提交业务。
+本组件原有通知顺序、源页删除中断和所有权行为不变，Qt 6.8／6.11 回归均通过。
+上文 2026-11-06 的性能数据继续对应原提交，本轮框架采样另见新文档。
 
-设计及任务拆分见[设计记录](../superpowers/specs/2026-11-06-animated-stacked-widget-design.md)
-和[实施计划](../superpowers/plans/2026-11-06-animated-stacked-widget.md)。
+独立组件设计见[设计记录](../superpowers/specs/2026-11-06-animated-stacked-widget-design.md)
+和[实施计划](../superpowers/plans/2026-11-06-animated-stacked-widget.md)；
+框架接入见[框架设计](../superpowers/specs/2026-11-09-page-host-transition-design.md)
+和[框架计划](../superpowers/plans/2026-11-09-page-host-transition.md)。
