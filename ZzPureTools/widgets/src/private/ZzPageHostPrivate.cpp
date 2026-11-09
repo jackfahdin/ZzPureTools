@@ -1,9 +1,11 @@
 #include "ZzPageHostPrivate.h"
+#include "ZzPageHostTransitionPrivate.h"
 
 #include <exception>
 #include <utility>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
+#include <QtCore/QChildEvent>
 #include <QtCore/QScopeGuard>
 #include <QtCore/QThread>
 #include <QtWidgets/QLabel>
@@ -54,12 +56,14 @@ ZzPageHostPrivate::ZzPageHostPrivate(ZzPageHost *owner)
     layout->addWidget(label);
     errorView->hide();
     host->hide();
+    transition = std::make_unique<ZzPageHostTransitionPrivate>(q);
 }
 
 ZzPageHostPrivate::~ZzPageHostPrivate()
 {
     destroying = true;
     busy = true;
+    transition.reset();
     host->removeEventFilter(this);
     for (auto &[key, entry] : pages) {
         Q_UNUSED(key);
@@ -79,6 +83,9 @@ ZzCore::ZzResult<void> ZzPageHostPrivate::validateOperation() const
 {
     if (!isOwnerThread() || busy || destroying) return zzFailure(
         ZzCore::ZzErrorCode::InvalidState, QStringLiteral("page host is busy or called from a non-owner thread"));
+    for (const auto &view : retiringViews) {
+        if (view) return zzFailure(ZzCore::ZzErrorCode::InvalidState, QStringLiteral("page destruction is in progress"));
+    }
     return ZzCore::ZzResult<void>::success();
 }
 QWidget *ZzPageHostPrivate::currentView() const
@@ -94,7 +101,8 @@ QSize ZzPageHostPrivate::hint(bool minimum) const
     QSize size = minimum ? errorView->minimumSizeHint() : errorView->sizeHint();
     for (const auto &[key, entry] : pages) {
         Q_UNUSED(key);
-        if (auto *view = entry.instance->view()) size = size.expandedTo(minimum ? view->minimumSizeHint() : view->sizeHint());
+        if (auto *view = entry.instance->view()) size = size.expandedTo(minimum
+            ? view->minimumSizeHint().expandedTo(view->minimumSize()) : view->sizeHint());
     }
     const auto margins = q->contentsMargins();
     return size + QSize(margins.left() + margins.right(), margins.top() + margins.bottom());
@@ -130,7 +138,7 @@ void ZzPageHostPrivate::synchronizePages()
     }
     if (guard) q->updateGeometry();
 }
-void ZzPageHostPrivate::settle() { synchronizePages(); }
+void ZzPageHostPrivate::settle() { transition->settle(); }
 
 ZzCore::ZzResult<void> ZzPageHostPrivate::activate(const ZzPageRegistration &registration, Direction direction)
 {
@@ -168,12 +176,21 @@ ZzCore::ZzResult<void> ZzPageHostPrivate::activate(const ZzPageRegistration &reg
     settle();
     if (!guard) return zzLost();
     if (!target || target->parentWidget() != host) return zzLost();
+    target->hide();
+    if (!guard) return zzLost();
+    if (!target || target->parentWidget() != host) return zzLost();
+    transition->prepare(currentView(), target, requested.routeId, direction);
+    if (!guard) return zzLost();
+    if (!target || target->parentWidget() != host) { settle(); return zzLost(); }
     if (created) {
         ZzPageEntry entry;
         entry.policy = requested.lifetime;
         entry.instance = std::move(created);
         entry.destroyed = QObject::connect(target, &QObject::destroyed, this, [this, key] {
+            const QPointer<ZzPageHost> alive(q);
             if (!showingError && activeRoute.value() == key) activeRoute = {};
+            if (transition->involves(ZzRouteId(key))) transition->invalidate();
+            if (!alive) return;
             // QWidget 在 QObject 析构清空 QPointer 前发 destroyed；此时销毁
             // PageInstance 会再次 delete 正在析构的 View。仅在观察指针清空后清理。
             QMetaObject::invokeMethod(this, [this, key] {
@@ -193,6 +210,8 @@ ZzCore::ZzResult<void> ZzPageHostPrivate::activate(const ZzPageRegistration &reg
     synchronizePages();
     if (!guard) return zzLost();
     if (!target || currentView() != target) return zzLost();
+    transition->commit();
+    if (!guard || !target) return zzLost();
     return ZzCore::ZzResult<void>::success();
 }
 
@@ -244,9 +263,10 @@ void ZzPageHostPrivate::pageLost(const QString &key)
     const bool wasBusy = busy;
     busy = true;
     const auto unlock = qScopeGuard([this, guard, wasBusy] { if (guard && guard->d_ptr.get() == this) busy = wasBusy; });
+    const bool affected = activeRoute.value() == key || transition->involves(ZzRouteId(key));
     if (!showingError && activeRoute.value() == key) activeRoute = {};
     erasePage(key);
-    if (guard) settle();
+    if (guard && affected) settle();
 }
 void ZzPageHostPrivate::leave()
 {
@@ -288,7 +308,10 @@ void ZzPageHostPrivate::deactivateCurrent() noexcept
     const QPointer<ZzPageHost> guard(q);
     busy = true;
     const auto unlock = qScopeGuard([this, guard] { if (guard && guard->d_ptr.get() == this) busy = false; });
+    transition->invalidate();
+    if (!guard) return;
     leave();
+    if (guard) settle();
 }
 ZzCore::ZzResult<void> ZzPageHostPrivate::showFrameworkError(ZzRouteId route)
 {
@@ -298,11 +321,13 @@ ZzCore::ZzResult<void> ZzPageHostPrivate::showFrameworkError(ZzRouteId route)
     const QPointer<ZzPageHost> guard(q);
     busy = true;
     const auto unlock = qScopeGuard([this, guard] { if (guard && guard->d_ptr.get() == this) busy = false; });
+    transition->invalidate();
+    if (!guard) return zzLost();
     leave();
     if (!guard) return zzLost();
     activeRoute = std::move(route);
     showingError = true;
-    synchronizePages();
+    settle();
     return guard ? ZzCore::ZzResult<void>::success() : zzLost();
 }
 ZzCore::ZzResult<void> ZzPageHostPrivate::setRecreatableCapacity(qsizetype count)
@@ -320,6 +345,17 @@ ZzCore::ZzResult<void> ZzPageHostPrivate::setRecreatableCapacity(qsizetype count
 bool ZzPageHostPrivate::eventFilter(QObject *watched, QEvent *event)
 {
     if (destroying) return false;
+    if (watched == host && event->type() == QEvent::ChildAdded) {
+        auto *child = static_cast<QChildEvent *>(event)->child();
+        if (auto *view = qobject_cast<QWidget *>(child)) {
+            // 在 factory 获得新 QWidget 前连接，先于业务 destroyed 观察者封锁重入。
+            QObject::connect(view, &QObject::destroyed, this, [this, view] {
+                if (destroying) return;
+                retiringViews.removeIf([](const auto &item) { return item.isNull(); });
+                retiringViews.append(view);
+            });
+        }
+    }
     if (event->type() == QEvent::LayoutRequest) q->updateGeometry();
     if (watched != host && event->type() == QEvent::ParentChange) {
         auto *view = qobject_cast<QWidget *>(watched);

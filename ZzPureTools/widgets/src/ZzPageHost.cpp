@@ -4,6 +4,7 @@
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
 #include "private/ZzPageHostPrivate.h"
+#include "private/ZzPageHostTransitionPrivate.h"
 
 namespace ZzPureTools {
 namespace {
@@ -54,7 +55,10 @@ int ZzPageHost::transitionDuration() const noexcept
 {
     return d_ptr && d_ptr->isOwnerThread() ? d_ptr->duration : -1;
 }
-bool ZzPageHost::isTransitionRunning() const noexcept { return false; }
+bool ZzPageHost::isTransitionRunning() const noexcept
+{
+    return d_ptr && d_ptr->isOwnerThread() && d_ptr->transition->running();
+}
 bool ZzPageHost::isRouteTransitionEnabled(const ZzRouteId &route) const
 {
     return d_ptr && d_ptr->isOwnerThread() && route.isValid() && !d_ptr->disabledRoutes.contains(route.value());
@@ -87,6 +91,7 @@ ZzCore::ZzResult<void> ZzPageHost::setRouteTransitionEnabled(const ZzRouteId &ro
     if (!route.isValid()) return zzInvalid();
     if (enabled) d_ptr->disabledRoutes.remove(route.value());
     else d_ptr->disabledRoutes.insert(route.value());
+    if (!enabled && d_ptr->transition->involves(route)) d_ptr->settle();
     return ZzCore::ZzResult<void>::success();
 }
 QSize ZzPageHost::sizeHint() const { return d_ptr ? d_ptr->hint(false) : QWidget::sizeHint(); }
@@ -94,6 +99,8 @@ QSize ZzPageHost::minimumSizeHint() const { return d_ptr ? d_ptr->hint(true) : Q
 bool ZzPageHost::event(QEvent *event)
 {
     const QPointer<ZzPageHost> guard(this);
+    if (d_ptr && !d_ptr->destroying && d_ptr->transition->event(event)) return true;
+    if (!guard) return true;
     const bool handled = QWidget::event(event);
     if (!guard) return handled;
     if (d_ptr && !d_ptr->destroying && (event->type() == QEvent::Resize || event->type() == QEvent::ContentsRectChange))

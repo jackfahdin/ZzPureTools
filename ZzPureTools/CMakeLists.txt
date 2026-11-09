@@ -49,6 +49,7 @@ set(zz_pure_tools_sources
     widgets/src/private/ZzPageInstancePrivate.cpp
     widgets/src/ZzPageHost.cpp
     widgets/src/private/ZzPageHostPrivate.cpp
+    widgets/src/private/ZzPageHostTransitionPrivate.cpp
     widgets/src/ZzNavigationModel.cpp
     widgets/src/private/ZzNavigationModelPrivate.cpp
     widgets/src/ZzNavigationController.cpp

@@ -17,6 +17,7 @@ struct ZzPageEntry final
     ZzPageLifetimePolicy policy = ZzPageLifetimePolicy::Recreatable;
     std::unique_ptr<ZzPageInstance> instance;
     QMetaObject::Connection destroyed;
+    QPointer<QWidget> focus;
 };
 
 /** @brief 保护同步页面事务，管理稳定 QWidget 宿主和容量受限缓存。 */
@@ -62,9 +63,11 @@ public:
     Mode mode = Mode::None;
     int duration = -1;
     QSet<QString> disabledRoutes;
+    QList<QPointer<QWidget>> retiringViews;
     bool busy = false;
     bool destroying = false;
     bool showingError = false;
+    std::unique_ptr<ZzPageHostTransitionPrivate> transition;
 
 private:
     /** @brief 校验注册并保留 factory 失败时的原页面。 */
