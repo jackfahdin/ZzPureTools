@@ -3,15 +3,11 @@
 #include <QtCore/QList>
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
-#include <QtGui/QImage>
 #include <ZzFluentUI/ZzAnimatedStackedWidget.h>
 #include "ZzWidgetTheme.h"
-
-class QVariantAnimation;
+#include "ZzPageTransitionPrivate.h"
 
 namespace ZzFluentUI {
-
-class ZzStackTransitionOverlay;
 
 /** @brief 保留页面稳定身份、快照开关和销毁观察。 */
 struct ZzAnimatedStackPage final
@@ -51,8 +47,6 @@ public:
     void notifyCurrent();
     /** @brief 清理动效；环境中断时直接提交最后待切页。 */
     void finish(bool latest);
-    /** @brief 按内容尺寸捕获已布局的页面，不在帧循环中调用。 */
-    QImage capture(QWidget *page, QSize pixels);
     /** @brief 判断页面子树能否安全使用普通 QWidget 截图。 */
     bool canCapture(QWidget *page) const;
     /** @brief 观察页面被外部移动。 */
@@ -61,8 +55,7 @@ public:
     ZzAnimatedStackedWidget *const q;
     ZzWidgetTheme theme;
     QWidget *host;
-    ZzStackTransitionOverlay *overlay;
-    QVariantAnimation *animation;
+    ZzPageTransitionPrivate player;
     QList<ZzAnimatedStackPage> pages;
     QWidget *current = nullptr;
     QWidget *notifiedCurrent = nullptr;

@@ -695,6 +695,15 @@ set_tests_properties(fluent.teaching-tip PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+add_executable(ZzPageTransitionPrivateTest ZzPageTransitionPrivateTest.cpp)
+target_link_libraries(ZzPageTransitionPrivateTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
+set_target_properties(ZzPageTransitionPrivateTest PROPERTIES AUTOMOC ON)
+zz_enable_project_warnings(ZzPageTransitionPrivateTest)
+zz_enable_sanitizers(ZzPageTransitionPrivateTest)
+add_test(NAME fluent.page-transition-private COMMAND ZzPageTransitionPrivateTest)
+set_tests_properties(fluent.page-transition-private PROPERTIES
+    LABELS "fluent;unit;component" ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(ZzAnimatedStackedWidgetTest ZzAnimatedStackedWidgetTest.cpp
     ../widgets/src/private/ZzStackTransitionOverlay.cpp)
 target_link_libraries(ZzAnimatedStackedWidgetTest PRIVATE Qt6::Test Qt6::Widgets Zz::FluentUI)
