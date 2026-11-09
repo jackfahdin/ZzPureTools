@@ -110,10 +110,13 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
     }
     navigation = window->navigationController();
     if (navigation == nullptr || application->themeController() == nullptr
-        || window->titleBar() == nullptr) {
+        || window->titleBar() == nullptr || window->pageHost() == nullptr) {
         return zzInvalidState(
             QStringLiteral("window shell requires initialized navigation and theme"));
     }
+    auto transitionConfigured = window->pageHost()->setTransitionMode(
+        ZzPureTools::ZzPageHost::ZzTransitionMode::Fade);
+    if (!transitionConfigured) return transitionConfigured;
 
     window->setMinimumSize(860, 560);
     window->resize(1280, 800);

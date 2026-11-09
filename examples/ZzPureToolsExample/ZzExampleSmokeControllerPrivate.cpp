@@ -1,5 +1,6 @@
 #include "ZzExampleSmokeControllerPrivate.h"
 #include "../../tests/shared/ZzScreenshotBaseline.h"
+#include <ZzPureTools/ZzPageHost.h>
 
 #include <algorithm>
 #include <array>
@@ -89,6 +90,25 @@
 namespace ZzExample {
 
 namespace {
+/** @brief 烟测等待真实导航视效完成；超时失败，不修改产品动效策略。 */
+bool zzAwaitPageTransition(ZzPureTools::ZzApplicationWindow &window)
+{
+    const QPointer<ZzPureTools::ZzPageHost> host(window.pageHost());
+    if (!host) return false;
+    if (!host->isTransitionRunning()) return true;
+    QEventLoop loop;
+    QTimer deadline;
+    deadline.setSingleShot(true);
+    QObject::connect(&deadline, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QTimer poll;
+    QObject::connect(&poll, &QTimer::timeout, &loop, [&] {
+        if (!host || !host->isTransitionRunning()) loop.quit();
+    });
+    deadline.start(2000);
+    poll.start(5);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+    return host && !host->isTransitionRunning();
+}
 
 constexpr int zzScreenshotLogicalWidth = 1280;
 constexpr int zzScreenshotLogicalHeight = 800;
@@ -1014,6 +1034,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
                 fail("route smoke navigation failed");
                 return;
             }
+            if (!zzAwaitPageTransition(window)) {
+                fail("route smoke transition did not finish", routeId);
+                return;
+            }
             if (!verifyStandardSurfaceComposition(window, routeId)) {
                 fail("route smoke standard surface composition failed", routeId);
                 return;
@@ -1205,6 +1229,10 @@ void ZzExampleSmokeControllerPrivate::scheduleRouteSmoke(
 
         auto homeResult = controller->navigate(
             ZzPureTools::ZzRouteId(QStringLiteral("home")));
+        if (!zzAwaitPageTransition(window)) {
+            fail("home transition did not finish");
+            return;
+        }
         auto *controlsCard = window.findChild<QAbstractButton *>(
             QStringLiteral("zzExampleRouteCard_push-button"));
         if (!homeResult || controlsCard == nullptr

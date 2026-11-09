@@ -8,6 +8,7 @@
 #include <QtTest/QTest>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QWidget>
+#include <QtWidgets/QStackedWidget>
 
 #include <ZzCore/ZzError.h>
 #include <ZzCore/ZzErrorCode.h>
@@ -44,6 +45,7 @@
 #include <ZzPureTools/ZzWorkspaceTitleMode.h>
 
 namespace {
+static_assert(std::is_same_v<decltype(std::declval<ZzPureTools::ZzWorkspaceShell &>().stackWidget()), QStackedWidget *>);
 
 [[nodiscard]] ZzFluentUI::ZzIconDescriptor zzTestIcon()
 {

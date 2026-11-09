@@ -538,6 +538,7 @@ private Q_SLOTS:
 
         auto *window = initialWindow_;
         QVERIFY(window != nullptr);
+        QCOMPARE(window->pageHost()->transitionMode(), ZzPureTools::ZzPageHost::ZzTransitionMode::Fade);
         QVERIFY(ZzExample::ZzExampleWindowShell::attachedTo(*window) != nullptr);
         auto *titleBar = window->titleBar();
         QVERIFY(titleBar != nullptr);
@@ -1064,6 +1065,20 @@ private Q_SLOTS:
         QVERIFY(shell->splitWorkspace() == nullptr);
         QCOMPARE(stack->count(), 1);
         QCOMPARE(stack->currentWidget(), window->pageHost());
+        const QPointer<QStackedWidget> originalStack(stack);
+        auto *navigation = window->navigationController();
+        const ZzPureTools::ZzRouteId home(QStringLiteral("home"));
+        const ZzPureTools::ZzRouteId button(QStringLiteral("push-button"));
+        QVERIFY(navigation->navigate(button));
+        QCOMPARE(window->pageHost()->currentRoute(), button);
+        QVERIFY(navigation->goBack());
+        QCOMPARE(window->pageHost()->currentRoute(), home);
+        QVERIFY(navigation->goForward());
+        QCOMPARE(window->pageHost()->currentRoute(), button);
+        ZZ_VERIFY_EVENTUALLY(!window->pageHost()->isTransitionRunning());
+        QCOMPARE(shell->stackWidget(), originalStack.data());
+        QVERIFY(navigation->navigate(home));
+        ZZ_VERIFY_EVENTUALLY(!window->pageHost()->isTransitionRunning());
         QVERIFY(stack->findChildren<QTabBar *>().isEmpty());
 
         auto *application = static_cast<ZzPureTools::ZzPureApplication *>(qApp);

@@ -16,9 +16,10 @@ class ZZ_FLUENT_UI_EXPORT ZzPageTransitionPrivate final
     Q_DISABLE_COPY_MOVE(ZzPageTransitionPrivate)
 public:
     /** @brief 内部绘制模式，不构成 SDK 公共接口。 */
-    enum class Mode { None, SlideHorizontal, SlideVertical, Fade };
+    enum class ZzMode { None, SlideHorizontal, SlideVertical, Fade };
+    using Mode = ZzMode;
     /** @brief 保存一段不可变的捕获和播放参数。 */
-    struct Settings {
+    struct ZzSettings {
         QRect contentRect;
         qreal dpr = 1;
         QColor background;
@@ -26,6 +27,7 @@ public:
         bool reverse = false;
         int duration = 0;
     };
+    using Settings = ZzSettings;
     using Token = quint64;
     /** @brief 创建属于 owner 区域的单一覆盖层与动画。 */
     explicit ZzPageTransitionPrivate(QWidget *owner);

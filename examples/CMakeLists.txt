@@ -33,7 +33,8 @@ if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_tests_properties(example.puretools-integration PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
         LABELS "example;smoke"
-        TIMEOUT 10)
+        # 42 个真实页面逐页等待主题动画完成，正常流程已超过原 10 秒。
+        TIMEOUT 30)
 
     add_test(
         NAME example.puretools-integration-english
@@ -45,7 +46,7 @@ if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
             ENVIRONMENT
                 "QT_QPA_PLATFORM=offscreen;ZZ_PURETOOLS_EXAMPLE_EXPECT_ENGLISH=1;LANG=C.UTF-8;LC_ALL=C.UTF-8;LANGUAGE=en"
             LABELS "example;smoke;translation"
-            TIMEOUT 10
+            TIMEOUT 30
     )
 
     foreach(zz_close_scenario IN ITEMS cancel minimize confirm)
