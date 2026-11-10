@@ -181,7 +181,18 @@ function Invoke-DeployedSmokeTest([string]$Executable) {
     try {
         $env:QT_QPA_PLATFORM = 'offscreen'
         $env:ZZ_PURETOOLS_EXAMPLE_AUTO_CLOSE_MS = '1500'
-        Invoke-Native -File $Executable -Arguments @('--smoke-test')
+        # A GUI-subsystem executable can return from PowerShell's call operator
+        # before it exits. Wait explicitly before archiving or deleting its DLLs,
+        # and read this process's result instead of a stale $LASTEXITCODE.
+        $smokeProcess = Start-Process -FilePath $Executable `
+            -ArgumentList @('--smoke-test') -Wait -PassThru -NoNewWindow
+        try {
+            if ($smokeProcess.ExitCode -ne 0) {
+                throw "Deployed smoke failed with exit code $($smokeProcess.ExitCode)"
+            }
+        } finally {
+            $smokeProcess.Dispose()
+        }
     } finally {
         if ($null -eq $oldQpaPlatform) {
             Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue

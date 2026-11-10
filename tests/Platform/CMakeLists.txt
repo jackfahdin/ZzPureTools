@@ -214,6 +214,19 @@ add_test(NAME platform.windows-packaging-contract
 set_tests_properties(platform.windows-packaging-contract PROPERTIES
     LABELS "platform;contract;packaging;windows")
 
+find_program(ZZ_PWSH_EXECUTABLE NAMES pwsh)
+if(ZZ_PWSH_EXECUTABLE)
+    add_executable(ZzWindowsSmokeFixture WIN32 fixtures/ZzWindowsSmokeFixture.cpp)
+    zz_enable_project_warnings(ZzWindowsSmokeFixture)
+    add_test(NAME platform.windows-smoke-process
+        COMMAND "${ZZ_PWSH_EXECUTABLE}" -NoProfile -File
+            "${CMAKE_CURRENT_SOURCE_DIR}/ZzWindowsSmokeProcessTest.ps1"
+            -SourceDir "${PROJECT_SOURCE_DIR}"
+            -Fixture "$<TARGET_FILE:ZzWindowsSmokeFixture>")
+    set_tests_properties(platform.windows-smoke-process PROPERTIES
+        LABELS "platform;contract;packaging;windows" TIMEOUT 20)
+endif()
+
 add_test(NAME platform.macos-packaging-contract
     COMMAND "${CMAKE_COMMAND}"
         "-DZZ_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
