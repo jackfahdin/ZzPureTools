@@ -61,14 +61,28 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Linux build and deployment tools
+        timeout-minutes: 15
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
+          # The hosted runner's Azure HTTP mirror can stall during index fetches.
+          # Keep Ubuntu's signed repositories, using the official HTTPS mirror.
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' |
+              sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          apt_options=(
+            -o Acquire::Retries=3
+            -o Acquire::http::Timeout=30
+            -o Acquire::https::Timeout=30
+            -o APT::Update::Error-Mode=any
+            -o DPkg::Lock::Timeout=60
+          )
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends \
             software-properties-common
-          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
+          sudo add-apt-repository --yes --no-update ppa:ubuntu-toolchain-r/test
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends \
             binutils \
             curl \
             desktop-file-utils \

@@ -40,6 +40,15 @@ set(required_tokens
     "QT_VERSION: '6.8.3'"
     "QT_QPA_PLATFORM: offscreen"
     "ppa:ubuntu-toolchain-r/test"
+    "Install Linux build and deployment tools\n        timeout-minutes: 15"
+    "https://archive.ubuntu.com/ubuntu/"
+    "sudo tee /etc/apt/apt-mirrors.txt"
+    "Acquire::Retries=3"
+    "Acquire::http::Timeout=30"
+    "Acquire::https::Timeout=30"
+    "APT::Update::Error-Mode=any"
+    "DPkg::Lock::Timeout=60"
+    "add-apt-repository --yes --no-update"
     "gcc-13"
     "g++-13"
     "fonts-noto-cjk"
@@ -100,6 +109,14 @@ foreach(required_token IN LISTS required_tokens)
             "GitHub Actions workflow is missing: ${required_token}")
     endif()
 endforeach()
+
+# Every update/install must receive the bounded download and lock options.
+string(REPLACE [=[sudo apt-get "${apt_options[@]}"]=] ""
+    workflow_without_bounded_apt "${workflow}")
+string(FIND "${workflow_without_bounded_apt}" "sudo apt-get" unbounded_apt_position)
+if(NOT unbounded_apt_position EQUAL -1)
+    message(FATAL_ERROR "Linux apt-get command omits the bounded options")
+endif()
 
 set(forbidden_tokens
     "pull_request_target:"
