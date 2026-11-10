@@ -321,9 +321,20 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (smokeMode && autoCloseRequested) {
+    bool smokeTimedOut = false;
+    if (smokeMode && commandLineSmokeRequested) {
+        // Explicit smoke owns its successful exit after all checks finish.
+        // A legacy auto-close timer must not interrupt nested transition loops
+        // or report success before the route checks have run.
+        QTimer::singleShot(30000, &application, [&smokeTimedOut] {
+            smokeTimedOut = true;
+            qCritical() << "ZzPureToolsExample smoke timed out";
+            QCoreApplication::exit(EXIT_FAILURE);
+        });
+    } else if (smokeMode && autoCloseRequested) {
         QTimer::singleShot(
             timeout, &application, &QCoreApplication::quit);
     }
-    return application.exec();
+    const int result = application.exec();
+    return smokeTimedOut ? EXIT_FAILURE : result;
 }

@@ -36,6 +36,17 @@ if(ZZ_BUILD_TESTS AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
         # 42 个真实页面逐页等待主题动画完成，正常流程已超过原 10 秒。
         TIMEOUT 30)
 
+    find_program(ZZ_XVFB_RUN_EXECUTABLE xvfb-run)
+    if(ZZ_XVFB_RUN_EXECUTABLE)
+        add_test(NAME example.puretools-packaged-smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DZZ_EXECUTABLE=$<TARGET_FILE:ZzPureToolsExample>"
+                "-DZZ_XVFB_RUN=${ZZ_XVFB_RUN_EXECUTABLE}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/ZzPureToolsExample/tests/ZzPackagedSmokeTest.cmake")
+        set_tests_properties(example.puretools-packaged-smoke PROPERTIES
+            LABELS "example;smoke;packaging" TIMEOUT 45)
+    endif()
+
     add_test(
         NAME example.puretools-integration-english
         COMMAND "$<TARGET_FILE:ZzPureToolsExample>" --smoke-test

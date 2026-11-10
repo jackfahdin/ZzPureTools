@@ -1414,6 +1414,7 @@ void ZzExampleSmokeControllerPrivate::verifyActivityTailFollowing(
                         return;
                     }
                     application->beginShutdown();
+                    qInfo() << "ZzPureToolsExample route smoke passed";
                     QCoreApplication::exit(EXIT_SUCCESS);
                 });
             });
