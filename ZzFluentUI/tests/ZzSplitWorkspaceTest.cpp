@@ -18,6 +18,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <ZzTestEventLoop.h>
+#include <ZzTestDragEvent.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLayout>
 #include <QtWidgets/QSplitter>
@@ -482,11 +483,11 @@ private Q_SLOTS:
         targetBar->removeEventFilter(&target);
         const QPoint position = targetBar->rect().center();
         QDragEnterEvent enter(
-            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            zzTestDragPosition<QDragEnterEvent>(position), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(targetBar, &enter);
         QVERIFY(enter.isAccepted());
         QDragMoveEvent move(
-            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            zzTestDragPosition<QDragMoveEvent>(position), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QVERIFY(QApplication::sendEvent(targetBar, &move));
         QVERIFY(move.isAccepted());
         QDropEvent drop(
@@ -534,7 +535,7 @@ private Q_SLOTS:
         targetBar->removeEventFilter(&target);
         const QPoint position = targetBar->rect().center();
         QDragEnterEvent enter(
-            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            zzTestDragPosition<QDragEnterEvent>(position), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(targetBar, &enter);
         QVERIFY(enter.isAccepted());
         targetBar->setTabTransferEnabled(false);
@@ -548,7 +549,7 @@ private Q_SLOTS:
 
         targetBar->setTabTransferEnabled(true);
         QDragEnterEvent retryEnter(
-            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            zzTestDragPosition<QDragEnterEvent>(position), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(targetBar, &retryEnter);
         QVERIFY(retryEnter.isAccepted());
         QDropEvent retryDrop(
@@ -603,7 +604,7 @@ private Q_SLOTS:
                 }
             });
         QDragEnterEvent enter(
-            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            zzTestDragPosition<QDragEnterEvent>(position), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(failedTargetBar, &enter);
         QVERIFY(enter.isAccepted());
         QDropEvent failedDrop(
@@ -624,7 +625,7 @@ private Q_SLOTS:
         retryBar->removeEventFilter(&retryTarget);
         const QPoint retryPosition = retryBar->rect().center();
         QDragEnterEvent retryEnter(
-            retryPosition, Qt::MoveAction, &mime,
+            zzTestDragPosition<QDragEnterEvent>(retryPosition), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(retryBar, &retryEnter);
         QVERIFY(retryEnter.isAccepted());
@@ -660,7 +661,7 @@ private Q_SLOTS:
         mime.setData(ZzFluentUI::ZzTabMimeData::format(), published.value());
         const QPoint position = target.rect().center();
         QDragEnterEvent enter(
-            position, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            zzTestDragPosition<QDragEnterEvent>(position), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(&target, &enter);
         QVERIFY(enter.isAccepted());
         QDropEvent drop(
@@ -710,7 +711,7 @@ private Q_SLOTS:
 
         const QPoint validPosition = target.rect().center();
         QDragEnterEvent enter(
-            validPosition, Qt::MoveAction, &mime,
+            zzTestDragPosition<QDragEnterEvent>(validPosition), Qt::MoveAction, &mime,
             Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(&target, &enter);
         QVERIFY(enter.isAccepted());
@@ -4564,7 +4565,7 @@ private Q_SLOTS:
             QByteArrayLiteral("application/x-zz-split-workspace-tab-v1"),
             QByteArrayLiteral("forged"));
         QDragEnterEvent forgedEnter(
-            QPoint(10, 10), Qt::MoveAction, &forged,
+            zzTestDragPosition<QDragEnterEvent>(QPoint(10, 10)), Qt::MoveAction, &forged,
             Qt::LeftButton, Qt::NoModifier);
         QCoreApplication::sendEvent(&workspace, &forgedEnter);
         QVERIFY(!forgedEnter.isAccepted());
@@ -4609,7 +4610,7 @@ private Q_SLOTS:
                             ->rect()
                             .center());
             QDragEnterEvent enter(
-                targetCenter,
+                zzTestDragPosition<QDragEnterEvent>(targetCenter),
                 Qt::MoveAction,
                 drag->mimeData(),
                 Qt::LeftButton,
@@ -4618,7 +4619,7 @@ private Q_SLOTS:
             acceptedEnter = enter.isAccepted();
 
             QDragEnterEvent foreignEnter(
-                otherWorkspace.rect().center(),
+                zzTestDragPosition<QDragEnterEvent>(otherWorkspace.rect().center()),
                 Qt::MoveAction,
                 drag->mimeData(),
                 Qt::LeftButton,
@@ -4627,7 +4628,7 @@ private Q_SLOTS:
             rejectedByOtherWorkspace = !foreignEnter.isAccepted();
 
             QDragMoveEvent move(
-                targetCenter,
+                zzTestDragPosition<QDragMoveEvent>(targetCenter),
                 Qt::MoveAction,
                 drag->mimeData(),
                 Qt::LeftButton,
@@ -4642,7 +4643,7 @@ private Q_SLOTS:
                 delete overlays.constFirst();
             }
             QDragMoveEvent moveAfterDeletion(
-                targetCenter,
+                zzTestDragPosition<QDragMoveEvent>(targetCenter),
                 Qt::MoveAction,
                 drag->mimeData(),
                 Qt::LeftButton,
@@ -4653,7 +4654,7 @@ private Q_SLOTS:
             for (int moveCount = 0; moveCount < 6; ++moveCount) {
                 QTest::qWait(900);
                 QDragMoveEvent continuedMove(
-                    targetCenter,
+                    zzTestDragPosition<QDragMoveEvent>(targetCenter),
                     Qt::MoveAction,
                     drag->mimeData(),
                     Qt::LeftButton,
@@ -4755,7 +4756,7 @@ private Q_SLOTS:
             sawRealDrag = true;
             const QPoint center = workspace.rect().center();
             QDragEnterEvent initialEnter(
-                center,
+                zzTestDragPosition<QDragEnterEvent>(center),
                 Qt::MoveAction,
                 drag->mimeData(),
                 Qt::LeftButton,
@@ -4765,7 +4766,7 @@ private Q_SLOTS:
 
             QTest::qWait(5100);
             QDragEnterEvent expiredEnter(
-                center,
+                zzTestDragPosition<QDragEnterEvent>(center),
                 Qt::MoveAction,
                 drag->mimeData(),
                 Qt::LeftButton,

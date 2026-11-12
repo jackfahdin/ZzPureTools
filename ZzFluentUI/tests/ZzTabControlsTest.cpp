@@ -5,6 +5,7 @@
 #include <QtCore/QMimeData>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+#include <ZzTestDragEvent.h>
 #include <QtCore/QAbstractAnimation>
 #include <QtGui/QContextMenuEvent>
 #include <QtCore/QTimer>
@@ -1548,7 +1549,7 @@ private Q_SLOTS:
             QStringLiteral("application/x-zz-fluent-tab-v1"),
             QByteArrayLiteral("1"));
         QDragEnterEvent event(
-            QPoint(4, 4),
+            zzTestDragPosition<QDragEnterEvent>(QPoint(4, 4)),
             Qt::MoveAction,
             &mimeData,
             Qt::LeftButton,

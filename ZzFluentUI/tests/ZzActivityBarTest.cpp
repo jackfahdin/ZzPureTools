@@ -18,6 +18,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 #include <ZzTestEventLoop.h>
+#include <ZzTestDragEvent.h>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QListView>
@@ -1360,7 +1361,7 @@ private Q_SLOTS:
         std::unique_ptr<QMimeData> mime(primary->model()->mimeData({projected}));
         QVERIFY(mime != nullptr);
         QDragEnterEvent enter(
-            secondary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            zzTestDragPosition<QDragEnterEvent>(secondary->viewport()->rect().center()), Qt::MoveAction, mime.get(),
             Qt::LeftButton, Qt::NoModifier);
         QCoreApplication::sendEvent(secondary, &enter);
         QDropEvent drop(
@@ -1604,14 +1605,14 @@ private Q_SLOTS:
         std::unique_ptr<QMimeData> mime(primary->model()->mimeData({projected}));
         QVERIFY(mime != nullptr);
         QDragEnterEvent enter(
-            primary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            zzTestDragPosition<QDragEnterEvent>(primary->viewport()->rect().center()), Qt::MoveAction, mime.get(),
             Qt::LeftButton, Qt::NoModifier);
         QCoreApplication::sendEvent(primary, &enter);
         QDragLeaveEvent leave;
         QCoreApplication::sendEvent(primary, &leave);
         QCoreApplication::processEvents();
         QDragEnterEvent targetEnter(
-            secondary->viewport()->rect().center(), Qt::MoveAction, mime.get(),
+            zzTestDragPosition<QDragEnterEvent>(secondary->viewport()->rect().center()), Qt::MoveAction, mime.get(),
             Qt::LeftButton, Qt::NoModifier);
         QCoreApplication::sendEvent(secondary, &targetEnter);
         auto *drop = new QDropEvent(
@@ -1648,7 +1649,7 @@ private Q_SLOTS:
             Qt::LeftButton,
             Qt::NoModifier);
         QDragEnterEvent enter(
-            view->viewport()->rect().center(),
+            zzTestDragPosition<QDragEnterEvent>(view->viewport()->rect().center()),
             Qt::MoveAction,
             mime.get(),
             Qt::LeftButton,
