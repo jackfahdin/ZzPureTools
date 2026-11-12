@@ -163,6 +163,10 @@ set(ZZLOG_BUILD_TESTS ${ZZ_BUILD_TESTS})
 set(ZZLOG_BUILD_EXAMPLES OFF)
 set(ZZLOG_BUILD_WARNINGS OFF)
 
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ZzThirdParty/ZzLog/CMakeLists.txt")
+    message(FATAL_ERROR
+        "ZzLog submodule is missing. Run: git submodule update --init --recursive")
+endif()
 add_subdirectory(ZzThirdParty/ZzLog)
 add_subdirectory(ZzCore)
 add_subdirectory(ZzWindowKit)

@@ -83,6 +83,15 @@ UI 组件不直接访问业务服务、数据库或网络客户端；QWindowKit 
 MSVC x64 或与 Qt kit 匹配的官方 MinGW；macOS 使用 Apple Clang 15+。
 项目仅支持 Qt 6，默认构建共享库。
 
+首次获取源码请使用 `git clone --recurse-submodules`。已有工作区拉取更新后执行：
+
+```bash
+git submodule update --init --recursive
+```
+
+`ZzThirdParty/ZzLog` 固定到 [ZzLog 上游](https://gitcode.com/jackfahdin/ZzLog)
+的指定提交，通过 `add_subdirectory` 与框架一起构建。
+
 <details open>
 <summary><strong>Linux · GCC</strong></summary>
 

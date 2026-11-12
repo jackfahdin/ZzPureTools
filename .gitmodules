@@ -1,0 +1,3 @@
+[submodule "ZzThirdParty/ZzLog"]
+	path = ZzThirdParty/ZzLog
+	url = https://gitcode.com/jackfahdin/ZzLog.git

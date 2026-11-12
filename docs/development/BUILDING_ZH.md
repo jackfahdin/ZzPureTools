@@ -2,6 +2,17 @@
 
 本手册描述从源码配置、编译、测试到安装消费的完整流程。所有命令均在仓库根目录执行；`build/` 和 `install/` 下的目录是可删除的本机构建产物，不应提交。
 
+源码包含 ZzLog 子模块。首次克隆使用 `git clone --recurse-submodules`；已有工作区
+更新后运行 `git submodule update --init --recursive`，获取框架锁定的提交。
+子模块使用公开 HTTPS 地址，CI 无需 GitCode SSH 密钥。需要向上游推送时可在本地设置：
+
+```bash
+git -C ZzThirdParty/ZzLog remote set-url --push origin git@gitcode.com:jackfahdin/ZzLog.git
+```
+
+ZzLog 继续由父工程的 `add_subdirectory` 构建，共享/静态选择、测试以及
+Runtime/Development 安装组件由框架统一管理。
+
 ## 快速导航
 
 | 目标 | 推荐入口 | 适用场景 |
@@ -81,8 +92,10 @@ ASan/UBSan、clang-tidy、视觉、性能和真机交互必须继续记录为“
 
 如果某个 preset 曾在没有设置编译器或 Qt 变量时配置失败，不要只在同一个目录中补变量后
 重复配置。CMake 会保留失败探测结果，例如 `CMAKE_EXECUTABLE_FORMAT=Unknown`，随后
-Ninja 可能在生成安装规则时报告无法修改 RPATH。此时应删除或移动该 preset 对应的
-精确 `build/<preset>` 目录，再从干净目录重新配置；不要删除整个 `build/` 根目录。
+Ninja 可能在生成安装规则时报告无法修改 RPATH。设置正确的环境变量后，CMake 3.24+
+可执行 `cmake --fresh --preset linux-gcc-release`（替换为出错的 preset），重建缓存与
+编译器检测结果。CMake 3.23 则删除或移动该 preset 对应的精确 `build/<preset>` 目录
+再重新配置；不要删除整个 `build/` 根目录，也无需全局开启安装 RPATH 来绕过检测错误。
 
 ## 先决条件
 
