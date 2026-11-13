@@ -6,6 +6,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QEvent>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QWindow>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
@@ -18,6 +19,16 @@
 #include <ZzWindowKit/ZzWindowCapability.h>
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
+#if defined(Q_OS_WIN)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#endif
+
 /**
  * @brief 验证真实窗口后端在两种对象销毁顺序下的生命周期安全。
  */
@@ -26,6 +37,139 @@ class ZzWindowKitLifecycleTest final : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void alwaysOnTopAllowsReentrantMaximize()
+    {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+        QWidget window;
+        window.resize(640, 480);
+        ZzWindowKit::ZzWindowAgent agent;
+        QVERIFY(agent.attach(&window));
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QObject::connect(window.windowHandle(), &QWindow::flagsChanged, &window,
+            [&window](Qt::WindowFlags flags) {
+                if (flags.testFlag(Qt::WindowStaysOnTopHint)) window.showMaximized();
+            });
+        QVERIFY(agent.setAlwaysOnTop(true));
+        QTRY_VERIFY(window.isMaximized());
+#if defined(Q_OS_WIN)
+        if (QGuiApplication::platformName() == QStringLiteral("windows")) {
+            const auto hwnd = reinterpret_cast<HWND>(window.winId());
+            QVERIFY(IsZoomed(hwnd));
+            QVERIFY((GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+        }
+#endif
+#else
+        QSKIP("QWindow::flagsChanged requires Qt 6.10 or newer");
+#endif
+    }
+
+    void alwaysOnTopPreservesWindowPlacement_data()
+    {
+        QTest::addColumn<bool>("maximized");
+        QTest::newRow("normal") << false;
+        QTest::newRow("maximized") << true;
+    }
+
+    /** @brief 置顶只改变层级，保留最大化状态、原生边框与客户区位置。 */
+    void alwaysOnTopPreservesWindowPlacement()
+    {
+        QFETCH(bool, maximized);
+        QWidget window;
+        window.setGeometry(100, 100, 640, 480);
+        ZzWindowKit::ZzWindowAgent agent;
+        QVERIFY(agent.attach(&window));
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const QRect restoredGeometry = window.geometry();
+        if (maximized) {
+            window.showMaximized();
+            QTRY_VERIFY(window.isMaximized());
+        }
+        QCoreApplication::processEvents();
+        const auto windowId = window.winId();
+        const auto state = window.windowState();
+        const auto geometry = window.geometry();
+        const auto frameGeometry = window.frameGeometry();
+        const auto normalGeometry = window.normalGeometry();
+
+#if defined(Q_OS_WIN)
+        const bool nativeWindows = QGuiApplication::platformName()
+            .compare(QStringLiteral("windows"), Qt::CaseInsensitive) == 0;
+        const auto hwnd = reinterpret_cast<HWND>(windowId);
+        RECT originalWindowRect{};
+        RECT originalClientRect{};
+        POINT originalClientOrigin{};
+        if (nativeWindows) {
+            QCOMPARE(IsZoomed(hwnd) != FALSE, maximized);
+            QVERIFY(GetWindowRect(hwnd, &originalWindowRect));
+            QVERIFY(GetClientRect(hwnd, &originalClientRect));
+            QVERIFY(ClientToScreen(hwnd, &originalClientOrigin));
+        }
+#endif
+
+        // Repeated requests must also be harmless; exercise both pin and unpin.
+        for (const bool requested : {true, true, false, false, true, false}) {
+            QVERIFY(agent.setAlwaysOnTop(requested));
+            QCoreApplication::processEvents();
+            QCOMPARE(window.winId(), windowId);
+            QVERIFY(window.isVisible());
+            QCOMPARE(window.windowFlags().testFlag(Qt::WindowStaysOnTopHint), requested);
+            QCOMPARE(window.windowHandle()->flags().testFlag(Qt::WindowStaysOnTopHint), requested);
+            QCOMPARE(window.windowState(), state);
+            QCOMPARE(window.geometry(), geometry);
+            QCOMPARE(window.frameGeometry(), frameGeometry);
+            QCOMPARE(window.normalGeometry(), normalGeometry);
+#if defined(Q_OS_WIN)
+            if (nativeWindows) {
+                QCOMPARE(IsZoomed(hwnd) != FALSE, maximized);
+                QCOMPARE((GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0,
+                    requested);
+                RECT currentWindowRect{};
+                RECT currentClientRect{};
+                POINT currentClientOrigin{};
+                QVERIFY(GetWindowRect(hwnd, &currentWindowRect));
+                QVERIFY(GetClientRect(hwnd, &currentClientRect));
+                QVERIFY(ClientToScreen(hwnd, &currentClientOrigin));
+                QVERIFY(EqualRect(&currentWindowRect, &originalWindowRect));
+                QVERIFY(EqualRect(&currentClientRect, &originalClientRect));
+                QCOMPARE(currentClientOrigin.x, originalClientOrigin.x);
+                QCOMPARE(currentClientOrigin.y, originalClientOrigin.y);
+                if (requested) {
+                    // Qt's lower() consults QWindow flags, not QWidget flags.
+                    window.lower();
+                    QCoreApplication::processEvents();
+                    QVERIFY((GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+                    QCOMPARE(IsZoomed(hwnd) != FALSE, maximized);
+                }
+            }
+#endif
+        }
+#if defined(Q_OS_WIN)
+        if (nativeWindows) {
+            QVERIFY(agent.setAlwaysOnTop(true));
+            window.hide();
+            QVERIFY(agent.setAlwaysOnTop(false));
+            QVERIFY(!window.isVisible());
+            QVERIFY(!window.windowHandle()->flags().testFlag(Qt::WindowStaysOnTopHint));
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            QCOMPARE(window.winId(), windowId);
+            QCOMPARE(window.windowState(), state);
+            QCOMPARE(window.geometry(), geometry);
+            QCOMPARE(IsZoomed(hwnd) != FALSE, maximized);
+            QVERIFY((GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0);
+        }
+#endif
+        if (maximized) {
+            window.showNormal();
+            QTRY_VERIFY(!window.isMaximized());
+            // Offscreen has no window manager to restore the normal rectangle.
+            if (QGuiApplication::platformName() == QStringLiteral("windows"))
+                QTRY_COMPARE(window.geometry(), restoredGeometry);
+        }
+    }
+
 #if defined(Q_OS_MACOS)
     /** @brief 验证非 Cocoa QPA 在创建原生后端前被明确拒绝。 */
     void rejectsOffscreenBeforeCreatingNativeBackend()

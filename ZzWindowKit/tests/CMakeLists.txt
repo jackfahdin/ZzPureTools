@@ -75,6 +75,18 @@ set_tests_properties(windowkit.lifecycle PROPERTIES
     LABELS "platform;windowkit"
     ENVIRONMENT "${zz_windowkit_lifecycle_environment}"
 )
+if(WIN32)
+    # Offscreen cannot observe HWND styles or the non-client frame calculation.
+    add_test(NAME windowkit.windows-topmost
+        COMMAND ZzWindowKitLifecycleTest
+            alwaysOnTopPreservesWindowPlacement alwaysOnTopAllowsReentrantMaximize)
+    set_tests_properties(windowkit.windows-topmost PROPERTIES
+        LABELS "platform;windowkit"
+        ENVIRONMENT "QT_QPA_PLATFORM=windows"
+        RUN_SERIAL TRUE
+        TIMEOUT 60
+    )
+endif()
 if(APPLE AND NOT ZZ_WINDOWKIT_FORCE_QT_CONTEXT)
     add_test(
         NAME windowkit.offscreen-rejected

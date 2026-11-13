@@ -16,6 +16,8 @@
 #include <QtWidgets/QWidget>
 
 #if defined(Q_OS_WIN)
+#  include <QtCore/QAbstractNativeEventFilter>
+#  include <QtCore/QCoreApplication>
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN
 #  endif
@@ -63,6 +65,56 @@ zzUnsupportedApplyState()
 }
 
 #if defined(Q_OS_WIN)
+/** @brief 置顶更新期间仅允许层级变化，保留原生样式及边框。 */
+class ZzWindowsTopmostStyleGuard final : public QAbstractNativeEventFilter
+{
+public:
+    explicit ZzWindowsTopmostStyleGuard(HWND window) : window_(window)
+    {
+        QCoreApplication::instance()->installNativeEventFilter(this);
+    }
+
+    ~ZzWindowsTopmostStyleGuard() override
+    {
+        QCoreApplication::instance()->removeNativeEventFilter(this);
+    }
+
+    bool nativeEventFilter(const QByteArray &eventType, void *message,
+        qintptr *result) override
+    {
+        Q_UNUSED(result);
+        if (eventType != QByteArrayLiteral("windows_generic_MSG") || message == nullptr)
+            return false;
+        auto *msg = static_cast<MSG *>(message);
+        if (!active_ || msg->hwnd != window_ || msg->lParam == 0) return false;
+        if (!styleHandled_ && msg->message == WM_STYLECHANGING
+            && msg->wParam == static_cast<WPARAM>(GWL_STYLE)) {
+            // Qt 重套样式时只保留 WS_VISIBLE/WS_DISABLED，会清掉
+            // WS_MAXIMIZE。置顶不需要改变任何 GWL_STYLE 位。
+            auto *style = reinterpret_cast<STYLESTRUCT *>(msg->lParam);
+            style->styleNew = style->styleOld;
+            styleHandled_ = true;
+        } else if (msg->message == WM_WINDOWPOSCHANGING) {
+            auto *position = reinterpret_cast<WINDOWPOS *>(msg->lParam);
+            constexpr UINT required = SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED;
+            constexpr UINT excluded = SWP_SHOWWINDOW | SWP_HIDEWINDOW | SWP_NOZORDER;
+            if ((position->flags & required) == required
+                && (position->flags & excluded) == 0) {
+                position->flags &= ~static_cast<UINT>(SWP_FRAMECHANGED);
+                // Qt 的样式更新已经完成。立即停止保护，允许后续同步
+                // flagsChanged 槽中的最大化等合法操作正常改变样式。
+                active_ = false;
+            }
+        }
+        return false;
+    }
+
+private:
+    HWND window_;
+    bool active_ = true;
+    bool styleHandled_ = false;
+};
+
 [[nodiscard]] bool zzSetWindowsAlwaysOnTop(
     QWidget *host,
     bool alwaysOnTop)
@@ -597,22 +649,31 @@ ZzCore::ZzResult<void> ZzQWindowKitBackend::setAlwaysOnTop(
         return flags;
     }();
     QWindow *const windowHandle = host_->windowHandle();
+#if defined(Q_OS_WIN)
+    // 已有 HWND 的隐藏窗口也走同一路径，避免隐藏再显示时状态失配。
+    // offscreen/minimal 没有真实 HWND，继续使用下方 Qt 路径。
+    if (hasNativeHandle() && QGuiApplication::platformName().compare(
+            QStringLiteral("windows"), Qt::CaseInsensitive) == 0) {
+        // 保留 Qt 自身及 Windows 插件的标志缓存更新，但阻止置顶操作
+        // 重写窗口样式与重算边框，避免最大化时内容向上偏移。
+        if (windowHandle->flags().testFlag(Qt::WindowStaysOnTopHint) != alwaysOnTop) {
+            const ZzWindowsTopmostStyleGuard guard(
+                reinterpret_cast<HWND>(host_->winId()));
+            windowHandle->setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
+        }
+        if (!zzSetWindowsAlwaysOnTop(host_, alwaysOnTop)) {
+            return zzBackendFailure<void>(ZzCore::ZzErrorCode::Backend,
+                QStringLiteral("Windows failed to update the topmost window state"));
+        }
+        host_->overrideWindowFlags(requestedFlags);
+        return ZzCore::ZzResult<void>::success();
+    }
+#endif
     if (host_->isVisible() && windowHandle != nullptr) {
-        // QWindow 更新原生标志不会触发 QWidget 的隐藏/显示重建。
+        // 其他平台使用 QWindow 更新，避免 QWidget 的隐藏/显示重建。
         windowHandle->setFlag(Qt::WindowStaysOnTopHint, alwaysOnTop);
         host_->overrideWindowFlags(requestedFlags);
-#if defined(Q_OS_WIN)
-        // 仅在真实 Windows 桌面平台上强制原生结果；offscreen/minimal
-        // 没有真实 HWND，保持 Qt 层标志即可。
-        if (QGuiApplication::platformName().compare(
-                QStringLiteral("windows"), Qt::CaseInsensitive) == 0
-            && !zzSetWindowsAlwaysOnTop(host_, alwaysOnTop)) {
-            return zzBackendFailure<void>(
-                ZzCore::ZzErrorCode::Backend,
-                QStringLiteral(
-                    "Windows failed to update the topmost window state"));
-        }
-#elif defined(Q_OS_LINUX) && defined(ZZ_WINDOWKIT_HAS_XCB) \
+#if defined(Q_OS_LINUX) && defined(ZZ_WINDOWKIT_HAS_XCB) \
     && QT_CONFIG(xcb)
         if (QGuiApplication::platformName().startsWith(
                 QStringLiteral("xcb"), Qt::CaseInsensitive)
