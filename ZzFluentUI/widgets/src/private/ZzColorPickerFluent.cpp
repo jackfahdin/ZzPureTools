@@ -150,7 +150,7 @@ void ZzColorPickerPrivate::syncAppearance()
     for (int index = 0; index < 4; ++index) {
         auto *editor = editors.at(index);
         editor->setButtonSymbols(fluent ? QAbstractSpinBox::NoButtons : QAbstractSpinBox::UpDownArrows);
-        editor->setFixedWidth(fluent ? ZzColorPickerChannelWidth : ZzColorPickerCompactChannelWidth);
+        editor->setMinimumWidth(fluent ? ZzColorPickerChannelWidth : ZzColorPickerCompactChannelWidth);
         editorLayout->addWidget(labels.at(index), fluent ? index + 1 : 0, fluent ? 0 : index);
         editorLayout->addWidget(editor, fluent ? index + 1 : 1, fluent ? 1 : index);
         if (fluent) {

@@ -40,7 +40,6 @@ namespace {
 constexpr int ZzMaximumPaletteColors = 256;
 constexpr int ZzVisiblePaletteRows = 3;
 constexpr int ZzFluentPaletteRows = 6;
-constexpr int ZzChannelEditorWidth = 84;
 constexpr int ZzSectionSpacing = 10;
 
 /** @brief 为八列 Fluent 色板保留 QListView 的流布局内边距。 */
@@ -453,7 +452,9 @@ ZzColorPickerPrivate::ZzColorPickerPrivate(ZzColorPicker *q)
              blueSpinBox,
              alphaSpinBox}) {
         spinBox->setRange(0, 255);
-        spinBox->setFixedWidth(ZzChannelEditorWidth);
+        // Let the active style reserve room for both step buttons and all
+        // channel digits, including when the application font grows.
+        spinBox->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
         QObject::connect(
             spinBox,
             &QSpinBox::valueChanged,

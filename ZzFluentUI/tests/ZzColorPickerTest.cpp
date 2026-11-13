@@ -106,6 +106,48 @@ private:
     }
 
 private Q_SLOTS:
+    void channelValuesFitWithFluentButtons_data()
+    {
+        QTest::addColumn<int>("pointSize");
+        QTest::addColumn<bool>("rtl");
+        QTest::newRow("normal-ltr") << 10 << false;
+        QTest::newRow("large-ltr") << 18 << false;
+        QTest::newRow("large-rtl") << 18 << true;
+    }
+
+    void channelValuesFitWithFluentButtons()
+    {
+        QFETCH(int, pointSize);
+        QFETCH(bool, rtl);
+        ZzFluentUI::ZzThemeController controller;
+        auto style = createStyle(&controller);
+        ZzFluentUI::ZzColorPicker picker;
+        picker.setAlphaEnabled(true);
+        picker.setCurrentColor(QColor(255, 255, 255, 255));
+        picker.setLayoutDirection(rtl ? Qt::RightToLeft : Qt::LeftToRight);
+        QFont font = picker.font();
+        font.setPointSize(pointSize);
+        picker.setFont(font);
+        for (auto *editor : picker.findChildren<ZzFluentUI::ZzSpinBox *>()) {
+            editor->setStyle(style.get());
+        }
+        picker.resize(picker.sizeHint());
+        picker.show();
+        QCoreApplication::processEvents();
+        for (auto *editor : picker.findChildren<ZzFluentUI::ZzSpinBox *>()) {
+            auto *lineEdit = editor->findChild<QLineEdit *>();
+            QVERIFY(lineEdit != nullptr);
+            const QMargins margins = lineEdit->textMargins();
+            const int available = lineEdit->contentsRect().width()
+                - margins.left() - margins.right() - 4;
+            QVERIFY2(available >= lineEdit->fontMetrics().horizontalAdvance(editor->text()),
+                qPrintable(QStringLiteral("%1: value %2 needs %3 pixels, only %4 available")
+                    .arg(editor->objectName(), editor->text())
+                    .arg(lineEdit->fontMetrics().horizontalAdvance(editor->text()))
+                    .arg(available)));
+        }
+    }
+
     /** @brief 通过真实 HEX focus-out 覆盖重装配和不同绘制部件点击。 */
     void pendingHexFocusChangeMayDeletePicker_data()
     {
