@@ -1,4 +1,5 @@
 #include <QtTest/QTest>
+#include <ZzTestEventLoop.h>
 
 #include <cstdlib>
 #include <memory>
@@ -51,7 +52,7 @@ private Q_SLOTS:
                 if (flags.testFlag(Qt::WindowStaysOnTopHint)) window.showMaximized();
             });
         QVERIFY(agent.setAlwaysOnTop(true));
-        QTRY_VERIFY(window.isMaximized());
+        ZZ_VERIFY_EVENTUALLY(window.isMaximized());
 #if defined(Q_OS_WIN)
         if (QGuiApplication::platformName() == QStringLiteral("windows")) {
             const auto hwnd = reinterpret_cast<HWND>(window.winId());
@@ -84,7 +85,7 @@ private Q_SLOTS:
         const QRect restoredGeometry = window.geometry();
         if (maximized) {
             window.showMaximized();
-            QTRY_VERIFY(window.isMaximized());
+            ZZ_VERIFY_EVENTUALLY(window.isMaximized());
         }
         QCoreApplication::processEvents();
         const auto windowId = window.winId();
@@ -163,10 +164,10 @@ private Q_SLOTS:
 #endif
         if (maximized) {
             window.showNormal();
-            QTRY_VERIFY(!window.isMaximized());
+            ZZ_VERIFY_EVENTUALLY(!window.isMaximized());
             // Offscreen has no window manager to restore the normal rectangle.
             if (QGuiApplication::platformName() == QStringLiteral("windows"))
-                QTRY_COMPARE(window.geometry(), restoredGeometry);
+                ZZ_COMPARE_EVENTUALLY(window.geometry(), restoredGeometry);
         }
     }
 

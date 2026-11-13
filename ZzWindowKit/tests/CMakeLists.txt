@@ -58,6 +58,8 @@ set_tests_properties(windowkit.bootstrap PROPERTIES
 add_executable(ZzWindowKitLifecycleTest
     ZzWindowKitLifecycleTest.cpp
 )
+target_include_directories(ZzWindowKitLifecycleTest PRIVATE
+    "${PROJECT_SOURCE_DIR}/tests/support")
 target_link_libraries(ZzWindowKitLifecycleTest PRIVATE
     Qt6::Test
     Qt6::Widgets
