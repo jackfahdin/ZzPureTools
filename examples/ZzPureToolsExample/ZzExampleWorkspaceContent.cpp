@@ -1,4 +1,5 @@
 #include "ZzExampleWorkspaceContent.h"
+#include "ZzExampleLanguageController.h"
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
@@ -72,12 +73,13 @@ private:
 
 [[nodiscard]] std::unique_ptr<QWidget> zzCreateLabelPanel(
     const QString &objectName,
-    const QString &text)
+    const char *text)
 {
     auto panel = std::make_unique<QWidget>();
+    ZzExampleTranslationScope translationScope(panel.get());
     panel->setObjectName(objectName);
     auto *layout = new QVBoxLayout(panel.get());
-    auto *label = new QLabel(text, panel.get());
+    auto *label = new QLabel(zzTranslate(text), panel.get());
     label->setAlignment(Qt::AlignCenter);
     label->setWordWrap(true);
     layout->addWidget(label);
@@ -90,6 +92,7 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createSessionPanel(
     QAbstractItemModel *sessions)
 {
     auto panel = std::make_unique<QWidget>();
+    ZzExampleTranslationScope translationScope(panel.get());
     panel->setObjectName(QStringLiteral("zzExampleSessionPanel"));
     auto *layout = new QVBoxLayout(panel.get());
     layout->setContentsMargins(0, 0, 0, 0);
@@ -122,6 +125,7 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createSftpPanel(
     QAbstractItemModel *files)
 {
     auto tree = std::make_unique<QTreeView>();
+    ZzExampleTranslationScope translationScope(tree.get());
     tree->setObjectName(QStringLiteral("zzExampleSftpPanel"));
     tree->setAccessibleName(zzTranslate("文件"));
     tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -152,7 +156,7 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createProblemsPanel()
 {
     return zzCreateLabelPanel(
         QStringLiteral("zzExampleProblemsPanel"),
-        zzTranslate("未发现本地演示问题"));
+        "未发现本地演示问题");
 }
 
 std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createOutputPanel(
@@ -165,6 +169,7 @@ std::unique_ptr<QWidget>
 ZzExampleWorkspaceContent::createPropertiesPanel()
 {
     auto panel = std::make_unique<QWidget>();
+    ZzExampleTranslationScope translationScope(panel.get());
     panel->setObjectName(QStringLiteral("zzExamplePropertiesPanel"));
     auto *layout = new QFormLayout(panel.get());
     ZzFluentUI::ZzSidePanelAppearance::applyFormLayout(layout);
@@ -178,7 +183,7 @@ std::unique_ptr<QWidget> ZzExampleWorkspaceContent::createTasksPanel()
 {
     auto panel = zzCreateLabelPanel(
         QStringLiteral("zzExampleTasksPanel"),
-        zzTranslate("无正在运行的本地演示任务"));
+        "无正在运行的本地演示任务");
     ZzFluentUI::ZzSidePanelAppearance::applyFormLayout(panel->layout());
     return panel;
 }

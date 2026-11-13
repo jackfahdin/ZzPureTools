@@ -183,6 +183,14 @@ public:
         const ZzWorkspacePanelId &id,
         bool visible = true);
 
+    /** @brief 更新侧栏标题及活动入口；未创建的内容保持延迟创建。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setSidePanelTitle(
+        const ZzWorkspacePanelId &id, const QString &title);
+
+    /** @brief 更新固定活动入口标题，不改变关联动作与选择状态。 */
+    [[nodiscard]] ZzCore::ZzResult<void> setFixedActivityTitle(
+        const ZzWorkspaceActivityId &id, const QString &title);
+
     /** @brief 更新 Side Panel 活动入口的非负徽标值。 */
     [[nodiscard]] ZzCore::ZzResult<void> setPanelBadge(
         const ZzWorkspacePanelId &id,

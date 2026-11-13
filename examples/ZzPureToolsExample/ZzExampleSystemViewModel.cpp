@@ -1,4 +1,5 @@
 #include "ZzExampleSystemViewModel.h"
+#include "ZzExampleLanguageController.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtGui/QStandardItem>
@@ -19,6 +20,8 @@ namespace {
 
 ZzExampleSystemViewModel::ZzExampleSystemViewModel()
 {
+    setProperty("zzLanguageDisplayModel", true);
+    ZzExampleTranslationScope translationScope(this);
     setColumnCount(2);
     setHorizontalHeaderLabels({
         QCoreApplication::translate("ZzPureToolsExample", "项目"),
@@ -30,6 +33,7 @@ ZzExampleSystemViewModel::~ZzExampleSystemViewModel() = default;
 void ZzExampleSystemViewModel::setRows(
     const QList<QPair<QString, QString>> &rows)
 {
+    ZzExampleTranslationScope translationScope(this);
     setRowCount(0);
     for (const auto &[name, value] : rows) {
         appendRow({zzSystemItem(name), zzSystemItem(value)});

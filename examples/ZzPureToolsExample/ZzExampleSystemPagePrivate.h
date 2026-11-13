@@ -49,6 +49,7 @@ public:
 
     ZzExampleSystemPage *q_ptr = nullptr;
     QComboBox *themeModeBox = nullptr;
+    QComboBox *languageBox = nullptr;
     ZzFluentUI::ZzColorPicker *accentColorPicker = nullptr;
     QComboBox *logLevelBox = nullptr;
     ZzFluentUI::ZzToggleSwitch *reducedMotionSwitch = nullptr;

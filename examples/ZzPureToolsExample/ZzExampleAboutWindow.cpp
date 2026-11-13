@@ -1,4 +1,5 @@
 #include "ZzExampleAboutWindow.h"
+#include "ZzExampleLanguageController.h"
 
 #include <exception>
 #include <utility>
@@ -20,6 +21,7 @@ ZzCore::ZzResult<ZzExampleAboutWindow *> ZzExampleAboutWindow::create(
     ZzPureTools::ZzPureApplication *application,
     ZzExampleWindowShell *shell)
 {
+    ZzExampleTranslationScope translationScope(parentWindow);
     try {
         auto window = std::unique_ptr<ZzExampleAboutWindow>(
             new ZzExampleAboutWindow(parentWindow));

@@ -7,6 +7,7 @@
 #include <ZzCore/ZzTaskExecutor.h>
 
 #include "ZzExampleActivityModel.h"
+#include "ZzExampleLanguageController.h"
 
 namespace ZzExample {
 
@@ -20,6 +21,7 @@ public:
 
     ZzCore::ZzApplicationPaths paths;
     ZzCore::ZzQtSettingsStore settings;
+    ZzExampleLanguageController language;
     ZzCore::ZzTaskExecutor tasks;
     ZzExampleActivityModel activities;
     QString platform;

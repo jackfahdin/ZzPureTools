@@ -5,6 +5,7 @@
 
 #include "ZzExampleDataPage.h"
 #include "ZzExampleDataViewModel.h"
+#include "ZzExampleLanguageController.h"
 
 namespace ZzExample {
 
@@ -39,6 +40,9 @@ ZzExampleDataPresenter::ZzExampleDataPresenter(
         view->setStatusText(
             zzDataStatusText(kind, viewModel->visibleRowCount()));
     };
+    if (auto *language = ZzExampleLanguageController::active()) {
+        QObject::connect(language, &ZzExampleLanguageController::languageChanged, this, refresh);
+    }
     QObject::connect(
         view,
         &ZzExampleDataPage::filterRequested,

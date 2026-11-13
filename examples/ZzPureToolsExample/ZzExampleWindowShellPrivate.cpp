@@ -1,4 +1,5 @@
 #include "ZzExampleWindowShellPrivate.h"
+#include "ZzExampleLanguageController.h"
 
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QTreeView>
@@ -102,6 +103,7 @@ ZzExampleWindowShellPrivate::~ZzExampleWindowShellPrivate() = default;
 
 ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
 {
+    ZzExampleTranslationScope translationScope(window);
     if (q_ptr == nullptr || window == nullptr || !context
         || application == nullptr) {
         return ZzCore::ZzResult<void>::failure(ZzCore::ZzError(
@@ -204,6 +206,8 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         return zzInvalidState(
             QStringLiteral("example title bar menu creation failed"));
     }
+    fileMenu->setProperty("zzTranslationContext", QByteArray("ZzPureToolsExampleTitleBar"));
+    fileMenu->menuAction()->setProperty("zzTranslationContext", QByteArray("ZzPureToolsExampleTitleBar"));
     fileMenu->addAction(newTerminalAction);
     fileMenu->addAction(closeTerminalAction);
     fileMenu->addSeparator();
@@ -459,6 +463,22 @@ ZzCore::ZzResult<void> ZzExampleWindowShellPrivate::initialize()
         });
     QObject::connect(searchEdit, &QLineEdit::returnPressed,
         q_ptr, [this] { navigateFromSearch(); });
+    QObject::connect(&context->languageController(), &ZzExampleLanguageController::languageChanged,
+        q_ptr, [this] {
+            routeLabel->setText(QCoreApplication::translate("ZzPureToolsExample", "路由：%1")
+                .arg(navigation->currentRoute().value()));
+            for (const auto &[id, source] : std::array<std::pair<const char *, const char *>, 5>{{
+                     {"sessions", "会话"}, {"files", "文件"}, {"components", "组件"},
+                     {"properties", "属性"}, {"tasks", "任务"}}}) {
+                if (auto result = workspace->setSidePanelTitle(zzPanelId(id),
+                        QCoreApplication::translate("ZzPureToolsExample", source)); !result)
+                    reportFailure(result.error());
+            }
+            if (auto result = workspace->setFixedActivityTitle(
+                    ZzPureTools::ZzWorkspaceActivityId(QStringLiteral("settings")),
+                    QCoreApplication::translate("ZzPureToolsExample", "设置")); !result)
+                reportFailure(result.error());
+        });
     QObject::connect(themeAction, &QAction::triggered,
         window, &ZzPureTools::ZzApplicationWindow::toggleTheme);
     QObject::connect(settingsAction, &QAction::triggered,

@@ -1,4 +1,5 @@
 #include "ZzExampleShowcasePagePrivate.h"
+#include "ZzExampleLanguageController.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtGui/QPainter>
@@ -100,7 +101,9 @@ void ZzExampleRangeSliderPage::build(QVBoxLayout *layout, QWidget *parent)
     values->setWordWrap(true);
     values->setObjectName(QStringLiteral("zzExampleRangeSliderValues"));
     const auto refresh = [values](int lower, int upper) {
-        values->setText(zzRangeText("当前范围：%1 – %2").arg(lower).arg(upper));
+        zzExampleBindText(values, [lower, upper] {
+            return zzRangeText("当前范围：%1 – %2").arg(lower).arg(upper);
+        });
     };
     refresh(20, 80);
     QObject::connect(slider, &ZzRangeSlider::valuesChanged, values, refresh);

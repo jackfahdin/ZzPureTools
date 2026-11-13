@@ -4,6 +4,8 @@
 
 #include "ZzExampleCardsPagePrivate.h"
 
+#include "ZzExampleLanguageController.h"
+
 namespace ZzExample {
 
 ZzExampleCardsPage::ZzExampleCardsPage(
@@ -13,6 +15,7 @@ ZzExampleCardsPage::ZzExampleCardsPage(
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzExampleCardsPagePrivate>(this))
 {
+    ZzExampleTranslationScope translationScope(this);
     d_ptr->initialize(title.trimmed(), carouselModel);
 }
 

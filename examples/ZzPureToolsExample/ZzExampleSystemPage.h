@@ -67,7 +67,13 @@ public:
     /** @brief 由 Presenter 更新操作状态。 */
     void setStatusText(const QString &text);
 
+    /** @brief 同步已保存的语言选项，不发出用户切换意图。 */
+    void setLanguageSelection(const QString &language);
+
 Q_SIGNALS:
+    /** @brief 用户请求立即切换应用语言。 */
+    void languageRequested(const QString &language);
+
     /** @brief 用户请求切换主题模式。 */
     void themeModeRequested(int mode);
 

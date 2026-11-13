@@ -1,4 +1,5 @@
 #include "ZzExampleFileModel.h"
+#include "ZzExampleLanguageController.h"
 
 #include <QtCore/QCoreApplication>
 
@@ -7,6 +8,8 @@ namespace ZzExample {
 ZzExampleFileModel::ZzExampleFileModel(QObject *parent)
     : QStandardItemModel(parent)
 {
+    setProperty("zzLanguageDisplayModel", true);
+    ZzExampleTranslationScope translationScope(this);
     const auto translate = [](const char *text) {
         return QCoreApplication::translate("ZzPureToolsExample", text);
     };

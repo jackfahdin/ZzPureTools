@@ -2,6 +2,8 @@
 
 #include "ZzExampleDataPagePrivate.h"
 
+#include "ZzExampleLanguageController.h"
+
 namespace ZzExample {
 
 ZzExampleDataPage::ZzExampleDataPage(
@@ -12,6 +14,7 @@ ZzExampleDataPage::ZzExampleDataPage(
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzExampleDataPagePrivate>(this))
 {
+    ZzExampleTranslationScope translationScope(this);
     d_ptr->initialize(kind, title.trimmed(), model);
 }
 

@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QSpinBox>
 #include <QStandardItemModel>
+#include "ZzExampleLanguageController.h"
 #include <array>
 
 namespace ZzExample {
@@ -28,6 +29,8 @@ namespace {
             : QStandardItemModel(photos ? 5 : 3, 1, owner)
             , view_(view)
         {
+            setProperty("zzLanguageDisplayModel", true);
+            ZzExampleTranslationScope translationScope(this);
             for (int row = 0; row < rowCount(); ++row) {
                 setData(index(row, 0),
                     photos ? zzGaugeText(imageTitles.at(static_cast<size_t>(row)))
@@ -130,6 +133,9 @@ void ZzExampleCarouselPage::build(ZzExampleShowcasePagePrivate *host, QVBoxLayou
                 .arg(view->model()->rowCount()));
     };
     QObject::connect(view, &ZzCarouselView::currentRowChanged, status, refreshStatus);
+    if (auto *language = ZzExampleLanguageController::active()) {
+        QObject::connect(language, &ZzExampleLanguageController::languageChanged, status, refreshStatus);
+    }
     refreshStatus();
     layout->addWidget(status);
     auto* commands = new QHBoxLayout;

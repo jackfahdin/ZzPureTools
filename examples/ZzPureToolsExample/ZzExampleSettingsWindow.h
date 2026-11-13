@@ -17,7 +17,7 @@ class ZzExampleApplicationContext;
 class ZzExampleSettingsWindowPrivate;
 class ZzExampleWindowShell;
 
-/** @brief 承载当前主窗口独占设置页面的窗口模态 View。 */
+/** @brief 始终位于所属主窗口上方、阻止该主窗口交互的模态设置对话框。 */
 class ZzExampleSettingsWindow final : public QMainWindow
 {
     Q_OBJECT

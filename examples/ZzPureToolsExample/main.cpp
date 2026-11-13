@@ -34,6 +34,7 @@
 #include <ZzWindowKit/ZzWindowKitBootstrap.h>
 
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleLanguageController.h"
 #include "ZzExampleApplicationModule.h"
 #include "ZzExamplePageFactory.h"
 #if defined(ZZ_EXAMPLE_PERFORMANCE_BENCHMARKS)
@@ -123,6 +124,11 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     auto context = std::move(contextResult).value();
+    const auto languageResult = context->languageController().restore(!testMode);
+    if (!languageResult) {
+        zzReportStartupFailure("language initialization failed:", languageResult.error());
+        return EXIT_FAILURE;
+    }
     // 自动化场景使用确定的默认外观，普通启动才恢复用户偏好。
     if (!testMode) {
         ZzExample::ZzExampleSystemPresenter::restoreAppearanceSettings(
@@ -138,17 +144,6 @@ int main(int argc, char *argv[])
 #endif
 
     ZzPureTools::ZzApplicationBuilder builder;
-    if (QLocale::system().language() == QLocale::English) {
-        auto translatorResult = builder.addTranslatorResource(
-            QStringLiteral(
-                ":/translations/ZzPureToolsExample_en.qm"));
-        if (!translatorResult) {
-            zzReportStartupFailure(
-                "translator registration failed:",
-                translatorResult.error());
-            return EXIT_FAILURE;
-        }
-    }
     auto moduleResult = builder.addModule(
         std::make_unique<ZzExample::ZzExampleApplicationModule>(context));
     if (!moduleResult) {

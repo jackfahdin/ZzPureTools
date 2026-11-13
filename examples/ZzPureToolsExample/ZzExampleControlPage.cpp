@@ -2,6 +2,8 @@
 #include "ZzExampleControlPagePrivate.h"
 #include <QtCore/QEvent>
 
+#include "ZzExampleLanguageController.h"
+
 namespace ZzExample {
 
 ZzExampleControlPage::ZzExampleControlPage(
@@ -9,6 +11,7 @@ ZzExampleControlPage::ZzExampleControlPage(
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzExampleControlPagePrivate>(this))
 {
+    ZzExampleTranslationScope translationScope(this);
     setObjectName(QStringLiteral("zzExampleControlPage_%1").arg(routeId));
     setAccessibleName(title);
     d_ptr->initialize(kind, title);

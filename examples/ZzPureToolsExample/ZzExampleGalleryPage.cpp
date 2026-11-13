@@ -2,6 +2,8 @@
 
 #include "ZzExampleGalleryPagePrivate.h"
 
+#include "ZzExampleLanguageController.h"
+
 namespace ZzExample {
 
 ZzExampleGalleryPage::ZzExampleGalleryPage(
@@ -11,6 +13,7 @@ ZzExampleGalleryPage::ZzExampleGalleryPage(
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzExampleGalleryPagePrivate>(this))
 {
+    ZzExampleTranslationScope translationScope(this);
     d_ptr->initialize(kind, title.trimmed());
 }
 

@@ -15,6 +15,7 @@ class ZzTaskExecutor;
 namespace ZzExample {
 
 class ZzExampleActivityModel;
+class ZzExampleLanguageController;
 class ZzExampleApplicationContextPrivate;
 
 /**
@@ -51,6 +52,9 @@ public:
 
     /** @brief 返回应用级设置接口，不向展示层暴露具体 Qt 后端。 */
     [[nodiscard]] ZzCore::ZzSettingsStore &settingsStore() noexcept;
+
+    /** @brief 返回跨窗口共享的语言偏好与即时翻译服务。 */
+    [[nodiscard]] ZzExampleLanguageController &languageController() noexcept;
 
     /** @brief 返回共享任务执行器。 */
     [[nodiscard]] ZzCore::ZzTaskExecutor &taskExecutor() noexcept;

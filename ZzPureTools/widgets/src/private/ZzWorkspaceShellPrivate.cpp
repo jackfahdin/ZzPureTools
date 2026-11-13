@@ -399,6 +399,18 @@ public:
         return true;
     }
 
+    template <typename Id>
+    bool setTitle(const Id &id, const QString &title)
+    {
+        const int row = indexOf(id);
+        if (row < 0) return false;
+        if (rows_[row].title == title) return true;
+        rows_[row].title = title;
+        Q_EMIT dataChanged(index(row, 0), index(row, 0),
+            {Qt::DisplayRole, Qt::ToolTipRole});
+        return true;
+    }
+
     void notifyActionChanged(const ZzWorkspaceActivityId &id)
     {
         const int row = indexOf(id);
@@ -2770,6 +2782,53 @@ ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::showPanel(
         || (!visible && ((collapsesCurrent && !collapsedStateMatches)
             || (!collapsesCurrent && !snapshotMatches())))) {
         return reject(QStringLiteral("Side panel state was interrupted"));
+    }
+    return ZzCore::ZzResult<void>::success();
+}
+
+ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setSidePanelTitle(
+    const ZzWorkspacePanelId &id, const QString &title)
+{
+    if (transactionKind != ZzTransactionKind::None || activityModel == nullptr) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace is unavailable for title changes"), id.value());
+    }
+    const int panelIndex = indexOf(id);
+    if (panelIndex < 0) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::NotFound,
+            QStringLiteral("Workspace panel is not registered"), id.value());
+    }
+    if (title.trimmed().isEmpty() || panels.at(panelIndex).kind != ZzPanelKind::Side) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("Title requires a side panel and non-empty text"), id.value());
+    }
+    panels[panelIndex].title = title.trimmed();
+    const auto record = panels.at(panelIndex);
+    const QPointer<QAbstractListModel> modelGuard(activityModel);
+    auto *pane = zzIsLeftArea(record.activityArea) ? leftSidePane.data() : rightSidePane.data();
+    if (pane != nullptr && record.content != nullptr)
+        pane->panelStack()->setPanelTitle(record.content, record.title);
+    if (modelGuard == nullptr || !zzActivityModel(modelGuard)->setTitle(id, record.title)) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Activity model lost the panel"), id.value());
+    }
+    return ZzCore::ZzResult<void>::success();
+}
+
+ZzCore::ZzResult<void> ZzWorkspaceShellPrivate::setFixedActivityTitle(
+    const ZzWorkspaceActivityId &id, const QString &title)
+{
+    if (transactionKind != ZzTransactionKind::None || activityModel == nullptr) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace is unavailable for title changes"));
+    }
+    if (title.trimmed().isEmpty()) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::InvalidArgument,
+            QStringLiteral("Activity title must not be empty"));
+    }
+    if (!zzActivityModel(activityModel)->setTitle(id, title.trimmed())) {
+        return zzWorkspaceFailure<void>(ZzCore::ZzErrorCode::NotFound,
+            QStringLiteral("Workspace activity is not registered"));
     }
     return ZzCore::ZzResult<void>::success();
 }

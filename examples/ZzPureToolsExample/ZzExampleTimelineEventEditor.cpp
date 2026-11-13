@@ -80,6 +80,7 @@ void ZzExampleTimelineEventEditor::buildTimelineEventEditor(QFormLayout* form, Z
     auto* page = form->parentWidget();
     auto* selector = new QComboBox(page);
     selector->setObjectName(QStringLiteral("zzTimelineEventSelector"));
+    selector->setProperty("zzLanguageUserContent", true);
     const auto edit = [page](const char* name) {
         auto* result = new QLineEdit(page);
         result->setObjectName(QString::fromLatin1(name));

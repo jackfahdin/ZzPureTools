@@ -2,6 +2,8 @@
 
 #include "ZzExampleShowcasePagePrivate.h"
 
+#include "ZzExampleLanguageController.h"
+
 namespace ZzExample {
 
 ZzExampleShowcasePage::ZzExampleShowcasePage(
@@ -11,6 +13,7 @@ ZzExampleShowcasePage::ZzExampleShowcasePage(
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzExampleShowcasePagePrivate>(this))
 {
+    ZzExampleTranslationScope translationScope(this);
     d_ptr->initialize(kind, title.trimmed());
 }
 

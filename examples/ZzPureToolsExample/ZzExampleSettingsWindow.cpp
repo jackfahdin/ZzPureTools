@@ -11,6 +11,7 @@
 #include <ZzPureTools/ZzApplicationWindow.h>
 
 #include "ZzExampleSettingsWindowPrivate.h"
+#include "ZzExampleLanguageController.h"
 
 namespace ZzExample {
 
@@ -21,6 +22,7 @@ ZzExampleSettingsWindow::create(
     ZzPureTools::ZzPureApplication *application,
     ZzExampleWindowShell *shell)
 {
+    ZzExampleTranslationScope translationScope(parentWindow);
     try {
         auto window = std::unique_ptr<ZzExampleSettingsWindow>(
             new ZzExampleSettingsWindow(parentWindow));
@@ -48,7 +50,7 @@ ZzExampleSettingsWindow::create(
 
 ZzExampleSettingsWindow::ZzExampleSettingsWindow(
     ZzPureTools::ZzApplicationWindow *parentWindow)
-    : QMainWindow(parentWindow, Qt::Window)
+    : QMainWindow(parentWindow, Qt::Dialog)
     , d_ptr(std::make_unique<ZzExampleSettingsWindowPrivate>(this))
 {
     setObjectName(QStringLiteral("zzExampleSettingsWindow"));

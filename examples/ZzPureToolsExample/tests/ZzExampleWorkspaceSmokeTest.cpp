@@ -10,6 +10,7 @@
 #include <QtGui/QGuiApplication>
 #include <QtGui/QIcon>
 #include <QtGui/QPixmap>
+#include <QtGui/QWindow>
 #include <QtGui/QStandardItemModel>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -23,6 +24,11 @@
 #include <ZzFluentUI/ZzPasswordBox.h>
 #include <ZzFluentUI/ZzIconButton.h>
 #include "ZzExampleControlPage.h"
+#include "ZzExampleShowcasePage.h"
+#include <ZzFluentUI/ZzRangeSlider.h>
+#include <ZzFluentUI/ZzRatingControl.h>
+#include <ZzFluentUI/ZzMessageBar.h>
+#include <ZzFluentUI/ZzPanelStack.h>
 #include "ZzExampleColorPickerPage.h"
 #include "ZzExampleColorPickerSmoke.h"
 #include <QtWidgets/QMenu>
@@ -76,6 +82,12 @@
 #include <ZzPureTools/ZzWorkspacePanelId.h>
 #include <ZzPureTools/ZzWorkspaceShell.h>
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleLanguageController.h"
+#include "ZzExampleDataViewModel.h"
+#include <ZzFluentUI/ZzMultiSelectComboBox.h>
+#include <ZzFluentUI/ZzRollerPicker.h>
+#include <ZzFluentUI/ZzTimeline.h>
+#include <QtCore/QDir>
 #include "ZzExampleRouteCatalog.h"
 #include "ZzExampleSettingsWindow.h"
 #include "ZzExampleSystemPage.h"
@@ -1131,7 +1143,195 @@ private Q_SLOTS:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     }
 
-    void settingsActionCreatesOneWindowModalChildPerMainWindow()
+    void languageSettingUpdatesOpenPagesAndPreservesInput()
+    {
+        auto *window = createAdditionalWindow();
+        QVERIFY(window != nullptr);
+        {
+        ZzExample::ZzExampleControlPage page(ZzExample::ZzExampleControlKind::LineEdit,
+            QStringLiteral("line-edit"), QStringLiteral("单行输入(LineEdit)"), window);
+        auto *input = page.findChild<QLineEdit *>();
+        QVERIFY(input != nullptr);
+        input->setText(QStringLiteral("Disabled"));
+        input->setCursorPosition(3);
+        settingsAction(window)->trigger();
+        auto *settings = settingsWindow(window);
+        QVERIFY(settings != nullptr);
+        auto *languages = settings->findChild<QComboBox *>(QStringLiteral("zzExampleLanguageBox"));
+        QVERIFY(languages != nullptr);
+        QCOMPARE(languages->count(), 3);
+        languages->setCurrentIndex(languages->findData(QStringLiteral("en")));
+        QCoreApplication::processEvents();
+        QCOMPARE(settings->windowTitle(), QStringLiteral("Settings"));
+        auto *workspace = ZzExample::ZzExampleWindowShell::attachedTo(*window)->workspaceShell();
+        auto *activities = workspace->activityBar(ZzFluentUI::ZzSidePaneEdge::Left)->model();
+        QStringList activityTitles;
+        for (int row = 0; row < activities->rowCount(); ++row)
+            activityTitles.append(activities->index(row, 0).data().toString());
+        QVERIFY(activityTitles.contains(QStringLiteral("Files")));
+        QVERIFY(activityTitles.contains(QStringLiteral("Settings")));
+        QVERIFY(window->findChild<QWidget *>(QStringLiteral("zzExampleSftpPanel")) == nullptr);
+        QVERIFY(workspace->showPanel(zzPanelId("files")));
+        auto *filePane = workspace->sidePane(ZzFluentUI::ZzSidePaneEdge::Left);
+        auto *fileContent = filePane->currentWidget();
+        QCOMPARE(filePane->panelStack()->panelTitle(fileContent), QStringLiteral("Files"));
+        QSignalSpy activityReset(activities, &QAbstractItemModel::modelReset);
+        const auto captureDirectory = qEnvironmentVariable("ZZ_EXAMPLE_TEST_CAPTURE_DIR");
+        if (!captureDirectory.isEmpty()) {
+            QDir().mkpath(captureDirectory);
+            QVERIFY(settings->grab().save(captureDirectory + QStringLiteral("/settings-en.png")));
+        }
+        QCOMPARE(input->text(), QStringLiteral("Disabled"));
+        QCOMPARE(input->cursorPosition(), 3);
+        bool translated = false;
+        for (auto *label : page.findChildren<QLabel *>()) {
+            translated |= label->text().contains(QStringLiteral("Explore this control"));
+        }
+        QVERIFY(translated);
+        auto saved = context_->settingsStore().read(u"ui/language", QString());
+        QVERIFY(saved);
+        QCOMPARE(saved.value().toString(), QStringLiteral("en"));
+
+        ZzExample::ZzExampleControlPage englishCreated(ZzExample::ZzExampleControlKind::PushButton,
+            QStringLiteral("push-button"), QStringLiteral("按钮(PushButton)"), window);
+        languages->setCurrentIndex(languages->findData(QStringLiteral("zh_CN")));
+        QCoreApplication::processEvents();
+        QCOMPARE(settings->windowTitle(), QStringLiteral("设置"));
+        QCOMPARE(filePane->currentWidget(), fileContent);
+        QCOMPARE(filePane->panelStack()->panelTitle(fileContent), QStringLiteral("文件"));
+        QCOMPARE(activityReset.size(), 0);
+        if (!captureDirectory.isEmpty()) {
+            QVERIFY(settings->grab().save(captureDirectory + QStringLiteral("/settings-zh.png")));
+        }
+        QCOMPARE(input->text(), QStringLiteral("Disabled"));
+        bool restored = false;
+        for (auto *label : englishCreated.findChildren<QLabel *>()) {
+            restored |= label->text().contains(QStringLiteral("独立预览"));
+        }
+        QVERIFY(restored);
+        closeSettings(settings);
+        }
+        closeApplicationWindow(window);
+    }
+
+    void languageUpdatesLatestInteractionResults()
+    {
+        auto &language = context_->languageController();
+        QVERIFY(language.setLanguage(QStringLiteral("zh_CN")));
+        QWidget host;
+        using Page = ZzExample::ZzExampleShowcasePage;
+        Page range(Page::ZzPageKind::RangeSlider, QStringLiteral("Range"), &host);
+        auto *slider = range.findChild<ZzFluentUI::ZzRangeSlider *>(QStringLiteral("rangeSelector"));
+        QVERIFY(slider != nullptr);
+        slider->setValues(30, 70);
+        auto *values = range.findChild<QLabel *>(QStringLiteral("zzExampleRangeSliderValues"));
+        QVERIFY(values != nullptr);
+
+        Page feedback(Page::ZzPageKind::Feedback, QStringLiteral("Feedback"), &host);
+        auto *rating = feedback.findChild<ZzFluentUI::ZzRatingControl *>();
+        QVERIFY(rating != nullptr);
+        rating->setRating(4.0);
+        auto *message = feedback.findChild<ZzFluentUI::ZzMessageBar *>();
+        QVERIFY(message != nullptr);
+        const auto clickText = [](QWidget &page, const QString &text) {
+            for (auto *button : page.findChildren<QAbstractButton *>()) {
+                if (button->text() == text) { button->click(); return true; }
+            }
+            return false;
+        };
+        QVERIFY(clickText(feedback, QStringLiteral("警告")));
+        QVERIFY(clickText(feedback, QStringLiteral("构建菜单")));
+        QCOMPARE(message->text(), QStringLiteral("已执行默认构建"));
+        ZzExample::ZzExampleControlPage buttons(ZzExample::ZzExampleControlKind::PushButton,
+            QStringLiteral("push-button"), QStringLiteral("Buttons"), &host);
+        QVERIFY(clickText(buttons, QStringLiteral("标准")));
+        QVERIFY(language.setLanguage(QStringLiteral("en")));
+        QCOMPARE(values->text(), QCoreApplication::translate("ZzPureToolsExample", "当前范围：%1 – %2").arg(30).arg(70));
+        QCOMPARE(message->text(), QStringLiteral("Default build executed"));
+        const auto hasLabel = [](QWidget &page, const QString &text) {
+            for (auto *label : page.findChildren<QLabel *>())
+                if (label->text() == text) return true;
+            return false;
+        };
+        QVERIFY(hasLabel(feedback, QStringLiteral("Current rating: 4.0 / 5")));
+        QVERIFY(hasLabel(buttons, QStringLiteral("Clicked: Standard")));
+        QVERIFY(language.setLanguage(QStringLiteral("zh_CN")));
+        QCOMPARE(values->text(), QStringLiteral("当前范围：30 – 70"));
+        QCOMPARE(message->text(), QStringLiteral("已执行默认构建"));
+    }
+
+    void languagePreservesSourceKeysSelectionsAndUserContent()
+    {
+        auto &language = context_->languageController();
+        QVERIFY(language.setLanguage(QStringLiteral("en")));
+        QWidget host;
+        QLabel *route = nullptr;
+        QLabel *section = nullptr;
+        ZzFluentUI::ZzMultiSelectComboBox *multi = nullptr;
+        ZzFluentUI::ZzRollerPicker *roller = nullptr;
+        ZzFluentUI::ZzTimelineEvent *event = nullptr;
+        {
+            ZzExample::ZzExampleTranslationScope scope(&host);
+            route = new QLabel(QCoreApplication::translate("ZzPureToolsExample", "轮播图(Carousel)"), &host);
+            section = new QLabel(QCoreApplication::translate("ZzPureToolsExample", "轮播"), &host);
+            multi = new ZzFluentUI::ZzMultiSelectComboBox(&host);
+            multi->setOptions({{QStringLiteral("shared"), QStringLiteral("共享库"), {}, {}, true, true},
+                {QStringLiteral("static"), QStringLiteral("静态库"), {}, {}, true, false}});
+            roller = new ZzFluentUI::ZzRollerPicker(&host);
+            roller->setColumns({{QStringLiteral("mode"), {QStringLiteral("浅色"), QStringLiteral("深色")}, 1}});
+            event = new ZzFluentUI::ZzTimelineEvent(&host);
+            event->setTitle(QStringLiteral("设置"));
+            event->setDescription(QStringLiteral("Disabled"));
+        }
+        QCOMPARE(route->text(), QStringLiteral("Carousel"));
+        QCOMPARE(section->text(), QStringLiteral("Carousel"));
+        const auto selected = multi->selectedKeys();
+        const auto indexes = roller->currentIndexes();
+        QSignalSpy selectionChanges(multi, &ZzFluentUI::ZzMultiSelectComboBox::selectionChanged);
+        QSignalSpy eventChanges(event, &ZzFluentUI::ZzTimelineEvent::titleChanged);
+        QVERIFY(language.setLanguage(QStringLiteral("zh_CN")));
+        QCOMPARE(route->text(), QStringLiteral("轮播图(Carousel)"));
+        QCOMPARE(section->text(), QStringLiteral("轮播"));
+        QCOMPARE(multi->selectedKeys(), selected);
+        QCOMPARE(multi->options().first().text, QStringLiteral("共享库"));
+        QCOMPARE(roller->currentIndexes(), indexes);
+        QCOMPARE(event->title(), QStringLiteral("设置"));
+        QCOMPARE(event->description(), QStringLiteral("Disabled"));
+        QCOMPARE(selectionChanges.size(), 0);
+        QCOMPARE(eventChanges.size(), 0);
+    }
+
+    void languagePreservesAppendedDataAndRestoresPreference()
+    {
+        auto &language = context_->languageController();
+        QVERIFY(language.setLanguage(QStringLiteral("en")));
+        ZzExample::ZzExampleDataViewModel model(ZzExample::ZzExampleDataPageKind::List);
+        model.appendSample();
+        const int count = model.rowCount();
+        const QPersistentModelIndex appended(model.index(count - 1, 0));
+        QSignalSpy resets(&model, &QAbstractItemModel::modelReset);
+        QVERIFY(language.setLanguage(QStringLiteral("zh_CN")));
+        QCOMPARE(model.rowCount(), count);
+        QVERIFY(appended.isValid());
+        QVERIFY(appended.data().toString().contains(QStringLiteral("增量任务")));
+        QCOMPARE(resets.size(), 0);
+        model.appendSample();
+        QCOMPARE(model.rowCount(), count + 1);
+        QVERIFY(language.setLanguage(QStringLiteral("en")));
+        QVERIFY(!appended.data().toString().contains(QStringLiteral("增量任务")));
+        model.resetSamples();
+        QVERIFY(language.setLanguage(QStringLiteral("zh_CN")));
+        QVERIFY(model.index(0, 0).data().toString().contains(QStringLiteral("构建任务")));
+        QVERIFY(context_->settingsStore().write(u"ui/language", QStringLiteral("en")));
+        QVERIFY(language.restore());
+        QCOMPARE(language.language(), QStringLiteral("en"));
+        QVERIFY(context_->settingsStore().write(u"ui/language", QStringLiteral("invalid")));
+        QVERIFY(language.restore());
+        QCOMPARE(language.language(), QStringLiteral("system"));
+        QVERIFY(language.setLanguage(QStringLiteral("zh_CN")));
+    }
+
+    void settingsActionCreatesOwnedModalDialog()
     {
         auto *window = createAdditionalWindow();
         QAction *const action = settingsAction(window);
@@ -1144,7 +1344,11 @@ private Q_SLOTS:
         QVERIFY(settings != nullptr);
         QCOMPARE(settings->parentWidget(), window);
         QCOMPARE(settings->windowModality(), Qt::WindowModal);
-        QVERIFY(settings->windowFlags().testFlag(Qt::Window));
+        QCOMPARE(QApplication::activeModalWidget(), settings);
+        QCOMPARE(settings->windowType(), Qt::Dialog);
+        QVERIFY(settings->windowHandle() != nullptr);
+        QVERIFY(window->windowHandle() != nullptr);
+        QCOMPARE(settings->windowHandle()->transientParent(), window->windowHandle());
         QVERIFY(!settings->windowFlags().testFlag(Qt::WindowStaysOnTopHint));
         QVERIFY(settings->testAttribute(Qt::WA_DeleteOnClose));
         QVERIFY(settings->isVisible());

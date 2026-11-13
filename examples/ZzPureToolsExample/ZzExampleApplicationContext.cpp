@@ -68,6 +68,11 @@ ZzExampleApplicationContext::taskExecutor() noexcept
     return d_ptr->tasks;
 }
 
+ZzExampleLanguageController &ZzExampleApplicationContext::languageController() noexcept
+{
+    return d_ptr->language;
+}
+
 ZzExampleActivityModel &
 ZzExampleApplicationContext::activityModel() noexcept
 {

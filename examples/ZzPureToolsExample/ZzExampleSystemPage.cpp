@@ -1,6 +1,10 @@
 #include "ZzExampleSystemPage.h"
 
 #include "ZzExampleSystemPagePrivate.h"
+#include <QtCore/QSignalBlocker>
+#include <QtWidgets/QComboBox>
+
+#include "ZzExampleLanguageController.h"
 
 namespace ZzExample {
 
@@ -12,10 +16,18 @@ ZzExampleSystemPage::ZzExampleSystemPage(
     : QWidget(parent)
     , d_ptr(std::make_unique<ZzExampleSystemPagePrivate>(this))
 {
+    ZzExampleTranslationScope translationScope(this);
     d_ptr->initialize(kind, title.trimmed(), model);
 }
 
 ZzExampleSystemPage::~ZzExampleSystemPage() = default;
+
+void ZzExampleSystemPage::setLanguageSelection(const QString &language)
+{
+    if (!d_ptr->languageBox) return;
+    const QSignalBlocker blocker(d_ptr->languageBox);
+    d_ptr->languageBox->setCurrentIndex(d_ptr->languageBox->findData(language));
+}
 
 void ZzExampleSystemPage::setSettingsSnapshot(
     int themeMode,

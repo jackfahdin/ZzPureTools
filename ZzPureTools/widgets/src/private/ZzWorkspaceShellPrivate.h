@@ -194,6 +194,10 @@ public:
     [[nodiscard]] ZzCore::ZzResult<void> showPanel(
         const ZzWorkspacePanelId &id,
         bool visible);
+    [[nodiscard]] ZzCore::ZzResult<void> setSidePanelTitle(
+        const ZzWorkspacePanelId &id, const QString &title);
+    [[nodiscard]] ZzCore::ZzResult<void> setFixedActivityTitle(
+        const ZzWorkspaceActivityId &id, const QString &title);
     [[nodiscard]] ZzCore::ZzResult<void> setPanelBadge(
         const ZzWorkspacePanelId &id,
         int value);

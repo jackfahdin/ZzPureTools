@@ -3,6 +3,8 @@
 <TS version="2.1" language="en_US" sourcelanguage="zh_CN">
 <context>
     <name>ZzPureToolsExample</name>
+    <message><source>语言</source><translation>Language</translation></message>
+    <message><source>语言设置已保存</source><translation>Language preference saved</translation></message>
     <message>
         <source>音频频谱(AudioSpectrum)</source>
         <translation>Audio spectrum (AudioSpectrum)</translation>

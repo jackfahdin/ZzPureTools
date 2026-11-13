@@ -159,6 +159,13 @@ void ZzExampleSystemPagePrivate::buildSettings(
     themeModeBox->addItem(
         QCoreApplication::translate("ZzPureToolsExample", "跟随系统"),
         static_cast<int>(ZzFluentUI::ZzThemeMode::System));
+    languageBox = new QComboBox(parent);
+    languageBox->setObjectName(QStringLiteral("zzExampleLanguageBox"));
+    languageBox->addItem(QCoreApplication::translate("ZzPureToolsExample", "跟随系统"),
+        QStringLiteral("system"));
+    languageBox->addItem(QStringLiteral("简体中文"), QStringLiteral("zh_CN"));
+    languageBox->addItem(QStringLiteral("English"), QStringLiteral("en"));
+    languageBox->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "语言"));
     accentColorPicker = new ZzFluentUI::ZzColorPicker(parent);
     accentColorPicker->setObjectName(QStringLiteral("zzExampleAccentColorPicker"));
     accentColorPicker->setAccessibleName(
@@ -176,11 +183,15 @@ void ZzExampleSystemPagePrivate::buildSettings(
     reducedMotionSwitch = new ZzFluentUI::ZzToggleSwitch(parent);
     activityDockSwitch = new ZzFluentUI::ZzToggleSwitch(parent);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "主题模式"), themeModeBox);
+    form->addRow(QCoreApplication::translate("ZzPureToolsExample", "语言"), languageBox);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "强调色"), accentColorPicker);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "日志等级"), logLevelBox);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "减少动效"), reducedMotionSwitch);
     form->addRow(QCoreApplication::translate("ZzPureToolsExample", "活动 Dock"), activityDockSwitch);
     layout->addLayout(form);
+    QObject::connect(languageBox, &QComboBox::currentIndexChanged, q_ptr, [this](int index) {
+        Q_EMIT q_ptr->languageRequested(languageBox->itemData(index).toString());
+    });
     QObject::connect(
         themeModeBox,
         &QComboBox::currentIndexChanged,

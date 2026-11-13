@@ -1,4 +1,5 @@
 #include "ZzExampleDataViewModel.h"
+#include "ZzExampleLanguageController.h"
 
 #include <array>
 
@@ -32,6 +33,7 @@ ZzExampleDataViewModel::ZzExampleDataViewModel(
     : kind_(kind)
     , source_(new QStandardItemModel(this))
 {
+    source_->setProperty("zzLanguageDisplayModel", true);
     setSourceModel(source_);
     setDynamicSortFilter(true);
     setFilterCaseSensitivity(Qt::CaseInsensitive);
@@ -49,6 +51,7 @@ void ZzExampleDataViewModel::applyFilter(const QString &text)
 
 void ZzExampleDataViewModel::appendSample()
 {
+    ZzExampleTranslationScope translationScope(source_);
     const int serial = nextSerial_++;
     switch (kind_) {
     case ZzExampleDataPageKind::List:
@@ -80,6 +83,7 @@ void ZzExampleDataViewModel::appendSample()
 
 void ZzExampleDataViewModel::resetSamples()
 {
+    ZzExampleTranslationScope translationScope(source_);
     source_->clear();
     nextSerial_ = 1;
     switch (kind_) {

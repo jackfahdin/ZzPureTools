@@ -1,4 +1,5 @@
 #include "ZzExampleCardsViewModel.h"
+#include "ZzExampleLanguageController.h"
 
 #include <array>
 
@@ -11,6 +12,8 @@ namespace ZzExample {
 
 ZzExampleCardsViewModel::ZzExampleCardsViewModel()
 {
+    setProperty("zzLanguageDisplayModel", true);
+    ZzExampleTranslationScope translationScope(this);
     const std::array<std::array<QString, 2>, 3> values{{
         {QCoreApplication::translate("ZzPureToolsExample", "Fluent 主题"), QCoreApplication::translate("ZzPureToolsExample", "应用级不可变主题快照")},
         {QCoreApplication::translate("ZzPureToolsExample", "窗口适配"), QCoreApplication::translate("ZzPureToolsExample", "逐窗口无边框代理与系统行为")},

@@ -5,6 +5,7 @@ set(zz_pure_tools_example_sources
     ZzExampleAboutWindowPrivate.cpp
     ZzExampleApplicationContext.cpp
     ZzExampleApplicationContextPrivate.cpp
+    ZzExampleLanguageController.cpp
     ZzExampleApplicationModule.cpp
     ZzExampleApplicationModulePrivate.cpp
     ZzExampleCardsPage.cpp
@@ -225,6 +226,7 @@ qt_add_resources(ZzPureToolsExample "zz_example_resources"
     PREFIX "/"
     FILES
         "${zz_pure_tools_example_english_qm}"
+        translations/ZzPureToolsExample_en.ts
         "${zz_example_application_icon}"
         ${zz_example_workspace_icons}
 )

@@ -315,6 +315,28 @@ ZzCore::ZzResult<void> ZzWorkspaceShell::showPanel(
     return d_ptr->showPanel(id, visible);
 }
 
+ZzCore::ZzResult<void> ZzWorkspaceShell::setSidePanelTitle(
+    const ZzWorkspacePanelId &id, const QString &title)
+{
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return zzWorkspaceCreateFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace operation requires its GUI thread"));
+    }
+    return d_ptr->setSidePanelTitle(id, title);
+}
+
+ZzCore::ZzResult<void> ZzWorkspaceShell::setFixedActivityTitle(
+    const ZzWorkspaceActivityId &id, const QString &title)
+{
+    Q_ASSERT(zzIsShellThread(this));
+    if (!zzIsShellThread(this)) {
+        return zzWorkspaceCreateFailure<void>(ZzCore::ZzErrorCode::InvalidState,
+            QStringLiteral("Workspace operation requires its GUI thread"));
+    }
+    return d_ptr->setFixedActivityTitle(id, title);
+}
+
 ZzCore::ZzResult<void> ZzWorkspaceShell::setPanelBadge(
     const ZzWorkspacePanelId &id,
     int value)

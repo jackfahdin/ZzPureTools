@@ -1,5 +1,6 @@
 #include "ZzExampleControlPagePrivate.h"
 #include "ZzExampleControlPage.h"
+#include "ZzExampleLanguageController.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDate>
@@ -167,10 +168,10 @@ void ZzExampleControlPagePrivate::buildGroupBox()
     checkableLayout->addWidget(option);
     checkableLayout->addWidget(new QCheckBox(QCoreApplication::translate("ZzPureToolsExample", "记住上次选择"), checkable));
     QObject::connect(checkable, &QGroupBox::toggled, status, [this](bool checked) {
-        status->setText(QCoreApplication::translate("ZzPureToolsExample",
+        zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample",
             "高级选项：%1").arg(checked
                 ? QCoreApplication::translate("ZzPureToolsExample", "已启用")
-                : QCoreApplication::translate("ZzPureToolsExample", "已禁用")));
+                : QCoreApplication::translate("ZzPureToolsExample", "已禁用")); });
     });
     zzAdd(host, checkable);
 
@@ -245,8 +246,8 @@ void ZzExampleControlPagePrivate::buildScroll()
                 bar->setFixedHeight(160);
             }
             QObject::connect(bar, &QScrollBar::valueChanged, status, [this](int value) {
-                status->setText(QCoreApplication::translate("ZzPureToolsExample",
-                    "滚动位置：%1 / 100").arg(value));
+                zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample",
+                    "滚动位置：%1 / 100").arg(value); });
             });
             previewLayout->addWidget(bar);
             zzAdd(host, preview);
@@ -324,9 +325,9 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
         ZzFluentUI::ZzControlAppearance::setButtonAppearance(button, appearances[i]);
         button->setAccessibleName(labels[i]);
         button->setEnabled(i != 3);
-        QObject::connect(button, &QAbstractButton::clicked, status, [this, text = labels[i]] {
-            status->setText(
-                QCoreApplication::translate("ZzPureToolsExample", "已点击：%1").arg(text));
+        QObject::connect(button, &QAbstractButton::clicked, status, [this, button] {
+            zzExampleBindText(status, [=, this] { return
+                QCoreApplication::translate("ZzPureToolsExample", "已点击：%1").arg(button->accessibleName()); });
         });
         zzAdd(host, button);
     }
@@ -339,9 +340,9 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
         toggle->setCheckable(true);
         toggle->setChecked(true);
         QObject::connect(toggle, &QAbstractButton::toggled, status, [this](bool checked) {
-            status->setText(checked
+            zzExampleBindText(status, [=, this] { return checked
                     ? QCoreApplication::translate("ZzPureToolsExample", "预览已保持")
-                    : QCoreApplication::translate("ZzPureToolsExample", "预览已释放"));
+                    : QCoreApplication::translate("ZzPureToolsExample", "预览已释放"); });
         });
         zzAdd(variants, toggle);
         auto *local = new ZzFluentUI::ZzPushButton(
@@ -376,9 +377,9 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
             button->setCheckable(true);
             button->setChecked(i == 2);
             QObject::connect(button, &QToolButton::toggled, status, [this](bool checked) {
-                status->setText(checked
+                zzExampleBindText(status, [=, this] { return checked
                     ? QCoreApplication::translate("ZzPureToolsExample", "已选中")
-                    : QCoreApplication::translate("ZzPureToolsExample", "未选中"));
+                    : QCoreApplication::translate("ZzPureToolsExample", "未选中"); });
             });
             zzAdd(icons, button);
         }
@@ -391,10 +392,10 @@ void ZzExampleControlPagePrivate::buildButtons(ZzExampleControlKind kind)
         tool->setMinimumHeight(36);
         auto *menu = new QMenu(tool);
         menu->addAction(QCoreApplication::translate("ZzPureToolsExample", "复制"), status, [this] {
-            status->setText(QCoreApplication::translate("ZzPureToolsExample", "已选择复制"));
+            zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample", "已选择复制"); });
         });
         menu->addAction(QCoreApplication::translate("ZzPureToolsExample", "粘贴"), status, [this] {
-            status->setText(QCoreApplication::translate("ZzPureToolsExample", "已选择粘贴"));
+            zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample", "已选择粘贴"); });
         });
         tool->setMenu(menu);
         tool->setPopupMode(QToolButton::InstantPopup);
@@ -459,11 +460,11 @@ void ZzExampleControlPagePrivate::buildSelection(ZzExampleControlKind kind)
         button->setChecked(i == 0);
         button->setEnabled(i != 2);
         QObject::connect(
-            button, &QAbstractButton::toggled, status, [this, text = labels[i]](bool checked) {
-                status->setText(QCoreApplication::translate("ZzPureToolsExample", "%1：%2")
-                        .arg(text,
+            button, &QAbstractButton::toggled, status, [this, button](bool checked) {
+                zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample", "%1：%2")
+                        .arg(button->text(),
                             checked ? QCoreApplication::translate("ZzPureToolsExample", "已选中")
-                                    : QCoreApplication::translate("ZzPureToolsExample", "未选中")));
+                                    : QCoreApplication::translate("ZzPureToolsExample", "未选中")); });
             });
         zzAdd(host, button);
     }
@@ -525,8 +526,8 @@ void ZzExampleControlPagePrivate::buildInput(ZzExampleControlKind kind)
                 edit->setReadOnly(true);
             }
             QObject::connect(edit, &QLineEdit::textChanged, status, [this](const QString &text) {
-                status->setText(QCoreApplication::translate("ZzPureToolsExample", "字符数：%1")
-                        .arg(text.size()));
+                zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample", "字符数：%1")
+                        .arg(text.size()); });
             });
             zzAdd(host, edit);
         }
@@ -545,8 +546,8 @@ void ZzExampleControlPagePrivate::buildInput(ZzExampleControlKind kind)
                 edit->setReadOnly(true);
             }
             QObject::connect(edit, &QPlainTextEdit::textChanged, status, [this, edit] {
-                status->setText(QCoreApplication::translate("ZzPureToolsExample", "字符数：%1")
-                        .arg(edit->toPlainText().size()));
+                zzExampleBindText(status, [=, this] { return QCoreApplication::translate("ZzPureToolsExample", "字符数：%1")
+                        .arg(edit->toPlainText().size()); });
             });
             zzAdd(host, edit);
         }
@@ -614,7 +615,7 @@ void ZzExampleControlPagePrivate::buildInput(ZzExampleControlKind kind)
                 QCoreApplication::translate("ZzPureToolsExample", "不可用"), {}, {}, false,
                 false } });
         QObject::connect(combo, &ZzFluentUI::ZzMultiSelectComboBox::selectionChanged, status,
-            [this, combo] { status->setText(combo->selectedText()); });
+            [this, combo] { zzExampleBindText(status, [=, this] { return combo->selectedText(); }); });
         zzAdd(host, combo);
     }
 }
@@ -644,7 +645,7 @@ void ZzExampleControlPagePrivate::buildValue(ZzExampleControlKind kind)
                 spin->setMinimumWidth(240);
                 spin->setAccessibleName(titles[index]);
                 QObject::connect(spin, &QSpinBox::valueChanged, status,
-                    [this](int value) { status->setText(QString::number(value)); });
+                    [this](int value) { zzExampleBindText(status, [=, this] { return QString::number(value); }); });
                 zzAdd(modeHost, spin);
             } else {
                 auto *spin = new ZzFluentUI::ZzDoubleSpinBox(modeHost);
@@ -657,7 +658,7 @@ void ZzExampleControlPagePrivate::buildValue(ZzExampleControlKind kind)
                 spin->setMinimumWidth(240);
                 spin->setAccessibleName(titles[index]);
                 QObject::connect(spin, &QDoubleSpinBox::valueChanged, status,
-                    [this](double value) { status->setText(QString::number(value, 'f', 2)); });
+                    [this](double value) { zzExampleBindText(status, [=, this] { return QString::number(value, 'f', 2); }); });
                 zzAdd(modeHost, spin);
             }
         }
@@ -672,7 +673,7 @@ void ZzExampleControlPagePrivate::buildValue(ZzExampleControlKind kind)
         date->setMinimumWidth(220);
         date->setAccessibleName(QCoreApplication::translate("ZzPureToolsExample", "计划日期"));
         QObject::connect(date, &QDateTimeEdit::dateChanged, status,
-            [this](const QDate &value) { status->setText(value.toString(Qt::ISODate)); });
+            [this](const QDate &value) { zzExampleBindText(status, [=, this] { return value.toString(Qt::ISODate); }); });
         zzAdd(host, date);
         auto *calendarHost = section(QCoreApplication::translate("ZzPureToolsExample", "日历(Calendar)"));
         auto *calendar = new ZzFluentUI::ZzCalendar(calendarHost);
@@ -724,7 +725,7 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
         QObject::connect(horizontal, &QSlider::valueChanged, vertical, &QSlider::setValue);
         QObject::connect(vertical, &QSlider::valueChanged, horizontal, &QSlider::setValue);
         QObject::connect(horizontal, &QSlider::valueChanged, status,
-            [this](int value) { status->setText(QString::number(value) + QLatin1Char('%')); });
+            [this](int value) { zzExampleBindText(status, [=, this] { return QString::number(value) + QLatin1Char('%'); }); });
         zzAdd(host, horizontal);
         zzAdd(host, vertical);
         auto *rawHost = section(QCoreApplication::translate(
@@ -837,7 +838,7 @@ void ZzExampleControlPagePrivate::buildProgress(ZzExampleControlKind kind)
         QObject::connect(value, &QSlider::valueChanged, thickDeterminate, &QProgressBar::setValue);
     static_cast<void>(ZzFluentUI::ZzSliderValueTip::attach(value));
     QObject::connect(value, &QSlider::valueChanged, status,
-        [this](int current) { status->setText(QString::number(current)); });
+        [this](int current) { zzExampleBindText(status, [=, this] { return QString::number(current); }); });
     zzAdd(settings, value);
 }
 

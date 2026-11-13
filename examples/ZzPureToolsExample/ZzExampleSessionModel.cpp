@@ -1,4 +1,5 @@
 #include "ZzExampleSessionModel.h"
+#include "ZzExampleLanguageController.h"
 
 #include <array>
 
@@ -43,15 +44,22 @@ ZzExampleSessionModel::ZzExampleSessionModel(QObject *parent)
     : QAbstractListModel(parent)
     , sessions_({
           {QStringLiteral("dev-local"),
-           zzTranslate("本地开发环境"), QStringLiteral("local")},
+           QStringLiteral("本地开发环境"), QStringLiteral("local")},
           {QStringLiteral("staging"),
-           zzTranslate("预发布只读会话"), QStringLiteral("staging")},
+           QStringLiteral("预发布只读会话"), QStringLiteral("staging")},
           {QStringLiteral("production"),
-           zzTranslate("生产审计入口"), QStringLiteral("production")},
+           QStringLiteral("生产审计入口"), QStringLiteral("production")},
       })
     , commands_(std::make_unique<QStandardItemModel>())
 {
     commands_->setObjectName(QStringLiteral("zzExampleWorkspaceCommands"));
+    commands_->setProperty("zzLanguageDisplayModel", true);
+    ZzExampleTranslationScope translationScope(commands_.get());
+    if (auto *language = ZzExampleLanguageController::active()) {
+        QObject::connect(language, &ZzExampleLanguageController::languageChanged, this, [this] {
+            Q_EMIT dataChanged(index(0), index(rowCount() - 1), {Qt::ToolTipRole});
+        });
+    }
     for (const ZzCommandDescriptor &descriptor : zzCommands) {
         auto *item = new QStandardItem(zzTranslate(descriptor.title));
         item->setEditable(false);
@@ -89,7 +97,7 @@ QVariant ZzExampleSessionModel::data(
     case Qt::DisplayRole:
         return session.name;
     case Qt::ToolTipRole:
-        return session.description;
+        return zzTranslate(session.description.toUtf8().constData());
     case Qt::UserRole:
         return session.id;
     default:

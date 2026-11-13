@@ -29,6 +29,7 @@
 #include <ZzWindowKit/ZzWindowCapability.h>
 
 #include "ZzExampleApplicationContext.h"
+#include "ZzExampleLanguageController.h"
 #include "ZzExampleActivityModel.h"
 #include "ZzExampleSystemPage.h"
 #include "ZzExampleSystemPresenter.h"
@@ -248,6 +249,16 @@ void ZzExampleSystemPresenterPrivate::populateAboutRows()
 
 void ZzExampleSystemPresenterPrivate::initializeSettings()
 {
+    view->setLanguageSelection(context->languageController().language());
+    QObject::connect(view, &ZzExampleSystemPage::languageRequested, q_ptr,
+        [this](const QString &language) {
+            const auto result = context->languageController().setLanguage(language);
+            view->setLanguageSelection(context->languageController().language());
+            view->setStatusText(QCoreApplication::translate("ZzPureToolsExample",
+                result ? "语言设置已保存" : "设置保存失败"));
+        });
+    QObject::connect(&context->languageController(), &ZzExampleLanguageController::languageChanged,
+        q_ptr, [this] { view->setLanguageSelection(context->languageController().language()); });
     currentLogLevel = zzBoundedSetting(
         readSetting(QStringLiteral("logging/level"), currentLogLevel),
         currentLogLevel,

@@ -1,5 +1,6 @@
 #include "ZzExampleShowcasePagePrivate.h"
 #include "ZzExampleAudioSpectrumPage.h"
+#include "ZzExampleLanguageController.h"
 
 #include <array>
 
@@ -289,8 +290,10 @@ void ZzExampleShowcasePagePrivate::buildNavigation(
             breadcrumb->setCurrentIndex(index);
             const QStringList items = breadcrumb->items();
             if (index >= 0 && index < items.size()) {
-                breadcrumbStatus->setText(
-                    QCoreApplication::translate("ZzPureToolsExample", "当前位置：%1").arg(items.at(index)));
+                zzExampleBindText(breadcrumbStatus, [breadcrumb, index] {
+                    return QCoreApplication::translate("ZzPureToolsExample", "当前位置：%1")
+                        .arg(breadcrumb->items().value(index));
+                });
             }
         });
     layout->addWidget(breadcrumb);
@@ -509,9 +512,8 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         [message] {
             message->setSeverity(
                 ZzFluentUI::ZzMessageSeverity::Success);
-            message->setText(QCoreApplication::translate(
-                "ZzPureToolsExample",
-                "已执行默认构建"));
+            zzExampleBindText(message, [] { return QCoreApplication::translate(
+                "ZzPureToolsExample", "已执行默认构建"); });
         });
     QObject::connect(
         menu,
@@ -521,8 +523,9 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
             if (action != nullptr) {
                 message->setSeverity(
                     ZzFluentUI::ZzMessageSeverity::Information);
-                message->setText(
-                    QCoreApplication::translate("ZzPureToolsExample", "已选择：%1").arg(action->text()));
+                zzExampleBindText(message, [action] {
+                    return QCoreApplication::translate("ZzPureToolsExample", "已选择：%1").arg(action->text());
+                });
             }
         });
     QObject::connect(
@@ -577,22 +580,26 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
     auto *severityHost = new QWidget(parent);
     auto *severityLayout = new ZzFluentUI::ZzFlowLayout(10, 10, severityHost);
     severityLayout->setContentsMargins(0, 0, 0, 0);
-    const std::array<std::pair<QString, ZzFluentUI::ZzMessageSeverity>, 4>
+    const std::array<std::pair<const char *, ZzFluentUI::ZzMessageSeverity>, 4>
         severities{{
-            {QCoreApplication::translate("ZzPureToolsExample", "信息"), ZzFluentUI::ZzMessageSeverity::Information},
-            {QCoreApplication::translate("ZzPureToolsExample", "成功"), ZzFluentUI::ZzMessageSeverity::Success},
-            {QCoreApplication::translate("ZzPureToolsExample", "警告"), ZzFluentUI::ZzMessageSeverity::Warning},
-            {QCoreApplication::translate("ZzPureToolsExample", "错误"), ZzFluentUI::ZzMessageSeverity::Error},
+            {"信息", ZzFluentUI::ZzMessageSeverity::Information},
+            {"成功", ZzFluentUI::ZzMessageSeverity::Success},
+            {"警告", ZzFluentUI::ZzMessageSeverity::Warning},
+            {"错误", ZzFluentUI::ZzMessageSeverity::Error},
         }};
     for (const auto &[text, severity] : severities) {
-        auto *button = new ZzFluentUI::ZzPushButton(text, severityHost);
+        auto *button = new ZzFluentUI::ZzPushButton(
+            QCoreApplication::translate("ZzPureToolsExample", text), severityHost);
         QObject::connect(
             button,
             &QAbstractButton::clicked,
             message,
             [message, text, severity] {
                 message->setSeverity(severity);
-                message->setText(QCoreApplication::translate("ZzPureToolsExample", "%1反馈示例").arg(text));
+                zzExampleBindText(message, [text] {
+                    return QCoreApplication::translate("ZzPureToolsExample", "%1反馈示例")
+                        .arg(QCoreApplication::translate("ZzPureToolsExample", text));
+                });
             });
         severityLayout->addWidget(button);
     }
@@ -613,8 +620,9 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         message,
         [message](const ZzFluentUI::ZzSuggestion &suggestion) {
             message->setSeverity(ZzFluentUI::ZzMessageSeverity::Success);
-            message->setText(
-                QCoreApplication::translate("ZzPureToolsExample", "已选择组件：%1").arg(suggestion.text));
+            zzExampleBindText(message, [text = suggestion.text] {
+                return QCoreApplication::translate("ZzPureToolsExample", "已选择组件：%1").arg(text);
+            });
         });
     layout->addWidget(suggest);
 
@@ -642,9 +650,9 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         &ZzFluentUI::ZzPasswordBox::passwordVisibilityChanged,
         passwordState,
         [passwordState](bool visible) {
-            passwordState->setText(QCoreApplication::translate(
+            zzExampleBindText(passwordState, [visible] { return QCoreApplication::translate(
                 "ZzPureToolsExample",
-                visible ? "正在临时显示密码" : "密码已隐藏"));
+                visible ? "正在临时显示密码" : "密码已隐藏"); });
         });
     layout->addWidget(passwordBox);
     layout->addWidget(passwordState);
@@ -675,11 +683,12 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         &ZzFluentUI::ZzKeyBinder::recordingAccepted,
         keyBinderState,
         [keyBinderState](const QKeySequence &sequence) {
-            keyBinderState->setText(
-                QCoreApplication::translate(
+            zzExampleBindText(keyBinderState, [sequence] {
+                return QCoreApplication::translate(
                     "ZzPureToolsExample",
                     "当前快捷键：%1")
-                    .arg(sequence.toString(QKeySequence::NativeText)));
+                    .arg(sequence.toString(QKeySequence::NativeText));
+            });
         });
     layout->addWidget(keyBinder);
     layout->addWidget(keyBinderState);
@@ -707,11 +716,12 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         &ZzFluentUI::ZzRatingControl::ratingChanged,
         ratingState,
         [ratingState](qreal value) {
-            ratingState->setText(
-                QCoreApplication::translate(
+            zzExampleBindText(ratingState, [value] {
+                return QCoreApplication::translate(
                     "ZzPureToolsExample",
                     "当前评分：%1 / 5")
-                    .arg(value, 0, 'f', 1));
+                    .arg(value, 0, 'f', 1);
+            });
         });
     layout->addWidget(rating);
     layout->addWidget(ratingState);
@@ -742,11 +752,12 @@ void ZzExampleShowcasePagePrivate::buildFeedback(
         &ZzFluentUI::ZzColorPicker::currentColorChanged,
         colorState,
         [colorState](const QColor &color) {
-            colorState->setText(
-                QCoreApplication::translate(
+            zzExampleBindText(colorState, [color] {
+                return QCoreApplication::translate(
                     "ZzPureToolsExample",
                     "当前颜色：%1")
-                    .arg(color.name(QColor::HexArgb).toUpper()));
+                    .arg(color.name(QColor::HexArgb).toUpper());
+            });
         });
     layout->addWidget(colorPicker);
     layout->addWidget(colorState);

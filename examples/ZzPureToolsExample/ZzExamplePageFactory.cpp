@@ -1,4 +1,5 @@
 #include "ZzExamplePageFactory.h"
+#include "ZzExampleLanguageController.h"
 
 #include <optional>
 #include <utility>
@@ -303,7 +304,15 @@ ZzExamplePageFactory::createPage(
             QStringLiteral("placeholder page requires route, title, context and parent")));
     }
 
+    ZzExampleTranslationScope translationScope(pageParent);
     title = title.trimmed();
+    for (const auto &route : ZzExampleRouteCatalog::routes()) {
+        if (routeId.value() == QString::fromUtf8(route.routeId.data(),
+                static_cast<qsizetype>(route.routeId.size()))) {
+            title = QString::fromUtf8(route.title.data(), static_cast<qsizetype>(route.title.size()));
+            break;
+        }
+    }
     for (const auto &route : ZzExampleRouteCatalog::routes()) {
         if (route.controlKind.has_value()
             && routeId.value() == QString::fromUtf8(

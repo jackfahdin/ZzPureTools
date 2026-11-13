@@ -3,6 +3,8 @@
 #include <utility>
 
 #include "ZzExampleSystemPresenterPrivate.h"
+#include "ZzExampleSystemViewModel.h"
+#include "ZzExampleLanguageController.h"
 
 namespace ZzExample {
 
@@ -30,6 +32,7 @@ ZzExampleSystemPresenter::ZzExampleSystemPresenter(
           window,
           shell))
 {
+    ZzExampleTranslationScope translationScope(viewModel);
     d_ptr->initialize(kind);
 }
 

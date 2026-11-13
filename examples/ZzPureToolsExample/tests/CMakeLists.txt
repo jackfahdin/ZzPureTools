@@ -73,6 +73,27 @@ endif()
 
 add_executable(ZzExampleWorkspaceSmokeTest
     ZzExampleWorkspaceSmokeTest.cpp
+    ../ZzExampleShowcasePage.cpp
+    ../ZzExampleShowcasePagePrivate.cpp
+    ../ZzExampleTabBarsPage.cpp
+    ../ZzExampleRangeSliderPage.cpp
+    ../ZzExampleBorderBeamPage.cpp
+    ../ZzExampleAudioLevelMeterPage.cpp
+    ../ZzExampleAudioSpectrumPage.cpp
+    ../ZzExampleRadialGaugePage.cpp
+    ../ZzExampleLiquidGaugePage.cpp
+    ../ZzExampleProgressRingPage.cpp
+    ../ZzExampleTimelinePage.cpp
+    ../ZzExampleTimelineEventEditor.cpp
+    ../ZzExampleInfoBarPage.cpp
+    ../ZzExampleCarouselPage.cpp
+    ../ZzExampleCarouselPlayback.cpp
+    ../ZzExampleRadialGaugeHelpers.cpp
+    ../ZzExampleRadialGaugePresets.cpp
+    ../ZzExampleRadialGaugeEditor.cpp
+    ../ZzExampleRadialRingEditor.cpp
+    ../ZzExampleMultiRadialGaugeEditor.cpp
+    ../ZzExampleAudioMeterSource.cpp
     ../ZzExampleColorPickerPage.cpp
     ../ZzExampleColorPickerPage.h
     ../ZzExampleColorPickerSmoke.cpp
@@ -83,6 +104,8 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleControlPage.h
     ../ZzExampleControlPagePrivate.cpp
     ../ZzExampleControlPagePrivate.h
+    ../ZzExampleDataViewModel.cpp
+    ../ZzExampleDataViewModel.h
     ../ZzExampleActivityModel.cpp
     ../ZzExampleActivityModel.h
     ../ZzExampleActivityModelPrivate.h
@@ -94,6 +117,8 @@ add_executable(ZzExampleWorkspaceSmokeTest
     ../ZzExampleApplicationContext.h
     ../ZzExampleApplicationContextPrivate.cpp
     ../ZzExampleApplicationContextPrivate.h
+    ../ZzExampleLanguageController.cpp
+    ../ZzExampleLanguageController.h
     ../ZzExampleRouteCatalog.cpp
     ../ZzExampleRouteCatalog.h
     ../ZzExampleSessionModel.cpp
@@ -135,6 +160,12 @@ qt_add_resources(ZzExampleWorkspaceSmokeTest "zz_example_workspace_test_icons"
 
 target_include_directories(ZzExampleWorkspaceSmokeTest PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/..")
+set_source_files_properties("${zz_pure_tools_example_english_qm}"
+    PROPERTIES QT_RESOURCE_ALIAS "translations/ZzPureToolsExample_en.qm")
+qt_add_resources(ZzExampleWorkspaceSmokeTest "zz_example_test_translations"
+    PREFIX "/"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    FILES "${zz_pure_tools_example_english_qm}" ../translations/ZzPureToolsExample_en.ts)
 target_link_libraries(ZzExampleWorkspaceSmokeTest PRIVATE
     Qt6::Test
     Zz::FluentUI
